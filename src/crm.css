@@ -177,3 +177,61 @@
 @media(max-width:900px){.crm-perf{grid-template-columns:1fr}.perf-stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.crm-shell .crm-editor-fields.two{grid-template-columns:1fr}.payroll-total{margin-left:0}}
 .crm-login{--crm:#063f29;--crm2:#0b5c3a;--gold:#d69a32;--line:#dce5df;--ink:#13251b;--muted:#718079}
+
+/* --- CRM sidebar full-height fix --- */
+.crm-side{max-height:100vh;overflow:hidden}
+.crm-brand{flex:0 0 auto}
+.crm-side nav{display:flex;flex-direction:column;gap:3px;margin-top:16px;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#ffffff2e transparent}
+.crm-side nav::-webkit-scrollbar{width:5px}
+.crm-side nav::-webkit-scrollbar-thumb{background:#ffffff2e;border-radius:3px}
+.crm-side nav button{height:40px;min-height:40px;flex:0 0 auto;width:100%;cursor:pointer}
+.crm-user{margin-top:0;flex:0 0 auto;padding:14px 6px 3px}
+/* --- Readable text scale ------------------------------------------
+   The CRM was drawn at 7-9px, well below a comfortable reading size.
+   These overrides lift the small text without touching the headings. */
+.crm-shell{font-size:13px}
+.crm-side nav button{font-size:13px}
+.crm-brand b{font-size:15px}
+.crm-brand small{font-size:8px}
+.crm-user b{font-size:12px}
+.crm-user small{font-size:10px}
+.crm-top small{font-size:9px}
+.crm-live,.crm-site{font-size:11px}
+.crm-kpis span{font-size:10px}
+.crm-kpis small{font-size:10px}
+.crm-panel-head small{font-size:9px}
+.crm-panel-head button{font-size:11px}
+.pipeline-bars span b,.pipeline-bars span em,.pipeline-bars small{font-size:11px}
+.crm-task-list b{font-size:12px}
+.crm-task-list small{font-size:10px}
+.crm-status{font-size:10px;padding:5px 9px}
+.crm-shipment-grid article>span>b{font-size:10px}
+.crm-shipment-grid h4{font-size:13px}
+.crm-shipment-grid p,.crm-shipment-grid small{font-size:10px}
+.crm-page-head p{font-size:13px}
+.crm-tools input,.crm-tools .crm-add,.crm-tools>button{font-size:12px}
+.crm-lead-grid article>div>span{font-size:11px}
+.crm-lead-grid>article>p{font-size:11px;height:auto;min-height:30px}
+.crm-lead-grid dt{font-size:9px}
+.crm-lead-grid dd{font-size:12px}
+.crm-lead-grid footer button{font-size:11px}
+.crm-table-wrap th{font-size:10px;letter-spacing:.6px;padding:13px 14px}
+.crm-table-wrap td{font-size:12px;padding:14px}
+.crm-table-wrap td>button{font-size:11px}
+.crm-empty p{font-size:13px}
+.crm-activity b{font-size:12px}
+.crm-activity span,.crm-activity em{font-size:10px}
+.crm-editor label{font-size:10px}
+.crm-editor input{font-size:13px}
+.crm-editor footer button{font-size:12px}
+/* Team & permissions was the worst offender */
+.crm-team .crm-table-wrap select{height:36px;font-size:12px}
+.crm-team .crm-table-wrap td button{height:34px;padding:0 13px;font-size:11px}
+.crm-perm-block>h3{font-size:18px}
+.perm-table th{font-size:10px;letter-spacing:.6px;padding:12px 10px}
+.perm-table th:first-child{min-width:260px}
+.perm-table td{font-size:12px;padding:12px 10px}
+.perm-table td:first-child b{font-size:13px}
+.perm-table td:first-child small{font-size:11px}
+.perm-cell input{width:19px;height:19px}
+.perm-cell.locked{font-size:11px}
