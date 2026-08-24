@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import { Ship, ArrowRight, CarFront, Gavel, BadgeCheck } from 'lucide-react';
 
 /* ============================================================
@@ -26,6 +26,47 @@ const MARKETS = [
 ];
 const JP = {lon:138, lat:36};
 
+/* ---------------------------------------------------------------------------
+   Live routes.
+   MARKETS above is the built-in fallback so the globe is never empty if the
+   API is unreachable or the database has not been provisioned yet. When the
+   CRM has published shipping routes with map coordinates we swap them in.
+   Kept as a module-level array with a subscriber set (same pattern as the
+   car listings in main.jsx) so both the globe and the market cards redraw.
+--------------------------------------------------------------------------- */
+const marketListeners = new Set();
+const onMarkets = fn => {marketListeners.add(fn); return () => marketListeners.delete(fn)};
+
+function useMarkets(){
+  const [, bump] = useState(0);
+  useEffect(() => onMarkets(() => bump(n => n + 1)), []);
+  return MARKETS;
+}
+
+async function hydrateMarkets(){
+  try{
+    const res = await fetch('/api/site-content?entity=routes');
+    if(!res.ok) return;
+    const rows = await res.json();
+    if(!Array.isArray(rows) || !rows.length) return;
+    const mapped = rows
+      .filter(r => r.show_on_map !== false && r.lon != null && r.lat != null)
+      .map(r => ({
+        name:    r.country,
+        port:    (r.port || '').split(' / ')[0],
+        lon:     Number(r.lon),
+        lat:     Number(r.lat),
+        transit: r.transit || '',
+        models:  r.popular || ''
+      }))
+      .filter(m => m.name && Number.isFinite(m.lon) && Number.isFinite(m.lat));
+    if(!mapped.length) return;
+    MARKETS.length = 0; MARKETS.push(...mapped);
+    marketListeners.forEach(fn => {try{ fn() }catch{}});
+  }catch{/* offline or not provisioned yet — keep the built-in markets */}
+}
+if(typeof window !== 'undefined') hydrateMarkets();
+
 /* ---------- vector flag definitions ---------- */
 const FLAGF = {
  'Pakistan': (w,h)=>[['r',0,0,w,h,'#fff'],['r',w*0.26,0,w*0.74,h,'#01411C'],['c',w*0.63,h*0.5,h*0.26,'#fff'],['c',w*0.6,h*0.5,h*0.2,'#01411C']],
@@ -40,7 +81,16 @@ const FLAGF = {
 };
 
 export function Flag({c,w=16,h=10,x=0,y=0}){
- const d=FLAGF[c]; if(!d)return null;
+ const d=FLAGF[c];
+ // A country added in the CRM may not have a hand-drawn vector flag yet.
+ // Render a neutral plate with its initials rather than disappearing.
+ if(!d) return <svg className="wflag" x={x} y={y} width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+   <rect width={w} height={h} rx={Math.min(2,h*0.16)} fill="#123f2b" stroke="rgba(255,255,255,.55)" strokeWidth="1"/>
+   <text x={w/2} y={h/2} textAnchor="middle" dominantBaseline="central"
+         fill="#e5b553" style={{font:`700 ${Math.round(h*0.62)}px Manrope,sans-serif`}}>
+     {(c||'?').trim().slice(0,2).toUpperCase()}
+   </text>
+ </svg>;
  return <svg className="wflag" x={x} y={y} width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
   <rect width={w} height={h} rx={Math.min(2,h*0.16)} fill="none" stroke="rgba(255,255,255,.55)" strokeWidth="1"/>
   {d(w,h).map((s,i)=>{if(s[0]==='r'){const rot=s[7]?`rotate(${s[7]} ${s[1]+s[3]/2} ${s[2]+s[4]/2})`:undefined;return <rect key={i} x={s[1]} y={s[2]} width={s[3]} height={s[4]} fill={s[5]} rx={s[6]||0} transform={rot}/>}
@@ -75,6 +125,7 @@ const arcFor = m => {
 };
 
 function Seed({navigate}){
+ const MARKETS = useMarkets();
  return <g className="wseg">
   <g className="wgrid">{Array.from({length:16},(_,i)=><line key={'v'+i} x1={i*62.5} y1="0" x2={i*62.5} y2="1000"/>)}</g>
   <g className="wgrid">{Array.from({length:8},(_,i)=><line key={'h'+i} x1="0" y1={125+i*93.75} x2="1000" y2={125+i*93.75}/>)}</g>
@@ -148,6 +199,7 @@ export function BigNetworkGlobe({navigate,compact}){
  </div>}
 
 export function WorldPage({navigate}){
+ const MARKETS = useMarkets();
  return <section className="inner-page world-page">
   <div className="shell world-hero">
    <div className="world-copy">
