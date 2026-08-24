@@ -53,8 +53,8 @@ export default async function handler(req, res) {
     const {data, error} = await db.from(table).insert(payload).select().single();
     if (error) return send(res, 500, {error: error.message});
     await db.from('activities').insert({
-      entity: 'site_' + entity, entity_id: data.id, action: 'created',
-      summary: 'Website content created', actor: auth.user.email
+      action: `Created website ${entity.slice(0, -1)}`,
+      actor: auth.user.email, entity_type: 'site_' + entity, entity_id: data.id
     });
     return send(res, 200, data);
   }
@@ -65,8 +65,8 @@ export default async function handler(req, res) {
     const {data, error} = await db.from(table).update(payload).eq('id', req.body.id).select().single();
     if (error) return send(res, 500, {error: error.message});
     await db.from('activities').insert({
-      entity: 'site_' + entity, entity_id: data.id, action: 'updated',
-      summary: 'Website content updated', actor: auth.user.email
+      action: `Updated website ${entity.slice(0, -1)}`,
+      actor: auth.user.email, entity_type: 'site_' + entity, entity_id: data.id
     });
     return send(res, 200, data);
   }
@@ -78,8 +78,8 @@ export default async function handler(req, res) {
     if (error) return send(res, 500, {error: error.message});
     // Unlike api/crm.js, deletions ARE audited here.
     await db.from('activities').insert({
-      entity: 'site_' + entity, entity_id: id, action: 'deleted',
-      summary: 'Website content deleted', actor: auth.user.email
+      action: `Deleted website ${entity.slice(0, -1)}`,
+      actor: auth.user.email, entity_type: 'site_' + entity, entity_id: id
     });
     return send(res, 200, {ok: true});
   }
