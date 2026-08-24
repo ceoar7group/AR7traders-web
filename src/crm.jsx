@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {supabase} from './supabase-client.js';
-import {LayoutDashboard,Users,UserRound,CarFront,FileText,Ship,CheckSquare,Activity,LogOut,Search,Plus,Mail,MessageCircle,ChevronRight,Clock3,DollarSign,TrendingUp,BadgeCheck,X,Save,RefreshCw,Menu,ShieldCheck,Database,Trash2,Globe,Newspaper,UserCog,ShieldAlert,Wallet,Settings,KeyRound,LogIn,ArrowLeft,Check,Ban,Send,Link2,Phone} from 'lucide-react';
+import {LayoutDashboard,Users,UserRound,CarFront,FileText,Ship,CheckSquare,Activity,LogOut,Search,Plus,Mail,MessageCircle,ChevronRight,Clock3,DollarSign,TrendingUp,BadgeCheck,X,Save,RefreshCw,Menu,ShieldCheck,Database,Trash2,Globe,Newspaper,UserCog,ShieldAlert,Wallet,Settings,KeyRound,LogIn,ArrowLeft,Check,Ban,Send,Link2,Phone,Briefcase} from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import './crm.css';
 
@@ -53,10 +53,10 @@ const tabs=[
  ['accounts','Customer accounts',Wallet],
  ['vehicles','Inventory',CarFront],['quotes','Quotes',FileText],['shipments','Shipments',Ship],['tasks','Tasks',CheckSquare],
  ['listings','Website cars',Globe],['routes','Shipping routes',Ship],['articles','News & guides',Newspaper],
- ['approvals','Approvals',ShieldAlert],['team','Team & permissions',UserCog],['settings','Website settings',Settings],
+ ['approvals','Approvals',ShieldAlert],['team','Team & permissions',UserCog],['people','People & payroll',Briefcase],['settings','Website settings',Settings],
  ['activities','Activity log',Activity]
 ];
-const PERM_LABELS={'leads.write':'Add / edit leads','customers.write':'Add / edit customers','vehicles.write':'Add / edit inventory','orders.write':'Add / edit orders','payments.write':'Record & apply payments','site.write':'Edit the public website','team.manage':'Manage team members','approvals.decide':'Approve or reject requests','delete.direct':'Delete without approval','customer.login_as':'Open a customer account','settings.write':'Change website settings'};
+const PERM_LABELS={'leads.write':'Add / edit leads','customers.write':'Add / edit customers','vehicles.write':'Add / edit inventory','orders.write':'Add / edit orders','payments.write':'Record & apply payments','site.write':'Edit the public website','team.manage':'Manage team members','approvals.decide':'Approve or reject requests','delete.direct':'Delete without approval','customer.login_as':'Open a customer account','settings.write':'Change website settings','hr.view':'View staff & performance','hr.manage':'Add / edit staff records','payroll.view':'View salaries & payslips','payroll.manage':'Run payroll & mark paid'};
 const ROLE_LIST=['admin','manager','sales','accounts','viewer'];
 // Sections that publish to the live public website (vs. internal CRM records).
 const SITE_ENTITIES=['listings','routes','articles'];
@@ -128,7 +128,7 @@ export default function CrmApp(){
  if(!supabase&&!DEMO)return <CrmSetup/>;
  if(!session)return <CrmLogin/>;
  const canDelete=(profile?.role||'')!=='viewer';
- const SPECIAL={dashboard:'Dashboard',activities:'Activity log',team:'Team & permissions',approvals:'Approvals',settings:'Website contact details',accounts:'Customer accounts'};
+ const SPECIAL={dashboard:'Dashboard',activities:'Activity log',team:'Team & permissions',approvals:'Approvals',settings:'Website contact details',accounts:'Customer accounts',people:'People & payroll'};
  const heading=tab==='dashboard'?'Good day, '+(profile?.full_name?.split(' ')[0]||'Team'):(SPECIAL[tab]||current?.title||'');
  const current=configs[tab];const data=rows[tab]||[];const filtered=data.filter(x=>JSON.stringify(x).toLowerCase().includes(query.toLowerCase()));
  return <div className="crm-shell">
@@ -139,6 +139,7 @@ export default function CrmApp(){
    :tab==='activities'?<ActivityView rows={rows.activities||[]}/>
    :tab==='team'?<TeamView token={session.access_token} profile={profile} perms={perms} setPerms={setPerms} notify={setNotice}/>
    :tab==='approvals'?<ApprovalsView token={session.access_token} profile={profile} perms={perms} notify={setNotice} onChange={loadAll}/>
+   :tab==='people'?<PeopleView token={session.access_token} profile={profile} perms={perms} notify={setNotice}/>
    :tab==='settings'?<SettingsView token={session.access_token} profile={profile} perms={perms} notify={setNotice}/>
    :tab==='accounts'?(openCustomer
        ? <CustomerAccount token={session.access_token} profile={profile} perms={perms} customerId={openCustomer} onBack={()=>setOpenCustomer(null)} notify={setNotice} listings={rows.listings||[]}/>
@@ -250,6 +251,188 @@ function TeamView({token,profile,perms,setPerms,notify}){
     <div className="crm-editor-fields"><label>New password<input name="password" minLength={8} required/></label></div>
     <p className="crm-hint">Existing passwords cannot be displayed — they are stored scrambled and cannot be unscrambled. You can only set a new one.</p>
     <footer><button type="button" onClick={()=>setPw(null)}>Cancel</button><button className="save" disabled={busy}><Save/> Set password</button></footer>
+   </form></div>}
+ </div>;
+}
+
+// ---------------------------------------------------------------------
+//  People — staff records, performance and payroll
+// ---------------------------------------------------------------------
+const DEPTS=['Sales','Operations','Accounts','Logistics','Management','Support'];
+const EMP_TYPES=[['full_time','Full time'],['part_time','Part time'],['contract','Contract'],['intern','Intern']];
+const EMP_STATUS=[['active','Active'],['on_leave','On leave'],['left','Left']];
+const monthKey=d=>{const x=d?new Date(d):new Date();return new Date(Date.UTC(x.getUTCFullYear(),x.getUTCMonth(),1)).toISOString().slice(0,10)};
+const monthName=d=>d?new Date(d).toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'}):'—';
+
+function PeopleView({token,profile,perms,notify}){
+ const [data,setData]=useState(null),[busy,setBusy]=useState(false);
+ const [edit,setEdit]=useState(null),[open,setOpen]=useState(null),[view,setView]=useState('people');
+ const [month,setMonth]=useState(monthKey());
+ const canView=hasPerm(perms,profile?.role,'hr.view');
+ const manage=hasPerm(perms,profile?.role,'hr.manage');
+ const payMan=hasPerm(perms,profile?.role,'payroll.manage');
+ const payView=hasPerm(perms,profile?.role,'payroll.view');
+
+ async function load(){try{setData(await call('/api/hr?action=overview',token))}catch(e){notify(e.message)}}
+ useEffect(()=>{if(canView)load()},[canView]);
+
+ async function saveEmp(e){
+  e.preventDefault();const f=new FormData(e.target);const b=Object.fromEntries(f);setBusy(true);
+  try{await call('/api/hr?action=save-employee',token,{method:'POST',body:JSON.stringify({...b,id:edit?.id})});
+   notify('Saved');setEdit(null);load()}
+  catch(err){notify(err.message)}finally{setBusy(false)}
+ }
+ async function prepare(){
+  if(!confirm('Prepare payslips for '+monthName(month)+'?\n\nSalary and commission are filled in from live figures. Anything already prepared is left untouched.'))return;
+  setBusy(true);
+  try{const r=await call('/api/hr?action=prepare-payroll',token,{method:'POST',body:JSON.stringify({month})});
+   notify(r.message||`${r.created} payslip(s) prepared${r.skipped?`, ${r.skipped} already existed`:''}`);load()}
+  catch(e){notify(e.message)}finally{setBusy(false)}
+ }
+ async function setStatus(id,status){
+  const ref=status==='paid'?prompt('Payment reference (optional) — e.g. TT number'):null;
+  if(status==='paid'&&ref===null)return;
+  try{await call('/api/hr?action=set-payslip-status',token,{method:'POST',body:JSON.stringify({id,status,reference:ref})});
+   notify('Payslip '+status);load()}catch(e){notify(e.message)}
+ }
+ async function savePayslip(e,row){
+  e.preventDefault();const f=new FormData(e.target);
+  try{await call('/api/hr?action=save-payslip',token,{method:'POST',body:JSON.stringify({id:row.id,
+    base_salary:f.get('base_salary'),commission:f.get('commission'),bonus:f.get('bonus'),deductions:f.get('deductions'),note:f.get('note')})});
+   notify('Payslip updated');setOpen(null);load()}catch(err){notify(err.message)}
+ }
+
+ if(!canView)return <div className="crm-empty"><ShieldAlert/><h3>Not available for your role</h3><p>Ask an administrator for the “View staff records” permission.</p></div>;
+ if(!data)return <div className="crm-empty"><RefreshCw/><h3>Loading…</h3></div>;
+
+ const staff=data.employees||[];
+ const slips=(data.payroll||[]).filter(p=>p.period_month===month);
+ const totals=slips.reduce((a,p)=>({net:a.net+Number(p.net_pay||0),count:a.count+1}),{net:0,count:0});
+ const active=staff.filter(s=>s.status==='active');
+ const teamRevenue=staff.reduce((a,s)=>a+Number(s.performance?.orders_value||0),0);
+ const teamComm=staff.reduce((a,s)=>a+Number(s.performance?.commission_earned||0),0);
+
+ return <div className="crm-people">
+  <div className="crm-page-head">
+   <div><p>Staff records, measured performance and monthly payroll.</p></div>
+   <div className="crm-tools">
+    <div className="crm-seg">
+     <button className={view==='people'?'on':''} onClick={()=>setView('people')}>People</button>
+     <button className={view==='performance'?'on':''} onClick={()=>setView('performance')}>Performance</button>
+     {payView&&<button className={view==='payroll'?'on':''} onClick={()=>setView('payroll')}>Payroll</button>}
+    </div>
+    <button onClick={load}><RefreshCw/></button>
+    {manage&&<button className="crm-add" onClick={()=>setEdit({})}><Plus/> Add person</button>}
+   </div>
+  </div>
+
+  <div className="crm-kpis compact">
+   {[[Users,'Team members',active.length,staff.length-active.length+' inactive'],
+     [DollarSign,'Payroll this month',money(active.reduce((a,s)=>a+Number(s.base_salary||0),0)),'Base salaries'],
+     [TrendingUp,'Sales credited',money(teamRevenue),'All time'],
+     [Wallet,'Commission earned',money(teamComm),'On credited sales']]
+    .map(([I,l,v,s])=><article key={l}><i><I/></i><span>{l}</span><b>{v}</b><small>{s}</small></article>)}
+  </div>
+
+  {view==='people'&&<div className="crm-table-wrap"><table>
+   <thead><tr><th>Name</th><th>Role</th><th>Department</th><th>Type</th><th>Salary / mo</th><th>Comm.</th><th>Status</th><th/></tr></thead>
+   <tbody>{staff.map(e=><tr key={e.id}>
+    <td><b>{e.full_name}</b>{e.email&&<><br/><small className="crm-dim">{e.email}</small></>}</td>
+    <td>{e.job_title||'—'}</td><td>{e.department}</td>
+    <td>{(EMP_TYPES.find(t=>t[0]===e.employment_type)||[])[1]||e.employment_type}</td>
+    <td>{money(e.base_salary)}</td><td>{Number(e.commission_pct||0)}%</td>
+    <td><em className={'crm-status '+(e.status==='active'?'active':e.status==='left'?'inactive':'pending')}>
+      {(EMP_STATUS.find(s=>s[0]===e.status)||[])[1]||e.status}</em></td>
+    <td className="crm-row-actions">{manage&&<button onClick={()=>setEdit(e)}>Edit</button>}</td>
+   </tr>)}
+   {!staff.length&&<tr><td colSpan={8} className="crm-dim">Nobody added yet. Press “Add person” to start.</td></tr>}
+   </tbody></table></div>}
+
+  {view==='performance'&&<div className="crm-perf">
+   {!staff.length&&<div className="crm-empty"><TrendingUp/><h3>No staff yet</h3><p>Add people first, then credit orders to them.</p></div>}
+   {staff.map(e=>{const p=e.performance||{};const val=Number(p.orders_value||0);
+    const share=teamRevenue?Math.round(val/teamRevenue*100):0;
+    return <article key={e.id} className="perf-card">
+     <header><div><b>{e.full_name}</b><small>{e.job_title||e.department}</small></div>
+      <em>{money(val)}</em></header>
+     <div className="perf-bar"><u style={{width:Math.max(2,share)+'%'}}/></div>
+     <div className="perf-stats">
+      <span><b>{p.orders_count||0}</b><small>Orders</small></span>
+      <span><b>{p.orders_completed||0}</b><small>Completed</small></span>
+      <span><b>{money(p.revenue_delivered)}</b><small>Delivered</small></span>
+      <span><b>{money(p.commission_earned)}</b><small>Commission</small></span>
+      <span><b>{p.leads_active||0}</b><small>Live leads</small></span>
+      <span><b>{share}%</b><small>Of team sales</small></span>
+     </div>
+    </article>})}
+   <p className="crm-hint">These figures are calculated from real orders and leads credited to each person — they cannot be typed in or edited. Credit a sale by setting the salesperson on an order.</p>
+  </div>}
+
+  {view==='payroll'&&payView&&<div className="crm-payroll">
+   <div className="payroll-bar">
+    <label>Month<input type="month" value={month.slice(0,7)} onChange={e=>setMonth(monthKey(e.target.value+'-01'))}/></label>
+    <div className="payroll-total"><small>Net payable</small><b>{money(totals.net)}</b><em>{totals.count} payslip(s)</em></div>
+    {payMan&&<button className="crm-add" disabled={busy} onClick={prepare}><Plus/> Prepare {monthName(month).split(' ')[0]}</button>}
+   </div>
+   <div className="crm-table-wrap"><table>
+    <thead><tr><th>Name</th><th>Base</th><th>Commission</th><th>Bonus</th><th>Deductions</th><th>Net pay</th><th>Status</th><th/></tr></thead>
+    <tbody>{slips.map(p=><tr key={p.id}>
+     <td><b>{p.full_name}</b><br/><small className="crm-dim">{p.job_title||p.department}</small></td>
+     <td>{money(p.base_salary)}</td><td>{money(p.commission)}</td><td>{money(p.bonus)}</td>
+     <td>{Number(p.deductions)?'−'+money(p.deductions):'—'}</td>
+     <td><b>{money(p.net_pay)}</b></td>
+     <td><em className={'crm-status '+(p.status==='paid'?'active':p.status==='approved'?'pending':'')}>{pretty(p.status)}</em>
+       {p.paid_on&&<><br/><small className="crm-dim">{date(p.paid_on)}{p.reference?' · '+p.reference:''}</small></>}</td>
+     <td className="crm-row-actions">
+      {payMan&&p.status!=='paid'&&<button onClick={()=>setOpen(p)}>Adjust</button>}
+      {payMan&&p.status==='draft'&&<button onClick={()=>setStatus(p.id,'approved')}><Check size={14}/> Approve</button>}
+      {payMan&&p.status==='approved'&&<button onClick={()=>setStatus(p.id,'paid')}><Wallet size={14}/> Mark paid</button>}
+     </td></tr>)}
+     {!slips.length&&<tr><td colSpan={8} className="crm-dim">
+       No payslips for {monthName(month)}.{payMan?' Press “Prepare” to build them from live salary and commission figures.':''}</td></tr>}
+    </tbody></table></div>
+   <p className="crm-hint">Commission is filled in from orders credited to each person that month. Once a payslip is marked paid its figures are locked — correct a mistake with a bonus or deduction next month, so the record of what was actually paid stays honest.</p>
+  </div>}
+
+  {edit&&<div className="crm-modal-bg" onMouseDown={()=>setEdit(null)}>
+   <form className="crm-editor wide" onMouseDown={e=>e.stopPropagation()} onSubmit={saveEmp}>
+    <header><div><small>{edit.id?'EDIT PERSON':'NEW PERSON'}</small><h2>{edit.full_name||'Add a team member'}</h2></div>
+     <button type="button" onClick={()=>setEdit(null)}><X/></button></header>
+    <div className="crm-editor-fields two">
+     <label>Full name<input name="full_name" defaultValue={edit.full_name||''} required/></label>
+     <label>Job title<input name="job_title" defaultValue={edit.job_title||''} placeholder="Senior Sales Executive"/></label>
+     <label>Email<input name="email" type="email" defaultValue={edit.email||''}/></label>
+     <label>Phone<input name="phone" defaultValue={edit.phone||''}/></label>
+     <label>Department<select name="department" defaultValue={edit.department||'Sales'}>{DEPTS.map(d=><option key={d}>{d}</option>)}</select></label>
+     <label>Employment type<select name="employment_type" defaultValue={edit.employment_type||'full_time'}>
+       {EMP_TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+     <label>Monthly salary<input name="base_salary" type="number" step="0.01" min="0" defaultValue={edit.base_salary||0}/></label>
+     <label>Commission %<input name="commission_pct" type="number" step="0.1" min="0" max="100" defaultValue={edit.commission_pct||0}/></label>
+     <label>Joined on<input name="joined_on" type="date" defaultValue={(edit.joined_on||'').slice(0,10)}/></label>
+     <label>Status<select name="status" defaultValue={edit.status||'active'}>
+       {EMP_STATUS.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+     <label className="span2">Bank details<input name="bank_details" defaultValue={edit.bank_details||''} placeholder="Account or IBAN for salary transfer"/></label>
+     <label className="span2">Notes<textarea name="notes" rows={2} defaultValue={edit.notes||''}/></label>
+    </div>
+    <p className="crm-hint">Commission % applies to the value of orders credited to this person. Leave it at 0 for salaried roles.</p>
+    <footer><button type="button" onClick={()=>setEdit(null)}>Cancel</button>
+     <button className="save" disabled={busy}><Save/> {busy?'Saving…':'Save person'}</button></footer>
+   </form></div>}
+
+  {open&&<div className="crm-modal-bg" onMouseDown={()=>setOpen(null)}>
+   <form className="crm-editor" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>savePayslip(e,open)}>
+    <header><div><small>ADJUST PAYSLIP · {monthName(open.period_month)}</small><h2>{open.full_name}</h2></div>
+     <button type="button" onClick={()=>setOpen(null)}><X/></button></header>
+    <div className="crm-editor-fields two">
+     <label>Base salary<input name="base_salary" type="number" step="0.01" defaultValue={open.base_salary}/></label>
+     <label>Commission<input name="commission" type="number" step="0.01" defaultValue={open.commission}/></label>
+     <label>Bonus<input name="bonus" type="number" step="0.01" defaultValue={open.bonus}/></label>
+     <label>Deductions<input name="deductions" type="number" step="0.01" min="0" defaultValue={open.deductions}/></label>
+     <label className="span2">Note<input name="note" defaultValue={open.note||''} placeholder="Reason for a bonus or deduction"/></label>
+    </div>
+    <p className="crm-hint">Net pay is worked out for you: base + commission + bonus − deductions.</p>
+    <footer><button type="button" onClick={()=>setOpen(null)}>Cancel</button>
+     <button className="save"><Save/> Save payslip</button></footer>
    </form></div>}
  </div>;
 }

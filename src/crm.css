@@ -139,3 +139,40 @@
 .approval-main>em{margin-bottom:7px;display:inline-block}
 .approval-wait{display:flex;align-items:center;gap:6px}
 .approval-wait svg{width:13px}
+
+/* ---------------- People & payroll ---------------- */
+.crm-shell .crm-seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden;height:39px}
+.crm-shell .crm-seg button{border:0;background:none;color:var(--muted);padding:0 14px;font-size:9px;font-weight:700;cursor:pointer}
+.crm-shell .crm-seg button.on{background:var(--crm);color:#fff}
+.crm-shell .crm-kpis.compact{margin-bottom:16px}
+.crm-shell .crm-dim{color:var(--muted);font-size:8px}
+.crm-shell .crm-editor.wide{width:min(860px,100%)}
+.crm-shell .crm-editor-fields.two{grid-template-columns:1fr 1fr}
+.crm-shell .crm-editor-fields .span2{grid-column:1/-1}
+.crm-shell .crm-editor textarea{border:1px solid var(--line);border-radius:9px;padding:10px 11px;background:var(--bg);color:var(--ink);font:inherit;font-size:10px;resize:vertical}
+.crm-shell .crm-editor select{height:44px;border:1px solid var(--line);border-radius:9px;padding:0 11px;background:var(--bg);color:var(--ink);font-size:10px}
+
+.crm-perf{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.crm-perf .crm-hint,.crm-perf .crm-empty{grid-column:1/-1}
+.perf-card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:17px;box-shadow:0 10px 30px #073b250d}
+.perf-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.perf-card header b{font-size:12px;display:block}
+.perf-card header small{font-size:8px;color:var(--muted)}
+.perf-card header em{font-style:normal;font-weight:800;font-size:15px;color:var(--crm)}
+.perf-bar{height:6px;border-radius:5px;background:#e9efeb;overflow:hidden;margin:13px 0}
+.perf-bar u{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--crm),var(--gold))}
+.perf-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.perf-stats span{display:grid;gap:2px}
+.perf-stats b{font-size:12px;font-weight:800}
+.perf-stats small{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+
+.payroll-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 17px;margin-bottom:13px}
+.payroll-bar label{display:grid;gap:5px;font-size:7px;font-weight:800;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+.payroll-bar input{height:39px;border:1px solid var(--line);border-radius:9px;padding:0 11px;background:var(--bg);color:var(--ink);font-size:10px}
+.payroll-total{margin-left:auto;text-align:right;display:grid;gap:1px}
+.payroll-total small{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+.payroll-total b{font:800 20px Manrope;color:var(--crm)}
+.payroll-total em{font-style:normal;font-size:8px;color:var(--muted)}
+.crm-payroll .crm-hint{margin-top:12px}
+@media(max-width:900px){.crm-perf{grid-template-columns:1fr}.perf-stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.crm-shell .crm-editor-fields.two{grid-template-columns:1fr}.payroll-total{margin-left:0}}

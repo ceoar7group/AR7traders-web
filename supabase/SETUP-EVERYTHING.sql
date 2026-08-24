@@ -303,7 +303,13 @@ insert into public.role_permissions (role,permission,allowed) values
   ('viewer','leads.write',false),('viewer','customers.write',false),('viewer','vehicles.write',false),
   ('viewer','orders.write',false),('viewer','payments.write',false),('viewer','site.write',false),
   ('viewer','team.manage',false),('viewer','approvals.decide',false),('viewer','delete.direct',false),
-  ('viewer','customer.login_as',false),('viewer','settings.write',false)
+  ('viewer','customer.login_as',false),('viewer','settings.write',false),
+  -- HR / payroll
+  ('admin','hr.view',true),('admin','hr.manage',true),('admin','payroll.view',true),('admin','payroll.manage',true),
+  ('manager','hr.view',true),('manager','hr.manage',false),('manager','payroll.view',false),('manager','payroll.manage',false),
+  ('sales','hr.view',false),('sales','hr.manage',false),('sales','payroll.view',false),('sales','payroll.manage',false),
+  ('accounts','hr.view',true),('accounts','hr.manage',false),('accounts','payroll.view',true),('accounts','payroll.manage',true),
+  ('viewer','hr.view',false),('viewer','hr.manage',false),('viewer','payroll.view',false),('viewer','payroll.manage',false)
 on conflict (role,permission) do nothing;
 
 -- ---- Approvals -------------------------------------------------------
@@ -427,6 +433,10 @@ create trigger ar7_check_allocation_trg before insert or update on public.paymen
   for each row execute function public.ar7_check_allocation();
 
 -- Convenience views used by the CRM ledger screen.
+-- Dropped first on purpose: they select x.*, and `create or replace view`
+-- refuses to run if a new column has since been added to the base table.
+drop view if exists public.payment_balances cascade;
+drop view if exists public.order_balances   cascade;
 create or replace view public.payment_balances as
 select p.*, coalesce(a.applied,0) as applied,
        p.amount - coalesce(a.applied,0) as unapplied
@@ -457,6 +467,148 @@ insert into public.site_settings (key,value,label) values
   ('enquiry_inbox','info@ar7traders.com','Where website enquiries are sent')
 on conflict (key) do nothing;
 
+-- ---- People / HR ------------------------------------------------------
+-- Employment details for a staff member. Kept in its own table rather than
+-- bolted onto `profiles`, because a profile is a login and an employee is a
+-- contract: someone can leave (and lose their login) while their salary
+-- history must survive for the accounts.
+create table if not exists public.employees (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid unique references public.profiles(id) on delete set null,
+  full_name text not null,
+  email text,
+  phone text,
+  job_title text,
+  department text default 'Sales'
+    check (department in ('Sales','Operations','Accounts','Logistics','Management','Support')),
+  employment_type text not null default 'full_time'
+    check (employment_type in ('full_time','part_time','contract','intern')),
+  status text not null default 'active'
+    check (status in ('active','on_leave','left')),
+  joined_on date default current_date,
+  left_on date,
+  base_salary numeric(14,2) not null default 0,   -- per month
+  currency text not null default 'USD',
+  -- Commission as a percentage of the value of orders credited to them.
+  commission_pct numeric(6,3) not null default 0 check (commission_pct >= 0 and commission_pct <= 100),
+  bank_details text,
+  notes text,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists employees_status_idx on public.employees(status);
+
+-- Who gets the credit for a sale. Nullable: an order can exist without an
+-- owner, and if an employee record is removed the order itself must not be.
+alter table public.orders   add column if not exists employee_id uuid references public.employees(id) on delete set null;
+alter table public.leads    add column if not exists employee_id uuid references public.employees(id) on delete set null;
+create index if not exists orders_employee_idx on public.orders(employee_id);
+create index if not exists leads_employee_idx  on public.leads(employee_id);
+
+-- ---- Payroll ----------------------------------------------------------
+-- One row per person per month. The unique constraint is what stops the
+-- same month being paid twice by two different people.
+create table if not exists public.payroll_runs (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  period_month date not null,                 -- always the 1st of the month
+  base_salary numeric(14,2) not null default 0,
+  commission   numeric(14,2) not null default 0,
+  bonus        numeric(14,2) not null default 0,
+  deductions   numeric(14,2) not null default 0 check (deductions >= 0),
+  currency text not null default 'USD',
+  status text not null default 'draft'
+    check (status in ('draft','approved','paid')),
+  paid_on date,
+  method text,
+  reference text,
+  note text,
+  created_by uuid references auth.users(id),
+  approved_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (employee_id, period_month)
+);
+create index if not exists payroll_period_idx on public.payroll_runs(period_month desc);
+
+-- Net pay is derived, never typed in, so it cannot drift from its parts.
+drop view if exists public.payroll_view cascade;
+create or replace view public.payroll_view as
+select r.*,
+       (r.base_salary + r.commission + r.bonus - r.deductions) as net_pay,
+       e.full_name, e.job_title, e.department
+from public.payroll_runs r
+join public.employees e on e.id = r.employee_id;
+
+-- Force period_month to the 1st, so "August" is always one bucket however
+-- the date arrives from the browser.
+create or replace function public.ar7_payroll_normalise() returns trigger
+language plpgsql as $$
+begin
+  new.period_month := date_trunc('month', new.period_month)::date;
+  new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists ar7_payroll_norm_trg on public.payroll_runs;
+create trigger ar7_payroll_norm_trg before insert or update on public.payroll_runs
+  for each row execute function public.ar7_payroll_normalise();
+
+-- A paid payroll run is a closed book: reopening it would let figures change
+-- after the money left the bank. Only the reference/note stay editable.
+create or replace function public.ar7_payroll_guard() returns trigger
+language plpgsql as $$
+begin
+  if old.status = 'paid' and new.status <> 'paid' then
+    raise exception 'This payslip is already paid and cannot be reopened. Raise an adjustment next month instead.';
+  end if;
+  if old.status = 'paid' and (
+       new.base_salary <> old.base_salary or new.commission <> old.commission
+       or new.bonus <> old.bonus or new.deductions <> old.deductions) then
+    raise exception 'This payslip is already paid. Its amounts can no longer be changed.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists ar7_payroll_guard_trg on public.payroll_runs;
+create trigger ar7_payroll_guard_trg before update on public.payroll_runs
+  for each row execute function public.ar7_payroll_guard();
+
+-- ---- Performance ------------------------------------------------------
+-- Performance is measured, not entered by hand, so nobody can inflate their
+-- own numbers. Everything below is derived from real orders and payments.
+drop view if exists public.employee_performance cascade;
+create or replace view public.employee_performance as
+select
+  e.id                                   as employee_id,
+  e.full_name, e.job_title, e.department, e.status,
+  e.base_salary, e.commission_pct, e.currency,
+  count(distinct o.id)                                                as orders_count,
+  coalesce(sum(o.amount), 0)                                          as orders_value,
+  count(distinct o.id) filter (where o.status in ('paid','shipped','delivered')) as orders_completed,
+  coalesce(sum(o.amount) filter (where o.status in ('paid','shipped','delivered')), 0) as revenue_delivered,
+  coalesce(sum(o.amount) * e.commission_pct / 100.0, 0)               as commission_earned,
+  count(distinct l.id)                                                as leads_count,
+  count(distinct l.id) filter (where l.status in ('proposal','negotiation','qualified')) as leads_active,
+  max(o.created_at)                                                   as last_order_at
+from public.employees e
+left join public.orders o on o.employee_id = e.id
+left join public.leads  l on l.employee_id = e.id
+group by e.id, e.full_name, e.job_title, e.department, e.status,
+         e.base_salary, e.commission_pct, e.currency;
+
+-- Same figures, but sliced by month, for trend charts and payroll.
+drop view if exists public.employee_month_performance cascade;
+create or replace view public.employee_month_performance as
+select
+  e.id as employee_id, e.full_name,
+  date_trunc('month', o.created_at)::date as period_month,
+  count(o.id)                    as orders_count,
+  coalesce(sum(o.amount), 0)     as orders_value,
+  coalesce(sum(o.amount) * e.commission_pct / 100.0, 0) as commission_earned
+from public.employees e
+join public.orders o on o.employee_id = e.id
+group by e.id, e.full_name, date_trunc('month', o.created_at);
+
 -- ---- Security --------------------------------------------------------
 alter table public.role_permissions   enable row level security;
 alter table public.approval_requests  enable row level security;
@@ -464,6 +616,8 @@ alter table public.orders             enable row level security;
 alter table public.payments           enable row level security;
 alter table public.payment_allocations enable row level security;
 alter table public.site_settings      enable row level security;
+alter table public.employees          enable row level security;
+alter table public.payroll_runs       enable row level security;
 -- No policies on purpose: every read and write goes through the server
 -- functions using the service role, which check permissions first.
 
