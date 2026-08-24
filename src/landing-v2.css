@@ -1,0 +1,317 @@
+/* ============================================================
+   AR7 TRADERS — LANDING V2.1 (PERFORMANCE + INTERACTIVE GLOBE)
+   • Hero: the car ad only (no globe rings) — full impact
+   • 360° DRAGGABLE globe (auto-rotates, inertia, tilt) in the
+     Motion Showcase AND in the World section below
+   • All animation is transform/opacity only (GPU-friendly)
+   • will-change hints + prefers-reduced-motion support
+   ============================================================ */
+
+/* ---------- HERO: entrance choreography ---------- */
+.hero-copy .eyebrow{animation:fadeUp .8s .05s both}
+.hero-copy h1{animation:fadeUp .9s .15s both}
+.hero-copy>p{animation:fadeUp .9s .3s both}
+.hero-copy .hero-cta{animation:fadeUp .9s .45s both}
+.hero-copy .trust-row{animation:fadeUp .9s .6s both}
+
+/* ---------- HERO: glow + parallax ---------- */
+.hero-visual{--mx:0;--my:0}
+.hero-visual:before{animation:heroGlow 5.5s ease-in-out infinite;translate:calc(var(--mx)*10px) calc(var(--my)*8px);will-change:transform}
+@keyframes heroGlow{50%{transform:scale(1.14);opacity:.75}}
+
+/* ---------- HERO: the car ad (bigger, separated from globe) ---------- */
+.car-main{inset:54px 62px 74px 80px;border-radius:30px;cursor:pointer;will-change:transform}
+.hero-stack{position:absolute;inset:0;overflow:hidden}
+.hero-stack img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.10);transition:opacity .6s ease,transform 5.5s linear;pointer-events:none}
+.hero-stack img.active{opacity:1;transform:scale(1)}
+.car-float-title{left:28px;bottom:56px;max-width:66%;animation:titleSwap .6s both}
+.car-float-title span{font-size:8px;padding:5px 8px}
+.car-float-title h3{font:700 22px/1.12 Manrope;margin:10px 0 3px;letter-spacing:-.5px}
+.car-float-title p{font-size:11px}
+@keyframes titleSwap{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.car-dots{position:absolute;top:18px;right:18px;display:flex;gap:5px;z-index:3}
+.car-dots i{width:6px;height:6px;border-radius:4px;background:rgba(255,255,255,.4);transition:width .35s,background .35s}
+.car-dots i.active{width:20px;background:var(--gold)}
+.car-counter{position:absolute;right:16px;bottom:14px;z-index:3;display:flex;align-items:center;gap:6px;font-size:8px;letter-spacing:1px;color:rgba(255,255,255,.85);background:rgba(0,37,15,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);padding:6px 10px;border-radius:20px}
+.car-counter svg{width:12px;color:var(--gold)}
+
+/* ---------- HERO: parallax layers (compose via translate) ---------- */
+.floating-card.auction-card{translate:calc(var(--mx)*-20px) calc(var(--my)*-16px)}
+.floating-card.route-card{translate:calc(var(--mx)*-12px) calc(var(--my)*-10px)}
+
+/* Live hero auction and shipping rotations */
+.rotating-card-copy{animation:heroCardSwap .42s cubic-bezier(.2,.75,.25,1) both}
+@keyframes heroCardSwap{from{opacity:0;transform:translateY(7px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
+.card-rotation-dots{display:flex!important;grid-auto-flow:column;justify-content:start;gap:4px;margin-top:7px;height:3px}
+.card-rotation-dots i{display:block;width:12px;height:3px;border-radius:4px;background:color-mix(in srgb,var(--muted) 28%,transparent);transition:width .3s,background .3s}
+.card-rotation-dots i.active{width:24px;background:var(--gold)}
+.route-dots{margin-top:7px}
+.floating-card.route-card{width:238px;padding:14px 15px;border-radius:14px}
+.route-card .route-head{margin-bottom:8px}
+.route-card .route-head span{font-size:7.5px}
+.route-card .rotating-card-copy>b{font-size:11.5px;gap:6px}
+.route-card .progress{height:3px;margin:16px 0 10px;overflow:visible;position:relative}
+.route-card .progress span{position:relative;width:var(--route-progress);animation:routeLineIn .8s cubic-bezier(.25,.65,.3,1) both;will-change:width}
+.route-card .progress span:after{display:none}
+.route-card .route-ship{position:absolute;right:-5px;top:-13px;width:10px!important;height:10px!important;color:var(--gold);padding:0;border-radius:0;background:transparent;filter:drop-shadow(0 1px 1px #0004);transform:translateX(50%);animation:routeShipSail 1.7s ease-in-out infinite;overflow:visible}
+.route-card small{font-size:8px;line-height:1.25;padding-top:1px}
+@keyframes routeLineIn{from{width:5%;opacity:.45}to{width:var(--route-progress);opacity:1}}
+@keyframes routeShipSail{0%,100%{translate:-2px 1px;rotate:-2deg}50%{translate:2px -1px;rotate:2deg}}
+.auction-card .rotating-card-copy>span{white-space:nowrap}
+.auction-card .rotating-card-copy>b,.route-card .rotating-card-copy>b{white-space:nowrap}
+.floating-badge{translate:calc(var(--mx)*-26px) calc(var(--my)*-20px)}
+
+/* ---------- HERO: sparkles ---------- */
+.spark{position:absolute;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle,#fff3cf,#e0a63b);box-shadow:0 0 12px #e0a63baa;animation:twinkle 2.8s ease-in-out infinite;pointer-events:none;z-index:2}
+.spark.s1{right:70px;top:130px}
+.spark.s2{right:230px;bottom:80px;animation-delay:.7s;width:5px;height:5px}
+.spark.s3{left:36px;top:210px;animation-delay:1.3s;width:6px;height:6px}
+.spark.s4{left:130px;bottom:34px;animation-delay:1.9s;width:4px;height:4px}
+.spark.s5{right:18px;top:70px;animation-delay:2.3s;width:4px;height:4px}
+.spark.s6{left:60px;top:88px;animation-delay:2.9s;width:5px;height:5px}
+@keyframes twinkle{0%,100%{opacity:.12;transform:scale(.55)}50%{opacity:1;transform:scale(1.2)}}
+
+/* ============================================================
+   INTERACTIVE 360° GLOBE
+   ============================================================ */
+html,body{overflow-x:clip}
+.globe-scene{position:relative;display:grid;place-items:center;padding:26px 0 22px}
+.globe-wrap{position:relative;padding-bottom:30px}
+.iglobe{position:relative;width:min(430px,88vw);aspect-ratio:1;margin:auto;perspective:1000px;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.iglobe.compact{width:min(480px,86vw)}
+.iglobe.dragging{cursor:grabbing}
+
+/* halo — opacity/scale only (no animated blur → smooth) */
+.iglobe-halo{position:absolute;inset:-12%;border-radius:50%;background:radial-gradient(circle,rgba(34,176,105,.34),rgba(34,176,105,.07) 48%,transparent 70%);animation:haloPulse 4.8s ease-in-out infinite;pointer-events:none}
+@keyframes haloPulse{50%{transform:scale(1.06);opacity:.8}}
+
+/* sphere */
+.iglobe-sphere{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 32% 28%,#169260,#07472f 55%,#012719);box-shadow:inset -45px -20px 65px #00190f,0 0 90px #20a16840;animation:globeFloat 6s ease-in-out infinite;will-change:transform}
+.iglobe-sphere:after{content:'';position:absolute;left:8%;right:8%;bottom:-34px;height:34px;background:#000;filter:blur(16px);opacity:.4;border-radius:50%}
+
+/* wireframe graticule */
+.graticule{position:absolute;inset:6%;border:1px solid #ffffff1a;border-radius:50%;pointer-events:none}
+.graticule.g2{transform:rotateY(62deg)}
+.graticule.g3{transform:rotateY(-62deg)}
+.graticule.g4{transform:rotateX(66deg)}
+.graticule.g5{transform:rotateX(78deg) scale(.78)}
+
+/* rotating map face (the draggable part) */
+.iglobe-face{position:absolute;inset:6%;border-radius:50%;overflow:hidden;transform:rotateX(var(--tilt,0deg));will-change:transform;background:radial-gradient(circle at 40% 35%,#0d5c3c,#053722 60%,#022b1b)}
+.iglobe-maps{display:flex;width:300%;height:100%;transform:translateX(var(--rot,0px));will-change:transform}
+.imap{position:relative;flex:0 0 33.3333%;height:100%}
+
+/* continents (repeat every segment = seamless 360°) */
+.imap .land{position:absolute;background:linear-gradient(165deg,#e7b451,#c8902c 70%,#b57f22);box-shadow:0 6px 14px #001c1199;border-radius:45% 55% 60% 40%}
+.imap .l1{left:8%;top:16%;width:24%;height:16%;transform:rotate(-14deg);clip-path:polygon(0 20%,35% 0,65% 20%,100% 10%,80% 60%,45% 100%,15% 78%)}
+.imap .l2{left:48%;top:9%;width:17%;height:12%;transform:rotate(9deg);clip-path:polygon(20% 0,85% 8%,100% 45%,60% 100%,5% 70%)}
+.imap .l3{left:13%;top:52%;width:27%;height:21%;transform:rotate(7deg);clip-path:polygon(35% 0,95% 15%,78% 45%,100% 72%,45% 100%,12% 62%,0 28%)}
+.imap .l4{left:59%;top:57%;width:20%;height:14%;transform:rotate(-10deg);clip-path:polygon(10% 25%,60% 0,100% 40%,70% 100%,0 75%)}
+.imap .l5{left:42%;top:36%;width:11%;height:8%;transform:rotate(20deg);border-radius:50%;opacity:.7}
+
+/* dashed routes riding the surface */
+.iglobe-routes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.iglobe-routes .arc{fill:none;stroke:#e5b553;stroke-width:1.6;stroke-linecap:round;stroke-dasharray:7 9;opacity:.9;animation:arcDash 2.6s linear infinite}
+.iglobe-routes .arc.a2{animation-direction:reverse;stroke:#ffe1a6}
+.iglobe-routes .arc.a3{animation-duration:2.1s;opacity:.65}
+@keyframes arcDash{to{stroke-dashoffset:-32}}
+
+/* tiny cars & ships crossing the globe */
+.imover{position:absolute;left:-26px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(160deg,#177a52,#0a3a27);border:1.5px solid #e5b553;color:#ffe1a6;animation:moverCross linear infinite;will-change:transform;z-index:2}
+.imover svg{width:9px;height:9px}
+.imover.m1{top:24%;animation-duration:13s}
+.imover.m2{top:66%;animation-duration:17s;animation-delay:-6s;background:linear-gradient(160deg,#e3b04b,#a97820);border-color:#fff0c8;color:#241c07}
+.imover.m3{top:45%;animation-duration:21s;animation-delay:-12s;background:linear-gradient(160deg,#0f5f41,#07301f);border-color:#4fbf8d;color:#c9f2dc}
+@keyframes moverCross{from{left:-26px}to{left:104%}}
+
+/* static highlight + cheap transform-only sheen sweep */
+.iglobe-shine{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.16),transparent 46%);pointer-events:none}
+.iglobe-sheen{position:absolute;inset:0;border-radius:50%;overflow:hidden;pointer-events:none}
+.iglobe-sheen:before{content:'';position:absolute;top:-35%;bottom:-35%;left:0;width:12%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.10),transparent);transform:translateX(-130%) rotate(16deg);animation:sheenSweep 6s ease-in-out infinite;will-change:transform}
+@keyframes sheenSweep{0%,52%{transform:translateX(-130%) rotate(16deg)}100%{transform:translateX(950%) rotate(16deg)}}
+
+/* destination pins + ripple */
+.iglobe-pin{position:absolute;width:9px;height:9px;border:2px solid #fff;background:#e5b553;border-radius:50%;box-shadow:0 0 0 6px #dda13b2e;z-index:3}
+.iglobe-pin.p1{left:30%;top:22%}
+.iglobe-pin.p2{right:24%;top:54%;animation:pulsePin 2s infinite}
+.iglobe-pin.p3{right:40%;bottom:16%}
+.iglobe-pin.p3:before,.iglobe-pin.p3:after{content:'';position:absolute;inset:-6px;border-radius:50%;border:1.5px solid #e5b553;animation:ripple 2.4s ease-out infinite}
+.iglobe-pin.p3:after{animation-delay:1.2s}
+@keyframes ripple{from{transform:scale(.5);opacity:.9}to{transform:scale(3);opacity:0}}
+
+/* tilted orbit rings with tiny badges */
+.orbit-ring{position:absolute;inset:-26px;border-radius:50%;border:1px dashed rgba(217,166,60,.28);pointer-events:none;transform-style:preserve-3d}
+.orbit-ring.o1{transform:rotateX(72deg);animation:rspin 9s linear infinite}
+.orbit-ring.o2{transform:rotateX(72deg) rotateZ(70deg);animation:rspin 13s linear infinite reverse;border-color:rgba(255,255,255,.10)}
+.orbit-ring.o3{transform:rotateX(72deg) rotateZ(-58deg);animation:rspin 17s linear infinite;border-style:solid;border-color:rgba(255,255,255,.07)}
+.orbit-ring .orbiter{position:absolute;left:50%;top:-15px;margin-left:-15px;width:30px;height:30px;will-change:transform}
+.o1 .orbiter{animation:rspin 9s linear infinite reverse}
+.o2 .orbiter{animation:rspin 13s linear infinite}
+.o3 .orbiter{animation:rspin 17s linear infinite reverse}
+.orb-badge{position:absolute;inset:0;border-radius:50%;background:linear-gradient(160deg,#1c6e4c,#0a3a27);border:1.5px solid #57c98d55;color:#ffe2a1;display:grid;place-items:center;box-shadow:0 0 18px #d9a63c55;transform:rotateX(-72deg)}
+.orb-badge svg{width:13px;height:13px}
+.orb-badge.ship{background:linear-gradient(160deg,#e3b04b,#a97820);border-color:#ffe6ad;color:#1c2a12}
+.orb-badge.alt{transform:rotateX(-72deg) scale(.8)}
+@keyframes rspin{to{transform:rotate(360deg)}}
+
+/* drag hint */
+.drag-hint{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);display:flex;align-items:center;gap:7px;font-size:8px;letter-spacing:1.6px;color:#7f9a8b;white-space:nowrap;pointer-events:none}
+.drag-hint i{width:7px;height:7px;border-radius:50%;background:var(--gold2);animation:dragPulse 1.8s ease-in-out infinite}
+@keyframes dragPulse{50%{opacity:.35;transform:scale(1.5)}}
+
+/* floating labels */
+.float-label.japan{right:-8px;top:66px}
+.float-label.shipment{left:-12px;bottom:58px;animation-delay:.7s}
+
+/* legend */
+.globe-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:28px}
+.globe-legend span{display:flex;align-items:center;gap:7px;font-size:8px;letter-spacing:1.3px;color:#9db4a7;font-weight:700}
+.globe-legend i{width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
+.globe-legend .lg.car{background:#4fd08a;color:#4fd08a}
+.globe-legend .lg.ship{background:#e3b04b;color:#e3b04b}
+.globe-legend .lg.pin{background:rgba(255,255,255,.85);color:rgba(255,255,255,.85)}
+
+/* ============================================================
+   WORLD SECTION — second draggable globe ("the globe below")
+   ============================================================ */
+.world{display:grid;grid-template-columns:.95fr 1.05fr;align-items:center;gap:20px;padding:70px 0;min-height:640px}
+.world-map{position:relative;width:auto;right:auto;opacity:1;display:grid;place-items:center}
+.world-map .iglobe.compact{width:min(470px,88vw)}
+.world .world-content{position:relative;margin:0;padding:0 clamp(20px,3vw,60px) 0 0;width:100%;max-width:none}
+.world .world-content>p{color:#66766d;max-width:430px;line-height:1.7}
+.world .world-content .stats{display:flex;gap:45px;margin:38px 0 34px}
+.world .world-content .stats b sup{color:var(--gold)}
+@media(max-width:1000px){
+ .world{grid-template-columns:1fr;min-height:0;padding:60px 0}
+ .world-map{order:2;width:auto;right:auto;top:auto;opacity:1}
+ .world .world-content{padding:0 clamp(20px,5vw,40px)}
+ .world .world-content .stats{gap:28px}
+}
+@media(max-width:650px){
+ .world-map{width:auto;right:auto;top:auto;opacity:1}
+ .world .world-content .stats{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+}
+
+/* ---------- TRACK: speed streaks + vehicle bob ---------- */
+.track-streaks{position:absolute;left:0;right:0;top:0;bottom:0;background:repeating-linear-gradient(90deg,transparent 0 110px,rgba(255,255,255,.035) 110px 112px);animation:streaks 2.8s linear infinite;z-index:0;will-change:transform}
+@keyframes streaks{to{transform:translateX(112px)}}
+.moving-car{animation:drive 12s linear infinite,carHop .7s ease-in-out infinite}
+.moving-ship{animation:shipDrive 15s linear infinite,shipBob 2.6s ease-in-out infinite}
+@keyframes carHop{50%{transform:translateY(-3px)}}
+@keyframes shipBob{50%{transform:translateY(-5px)}}
+
+/* ---------- PERFORMANCE: no loops for reduced-motion users ---------- */
+@media (prefers-reduced-motion: reduce){
+ .orbit-ring,.orbiter,.imover,.spark,.iglobe-sheen:before,.iglobe-halo,.igate,.moving-car,.moving-ship,.ticker>div,.car-float-title{animation:none!important}
+ .hero-stack img{transition:opacity .6s ease}
+}
+
+/* ---------- responsive ---------- */
+@media(max-width:1000px){
+ .globe-scene{padding:34px 0 10px}
+ .iglobe{width:min(400px,84vw)}
+ .car-main{inset:52px 40px 84px 48px}
+}
+@media(max-width:650px){
+ .iglobe{width:min(340px,88vw)}
+ .iglobe.compact{width:min(340px,88vw)}
+ .globe-wrap{padding-bottom:26px}
+ .iglobe-halo{inset:-7%}
+ .orbit-ring{inset:-16px}
+ .drag-hint{font-size:7px;bottom:-6px}
+ .float-label.japan{right:2px}
+ .float-label.shipment{left:2px}
+ .car-main{inset:26px 8px 46px 12px;border-radius:20px}
+ .car-float-title{left:18px;bottom:38px;max-width:64%}
+ .car-float-title h3{font-size:16px}
+ .car-float-title p{font-size:10px}
+ .car-counter{display:none}
+ .car-dots{top:12px;right:12px}
+ .float-label.japan{right:-6px;top:38px}
+ .float-label.shipment{left:-8px;bottom:34px}
+}
+
+/* ============================================================
+   V2.2 — 360° ORBS EVERYWHERE + BIGGER BRAND + SMALLER TAGLINE
+   + REDESIGNED MOBILE HERO (smaller car ad)
+   ============================================================ */
+
+/* ---------- bigger logo + company name ---------- */
+.brand img{width:62px;height:62px;border-radius:12px}
+.brand span{font-size:18px;letter-spacing:2.3px}
+.brand small{font-size:7.5px;letter-spacing:1.3px;margin-top:6px}
+
+/* ---------- smaller tagline ---------- */
+.hero h1{font-size:clamp(40px,4.8vw,70px);letter-spacing:-4px;margin:22px 0}
+.hero-copy>p{font-size:16.5px}
+
+/* ---------- nav orb (top of every page) ---------- */
+.nav-orb{width:52px;height:52px;border:1px solid var(--line);border-radius:50%;background:color-mix(in srgb,var(--card) 72%,transparent);display:grid;place-items:center;flex:none}
+.nav-orb .iglobe{width:64px;margin-top:-2px}
+.nav-orb .orbit-ring,.nav-orb .drag-hint,.nav-orb .iglobe-halo{display:none}
+
+/* ---------- mini globes: decorative, CSS-driven 360° spin ---------- */
+.iglobe.mini{cursor:grab}
+.iglobe.mini .orbit-ring,.iglobe.mini .drag-hint{display:none}
+.iglobe.mini .iglobe-halo{inset:-9%}
+
+/* ---------- hero orb (landing, page heroes, account, detail) ---------- */
+.hero-orb{position:absolute;z-index:6;pointer-events:none;filter:drop-shadow(0 12px 26px #072c1b3d)}
+.hero-orb .iglobe{width:112px}
+.hero-visual>.hero-orb{left:-18px;bottom:-10px}
+.hero-orb.in-page{right:18px;top:18px;z-index:3}
+.hero-orb.in-page .iglobe{width:100px}
+.hero-orb.account-orb{right:74px;top:50%;transform:translateY(-50%);z-index:3}
+.hero-orb.account-orb .iglobe{width:100px}
+.detail-orb{right:14px;top:14px;z-index:2}
+.detail-orb .iglobe{width:90px}
+
+/* ---------- floating orb on text-only page heroes ---------- */
+.page-orb-wrap{position:absolute;right:7%;top:50%;transform:translateY(-50%);width:180px;z-index:2;pointer-events:none}
+.page-orb-wrap .iglobe{width:180px}
+.studio-orb{right:4%;top:54px;width:128px}
+.studio-orb .iglobe{width:128px}
+
+/* ---------- tablet ---------- */
+@media(max-width:1000px){
+ .page-orb-wrap{width:130px;right:4%}
+ .page-orb-wrap .iglobe{width:130px}
+ .hero-orb .iglobe{width:96px}
+ .nav-orb{width:46px;height:46px}
+ .nav-orb .iglobe{width:56px}
+}
+
+/* ---------- MOBILE: redesigned hero + smaller orbs ---------- */
+@media(max-width:650px){
+ .brand img{width:47px;height:47px;border-radius:9px}
+ .brand span{font-size:13.5px;letter-spacing:1.7px}
+ .brand small{font-size:6.5px;letter-spacing:1px}
+ .nav{height:58px}
+ .nav-orb{width:38px;height:38px}
+ .nav-orb .iglobe{width:46px;margin-top:-3px}
+ .hero{padding-top:92px;min-height:0}
+ .hero-copy{padding-bottom:4px}
+ .hero h1{font-size:clamp(29px,8vw,34px);letter-spacing:-1.6px;margin:15px 0 12px}
+ .hero-copy>p{font-size:14px;max-width:440px}
+ .hero-cta{margin-top:20px;gap:12px}
+ .trust-row{scale:.92;margin-top:16px}
+ .hero-visual{height:335px;margin-top:22px}
+ .car-main{inset:0 14px 40px 14px;border-radius:18px}
+ .car-float-title{left:14px;bottom:22px;max-width:70%}
+ .car-float-title h3{font-size:14px;margin:7px 0 2px}
+ .car-float-title p{font-size:9px}
+ .car-dots{top:10px;right:10px}
+ .car-dots i{width:5px;height:5px}
+ .floating-card.auction-card{top:2px;left:0}
+ .floating-card.route-card{right:0;bottom:-4px}
+ .floating-badge{width:64px;height:64px;right:-2px;top:96px;font-size:9px}
+ .hero-visual>.hero-orb{left:-8px;bottom:-16px}
+ .hero-orb .iglobe{width:80px}
+ .hero-orb.in-page{right:10px;top:10px}
+ .hero-orb.in-page .iglobe{width:74px}
+ .hero-orb.account-orb{right:14px;top:14px}
+ .hero-orb.account-orb .iglobe{width:76px}
+ .page-orb-wrap,.studio-orb{display:none}
+ .detail-orb{right:8px;top:8px}
+ .detail-orb .iglobe{width:66px}
+}
