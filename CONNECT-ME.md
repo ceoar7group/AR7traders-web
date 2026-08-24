@@ -55,9 +55,10 @@ part that creates the permanent link is Step 2, where you pick
 
 Two things in that step decide whether the automatic updates work:
 
-1. **Set the branch to `arena/01a0334a-ar7traders-web`.** This is where all my
-   work is. If you leave it on `main`, you will deploy an old version of the
-   site and none of my future changes will show up.
+1. **Merge <https://github.com/ceoar7group/AR7traders-web/pull/1> first.**
+   Vercel deploys whichever branch your repo calls the default (`main`) and
+   offers no branch picker when importing, so `main` must be current before
+   you import. The merge is a clean fast-forward — nothing is lost.
 
 2. **Add all seven environment variables before pressing Deploy.** If the two
    starting with `VITE_` are missing, the site still deploys and looks

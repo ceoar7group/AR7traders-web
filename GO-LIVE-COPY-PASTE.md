@@ -40,14 +40,12 @@ It is safe to run twice — it has been tested for that. You should see
 
 ## Step 2 — Deploy (Vercel)
 
-1. Go to **vercel.com/new** → **Import Git Repository** → pick
+1. **First merge <https://github.com/ceoar7group/AR7traders-web/pull/1>.**
+   Vercel deploys your repository's default branch (`main`) and gives you no
+   branch picker on the import screen, so `main` has to be up to date first.
+   The merge is a clean fast-forward — nothing is lost.
+2. Go to **vercel.com/new** → **Import Git Repository** → pick
    `ceoar7group/AR7traders-web`.
-2. On the import screen set **Branch** to:
-
-```
-arena/01a0334a-ar7traders-web
-```
-
 3. Framework preset **Vite**. Build command and output directory are already
    correct from `vercel.json` — leave them.
 4. Expand **Environment Variables** and add these seven. Paste the *name* on the
