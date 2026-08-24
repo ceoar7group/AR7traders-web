@@ -219,3 +219,39 @@
   .portal-live-note{padding:16px}
   .portal-live-note button{width:100%;justify-content:center}
 }
+/* --- Signed-in: edit profile / change password -------------------- */
+.ma-panel{margin-top:22px;background:#fff;border:1px solid #dce5df;border-radius:18px;
+  padding:24px;box-shadow:0 14px 38px rgba(7,59,37,.08)}
+.ma-panel>header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
+.ma-panel .kicker{font-size:10px;letter-spacing:1.6px;font-weight:800;color:#c5a059}
+.ma-panel h2{font-size:26px;letter-spacing:-.8px;margin:5px 0 6px}
+.ma-panel>header p{margin:0;color:#6d7d74;font-size:13px;max-width:46ch}
+.ma-panel-x{flex:0 0 auto;width:36px;height:36px;border:1px solid #dce5df;border-radius:10px;
+  background:#f5f8f6;display:grid;place-items:center;cursor:pointer;transition:.16s ease}
+.ma-panel-x:hover{background:#e9efeb}
+.ma-panel-x:focus-visible{outline:2px solid #0b5c3a;outline-offset:2px}
+.ma-panel-x svg{width:16px;height:16px}
+.ma-panel form{display:grid;gap:14px;margin-top:20px}
+.ma-panel label{display:grid;gap:6px;font-size:10px;font-weight:800;letter-spacing:.9px;
+  color:#6d7d74;text-transform:uppercase}
+.ma-panel input,.ma-panel select{height:46px;border:1px solid #dce5df;border-radius:10px;
+  padding:0 12px;background:#f5f8f6;color:#13251b;font:inherit;font-size:14px;
+  text-transform:none;letter-spacing:0;font-weight:500}
+.ma-panel input:disabled{color:#8b9a92;cursor:not-allowed}
+.ma-panel input:focus,.ma-panel select:focus{outline:0;border-color:#0b5c3a;
+  box-shadow:0 0 0 3px rgba(11,92,58,.14);background:#fff}
+.ma-panel .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ma-panel footer{display:flex;justify-content:flex-end;gap:9px;margin-top:6px;flex-wrap:wrap}
+.ma-panel footer .primary,.ma-panel footer .outline-btn{cursor:pointer}
+.ma-panel .demo-note{display:flex;align-items:center;gap:7px;font-size:11px;color:#6d7d74;
+  text-transform:none;letter-spacing:0;font-weight:500}
+.ma-panel .demo-note svg{width:14px;height:14px;flex:0 0 auto}
+.ma-saved{display:flex;align-items:center;gap:9px;margin-top:20px;background:#dff1e7;
+  color:#1d6b41;border:1px solid #b9ddc7;border-radius:11px;padding:13px 15px;
+  font-size:14px;font-weight:700}
+.ma-saved svg{width:17px;height:17px}
+@media(max-width:640px){
+  .ma-panel{padding:18px}
+  .ma-panel .form-row{grid-template-columns:1fr}
+  .ma-panel footer button{flex:1;justify-content:center}
+}
