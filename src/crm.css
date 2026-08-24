@@ -176,3 +176,4 @@
 .crm-payroll .crm-hint{margin-top:12px}
 @media(max-width:900px){.crm-perf{grid-template-columns:1fr}.perf-stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.crm-shell .crm-editor-fields.two{grid-template-columns:1fr}.payroll-total{margin-left:0}}
+.crm-login{--crm:#063f29;--crm2:#0b5c3a;--gold:#d69a32;--line:#dce5df;--ink:#13251b;--muted:#718079}
