@@ -2,6 +2,11 @@
 
 Everything is built and pushed. Three steps, about 10 minutes.
 
+> Wondering how this connects your assistant to Vercel and Supabase, or why it
+> can't be done for you? See **`CONNECT-ME.md`** — the short version is that
+> Step 2 below creates a permanent link, and after that every change is
+> published automatically without you doing anything.
+
 You only ever paste values **into Supabase and Vercel's own websites**.
 Never paste a key back into the chat — anything pasted into a chat should be
 treated as compromised and rotated.
