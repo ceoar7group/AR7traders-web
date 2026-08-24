@@ -97,7 +97,7 @@ async function call(path,token,options={}){
 }
 
 export default function CrmApp(){
- const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[loading,setLoading]=useState(true),[tab,setTab]=useState('dashboard'),[rows,setRows]=useState({}),[query,setQuery]=useState(''),[editor,setEditor]=useState(null),[notice,setNotice]=useState(''),[mobile,setMobile]=useState(false),[perms,setPerms]=useState([]),[openCustomer,setOpenCustomer]=useState(null);
+ const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[loading,setLoading]=useState(true),[tab,setTab]=useState('dashboard'),[rows,setRows]=useState({}),[query,setQuery]=useState(''),[who,setWho]=useState(null),[editor,setEditor]=useState(null),[notice,setNotice]=useState(''),[mobile,setMobile]=useState(false),[perms,setPerms]=useState([]),[openCustomer,setOpenCustomer]=useState(null);
  useEffect(()=>{
   if(DEMO){setSession({access_token:'demo',user:{email:'admin@ar7traders.com'}});setProfile({full_name:'Demo Administrator',role:'admin'});setLoading(false);return}
   if(!supabase){setLoading(false);return}
@@ -133,12 +133,12 @@ export default function CrmApp(){
  const heading=tab==='dashboard'?'Good day, '+(profile?.full_name?.split(' ')[0]||'Team'):(SPECIAL[tab]||current?.title||'');
  const data=rows[tab]||[];const filtered=data.filter(x=>JSON.stringify(x).toLowerCase().includes(query.toLowerCase()));
  return <div className="crm-shell">
-  <aside className={'crm-side '+(mobile?'open':'')}><div className="crm-brand"><img src="/assets/ar7-mark.png"/><div><b>AR7 CRM</b><small>COMMAND CENTER</small></div><button onClick={()=>setMobile(false)}><X/></button></div><nav>{tabs.map(([id,label,I])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setMobile(false);setQuery('')}}><I/><span>{label}</span>{id==='leads'&&<em>{(rows.leads||[]).filter(x=>x.status==='new').length}</em>}</button>)}</nav><div className="crm-user"><span>{(profile?.full_name||session.user?.email||'AR7').slice(0,2).toUpperCase()}</span><div><b>{profile?.full_name||session.user?.email}</b><small>{pretty(profile?.role||'admin')}</small></div><button onClick={signOut} title="Sign out"><LogOut/></button></div></aside>
+  <aside className={'crm-side '+(mobile?'open':'')}><div className="crm-brand"><img src="/assets/ar7-mark.png"/><div><b>AR7 CRM</b><small>COMMAND CENTER</small></div><button onClick={()=>setMobile(false)}><X/></button></div><nav>{tabs.map(([id,label,I])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setMobile(false);setQuery('')}}><I/><span>{label}</span>{id==='leads'&&<em>{(rows.leads||[]).filter(x=>x.status==='new').length}</em>}</button>)}</nav><div className="crm-user"><button className="crm-user-open" onClick={()=>setWho({self:true})} title="Edit your profile"><span>{(profile?.full_name||session.user?.email||'AR7').slice(0,2).toUpperCase()}</span><div><b>{profile?.full_name||session.user?.email}</b><small>{pretty(profile?.role||'admin')}</small></div><UserCog size={15}/></button><button className="crm-user-out" onClick={signOut} title="Sign out" aria-label="Sign out"><LogOut/></button></div></aside>
   {mobile&&<div className="crm-side-shade" onClick={()=>setMobile(false)}/>}<main className="crm-main"><header className="crm-top"><button className="crm-menu" onClick={()=>setMobile(true)}><Menu/></button><div><small>AR7 TRADERS / {tab.toUpperCase()}</small><h1>{heading}</h1></div><div className="crm-live"><i/> LIVE OPERATIONS</div><a className="crm-site" href="#home">View website <ChevronRight/></a></header>
   {notice&&<div className="crm-notice" onClick={()=>setNotice('')}>{notice}<X/></div>}
   {tab==='dashboard'?<Dashboard rows={rows} setTab={setTab}/>
    :tab==='activities'?<ActivityView rows={rows.activities||[]}/>
-   :tab==='team'?<TeamView token={session.access_token} profile={profile} perms={perms} setPerms={setPerms} notify={setNotice}/>
+   :tab==='team'?<TeamView token={session.access_token} profile={profile} perms={perms} setPerms={setPerms} notify={setNotice} onEdit={m=>setWho({member:m})}/>
    :tab==='approvals'?<ApprovalsView token={session.access_token} profile={profile} perms={perms} notify={setNotice} onChange={loadAll}/>
    :tab==='people'?<PeopleView token={session.access_token} profile={profile} perms={perms} notify={setNotice}/>
    :tab==='settings'?<SettingsView token={session.access_token} profile={profile} perms={perms} notify={setNotice}/>
@@ -146,7 +146,7 @@ export default function CrmApp(){
        ? <CustomerAccount token={session.access_token} profile={profile} perms={perms} customerId={openCustomer} onBack={()=>setOpenCustomer(null)} notify={setNotice} listings={rows.listings||[]}/>
        : <AccountsList customers={rows.customers||[]} onOpen={setOpenCustomer}/>)
    :<><div className="crm-page-head"><div><p>{current.subtitle}</p></div><div className="crm-tools"><label><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={'Search '+tab}/></label><button onClick={loadAll}><RefreshCw/></button><button className="crm-add" onClick={()=>setEditor({entity:tab,data:{}})}><Plus/> Add {tab.slice(0,-1)}</button></div></div><EntityView entity={tab} rows={filtered} onEdit={data=>setEditor({entity:tab,data})} onDelete={canDelete?row=>remove(tab,row):null}/></>}
-  </main>{editor&&<Editor entity={editor.entity} data={editor.data} onClose={()=>setEditor(null)} onSave={x=>save(editor.entity,x)} onDelete={canDelete&&editor.data?.id?()=>remove(editor.entity,editor.data):null}/>}</div>
+  </main>{who&&<ProfileModal who={who} token={session.access_token} profile={profile} perms={perms} notify={setNotice} onClose={()=>setWho(null)} onChanged={loadAll}/>}{editor&&<Editor entity={editor.entity} data={editor.data} onClose={()=>setEditor(null)} onSave={x=>save(editor.entity,x)} onDelete={canDelete&&editor.data?.id?()=>remove(editor.entity,editor.data):null}/>}</div>
 }
 
 function CrmLogin(){const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setError('');const {error}=await supabase.auth.signInWithPassword({email,password});if(error)setError(error.message);setBusy(false)}return <div className="crm-login"><div className="crm-login-visual"><img src="/assets/ar7-logo.png"/><div><small>AR7 OPERATIONS</small><h1>Every lead.<br/>Every vehicle.<br/><em>One command center.</em></h1><p>Secure sales and export operations for the AR7 team.</p></div></div><form onSubmit={submit}><div className="crm-login-mark"><ShieldCheck/><span>AUTHORIZED TEAM ACCESS</span></div><h2>Welcome back.</h2><p>Sign in with your AR7 staff account.</p>{error&&<div className="crm-error">{error}</div>}<label>EMAIL<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>PASSWORD<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label><button disabled={busy}>{busy?'Signing in…':'Sign in securely'} <ChevronRight/></button><small>Protected by Supabase Auth · Admin and Sales roles</small></form></div>}
@@ -155,7 +155,9 @@ function CrmSetup(){return <div className="crm-setup"><Database/><span>SUPABASE 
 function Dashboard({rows,setTab}){const leads=rows.leads||[],quotes=rows.quotes||[],shipments=rows.shipments||[],tasks=rows.tasks||[];const pipeline=leads.reduce((a,x)=>a+(Number(x.budget)||0),0),won=quotes.filter(x=>x.status==='accepted').reduce((a,x)=>a+(Number(x.amount)||0),0);return <div className="crm-dashboard"><div className="crm-kpis">{[[Users,'Active leads',leads.length,'+12% this month'],[DollarSign,'Pipeline value',money(pipeline),'Across all open leads'],[TrendingUp,'Accepted quotes',money(won),quotes.filter(x=>x.status==='accepted').length+' converted'],[Ship,'Vehicles in transit',shipments.length,'Across '+new Set(shipments.map(x=>x.destination)).size+' destinations']].map(([I,l,v,s])=><article key={l}><i><I/></i><span>{l}</span><b>{v}</b><small>{s}</small></article>)}</div><div className="crm-dash-grid"><section className="crm-panel crm-pipeline"><div className="crm-panel-head"><div><small>SALES PIPELINE</small><h3>Lead stages</h3></div><button onClick={()=>setTab('leads')}>View all <ChevronRight/></button></div><div className="pipeline-bars">{['new','qualified','proposal','negotiation'].map(status=>{const list=leads.filter(x=>x.status===status);return <div key={status}><span><b>{pretty(status)}</b><em>{list.length}</em></span><i><u style={{width:Math.max(8,list.length/Math.max(1,leads.length)*100)+'%'}}/></i><small>{money(list.reduce((a,x)=>a+(Number(x.budget)||0),0))}</small></div>})}</div></section><section className="crm-panel"><div className="crm-panel-head"><div><small>FOLLOW UPS</small><h3>Today & upcoming</h3></div><button onClick={()=>setTab('tasks')}>Tasks <ChevronRight/></button></div><div className="crm-task-list">{tasks.slice(0,5).map(x=><div key={x.id}><i className={x.priority}/><span><b>{x.title}</b><small><Clock3/> {date(x.due_date)} · {x.owner}</small></span><em className={'crm-status '+x.status}>{pretty(x.status)}</em></div>)}</div></section><section className="crm-panel crm-span"><div className="crm-panel-head"><div><small>LIVE SHIPMENTS</small><h3>Vehicles in motion</h3></div><button onClick={()=>setTab('shipments')}>Operations <ChevronRight/></button></div><div className="crm-shipment-grid">{shipments.map(x=><article key={x.id}><span><b>{x.tracking_no}</b><em className={'crm-status '+x.status}>{pretty(x.status)}</em></span><h4>{x.vehicle}</h4><p>{x.origin} <i/> {x.destination}</p><div><u style={{width:x.progress+'%'}}/></div><small>{x.vessel} · ETA {date(x.eta)}</small></article>)}</div></section></div></div>}
 
 function EntityView({entity,rows,onEdit,onDelete}){if(!rows.length)return <div className="crm-empty"><Search/><h3>No records found</h3><p>Try another search or add a new record.</p></div>;if(entity==='leads')return <div className="crm-lead-grid">{rows.map(x=><article key={x.id}><div><span>{x.name.slice(0,2).toUpperCase()}</span><em className={'crm-status '+x.status}>{pretty(x.status)}</em></div><h3>{x.name}</h3><p>{x.vehicle_interest}</p><dl><div><dt>Market</dt><dd>{x.country}</dd></div><div><dt>Budget</dt><dd>{money(x.budget)}</dd></div><div><dt>Owner</dt><dd>{x.assigned_to}</dd></div><div><dt>Follow-up</dt><dd>{date(x.next_follow_up)}</dd></div></dl><footer><a href={'mailto:'+x.email}><Mail/></a><a href={'https://wa.me/'+(x.phone||'').replace(/\D/g,'')} target="_blank" rel="noreferrer"><MessageCircle/></a><button onClick={()=>onEdit(x)}>Open lead <ChevronRight/></button>{onDelete&&<button className="crm-del" title="Delete lead" onClick={()=>onDelete(x)}><Trash2/></button>}</footer></article>)}</div>;
- return <div className="crm-table-wrap"><table><thead><tr>{tableColumns(entity).map(x=><th key={x}>{pretty(x)}</th>)}<th/></tr></thead><tbody>{rows.map(row=><tr key={row.id}>{tableColumns(entity).map(k=><td key={k}>{renderCell(k,row[k])}</td>)}<td className="crm-row-actions"><button onClick={()=>onEdit(row)}>Edit</button>{onDelete&&<button className="crm-del" title="Delete record" onClick={()=>onDelete(row)}><Trash2/></button>}</td></tr>)}</tbody></table></div>}
+ return <div className="crm-table-wrap"><table><thead><tr>{tableColumns(entity).map(x=><th key={x}>{pretty(x)}</th>)}<th/></tr></thead><tbody>{rows.map(row=><tr key={row.id}>{tableColumns(entity).map(k=><td key={k}>{renderCell(k,row[k])}</td>)}    <td className="crm-row-actions">
+     <button onClick={()=>onEdit&&onEdit(m)}><UserCog size={14}/> Edit</button>
+     <button onClick={()=>setPw(m)}><KeyRound size={14}/> Password</button> className="crm-del" title="Delete record" onClick={()=>onDelete(row)}><Trash2/></button>}</td></tr>)}</tbody></table></div>}
 function tableColumns(e){return {listings:['stock_no','make','model','year','price','status','location'],routes:['country','port','transit','freight_base','duty_pct'],articles:['title','category','date','read_min'],customers:['name','country','status','total_spend','vehicles_bought'],vehicles:['stock_no','make','model','year','price','status','steering'],quotes:['quote_no','customer_name','vehicle','amount','status','valid_until'],shipments:['tracking_no','vehicle','destination','vessel','status','eta','progress'],tasks:['title','owner','priority','status','due_date']}[e]||[]}
 function renderCell(k,v){if(['price','amount','total_spend'].includes(k))return money(v);if(['valid_until','eta','due_date'].includes(k))return date(v);if(['status','priority'].includes(k))return <em className={'crm-status '+v}>{pretty(v)}</em>;if(k==='progress')return <span className="table-progress"><i style={{width:v+'%'}}/><b>{v}%</b></span>;return v??'—'}
 function ActivityView({rows}){return <div className="crm-activity"><div className="crm-page-head"><p>A complete audit trail across sales and operations.</p></div>{rows.map((x,i)=><article key={x.id}><i><Activity/></i><div><b>{x.action}</b><span>{x.actor} · {new Date(x.created_at).toLocaleString()}</span></div><em>{pretty(x.entity_type)}</em>{i<rows.length-1&&<u/>}</article>)}</div>}
@@ -173,7 +175,97 @@ function hasPerm(perms,role,permission){
 // ---------------------------------------------------------------------
 //  Team & permissions
 // ---------------------------------------------------------------------
-function TeamView({token,profile,perms,setPerms,notify}){
+function ProfileModal({who,token,profile,perms,notify,onClose,onChanged}){
+ const self=!!who.self;
+ const m=who.member||{};
+ const manage=hasPerm(perms,profile?.role,'team.manage');
+ const [busy,setBusy]=useState(false),[err,setErr]=useState(''),[ok,setOk]=useState('');
+ const [pw,setPw]=useState(''),[pw2,setPw2]=useState('');
+ const canEditOther=!self&&manage;
+ if(!self&&!canEditOther) return null;
+
+ async function saveDetails(e){
+  e.preventDefault();
+  const f=new FormData(e.currentTarget);
+  const body={full_name:f.get('full_name'),title:f.get('title'),phone:f.get('phone')};
+  setBusy(true);setErr('');
+  try{
+   if(self){
+    await call('/api/team?action=me',token,{method:'PATCH',body:JSON.stringify(body)});
+    if(supabase&&!DEMO) await supabase.auth.updateUser({data:{full_name:body.full_name}});
+   }else{
+    await call('/api/team?action=member',token,{method:'PATCH',
+      body:JSON.stringify({id:m.id,...body,role:f.get('role'),active:f.get('active')==='on'})});
+   }
+   setOk('Details saved');notify('Profile updated');onChanged&&onChanged();
+  }catch(e2){setErr(e2.message)}finally{setBusy(false)}
+ }
+
+ async function savePassword(e){
+  e.preventDefault();
+  if(pw.length<8){setErr('Password must be at least 8 characters');return}
+  if(pw!==pw2){setErr('The two passwords do not match');return}
+  setBusy(true);setErr('');
+  try{
+   if(self){
+    if(!supabase||DEMO) throw new Error('Password changes are not available in demo mode');
+    const {error}=await supabase.auth.updateUser({password:pw});
+    if(error) throw error;
+   }else{
+    await call('/api/team?action=reset-password',token,{method:'POST',
+      body:JSON.stringify({id:m.id,password:pw})});
+   }
+   setPw('');setPw2('');setOk(self?'Your password has been changed':'Password reset — pass it to them directly, never by email');
+  }catch(e2){setErr(e2.message)}finally{setBusy(false)}
+ }
+
+ const initials=(self?(profile?.full_name||'AR7'):(m.full_name||'AR7')).slice(0,2).toUpperCase();
+ const role=self?(profile?.role||'sales'):(m.role||'sales');
+
+ return <div className="crm-modal-bg" onClick={onClose}><div className="crm-editor crm-profile" onClick={e=>e.stopPropagation()}>
+  <header><div><small>{self?'YOUR PROFILE':'TEAM MEMBER'}</small>
+    <h2>{self?'My profile':(m.full_name||'Edit member')}</h2></div>
+   <button type="button" onClick={onClose} aria-label="Close"><X/></button></header>
+  <div className="crm-profile-id"><span>{initials}</span>
+   <div><b>{self?(profile?.full_name||'—'):(m.full_name||'—')}</b>
+    <small>{pretty(role)}{!self&&m.email?' · '+m.email:''}</small></div></div>
+  {ok&&<div className="crm-ok"><Check/> {ok}</div>}
+  {err&&<div className="crm-error">{err}</div>}
+  <form onSubmit={saveDetails} className="crm-profile-form">
+   <div className="crm-editor-fields two">
+    <label>Full name<input name="full_name" required minLength={2}
+      defaultValue={self?(profile?.full_name||''):(m.full_name||'')}/></label>
+    <label>Job title<input name="title" placeholder="e.g. Sales manager"
+      defaultValue={self?(profile?.title||''):(m.title||'')}/></label>
+    <label>Phone<input name="phone" placeholder="+81 90 0000 0000"
+      defaultValue={self?(profile?.phone||''):(m.phone||'')}/></label>
+    <label>Email<input value={self?'':(m.email||'')} disabled
+      title="Email is the login and can only be changed by adding a new account"/></label>
+   </div>
+   {canEditOther&&<div className="crm-editor-fields two">
+    <label>Role
+     <select name="role" defaultValue={m.role||'sales'} disabled={m.id===profile.id}>
+      {ROLE_LIST.map(r=><option key={r} value={r}>{pretty(r)}</option>)}</select></label>
+    <label className="crm-check"><input type="checkbox" name="active" defaultChecked={m.active!==false}
+      disabled={m.id===profile.id}/> Account is active</label>
+   </div>}
+   <footer><button type="button" className="crm-ghost" onClick={onClose}>Cancel</button>
+    <button className="save" disabled={busy}>{busy?'Saving…':<><Save/> Save details</>}</button></footer>
+  </form>
+  <form onSubmit={savePassword} className="crm-profile-form crm-profile-pw">
+   <div className="crm-profile-pw-head"><KeyRound size={16}/>
+    <b>{self?'Change my password':'Reset their password'}</b></div>
+   <div className="crm-editor-fields two">
+    <label>New password<input type="password" minLength={8} autoComplete="new-password"
+      value={pw} onChange={e=>setPw(e.target.value)} placeholder="At least 8 characters"/></label>
+    <label>Confirm password<input type="password" minLength={8} autoComplete="new-password"
+      value={pw2} onChange={e=>setPw2(e.target.value)}/></label>
+   </div>
+   <footer><button className="save" disabled={busy}>{busy?'Saving…':'Update password'}</button></footer>
+  </form>
+ </div></div>;
+}  
+function TeamView({token,profile,perms,setPerms,notify,onEdit}){
  const [members,setMembers]=useState([]),[busy,setBusy]=useState(false),[adding,setAdding]=useState(false),[pw,setPw]=useState(null);
  const manage=hasPerm(perms,profile?.role,'team.manage');
  async function load(){try{setMembers(await call('/api/team?action=members',token))}catch(e){notify(e.message)}}
