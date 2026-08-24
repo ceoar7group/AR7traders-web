@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState, useReducer} from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, UserPlus, CarFront, Eye, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Wrench, Landmark } from 'lucide-react';
 import './styles.css';
@@ -79,6 +79,29 @@ const CHASSIS={'Toyota':'6AA-TXUA85','Nissan':'6AA-SNE12','Honda':'6AA-RV5','Lex
 const DOORS={'SUV':5,'MPV':5,'Hatchback':5,'Sedan':4,'Van':4,'Kei':5};
 const FEATPOOL=['Power steering','Air conditioner','Airbag','ABS','Navigation','Alloy wheels','Keyless entry','Backup camera','Cruise control','LED headlights','Roof rails','Rear spoiler','Massage seats','Bespoke Nappa leather','Carbon ceramic brakes','Launch control','Burmester sound','Panoramic roof','Rear entertainment','Air suspension','Night vision','Alcantara interior','21-inch alloys','Quad exhaust','Adaptive aerodynamics','Track telemetry'];
 cars.forEach((c,i)=>{c.doors=DOORS[c.body]||4;c.chassis=(CHASSIS[c.make]||'6AA-0000')+'-'+(1200+i*7);c.int=c.id===11?'Black Fine Nappa Leather':c.id===12?'Toasted Caramel':['Gray','Black','Beige'][i%3];c.ven=['USS Tokyo','TAA Kinki','JU Aichi','CAA Chubu','HAA Kobe'][i%5];c.arr=new Date(2026,7,1+((i*3)%28)).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});c.feats=FEATPOOL.filter((f,k)=>((i*31+k*13)%11)<6).slice(0,6).concat(['New battery','Service records'])});
+// ---------------------------------------------------------------------------
+// Live content hydration.
+// The arrays above remain the built-in fallback so the site NEVER renders blank
+// if the API is unreachable. When /api/site-content returns published rows the
+// CRM has authored, we merge them into `cars` in place (same array identity,
+// so every module-scope derivation above stays valid), then notify React.
+// ---------------------------------------------------------------------------
+const enrichCar=(c,i)=>{c.doors=DOORS[c.body]||4;c.chassis=(CHASSIS[c.make]||'6AA-0000')+'-'+(1200+i*7);c.int=c.int||['Gray','Black','Beige'][i%3];c.ven=c.ven||['USS Tokyo','TAA Kinki','JU Aichi','CAA Chubu','HAA Kobe'][i%5];c.arr=c.arr||new Date(2026,7,1+((i*3)%28)).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});c.feats=c.feats||FEATPOOL.filter((f,k)=>((i*31+k*13)%11)<6).slice(0,6).concat(['New battery','Service records']);return c};
+const contentListeners=new Set();
+export const onContentChange=fn=>{contentListeners.add(fn);return()=>contentListeners.delete(fn)};
+async function hydrateSiteContent(){
+ try{
+  const res=await fetch('/api/site-content?entity=listings');
+  if(!res.ok)return;
+  const rows=await res.json();
+  if(!Array.isArray(rows)||!rows.length)return;
+  const mapped=rows.map((r,i)=>enrichCar({...r,id:Number(r.sort_order)||i+1,image:r.image||'/assets/ar7-mark.png'},i));
+  cars.length=0;cars.push(...mapped);
+  contentListeners.forEach(fn=>{try{fn()}catch{}});
+ }catch{/* offline or not provisioned yet — keep built-in content */}
+}
+if(typeof window!=='undefined')hydrateSiteContent();
+
 const VEHICLE_GALLERIES={
  11:[1,2,3,4,5].map(n=>`/assets/gallery/audi-r8-v10-${String(n).padStart(2,'0')}.webp`),
  12:[1,2,3,4,5].map(n=>`/assets/gallery/lexus-lc-500-${String(n).padStart(2,'0')}.jpg`)
@@ -305,8 +328,10 @@ function WorldTimeRibbon(){
 }
 
 function App(){
+ const [,forceContent]=useReducer(x=>x+1,0);
  const [dark,setDark]=useState(false), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState([]), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(()=>location.hash.slice(1)||'home');
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; },[dark]);
+ useEffect(()=>onContentChange(forceContent),[]);
  useEffect(()=>{let t=0;const fn=()=>{cancelAnimationFrame(t);t=requestAnimationFrame(()=>document.documentElement.style.setProperty('--scroll',window.scrollY+'px'))};window.addEventListener('scroll',fn,{passive:true});return()=>{removeEventListener('scroll',fn);cancelAnimationFrame(t)}},[]);
  useEffect(()=>{const fn=()=>setPage(location.hash.slice(1)||'home');addEventListener('hashchange',fn);return()=>removeEventListener('hashchange',fn)},[]);
  const shown=(filter==='All'?cars:cars.filter(c=>c.status===filter)).slice(0,6);
