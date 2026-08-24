@@ -1,4 +1,5 @@
 import {requireUser,send} from './_supabase.js';
+import {can,log} from './_perm.js';
 
 const entities={leads:'leads',customers:'customers',vehicles:'vehicles',quotes:'quotes',shipments:'shipments',tasks:'tasks',activities:'activities'};
 const allowed={
@@ -27,7 +28,25 @@ export default async function handler(req,res){
    const id=req.body?.id;if(!id)return send(res,400,{error:'Record id is required'});const payload={...clean(entity,req.body),updated_at:new Date().toISOString()};const {data,error}=await db.from(entities[entity]).update(payload).eq('id',id).select().single();if(error)throw error;await db.from('activities').insert({action:`Updated ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:id,created_by:user.id});return send(res,200,data)
   }
   if(req.method==='DELETE'){
-   if(profile.role!=='admin')return send(res,403,{error:'Only administrators can delete records'});const id=req.query.id;if(!id)return send(res,400,{error:'Record id is required'});const {error}=await db.from(entities[entity]).delete().eq('id',id);if(error)throw error;return send(res,200,{ok:true})
+   const id=req.query.id;if(!id)return send(res,400,{error:'Record id is required'});
+   const {data:row}=await db.from(entities[entity]).select('*').eq('id',id).single();
+   const label=row?.name||row?.title||row?.stock_no||row?.quote_no||row?.tracking_no||entity;
+   // Staff without direct-delete rights raise an approval request instead
+   // of being refused outright, so the work still moves.
+   if(!(await can(profile,'delete.direct'))){
+    const {data:ar,error:aErr}=await db.from('approval_requests').insert({
+      kind:'delete',entity_type:entity,entity_id:id,entity_label:label,
+      reason:req.query.reason||null,requested_by:user.id,
+      requested_by_name:profile.full_name||profile.email
+    }).select().single();
+    if(aErr)throw aErr;
+    await log(db,profile,`Requested approval to delete ${label}`,entity,id);
+    return send(res,202,{pending:true,approval_id:ar.id,
+      message:'Sent to an administrator for approval.'})
+   }
+   const {error}=await db.from(entities[entity]).delete().eq('id',id);if(error)throw error;
+   await log(db,profile,`Deleted ${label}`,entity,id);
+   return send(res,200,{ok:true})
   }
   return send(res,405,{error:'Method not allowed'})
  }catch(e){console.error(e);return send(res,e.status||500,{error:e.message||'CRM request failed'})}

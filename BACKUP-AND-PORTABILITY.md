@@ -23,7 +23,7 @@ Everything is pushed to GitHub:
 
 - **Repo:** `github.com/ceoar7group/AR7traders-web`
 - **Branch:** `arena/01a0334a-ar7traders-web`
-- 101 files including all 68 images
+- 101 files including all 68 images, the CRM, and the database setup script
 
 To download a copy to your own computer at any time:
 
@@ -70,7 +70,9 @@ Every host needs the same three things:
 
 - **Build command:** `npm run build`
 - **Output directory:** `dist`
-- **The 3 environment variables** from `.env.example`
+- **The environment variables** from `.env.example` — three required
+  (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`)
+  plus `SITE_URL`, which is only used to build password-reset links
 
 | Host | Notes |
 |---|---|
@@ -79,7 +81,7 @@ Every host needs the same three things:
 | **Cloudflare Pages** | Works. `/api` becomes Pages Functions. |
 | **Any static host** | The website works. The CRM needs the `/api` functions hosted somewhere. |
 
-The one migration cost is the **`/api` folder** — four small files written in
+The one migration cost is the **`/api` folder** — ten small files written in
 Vercel's function format. Any other host needs them adapted. It's a small job;
 ask me when you need it.
 
@@ -94,10 +96,15 @@ If everything vanished tomorrow, this is the full recovery:
 
 1. Clone the repo from GitHub (section 1)
 2. Create a new Supabase project
-3. Run **`supabase/SETUP-EVERYTHING.sql`** in its SQL Editor — rebuilds all 12
-   tables and reloads the 42 cars, 6 routes and 4 articles
-4. Restore your database backup on top, to bring back leads and customers
-5. Deploy the code, set the 3 environment variables
+3. Run **`supabase/SETUP-EVERYTHING.sql`** in its SQL Editor — rebuilds every
+   table (website content, CRM, team permissions, activity log, approvals,
+   customer orders, payments and settings) and reloads the 42 cars, 6 routes
+   and 4 articles
+4. Restore your database backup on top, to bring back leads, customers and
+   their payment history
+5. Deploy the code and set the environment variables
+6. Sign up on the deployed site with your own email — the first account created
+   becomes the administrator automatically
 
 Steps 1–3 get your public website back exactly as it is now. Step 4 is the only
 part that depends on you having taken backups — which is why section 2 matters.
@@ -129,6 +136,22 @@ Your build is reproducible.
 | Get the code | Clone from GitHub, or Download ZIP |
 | Back up the data | Supabase → Database → Backups → Download |
 | Put changes live | Open a PR from the branch into `main`, merge |
-| Move hosts | `npm run build` → `dist`, plus the 3 env vars |
+| Move hosts | `npm run build` → `dist`, plus the env vars |
 | Start over | Clone repo, run `SETUP-EVERYTHING.sql`, restore backup |
 | Run locally | `npm install` then `npm run dev` |
+
+---
+
+## 6. What the latest update added
+
+The CRM now covers staff permissions, an activity log, approvals for deletions,
+customer orders, multi-payment ledgers with unapplied funds, editable website
+contact details, and website SEO. `WHATS-NEW.md` walks through all of it in
+plain language.
+
+Two things to know for backup purposes:
+
+- **Re-run `supabase/SETUP-EVERYTHING.sql`** after pulling this update. It adds
+  the new tables. Running it again on an existing database is safe and changes
+  nothing that is already correct.
+- **Add `SITE_URL`** to your host's environment variables.

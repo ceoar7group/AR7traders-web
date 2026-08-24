@@ -242,6 +242,232 @@ set role='admin', active=true
 from auth.users u
 where p.id = u.id and lower(u.email) = lower('ceoar7grouplimited@gmail.com');
 
+
+-- =====================================================================
+--  PART 2 — TEAM PERMISSIONS, APPROVALS, CUSTOMER ORDERS & LEDGER
+-- =====================================================================
+
+-- ---- Roles -----------------------------------------------------------
+-- The role column was an enum, which cannot have values added safely
+-- inside a script. Converted to text + check constraint so new roles can
+-- be added later without a migration.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='profiles'
+               and column_name='role' and udt_name='crm_role') then
+    alter table public.profiles alter column role drop default;
+    alter table public.profiles alter column role type text using role::text;
+    alter table public.profiles alter column role set default 'sales';
+  end if;
+end $$;
+
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check
+  check (role in ('admin','manager','sales','accounts','viewer'));
+
+alter table public.profiles add column if not exists email text;
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists title text;
+
+-- Keep profiles.email in step with the auth record (handy for the team list).
+update public.profiles p set email = u.email
+from auth.users u where u.id = p.id and p.email is distinct from u.email;
+
+-- ---- Permission matrix ----------------------------------------------
+-- Editable from the CRM, so permissions can change without a code deploy.
+create table if not exists public.role_permissions (
+  role text not null,
+  permission text not null,
+  allowed boolean not null default false,
+  primary key (role, permission)
+);
+
+insert into public.role_permissions (role,permission,allowed) values
+  ('admin','leads.write',true),('admin','customers.write',true),('admin','vehicles.write',true),
+  ('admin','orders.write',true),('admin','payments.write',true),('admin','site.write',true),
+  ('admin','team.manage',true),('admin','approvals.decide',true),('admin','delete.direct',true),
+  ('admin','customer.login_as',true),('admin','settings.write',true),
+  ('manager','leads.write',true),('manager','customers.write',true),('manager','vehicles.write',true),
+  ('manager','orders.write',true),('manager','payments.write',false),('manager','site.write',true),
+  ('manager','team.manage',false),('manager','approvals.decide',true),('manager','delete.direct',false),
+  ('manager','customer.login_as',true),('manager','settings.write',false),
+  ('sales','leads.write',true),('sales','customers.write',true),('sales','vehicles.write',false),
+  ('sales','orders.write',true),('sales','payments.write',false),('sales','site.write',false),
+  ('sales','team.manage',false),('sales','approvals.decide',false),('sales','delete.direct',false),
+  ('sales','customer.login_as',false),('sales','settings.write',false),
+  ('accounts','leads.write',false),('accounts','customers.write',true),('accounts','vehicles.write',false),
+  ('accounts','orders.write',true),('accounts','payments.write',true),('accounts','site.write',false),
+  ('accounts','team.manage',false),('accounts','approvals.decide',false),('accounts','delete.direct',false),
+  ('accounts','customer.login_as',false),('accounts','settings.write',false),
+  ('viewer','leads.write',false),('viewer','customers.write',false),('viewer','vehicles.write',false),
+  ('viewer','orders.write',false),('viewer','payments.write',false),('viewer','site.write',false),
+  ('viewer','team.manage',false),('viewer','approvals.decide',false),('viewer','delete.direct',false),
+  ('viewer','customer.login_as',false),('viewer','settings.write',false)
+on conflict (role,permission) do nothing;
+
+-- ---- Approvals -------------------------------------------------------
+create table if not exists public.approval_requests (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null,                       -- delete | price_change | refund | other
+  entity_type text not null,
+  entity_id uuid,
+  entity_label text,
+  payload jsonb not null default '{}'::jsonb,
+  reason text,
+  status text not null default 'pending' check (status in ('pending','approved','rejected','applied')),
+  requested_by uuid references auth.users(id),
+  requested_by_name text,
+  decided_by uuid references auth.users(id),
+  decided_by_name text,
+  decision_note text,
+  decided_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists approvals_status_idx on public.approval_requests(status, created_at desc);
+
+-- ---- Customer portal accounts ---------------------------------------
+alter table public.customers add column if not exists auth_user_id uuid references auth.users(id);
+alter table public.customers add column if not exists portal_enabled boolean not null default false;
+alter table public.customers add column if not exists credit_balance numeric(14,2) not null default 0;
+create unique index if not exists customers_auth_user_idx on public.customers(auth_user_id) where auth_user_id is not null;
+
+-- A customer signing up must NOT become a staff member. The original
+-- trigger gave every new auth user a staff profile; now it skips anyone
+-- flagged as a customer account.
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path=public as $$
+begin
+  if coalesce(new.raw_user_meta_data->>'account_type','staff') = 'customer' then
+    return new;
+  end if;
+  insert into public.profiles(id,full_name,role,email)
+  values(new.id,
+         coalesce(new.raw_user_meta_data->>'full_name',split_part(new.email,'@',1)),
+         'sales', new.email)
+  on conflict (id) do nothing;
+  return new;
+end $$;
+
+-- ---- Orders ----------------------------------------------------------
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  order_no text unique not null,
+  customer_id uuid references public.customers(id) on delete cascade,
+  source text not null default 'manual' check (source in ('manual','website')),
+  listing_id uuid references public.site_listings(id),
+  make text, model text, year int, stock_no text,
+  vehicle text not null,
+  amount numeric(14,2) not null default 0,
+  currency text not null default 'USD',
+  status text not null default 'pending'
+    check (status in ('pending','confirmed','paid','shipped','delivered','cancelled')),
+  notes text,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists orders_customer_idx on public.orders(customer_id, created_at desc);
+
+create or replace function public.ar7_next_order_no() returns text
+language plpgsql as $$
+declare n int;
+begin
+  select coalesce(max(substring(order_no from 'AR7-O-([0-9]+)')::int),1000)+1
+    into n from public.orders where order_no ~ '^AR7-O-[0-9]+$';
+  return 'AR7-O-'||n;
+end $$;
+
+-- ---- Payments and the ledger ----------------------------------------
+-- A payment is money received (a TT, cash, card). It is NOT tied to an
+-- order at the moment it arrives - it sits as unapplied credit until
+-- somebody chooses which order(s) to put it against.
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references public.customers(id) on delete cascade,
+  amount numeric(14,2) not null check (amount > 0),
+  currency text not null default 'USD',
+  method text not null default 'TT' check (method in ('TT','Cash','Card','Cheque','Other')),
+  tt_number text,
+  bank text,
+  received_at date not null default current_date,
+  note text,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+create index if not exists payments_customer_idx on public.payments(customer_id, received_at desc);
+
+create table if not exists public.payment_allocations (
+  id uuid primary key default gen_random_uuid(),
+  payment_id uuid not null references public.payments(id) on delete cascade,
+  order_id uuid not null references public.orders(id) on delete cascade,
+  amount numeric(14,2) not null check (amount > 0),
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+create index if not exists alloc_payment_idx on public.payment_allocations(payment_id);
+create index if not exists alloc_order_idx on public.payment_allocations(order_id);
+
+-- Guard rail: you can never allocate more than the payment is worth.
+create or replace function public.ar7_check_allocation() returns trigger
+language plpgsql as $$
+declare paid numeric; used numeric;
+begin
+  select amount into paid from public.payments where id = new.payment_id;
+  select coalesce(sum(amount),0) into used from public.payment_allocations
+    where payment_id = new.payment_id and id <> coalesce(new.id,'00000000-0000-0000-0000-000000000000'::uuid);
+  if used + new.amount > paid + 0.005 then
+    raise exception 'Allocation exceeds payment: payment is %, already applied %, tried to add %',
+      paid, used, new.amount;
+  end if;
+  return new;
+end $$;
+drop trigger if exists ar7_check_allocation_trg on public.payment_allocations;
+create trigger ar7_check_allocation_trg before insert or update on public.payment_allocations
+  for each row execute function public.ar7_check_allocation();
+
+-- Convenience views used by the CRM ledger screen.
+create or replace view public.payment_balances as
+select p.*, coalesce(a.applied,0) as applied,
+       p.amount - coalesce(a.applied,0) as unapplied
+from public.payments p
+left join (select payment_id, sum(amount) applied from public.payment_allocations group by 1) a
+  on a.payment_id = p.id;
+
+create or replace view public.order_balances as
+select o.*, coalesce(a.paid,0) as paid,
+       o.amount - coalesce(a.paid,0) as balance_due
+from public.orders o
+left join (select order_id, sum(amount) paid from public.payment_allocations group by 1) a
+  on a.order_id = o.id;
+
+-- ---- Editable website settings --------------------------------------
+create table if not exists public.site_settings (
+  key text primary key,
+  value text,
+  label text,
+  updated_at timestamptz not null default now()
+);
+insert into public.site_settings (key,value,label) values
+  ('contact_email','info@ar7traders.com','Public contact email'),
+  ('contact_phone','+81 80 0000 7007','Public phone number'),
+  ('contact_address','Tokyo, Japan','Public address'),
+  ('whatsapp_number','+818000007007','WhatsApp button number'),
+  ('whatsapp_message','Hello AR7 Traders, I am interested in importing a vehicle.','WhatsApp pre-filled message'),
+  ('enquiry_inbox','info@ar7traders.com','Where website enquiries are sent')
+on conflict (key) do nothing;
+
+-- ---- Security --------------------------------------------------------
+alter table public.role_permissions   enable row level security;
+alter table public.approval_requests  enable row level security;
+alter table public.orders             enable row level security;
+alter table public.payments           enable row level security;
+alter table public.payment_allocations enable row level security;
+alter table public.site_settings      enable row level security;
+-- No policies on purpose: every read and write goes through the server
+-- functions using the service role, which check permissions first.
+
+
 -- Show the result
 select u.email, p.role, p.active
 from public.profiles p join auth.users u on u.id = p.id;

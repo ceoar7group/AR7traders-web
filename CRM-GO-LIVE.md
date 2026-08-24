@@ -59,13 +59,22 @@ from demo data to your real database. (See "Keeping the demo" below.)
 1. Deploy, then visit `https://yourdomain.com/#crm`
 2. Supabase → **Authentication → Users → Add user**
 3. Enter your email, set a password, tick **Auto Confirm User**
-4. New accounts default to the `sales` role. Promote yourself in the SQL Editor:
+4. The **first** account ever created becomes an administrator automatically —
+   if this is your first sign-in there is nothing more to do.
+
+   To promote somebody later, run this in the SQL Editor. The email lives on
+   `auth.users`, not on `profiles`, so the two have to be joined:
 
 ```sql
-update public.profiles
+update public.profiles p
 set role = 'admin', active = true
-where email = 'ceoar7grouplimited@gmail.com';
+from auth.users u
+where u.id = p.id
+  and u.email = 'ceoar7grouplimited@gmail.com';
 ```
+
+   Easier still: once you are an administrator, use **CRM → Team**, which does
+   the same thing with a dropdown.
 
 5. Sign in at `/#crm` with that email and password.
 
