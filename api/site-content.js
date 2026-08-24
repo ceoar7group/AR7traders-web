@@ -15,7 +15,7 @@ const entities = {
 
 const allowed = {
   listings: ['stock_no','make','model','year','km','fuel','body','price','image','grade','status','location','tr','drv','eng','seats','col','st','published','sort_order'],
-  routes:   ['country','port','transit','popular','freight_base','duty_pct','published','sort_order'],
+  routes:   ['country','port','transit','popular','freight_base','duty_pct','lon','lat','show_on_map','published','sort_order'],
   articles: ['title','category','date','read_min','image','excerpt','body','published','sort_order'],
   blocks:   ['key','label','value','page']
 };

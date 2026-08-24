@@ -123,3 +123,28 @@ update public.profiles
 
 The WhatsApp number on the floating button is edited in **Website settings** —
 you never need a redeploy to change it.
+
+### The spinning world map
+
+The countries on the globe (and the cards under it) now come from
+**CRM → Shipping routes**. Each route has two extra fields:
+
+| Field | Meaning |
+|---|---|
+| **Map longitude** | -180 to 180. East is positive, west is negative. |
+| **Map latitude** | -90 to 90. North is positive, south is negative. |
+
+Fill both in and the country appears on the globe with its own shipping lane
+from Japan. Leave them empty and the route still shows in the shipping
+calculator and the destinations page, but is not drawn on the map.
+
+A few examples if you need them: Saudi Arabia `39.2 / 21.5`,
+Bangladesh `91.8 / 22.3`, South Africa `18.4 / -33.9`, Canada `-123.1 / 49.3`.
+
+If you add a country we have not hand-drawn a flag for yet, the site shows a
+neat gold two-letter plate instead — nothing breaks, and you can ask for the
+real flag to be added later.
+
+The coastlines of the map itself are drawing data, not content, so they stay
+in the code — there is nothing to edit there and nothing that can be broken by
+accident.

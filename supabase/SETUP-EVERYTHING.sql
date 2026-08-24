@@ -91,11 +91,32 @@ create table if not exists public.site_routes (
   popular       text,
   freight_base  numeric default 0,
   duty_pct      numeric default 0,
+  -- Map position for the world-network globe on the website. When both are
+  -- set the country is plotted and gets a shipping arc from Japan; leave
+  -- them null and the route still lists on the destinations page but is not
+  -- drawn on the globe.
+  lon           numeric,
+  lat           numeric,
+  show_on_map   boolean default true,
   published     boolean default true,
   sort_order    int default 0,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
+
+-- Older installs created site_routes before the globe was CRM-driven.
+alter table public.site_routes add column if not exists lon         numeric;
+alter table public.site_routes add column if not exists lat         numeric;
+alter table public.site_routes add column if not exists show_on_map boolean default true;
+
+-- Re-running this file must never duplicate seed rows. Older installs were
+-- seeded without a unique key, so remove any duplicates that already exist
+-- (keeping the oldest row of each country) before adding the constraint.
+delete from public.site_routes a
+ using public.site_routes b
+ where a.country = b.country
+   and a.ctid    > b.ctid;
+create unique index if not exists site_routes_country_key on public.site_routes (country);
 
 -- ---------------------------------------------------------------- articles
 -- News / guides shown on the site.
@@ -113,6 +134,13 @@ create table if not exists public.site_articles (
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
+
+-- Same duplicate protection as site_routes: article titles are the natural key.
+delete from public.site_articles a
+ using public.site_articles b
+ where a.title = b.title
+   and a.ctid  > b.ctid;
+create unique index if not exists site_articles_title_key on public.site_articles (title);
 
 -- ----------------------------------------------------------------- blocks
 -- Generic editable text for page headings, hero copy, contact details etc.
@@ -180,13 +208,16 @@ insert into public.site_listings (stock_no,make,model,year,km,fuel,body,price,im
   ('AR7-26042','Nissan','Juke 15RX',2020,'26,800','Petrol','SUV','$12,900','/assets/japan-used-car-export-stock-honda-vezel--5.jpg','4.5','In Stock','Yokohama','CVT','2WD','1,500cc',5,'Silver','RHD',true,42)
 on conflict (stock_no) do nothing;
 
-insert into public.site_routes (country,port,transit,popular,freight_base,duty_pct,published,sort_order) values
-  ('Pakistan','Karachi / Port Qasim','18–24 days','Land Cruiser · Vezel · Mira',950,48,true,1),
-  ('UAE','Jebel Ali','18–22 days','Lexus · Patrol · Alphard',900,5,true,2),
-  ('Kenya','Mombasa','24–30 days','Harrier · Prado · Note',1250,25,true,3),
-  ('United Kingdom','Southampton','35–42 days','Vellfire · Skyline · Jimny',1500,10,true,4),
-  ('New Zealand','Auckland','20–26 days','Prius · CX-5 · Forester',1150,10,true,5),
-  ('Tanzania','Dar es Salaam','25–32 days','RAV4 · Hiace · Vitz',1300,25,true,6);
+insert into public.site_routes (country,port,transit,popular,freight_base,duty_pct,lon,lat,show_on_map,published,sort_order) values
+  ('Pakistan','Karachi / Port Qasim','18–24 days','Land Cruiser · Vezel · Mira',950,48,67,24.9,true,true,1),
+  ('UAE','Jebel Ali','18–22 days','Lexus · Patrol · Alphard',900,5,55.2,25.0,true,true,2),
+  ('Kenya','Mombasa','24–30 days','Harrier · Prado · Note',1250,25,39.7,-4.0,true,true,3),
+  ('United Kingdom','Southampton','35–42 days','Vellfire · Skyline · Jimny',1500,10,-1.4,50.9,true,true,4),
+  ('New Zealand','Auckland','20–26 days','Prius · CX-5 · Forester',1150,10,174.8,-36.8,true,true,5),
+  ('Tanzania','Dar es Salaam','25–32 days','RAV4 · Hiace · Vitz',1300,25,39.3,-6.8,true,true,6),
+  ('Australia','Sydney','21–28 days','Land Cruiser · Hiace',1200,10,151.2,-33.9,true,true,7),
+  ('USA','Los Angeles','28–36 days','Kei trucks · 4Runner',1400,25,-118.2,34.0,true,true,8)
+on conflict (country) do nothing;
 
 insert into public.site_articles (title,category,date,read_min,image,excerpt,body,published,sort_order) values
   ('Why Land Cruiser demand keeps climbing in Pakistan','MARKET WATCH','Aug 18, 2026',4,'/assets/japanese-car-auction-inspection-shipping-3.jpg','Auction prices, popular grades and what a realistic budget looks like this quarter.','KARACHI — Demand for the Land Cruiser family continues to outpace supply at Japanese auction houses. Grade 4.5 and above units are being bid out within the first two minutes of USS Tokyo sessions, and clean 2020–2022 examples are holding value exceptionally well.
@@ -208,7 +239,8 @@ Every AR7 shipment includes marine insurance at 1.6% of vehicle value, whether R
 
 After a win, we issue an invoice, arrange payment, inspect and photograph the vehicle, then book your vessel.
 
-Bid prices are in Japanese yen excluding freight; our auto-calculator shows your CIF cost to your port before you confirm.',true,4);
+Bid prices are in Japanese yen excluding freight; our auto-calculator shows your CIF cost to your port before you confirm.',true,4)
+on conflict (title) do nothing;
 
 -- =====================================================================
 --  MAKE YOURSELF ADMIN, AUTOMATICALLY
