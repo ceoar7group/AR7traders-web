@@ -1,36 +1,23 @@
-# AR7 TRADERS — Global Car Export Website
+# AR7 Traders — Website + CRM (Master Backup) 🚗
 
-Multi-page animated website for AR7 TRADERS (vehicle sourcing from Japanese auctions + worldwide export).
-Green / gold / white branding. Day & night mode. 3D motion animations, live demo data, customer portal, signup/login, device view modes.
+Complete master backup of the AR7 Traders website and CRM.
 
-## Pages
-- Home (#home) — animated landing, 3D globe, moving ship/car/routes
-- Inventory (#inventory) — 15 demo vehicles with 5-picture galleries
-- Auction (#auction) — auction access demo
-- Shipping (#shipping) — worldwide routes & process
-- Services (#services), Destinations (#destinations), Reviews (#reviews), FAQ (#faq), About (#about), Contact (#contact)
-- Portal (#portal) — Shipments / Auctions / Documents / Payments (demo)
-- Account (#account) — customer signup / login (demo)
-- Studio (#studio) — Phone / Tablet / Laptop / PC preview modes
+**Owner:** AR7 Group — ceoar7grouplimited@gmail.com
+**Live site:** https://ar7traders.com • **CRM:** https://ar7traders.com/#crm
 
-## How to run (any platform)
-Requirements: Node.js 18+ (https://nodejs.org)
+## What's inside
 
-```
-cd ar7-traders
-npm install
-npm run dev
-```
-Open http://localhost:5173
+| Path | Contents |
+|---|---|
+| `src/` | Website code + full CRM app (React + Vite) |
+| `api/` | Serverless functions — lead capture + CRM API |
+| `supabase/` | Database schema (`schema.sql`) + setup guide (`SETUP.md`) |
+| `public/assets/` | All car & gallery images |
+| `index.html`, `vite.config.js`, `vercel.json` | Site entry & deploy settings |
 
-## Production build
-```
-npm run build
-```
-Output goes to the `dist/` folder — deploy that anywhere (Vercel, Netlify, cPanel, any static host).
+## Restore / redeploy
+1. Import this repo into Vercel (framework: **Vite**) — that's it, the site builds itself.
+2. Connect Supabase project `supabase-ar7crm` (env vars: see `supabase/SETUP.md`).
+3. Run `supabase/schema.sql` in the Supabase SQL Editor.
 
-## Tech
-React 19 + Vite + lucide-react. Hash-based routing (works on any static host, no server config needed).
-
-## Already deployed at
-https://ar7-traders.vercel.app
+Backed up: 2026-08-24
