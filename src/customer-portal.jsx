@@ -8,6 +8,7 @@ import {MessageCircle, Mail, LockKeyhole, ArrowRight, Check, LogIn, UserPlus,
         BadgeCheck, CarFront, Wallet, ArrowLeftRight, ShieldCheck, X} from 'lucide-react';
 import {supabase, hasSupabase} from './supabase-client.js';
 import {useSettings, waLink} from './site-settings.js';
+import {WhatsAppIcon} from './brand-icons.jsx';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
 const nice  = s => s ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(s)) : '—';
@@ -27,7 +28,7 @@ export function WhatsAppButton(){
    aria-label="Chat with AR7 Traders on WhatsApp">
   <span className="wa-ring" aria-hidden="true"/>
   <span className="wa-ring two" aria-hidden="true"/>
-  <MessageCircle/>
+  <WhatsAppIcon size={26}/>
   <b>Chat on WhatsApp</b>
  </a>;
 }
