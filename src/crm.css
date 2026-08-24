@@ -235,3 +235,108 @@
 .perm-table td:first-child small{font-size:11px}
 .perm-cell input{width:19px;height:19px}
 .perm-cell.locked{font-size:11px}
+/* ==================================================================
+   CRM UI/UX pass — layout, visual polish and interaction states.
+   ================================================================== */
+.crm-user{align-items:center;gap:6px}
+.crm-user-open{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;
+  background:none;padding:6px;border-radius:11px;color:inherit;text-align:left;
+  cursor:pointer;transition:background .16s ease}
+.crm-user-open:hover{background:#ffffff12}
+.crm-user-open:focus-visible{outline:2px solid #d69a32;outline-offset:1px}
+.crm-user-open>span{width:34px;height:34px;flex:0 0 auto;border-radius:10px;background:#d69a32;
+  display:grid;place-items:center;font-size:12px;font-weight:800;color:#06281b}
+.crm-user-open>div{display:grid;min-width:0;flex:1}
+.crm-user-open>div b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crm-user-open>div small{font-size:10px;color:#8fa69a}
+.crm-user-open>svg{flex:0 0 auto;color:#8fa69a}
+.crm-user-out{border:0;background:none;color:#91aa9e;padding:8px;border-radius:9px;
+  cursor:pointer;transition:background .16s ease,color .16s ease}
+.crm-user-out:hover{background:#ffffff12;color:#fff}
+.crm-user-out:focus-visible{outline:2px solid #d69a32;outline-offset:1px}
+.crm-user-out svg{width:16px;height:16px}
+.crm-side nav button{transition:background .16s ease,color .16s ease,transform .12s ease}
+.crm-side nav button:hover{background:#ffffff10;color:#fff}
+.crm-side nav button:focus-visible{outline:2px solid #d69a32;outline-offset:-2px}
+.crm-main{padding:0 30px 64px}
+.crm-top{height:88px;position:sticky;top:0;background:var(--bg);z-index:40;
+  border-bottom:1px solid var(--line)}
+.crm-dashboard{padding-top:22px}
+.crm-dash-grid{gap:16px;margin-top:16px}
+.crm-panel{padding:20px;transition:box-shadow .18s ease,transform .18s ease}
+.crm-panel:hover{box-shadow:0 14px 38px #073b2518}
+.crm-kpis{gap:14px}
+.crm-kpis article{transition:box-shadow .18s ease,transform .18s ease}
+.crm-kpis article:hover{box-shadow:0 16px 36px #073b2520;transform:translateY(-2px)}
+.crm-page-head{padding:22px 0 16px;gap:14px;flex-wrap:wrap}
+.crm-shipment-grid article,.crm-lead-grid article{transition:box-shadow .18s ease,transform .18s ease}
+.crm-shipment-grid article:hover,.crm-lead-grid article:hover{
+  box-shadow:0 16px 36px #073b2520;transform:translateY(-2px)}
+.crm-table-wrap th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -1px 0 var(--line)}
+.crm-table-wrap tbody tr{transition:background .14s ease}
+.crm-table-wrap tbody tr:hover{background:#f7faf8}
+.crm-table-wrap td>button,.crm-row-actions button{transition:opacity .14s ease,background .14s ease}
+.crm-table-wrap td>button:hover,.crm-row-actions button:hover{opacity:.72}
+.crm-tools>button,.crm-tools .crm-add,.crm-editor footer button,.crm-tools input,
+.crm-editor input,.crm-editor select,.crm-editor textarea,.crm-shell select{
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
+.crm-tools>button:focus-visible,.crm-tools .crm-add:focus-visible,
+.crm-editor footer button:focus-visible{outline:2px solid var(--crm);outline-offset:2px}
+.crm-tools input:focus,.crm-editor input:focus,.crm-editor select:focus,
+.crm-editor textarea:focus,.crm-shell select:focus{
+  outline:0;border-color:var(--crm);box-shadow:0 0 0 3px #063f2918}
+.crm-tools label:focus-within{border-color:var(--crm);box-shadow:0 0 0 3px #063f2514}
+.crm-notice{cursor:pointer;font-size:12px;align-items:center}
+.crm-ok{background:#dff1e7;color:#1d6b41;border:1px solid #b9ddc7;border-radius:10px;
+  padding:11px 14px;margin:14px 0 0;font-size:12px;font-weight:700;
+  display:flex;align-items:center;gap:8px}
+.crm-ok svg{width:15px;height:15px}
+.crm-error{margin-top:14px;font-size:12px}
+.crm-profile{width:min(620px,100%)}
+.crm-profile-id{display:flex;align-items:center;gap:12px;margin-top:18px;
+  padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.crm-profile-id>span{width:46px;height:46px;flex:0 0 auto;border-radius:13px;
+  background:linear-gradient(140deg,var(--crm),var(--crm2));color:#fff;
+  display:grid;place-items:center;font-size:15px;font-weight:800}
+.crm-profile-id b{display:block;font:750 16px Manrope}
+.crm-profile-id small{color:var(--muted);font-size:11px}
+.crm-profile-form{margin-top:18px;border-top:1px solid var(--line);padding-top:18px}
+.crm-profile-form .crm-editor-fields{margin-top:0}
+.crm-profile-form footer{margin-top:16px;padding-top:14px}
+.crm-profile-pw-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;
+  margin-bottom:12px;color:var(--crm)}
+.crm-profile-pw-head svg{width:16px;height:16px}
+.crm-ghost{height:41px;border:1px solid var(--line);border-radius:9px;background:var(--panel);
+  padding:0 15px;font-size:12px;font-weight:700;cursor:pointer}
+.crm-check{display:flex!important;flex-direction:row!important;align-items:center;gap:9px;
+  font-size:12px!important;text-transform:none!important;letter-spacing:0!important;
+  color:var(--ink)!important;align-self:end;height:44px}
+.crm-check input{width:18px;height:18px;flex:0 0 auto}
+.crm-team .crm-row-actions button{display:inline-flex;align-items:center;gap:5px;
+  height:34px;padding:0 12px;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel);color:var(--crm);font-size:11px;font-weight:700;cursor:pointer}
+.crm-team .crm-row-actions button.crm-del{border-color:rgba(220,80,80,.35);
+  background:rgba(220,80,80,.08);color:#c14b4b}
+.crm-empty p{max-width:430px;margin:0 auto}
+@media(max-width:1100px){
+ .crm-shell{grid-template-columns:216px 1fr}
+ .crm-shipment-grid{grid-template-columns:repeat(2,1fr)}
+ .crm-lead-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+ .crm-main{padding:0 16px 48px}
+ .crm-kpis{grid-template-columns:repeat(2,1fr)}
+ .crm-dash-grid{grid-template-columns:1fr}
+ .crm-shipment-grid,.crm-lead-grid{grid-template-columns:1fr}
+ .crm-page-head{flex-direction:column;align-items:stretch}
+ .crm-tools{flex-wrap:wrap}
+ .crm-tools label{width:100%}
+ .crm-profile-form footer{flex-wrap:wrap}
+ .crm-profile-form footer button{flex:1}
+}
+@media(prefers-reduced-motion:reduce){
+ .crm-panel,.crm-kpis article,.crm-shipment-grid article,.crm-lead-grid article,
+ .crm-side nav button,.crm-user-open,.crm-table-wrap tbody tr{transition:none}
+ .crm-kpis article:hover,.crm-panel:hover,
+ .crm-shipment-grid article:hover,.crm-lead-grid article:hover{transform:none}
+}
