@@ -129,8 +129,9 @@ export default function CrmApp(){
  if(!session)return <CrmLogin/>;
  const canDelete=(profile?.role||'')!=='viewer';
  const SPECIAL={dashboard:'Dashboard',activities:'Activity log',team:'Team & permissions',approvals:'Approvals',settings:'Website contact details',accounts:'Customer accounts',people:'People & payroll'};
+ const current=configs[tab];
  const heading=tab==='dashboard'?'Good day, '+(profile?.full_name?.split(' ')[0]||'Team'):(SPECIAL[tab]||current?.title||'');
- const current=configs[tab];const data=rows[tab]||[];const filtered=data.filter(x=>JSON.stringify(x).toLowerCase().includes(query.toLowerCase()));
+ const data=rows[tab]||[];const filtered=data.filter(x=>JSON.stringify(x).toLowerCase().includes(query.toLowerCase()));
  return <div className="crm-shell">
   <aside className={'crm-side '+(mobile?'open':'')}><div className="crm-brand"><img src="/assets/ar7-mark.png"/><div><b>AR7 CRM</b><small>COMMAND CENTER</small></div><button onClick={()=>setMobile(false)}><X/></button></div><nav>{tabs.map(([id,label,I])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setMobile(false);setQuery('')}}><I/><span>{label}</span>{id==='leads'&&<em>{(rows.leads||[]).filter(x=>x.status==='new').length}</em>}</button>)}</nav><div className="crm-user"><span>{(profile?.full_name||session.user?.email||'AR7').slice(0,2).toUpperCase()}</span><div><b>{profile?.full_name||session.user?.email}</b><small>{pretty(profile?.role||'admin')}</small></div><button onClick={signOut} title="Sign out"><LogOut/></button></div></aside>
   {mobile&&<div className="crm-side-shade" onClick={()=>setMobile(false)}/>}<main className="crm-main"><header className="crm-top"><button className="crm-menu" onClick={()=>setMobile(true)}><Menu/></button><div><small>AR7 TRADERS / {tab.toUpperCase()}</small><h1>{heading}</h1></div><div className="crm-live"><i/> LIVE OPERATIONS</div><a className="crm-site" href="#home">View website <ChevronRight/></a></header>
