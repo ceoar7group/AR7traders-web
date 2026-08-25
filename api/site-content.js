@@ -36,16 +36,23 @@ export default async function handler(req, res) {
   // ---- Public read: the live website calls this anonymously.
   if (req.method === 'GET') {
     let q = db.from(table).select('*').order('sort_order', {ascending: true});
-    // Anonymous visitors only ever see published rows.
-    if (req.query.all !== '1') q = q.eq('published', true);
+    // Anonymous visitors only ever see published rows. site_blocks has no
+    // published flag, so it is only reachable with all=1 (admin requests).
+    if (req.query.all !== '1' && entity !== 'blocks') q = q.eq('published', true);
+    if (entity === 'blocks' && req.query.all !== '1') return send(res, 200, []);
     const {data, error} = await q;
     if (error) return send(res, 500, {error: error.message});
     return send(res, 200, data);
   }
 
   // ---- Everything below is admin-only.
-  const auth = await requireUser(req);
-  if (!auth.ok) return send(res, auth.status, {error: auth.error});
+  // requireUser() throws with a status on failure — it does NOT return {ok}.
+  let auth;
+  try {
+    auth = await requireUser(req);
+  } catch (e) {
+    return send(res, e.status || 401, {error: e.message || 'Unauthorized'});
+  }
   if (auth.profile?.role !== 'admin') return send(res, 403, {error: 'Admin access required'});
 
   if (req.method === 'POST') {

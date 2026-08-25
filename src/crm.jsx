@@ -219,21 +219,208 @@ const PERM_LABELS = {
 const ROLE_LIST = ['admin', 'manager', 'sales', 'accounts', 'viewer'];
 const SITE_ENTITIES = ['listings', 'routes', 'articles'];
 
+// ---------------------------------------------------------------------------
+//  Field option sets — dropdowns replace free text so records stay clean,
+//  filterable and consistent across the team.
+// ---------------------------------------------------------------------------
+const OPT = {
+  countries: ['Pakistan', 'UAE', 'Kenya', 'Tanzania', 'United Kingdom', 'New Zealand', 'Australia', 'USA', 'South Africa', 'Ghana', 'Nigeria', 'Egypt', 'Jordan', 'Qatar', 'Saudi Arabia', 'Bangladesh', 'Sri Lanka', 'Japan', 'Other'],
+  leadStatus: ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'],
+  leadSource: ['Website', 'WhatsApp', 'Referral', 'Instagram', 'Facebook', 'YouTube', 'Walk-in', 'Other'],
+  customerStatus: ['active', 'vip', 'dormant', 'blocked'],
+  vehicleStatus: ['available', 'reserved', 'sold', 'in_preparation', 'in_transit', 'auction_watch'],
+  listingStatus: ['In Stock', 'New Arrival', 'Auction', 'Reserved', 'Sold'],
+  quoteStatus: ['draft', 'sent', 'accepted', 'declined', 'expired'],
+  shipmentStatus: ['booking', 'documents', 'loaded', 'at_sea', 'customs', 'delivered'],
+  taskStatus: ['open', 'in_progress', 'done'],
+  taskPriority: ['low', 'medium', 'high', 'urgent'],
+  steering: ['RHD', 'LHD'],
+  fuel: ['Petrol', 'Hybrid', 'Plug-in Hybrid', 'Diesel', 'Electric'],
+  body: ['Sedan', 'SUV', 'MPV', 'Hatchback', 'Luxury', 'Supercar', 'Hypercar', 'Van', 'Kei', 'Truck'],
+  transmission: ['AT', 'CVT', 'DCT', 'MT'],
+  drivetrain: ['2WD', '4WD', 'AWD', 'RWD'],
+  grade: ['S', '5.0', '4.5', '4.0', '3.5', '3.0', '2.5', 'R', 'RA'],
+  articleCategory: ['MARKET WATCH', 'BUYING GUIDE', 'LOGISTICS', 'AUCTION', 'COMPANY']
+};
+const YEAR_THIS = new Date().getFullYear();
+const YEARS = Array.from({ length: YEAR_THIS - 1994 }, (_, i) => YEAR_THIS + 1 - i);
+
+// Field tuple: [key, label, type, opts] — type: text|number|date|select|textarea|check|year
 const configs = {
-  leads: { title: 'Sales leads', subtitle: 'Capture, qualify and convert enquiries into sales.', fields: [['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['vehicle_interest', 'Vehicle interest'], ['source', 'Source'], ['status', 'Status'], ['budget', 'Budget', 'number'], ['assigned_to', 'Assigned agent'], ['next_follow_up', 'Next follow-up', 'date']] },
-  customers: { title: 'Customers', subtitle: 'Buyer profiles, order history and customer lifetime value.', fields: [['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['status', 'Status'], ['total_spend', 'Total spend', 'number'], ['vehicles_bought', 'Vehicles bought', 'number']] },
-  vehicles: { title: 'Vehicle inventory', subtitle: 'Showroom stock, Japan auction purchases and vehicles in preparation.', fields: [['stock_no', 'Stock no.'], ['make', 'Make'], ['model', 'Model'], ['year', 'Year', 'number'], ['price', 'Price (USD)', 'number'], ['status', 'Status'], ['location', 'Location'], ['steering', 'Steering'], ['image', 'Cover photo path']] },
-  quotes: { title: 'Quotes', subtitle: 'FOB, CIF and landed-cost export proposals.', fields: [['quote_no', 'Quote no.'], ['customer_name', 'Customer'], ['vehicle', 'Vehicle'], ['amount', 'Amount (USD)', 'number'], ['status', 'Status'], ['valid_until', 'Valid until', 'date']] },
-  shipments: { title: 'Shipments', subtitle: 'Port-to-port tracking, vessel bookings and milestone updates.', fields: [['tracking_no', 'Tracking no.'], ['customer_name', 'Customer'], ['vehicle', 'Vehicle'], ['origin', 'Origin'], ['destination', 'Destination'], ['vessel', 'Vessel'], ['status', 'Status'], ['eta', 'ETA', 'date'], ['progress', 'Progress %', 'number']] },
-  listings: { title: 'Website cars', subtitle: 'Live inventory published on the public AR7 website showroom.', fields: [['stock_no', 'Stock no.'], ['make', 'Make'], ['model', 'Model'], ['year', 'Year', 'number'], ['price', 'Price (e.g. $189,000)'], ['km', 'Mileage'], ['fuel', 'Fuel'], ['body', 'Body type'], ['grade', 'Auction grade'], ['status', 'Status'], ['location', 'Location'], ['image', 'Cover photo path'], ['tr', 'Transmission'], ['drv', 'Drivetrain'], ['eng', 'Engine'], ['seats', 'Seats', 'number'], ['col', 'Colour'], ['st', 'Steering'], ['sort_order', 'Sort order', 'number']] },
-  routes: { title: 'Shipping routes', subtitle: 'Destinations and freight rates used by the shipping calculator.', fields: [['country', 'Country'], ['port', 'Port'], ['transit', 'Transit time'], ['popular', 'Popular models'], ['freight_base', 'Base freight (USD)', 'number'], ['duty_pct', 'Import duty %', 'number'], ['lon', 'Map longitude (-180 to 180)', 'number'], ['lat', 'Map latitude (-90 to 90)', 'number'], ['sort_order', 'Sort order', 'number']] },
-  articles: { title: 'News & guides', subtitle: 'Market insights, export guides and company updates published on the site.', fields: [['title', 'Headline'], ['category', 'Category'], ['date', 'Date'], ['read_min', 'Read minutes', 'number'], ['image', 'Image path'], ['excerpt', 'Excerpt'], ['body', 'Body text'], ['sort_order', 'Sort order', 'number']] },
-  tasks: { title: 'Tasks', subtitle: 'Customer follow-ups, inspection sheets and operational workflows.', fields: [['title', 'Task'], ['owner', 'Owner'], ['priority', 'Priority'], ['status', 'Status'], ['due_date', 'Due date', 'date']] }
+  leads: {
+    title: 'Sales leads', subtitle: 'Capture, qualify and convert enquiries into sales.',
+    statusOptions: OPT.leadStatus,
+    fields: [
+      ['name', 'Full name', 'text', { required: true, placeholder: 'e.g. Ahmed Khan', section: 'Contact' }],
+      ['email', 'Email', 'text', { placeholder: 'name@email.com', section: 'Contact' }],
+      ['phone', 'Phone / WhatsApp', 'text', { placeholder: '+92 300 1234567', section: 'Contact' }],
+      ['country', 'Country', 'select', { options: OPT.countries, section: 'Contact' }],
+      ['vehicle_interest', 'Vehicle interest', 'text', { placeholder: 'e.g. Toyota Land Cruiser 2022+', section: 'Interest' }],
+      ['budget', 'Budget (USD)', 'number', { min: 0, step: 100, placeholder: '65000', section: 'Interest' }],
+      ['source', 'Lead source', 'select', { options: OPT.leadSource, section: 'Interest' }],
+      ['status', 'Pipeline stage', 'select', { options: OPT.leadStatus, section: 'Pipeline' }],
+      ['assigned_to', 'Assigned agent', 'text', { placeholder: 'Who owns this lead?', section: 'Pipeline' }],
+      ['next_follow_up', 'Next follow-up', 'date', { section: 'Pipeline' }],
+      ['notes', 'Notes', 'textarea', { placeholder: 'Requirements, auction sheet questions, agreed terms…', section: 'Pipeline' }]
+    ]
+  },
+  customers: {
+    title: 'Customers', subtitle: 'Buyer profiles, order history and customer lifetime value.',
+    statusOptions: OPT.customerStatus,
+    fields: [
+      ['name', 'Full name', 'text', { required: true, section: 'Contact' }],
+      ['email', 'Email', 'text', { section: 'Contact' }],
+      ['phone', 'Phone / WhatsApp', 'text', { section: 'Contact' }],
+      ['country', 'Country', 'select', { options: OPT.countries, section: 'Contact' }],
+      ['status', 'Status', 'select', { options: OPT.customerStatus, section: 'Account' }],
+      ['total_spend', 'Total spend (USD)', 'number', { min: 0, section: 'Account' }],
+      ['vehicles_bought', 'Vehicles bought', 'number', { min: 0, section: 'Account' }],
+      ['notes', 'Notes', 'textarea', { placeholder: 'Preferences, payment terms, port of choice…', section: 'Account' }]
+    ]
+  },
+  vehicles: {
+    title: 'Vehicle inventory', subtitle: 'Showroom stock, Japan auction purchases and vehicles in preparation.',
+    statusOptions: OPT.vehicleStatus,
+    fields: [
+      ['stock_no', 'Stock no.', 'text', { required: true, placeholder: 'AR7-260184', section: 'Identity' }],
+      ['make', 'Make', 'text', { required: true, placeholder: 'Toyota', section: 'Identity' }],
+      ['model', 'Model', 'text', { required: true, placeholder: 'Land Cruiser ZX', section: 'Identity' }],
+      ['year', 'Year', 'year', { section: 'Identity' }],
+      ['price', 'Price (USD)', 'number', { min: 0, step: 100, placeholder: '58900', section: 'Pricing & status' }],
+      ['status', 'Status', 'select', { options: OPT.vehicleStatus, section: 'Pricing & status' }],
+      ['location', 'Location', 'text', { placeholder: 'Yokohama yard / USS Tokyo', section: 'Pricing & status' }],
+      ['steering', 'Steering', 'select', { options: OPT.steering, section: 'Specs' }],
+      ['colour', 'Colour', 'text', { section: 'Specs' }],
+      ['interior', 'Interior', 'text', { section: 'Specs' }],
+      ['image', 'Cover photo path', 'text', { placeholder: '/assets/… or https://…', section: 'Media & notes' }],
+      ['notes', 'Notes', 'textarea', { placeholder: 'Auction grade, inspection remarks, preparation to-do…', section: 'Media & notes' }]
+    ]
+  },
+  quotes: {
+    title: 'Quotes', subtitle: 'FOB, CIF and landed-cost export proposals.',
+    statusOptions: OPT.quoteStatus,
+    fields: [
+      ['quote_no', 'Quote no.', 'text', { required: true, placeholder: 'Q-2026-1042' }],
+      ['customer_name', 'Customer', 'text', { required: true }],
+      ['vehicle', 'Vehicle', 'text', { placeholder: '2022 Toyota Land Cruiser ZX' }],
+      ['amount', 'Amount (USD)', 'number', { min: 0, step: 50 }],
+      ['status', 'Status', 'select', { options: OPT.quoteStatus }],
+      ['valid_until', 'Valid until', 'date'],
+      ['notes', 'Notes', 'textarea', { placeholder: 'CIF breakdown, inclusions, conditions…' }]
+    ]
+  },
+  shipments: {
+    title: 'Shipments', subtitle: 'Port-to-port tracking, vessel bookings and milestone updates.',
+    statusOptions: OPT.shipmentStatus,
+    fields: [
+      ['tracking_no', 'Tracking no.', 'text', { required: true, placeholder: 'AR7-260184' }],
+      ['customer_name', 'Customer', 'text'],
+      ['vehicle', 'Vehicle', 'text', { required: true }],
+      ['origin', 'Origin port', 'text', { placeholder: 'Yokohama' }],
+      ['destination', 'Destination port', 'text', { placeholder: 'Karachi' }],
+      ['vessel', 'Vessel', 'text'],
+      ['status', 'Status', 'select', { options: OPT.shipmentStatus }],
+      ['eta', 'ETA', 'date'],
+      ['progress', 'Progress %', 'number', { min: 0, max: 100, hint: '0–100' }],
+      ['notes', 'Notes', 'textarea', { placeholder: 'Documents handed over, customs agent, BL number…' }]
+    ]
+  },
+  listings: {
+    title: 'Website cars', subtitle: 'Live inventory published on the public AR7 website showroom.',
+    statusOptions: OPT.listingStatus,
+    fields: [
+      ['stock_no', 'Stock no.', 'text', { required: true, placeholder: 'AR7-26001', section: 'Identity' }],
+      ['make', 'Make', 'text', { required: true, section: 'Identity' }],
+      ['model', 'Model', 'text', { required: true, section: 'Identity' }],
+      ['year', 'Year', 'year', { section: 'Identity' }],
+      ['price', 'Display price', 'text', { placeholder: '$58,900', section: 'Pricing & status', hint: 'Shown verbatim on the website' }],
+      ['status', 'Status badge', 'select', { options: OPT.listingStatus, section: 'Pricing & status' }],
+      ['location', 'Location', 'text', { section: 'Pricing & status' }],
+      ['published', 'Visible on website', 'check', { section: 'Pricing & status' }],
+      ['km', 'Mileage', 'text', { placeholder: '18,400', section: 'Specs' }],
+      ['fuel', 'Fuel', 'select', { options: OPT.fuel, section: 'Specs' }],
+      ['body', 'Body type', 'select', { options: OPT.body, section: 'Specs' }],
+      ['grade', 'Auction grade', 'select', { options: OPT.grade, section: 'Specs' }],
+      ['tr', 'Transmission', 'select', { options: OPT.transmission, section: 'Specs' }],
+      ['drv', 'Drivetrain', 'select', { options: OPT.drivetrain, section: 'Specs' }],
+      ['eng', 'Engine', 'text', { placeholder: '3,500cc', section: 'Specs' }],
+      ['seats', 'Seats', 'number', { min: 1, max: 12, section: 'Specs' }],
+      ['col', 'Colour', 'text', { section: 'Details' }],
+      ['st', 'Steering', 'select', { options: OPT.steering, section: 'Details' }],
+      ['image', 'Cover photo path', 'text', { placeholder: '/assets/… (first gallery photo is used)', section: 'Details' }],
+      ['sort_order', 'Sort order', 'number', { min: 0, section: 'Details', hint: 'Lower numbers appear first' }]
+    ]
+  },
+  routes: {
+    title: 'Shipping routes', subtitle: 'Destinations and freight rates used by the shipping calculator.',
+    fields: [
+      ['country', 'Country', 'text', { required: true, section: 'Route' }],
+      ['port', 'Port', 'text', { section: 'Route' }],
+      ['transit', 'Transit time', 'text', { placeholder: '18–24 days', section: 'Route' }],
+      ['popular', 'Popular models', 'text', { placeholder: 'Land Cruiser · Vezel · Mira', section: 'Route' }],
+      ['freight_base', 'Base freight (USD)', 'number', { min: 0, section: 'Rates' }],
+      ['duty_pct', 'Import duty %', 'number', { min: 0, max: 200, section: 'Rates' }],
+      ['lon', 'Map longitude', 'number', { min: -180, max: 180, step: 0.0001, section: 'Map & visibility' }],
+      ['lat', 'Map latitude', 'number', { min: -90, max: 90, step: 0.0001, section: 'Map & visibility' }],
+      ['sort_order', 'Sort order', 'number', { min: 0, section: 'Map & visibility' }],
+      ['published', 'Visible on website', 'check', { section: 'Map & visibility' }]
+    ]
+  },
+  articles: {
+    title: 'News & guides', subtitle: 'Market insights, export guides and company updates published on the site.',
+    fields: [
+      ['title', 'Headline', 'text', { required: true }],
+      ['category', 'Category', 'select', { options: OPT.articleCategory }],
+      ['date', 'Published date', 'text', { placeholder: 'Aug 18, 2026' }],
+      ['read_min', 'Read minutes', 'number', { min: 1 }],
+      ['image', 'Image path', 'text', { placeholder: '/assets/…' }],
+      ['published', 'Visible on website', 'check'],
+      ['sort_order', 'Sort order', 'number', { min: 0 }],
+      ['excerpt', 'Excerpt', 'textarea', { rows: 2, placeholder: 'One-sentence teaser shown on cards' }],
+      ['body', 'Body text', 'textarea', { rows: 8, placeholder: 'Full article. Blank line = new paragraph.' }]
+    ]
+  },
+  tasks: {
+    title: 'Tasks', subtitle: 'Customer follow-ups, inspection sheets and operational workflows.',
+    statusOptions: OPT.taskStatus,
+    fields: [
+      ['title', 'Task', 'text', { required: true, placeholder: 'Follow up with Ahmed on Land Cruiser quote' }],
+      ['owner', 'Owner', 'text'],
+      ['priority', 'Priority', 'select', { options: OPT.taskPriority }],
+      ['status', 'Status', 'select', { options: OPT.taskStatus }],
+      ['due_date', 'Due date', 'date'],
+      ['notes', 'Notes', 'textarea']
+    ]
+  }
 };
 
 const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(n) || 0);
 const pretty = s => (s || '').replaceAll('_', ' ').replace(/\b\w/g, x => x.toUpperCase());
 const date = s => s ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(s)) : '—';
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const isOverdue = d => !!d && String(d).slice(0, 10) < todayKey();
+// Multi-word statuses like "In Stock" cannot be CSS classes as-is — slug them.
+const statusClass = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+// Download the current view as CSV so records can move into spreadsheets,
+// accounting tools or WhatsApp without copy-paste drudgery.
+function exportCsv(entity, rows) {
+  const cols = tableColumns(entity).length ? tableColumns(entity) : Object.keys(rows[0] || {});
+  const esc = v => {
+    if (v == null) return '';
+    if (Array.isArray(v)) v = v.join(' | ');
+    if (typeof v === 'object') v = JSON.stringify(v);
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replaceAll('"', '""') + '"' : s;
+  };
+  const csv = [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ar7-${entity}-${todayKey()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function baseData(entity) {
   return SITE_ENTITIES.includes(entity) ? (siteSeed[entity] || []) : (seed[entity] || []);
@@ -422,6 +609,23 @@ export default function CrmApp() {
   if (!supabase && !DEMO) return <CrmSetup />;
   if (!session) return <CrmLogin />;
 
+  // Fast inline updates from list views (status dropdowns, publish toggles).
+  async function quickPatch(entity, row, patch) {
+    try {
+      if (DEMO) {
+        const next = (rows[entity] || []).map(x => x.id === row.id ? { ...x, ...patch } : x);
+        demoWrite(entity, next);
+        setRows(v => ({ ...v, [entity]: next }));
+      } else {
+        const result = await api(entity, session.access_token, { method: 'PATCH', body: JSON.stringify({ ...row, ...patch }) });
+        setRows(v => ({ ...v, [entity]: (v[entity] || []).map(x => x.id === result.id ? result : x) }));
+      }
+      setNotice('Updated');
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
   const canDelete = (profile?.role || '') !== 'viewer';
   const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll' };
   const current = configs[tab];
@@ -541,6 +745,9 @@ export default function CrmApp() {
                   <Search />
                   <input value={query} onChange={e => setQuery(e.target.value)} placeholder={'Search ' + tab + '…'} />
                 </label>
+                {filtered.length > 0 && (
+                  <button onClick={() => exportCsv(tab, filtered)} title="Download these records as a CSV file">CSV</button>
+                )}
                 <button onClick={loadAll} title="Refresh records"><RefreshCw /></button>
                 <button className="crm-add" onClick={() => setEditor({ entity: tab, data: {} })}>
                   <Plus /> Add {tab.slice(0, -1)}
@@ -554,6 +761,8 @@ export default function CrmApp() {
               onDelete={canDelete ? row => remove(tab, row) : null}
               onManagePhotos={row => setPhotoTarget({ entity: tab, row })}
               onViewGallery={row => setGalleryView(row)}
+              onQuickPatch={(row, patch) => quickPatch(tab, row, patch)}
+              statusOptions={configs[tab]?.statusOptions}
             />
           </>
         )}
@@ -570,6 +779,13 @@ export default function CrmApp() {
           onClose={() => setEditor(null)}
           onSave={x => save(editor.entity, x)}
           onDelete={canDelete && editor.data?.id ? () => remove(editor.entity, editor.data) : null}
+          onDuplicate={editor.data?.id ? () => {
+            const copy = { ...editor.data };
+            delete copy.id; delete copy.created_at; delete copy.updated_at;
+            if (copy.stock_no) copy.stock_no = copy.stock_no + '-COPY';
+            if (copy.quote_no) copy.quote_no = copy.quote_no + '-COPY';
+            setEditor({ entity: editor.entity, data: copy });
+          } : null}
         />
       )}
 
@@ -661,14 +877,48 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
   const vehicles = rows.vehicles || [];
   const listings = rows.listings || [];
 
-  const pipeline = leads.reduce((a, x) => a + (Number(x.budget) || 0), 0);
+  const pipeline = leads.filter(x => !['won', 'lost'].includes(x.status)).reduce((a, x) => a + (Number(x.budget) || 0), 0);
   const won = quotes.filter(x => x.status === 'accepted').reduce((a, x) => a + (Number(x.amount) || 0), 0);
+  const openLeads = leads.filter(x => !['won', 'lost'].includes(x.status));
+  const overdueLeads = openLeads.filter(x => isOverdue(x.next_follow_up));
+  const overdueTasks = tasks.filter(x => x.status !== 'done' && isOverdue(x.due_date));
+  const awaitingQuotes = quotes.filter(x => x.status === 'sent');
 
   return (
     <div className="crm-dashboard">
+      {(overdueLeads.length > 0 || overdueTasks.length > 0 || awaitingQuotes.length > 0) && (
+        <div className="crm-alerts">
+          <div className="crm-alerts-head">
+            <ShieldAlert />
+            <b>Action needed</b>
+            <small>{overdueLeads.length + overdueTasks.length + awaitingQuotes.length} item(s) waiting on the team</small>
+          </div>
+          <div className="crm-alerts-grid">
+            {overdueLeads.length > 0 && (
+              <button onClick={() => setTab('leads')}>
+                <b>{overdueLeads.length} overdue follow-up{overdueLeads.length > 1 ? 's' : ''}</b>
+                <small>{overdueLeads.slice(0, 2).map(x => x.name).join(', ')}{overdueLeads.length > 2 ? '…' : ''}</small>
+              </button>
+            )}
+            {overdueTasks.length > 0 && (
+              <button onClick={() => setTab('tasks')}>
+                <b>{overdueTasks.length} overdue task{overdueTasks.length > 1 ? 's' : ''}</b>
+                <small>{overdueTasks.slice(0, 2).map(x => x.title).join(', ')}{overdueTasks.length > 2 ? '…' : ''}</small>
+              </button>
+            )}
+            {awaitingQuotes.length > 0 && (
+              <button onClick={() => setTab('quotes')}>
+                <b>{awaitingQuotes.length} quote{awaitingQuotes.length > 1 ? 's' : ''} awaiting reply</b>
+                <small>{money(awaitingQuotes.reduce((a, x) => a + (Number(x.amount) || 0), 0))} on the table</small>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="crm-kpis">
         {[
-          [Users, 'Active leads', leads.length, '+12% this month', 'trend-up'],
+          [Users, 'Open leads', openLeads.length, leads.filter(x => x.status === 'new').length + ' new · ' + overdueLeads.length + ' overdue', 'trend-up'],
           [DollarSign, 'Pipeline value', money(pipeline), 'Across open opportunities', 'trend-gold'],
           [TrendingUp, 'Accepted quotes', money(won), quotes.filter(x => x.status === 'accepted').length + ' converted deals', 'trend-green'],
           [CarFront, 'Managed stock', vehicles.length + listings.length, vehicles.length + ' internal · ' + listings.length + ' website', 'trend-blue']
@@ -716,19 +966,46 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               <small>FOLLOW UPS</small>
               <h3>Today & upcoming tasks</h3>
             </div>
-            <button onClick={() => setTab('tasks')}>All tasks <ChevronRight /></button>
+            <button onClick={() => setTab('tasks')}>
+              {tasks.filter(x => x.status !== 'done' && String(x.due_date || '').slice(0, 10) === todayKey()).length} due today <ChevronRight />
+            </button>
           </div>
           <div className="crm-task-list">
-            {tasks.slice(0, 5).map(x => (
-              <div key={x.id}>
+            {[...tasks].filter(x => x.status !== 'done')
+              .sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))
+              .slice(0, 5).map(x => (
+              <div key={x.id} className={isOverdue(x.due_date) ? 'overdue' : ''}>
                 <i className={x.priority} />
                 <span>
                   <b>{x.title}</b>
-                  <small><Clock3 /> {date(x.due_date)} · {x.owner}</small>
+                  <small><Clock3 /> {date(x.due_date)} · {x.owner || 'Unassigned'}</small>
                 </span>
-                <em className={'crm-status ' + x.status}>{pretty(x.status)}</em>
+                {isOverdue(x.due_date) ? <em className="crm-status overdue">Overdue</em> : <em className={'crm-status ' + statusClass(x.status)}>{pretty(x.status)}</em>}
               </div>
             ))}
+            {!tasks.some(x => x.status !== 'done') && <div className="crm-dim">All clear — no open tasks.</div>}
+          </div>
+        </section>
+
+        <section className="crm-panel">
+          <div className="crm-panel-head">
+            <div>
+              <small>AUDIT TRAIL</small>
+              <h3>Latest activity</h3>
+            </div>
+            <button onClick={() => setTab('activities')}>Full log <ChevronRight /></button>
+          </div>
+          <div className="crm-task-list">
+            {(rows.activities || []).slice(0, 5).map(a => (
+              <div key={a.id}>
+                <i className="activity-dot" />
+                <span>
+                  <b>{a.action}</b>
+                  <small>{a.actor} · {new Date(a.created_at).toLocaleString()}</small>
+                </span>
+              </div>
+            ))}
+            {!(rows.activities || []).length && <div className="crm-dim">No activity recorded yet.</div>}
           </div>
         </section>
 
@@ -749,7 +1026,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
                   <div className="dash-car-img" onClick={() => onOpenPhotos && onOpenPhotos(v)}>
                     <img src={cover} alt={`${v.make} ${v.model}`} />
                     <span className="dash-photo-pill"><Camera size={11} /> {photos.length} photos</span>
-                    <em className={'crm-status ' + (v.status || 'available')}>{pretty(v.status || 'available')}</em>
+                    <em className={'crm-status ' + statusClass(v.status || 'available')}>{pretty(v.status || 'available')}</em>
                   </div>
                   <div className="dash-car-info">
                     <h4>{v.year} {v.make} {v.model}</h4>
@@ -778,7 +1055,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               <article key={x.id}>
                 <span>
                   <b>{x.tracking_no}</b>
-                  <em className={'crm-status ' + x.status}>{pretty(x.status)}</em>
+                  <em className={'crm-status ' + statusClass(x.status)}>{pretty(x.status)}</em>
                 </span>
                 <h4>{x.vehicle}</h4>
                 <p>{x.origin} <i /> {x.destination}</p>
@@ -793,9 +1070,21 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
   );
 }
 
-function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery }) {
+function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions }) {
   const [viewMode, setViewMode] = useState('table');
   const isVehicleType = entity === 'vehicles' || entity === 'listings';
+  const statusPicker = (row, current) => (
+    <select
+      className={'crm-status crm-status-select ' + statusClass(current)}
+      value={current ?? ''}
+      title="Change status"
+      onClick={e => e.stopPropagation()}
+      onChange={e => onQuickPatch(row, { status: e.target.value })}
+    >
+      {current && !(statusOptions || []).includes(current) && <option value={current}>{pretty(current)}</option>}
+      {(statusOptions || []).map(o => <option key={o} value={o}>{pretty(o)}</option>)}
+    </select>
+  );
 
   if (!rows.length) {
     return (
@@ -814,9 +1103,12 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
           <article key={x.id}>
             <div>
               <span>{(x.name || '?').slice(0, 2).toUpperCase()}</span>
-              <em className={'crm-status ' + x.status}>{pretty(x.status)}</em>
+              {onQuickPatch && statusOptions ? statusPicker(x, x.status) : <em className={'crm-status ' + statusClass(x.status)}>{pretty(x.status)}</em>}
             </div>
             <h3>{x.name}</h3>
+            {isOverdue(x.next_follow_up) && !['won', 'lost'].includes(x.status) && (
+              <small className="crm-overdue-pill"><Clock3 /> Follow-up overdue</small>
+            )}
             <p>{x.vehicle_interest}</p>
             <dl>
               <div><dt>Market</dt><dd>{x.country}</dd></div>
@@ -864,7 +1156,7 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
                 <div className="vcard-hero" onClick={() => onViewGallery && onViewGallery(row)}>
                   <img src={cover} alt={`${row.make} ${row.model}`} loading="lazy" />
                   <span className="vcard-photo-count"><Camera size={12} /> {photos.length} photos</span>
-                  <em className={'crm-status ' + (row.status || 'available')}>{pretty(row.status || 'available')}</em>
+                  <em className={'crm-status ' + statusClass(row.status || 'available')}>{pretty(row.status || 'available')}</em>
                   <button className="vcard-expand" onClick={e => { e.stopPropagation(); onViewGallery && onViewGallery(row); }} title="Expand photo gallery">
                     <Maximize2 size={13} />
                   </button>
@@ -919,7 +1211,13 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
                         </div>
                       </td>
                     )}
-                    {tableColumns(entity).map(k => <td key={k}>{renderCell(k, row[k])}</td>)}
+                    {tableColumns(entity).map(k => (
+                      <td key={k}>
+                        {k === 'status' && onQuickPatch && statusOptions
+                          ? statusPicker(row, row.status)
+                          : renderCell(k, row[k])}
+                      </td>
+                    ))}
                     <td className="crm-row-actions">
                       {isVehicleType && onManagePhotos && (
                         <button className="crm-btn-photo" onClick={() => onManagePhotos(row)} title="Manage vehicle gallery photos">
@@ -942,9 +1240,9 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
 
 function tableColumns(e) {
   return {
-    listings: ['stock_no', 'make', 'model', 'year', 'price', 'status', 'location'],
-    routes: ['country', 'port', 'transit', 'freight_base', 'duty_pct'],
-    articles: ['title', 'category', 'date', 'read_min'],
+    listings: ['stock_no', 'make', 'model', 'year', 'price', 'status', 'location', 'published'],
+    routes: ['country', 'port', 'transit', 'freight_base', 'duty_pct', 'published'],
+    articles: ['title', 'category', 'date', 'read_min', 'published'],
     customers: ['name', 'country', 'status', 'total_spend', 'vehicles_bought'],
     vehicles: ['stock_no', 'make', 'model', 'year', 'price', 'status', 'steering'],
     quotes: ['quote_no', 'customer_name', 'vehicle', 'amount', 'status', 'valid_until'],
@@ -957,8 +1255,16 @@ function renderCell(k, v) {
   if (['price', 'amount', 'total_spend', 'budget'].includes(k)) {
     return typeof v === 'number' ? money(v) : (v ?? '—');
   }
-  if (['valid_until', 'eta', 'due_date', 'next_follow_up'].includes(k)) return date(v);
-  if (['status', 'priority'].includes(k)) return <em className={'crm-status ' + v}>{pretty(v)}</em>;
+  if (['valid_until', 'eta', 'due_date', 'next_follow_up'].includes(k)) {
+    const overdue = isOverdue(v) && k !== 'valid_until';
+    return <span className={overdue ? 'crm-cell-overdue' : ''}>{date(v)}</span>;
+  }
+  if (['status', 'priority'].includes(k)) return <em className={'crm-status ' + statusClass(v)}>{pretty(v)}</em>;
+  if (k === 'published') {
+    return v === false
+      ? <em className="crm-status dormant">Hidden</em>
+      : <em className="crm-status active">Live</em>;
+  }
   if (k === 'progress') return <span className="table-progress"><i style={{ width: v + '%' }} /><b>{v}%</b></span>;
   return v ?? '—';
 }
@@ -1257,11 +1563,75 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
 // ---------------------------------------------------------------------
 //  Entity Editor Form with integrated photo manager
 // ---------------------------------------------------------------------
-function Editor({ entity, data, onClose, onSave, onDelete }) {
+// Renders one field according to its declared type (text, number, date,
+// select, textarea, check, year). Keeps every form in the CRM consistent.
+function FieldControl({ f, form, setForm }) {
+  const [key, label, type = 'text', opts = {}] = f;
+  const set = v => setForm(s => ({ ...s, [key]: v }));
+  const val = form[key];
+
+  if (type === 'check') {
+    return (
+      <label className="crm-check" title={opts.hint}>
+        <input type="checkbox" checked={!!val} onChange={e => set(e.target.checked)} /> {label}
+        {opts.hint && <small className="field-hint">{opts.hint}</small>}
+      </label>
+    );
+  }
+  if (type === 'select' || type === 'year') {
+    const options = type === 'year' ? YEARS.map(String) : opts.options || [];
+    const current = val == null || val === '' ? '' : String(val);
+    return (
+      <label>
+        {label}{opts.required && <i className="req-star">*</i>}
+        <select value={current} onChange={e => set(type === 'year' ? (e.target.value ? Number(e.target.value) : null) : e.target.value)}>
+          <option value="">Select…</option>
+          {current && !options.includes(current) && <option value={current}>{pretty(current)}</option>}
+          {options.map(o => <option key={o} value={o}>{type === 'select' && ['status', 'priority', 'source', 'fuel', 'body'].includes(key) ? pretty(o) : o}</option>)}
+        </select>
+        {opts.hint && <small className="field-hint">{opts.hint}</small>}
+      </label>
+    );
+  }
+  if (type === 'textarea') {
+    return (
+      <label className="span2">
+        {label}
+        <textarea rows={opts.rows || 3} value={val ?? ''} placeholder={opts.placeholder} onChange={e => set(e.target.value)} />
+      </label>
+    );
+  }
+  if (type === 'number') {
+    return (
+      <label>
+        {label}{opts.required && <i className="req-star">*</i>}
+        <input type="number" value={val ?? ''} min={opts.min} max={opts.max} step={opts.step ?? 'any'} placeholder={opts.placeholder} required={opts.required}
+          onChange={e => set(e.target.value === '' ? null : Number(e.target.value))} />
+        {opts.hint && <small className="field-hint">{opts.hint}</small>}
+      </label>
+    );
+  }
+  return (
+    <label>
+      {label}{opts.required && <i className="req-star">*</i>}
+      <input type={type} value={val ?? ''} placeholder={opts.placeholder} required={opts.required} onChange={e => set(e.target.value)} />
+      {opts.hint && <small className="field-hint">{opts.hint}</small>}
+    </label>
+  );
+}
+
+function Editor({ entity, data, onClose, onSave, onDelete, onDuplicate }) {
   const cfg = configs[entity];
   const [form, setForm] = useState({ ...data });
   const isVehicle = entity === 'vehicles' || entity === 'listings';
   const [photos, setPhotos] = useState(() => extractPhotos(data));
+  const quickPhotoRef = useRef(null);
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const handlePhotoAdd = url => {
     if (!url.trim() || photos.includes(url.trim())) return;
@@ -1298,12 +1668,26 @@ function Editor({ entity, data, onClose, onSave, onDelete }) {
   const handleSubmit = e => {
     e.preventDefault();
     const payload = { ...form };
+    // Empty optional fields go to the server as null instead of blank strings,
+    // keeping the database tidy and filters honest.
+    cfg.fields.forEach(([key, , type = 'text', opts = {}]) => {
+      if (!opts.required && type !== 'check' && payload[key] === '') payload[key] = null;
+    });
     if (isVehicle) {
       payload.images = photos;
       payload.image = photos[0] || form.image || '';
     }
     onSave(payload);
   };
+
+  // Group fields into their declared sections for a calmer, scannable form.
+  const sections = [];
+  cfg.fields.forEach(f => {
+    const name = f[3]?.section || 'Details';
+    let sec = sections.find(s => s.name === name);
+    if (!sec) { sec = { name, fields: [] }; sections.push(sec); }
+    sec.fields.push(f);
+  });
 
   return (
     <div className="crm-modal-bg" onMouseDown={onClose}>
@@ -1344,7 +1728,7 @@ function Editor({ entity, data, onClose, onSave, onDelete }) {
             <div className="editor-photo-quick-add">
               <input
                 type="text"
-                id="quick-photo-url"
+                ref={quickPhotoRef}
                 placeholder="Add image URL or path (/assets/gallery/...)"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
@@ -1357,7 +1741,7 @@ function Editor({ entity, data, onClose, onSave, onDelete }) {
               <button
                 type="button"
                 onClick={() => {
-                  const el = document.getElementById('quick-photo-url');
+                  const el = quickPhotoRef.current;
                   if (el && el.value) {
                     handlePhotoAdd(el.value);
                     el.value = '';
@@ -1370,24 +1754,24 @@ function Editor({ entity, data, onClose, onSave, onDelete }) {
           </div>
         )}
 
-        <div className="crm-editor-fields">
-          {cfg.fields.map(([key, label, type = 'text']) => (
-            <label key={key}>
-              {label}
-              <input
-                type={type}
-                value={form[key] ?? ''}
-                onChange={e => setForm(v => ({ ...v, [key]: type === 'number' ? Number(e.target.value) : e.target.value }))}
-                required={['name', 'title', 'stock_no', 'quote_no', 'tracking_no'].includes(key)}
-              />
-            </label>
-          ))}
-        </div>
+        {sections.map(sec => (
+          <div className="field-section" key={sec.name}>
+            <h4>{sec.name}</h4>
+            <div className={'crm-editor-fields' + (sections.length === 1 || ['articles'].includes(entity) ? '' : ' two')}>
+              {sec.fields.map(f => <FieldControl key={f[0]} f={f} form={form} setForm={setForm} />)}
+            </div>
+          </div>
+        ))}
 
         <footer>
           {onDelete && (
             <button type="button" className="crm-del-text" onClick={onDelete}>
               <Trash2 /> Delete
+            </button>
+          )}
+          {onDuplicate && (
+            <button type="button" className="crm-dup-text" onClick={onDuplicate} title="Create a copy of this record">
+              <Copy /> Duplicate
             </button>
           )}
           <button type="button" onClick={onClose}>Cancel</button>
@@ -2090,7 +2474,7 @@ function ApprovalsView({ token, profile, perms, notify, onChange }) {
           {list.map(a => (
             <article key={a.id} className={'approval ' + a.status}>
               <div className="approval-main">
-                <em className={'crm-status ' + a.status}>{pretty(a.status)}</em>
+                <em className={'crm-status ' + statusClass(a.status)}>{pretty(a.status)}</em>
                 <b>{pretty(a.kind)} · {a.entity_label || pretty(a.entity_type)}</b>
                 <small>Asked by {a.requested_by_name} · {new Date(a.created_at).toLocaleString()}</small>
                 {a.reason && <p className="approval-reason">“{a.reason}”</p>}
@@ -2325,7 +2709,7 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
                     <td>{money(o.amount)}</td>
                     <td>{money(o.paid)}</td>
                     <td className={Number(o.balance_due) > 0 ? 'due' : 'clear'}>{money(o.balance_due)}</td>
-                    <td><em className={'crm-status ' + o.status}>{pretty(o.status)}</em></td>
+                    <td><em className={'crm-status ' + statusClass(o.status)}>{pretty(o.status)}</em></td>
                   </tr>
                 ))}
               </tbody>

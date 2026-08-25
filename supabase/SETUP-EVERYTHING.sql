@@ -654,6 +654,17 @@ alter table public.payroll_runs       enable row level security;
 -- functions using the service role, which check permissions first.
 
 
+-- ---- Migration: vehicle photo galleries (safe to re-run) -------------
+-- The CRM's photo manager stores each vehicle's gallery as a JSON array.
+-- Older databases were created before these columns existed; without them
+-- every "Save photos" press fails with a 500 (column does not exist).
+alter table public.site_listings add column if not exists images  jsonb;
+alter table public.site_listings add column if not exists gallery jsonb;
+alter table public.vehicles      add column if not exists image   text;
+alter table public.vehicles      add column if not exists images  jsonb;
+alter table public.vehicles      add column if not exists gallery jsonb;
+alter table public.site_blocks   add column if not exists published boolean default true;
+
 -- Show the result
 select u.email, p.role, p.active
 from public.profiles p join auth.users u on u.id = p.id;
