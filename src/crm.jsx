@@ -8,7 +8,7 @@ import {
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy, CalendarCheck
+  Maximize2, ZoomIn, ZoomOut, Copy
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import './crm.css';
@@ -1074,7 +1074,6 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
 function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions }) {
   const [viewMode, setViewMode] = useState('table');
   const [leadFilter, setLeadFilter] = useState('all');
-  const [followMenu, setFollowMenu] = useState(null);
   const isVehicleType = entity === 'vehicles' || entity === 'listings';
   const statusPicker = (row, current) => (
     <select
@@ -1114,9 +1113,10 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
         : leadFilter === 'open' ? ['qualified', 'proposal', 'negotiation'].includes(x.status)
           : x.status === leadFilter
     );
-    // One-click follow-up completion: clears the overdue warning and can
-    // schedule the next touch in the same tap, straight from the card.
-    const followDone = (x, next) => { setFollowMenu(null); onQuickPatch(x, { next_follow_up: next }); };
+    // Follow-up control: "Done" marks it complete and clears the overdue
+    // warning; the "Next" row schedules the following touch separately, so
+    // the two actions can never be confused.
+    const followDone = (x, next) => onQuickPatch(x, { next_follow_up: next });
     return (
       <div className="crm-lead-wrap">
         <div className="crm-chips">
@@ -1144,26 +1144,25 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
                   <div><dt>Owner</dt><dd>{x.assigned_to || '—'}</dd></div>
                 </dl>
                 {isOpenLead(x) && (
-                  <div className="crm-follow-strip">
-                    <span className={'crm-follow-due ' + (isOverdue(x.next_follow_up) ? 'overdue' : '')}>
-                      <Clock3 size={12} />
-                      {x.next_follow_up
-                        ? (isOverdue(x.next_follow_up) ? 'Overdue since ' + date(x.next_follow_up) : 'Next follow-up ' + date(x.next_follow_up))
-                        : 'No follow-up scheduled'}
-                    </span>
-                    <div className="crm-follow-wrap">
-                      <button className="crm-follow-done" title="Mark this follow-up as done" onClick={() => setFollowMenu(followMenu === x.id ? null : x.id)}>
+                  <div className={'crm-follow ' + (isOverdue(x.next_follow_up) ? 'is-overdue' : '')}>
+                    <div className="crm-follow-head">
+                      <span className="crm-follow-due">
+                        <Clock3 size={12} />
+                        {x.next_follow_up
+                          ? (isOverdue(x.next_follow_up) ? 'Overdue since ' + date(x.next_follow_up) : 'Next follow-up ' + date(x.next_follow_up))
+                          : 'No follow-up scheduled'}
+                      </span>
+                      <button className="crm-follow-done" title="Mark this follow-up done and clear the warning" onClick={() => followDone(x, null)}>
                         <Check size={13} /> Done
                       </button>
-                      {followMenu === x.id && (
-                        <div className="crm-follow-menu">
-                          <b>Followed up — next step?</b>
-                          <button onClick={() => followDone(x, null)}><Ban size={12} /> Clear date <small>removes the warning</small></button>
-                          <button onClick={() => followDone(x, addDays(3))}><CalendarCheck size={12} /> In 3 days <small>{date(addDays(3))}</small></button>
-                          <button onClick={() => followDone(x, addDays(7))}><CalendarCheck size={12} /> In 1 week <small>{date(addDays(7))}</small></button>
-                          <button onClick={() => followDone(x, addDays(14))}><CalendarCheck size={12} /> In 2 weeks <small>{date(addDays(14))}</small></button>
-                        </div>
-                      )}
+                    </div>
+                    <div className="crm-follow-next" title="Schedule the next follow-up from today">
+                      <span>Schedule next</span>
+                      <div className="crm-follow-next-opts">
+                        <button onClick={() => followDone(x, addDays(3))}>+3 days</button>
+                        <button onClick={() => followDone(x, addDays(7))}>+1 week</button>
+                        <button onClick={() => followDone(x, addDays(14))}>+2 weeks</button>
+                      </div>
                     </div>
                   </div>
                 )}
