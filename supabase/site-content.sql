@@ -21,6 +21,8 @@ create table if not exists public.site_listings (
   body          text,
   price         text,
   image         text,
+  images        jsonb,
+  gallery       jsonb,
   grade         text,
   status        text default 'In Stock',
   location      text,
@@ -78,6 +80,7 @@ create table if not exists public.site_blocks (
   label         text,
   value         text,
   page          text,
+  published     boolean default true,
   updated_at    timestamptz default now()
 );
 

@@ -28,5 +28,11 @@ create policy "staff update own profile" on public.profiles for update to authen
 -- Business tables are accessed through authenticated Vercel functions using the service role.
 -- No direct browser policies are created, preventing anon/authenticated users from querying CRM data directly.
 
+-- Vehicle photo galleries: the CRM photo manager stores per-vehicle galleries.
+-- (idempotent — safe on both fresh and existing databases)
+alter table public.vehicles add column if not exists image   text;
+alter table public.vehicles add column if not exists images  jsonb;
+alter table public.vehicles add column if not exists gallery jsonb;
+
 -- After creating the first user in Authentication > Users, promote that user:
 -- update public.profiles set role='admin', full_name='Your Name' where id='AUTH-USER-UUID';
