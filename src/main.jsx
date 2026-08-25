@@ -345,6 +345,8 @@ function WorldTimeRibbon(){
 function App(){
  const [,forceContent]=useReducer(x=>x+1,0);
  const settings=useSettings();
+ const {session:customerSession}=useCustomerSession();
+ const signedIn=!!customerSession;
  const [dark,setDark]=useState(false), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState([]), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(()=>location.hash.slice(1)||'home');
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; },[dark]);
  useSeo(page);
@@ -434,4 +436,22 @@ function App(){
   {modal&&<div className="modal-backdrop" onMouseDown={()=>setModal(false)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-x" onClick={()=>setModal(false)}><X/></button>{sent?<div className="success"><span><Check/></span><h2>Request received.</h2><p>Our auction specialist will contact you within 24 hours with your access details.</p><button className="primary" onClick={()=>{setSent(false);setModal(false)}}>Back to site</button></div>:<><div className="kicker">JOIN THE AUCTION</div><h2>Get free auction access.</h2><p>Tell us where you are and what you're looking for.</p><form onSubmit={submitLead}>{leadError&&<div className="form-api-error">{leadError}</div>}<input name="website" tabIndex="-1" autoComplete="off" style={{display:'none'}}/><label>YOUR NAME<input name="name" required placeholder="Full name"/></label><div className="form-row"><label>EMAIL<input name="email" required type="email" placeholder="you@email.com"/></label><label>DESTINATION<select name="country"><option>Pakistan</option><option>UAE</option><option>United Kingdom</option><option>Kenya</option><option>Other</option></select></label></div><label>VEHICLE YOU'RE LOOKING FOR<input name="vehicle_interest" placeholder="e.g. Toyota Land Cruiser, 2022+"/></label><button className="primary" type="submit" disabled={leadSending}>{leadSending?'Sending…':'Request access'} <ArrowRight/></button><small><LockKeyhole/> Your details stay private. No spam, ever.</small></form></>}</div></div>}
  </div>
 }
-createRoot(document.getElementById('root')).render(<App/>);
+class BootErrorBoundary extends React.Component{
+ constructor(props){super(props);this.state={error:null}}
+ static getDerivedStateFromError(error){return {error}}
+ componentDidCatch(error,info){console.error('AR7 failed to render',error,info)}
+ render(){
+  if(!this.state.error) return this.props.children;
+  return <div style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:'32px 20px',background:'#f5f6f2',color:'#102018',fontFamily:'Manrope,system-ui,sans-serif',textAlign:'center'}}>
+   <div style={{maxWidth:460}}>
+    <img src="/assets/ar7-mark.png" alt="AR7 Traders" width="56" height="56" style={{borderRadius:12}}/>
+    <h1 style={{fontSize:28,letterSpacing:'-0.04em',margin:'18px 0 10px'}}>AR7 Traders</h1>
+    <p style={{color:'#66736c',lineHeight:1.6,margin:'0 0 22px'}}>The page failed to load. Refresh, or email <a href="mailto:info@ar7traders.com" style={{color:'#043f28'}}>info@ar7traders.com</a>.</p>
+    <button type="button" onClick={()=>location.reload()} style={{border:0,background:'#043f28',color:'#fff',borderRadius:12,height:48,padding:'0 20px',fontWeight:700,cursor:'pointer'}}>Refresh the page</button>
+   </div>
+  </div>;
+ }
+}
+
+const rootEl=document.getElementById('root');
+if(rootEl) createRoot(rootEl).render(<BootErrorBoundary><App/></BootErrorBoundary>);
