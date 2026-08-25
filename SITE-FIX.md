@@ -1,38 +1,44 @@
-# Why ar-7traders-web.vercel.app is down — and the exact clicks to fix it
+# Site outage 2026-08-25 — what happened, what was fixed, what to tidy up
 
-_Checked: 2026-08-25 ~21:00 UTC_
+_Status: **RECOVERED** 2026-08-25 ~21:20 UTC — the homepage, API and assets are
+serving again after a fresh production deployment of PR #8._
 
-## What is happening
+## What happened
 
-- `https://ar-7traders-web.vercel.app/` returns **HTTP 500** for the homepage
-  and for images, while `/api/*`, `robots.txt` and fonts still answer.
+- `https://ar-7traders-web.vercel.app/` returned **HTTP 500** for the homepage
+  while `/api/*`, `robots.txt` and fonts still answered — the production
+  deployment was in a broken state.
+- A fresh production build (PR #8, merged 2026-08-25) re-uploaded every file
+  and the site came back. The broken deployment is no longer in use.
+
+## Two things worth tidying in the Vercel dashboard (recommended)
+
 - Both Vercel projects attached to this repo (**`ar-7traders-web`** and
   **`ar7-traders`**) have **Deployment Protection → Vercel Authentication**
   enabled: every generated deployment URL redirects to a Vercel login screen
-  ("Protected Deployment"). That blocks previews, link previews on WhatsApp and
-  any visitor who is not inside your Vercel team.
+  ("Protected Deployment"). Production domains stay public (Hobby plan), but
+  preview links cannot be shared with anyone outside your Vercel team.
 - **Two projects deploy the same repository.** Each push builds twice, and the
   two projects can fight over domains. Only one of them should exist.
 
-## Fix it in the Vercel dashboard (5 minutes, no code)
+## Tidy it up in the Vercel dashboard (5 minutes, no code)
 
 1. Go to **vercel.com → your team (ar-9) → project `ar-7traders-web`**
    (the one whose domain is `ar-7traders-web.vercel.app`).
-2. **Settings → Deployment Protection**.
-3. Set **Vercel Authentication** to **Standard Protection** (previews stay
-   private, the production domain stays public) — or **Disabled** if you never
-   need private previews. Save.
-4. Still in the project: **Deployments → latest deployment → ⋯ → Redeploy**
-   (leave "use existing build cache" **unchecked**). This rebuilds and
-   re-uploads the static files from scratch.
-5. Repeat steps 2–3 for the second project **`ar7-traders`**, then decide
-   which project keeps the site:
+2. **Settings → Deployment Protection**: set **Vercel Authentication** to
+   **Standard Protection** (production public, previews private) or
+   **Disabled** if you never need private previews. Save.
+3. Repeat for the second project **`ar7-traders`**, then decide which project
+   keeps the site:
    - Keep **one** project connected to this GitHub repo.
    - For the other one: **Settings → General → Delete Project** (or at minimum
-     Settings → Git → Disconnect). Two projects building the same repo is what
-     keeps causing "it broke again" surprises.
-6. Confirm the production domain is listed under the surviving project:
+     Settings → Git → Disconnect). Two projects building the same repo doubles
+   every build and is what keeps causing "it broke again" surprises.
+4. Confirm the production domain is listed under the surviving project:
    **Settings → Domains** should show `ar-7traders-web.vercel.app`.
+5. If the homepage ever shows a 500 again: **Deployments → latest → ⋯ →
+   Redeploy** with the build cache **unchecked** — a fresh re-upload fixed it
+   this time.
 
 ## What was fixed in code (this branch)
 
