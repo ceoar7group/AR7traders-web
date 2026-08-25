@@ -8,8 +8,43 @@ export default async function handler(req,res){
   const header=req.headers.authorization||'';
   const token=header.startsWith('Bearer ')?header.slice(7):'';
   if(!token)return send(res,401,{error:'Please sign in'});
-  const {data:u,error}=await authClient().auth.getUser(token);
+  const ac=authClient();
+  const {data:u,error}=await ac.auth.getUser(token);
   if(error||!u.user)return send(res,401,{error:'Please sign in'});
+
+  if(req.method==='PATCH'){
+   const db0=adminClient();
+   const name=String(req.body?.name??'').trim();
+   const phone=req.body?.phone===undefined?undefined:String(req.body.phone).trim();
+   const country=req.body?.country===undefined?undefined:String(req.body.country).trim();
+   if(name!==''&&name.length<2)
+     return send(res,400,{error:'Please enter your full name (at least 2 characters)'});
+   let {data:cust}=await db0.from('customers').select('*').eq('auth_user_id',u.user.id).single();
+   const patch={updated_at:new Date().toISOString()};
+   if(name!=='')patch.name=name;
+   if(phone!==undefined)patch.phone=phone;
+   if(country!==undefined)patch.country=country;
+   if(!cust){
+    if(name==='')return send(res,400,{error:'Please enter your name'});
+    const {data:made,error:mErr}=await db0.from('customers').insert({
+      ...patch, email:u.user.email, auth_user_id:u.user.id, portal_enabled:true
+    }).select().single();
+    if(mErr)return send(res,400,{error:mErr.message});
+    cust=made;
+   }else{
+    const {data:upd,error:uErr}=await db0.from('customers')
+      .update(patch).eq('id',cust.id).select().single();
+    if(uErr)return send(res,400,{error:uErr.message});
+    if(upd)cust=upd;else Object.assign(cust,patch);
+   }
+   try{
+    await adminClient().auth.admin.updateUserById(u.user.id,{
+      user_metadata:{...(u.user.user_metadata||{}),full_name:name||u.user.user_metadata?.full_name}
+    });
+   }catch(e){console.error('metadata sync skipped',e.message)}
+   return send(res,200,{customer:{id:cust.id,name:cust.name,email:cust.email,
+     phone:cust.phone||'',country:cust.country||''}});
+  }
 
   const db=adminClient();
   let {data:cust}=await db.from('customers').select('*').eq('auth_user_id',u.user.id).single();

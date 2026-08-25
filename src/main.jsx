@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState, useReducer} from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, UserPlus, CarFront, Eye, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Wrench, Landmark } from 'lucide-react';
+import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, UserPlus, CarFront, Eye, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Wrench, Landmark, UserCog } from 'lucide-react';
 import './styles.css';
 import './pages.css';
 import './extra-pages.css';
@@ -9,7 +9,7 @@ import './landing-v2.css';
 import './expanded.css';
 import { WorldPage, BigNetworkGlobe, Flag } from './network.jsx';
 import CrmApp from './crm.jsx';
-import { CustomerAccountPage, WhatsAppButton } from './customer-portal.jsx';
+import { CustomerAccountPage, WhatsAppButton, useCustomerSession } from './customer-portal.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { useSettings, telHref, waLink } from './site-settings.js';
 import { useSeo } from './seo.js';
@@ -282,6 +282,8 @@ function ExtraPages2({type,navigate,openAuction}){
 
 function InnerPage({page,navigate,openAuction,favs,setFavs}){
  const settings=useSettings();
+ const cust=useCustomerSession();
+ const signedIn=!!cust.session;
  const [query,setQuery]=useState(''),[body,setBody]=useState('All'),[make,setMake]=useState(takePending()),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[selected,setSelected]=useState(null),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(DEST[0][1]),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false);
  const detailGallery=selected?galleryFor(selected):[];
  const detailImage=galleryImage||detailGallery[0];
@@ -360,7 +362,7 @@ function App(){
     </div>
     <button className="auction-link" onClick={()=>navigate('contact')}><MessageCircle size={15}/> Contact</button>
    </div>
-   <div className="nav-actions"><button className="icon-btn studio-btn" onClick={()=>navigate('studio')} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></button><button className="icon-btn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button><button className="icon-btn portal-btn" onClick={()=>navigate('account')} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></button><button className="primary compact" onClick={()=>navigate('account')}>Sign up <UserPlus/></button><button className="menu-btn" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button></div>
+   <div className="nav-actions"><button className="icon-btn studio-btn" onClick={()=>navigate('studio')} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></button><button className="icon-btn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button><button className="icon-btn portal-btn" onClick={()=>navigate('account')} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></button><button className="primary compact" onClick={()=>navigate('account')}>{signedIn?<>My account <UserCog/></>:<>Sign up <UserPlus/></>}</button><button className="menu-btn" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button></div>
   </nav><WorldTimeRibbon/></header>
 
   <main>
@@ -413,7 +415,7 @@ function App(){
    </>:page==='world'?<WorldPage navigate={navigate}/>:page==='account'?<CustomerAccountPage navigate={navigate}/>:page==='studio'?<DeviceStudio navigate={navigate}/>:<InnerPage page={page} navigate={navigate} openAuction={()=>setModal(true)} favs={favs} setFavs={setFavs}/>}
   </main>
 
-  <footer><div className="shell footer-top"><div className="footer-brand"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><p>Reliable vehicles. Transparent process.<br/>Worldwide delivery.</p><div className="socials"><button onClick={()=>navigate('inventory')} title="Vehicle gallery"><Camera/></button><button onClick={()=>navigate('reviews')} title="Customer stories"><MessageCircle/></button><button onClick={()=>navigate('contact')} title="Contact AR7"><Send/></button></div></div><div><b>EXPLORE</b><a onClick={()=>navigate('inventory')}>Inventory</a><a onClick={()=>navigate('auction')}>Auction access</a><a onClick={()=>navigate('services')}>Services</a><a onClick={()=>navigate('brands')}>Brands</a><a onClick={()=>navigate('destinations')}>Destinations</a><a onClick={()=>navigate('tools')}>Calculators</a><a onClick={()=>navigate('world')}>World network</a></div><div><b>COMPANY</b><a onClick={()=>navigate('howbuy')}>How to buy</a><a onClick={()=>navigate('news')}>News & guides</a><a onClick={()=>navigate('about')}>About us</a><a onClick={()=>navigate('reviews')}>Customer stories</a><a onClick={()=>navigate('faq')}>Help & FAQ</a><a onClick={()=>navigate('account')}>My account</a><a onClick={()=>navigate('portal')}>Portal tour</a><a onClick={()=>navigate('crm')}>Staff CRM</a><a onClick={()=>navigate('account')}>Customer sign up</a><a onClick={()=>navigate('studio')}>Device preview</a></div><div><b>GET IN TOUCH</b><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={15}/> WhatsApp</a><a onClick={()=>navigate('contact')}><MapPin/> {settings.contact_address}</a></div></div><div className="shell footer-bottom"><span>© 2026 AR7 Traders. All rights reserved.</span><span>Privacy · Terms · Export policy</span><b>AR7TRADERS.COM</b></div></footer>
+  <footer><div className="shell footer-top"><div className="footer-brand"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><p>Reliable vehicles. Transparent process.<br/>Worldwide delivery.</p><div className="socials"><button onClick={()=>navigate('inventory')} title="Vehicle gallery"><Camera/></button><button onClick={()=>navigate('reviews')} title="Customer stories"><MessageCircle/></button><button onClick={()=>navigate('contact')} title="Contact AR7"><Send/></button></div></div><div><b>EXPLORE</b><a onClick={()=>navigate('inventory')}>Inventory</a><a onClick={()=>navigate('auction')}>Auction access</a><a onClick={()=>navigate('services')}>Services</a><a onClick={()=>navigate('brands')}>Brands</a><a onClick={()=>navigate('destinations')}>Destinations</a><a onClick={()=>navigate('tools')}>Calculators</a><a onClick={()=>navigate('world')}>World network</a></div><div><b>COMPANY</b><a onClick={()=>navigate('howbuy')}>How to buy</a><a onClick={()=>navigate('news')}>News & guides</a><a onClick={()=>navigate('about')}>About us</a><a onClick={()=>navigate('reviews')}>Customer stories</a><a onClick={()=>navigate('faq')}>Help & FAQ</a>{signedIn&&<a onClick={()=>navigate('account')}>My account</a>}<a onClick={()=>navigate('portal')}>Portal tour</a><a onClick={()=>navigate('crm')}>Staff CRM</a>{!signedIn&&<a onClick={()=>navigate('account')}>Customer sign up</a>}<a onClick={()=>navigate('studio')}>Device preview</a></div><div><b>GET IN TOUCH</b><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={15}/> WhatsApp</a><a onClick={()=>navigate('contact')}><MapPin/> {settings.contact_address}</a></div></div><div className="shell footer-bottom"><span>© 2026 AR7 Traders. All rights reserved.</span><span>Privacy · Terms · Export policy</span><b>AR7TRADERS.COM</b></div></footer>
 
   <WhatsAppButton/>
 

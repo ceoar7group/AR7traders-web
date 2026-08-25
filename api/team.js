@@ -14,7 +14,27 @@ export default async function handler(req,res){
    const {data,error}=await db.from('role_permissions').select('*').order('role').order('permission');
    if(error)throw error;return send(res,200,data||[]);
   }
+  if(action==='me'&&req.method==='PATCH'){
+   const {full_name,title,phone}=req.body||{};
+   const patch={updated_at:new Date().toISOString()};
+   if(full_name!==undefined){
+    const fn=String(full_name).trim();
+    if(fn.length<2)return send(res,400,{error:'Please enter your full name'});
+    patch.full_name=fn;
+   }
+   if(title!==undefined)patch.title=String(title).trim();
+   if(phone!==undefined)patch.phone=String(phone).trim();
+   const {data,error}=await db.from('profiles').update(patch)
+     .eq('id',user.id).select().single();
+   if(error)throw error;
+   await log(db,profile,'Updated their own profile','profiles',user.id);
+   return send(res,200,data);
+  }
 
+  if(action==='me'&&req.method==='GET'){
+   const {data,error}=await db.from('profiles').select('*').eq('id',user.id).single();
+   if(error)throw error;return send(res,200,data);
+  }
   if(action==='members'&&req.method==='GET'){
    await requirePerm(profile,'team.manage');
    const {data,error}=await db.from('profiles').select('*').order('created_at');

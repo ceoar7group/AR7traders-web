@@ -5,7 +5,8 @@
 // never gets to ask for someone else's records.
 import React, {useEffect, useState} from 'react';
 import {MessageCircle, Mail, LockKeyhole, ArrowRight, Check, LogIn, UserPlus,
-        BadgeCheck, CarFront, Wallet, ArrowLeftRight, ShieldCheck, X} from 'lucide-react';
+                BadgeCheck, CarFront, Wallet, ArrowLeftRight, ShieldCheck, X,
+        UserCog, KeyRound} from 'lucide-react';
 import {supabase, hasSupabase} from './supabase-client.js';
 import {useSettings, waLink} from './site-settings.js';
 import {WhatsAppIcon} from './brand-icons.jsx';
@@ -226,13 +227,16 @@ function NewPasswordPanel({onDone}){
 
 /* ---- signed in: the real account ---------------------------------- */
 function MyAccount({session,navigate}){
- const [data,setData]=useState(null),[err,setErr]=useState('');
+  const [data,setData]=useState(null),[err,setErr]=useState('');
+ const [panel,setPanel]=useState(null);   // 'profile' | 'password' | null
  const s=useSettings();
- useEffect(()=>{
-  fetch('/api/my-account',{headers:{Authorization:'Bearer '+session.access_token}})
-   .then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Could not load your account');return j})
-   .then(setData).catch(e=>setErr(e.message));
- },[session.access_token]);
+ async function load(){
+  const r=await fetch('/api/my-account',{headers:{Authorization:'Bearer '+session.access_token}});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||'Could not load your account');
+  setData(j);
+ }
+ useEffect(()=>{load().catch(e=>setErr(e.message))},[session.access_token]);
 
  async function signOut(){await supabase.auth.signOut()}
 
@@ -252,11 +256,18 @@ function MyAccount({session,navigate}){
      <h1>Hello, <em>{String(name).split(' ')[0]}</em>.</h1>
      <p>{session.user.email}</p>
     </div>
-    <div className="ma-head-actions">
+        <div className="ma-head-actions">
+     <button className="outline-btn" onClick={()=>setPanel(panel==='profile'?null:'profile')}><UserCog/> Profile</button>
+     <button className="outline-btn" onClick={()=>setPanel(panel==='password'?null:'password')}><KeyRound/> Password</button>
      <a className="outline-btn" href={waLink(s.whatsapp_number,'Hello AR7, I have a question about my order.')} target="_blank" rel="noopener noreferrer"><MessageCircle/> Ask a question</a>
      <button className="outline-btn" onClick={signOut}>Sign out</button>
     </div>
    </div>
+
+   {panel==='profile' && <ProfilePanel session={session} customer={data.customer}
+     email={session.user.email} onClose={()=>setPanel(null)}
+     onSaved={()=>load().catch(()=>{})}/>}
+   {panel==='password' && <PasswordPanel onClose={()=>setPanel(null)}/>}
 
    {!data.customer ? <div className="ma-empty">
      <span><CarFront/></span>
@@ -303,5 +314,78 @@ function MyAccount({session,navigate}){
     <p className="ma-foot"><ShieldCheck/> Every payment we receive is listed here the day it clears. If something looks wrong, message us on WhatsApp or email {s.contact_email} and we will check it the same day.</p>
    </>}
   </div>
+ </section>;
+}
+
+const COUNTRIES=['Pakistan','UAE','Kenya','United Kingdom','Tanzania','Other'];
+
+function ProfilePanel({session,customer,email,onClose,onSaved}){
+ const [busy,setBusy]=useState(false),[err,setErr]=useState(''),[ok,setOk]=useState(false);
+ const initial=customer||{};
+ async function submit(e){
+  e.preventDefault();
+  const f=new FormData(e.currentTarget);
+  setBusy(true);setErr('');
+  try{
+   const r=await fetch('/api/my-account',{method:'PATCH',
+     headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},
+     body:JSON.stringify({name:f.get('name'),phone:f.get('phone'),country:f.get('country')})});
+   const j=await r.json().catch(()=>({}));
+   if(!r.ok) throw new Error(j.error||'Could not save your details');
+   if(supabase) await supabase.auth.updateUser({data:{full_name:f.get('name')}});
+   setOk(true);onSaved&&onSaved();
+   setTimeout(()=>{setOk(false);onClose()},1400);
+  }catch(e2){setErr(e2.message)}finally{setBusy(false)}
+ }
+ return <section className="ma-panel">
+  <header><div><div className="kicker">YOUR DETAILS</div><h2>Edit your profile.</h2>
+   <p>Our team uses these details for your export documents, so please keep them accurate.</p></div>
+   <button type="button" className="ma-panel-x" onClick={onClose} aria-label="Close"><X/></button></header>
+  {ok ? <div className="ma-saved"><Check/> Saved.</div>
+  : <form onSubmit={submit}>
+    {err && <div className="account-error">{err}</div>}
+    <label>FULL NAME<input name="name" required minLength={2} defaultValue={initial.name||''} placeholder="Your full name"/></label>
+    <div className="form-row">
+     <label>EMAIL<input value={email} disabled title="Email is your login — message us if it needs to change"/></label>
+     <label>WHATSAPP / PHONE<input name="phone" defaultValue={initial.phone||''} placeholder="+92 300 0000000"/></label>
+    </div>
+    <label>COUNTRY
+     <select name="country" defaultValue={initial.country||'Pakistan'}>
+      {COUNTRIES.map(c=><option key={c}>{c}</option>)}
+     </select>
+    </label>
+    <footer><button type="button" className="outline-btn" onClick={onClose}>Cancel</button>
+     <button className="primary" disabled={busy}>{busy?'Saving…':'Save changes'} <ArrowRight/></button></footer>
+   </form>}
+ </section>;
+}
+
+function PasswordPanel({onClose}){
+ const [busy,setBusy]=useState(false),[err,setErr]=useState(''),[ok,setOk]=useState(false);
+ async function submit(e){
+  e.preventDefault();
+  if(!supabase){setErr('Password changes are not connected yet. Please contact us directly.');return}
+  const f=new FormData(e.currentTarget);
+  const next=f.get('password'),confirm=f.get('confirm');
+  if(next!==confirm){setErr('The two passwords do not match.');return}
+  setBusy(true);setErr('');
+  const {error}=await supabase.auth.updateUser({password:next});
+  if(error){setErr(error.message);setBusy(false);return}
+  setOk(true);setBusy(false);
+  setTimeout(onClose,1600);
+ }
+ return <section className="ma-panel">
+  <header><div><div className="kicker">SECURITY</div><h2>Change your password.</h2>
+   <p>Use at least 8 characters. You stay signed in on this device.</p></div>
+   <button type="button" className="ma-panel-x" onClick={onClose} aria-label="Close"><X/></button></header>
+  {ok ? <div className="ma-saved"><Check/> Password updated.</div>
+  : <form onSubmit={submit}>
+    {err && <div className="account-error">{err}</div>}
+    <label>NEW PASSWORD<input name="password" type="password" required minLength={8} autoComplete="new-password" placeholder="At least 8 characters"/></label>
+    <label>CONFIRM NEW PASSWORD<input name="confirm" type="password" required minLength={8} autoComplete="new-password"/></label>
+    <small className="demo-note"><LockKeyhole/> If you no longer know your current password, sign out and use "Forgot your password" on the login screen.</small>
+    <footer><button type="button" className="outline-btn" onClick={onClose}>Cancel</button>
+     <button className="primary" disabled={busy}>{busy?'Saving…':'Update password'} <ArrowRight/></button></footer>
+   </form>}
  </section>;
 }
