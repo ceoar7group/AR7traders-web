@@ -304,6 +304,7 @@ function TeamView({token,profile,perms,setPerms,notify,onEdit}){
       {ROLE_LIST.map(r=><option key={r} value={r}>{pretty(r)}</option>)}</select></td>
     <td><em className={'crm-status '+(m.active?'active':'inactive')}>{m.active?'Active':'Disabled'}</em></td>
     <td className="crm-row-actions">
+     <button onClick={()=>onEdit(m)}><UserCog size={14}/> Edit</button>
      <button onClick={()=>setPw(m)}><KeyRound size={14}/> Password</button>
      {m.id!==profile.id&&<button className={m.active?'crm-del':''} onClick={()=>update(m.id,{active:!m.active})}>
        {m.active?'Disable':'Enable'}</button>}
