@@ -8,7 +8,7 @@ import {
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy
+  Maximize2, ZoomIn, ZoomOut, Copy, CalendarCheck
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import './crm.css';
@@ -399,6 +399,7 @@ const pretty = s => (s || '').replaceAll('_', ' ').replace(/\b\w/g, x => x.toUpp
 const date = s => s ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(s)) : '—';
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const isOverdue = d => !!d && String(d).slice(0, 10) < todayKey();
+const addDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 // Multi-word statuses like "In Stock" cannot be CSS classes as-is — slug them.
 const statusClass = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 
@@ -1072,6 +1073,8 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
 
 function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions }) {
   const [viewMode, setViewMode] = useState('table');
+  const [leadFilter, setLeadFilter] = useState('all');
+  const [followMenu, setFollowMenu] = useState(null);
   const isVehicleType = entity === 'vehicles' || entity === 'listings';
   const statusPicker = (row, current) => (
     <select
@@ -1097,33 +1100,83 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
   }
 
   if (entity === 'leads') {
+    const isOpenLead = x => !['won', 'lost'].includes(x.status);
+    const counts = {
+      all: rows.length,
+      overdue: rows.filter(x => isOpenLead(x) && isOverdue(x.next_follow_up)).length,
+      new: rows.filter(x => x.status === 'new').length,
+      open: rows.filter(x => ['qualified', 'proposal', 'negotiation'].includes(x.status)).length,
+      won: rows.filter(x => x.status === 'won').length,
+      lost: rows.filter(x => x.status === 'lost').length
+    };
+    const leadRows = leadFilter === 'all' ? rows : rows.filter(x =>
+      leadFilter === 'overdue' ? isOpenLead(x) && isOverdue(x.next_follow_up)
+        : leadFilter === 'open' ? ['qualified', 'proposal', 'negotiation'].includes(x.status)
+          : x.status === leadFilter
+    );
+    // One-click follow-up completion: clears the overdue warning and can
+    // schedule the next touch in the same tap, straight from the card.
+    const followDone = (x, next) => { setFollowMenu(null); onQuickPatch(x, { next_follow_up: next }); };
     return (
-      <div className="crm-lead-grid">
-        {rows.map(x => (
-          <article key={x.id}>
-            <div>
-              <span>{(x.name || '?').slice(0, 2).toUpperCase()}</span>
-              {onQuickPatch && statusOptions ? statusPicker(x, x.status) : <em className={'crm-status ' + statusClass(x.status)}>{pretty(x.status)}</em>}
-            </div>
-            <h3>{x.name}</h3>
-            {isOverdue(x.next_follow_up) && !['won', 'lost'].includes(x.status) && (
-              <small className="crm-overdue-pill"><Clock3 /> Follow-up overdue</small>
-            )}
-            <p>{x.vehicle_interest}</p>
-            <dl>
-              <div><dt>Market</dt><dd>{x.country}</dd></div>
-              <div><dt>Budget</dt><dd>{money(x.budget)}</dd></div>
-              <div><dt>Owner</dt><dd>{x.assigned_to}</dd></div>
-              <div><dt>Follow-up</dt><dd>{date(x.next_follow_up)}</dd></div>
-            </dl>
-            <footer>
-              <a href={'mailto:' + x.email} title="Send email"><Mail /></a>
-              <a href={'https://wa.me/' + (x.phone || '').replace(/\D/g, '')} target="_blank" rel="noreferrer" title="Chat on WhatsApp"><MessageCircle /></a>
-              <button onClick={() => onEdit(x)}>Open lead <ChevronRight /></button>
-              {onDelete && <button className="crm-del" title="Delete lead" onClick={() => onDelete(x)}><Trash2 /></button>}
-            </footer>
-          </article>
-        ))}
+      <div className="crm-lead-wrap">
+        <div className="crm-chips">
+          {[['all', 'All'], ['overdue', 'Overdue'], ['new', 'New'], ['open', 'In progress'], ['won', 'Won'], ['lost', 'Lost']].map(([id, label]) => (
+            <button key={id} className={'crm-chip ' + (leadFilter === id ? 'active' : '') + (id === 'overdue' && counts.overdue > 0 ? ' alert' : '')} onClick={() => setLeadFilter(id)}>
+              {label} <em>{counts[id]}</em>
+            </button>
+          ))}
+        </div>
+        {!leadRows.length ? (
+          <div className="crm-empty"><Search /><h3>No leads in this view</h3><p>Switch filters or add a new lead.</p></div>
+        ) : (
+          <div className="crm-lead-grid">
+            {leadRows.map(x => (
+              <article key={x.id}>
+                <div>
+                  <span>{(x.name || '?').slice(0, 2).toUpperCase()}</span>
+                  {onQuickPatch && statusOptions ? statusPicker(x, x.status) : <em className={'crm-status ' + statusClass(x.status)}>{pretty(x.status)}</em>}
+                </div>
+                <h3>{x.name}</h3>
+                <p>{x.vehicle_interest}</p>
+                <dl>
+                  <div><dt>Market</dt><dd>{x.country}</dd></div>
+                  <div><dt>Budget</dt><dd>{money(x.budget)}</dd></div>
+                  <div><dt>Owner</dt><dd>{x.assigned_to || '—'}</dd></div>
+                </dl>
+                {isOpenLead(x) && (
+                  <div className="crm-follow-strip">
+                    <span className={'crm-follow-due ' + (isOverdue(x.next_follow_up) ? 'overdue' : '')}>
+                      <Clock3 size={12} />
+                      {x.next_follow_up
+                        ? (isOverdue(x.next_follow_up) ? 'Overdue since ' + date(x.next_follow_up) : 'Next follow-up ' + date(x.next_follow_up))
+                        : 'No follow-up scheduled'}
+                    </span>
+                    <div className="crm-follow-wrap">
+                      <button className="crm-follow-done" title="Mark this follow-up as done" onClick={() => setFollowMenu(followMenu === x.id ? null : x.id)}>
+                        <Check size={13} /> Done
+                      </button>
+                      {followMenu === x.id && (
+                        <div className="crm-follow-menu">
+                          <b>Followed up — next step?</b>
+                          <button onClick={() => followDone(x, null)}><Ban size={12} /> Clear date <small>removes the warning</small></button>
+                          <button onClick={() => followDone(x, addDays(3))}><CalendarCheck size={12} /> In 3 days <small>{date(addDays(3))}</small></button>
+                          <button onClick={() => followDone(x, addDays(7))}><CalendarCheck size={12} /> In 1 week <small>{date(addDays(7))}</small></button>
+                          <button onClick={() => followDone(x, addDays(14))}><CalendarCheck size={12} /> In 2 weeks <small>{date(addDays(14))}</small></button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <footer>
+                  <a href={'mailto:' + x.email} title="Send email"><Mail /></a>
+                  <a href={'https://wa.me/' + (x.phone || '').replace(/\D/g, '')} target="_blank" rel="noreferrer" title="Chat on WhatsApp"><MessageCircle /></a>
+                  <button onClick={() => onEdit(x)}>Open lead <ChevronRight /></button>
+                  {onDelete && <button className="crm-del" title="Delete lead" onClick={() => onDelete(x)}><Trash2 /></button>}
+                </footer>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -2556,7 +2609,11 @@ function SettingsView({ token, profile, perms, notify }) {
 // ---------------------------------------------------------------------
 function AccountsList({ customers, onOpen }) {
   const [q, setQ] = useState('');
-  const list = customers.filter(c => JSON.stringify(c).toLowerCase().includes(q.toLowerCase()));
+  const [filter, setFilter] = useState('all');
+  const searched = customers.filter(c => JSON.stringify(c).toLowerCase().includes(q.toLowerCase()));
+  const list = filter === 'all' ? searched : searched.filter(c => statusClass(c.status) === filter);
+  const sum = (f, init) => searched.reduce((a, c) => a + (f(c) || 0), init);
+  const statuses = [...new Set(customers.map(c => statusClass(c.status)).filter(Boolean))];
 
   return (
     <div className="crm-accounts">
@@ -2564,18 +2621,38 @@ function AccountsList({ customers, onOpen }) {
         <div><p>Customer ledger balances, portal accounts and order payments.</p></div>
         <div className="crm-tools"><label><Search /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search customers…" /></label></div>
       </div>
+
+      <div className="acc-kpis">
+        <article><span>Customers</span><b>{searched.length}</b><small>{statuses.filter(s => s !== 'vip').length ? ' incl. ' + statuses.filter(s => !['vip', 'active'].includes(s)).map(pretty).join(', ') : 'all active'}</small></article>
+        <article className="gold"><span>Lifetime revenue</span><b>{money(sum(c => Number(c.total_spend)))}</b><small>Across all accounts</small></article>
+        <article><span>Vehicles delivered</span><b>{sum(c => Number(c.vehicles_bought))}</b><small>Bought through AR7</small></article>
+        <article><span>Portal access</span><b>{sum(c => (c.portal_enabled ? 1 : 0))}<i>/ {searched.length}</i></b><small>Customer logins enabled</small></article>
+      </div>
+
+      <div className="crm-chips">
+        <button className={'crm-chip ' + (filter === 'all' ? 'active' : '')} onClick={() => setFilter('all')}>All <em>{searched.length}</em></button>
+        {statuses.map(s => (
+          <button key={s} className={'crm-chip ' + (filter === s ? 'active' : '')} onClick={() => setFilter(s)}>{pretty(s)} <em>{searched.filter(c => statusClass(c.status) === s).length}</em></button>
+        ))}
+      </div>
+
       {!list.length ? (
-        <div className="crm-empty"><UserRound /><h3>No customers yet</h3><p>Add customers in the Customers tab first.</p></div>
+        <div className="crm-empty"><UserRound /><h3>No customers found</h3><p>Add customers in the Customers tab or clear the filters.</p></div>
       ) : (
         <div className="crm-account-grid">
           {list.map(c => (
-            <article key={c.id} onClick={() => onOpen(c.id)}>
-              <span className="acc-avatar">{(c.name || '?').slice(0, 2).toUpperCase()}</span>
+            <article key={c.id} className="acc-card" onClick={() => onOpen(c.id)}>
+              <div className="acc-top">
+                <span className="acc-avatar">{(c.name || '?').slice(0, 2).toUpperCase()}</span>
+                <em className={'crm-status ' + statusClass(c.status)}>{pretty(c.status || 'Active')}</em>
+              </div>
               <h3>{c.name}</h3>
-              <p>{c.email || 'No email'}</p>
+              <p className="acc-contact">{c.email || 'No email'}{c.phone ? <span> · {c.phone}</span> : null}</p>
               <dl>
                 <div><dt>Country</dt><dd>{c.country || '—'}</dd></div>
-                <div><dt>Portal</dt><dd>{c.portal_enabled ? 'Active' : 'Not set up'}</dd></div>
+                <div><dt>Portal</dt><dd className={c.portal_enabled ? 'ok' : ''}>{c.portal_enabled ? 'Active' : 'Not set up'}</dd></div>
+                <div><dt>Lifetime spend</dt><dd className="spend">{money(c.total_spend)}</dd></div>
+                <div><dt>Vehicles</dt><dd>{c.vehicles_bought ?? 0}</dd></div>
               </dl>
               <button>Open account <ChevronRight /></button>
             </article>
