@@ -111,9 +111,21 @@ const VEHICLE_GALLERIES={
  11:[1,2,3,4,5].map(n=>`/assets/gallery/audi-r8-v10-${String(n).padStart(2,'0')}.webp`),
  12:[1,2,3,4,5].map(n=>`/assets/gallery/lexus-lc-500-${String(n).padStart(2,'0')}.jpg`)
 };
-// Never mix photographs from different vehicles. Cars awaiting their render batch
-// intentionally show only their verified primary image.
-const galleryFor=c=>VEHICLE_GALLERIES[c.id]||[c.image];
+// Never mix photographs from different vehicles. Uses custom vehicle photo gallery
+// configured via CRM when present, otherwise verified model galleries or cover image.
+const galleryFor=c=>{
+ if(Array.isArray(c.images)&&c.images.length)return c.images;
+ if(typeof c.images==='string'&&c.images.trim()){
+  try{
+   const p=JSON.parse(c.images);
+   if(Array.isArray(p)&&p.length)return p;
+  }catch{
+   const s=c.images.split(',').map(x=>x.trim()).filter(Boolean);
+   if(s.length)return s;
+  }
+ }
+ return VEHICLE_GALLERIES[c.id]||(c.image?[c.image]:['/assets/ar7-mark.png']);
+};
 
 function VehicleCard({c,onOpen,comp,onCmp}){return <article className="car-card page-car" onClick={()=>onOpen?.(c)}>
  <div className="car-image"><img loading="lazy" decoding="async" src={c.image} alt={`${c.make} ${c.model}`}/><span className={'status '+c.status.replace(' ','').toLowerCase()}>{c.status}</span><span className="grade">Grade <b>{c.grade}</b></span></div>
