@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:crm": "vite build --config vite.crm.config.js",
     "test:currency": "npx --yes esbuild scripts/currency-logic.test.mjs --bundle --format=esm --platform=node --loader:.css=empty --outfile=node_modules/.tmp/currency-logic.test.mjs --log-level=error && node node_modules/.tmp/currency-logic.test.mjs && npx --yes esbuild scripts/currency-render.test.jsx --bundle --format=cjs --platform=node --loader:.css=empty --jsx=automatic --outfile=node_modules/.tmp/currency-render.test.cjs --log-level=error && node node_modules/.tmp/currency-render.test.cjs",
+    "test:inventory": "npx --yes esbuild scripts/inventory-render.test.jsx --bundle --format=cjs --platform=node --loader:.css=empty --jsx=automatic --define:import.meta.env.VITE_CRM_DEMO=false --define:import.meta.env.VITE_SUPABASE_URL=undefined --define:import.meta.env.VITE_SUPABASE_ANON_KEY=undefined --outfile=node_modules/.tmp/inventory-render.test.cjs --log-level=error && node node_modules/.tmp/inventory-render.test.cjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
