@@ -2,8 +2,8 @@
 User-agent: *
 Allow: /
 # Staff-only areas: no value in search results
-Disallow: /#crm
-Disallow: /#account
-Disallow: /#portal
+Disallow: /crm
+Disallow: /account
+Disallow: /portal
 
 Sitemap: https://ar7traders.com/sitemap.xml

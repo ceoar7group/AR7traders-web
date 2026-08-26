@@ -4,8 +4,9 @@
 // importantly for a business like this — WhatsApp, browser tabs and bookmarks
 // all see one title unless we update it as the visitor moves around.
 import {useEffect} from 'react';
+import { hrefFor } from './routing.js';
 
-const BASE = 'https://ar7traders.com/';
+const BASE = 'https://ar7traders.com';
 
 export const PAGE_SEO = {
   home:        ['AR7 Traders | Japanese Car Exporter — Auction Vehicles Shipped Worldwide',
@@ -55,9 +56,9 @@ function setMeta(selector, attr, value) {
   el.setAttribute(attr, value);
 }
 
-export function applySeo(page) {
+export function applySeo(page, carId) {
   const [title, description] = PAGE_SEO[page] || PAGE_SEO.home;
-  const url = BASE + (page && page !== 'home' ? '#' + page : '');
+  const url = BASE + hrefFor(page, carId);
   const noindex = ['crm', 'account', 'portal', 'studio'].includes(page);
 
   document.title = title;
@@ -80,6 +81,6 @@ export function applySeo(page) {
 }
 
 /** Keeps the tab title and share preview in step with the current page. */
-export function useSeo(page) {
-  useEffect(() => { applySeo(page); }, [page]);
+export function useSeo(page, carId) {
+  useEffect(() => { applySeo(page, carId); }, [page, carId]);
 }
