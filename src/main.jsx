@@ -356,7 +356,7 @@ function App(){
    <MotionShowcase navigate={navigate}/>
 
    <section className="inventory shell section" id="inventory">
-    <div className="section-head"><div><div className="kicker">LUXURY & SUPER SPORT</div><h2>Treasures in the<br/><em>showroom.</em></h2></div><p>Rolls-Royce to Bugatti — plus verified Japan stock for every market, all inspected and auction-sheet certified.</p></div>
+    <div className="section-head"><div><div className="kicker">LIVE JAPAN STOCK</div><h2>Real dealer cars<br/><em>direct from Japan.</em></h2></div><p>Verified Goo-net Exchange stock in every market — real photos from the dealer, transparent FOB pricing and certified condition reports.</p></div>
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div><button className="search-btn" onClick={()=>navigate('inventory')}><Search/> Search vehicles <SlidersHorizontal/></button></div>
     <div className="car-grid">{shown.map((c,i)=><article className="car-card" key={c.id} style={{'--delay':i*80+'ms'}}>
       <div className="car-image"><img loading="lazy" decoding="async" src={c.image} alt={`${c.make} ${c.model}`}/><span className={'status '+c.status.replace(' ','').toLowerCase()}>{c.status}</span><button className={favs.includes(c.id)?'fav active':'fav'} onClick={()=>setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></button><span className="grade">Grade <b>{c.grade}</b></span></div>
