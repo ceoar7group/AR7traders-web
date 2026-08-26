@@ -2317,19 +2317,26 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-chip.alert.active em { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
 /* ==========================================================================
-   Lead follow-up strip — one-tap "Done" + schedule-next popover
+   Lead follow-up control — flat "Done" + separate "Schedule next" row
    ========================================================================== */
 .crm-lead-wrap { display: block; }
-.crm-follow-strip {
+.crm-follow {
+  margin: 4px 0 14px;
+  border-radius: 12px;
+  background: var(--crm-input-bg);
+  border: 1px solid var(--crm-border-subtle);
+  overflow: hidden;
+}
+.crm-follow.is-overdue {
+  border-color: rgba(224, 82, 82, 0.45);
+  background: linear-gradient(180deg, rgba(224, 82, 82, 0.10) 0%, var(--crm-input-bg) 65%);
+}
+.crm-follow-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: 4px 0 14px;
-  padding: 9px 12px;
-  border-radius: 11px;
-  background: var(--crm-input-bg);
-  border: 1px solid var(--crm-border-subtle);
+  padding: 10px 12px;
 }
 .crm-follow-due {
   display: inline-flex;
@@ -2338,16 +2345,17 @@ html[data-crm-theme="light"] .crm-shell {
   font-size: 11px;
   font-weight: 700;
   color: var(--crm-muted);
+  min-width: 0;
 }
-.crm-follow-due.overdue { color: #ff9d9d; }
+.crm-follow.is-overdue .crm-follow-due { color: #ff9d9d; }
 .crm-follow-due svg { flex: none; }
-.crm-follow-wrap { position: relative; flex: none; }
 .crm-follow-done {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 13px;
-  border-radius: 9px;
+  padding: 7px 14px;
+  border-radius: 999px;
   border: 1px solid var(--crm-primary);
   background: var(--crm-primary);
   color: var(--crm-primary-text);
@@ -2355,46 +2363,38 @@ html[data-crm-theme="light"] .crm-shell {
   cursor: pointer;
   transition: all 0.15s ease;
 }
-.crm-follow-done:hover { background: var(--crm-primary-hover); border-color: var(--crm-primary-hover); }
-.crm-follow-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 60;
-  min-width: 235px;
-  padding: 8px;
-  border-radius: 13px;
-  background: var(--crm-panel-sub);
-  border: 1px solid var(--crm-border);
-  box-shadow: var(--crm-shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.crm-follow-menu b {
-  font: 800 10px var(--crm-font);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--crm-muted);
-  padding: 4px 8px 7px;
-}
-.crm-follow-menu button {
+.crm-follow-done:hover { background: var(--crm-primary-hover); border-color: var(--crm-primary-hover); transform: translateY(-1px); }
+.crm-follow-next {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  color: var(--crm-ink);
-  font: 700 12px var(--crm-font);
-  text-align: left;
-  cursor: pointer;
+  gap: 9px;
+  padding: 8px 12px;
+  border-top: 1px dashed var(--crm-border-subtle);
+  background: var(--crm-panel-sub);
 }
-.crm-follow-menu button:hover { background: var(--crm-panel-hover); }
-.crm-follow-menu button svg { color: var(--crm-accent); flex: none; }
-.crm-follow-menu button small { margin-left: auto; color: var(--crm-muted); font-weight: 600; font-size: 10px; }
+.crm-follow-next > span {
+  font: 800 9px var(--crm-font);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--crm-muted);
+  flex: none;
+}
+.crm-follow-next-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.crm-follow-next-opts button {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--crm-border);
+  background: var(--crm-input-bg);
+  color: var(--crm-ink);
+  font: 700 11px var(--crm-font);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.crm-follow-next-opts button:hover {
+  border-color: var(--crm-gold);
+  color: var(--crm-gold);
+  background: var(--crm-gold-glow);
+}
 
 /* ==========================================================================
    Customer Accounts — KPI strip, filter chips & account cards
@@ -2678,5 +2678,290 @@ html[data-crm-theme="light"] .crm-shell {
   .cust-head { flex-direction: column; align-items: flex-start; }
   .login-actions { margin-left: 0; }
   .ledger-list > article { flex-direction: column; align-items: stretch; }
-  .crm-follow-menu { right: auto; left: 50%; transform: translateX(-50%); }
+  .crm-follow-head { flex-wrap: wrap; }
+}
+
+/* ==========================================================================
+   PREMIUM POLISH LAYER — refined actions, cards, tables & controls
+   ========================================================================== */
+
+/* --- Foundation: smoother type & surfaces --- */
+.crm-shell {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.crm-shell button { font-family: var(--crm-font); }
+.crm-shell :focus-visible {
+  outline: 2px solid var(--crm-gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Cards get a subtle top edge-light for depth */
+.kpi-card,
+.crm-lead-grid article,
+.acc-card,
+.crm-account-grid article,
+.cust-panel,
+.cust-head,
+.crm-panel {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 42%);
+}
+
+/* --- KPI cards: accent ribbon + richer hover --- */
+.kpi-card,
+.acc-kpis article,
+.cust-kpis article {
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before,
+.acc-kpis article::before,
+.cust-kpis article::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--crm-primary), transparent 70%);
+  opacity: 0.85;
+}
+.acc-kpis article.gold::before,
+.cust-kpis article.highlight::before {
+  background: linear-gradient(90deg, var(--crm-gold), transparent 70%);
+}
+.kpi-card:hover,
+.acc-kpis article:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--crm-shadow), var(--crm-glow);
+  border-color: color-mix(in srgb, var(--crm-gold) 38%, var(--crm-border));
+}
+
+/* --- Filter chips: glassy, clearer active state --- */
+.crm-chip {
+  backdrop-filter: blur(6px);
+  border-radius: 999px;
+  transition: all 0.16s ease;
+}
+.crm-chip:hover { transform: translateY(-1px); }
+.crm-chip.active {
+  background: linear-gradient(180deg, var(--crm-primary-hover), var(--crm-primary));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--crm-primary) 35%, transparent);
+}
+
+/* ==========================================================================
+   THE BOTTOM BAR — lead cards, vehicle cards, tables & editor footers
+   ========================================================================== */
+
+/* Lead card footer: proper action bar */
+.crm-lead-grid footer {
+  border-top: 1px solid var(--crm-border-subtle);
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.12));
+  margin: 0 -20px -20px;
+  padding: 12px 16px 14px;
+  border-radius: 0 0 16px 16px;
+}
+.crm-lead-grid footer a,
+.crm-lead-grid footer .crm-del {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--crm-border);
+  background: var(--crm-input-bg);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--crm-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.crm-lead-grid footer a:hover {
+  border-color: var(--crm-accent);
+  color: var(--crm-accent);
+  transform: translateY(-1px);
+}
+.crm-lead-grid footer button:not(.crm-del) {
+  margin-left: auto;
+  border: 1px solid color-mix(in srgb, var(--crm-gold) 55%, transparent);
+  background: transparent;
+  color: var(--crm-gold);
+  padding: 8px 14px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+.crm-lead-grid footer button:not(.crm-del):hover {
+  background: var(--crm-gold);
+  color: #1c1206;
+  box-shadow: 0 6px 18px var(--crm-gold-glow);
+  transform: translateY(-1px);
+}
+.crm-lead-grid footer button:not(.crm-del) svg { transition: transform 0.15s ease; }
+.crm-lead-grid footer button:not(.crm-del):hover svg { transform: translateX(2px); }
+
+/* Danger buttons everywhere: quiet until hovered */
+.crm-del {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--crm-muted);
+  transition: all 0.15s ease;
+}
+.crm-del:hover {
+  color: #ff8f8f;
+  border-color: rgba(224, 82, 82, 0.55);
+  background: rgba(224, 82, 82, 0.12);
+}
+
+/* Vehicle card action buttons */
+.vcard-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.vcard-actions .btn-photos,
+.vcard-actions .btn-edit {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  border: 1px solid var(--crm-border);
+  background: var(--crm-input-bg);
+  color: var(--crm-ink);
+  transition: all 0.15s ease;
+}
+.vcard-actions .btn-photos {
+  border-color: color-mix(in srgb, var(--crm-gold) 45%, transparent);
+  color: var(--crm-gold);
+}
+.vcard-actions .btn-photos:hover {
+  background: var(--crm-gold);
+  color: #1c1206;
+  box-shadow: 0 6px 18px var(--crm-gold-glow);
+}
+.vcard-actions .btn-edit:hover { border-color: var(--crm-accent); color: var(--crm-accent); }
+
+/* Table row actions: tidy pills */
+.crm-row-actions { white-space: nowrap; }
+.crm-row-actions > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  margin-right: 4px;
+  border: 1px solid var(--crm-border);
+  border-radius: 999px;
+  background: var(--crm-input-bg);
+  color: var(--crm-ink);
+  font: 700 11.5px var(--crm-font);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.crm-row-actions > button:hover {
+  border-color: var(--crm-accent);
+  color: var(--crm-accent);
+  transform: translateY(-1px);
+}
+.crm-row-actions .crm-btn-photo {
+  border-color: color-mix(in srgb, var(--crm-gold) 45%, transparent);
+  color: var(--crm-gold);
+}
+.crm-row-actions .crm-btn-photo:hover {
+  background: var(--crm-gold);
+  color: #1c1206;
+  box-shadow: 0 5px 14px var(--crm-gold-glow);
+}
+.crm-row-actions .crm-del { border-radius: 999px; width: 30px; height: 30px; padding: 0; display: inline-grid; place-items: center; margin-right: 0; }
+
+/* Editor / modal footers: gold primary CTA, quiet cancel */
+.crm-editor footer {
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.14));
+  margin: 22px -24px -24px;
+  padding: 16px 22px 20px;
+  border-radius: 0 0 20px 20px;
+  border-top: 1px solid var(--crm-border-subtle);
+}
+.crm-editor footer button {
+  border-radius: 999px;
+  transition: all 0.15s ease;
+}
+.crm-editor footer button:hover { border-color: var(--crm-accent); color: var(--crm-accent); }
+.crm-editor footer .save,
+.login-actions button.crm-add,
+.cust-head-actions button.crm-add,
+.crm-tools .crm-add,
+.ledger-list button.save {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--crm-primary) 88%, white 12%), var(--crm-primary));
+  border: 1px solid color-mix(in srgb, var(--crm-primary) 80%, black 10%);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--crm-primary) 30%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.crm-editor footer .save:hover,
+.login-actions button.crm-add:hover,
+.cust-head-actions button.crm-add:hover,
+.crm-tools .crm-add:hover,
+.ledger-list button.save:hover {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--crm-primary-hover) 88%, white 12%), var(--crm-primary-hover));
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+.crm-editor footer .save svg { color: var(--crm-primary-text); }
+
+/* ==========================================================================
+   Premium details — badges, tables, alerts, inputs, scrollbars
+   ========================================================================== */
+
+/* Status badges: glassy pill */
+.crm-status {
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+/* Tables: header band + hover rows */
+.crm-table-wrap th {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+  border-bottom: 1px solid var(--crm-border);
+}
+.crm-table-wrap tbody tr { transition: background 0.12s ease; }
+.crm-table-wrap tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+
+/* Action-needed strip: premium alert */
+.crm-alerts {
+  border: 1px solid rgba(224, 82, 82, 0.4);
+  background:
+    linear-gradient(135deg, rgba(224, 82, 82, 0.14) 0%, rgba(224, 82, 82, 0.04) 38%, transparent 70%),
+    var(--crm-panel);
+  box-shadow: var(--crm-shadow);
+}
+.crm-alerts-head > svg { color: #ff9d9d; }
+
+/* Inputs: gold focus ring */
+.crm-tools label:focus-within,
+.crm-editor-fields input:focus,
+.crm-editor-fields select:focus,
+.crm-editor-fields textarea:focus {
+  border-color: var(--crm-gold);
+  box-shadow: 0 0 0 3px var(--crm-gold-glow);
+}
+
+/* Slim luxe scrollbars */
+.crm-table-wrap::-webkit-scrollbar,
+.crm-side::-webkit-scrollbar,
+.crm-shell::-webkit-scrollbar { height: 8px; width: 8px; }
+.crm-table-wrap::-webkit-scrollbar-thumb,
+.crm-side::-webkit-scrollbar-thumb,
+.crm-shell::-webkit-scrollbar-thumb {
+  background: var(--crm-border);
+  border-radius: 999px;
+}
+.crm-table-wrap::-webkit-scrollbar-thumb:hover,
+.crm-shell::-webkit-scrollbar-thumb:hover { background: var(--crm-gold); }
+
+/* Success notice: emerald glass */
+.crm-notice {
+  border: 1px solid color-mix(in srgb, var(--crm-primary) 55%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--crm-primary) 22%, transparent), transparent 70%), var(--crm-panel);
+  box-shadow: var(--crm-shadow);
+}
+
+@media (max-width: 560px) {
+  .crm-lead-grid footer { flex-wrap: wrap; }
+  .crm-lead-grid footer button:not(.crm-del) { margin-left: 0; order: 3; width: 100%; justify-content: center; }
 }

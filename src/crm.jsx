@@ -8,9 +8,10 @@ import {
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy, CalendarCheck
+  Maximize2, ZoomIn, ZoomOut, Copy
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
+import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import './crm.css';
 
 const DEMO = import.meta.env.VITE_CRM_DEMO === 'true';
@@ -635,6 +636,7 @@ export default function CrmApp() {
   const filtered = data.filter(x => JSON.stringify(x).toLowerCase().includes(query.toLowerCase()));
 
   return (
+    <CurrencyProvider displayKey="ar7-crm-currency">
     <div className="crm-shell" data-crm-theme={theme}>
       <aside className={'crm-side ' + (mobile ? 'open' : '')}>
         <div className="crm-brand">
@@ -680,6 +682,7 @@ export default function CrmApp() {
           </div>
 
           <div className="crm-top-controls">
+            <CrmCurrencyPicker />
             <div className="crm-theme-switcher" title="Choose CRM color theme">
               <button
                 className={`theme-pill ${theme === 'emerald' ? 'active' : ''}`}
@@ -811,6 +814,7 @@ export default function CrmApp() {
         />
       )}
     </div>
+    </CurrencyProvider>
   );
 }
 
@@ -871,6 +875,7 @@ function CrmSetup() {
 }
 
 function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
+  const { fmt } = useCurrency();
   const leads = rows.leads || [];
   const quotes = rows.quotes || [];
   const shipments = rows.shipments || [];
@@ -910,7 +915,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
             {awaitingQuotes.length > 0 && (
               <button onClick={() => setTab('quotes')}>
                 <b>{awaitingQuotes.length} quote{awaitingQuotes.length > 1 ? 's' : ''} awaiting reply</b>
-                <small>{money(awaitingQuotes.reduce((a, x) => a + (Number(x.amount) || 0), 0))} on the table</small>
+                <small>{fmt(awaitingQuotes.reduce((a, x) => a + (Number(x.amount) || 0), 0))} on the table</small>
               </button>
             )}
           </div>
@@ -920,8 +925,8 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
       <div className="crm-kpis">
         {[
           [Users, 'Open leads', openLeads.length, leads.filter(x => x.status === 'new').length + ' new · ' + overdueLeads.length + ' overdue', 'trend-up'],
-          [DollarSign, 'Pipeline value', money(pipeline), 'Across open opportunities', 'trend-gold'],
-          [TrendingUp, 'Accepted quotes', money(won), quotes.filter(x => x.status === 'accepted').length + ' converted deals', 'trend-green'],
+          [DollarSign, 'Pipeline value', fmt(pipeline), 'Across open opportunities', 'trend-gold'],
+          [TrendingUp, 'Accepted quotes', fmt(won), quotes.filter(x => x.status === 'accepted').length + ' converted deals', 'trend-green'],
           [CarFront, 'Managed stock', vehicles.length + listings.length, vehicles.length + ' internal · ' + listings.length + ' website', 'trend-blue']
         ].map(([I, l, v, s, cls]) => (
           <article key={l} className={`kpi-card ${cls}`}>
@@ -954,7 +959,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
                     <em>{count} leads</em>
                   </span>
                   <i><u style={{ width: Math.max(10, (count / Math.max(1, leads.length)) * 100) + '%' }} /></i>
-                  <small>{money(totalVal)}</small>
+                  <small>{fmt(totalVal)}</small>
                 </div>
               );
             })}
@@ -1031,7 +1036,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
                   </div>
                   <div className="dash-car-info">
                     <h4>{v.year} {v.make} {v.model}</h4>
-                    <p><b>{money(v.price)}</b> · {v.location || 'Yokohama'}</p>
+                    <p><b>{fmt(v.price)}</b> · {v.location || 'Yokohama'}</p>
                     <div className="dash-car-actions">
                       <button onClick={() => onOpenPhotos && onOpenPhotos(v)}><Eye size={12} /> View</button>
                       <button onClick={() => onManagePhotos && onManagePhotos('vehicles', v)}><Camera size={12} /> Photos</button>
@@ -1072,9 +1077,9 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
 }
 
 function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions }) {
+  const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState('table');
   const [leadFilter, setLeadFilter] = useState('all');
-  const [followMenu, setFollowMenu] = useState(null);
   const isVehicleType = entity === 'vehicles' || entity === 'listings';
   const statusPicker = (row, current) => (
     <select
@@ -1114,9 +1119,10 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
         : leadFilter === 'open' ? ['qualified', 'proposal', 'negotiation'].includes(x.status)
           : x.status === leadFilter
     );
-    // One-click follow-up completion: clears the overdue warning and can
-    // schedule the next touch in the same tap, straight from the card.
-    const followDone = (x, next) => { setFollowMenu(null); onQuickPatch(x, { next_follow_up: next }); };
+    // Follow-up control: "Done" marks it complete and clears the overdue
+    // warning; the "Next" row schedules the following touch separately, so
+    // the two actions can never be confused.
+    const followDone = (x, next) => onQuickPatch(x, { next_follow_up: next });
     return (
       <div className="crm-lead-wrap">
         <div className="crm-chips">
@@ -1140,30 +1146,29 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
                 <p>{x.vehicle_interest}</p>
                 <dl>
                   <div><dt>Market</dt><dd>{x.country}</dd></div>
-                  <div><dt>Budget</dt><dd>{money(x.budget)}</dd></div>
+                  <div><dt>Budget</dt><dd>{fmt(x.budget)}</dd></div>
                   <div><dt>Owner</dt><dd>{x.assigned_to || '—'}</dd></div>
                 </dl>
                 {isOpenLead(x) && (
-                  <div className="crm-follow-strip">
-                    <span className={'crm-follow-due ' + (isOverdue(x.next_follow_up) ? 'overdue' : '')}>
-                      <Clock3 size={12} />
-                      {x.next_follow_up
-                        ? (isOverdue(x.next_follow_up) ? 'Overdue since ' + date(x.next_follow_up) : 'Next follow-up ' + date(x.next_follow_up))
-                        : 'No follow-up scheduled'}
-                    </span>
-                    <div className="crm-follow-wrap">
-                      <button className="crm-follow-done" title="Mark this follow-up as done" onClick={() => setFollowMenu(followMenu === x.id ? null : x.id)}>
+                  <div className={'crm-follow ' + (isOverdue(x.next_follow_up) ? 'is-overdue' : '')}>
+                    <div className="crm-follow-head">
+                      <span className="crm-follow-due">
+                        <Clock3 size={12} />
+                        {x.next_follow_up
+                          ? (isOverdue(x.next_follow_up) ? 'Overdue since ' + date(x.next_follow_up) : 'Next follow-up ' + date(x.next_follow_up))
+                          : 'No follow-up scheduled'}
+                      </span>
+                      <button className="crm-follow-done" title="Mark this follow-up done and clear the warning" onClick={() => followDone(x, null)}>
                         <Check size={13} /> Done
                       </button>
-                      {followMenu === x.id && (
-                        <div className="crm-follow-menu">
-                          <b>Followed up — next step?</b>
-                          <button onClick={() => followDone(x, null)}><Ban size={12} /> Clear date <small>removes the warning</small></button>
-                          <button onClick={() => followDone(x, addDays(3))}><CalendarCheck size={12} /> In 3 days <small>{date(addDays(3))}</small></button>
-                          <button onClick={() => followDone(x, addDays(7))}><CalendarCheck size={12} /> In 1 week <small>{date(addDays(7))}</small></button>
-                          <button onClick={() => followDone(x, addDays(14))}><CalendarCheck size={12} /> In 2 weeks <small>{date(addDays(14))}</small></button>
-                        </div>
-                      )}
+                    </div>
+                    <div className="crm-follow-next" title="Schedule the next follow-up from today">
+                      <span>Schedule next</span>
+                      <div className="crm-follow-next-opts">
+                        <button onClick={() => followDone(x, addDays(3))}>+3 days</button>
+                        <button onClick={() => followDone(x, addDays(7))}>+1 week</button>
+                        <button onClick={() => followDone(x, addDays(14))}>+2 weeks</button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1220,7 +1225,7 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
                     <span className="vcard-loc">{row.location || 'Japan'}</span>
                   </div>
                   <h3>{row.year} {row.make} {row.model}</h3>
-                  <div className="vcard-price">{row.price ? (typeof row.price === 'number' ? money(row.price) : row.price) : '—'}</div>
+                  <div className="vcard-price">{row.price ? (typeof row.price === 'number' ? fmt(row.price) : row.price) : '—'}</div>
                   <div className="vcard-specs">
                     {row.km && <span>{row.km} km</span>}
                     {row.fuel && <span>{row.fuel}</span>}
@@ -1268,7 +1273,7 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
                       <td key={k}>
                         {k === 'status' && onQuickPatch && statusOptions
                           ? statusPicker(row, row.status)
-                          : renderCell(k, row[k])}
+                          : renderCell(k, row[k], fmt)}
                       </td>
                     ))}
                     <td className="crm-row-actions">
@@ -1304,9 +1309,9 @@ function tableColumns(e) {
   }[e] || [];
 }
 
-function renderCell(k, v) {
+function renderCell(k, v, fmt = money) {
   if (['price', 'amount', 'total_spend', 'budget'].includes(k)) {
-    return typeof v === 'number' ? money(v) : (v ?? '—');
+    return typeof v === 'number' ? fmt(v) : (v ?? '—');
   }
   if (['valid_until', 'eta', 'due_date', 'next_follow_up'].includes(k)) {
     const overdue = isOverdue(v) && k !== 'valid_until';
@@ -2181,6 +2186,7 @@ const monthKey = d => { const x = d ? new Date(d) : new Date(); return new Date(
 const monthName = d => d ? new Date(d).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : '—';
 
 function PeopleView({ token, profile, perms, notify }) {
+  const { fmt } = useCurrency();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null);
@@ -2307,9 +2313,9 @@ function PeopleView({ token, profile, perms, notify }) {
       <div className="crm-kpis compact">
         {[
           [Users, 'Team members', active.length, staff.length - active.length + ' inactive'],
-          [DollarSign, 'Payroll this month', money(active.reduce((a, s) => a + Number(s.base_salary || 0), 0)), 'Base salaries'],
-          [TrendingUp, 'Sales credited', money(teamRevenue), 'All time'],
-          [Wallet, 'Commission earned', money(teamComm), 'On credited sales']
+          [DollarSign, 'Payroll this month', fmt(active.reduce((a, s) => a + Number(s.base_salary || 0), 0)), 'Base salaries'],
+          [TrendingUp, 'Sales credited', fmt(teamRevenue), 'All time'],
+          [Wallet, 'Commission earned', fmt(teamComm), 'On credited sales']
         ].map(([I, l, v, s]) => (
           <article key={l} className="kpi-card">
             <i><I /></i>
@@ -2331,7 +2337,7 @@ function PeopleView({ token, profile, perms, notify }) {
                   <td>{e.job_title || '—'}</td>
                   <td>{e.department}</td>
                   <td>{(EMP_TYPES.find(t => t[0] === e.employment_type) || [])[1] || e.employment_type}</td>
-                  <td>{money(e.base_salary)}</td>
+                  <td>{fmt(e.base_salary)}</td>
                   <td>{Number(e.commission_pct || 0)}%</td>
                   <td>
                     <em className={'crm-status ' + (e.status === 'active' ? 'active' : e.status === 'left' ? 'inactive' : 'pending')}>
@@ -2361,14 +2367,14 @@ function PeopleView({ token, profile, perms, notify }) {
                     <b>{e.full_name}</b>
                     <small>{e.job_title || e.department}</small>
                   </div>
-                  <em>{money(val)}</em>
+                  <em>{fmt(val)}</em>
                 </header>
                 <div className="perf-bar"><u style={{ width: Math.max(2, share) + '%' }} /></div>
                 <div className="perf-stats">
                   <span><b>{p.orders_count || 0}</b><small>Orders</small></span>
                   <span><b>{p.orders_completed || 0}</b><small>Completed</small></span>
-                  <span><b>{money(p.revenue_delivered)}</b><small>Delivered</small></span>
-                  <span><b>{money(p.commission_earned)}</b><small>Commission</small></span>
+                  <span><b>{fmt(p.revenue_delivered)}</b><small>Delivered</small></span>
+                  <span><b>{fmt(p.commission_earned)}</b><small>Commission</small></span>
                   <span><b>{p.leads_active || 0}</b><small>Live leads</small></span>
                   <span><b>{share}%</b><small>Of team sales</small></span>
                 </div>
@@ -2382,7 +2388,7 @@ function PeopleView({ token, profile, perms, notify }) {
         <div className="crm-payroll">
           <div className="payroll-bar">
             <label>Month<input type="month" value={month.slice(0, 7)} onChange={e => setMonth(monthKey(e.target.value + '-01'))} /></label>
-            <div className="payroll-total"><small>Net payable</small><b>{money(totals.net)}</b><em>{totals.count} payslip(s)</em></div>
+            <div className="payroll-total"><small>Net payable</small><b>{fmt(totals.net)}</b><em>{totals.count} payslip(s)</em></div>
             {payMan && <button className="crm-add" disabled={busy} onClick={prepare}><Plus /> Prepare {monthName(month).split(' ')[0]}</button>}
           </div>
           <div className="crm-table-wrap">
@@ -2392,11 +2398,11 @@ function PeopleView({ token, profile, perms, notify }) {
                 {slips.map(p => (
                   <tr key={p.id}>
                     <td><b>{p.full_name}</b><br /><small className="crm-dim">{p.job_title || p.department}</small></td>
-                    <td>{money(p.base_salary)}</td>
-                    <td>{money(p.commission)}</td>
-                    <td>{money(p.bonus)}</td>
-                    <td>{Number(p.deductions) ? '−' + money(p.deductions) : '—'}</td>
-                    <td><b>{money(p.net_pay)}</b></td>
+                    <td>{fmt(p.base_salary)}</td>
+                    <td>{fmt(p.commission)}</td>
+                    <td>{fmt(p.bonus)}</td>
+                    <td>{Number(p.deductions) ? '−' + fmt(p.deductions) : '—'}</td>
+                    <td><b>{fmt(p.net_pay)}</b></td>
                     <td>
                       <em className={'crm-status ' + (p.status === 'paid' ? 'active' : p.status === 'approved' ? 'pending' : '')}>{pretty(p.status)}</em>
                       {p.paid_on && <><br /><small className="crm-dim">{date(p.paid_on)}{p.reference ? ' · ' + p.reference : ''}</small></>}
@@ -2600,6 +2606,7 @@ function SettingsView({ token, profile, perms, notify }) {
           <p className="crm-hint"><ShieldAlert size={13} /> Your role cannot edit these settings.</p>
         )}
       </form>
+      <RateManager token={token} canEdit={canEdit} notify={notify} />
     </div>
   );
 }
@@ -2608,6 +2615,7 @@ function SettingsView({ token, profile, perms, notify }) {
 //  Customer Accounts & Ledger
 // ---------------------------------------------------------------------
 function AccountsList({ customers, onOpen }) {
+  const { fmt } = useCurrency();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const searched = customers.filter(c => JSON.stringify(c).toLowerCase().includes(q.toLowerCase()));
@@ -2624,7 +2632,7 @@ function AccountsList({ customers, onOpen }) {
 
       <div className="acc-kpis">
         <article><span>Customers</span><b>{searched.length}</b><small>{statuses.filter(s => s !== 'vip').length ? ' incl. ' + statuses.filter(s => !['vip', 'active'].includes(s)).map(pretty).join(', ') : 'all active'}</small></article>
-        <article className="gold"><span>Lifetime revenue</span><b>{money(sum(c => Number(c.total_spend)))}</b><small>Across all accounts</small></article>
+        <article className="gold"><span>Lifetime revenue</span><b>{fmt(sum(c => Number(c.total_spend)))}</b><small>Across all accounts</small></article>
         <article><span>Vehicles delivered</span><b>{sum(c => Number(c.vehicles_bought))}</b><small>Bought through AR7</small></article>
         <article><span>Portal access</span><b>{sum(c => (c.portal_enabled ? 1 : 0))}<i>/ {searched.length}</i></b><small>Customer logins enabled</small></article>
       </div>
@@ -2651,7 +2659,7 @@ function AccountsList({ customers, onOpen }) {
               <dl>
                 <div><dt>Country</dt><dd>{c.country || '—'}</dd></div>
                 <div><dt>Portal</dt><dd className={c.portal_enabled ? 'ok' : ''}>{c.portal_enabled ? 'Active' : 'Not set up'}</dd></div>
-                <div><dt>Lifetime spend</dt><dd className="spend">{money(c.total_spend)}</dd></div>
+                <div><dt>Lifetime spend</dt><dd className="spend">{fmt(c.total_spend)}</dd></div>
                 <div><dt>Vehicles</dt><dd>{c.vehicles_bought ?? 0}</dd></div>
               </dl>
               <button>Open account <ChevronRight /></button>
@@ -2664,6 +2672,7 @@ function AccountsList({ customers, onOpen }) {
 }
 
 function CustomerAccount({ token, profile, perms, customerId, onBack, notify, listings }) {
+  const { fmt } = useCurrency();
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState(null);
@@ -2742,7 +2751,7 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
         ].map(([l, v]) => (
           <article key={l} className={l === 'Unapplied funds' && v > 0 ? 'highlight' : ''}>
             <span>{l}</span>
-            <b>{money(v)}</b>
+            <b>{fmt(v)}</b>
           </article>
         ))}
       </div>
@@ -2783,9 +2792,9 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
                     <td>{o.order_no}</td>
                     <td>{o.vehicle}</td>
                     <td><em className="crm-status">{o.source === 'website' ? 'Website' : 'Manual'}</em></td>
-                    <td>{money(o.amount)}</td>
-                    <td>{money(o.paid)}</td>
-                    <td className={Number(o.balance_due) > 0 ? 'due' : 'clear'}>{money(o.balance_due)}</td>
+                    <td>{fmt(o.amount)}<CurrencyBadge record={o} /></td>
+                    <td>{fmt(o.paid)}</td>
+                    <td className={Number(o.balance_due) > 0 ? 'due' : 'clear'}>{fmt(o.balance_due)}</td>
                     <td><em className={'crm-status ' + statusClass(o.status)}>{pretty(o.status)}</em></td>
                   </tr>
                 ))}
@@ -2802,17 +2811,17 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
             {payments.map(p => (
               <article key={p.id}>
                 <div className="ledger-main">
-                  <b>{money(p.amount)} <small>{p.method}{p.tt_number ? ' · ' + p.tt_number : ''}</small></b>
+                  <b>{fmt(p.amount)} <small>{p.method}{p.tt_number ? ' · ' + p.tt_number : ''}</small><CurrencyBadge record={p} /></b>
                   <small>{date(p.received_at)}{p.bank ? ' · ' + p.bank : ''}</small>
                   <div className="ledger-split">
-                    <span>Applied {money(p.applied)}</span>
-                    <span className={Number(p.unapplied) > 0 ? 'unapplied' : ''}>Unapplied {money(p.unapplied)}</span>
+                    <span>Applied {fmt(p.applied)}</span>
+                    <span className={Number(p.unapplied) > 0 ? 'unapplied' : ''}>Unapplied {fmt(p.unapplied)}</span>
                   </div>
                   {allocations.filter(a => a.payment_id === p.id).map(a => {
                     const ord = orders.find(o => o.id === a.order_id);
                     return (
                       <div className="alloc-row" key={a.id}>
-                        <span><Link2 size={12} /> {money(a.amount)} → {ord ? ord.order_no + ' · ' + ord.vehicle : 'order'}</span>
+                        <span><Link2 size={12} /> {fmt(a.amount)} → {ord ? ord.order_no + ' · ' + ord.vehicle : 'order'}</span>
                         {canPay && <button className="crm-del" title="Return to unapplied funds" onClick={() => post('unallocate&id=' + a.id, {}, 'DELETE')}><X size={12} /></button>}
                       </div>
                     );
@@ -2845,6 +2854,7 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
 }
 
 function CustomerModal({ modal, customer, orders, listings, busy, onClose, post, notify }) {
+  const { fmt } = useCurrency();
   const t = modal.t;
   const wrap = (title, sub, body, submit) => (
     <div className="crm-modal-bg" onMouseDown={onClose}>
@@ -2859,7 +2869,7 @@ function CustomerModal({ modal, customer, orders, listings, busy, onClose, post,
   if (t === 'order') return wrap('Add order', 'NEW ORDER',
     <div className="crm-editor-fields">
       <label>Vehicle<input name="vehicle" required placeholder="e.g. 2022 Toyota Land Cruiser ZX" /></label>
-      <label>Amount (USD)<input name="amount" type="number" min="0" step="1" required /></label>
+      <CurrencyAmount name="amount" label="Amount" />
       <label>Stock no. (optional)<input name="stock_no" /></label>
       <label>Status<select name="status" defaultValue="pending">{['pending', 'confirmed', 'paid', 'shipped', 'delivered'].map(s => <option key={s} value={s}>{pretty(s)}</option>)}</select></label>
       <label>Notes<input name="notes" /></label>
@@ -2867,7 +2877,8 @@ function CustomerModal({ modal, customer, orders, listings, busy, onClose, post,
     e => {
       e.preventDefault();
       const f = new FormData(e.target);
-      post('order', { customer_id: customer.id, vehicle: f.get('vehicle'), amount: f.get('amount'), stock_no: f.get('stock_no'), status: f.get('status'), notes: f.get('notes') })
+      const amt = readCurrencyAmount(Object.fromEntries(f.entries()));
+      post('order', { customer_id: customer.id, vehicle: f.get('vehicle'), amount: amt.amount, currency: amt.currency, amount_original: amt.amount_original, fx_rate: amt.fx_rate, stock_no: f.get('stock_no'), status: f.get('status'), notes: f.get('notes') })
         .then(() => notify('Order added')).catch(() => {});
     });
 
@@ -2893,7 +2904,7 @@ function CustomerModal({ modal, customer, orders, listings, busy, onClose, post,
 
   if (t === 'payment') return wrap('Record payment', 'FUNDS RECEIVED',
     <div className="crm-editor-fields">
-      <label>Amount (USD)<input name="amount" type="number" min="1" step="1" required /></label>
+      <CurrencyAmount name="amount" label="Amount received" />
       <label>Method<select name="method" defaultValue="TT">{['TT', 'Cash', 'Card', 'Cheque', 'Other'].map(m => <option key={m}>{m}</option>)}</select></label>
       <label>TT / reference number<input name="tt_number" placeholder="e.g. TT-40219" /></label>
       <label>Bank<input name="bank" /></label>
@@ -2903,21 +2914,22 @@ function CustomerModal({ modal, customer, orders, listings, busy, onClose, post,
     e => {
       e.preventDefault();
       const f = new FormData(e.target);
-      post('payment', { customer_id: customer.id, amount: f.get('amount'), method: f.get('method'), tt_number: f.get('tt_number'), bank: f.get('bank'), received_at: f.get('received_at'), note: f.get('note') })
+      const amt = readCurrencyAmount(Object.fromEntries(f.entries()));
+      post('payment', { customer_id: customer.id, amount: amt.amount, currency: amt.currency, amount_original: amt.amount_original, fx_rate: amt.fx_rate, method: f.get('method'), tt_number: f.get('tt_number'), bank: f.get('bank'), received_at: f.get('received_at'), note: f.get('note') })
         .then(() => notify('Payment recorded as unapplied funds')).catch(() => {});
     });
 
   if (t === 'apply') {
     const p = modal.payment, openOrders = orders.filter(o => Number(o.balance_due) > 0);
-    return wrap('Apply funds', 'UNAPPLIED ' + money(p.unapplied),
+    return wrap('Apply funds', 'UNAPPLIED ' + fmt(p.unapplied),
       <div className="crm-editor-fields">
         <label>Apply to order
           <select name="order_id" required defaultValue="">
             <option value="" disabled>Choose an order…</option>
-            {openOrders.map(o => <option key={o.id} value={o.id}>{o.order_no} · {o.vehicle} — due {money(o.balance_due)}</option>)}
+            {openOrders.map(o => <option key={o.id} value={o.id}>{o.order_no} · {o.vehicle} — due {fmt(o.balance_due)}</option>)}
           </select>
         </label>
-        <label>Amount<input name="amount" type="number" min="1" step="1" max={p.unapplied} defaultValue={Math.min(Number(p.unapplied), Number(openOrders[0]?.balance_due || p.unapplied))} required /></label>
+        <label>Amount (base USD)<input name="amount" type="number" min="1" step="1" max={p.unapplied} defaultValue={Math.min(Number(p.unapplied), Number(openOrders[0]?.balance_due || p.unapplied))} required /></label>
       </div>,
       e => {
         e.preventDefault();

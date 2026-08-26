@@ -1,0 +1,131 @@
+/* ---------------------------------------------------------------------------
+   AR7 Traders — multi-currency UI
+   Styles for the website currency switcher, the CRM exchange-rate manager,
+   ledger currency fields and original-currency badges.
+
+   Uses the site palette variables (--card/--line/--ink/--muted/--bg/--gold)
+   on the public site and CRM variables (--crm-*) inside .crm-shell, so the
+   same components theme correctly everywhere.
+--------------------------------------------------------------------------- */
+
+/* ---- Public website: header switcher ---------------------------------- */
+.ar7cur-switch{position:relative}
+
+.ar7cur-btn{height:42px;display:inline-flex;align-items:center;gap:7px;padding:0 11px;
+  border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);
+  cursor:pointer;font:700 12px Manrope,sans-serif;letter-spacing:.5px}
+.ar7cur-btn:hover{border-color:var(--gold)}
+.ar7cur-flag{font-size:15px;line-height:1}
+.ar7cur-chev{width:13px;transition:transform .2s;color:var(--muted)}
+.ar7cur-chev.up{transform:rotate(180deg)}
+
+.ar7cur-menu{position:absolute;right:0;top:calc(100% + 10px);width:280px;z-index:120;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 30px 80px rgba(2,40,24,.22);padding:8px;
+  animation:ar7curIn .18s ease}
+@keyframes ar7curIn{from{opacity:0;transform:translateY(-6px)}}
+
+.ar7cur-menu-head{display:flex;align-items:center;gap:7px;padding:8px 10px 10px;
+  font:700 9px Manrope,sans-serif;letter-spacing:1.6px;color:var(--muted);text-transform:uppercase;
+  border-bottom:1px solid var(--line);margin-bottom:5px}
+.ar7cur-menu-head svg{width:12px;color:var(--gold)}
+
+.ar7cur-opt{width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border:0;
+  background:none;border-radius:10px;cursor:pointer;color:var(--ink);text-align:left}
+.ar7cur-opt:hover{background:var(--bg)}
+.ar7cur-opt.on{background:color-mix(in srgb,var(--green) 10%,transparent)}
+.ar7cur-opt-name{display:grid;flex:1;line-height:1.25}
+.ar7cur-opt-name b{font:700 12.5px Manrope,sans-serif}
+.ar7cur-opt-name small{font-size:10px;color:var(--muted)}
+.ar7cur-opt-sample{font:700 11.5px Manrope,sans-serif;color:var(--green-text);white-space:nowrap}
+.ar7cur-tick{width:14px;color:var(--green-text)}
+
+.ar7cur-menu-foot{display:flex;gap:7px;align-items:flex-start;padding:9px 10px 4px;margin-top:4px;
+  border-top:1px solid var(--line);color:var(--muted);font-size:9.5px;line-height:1.5}
+.ar7cur-menu-foot svg{width:11px;flex:none;margin-top:1px;color:var(--gold)}
+
+/* ---- CRM top-bar currency picker -------------------------------------- */
+.ar7cur-crm-pill{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 9px;
+  border:1px solid var(--crm-border,var(--line));border-radius:10px;
+  background:var(--crm-panel,var(--card));color:var(--crm-ink,var(--ink));cursor:pointer}
+.ar7cur-crm-pill svg{width:14px;color:var(--crm-gold,var(--gold))}
+.ar7cur-crm-pill select{border:0;background:none;color:inherit;font:700 12px inherit;
+  outline:none;cursor:pointer;padding-right:2px}
+.ar7cur-crm-pill select option{color:#102018}
+
+/* ---- Ledger forms: amount + currency entry ----------------------------- */
+.ar7cur-amount label{display:grid;gap:7px}
+.ar7cur-amount-row{display:grid;grid-template-columns:1fr 118px;gap:8px}
+.ar7cur-amount-row input,.ar7cur-amount-row select{
+  height:46px;border:1px solid var(--crm-border,var(--line));
+  background:var(--crm-input-bg,var(--bg));border-radius:10px;padding:0 12px;
+  color:var(--crm-ink,var(--ink));font:500 13px 'Manrope';outline:none;width:100%}
+.ar7cur-amount-row input:focus,.ar7cur-amount-row select:focus{border-color:var(--crm-gold,var(--gold))}
+.ar7cur-conv{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  color:var(--crm-muted,var(--muted));font-size:10.5px}
+.ar7cur-conv b{color:var(--crm-gold,var(--gold))}
+
+/* ---- Original-currency badge on ledger rows --------------------------- */
+.ar7cur-badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:7px;
+  border:1px solid var(--crm-border,var(--line));border-radius:999px;
+  background:color-mix(in srgb,var(--crm-gold,var(--gold)) 14%,transparent);
+  color:var(--crm-ink,var(--ink));font:700 10.5px 'Manrope';white-space:nowrap}
+
+/* ---- CRM settings: exchange rate manager ------------------------------- */
+.ar7cur-rates{margin-top:28px;border:1px solid var(--crm-border,var(--line));border-radius:16px;
+  background:var(--crm-panel,var(--card));padding:22px}
+.ar7cur-rates-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
+.ar7cur-rates-head small{font:700 9px 'Manrope';letter-spacing:1.8px;color:var(--crm-gold,var(--gold))}
+.ar7cur-rates-head h3{margin:6px 0 4px;font-size:19px;letter-spacing:-.5px;color:var(--crm-ink,var(--ink))}
+.ar7cur-rates-head p{margin:0;font-size:12px;color:var(--crm-muted,var(--muted));line-height:1.6}
+.ar7cur-reset{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;
+  border:1px solid var(--crm-border,var(--line));border-radius:9px;background:none;
+  color:var(--crm-ink,var(--ink));font:700 11px 'Manrope';cursor:pointer;white-space:nowrap}
+.ar7cur-reset:hover{border-color:var(--crm-gold,var(--gold))}
+
+.ar7cur-rates-grid{display:grid;gap:6px}
+.ar7cur-rates-row{display:grid;grid-template-columns:minmax(150px,1.05fr) minmax(170px,1.25fr) minmax(130px,1fr);
+  align-items:center;gap:14px;padding:9px 12px;border-radius:11px;
+  border:1px solid var(--crm-border-subtle,var(--line))}
+.ar7cur-rates-row.base{background:color-mix(in srgb,var(--crm-primary,var(--green)) 9%,transparent)}
+.ar7cur-rates-cur{display:flex;align-items:center;gap:9px;min-width:0}
+.ar7cur-rates-cur i{font-style:normal;font-size:17px}
+.ar7cur-rates-cur b{font-size:13px;color:var(--crm-ink,var(--ink))}
+.ar7cur-rates-cur small{font-size:10px;color:var(--crm-muted,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar7cur-rates-input{display:flex;align-items:center;gap:8px}
+.ar7cur-rates-input em{font-style:normal;font-size:10.5px;color:var(--crm-muted,var(--muted));white-space:nowrap}
+.ar7cur-rates-input input{width:100%;min-width:70px;height:36px;padding:0 10px;border-radius:8px;
+  border:1px solid var(--crm-border,var(--line));background:var(--crm-input-bg,var(--bg));
+  color:var(--crm-ink,var(--ink));font:700 12.5px 'Manrope';outline:none;text-align:right}
+.ar7cur-rates-input input:focus{border-color:var(--crm-gold,var(--gold))}
+.ar7cur-rates-input input:disabled{opacity:.55;cursor:not-allowed}
+.ar7cur-rates-input b{font-size:11px;color:var(--crm-muted,var(--muted))}
+.ar7cur-rates-fixed{font:700 12.5px 'Manrope';color:var(--crm-ink,var(--ink))}
+.ar7cur-rates-fixed em{font-style:normal;font-size:10px;color:var(--crm-muted,var(--muted));margin-left:4px}
+.ar7cur-rates-note{display:flex;align-items:center;gap:6px;justify-self:end;
+  font:600 11px 'Manrope';color:var(--crm-muted,var(--muted));white-space:nowrap}
+.ar7cur-rates-note svg{width:12px;color:var(--crm-gold,var(--gold))}
+
+.ar7cur-rates-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;
+  margin-top:16px;padding-top:14px;border-top:1px solid var(--crm-border-subtle,var(--line))}
+.ar7cur-rates-foot small{display:flex;align-items:center;gap:6px;color:var(--crm-muted,var(--muted));font-size:10.5px;line-height:1.5}
+.ar7cur-rates-foot small svg{width:12px;flex:none;color:var(--crm-gold,var(--gold))}
+.ar7cur-rates-foot .save{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;
+  border:0;border-radius:10px;background:var(--crm-primary,var(--green));color:var(--crm-primary-text,#fff);
+  font:700 12px 'Manrope';cursor:pointer;white-space:nowrap}
+.ar7cur-rates-foot .save:disabled{opacity:.5;cursor:not-allowed}
+.ar7cur-rates-locked{margin:14px 0 0}
+
+/* ---- Portal: conversion footnote --------------------------------------- */
+.ar7cur-note{display:flex;align-items:flex-start;gap:9px;margin:14px 0 0;padding:12px 14px;
+  border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:11.5px;line-height:1.6}
+.ar7cur-note svg{width:14px;flex:none;margin-top:1px;color:var(--gold)}
+
+@media(max-width:720px){
+  .ar7cur-menu{right:auto;left:50%;transform:translateX(-50%)}
+  .ar7cur-rates-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
+  .ar7cur-rates-note{grid-column:1/-1;justify-self:start}
+  .ar7cur-rates-head{flex-direction:column}
+  .ar7cur-rates-foot{flex-direction:column;align-items:stretch}
+  .ar7cur-rates-foot .save{justify-content:center}
+}
