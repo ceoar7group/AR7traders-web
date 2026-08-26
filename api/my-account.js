@@ -76,7 +76,8 @@ export default async function handler(req,res){
   return send(res,200,{
     customer:{id:cust.id,name:cust.name,email:cust.email,country:cust.country},
     orders,
-    payments:payments.map(x=>({id:x.id,amount:x.amount,method:x.method,tt_number:x.tt_number,
+    payments:payments.map(x=>({id:x.id,amount:x.amount,currency:x.currency||'USD',
+      amount_original:x.amount_original??null,method:x.method,tt_number:x.tt_number,
       received_at:x.received_at,applied:x.applied,unapplied:x.unapplied})),
     totals:{
       ordered:orders.reduce((s,x)=>s+Number(x.amount||0),0),

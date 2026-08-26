@@ -10,6 +10,7 @@ import {MessageCircle, Mail, LockKeyhole, ArrowRight, Check, LogIn, UserPlus,
 import {supabase, hasSupabase} from './supabase-client.js';
 import {useSettings, waLink} from './site-settings.js';
 import {WhatsAppIcon} from './brand-icons.jsx';
+import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
 const nice  = s => s ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(s)) : '—';
@@ -230,6 +231,7 @@ function MyAccount({session,navigate}){
   const [data,setData]=useState(null),[err,setErr]=useState('');
  const [panel,setPanel]=useState(null);   // 'profile' | 'password' | null
  const s=useSettings();
+ const {fmt,display,isBase,rate}=useCurrency();
  async function load(){
   const r=await fetch('/api/my-account',{headers:{Authorization:'Bearer '+session.access_token}});
   const j=await r.json().catch(()=>({}));
@@ -257,6 +259,7 @@ function MyAccount({session,navigate}){
      <p>{session.user.email}</p>
     </div>
         <div className="ma-head-actions">
+     <CurrencySwitcher label="My account currency"/>
      <button className="outline-btn" onClick={()=>setPanel(panel==='profile'?null:'profile')}><UserCog/> Profile</button>
      <button className="outline-btn" onClick={()=>setPanel(panel==='password'?null:'password')}><KeyRound/> Password</button>
      <a className="outline-btn" href={waLink(s.whatsapp_number,'Hello AR7, I have a question about my order.')} target="_blank" rel="noopener noreferrer"><MessageCircle/> Ask a question</a>
@@ -281,10 +284,12 @@ function MyAccount({session,navigate}){
      {[['Total ordered',t.ordered,<CarFront/>],['Total received',t.received,<Wallet/>],
        ['Available credit',t.unapplied,<ArrowLeftRight/>],['Balance due',t.due,<BadgeCheck/>]]
       .map(([l,v,icon])=><article key={l} className={l==='Balance due'&&v>0?'due':''}>
-        <i>{icon}</i><span>{l}</span><b>{money(v)}</b></article>)}
+        <i>{icon}</i><span>{l}</span><b>{fmt(v)}</b></article>)}
     </div>
+    {!isBase && <p className="ma-note">
+      <ShieldCheck/> Shown in {display} at 1 {BASE_CURRENCY} = {rate(display)} {display}. Your invoices are issued in {BASE_CURRENCY} or JPY — the {BASE_CURRENCY} figures your order is measured in never change.</p>}
     {Number(t.unapplied)>0 && <p className="ma-note">
-      <ShieldCheck/> You have {money(t.unapplied)} received but not yet applied to a specific car. Tell us which order it should go against and our team will apply it.</p>}
+      <ShieldCheck/> You have {fmt(t.unapplied)} received but not yet applied to a specific car. Tell us which order it should go against and our team will apply it.</p>}
 
     <h2 className="ma-title">Your vehicles</h2>
     {!data.orders?.length ? <p className="ma-muted">No orders yet.</p>
@@ -295,9 +300,9 @@ function MyAccount({session,navigate}){
         <small>Order {o.order_no}{o.stock_no?' · Stock '+o.stock_no:''} · {nice(o.created_at)}</small>
         <div className="ma-bar"><u style={{width:pct+'%'}}/></div>
         <dl>
-         <div><dt>Price</dt><dd>{money(o.amount)}</dd></div>
-         <div><dt>Paid</dt><dd>{money(o.paid)}</dd></div>
-         <div><dt>Remaining</dt><dd className={Number(o.balance_due)>0?'owing':'clear'}>{money(o.balance_due)}</dd></div>
+         <div><dt>Price</dt><dd>{fmt(o.amount)}</dd></div>
+         <div><dt>Paid</dt><dd>{fmt(o.paid)}</dd></div>
+         <div><dt>Remaining</dt><dd className={Number(o.balance_due)>0?'owing':'clear'}>{fmt(o.balance_due)}</dd></div>
          <div><dt>Paid so far</dt><dd>{pct}%</dd></div>
         </dl>
        </article>})}</div>}
@@ -308,8 +313,8 @@ function MyAccount({session,navigate}){
        <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th>Amount</th><th>Applied</th><th>Available</th></tr></thead>
        <tbody>{data.payments.map(p=><tr key={p.id}>
         <td>{nice(p.received_at)}</td><td>{p.method}</td><td>{p.tt_number||'—'}</td>
-        <td>{money(p.amount)}</td><td>{money(p.applied)}</td>
-        <td className={Number(p.unapplied)>0?'credit':''}>{money(p.unapplied)}</td>
+        <td>{fmt(p.amount)}</td><td>{fmt(p.applied)}</td>
+        <td className={Number(p.unapplied)>0?'credit':''}>{fmt(p.unapplied)}</td>
        </tr>)}</tbody></table></div>}
     <p className="ma-foot"><ShieldCheck/> Every payment we receive is listed here the day it clears. If something looks wrong, message us on WhatsApp or email {s.contact_email} and we will check it the same day.</p>
    </>}

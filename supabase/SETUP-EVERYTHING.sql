@@ -435,6 +435,16 @@ create table if not exists public.payments (
 );
 create index if not exists payments_customer_idx on public.payments(customer_id, received_at desc);
 
+-- ---- Multi-currency ledger -------------------------------------------
+-- All ledger math stays in the base currency (USD). When staff record an
+-- order or payment in JPY, PKR, AED… we also keep the original figure and
+-- the exchange rate used, so statements can show both. Idempotent:
+-- safe to run on databases that predate these columns.
+alter table public.orders  add column if not exists amount_original numeric(14,2);
+alter table public.orders  add column if not exists fx_rate numeric(14,6);
+alter table public.payments add column if not exists amount_original numeric(14,2);
+alter table public.payments add column if not exists fx_rate numeric(14,6);
+
 create table if not exists public.payment_allocations (
   id uuid primary key default gen_random_uuid(),
   payment_id uuid not null references public.payments(id) on delete cascade,
@@ -496,7 +506,9 @@ insert into public.site_settings (key,value,label) values
   ('contact_address','Tokyo, Japan','Public address'),
   ('whatsapp_number','+818000007007','WhatsApp button number'),
   ('whatsapp_message','Hello AR7 Traders, I am interested in importing a vehicle.','WhatsApp pre-filled message'),
-  ('enquiry_inbox','info@ar7traders.com','Where website enquiries are sent')
+  ('enquiry_inbox','info@ar7traders.com','Where website enquiries are sent'),
+  ('base_currency','USD','Ledger base currency'),
+  ('exchange_rates','{"USD":1,"JPY":155,"EUR":0.92,"GBP":0.79,"PKR":278,"AUD":1.52,"NZD":1.66,"CAD":1.37,"AED":3.6725,"SAR":3.75,"KES":129}','Display currency rates per 1 USD (JSON)')
 on conflict (key) do nothing;
 
 -- ---- People / HR ------------------------------------------------------

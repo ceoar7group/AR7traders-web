@@ -44,33 +44,38 @@ export default async function handler(req,res){
 
   // ---- Orders ---------------------------------------------------------
   if(action==='order'&&req.method==='POST'){
-   await requirePerm(profile,'orders.write');
-   const b=req.body||{};
-   if(!b.customer_id||!b.vehicle)return send(res,400,{error:'Customer and vehicle are required'});
-   const {data:no}=await db.rpc('ar7_next_order_no');
-   const row={
-     order_no:b.order_no||no||('AR7-O-'+Date.now()),
-     customer_id:b.customer_id,source:b.source==='website'?'website':'manual',
-     listing_id:b.listing_id||null,make:b.make||null,model:b.model||null,
-     year:b.year?Number(b.year):null,stock_no:b.stock_no||null,
-     vehicle:b.vehicle,amount:Number(b.amount)||0,
-     status:b.status||'pending',notes:b.notes||null,created_by:user.id
-   };
-   const {data,error}=await db.from('orders').insert(row).select().single();
-   if(error)throw error;
-   await log(db,profile,`Added order ${data.order_no} (${data.vehicle})`,'orders',data.id);
-   return send(res,201,data);
+    await requirePerm(profile,'orders.write');
+    const b=req.body||{};
+    if(!b.customer_id||!b.vehicle)return send(res,400,{error:'Customer and vehicle are required'});
+    const {data:no}=await db.rpc('ar7_next_order_no');
+    const row={
+      order_no:b.order_no||no||('AR7-O-'+Date.now()),
+      customer_id:b.customer_id,source:b.source==='website'?'website':'manual',
+      listing_id:b.listing_id||null,make:b.make||null,model:b.model||null,
+      year:b.year?Number(b.year):null,stock_no:b.stock_no||null,
+      vehicle:b.vehicle,amount:Number(b.amount)||0,
+      currency:b.currency||'USD',
+      amount_original:b.amount_original!==undefined&&b.amount_original!==null?Number(b.amount_original):null,
+      fx_rate:b.fx_rate!==undefined&&b.fx_rate!==null?Number(b.fx_rate):null,
+      status:b.status||'pending',notes:b.notes||null,created_by:user.id
+    };
+    const {data,error}=await db.from('orders').insert(row).select().single();
+    if(error)throw error;
+    await log(db,profile,`Added order ${data.order_no} (${data.vehicle})`,'orders',data.id);
+    return send(res,201,data);
   }
   if(action==='order'&&req.method==='PATCH'){
-   await requirePerm(profile,'orders.write');
-   const b=req.body||{};if(!b.id)return send(res,400,{error:'Order id is required'});
-   const patch={updated_at:new Date().toISOString()};
-   ['vehicle','amount','status','notes','make','model','year','stock_no'].forEach(k=>{
-     if(b[k]!==undefined)patch[k]=k==='amount'||k==='year'?Number(b[k]):b[k]});
-   const {data,error}=await db.from('orders').update(patch).eq('id',b.id).select().single();
-   if(error)throw error;
-   await log(db,profile,`Updated order ${data.order_no}`,'orders',data.id);
-   return send(res,200,data);
+    await requirePerm(profile,'orders.write');
+    const b=req.body||{};if(!b.id)return send(res,400,{error:'Order id is required'});
+    const patch={updated_at:new Date().toISOString()};
+    ['vehicle','amount','status','notes','make','model','year','stock_no','currency'].forEach(k=>{
+      if(b[k]!==undefined)patch[k]=k==='amount'||k==='year'?Number(b[k]):b[k]});
+    ['amount_original','fx_rate'].forEach(k=>{
+      if(b[k]!==undefined)patch[k]=b[k]===null?null:Number(b[k])});
+    const {data,error}=await db.from('orders').update(patch).eq('id',b.id).select().single();
+    if(error)throw error;
+    await log(db,profile,`Updated order ${data.order_no}`,'orders',data.id);
+    return send(res,200,data);
   }
 
   // Import a car straight from the website catalogue into an order.
@@ -100,13 +105,18 @@ export default async function handler(req,res){
    if(!b.customer_id||!(Number(b.amount)>0))
      return send(res,400,{error:'Customer and a positive amount are required'});
    const {data,error}=await db.from('payments').insert({
-     customer_id:b.customer_id,amount:Number(b.amount),method:b.method||'TT',
+     customer_id:b.customer_id,amount:Number(b.amount),
+     currency:b.currency||'USD',
+     amount_original:b.amount_original!==undefined&&b.amount_original!==null?Number(b.amount_original):null,
+     fx_rate:b.fx_rate!==undefined&&b.fx_rate!==null?Number(b.fx_rate):null,
+     method:b.method||'TT',
      tt_number:b.tt_number||null,bank:b.bank||null,
      received_at:b.received_at||new Date().toISOString().slice(0,10),
      note:b.note||null,created_by:user.id
    }).select().single();
    if(error)throw error;
-   await log(db,profile,`Recorded ${b.method||'TT'} of ${Number(b.amount).toLocaleString()} ${data.tt_number?'('+data.tt_number+')':''}`.trim(),'payments',data.id);
+   const shown=b.amount_original?`${Number(b.amount_original).toLocaleString()} ${b.currency}`:`${Number(b.amount).toLocaleString()} USD`;
+   await log(db,profile,`Recorded ${b.method||'TT'} of ${shown}${data.tt_number?' ('+data.tt_number+')':''}`.trim(),'payments',data.id);
    return send(res,201,data);
   }
 
