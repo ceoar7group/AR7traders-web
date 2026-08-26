@@ -819,7 +819,14 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
 }
 .gallery-lightbox .lightbox-close svg{width:21px!important;height:21px!important}
 .gallery-lightbox .lightbox-arrow{
+  position:absolute!important;
   z-index:3!important;
+  top:50%!important;
+  transform:translateY(-50%);
+  width:48px!important;
+  height:58px!important;
+  border-radius:14px!important;
+  padding:0!important;
   border:1px solid #ffffff55!important;
   background:#032c1be8!important;
   color:#fff!important;
@@ -827,8 +834,11 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
   place-items:center!important;
   cursor:pointer!important;
   backdrop-filter:blur(10px);
+  box-shadow:0 10px 26px #0007;
   transition:transform .2s ease,background .2s ease,border-color .2s ease;
 }
+.gallery-lightbox .lightbox-arrow.prev{left:14px!important}
+.gallery-lightbox .lightbox-arrow.next{right:14px!important}
 .gallery-lightbox .lightbox-arrow:hover,
 .gallery-lightbox .lightbox-arrow:focus-visible{
   background:var(--gold)!important;
@@ -874,6 +884,14 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
   transform:translateY(-1px);
 }
 .gallery-lightbox .zoom-controls button:active{transform:translateY(0) scale(.97)}
+.gallery-lightbox .zoom-controls button:disabled{
+  opacity:.35;
+  cursor:default!important;
+  transform:none!important;
+  border-color:transparent!important;
+  background:transparent!important;
+  pointer-events:none;
+}
 .gallery-lightbox .zoom-controls button svg{width:17px!important;height:17px!important;color:var(--gold2)}
 .gallery-lightbox .zoom-controls .zoom-level{
   min-width:68px;
