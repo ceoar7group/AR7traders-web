@@ -760,6 +760,25 @@ html[data-crm-theme="light"] .crm-shell {
   border-color: var(--crm-primary-hover);
   color: #fff;
 }
+.crm-tools .crm-sync {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 14px;
+  color: var(--crm-gold);
+  border-color: var(--crm-gold);
+  background: transparent;
+}
+.crm-tools .crm-sync svg { width: 14px; height: 14px; }
+.crm-tools .crm-sync:hover:not(:disabled) {
+  background: var(--crm-gold);
+  color: #fff;
+}
+.crm-tools .crm-sync:disabled { opacity: 0.6; cursor: wait; }
+.crm-tools .crm-sync .crm-sync-spin { animation: crm-sync-rotate 1s linear infinite; }
+@keyframes crm-sync-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* --- Tables & Photos Column --- */
 .entity-view-container { display: grid; gap: 14px; }
