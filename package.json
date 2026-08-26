@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
+    "build:crm": "vite build --config vite.crm.config.js",
+    "test:currency": "npx --yes esbuild scripts/currency-logic.test.mjs --bundle --format=esm --platform=node --loader:.css=empty --outfile=node_modules/.tmp/currency-logic.test.mjs --log-level=error && node node_modules/.tmp/currency-logic.test.mjs && npx --yes esbuild scripts/currency-render.test.jsx --bundle --format=cjs --platform=node --loader:.css=empty --jsx=automatic --outfile=node_modules/.tmp/currency-render.test.cjs --log-level=error && node node_modules/.tmp/currency-render.test.cjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

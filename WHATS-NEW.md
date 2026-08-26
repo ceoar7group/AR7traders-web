@@ -188,6 +188,40 @@ doing separately once you are happy with everything else.
 
 ---
 
+## 16. Prices and ledgers in 11 currencies
+
+**Everywhere at once** — the website header, the customer portal and the CRM.
+
+- Eleven currencies: **JPY, USD, EUR, GBP, PKR, AUD, NZD, CAD, AED, SAR, KES**.
+- **USD stays the base currency.** Every amount the systems store — orders,
+  payments, budgets, vehicle prices — remains in USD, so the ledger maths
+  (applied / unapplied / balance due) is untouched and totals always add up.
+  Other currencies are a display and entry layer on top.
+- **On the website:** a currency picker in the header converts every vehicle
+  price, the CIF / duty calculators and the portal demo instantly. The choice
+  is remembered per visitor. In USD the exact price text published from the CRM
+  is shown verbatim; in other currencies it converts at the current rate.
+- **In the customer portal:** customers pick their currency and see their
+  orders, payments and balances in it, with a clear note that invoices are
+  issued in USD or JPY.
+- **In the CRM:** a picker in the top bar switches every KPI — pipeline value,
+  accepted quotes, lifetime revenue, payroll, ledger balances — into any of the
+  eleven currencies for reporting.
+- **Entering orders and payments in a foreign currency:** staff pick the
+  currency next to the amount; the form shows the USD equivalent live and
+  stores the original amount plus the rate used, so statements can show both.
+- **Exchange rate manager** in **CRM → Website settings**: every rate is
+  editable, with a $10,000 sample conversion per currency, a reset-to-defaults
+  button, and a "last updated" stamp. Saving pushes the new rates to the live
+  website immediately — no redeploy. Until you save your own, sensible
+  built-in rates keep everything working.
+
+Run `supabase/SETUP-EVERYTHING.sql` once more — it adds the two ledger columns
+(`amount_original`, `fx_rate`) and the `exchange_rates` setting. It is safe to
+run again on an existing database.
+
+---
+
 ## Suggested first ten minutes
 
 1. Run the SQL in Supabase.
