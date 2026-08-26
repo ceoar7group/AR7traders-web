@@ -2571,7 +2571,8 @@ function SettingsView({ token, profile, perms, notify }) {
     ['contact_address', 'Address', 'Physical office address shown on the website'],
     ['whatsapp_number', 'WhatsApp number', 'The phone number for direct chat (digits and + only)'],
     ['whatsapp_message', 'WhatsApp greeting', 'Pre-filled message when someone taps WhatsApp'],
-    ['enquiry_inbox', 'Enquiry inbox', 'Where website lead submissions are delivered']
+    ['enquiry_inbox', 'Enquiry inbox', 'Where website lead submissions are delivered'],
+    ['default_customer_currency', 'Default customer currency', 'Preselected for new customer accounts, quotes and invoices', 'currency']
   ];
 
   async function save(e) {
@@ -2592,10 +2593,16 @@ function SettingsView({ token, profile, perms, notify }) {
       <div className="crm-page-head"><div><p>Contact and operational details shown across the live website.</p></div></div>
       <form className="crm-settings-form" onSubmit={save}>
         <div className="crm-editor-fields">
-          {fields.map(([k, label, hint]) => (
+          {fields.map(([k, label, hint, type]) => (
             <label key={k}>
               {label}
-              <input value={form[k] ?? ''} disabled={!canEdit} onChange={e => setForm(v => ({ ...v, [k]: e.target.value }))} />
+              {type === 'currency' ? (
+                <select value={form[k] || 'USD'} disabled={!canEdit} onChange={e => setForm(v => ({ ...v, [k]: e.target.value }))}>
+                  {['JPY','USD','EUR','GBP','PKR','AUD','NZD','CAD','AED','SAR','KES'].map(code => <option key={code} value={code}>{code}</option>)}
+                </select>
+              ) : (
+                <input value={form[k] ?? ''} disabled={!canEdit} onChange={e => setForm(v => ({ ...v, [k]: e.target.value }))} />
+              )}
               <small>{hint}</small>
             </label>
           ))}

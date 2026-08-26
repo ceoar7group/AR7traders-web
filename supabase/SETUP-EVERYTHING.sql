@@ -508,6 +508,7 @@ insert into public.site_settings (key,value,label) values
   ('whatsapp_message','Hello AR7 Traders, I am interested in importing a vehicle.','WhatsApp pre-filled message'),
   ('enquiry_inbox','info@ar7traders.com','Where website enquiries are sent'),
   ('base_currency','USD','Ledger base currency'),
+  ('default_customer_currency','USD','Default currency for new customer accounts, quotes and invoices'),
   ('exchange_rates','{"USD":1,"JPY":155,"EUR":0.92,"GBP":0.79,"PKR":278,"AUD":1.52,"NZD":1.66,"CAD":1.37,"AED":3.6725,"SAR":3.75,"KES":129}','Display currency rates per 1 USD (JSON)')
 on conflict (key) do nothing;
 

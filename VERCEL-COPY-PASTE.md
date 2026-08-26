@@ -88,8 +88,9 @@ Values on the right:
 The URL and anon key go in twice on purpose — the browser build and the
 server functions read different names.
 
-For `SITE_URL` / `VITE_SITE_URL`, if you don't have a domain yet, put
-`https://ar7traders.vercel.app` and correct it later.
+For `SITE_URL` / `VITE_SITE_URL`, if you don't have a domain yet, use your
+Vercel deployment address and correct it later. The live domain is
+`https://www.ar7traders.com`.
 
 > **The one that catches people out:** if the two `VITE_` variables are
 > missing, the site still deploys and looks completely normal — but the CRM is
@@ -108,11 +109,11 @@ Now you know your real address, go back to Supabase:
 
 <https://supabase.com/dashboard/project/_/auth/url-configuration>
 
-- **Site URL** — your live address, e.g. `https://ar7traders.vercel.app`
+- **Site URL** — your live address, e.g. `https://www.ar7traders.com`
 - **Redirect URLs** — click Add and enter, with the two stars:
 
 ```
-https://ar7traders.vercel.app/**
+https://www.ar7traders.com/**
 ```
 
 Without this, password-reset emails send people to the wrong place.

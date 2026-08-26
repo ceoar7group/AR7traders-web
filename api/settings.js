@@ -18,8 +18,12 @@ export default async function handler(req,res){
    const keys=Object.keys(updates);
    if(!keys.length)return send(res,400,{error:'Nothing to update'});
    for(const k of keys){
-    const {error}=await db.from('site_settings')
-      .update({value:String(updates[k]??''),updated_at:new Date().toISOString()}).eq('key',k);
+    // Upsert so newly introduced operational settings (for example the
+    // customer default currency) also work on databases provisioned before
+    // that key was added to the seed script.
+    const {error}=await db.from('site_settings').upsert({
+      key:k,value:String(updates[k]??''),updated_at:new Date().toISOString()
+    },{onConflict:'key'});
     if(error)throw error;
    }
    await log(db,profile,`Updated website contact settings (${keys.join(', ')})`,'site_settings',null);

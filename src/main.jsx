@@ -13,7 +13,7 @@ import { CustomerAccountPage, WhatsAppButton, useCustomerSession } from './custo
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { useSettings, telHref, waLink } from './site-settings.js';
 import { useSeo } from './seo.js';
-import { CurrencyProvider, CurrencySwitcher, useCurrency } from './currency.jsx';
+import { CurrencyProvider, CurrencyDropdown, useCurrency } from './currency.jsx';
 import './currency.css';
 import './portal.css';
 
@@ -358,7 +358,7 @@ function App(){
     </div>
     <button className="auction-link" onClick={()=>navigate('contact')}><MessageCircle size={15}/> Contact</button>
    </div>
-   <div className="nav-actions"><CurrencySwitcher/><button className="icon-btn studio-btn" onClick={()=>navigate('studio')} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></button><button className="icon-btn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button><button className="icon-btn portal-btn" onClick={()=>navigate('account')} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></button><button className="primary compact" onClick={()=>navigate('account')}>{signedIn?<>My account <UserCog/></>:<>Sign up <UserPlus/></>}</button><button className="menu-btn" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button></div>
+   <div className="nav-actions"><CurrencyDropdown/><button className="icon-btn studio-btn" onClick={()=>navigate('studio')} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></button><button className="icon-btn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button><button className="icon-btn portal-btn" onClick={()=>navigate('account')} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></button><button className="primary compact" onClick={()=>navigate('account')}>{signedIn?<>My account <UserCog/></>:<>Sign up <UserPlus/></>}</button><button className="menu-btn" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button></div>
   </nav><WorldTimeRibbon/></header>
 
   <main>
