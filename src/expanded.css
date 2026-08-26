@@ -178,7 +178,7 @@
 .moving-ship svg{position:relative;z-index:2}
 
 /* ---------- PERFORMANCE ---------- */
-.section,.inner-page,.motion-showcase,.world,.process,.footer-top,.ticker{content-visibility:auto;contain-intrinsic-size:auto 750px}
+.section,.inner-page,.motion-showcase,.world,.process,.site-footer,.ticker{content-visibility:auto;contain-intrinsic-size:auto 750px}
 
 /* ---------- responsive ---------- */
 @media(max-width:1000px){
@@ -442,7 +442,8 @@ section[id]{scroll-margin-top:120px}
  .grade{font-size:10px;padding:6px 10px}
  .navlinks button{padding:13px 10px;font-size:14px}
  .more-panel button{padding:11px 10px}
- .footer-top a{min-height:38px;display:inline-flex;align-items:center}
+ .footer-grid a{min-height:38px;display:inline-flex;align-items:center}
+ .footer-news{grid-template-columns:1fr;gap:26px}
  .floating-card{pointer-events:none}
 }
 @media(max-width:380px){
@@ -632,7 +633,7 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
  .detail-specs{grid-template-columns:repeat(3,1fr)}
  .spec-table{grid-template-columns:1fr 1fr}
  .destination-grid,.review-grid{grid-template-columns:repeat(2,1fr)}
- .footer-top{grid-template-columns:1.4fr 1fr 1fr}.footer-top>div:last-child{grid-column:1/-1}
+ .footer-grid{grid-template-columns:1.4fr 1fr 1fr}.footer-grid>div:last-child{grid-column:1/-1}
  .cta{padding:55px 48px;margin-block:80px}
  .cmp-modal{max-width:calc(100vw - 30px);overflow:auto}
 }
@@ -686,7 +687,7 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
  .destination-picker{grid-template-columns:1fr!important}
  .net-panel{overflow-x:auto}.net-panel table{min-width:520px}
  .cta{padding:38px 22px;min-height:0;margin-block:60px}.cta h2{font-size:clamp(38px,11vw,48px)}
- .footer-top{grid-template-columns:1fr!important}.footer-brand,.footer-top>div:last-child{grid-column:auto!important}
+ .footer-grid{grid-template-columns:1fr!important}.footer-brand,.footer-grid>div:last-child{grid-column:auto!important}
  .footer-bottom{font-size:8px;word-break:break-word}
 }
 
