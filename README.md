@@ -20,4 +20,21 @@ Complete master backup of the AR7 Traders website and CRM.
 2. Connect Supabase project `supabase-ar7crm` (env vars: see `supabase/SETUP.md`).
 3. Run `supabase/schema.sql` in the Supabase SQL Editor.
 
+## Local development
+
+`node_modules/` is git-ignored, so a fresh clone (or a fresh sandbox) has no
+dependencies. Install before anything else:
+
+```bash
+npm ci          # uses package-lock.json; use `npm install` if the lockfile is missing
+npm run dev     # website dev server on 0.0.0.0
+npm run build   # website → dist/
+npm run build:crm        # CRM → crm-preview/dist/
+npm run test:currency    # currency logic + render tests
+npm run test:inventory   # inventory table/grid/listings render tests
+```
+
+Both test scripts bundle through esbuild into `node_modules/.tmp/`, so they also
+need dependencies installed first. Requires Node >= 20.19.0.
+
 Backed up: 2026-08-24
