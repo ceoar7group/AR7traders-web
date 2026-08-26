@@ -17,25 +17,32 @@
 //  portal (orders/payments), and the CRM (KPIs, ledgers, rate manager).
 // ---------------------------------------------------------------------------
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Globe, Info, RotateCcw, Save, TrendingUp } from 'lucide-react';
+import { Check, ChevronDown, Globe, Info, RotateCcw, Save, TrendingUp, X } from 'lucide-react';
+import { Flag } from './network.jsx';
 import './currency.css';
 
 export const BASE_CURRENCY = 'USD';
 
 // decimals: 0 for the big-unit currencies (¥, ₨, KSh), 2 for the rest.
 export const CURRENCIES = [
-  { code: 'JPY', name: 'Japanese Yen',        symbol: '¥',    flag: '🇯🇵', decimals: 0, note: 'Auction & purchase currency' },
-  { code: 'USD', name: 'US Dollar',           symbol: '$',    flag: '🇺🇸', decimals: 2, note: 'Base currency — invoicing & ledger' },
-  { code: 'EUR', name: 'Euro',                symbol: '€',    flag: '🇪🇺', decimals: 2 },
-  { code: 'GBP', name: 'British Pound',       symbol: '£',    flag: '🇬🇧', decimals: 2 },
-  { code: 'PKR', name: 'Pakistani Rupee',     symbol: '₨',    flag: '🇵🇰', decimals: 0 },
-  { code: 'AUD', name: 'Australian Dollar',   symbol: 'A$',   flag: '🇦🇺', decimals: 2 },
-  { code: 'NZD', name: 'New Zealand Dollar',  symbol: 'NZ$',  flag: '🇳🇿', decimals: 2 },
-  { code: 'CAD', name: 'Canadian Dollar',     symbol: 'C$',   flag: '🇨🇦', decimals: 2 },
-  { code: 'AED', name: 'UAE Dirham',          symbol: 'AED',  flag: '🇦🇪', decimals: 2 },
-  { code: 'SAR', name: 'Saudi Riyal',         symbol: 'SAR',  flag: '🇸🇦', decimals: 2 },
-  { code: 'KES', name: 'Kenyan Shilling',     symbol: 'KSh',  flag: '🇰🇪', decimals: 0 }
+  { code: 'JPY', name: 'Japanese Yen',        symbol: '¥',    country: 'Japan', decimals: 0, note: 'Auction & purchase currency' },
+  { code: 'USD', name: 'US Dollar',           symbol: '$',    country: 'USA', decimals: 2, note: 'Base currency — invoicing & ledger' },
+  { code: 'EUR', name: 'Euro',                symbol: '€',    country: 'European Union', decimals: 2 },
+  { code: 'GBP', name: 'British Pound',       symbol: '£',    country: 'United Kingdom', decimals: 2 },
+  { code: 'PKR', name: 'Pakistani Rupee',     symbol: '₨',    country: 'Pakistan', decimals: 0 },
+  { code: 'AUD', name: 'Australian Dollar',   symbol: 'A$',   country: 'Australia', decimals: 2 },
+  { code: 'NZD', name: 'New Zealand Dollar',  symbol: 'NZ$',  country: 'New Zealand', decimals: 2 },
+  { code: 'CAD', name: 'Canadian Dollar',     symbol: 'C$',   country: 'Canada', decimals: 2 },
+  { code: 'AED', name: 'UAE Dirham',          symbol: 'AED',  country: 'UAE', decimals: 2 },
+  { code: 'SAR', name: 'Saudi Riyal',         symbol: 'SAR',  country: 'Saudi Arabia', decimals: 2 },
+  { code: 'KES', name: 'Kenyan Shilling',     symbol: 'KSh',  country: 'Kenya', decimals: 0 }
 ];
+
+/** OS-independent vector flag; deliberately never falls back to emoji fonts. */
+export function CurrencyFlag({ code, width = 18, height = 12 }) {
+  const currency = currencyOf(code);
+  return <span className="ar7cur-flag" aria-hidden="true"><Flag c={currency.country} w={width} h={height} /></span>;
+}
 
 export const CURRENCY_CODES = CURRENCIES.map(c => c.code);
 
@@ -242,7 +249,7 @@ export function useCurrency() {
 /*  CurrencySwitcher — public website header                           */
 /* ------------------------------------------------------------------ */
 
-export function CurrencySwitcher({ label = 'Currency' }) {
+export function CurrencyDropdown({ label = 'Currency' }) {
   const { display, setDisplay, rates, fmt } = useCurrency();
   const [open, setOpen] = useState(false);
   const box = useRef(null);
@@ -259,7 +266,7 @@ export function CurrencySwitcher({ label = 'Currency' }) {
     <div className="ar7cur-switch" ref={box}>
       <button className="ar7cur-btn" onClick={() => setOpen(o => !o)}
         aria-haspopup="listbox" aria-expanded={open} title={`${label}: ${cur.name} — prices convert instantly`}>
-        <span className="ar7cur-flag">{cur.flag}</span>
+        <CurrencyFlag code={cur.code} />
         <b>{cur.code}</b>
         <ChevronDown size={13} className={'ar7cur-chev' + (open ? ' up' : '')} />
       </button>
@@ -273,7 +280,7 @@ export function CurrencySwitcher({ label = 'Currency' }) {
             <button key={c.code} role="option" aria-selected={c.code === display}
               className={'ar7cur-opt' + (c.code === display ? ' on' : '')}
               onClick={() => { setDisplay(c.code); setOpen(false); }}>
-              <span className="ar7cur-flag">{c.flag}</span>
+              <CurrencyFlag code={c.code} />
               <span className="ar7cur-opt-name"><b>{c.code}</b><small>{c.name}</small></span>
               <span className="ar7cur-opt-sample">{fmt(10000, c.code)}</span>
               {c.code === display && <Check size={14} className="ar7cur-tick" />}
@@ -289,6 +296,8 @@ export function CurrencySwitcher({ label = 'Currency' }) {
   );
 }
 
+export const CurrencySwitcher = CurrencyDropdown;
+
 /* ------------------------------------------------------------------ */
 /*  CrmCurrencyPicker — compact pill for the CRM top bar               */
 /* ------------------------------------------------------------------ */
@@ -299,7 +308,7 @@ export function CrmCurrencyPicker() {
     <label className="ar7cur-crm-pill" title="Display currency for KPIs, ledgers and payroll">
       <Globe size={13} />
       <select value={display} onChange={e => setDisplay(e.target.value)} aria-label="Display currency">
-        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
       </select>
     </label>
   );
@@ -328,7 +337,7 @@ export function CurrencyAmount({ name = 'amount', defaultAmount = '', defaultCur
             placeholder="0"
           />
           <select name={name + '_currency'} value={code} onChange={e => setCode(e.target.value)} aria-label="Currency">
-            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
           </select>
         </div>
         {code !== BASE_CURRENCY && Number(amount) > 0 && (
@@ -377,7 +386,7 @@ export function CurrencyBadge({ record }) {
 /*  RateManager — CRM → Settings exchange rate editor                  */
 /* ------------------------------------------------------------------ */
 
-export function RateManager({ token, canEdit, notify }) {
+export function RatesModal({ token, canEdit, notify = () => {}, open = true, onClose = () => {} }) {
   const { rates, updatedAt } = useCurrency();
   const [draft, setDraft] = useState(() => ({ ...rates }));
   const [busy, setBusy] = useState(false);
@@ -431,28 +440,42 @@ export function RateManager({ token, canEdit, notify }) {
     }
   }
 
+  if (!open) return null;
+  const matrixCodes = ['USD', 'JPY', 'EUR', 'GBP', 'PKR'];
   return (
-    <section className="ar7cur-rates">
+    <div className="ar7cur-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <section className="ar7cur-rates ar7cur-modal" role="dialog" aria-modal="true" aria-labelledby="rates-title">
       <header className="ar7cur-rates-head">
         <div>
-          <small>FOREIGN EXCHANGE</small>
-          <h3>Exchange rate manager</h3>
+          <small>FOREIGN EXCHANGE · LIVE CONTROL</small>
+          <h3 id="rates-title">Exchange rate matrix</h3>
           <p>Prices, KPIs and ledger totals convert with these rates. Base currency: <b>{BASE_CURRENCY}</b>{' '}
             {updatedAt ? <>· updated {new Date(updatedAt).toLocaleString()}</> : <>· using built-in indicative rates</>}
           </p>
         </div>
-        {canEdit && dirty && <button type="button" className="ar7cur-reset" onClick={resetDefaults} title="Restore built-in indicative rates"><RotateCcw size={13} /> Reset</button>}
+        <div className="ar7cur-modal-actions">
+          {canEdit && dirty && <button type="button" className="ar7cur-reset" onClick={resetDefaults} title="Restore built-in indicative rates"><RotateCcw size={13} /> Reset</button>}
+          <button type="button" className="ar7cur-modal-close" onClick={onClose} aria-label="Close exchange rates"><X size={16}/></button>
+        </div>
       </header>
+      <div className="ar7cur-matrix" aria-label="Exchange rate matrix">
+        <div className="ar7cur-matrix-row head"><b>FROM / TO</b>{matrixCodes.map(code => <b key={code}>{code}</b>)}</div>
+        {matrixCodes.map(from => <div className="ar7cur-matrix-row" key={from}>
+          <b><CurrencyFlag code={from}/>{from}</b>
+          {matrixCodes.map(to => <span key={to}>{(Number(draft[to] || 1) / Number(draft[from] || 1)).toLocaleString('en-US', { maximumFractionDigits: 4 })}</span>)}
+        </div>)}
+      </div>
       <form onSubmit={save}>
+        <div className="ar7cur-section-label"><span>Custom overrides</span><small>Units per 1 USD</small></div>
         <div className="ar7cur-rates-grid">
           <div className="ar7cur-rates-row base">
-            <span className="ar7cur-rates-cur"><i>{currencyOf(BASE_CURRENCY).flag}</i><b>{BASE_CURRENCY}</b><small>{currencyOf(BASE_CURRENCY).name}</small></span>
+            <span className="ar7cur-rates-cur"><CurrencyFlag code={BASE_CURRENCY} /><b>{BASE_CURRENCY}</b><small>{currencyOf(BASE_CURRENCY).name}</small></span>
             <span className="ar7cur-rates-fixed">1.00 <em>base</em></span>
             <span className="ar7cur-rates-note">All ledger amounts are stored in USD</span>
           </div>
           {CURRENCIES.filter(c => c.code !== BASE_CURRENCY).map(c => (
             <div key={c.code} className="ar7cur-rates-row">
-              <span className="ar7cur-rates-cur"><i>{c.flag}</i><b>{c.code}</b><small>{c.name}</small></span>
+              <span className="ar7cur-rates-cur"><CurrencyFlag code={c.code} /><b>{c.code}</b><small>{c.name}</small></span>
               <span className="ar7cur-rates-input">
                 <em>1 USD =</em>
                 <input
@@ -471,6 +494,12 @@ export function RateManager({ token, canEdit, notify }) {
             </div>
           ))}
         </div>
+        <div className="ar7cur-section-label"><span>Conversion simulation</span><small>Preview a $10,000 export quote</small></div>
+        <div className="ar7cur-sim-grid">
+          {CURRENCIES.filter(c => c.code !== BASE_CURRENCY).map(c => (
+            <article key={c.code}><CurrencyFlag code={c.code} width={22} height={15}/><small>{c.name}</small><b>{formatMoney(10000, c.code, normalizeRates(draft))}</b><em>1 USD = {Number(draft[c.code] || 1).toLocaleString()} {c.code}</em></article>
+          ))}
+        </div>
         {canEdit ? (
           <footer className="ar7cur-rates-foot">
             <small><Info size={12} /> Rates are indicative for display. Invoices are confirmed in USD or JPY by the export desk.</small>
@@ -481,5 +510,19 @@ export function RateManager({ token, canEdit, notify }) {
         )}
       </form>
     </section>
+    </div>
   );
+}
+
+/** Settings entry point: keeps the dense matrix out of the page until requested. */
+export function RateManager(props) {
+  const [open, setOpen] = useState(false);
+  const { updatedAt } = useCurrency();
+  return <>
+    <section className="ar7cur-rates-launch">
+      <div><small>FOREIGN EXCHANGE</small><h3>Exchange rate manager</h3><p>Review the rate matrix, add custom overrides and simulate customer pricing.</p>{updatedAt && <em>Last updated {new Date(updatedAt).toLocaleString()}</em>}</div>
+      <button type="button" onClick={() => setOpen(true)}><TrendingUp size={15}/> Manage exchange rates</button>
+    </section>
+    <RatesModal {...props} open={open} onClose={() => setOpen(false)}/>
+  </>;
 }
