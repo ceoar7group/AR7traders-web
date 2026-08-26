@@ -803,6 +803,44 @@ html[data-crm-theme="light"] .crm-shell {
   color: #fff;
 }
 
+/* Inventory: status chip row above the entity toolbar */
+.entity-status-chips {
+  margin-bottom: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+/* Inventory: sortable table headers */
+.crm-table-wrap th .th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+.crm-table-wrap th .th-sort:hover,
+.crm-table-wrap th .th-sort.sorted-asc,
+.crm-table-wrap th .th-sort.sorted-desc {
+  color: var(--crm-gold);
+}
+.th-sort-arrow {
+  font-size: 8px;
+  line-height: 1;
+  opacity: 0.55;
+}
+.crm-table-wrap th .th-sort.sorted-asc .th-sort-arrow,
+.crm-table-wrap th .th-sort.sorted-desc .th-sort-arrow {
+  opacity: 1;
+}
+
 .crm-table-wrap {
   background: var(--crm-panel);
   border: 1px solid var(--crm-border);

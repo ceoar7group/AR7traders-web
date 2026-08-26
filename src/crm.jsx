@@ -767,6 +767,8 @@ export default function CrmApp() {
               onViewGallery={row => setGalleryView(row)}
               onQuickPatch={(row, patch) => quickPatch(tab, row, patch)}
               statusOptions={configs[tab]?.statusOptions}
+              query={query}
+              onClearSearch={() => setQuery('')}
             />
           </>
         )}
@@ -1076,11 +1078,69 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
   );
 }
 
-function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions }) {
+// Image fallback: if a photo path 404s or fails to load, swap to the AR7
+// mark once instead of leaving a broken-image glyph in the inventory views.
+function imgFallback(e) {
+  const el = e.currentTarget;
+  if (el.dataset.fallbackApplied) return;
+  el.dataset.fallbackApplied = '1';
+  el.src = '/assets/ar7-mark.png';
+}
+
+export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table' }) {
   const { fmt } = useCurrency();
-  const [viewMode, setViewMode] = useState('table');
-  const [leadFilter, setLeadFilter] = useState('all');
+  const [viewMode, setViewMode] = useState(defaultViewMode);
+  const [chipFilter, setChipFilter] = useState('all');
+  const [sort, setSort] = useState(null); // { key, dir: 'asc' | 'desc' }
+  const leadFilter = chipFilter; // shared chip state, named for the leads branch below
   const isVehicleType = entity === 'vehicles' || entity === 'listings';
+
+  // Reset the quick filters whenever the operator switches entity tab, so a
+  // stale "sold" chip from Inventory never bleeds into Website cars.
+  useEffect(() => {
+    setChipFilter('all');
+    setSort(null);
+  }, [entity]);
+
+  // Status chips (vehicles + listings): one chip per status present in the
+  // data — ordered by the configured status options, extras appended — plus a
+  // "No photos" chip that surfaces records with an empty gallery.
+  const chipStatuses = useMemo(() => {
+    if (!isVehicleType) return [];
+    const present = [...new Set(rows.map(r => r.status).filter(Boolean))];
+    const ordered = (statusOptions || []).filter(s => present.includes(s));
+    const extras = present.filter(s => !ordered.includes(s));
+    return [...ordered, ...extras];
+  }, [isVehicleType, rows, statusOptions]);
+  const noPhotosCount = isVehicleType ? rows.filter(r => extractPhotos(r).length === 0).length : 0;
+  const chipCounts = id => id === 'all' ? rows.length
+    : id === 'no_photos' ? noPhotosCount
+      : rows.filter(r => r.status === id).length;
+  const chipVisible = !isVehicleType || chipFilter === 'all' ? rows : rows.filter(r =>
+    chipFilter === 'no_photos' ? extractPhotos(r).length === 0 : r.status === chipFilter
+  );
+
+  // Sorting (vehicles + listings table view): click a header to sort ascending,
+  // click again to flip direction. Nulls always sink to the bottom.
+  const toggleSort = key => setSort(s => (s && s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+  const sortValue = (row, key) => {
+    if (key === 'photos') return extractPhotos(row).length;
+    return row[key];
+  };
+  const sortedRows = useMemo(() => {
+    if (!isVehicleType || viewMode !== 'table' || !sort) return chipVisible;
+    const dir = sort.dir === 'desc' ? -1 : 1;
+    return [...chipVisible].sort((a, b) => {
+      const av = sortValue(a, sort.key);
+      const bv = sortValue(b, sort.key);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir;
+    });
+  }, [chipVisible, sort, isVehicleType, viewMode]);
+
   const statusPicker = (row, current) => (
     <select
       className={'crm-status crm-status-select ' + statusClass(current)}
@@ -1095,11 +1155,17 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
   );
 
   if (!rows.length) {
+    const searching = query && query.trim();
     return (
       <div className="crm-empty">
         <Search />
-        <h3>No records found</h3>
-        <p>Try refining your search keyword or add a new record.</p>
+        <h3>{searching ? 'No records match your search' : 'No records yet'}</h3>
+        <p>{searching
+          ? <>Nothing found for “{query}”. Try a different keyword or clear the search.</>
+          : <>Add your first record with the <b>Add</b> button above.</>}</p>
+        {searching && onClearSearch && (
+          <button className="crm-chip active" onClick={onClearSearch}>Clear search</button>
+        )}
       </div>
     );
   }
@@ -1127,7 +1193,7 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
       <div className="crm-lead-wrap">
         <div className="crm-chips">
           {[['all', 'All'], ['overdue', 'Overdue'], ['new', 'New'], ['open', 'In progress'], ['won', 'Won'], ['lost', 'Lost']].map(([id, label]) => (
-            <button key={id} className={'crm-chip ' + (leadFilter === id ? 'active' : '') + (id === 'overdue' && counts.overdue > 0 ? ' alert' : '')} onClick={() => setLeadFilter(id)}>
+            <button key={id} className={'crm-chip ' + (leadFilter === id ? 'active' : '') + (id === 'overdue' && counts.overdue > 0 ? ' alert' : '')} onClick={() => setChipFilter(id)}>
               {label} <em>{counts[id]}</em>
             </button>
           ))}
@@ -1189,9 +1255,34 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
   return (
     <div className="entity-view-container">
       {isVehicleType && (
+        <div className="crm-chips entity-status-chips">
+          {[['all', 'All'], ...chipStatuses.map(s => [s, pretty(s)])].map(([id, label]) => (
+            <button
+              key={id}
+              className={'crm-chip ' + (chipFilter === id ? 'active' : '')}
+              onClick={() => setChipFilter(id)}
+            >
+              {label} <em>{chipCounts(id)}</em>
+            </button>
+          ))}
+          {noPhotosCount > 0 && (
+            <button
+              className={'crm-chip ' + (chipFilter === 'no_photos' ? 'active alert' : ' alert')}
+              onClick={() => setChipFilter(chipFilter === 'no_photos' ? 'all' : 'no_photos')}
+              title="Records whose photo gallery is empty"
+            >
+              No photos <em>{noPhotosCount}</em>
+            </button>
+          )}
+        </div>
+      )}
+
+      {isVehicleType && (
         <div className="entity-view-toolbar">
           <div className="entity-count-badge">
-            <b>{rows.length}</b> {entity === 'vehicles' ? 'inventory vehicles' : 'website showroom listings'}
+            {chipVisible.length === rows.length
+              ? <><b>{rows.length}</b> {entity === 'vehicles' ? 'inventory vehicles' : 'website showroom listings'}</>
+              : <><b>{chipVisible.length}</b> of {rows.length} shown{chipFilter !== 'all' ? ' · ' + (chipFilter === 'no_photos' ? 'no photos' : pretty(chipFilter)) : ''}</>}
           </div>
           <div className="view-mode-toggle">
             <button className={viewMode === 'table' ? 'active' : ''} onClick={() => setViewMode('table')} title="Table view">
@@ -1204,17 +1295,21 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
         </div>
       )}
 
-      {isVehicleType && viewMode === 'grid' ? (
+      {isVehicleType && !chipVisible.length ? (
+        <div className="crm-empty"><Search /><h3>No vehicles in this view</h3><p>Switch filters or add a new vehicle.</p></div>
+      ) : isVehicleType && viewMode === 'grid' ? (
         <div className="vehicle-card-grid">
-          {rows.map(row => {
+          {sortedRows.map(row => {
             const photos = extractPhotos(row);
             const cover = photos[0] || row.image || '/assets/ar7-mark.png';
             return (
               <article key={row.id || row.stock_no} className="vcard">
                 <div className="vcard-hero" onClick={() => onViewGallery && onViewGallery(row)}>
-                  <img src={cover} alt={`${row.make} ${row.model}`} loading="lazy" />
+                  <img src={cover} alt={`${row.make} ${row.model}`} loading="lazy" onError={imgFallback} />
                   <span className="vcard-photo-count"><Camera size={12} /> {photos.length} photos</span>
-                  <em className={'crm-status ' + statusClass(row.status || 'available')}>{pretty(row.status || 'available')}</em>
+                  {onQuickPatch && statusOptions
+                    ? statusPicker(row, row.status || 'available')
+                    : <em className={'crm-status ' + statusClass(row.status || 'available')}>{pretty(row.status || 'available')}</em>}
                   <button className="vcard-expand" onClick={e => { e.stopPropagation(); onViewGallery && onViewGallery(row); }} title="Expand photo gallery">
                     <Maximize2 size={13} />
                   </button>
@@ -1251,12 +1346,25 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
             <thead>
               <tr>
                 {isVehicleType && <th className="th-photo">Photo</th>}
-                {tableColumns(entity).map(x => <th key={x}>{pretty(x)}</th>)}
+                {tableColumns(entity).map(x => (
+                  <th key={x}>
+                    {isVehicleType ? (
+                      <button
+                        className={'th-sort' + (sort && sort.key === x ? ' sorted-' + sort.dir : '')}
+                        onClick={() => toggleSort(x)}
+                        title={'Sort by ' + pretty(x)}
+                      >
+                        {pretty(x)}
+                        <span className="th-sort-arrow">{sort && sort.key === x ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
+                      </button>
+                    ) : pretty(x)}
+                  </th>
+                ))}
                 <th className="th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => {
+              {sortedRows.map(row => {
                 const photos = isVehicleType ? extractPhotos(row) : [];
                 const cover = photos[0] || row.image || '/assets/ar7-mark.png';
                 return (
@@ -1264,7 +1372,7 @@ function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGall
                     {isVehicleType && (
                       <td className="td-photo">
                         <div className="table-thumb-wrap" onClick={() => onViewGallery && onViewGallery(row)} title="Click to view photo gallery">
-                          <img src={cover} alt="" loading="lazy" />
+                          <img src={cover} alt="" loading="lazy" onError={imgFallback} />
                           <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                         </div>
                       </td>
@@ -1497,7 +1605,7 @@ export function VehiclePhotoManager({ entity, row, onClose, onSave }) {
                 {photos.map((src, idx) => (
                   <div key={src + idx} className={`photo-card ${idx === 0 ? 'is-cover' : ''}`}>
                     <div className="photo-thumb-container" onClick={() => setZoomImg(src)}>
-                      <img src={src} alt={`Photo ${idx + 1}`} loading="lazy" />
+                      <img src={src} alt={`Photo ${idx + 1}`} loading="lazy" onError={imgFallback} />
                       {idx === 0 && <span className="cover-badge"><Star size={11} /> COVER PHOTO</span>}
                       <span className="photo-index">#{idx + 1}</span>
                     </div>
@@ -1590,7 +1698,7 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
         </header>
 
         <div className="lightbox-main">
-          <img src={current} alt={`${row.make} ${row.model}`} />
+          <img src={current} alt={`${row.make} ${row.model}`} onError={imgFallback} />
           {photos.length > 1 && (
             <>
               <button className="lb-arrow prev" onClick={() => setActiveIdx(i => (i - 1 + photos.length) % photos.length)} aria-label="Previous image">
@@ -1607,7 +1715,7 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
           <div className="lightbox-thumbs">
             {photos.map((src, i) => (
               <button key={src + i} className={`lb-thumb ${i === activeIdx ? 'active' : ''}`} onClick={() => setActiveIdx(i)}>
-                <img src={src} alt="" />
+                <img src={src} alt="" onError={imgFallback} />
                 {i === 0 && <span className="lb-cover-star">★</span>}
               </button>
             ))}
@@ -1774,7 +1882,7 @@ function Editor({ entity, data, onClose, onSave, onDelete, onDuplicate }) {
             <div className="editor-photo-thumbs">
               {photos.map((src, i) => (
                 <div key={src + i} className={`editor-thumb ${i === 0 ? 'is-cover' : ''}`}>
-                  <img src={src} alt="" />
+                  <img src={src} alt="" onError={imgFallback} />
                   {i === 0 ? <span className="badge-cover">Cover</span> : (
                     <button type="button" className="btn-set-cover-mini" onClick={() => handleCoverSet(i)} title="Make cover photo">★</button>
                   )}
