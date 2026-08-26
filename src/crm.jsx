@@ -466,6 +466,7 @@ export default function CrmApp() {
   const [notice, setNotice] = useState('');
   const [mobile, setMobile] = useState(false);
   const [perms, setPerms] = useState([]);
+  const [syncing, setSyncing] = useState(false);
   const [openCustomer, setOpenCustomer] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('ar7-crm-theme') || 'emerald');
 
@@ -530,6 +531,28 @@ export default function CrmApp() {
       setNotice(e.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // One-click stock sync (admin only): makes the public website's car list
+  // match the latest seed. Cars not in the seed are hidden, never deleted.
+  async function syncWebsiteStock() {
+    if (DEMO) { setNotice('Stock sync needs the live database — it is disabled in demo mode.'); return; }
+    const ok = window.confirm(
+      'Sync the public website stock to the latest seed?\n\n' +
+      'The 25 seed cars (12 showroom + 13 Goo-net) will be published with their photo galleries.\n' +
+      'Any car in the database that is NOT in the seed will be hidden (published=false — you can re-publish it later from this tab).'
+    );
+    if (!ok) return;
+    setSyncing(true);
+    try {
+      const result = await call('/api/site-sync', session.access_token, { method: 'POST' });
+      setNotice('Website stock synced: ' + (result.summary || 'done'));
+      await loadAll();
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -753,6 +776,16 @@ export default function CrmApp() {
                   <button onClick={() => exportCsv(tab, filtered)} title="Download these records as a CSV file">CSV</button>
                 )}
                 <button onClick={loadAll} title="Refresh records"><RefreshCw /></button>
+                {tab === 'listings' && profile?.role === 'admin' && (
+                  <button
+                    className="crm-sync"
+                    onClick={syncWebsiteStock}
+                    disabled={syncing}
+                    title="Make the public website stock match the latest seed (25 cars: 12 showroom + 13 Goo-net). Cars not in the seed are hidden, not deleted."
+                  >
+                    <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock to latest'}
+                  </button>
+                )}
                 <button className="crm-add" onClick={() => setEditor({ entity: tab, data: {} })}>
                   <Plus /> Add {tab.slice(0, -1)}
                 </button>
