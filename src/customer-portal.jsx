@@ -133,7 +133,7 @@ function ForgotForm({onBack}){
   if(!supabase){setErr('Password reset is not connected yet. Please contact us directly.');return}
   setBusy(true);setErr('');
   const {error}=await supabase.auth.resetPasswordForEmail(email,{
-    redirectTo: location.origin + location.pathname + '#account'
+    redirectTo: location.origin + '/account'
   });
   if(error) setErr(error.message); else setSent(true);
   setBusy(false);
@@ -171,7 +171,7 @@ function SignupForm({settings,onDone}){
    if(supabase){
     const {error}=await supabase.auth.signUp({email,password,
       options:{data:{full_name:f.get('name'),account_type:'customer'},
-               emailRedirectTo:location.origin+location.pathname+'#account'}});
+               emailRedirectTo:location.origin+'/account'}});
     if(error) throw error;
    }
    setDone(true);

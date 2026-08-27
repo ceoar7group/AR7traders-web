@@ -623,7 +623,7 @@ export default function CrmApp() {
 
   async function signOut() {
     if (DEMO) {
-      location.hash = 'home';
+      location.assign('/');
       return;
     }
     await supabase.auth.signOut();
@@ -734,7 +734,7 @@ export default function CrmApp() {
             </div>
 
             <div className="crm-live"><i /> LIVE OPS</div>
-            <a className="crm-site" href="#home" title="Return to public website">Website <ChevronRight /></a>
+            <a className="crm-site" href="/" title="Return to public website">Website <ChevronRight /></a>
           </div>
         </header>
 
@@ -904,7 +904,7 @@ function CrmSetup() {
         <code>VITE_SUPABASE_ANON_KEY</code>
         <code>SUPABASE_SERVICE_ROLE_KEY</code>
       </div>
-      <a href="#home">Return to website</a>
+      <a href="/">Return to website</a>
     </div>
   );
 }
