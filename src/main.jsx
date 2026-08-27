@@ -15,7 +15,7 @@ import { WhatsAppIcon } from './brand-icons.jsx';
 import { useSettings, telHref, waLink } from './site-settings.js';
 import { useSeo } from './seo.js';
 import { CurrencyProvider, CurrencyDropdown, useCurrency } from './currency.jsx';
-import { parseRoute, parseNavTarget, hrefFor, canonicalHref, findCar, carRef } from './routing.js';
+import { parseRoute, parseNavTarget, hrefFor, hashFor, findCar, carRef, writeLocation } from './routing.js';
 import './currency.css';
 import './portal.css';
 
@@ -71,17 +71,27 @@ cars.forEach((c,i)=>{c.doors=DOORS[c.body]||4;c.chassis=(CHASSIS[c.make]||'6AA-0
 // ---------------------------------------------------------------------------
 const enrichCar=(c,i)=>{c.doors=DOORS[c.body]||4;c.chassis=(CHASSIS[c.make]||'6AA-0000')+'-'+(1200+i*7);c.int=c.int||['Gray','Black','Beige'][i%3];c.ven=c.ven||['USS Tokyo','TAA Kinki','JU Aichi','CAA Chubu','HAA Kobe'][i%5];c.arr=c.arr||new Date(2026,7,1+((i*3)%28)).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});c.feats=c.feats||FEATPOOL.filter((f,k)=>((i*31+k*13)%11)<6).slice(0,6).concat(['New battery','Service records']);return c};
 const contentListeners=new Set();
+let contentHydrated=false;
 export const onContentChange=fn=>{contentListeners.add(fn);return()=>contentListeners.delete(fn)};
+export const isContentHydrated=()=>contentHydrated;
+const listingId=r=>{
+ if(r?.id!=null&&String(r.id).trim()!=='')return r.id;
+ const n=Number(r?.sort_order);
+ return Number.isFinite(n)&&n>0?n:null;
+};
 async function hydrateSiteContent(){
  try{
   const res=await fetch('/api/site-content?entity=listings');
-  if(!res.ok)return;
-  const rows=await res.json();
-  if(!Array.isArray(rows)||!rows.length)return;
-  const mapped=rows.map((r,i)=>enrichCar({...r,id:Number(r.sort_order)||i+1,image:r.image||'/assets/ar7-mark.png'},i));
-  cars.length=0;cars.push(...mapped);
-  contentListeners.forEach(fn=>{try{fn()}catch{}});
+  if(res.ok){
+   const rows=await res.json();
+   if(Array.isArray(rows)&&rows.length){
+    const mapped=rows.map((r,i)=>enrichCar({...r,id:listingId(r)??(i+1),image:r.image||'/assets/ar7-mark.png'},i));
+    cars.length=0;cars.push(...mapped);
+   }
+  }
  }catch{/* offline or not provisioned yet — keep built-in content */}
+ contentHydrated=true;
+ contentListeners.forEach(fn=>{try{fn()}catch{}});
 }
 if(typeof window!=='undefined')hydrateSiteContent();
 
@@ -273,7 +283,7 @@ function ExtraPages2({type,navigate,openAuction}){
  {type==='howbuy'&&<><div className="howbuy-flow">{HOWBUY.map((x,i)=><div className="hb-step" key={x[2]}><span>{x[2]}</span><div><b>{x[0]}</b><p>{x[1]}</p></div>{i<HOWBUY.length-1&&<ArrowRight className="hb-arrow"/>}</div>)}</div><div className="hb-timeline"><div className="kicker">DEMO TIMELINE</div><h2>Typical days from bid to delivery.</h2><div className="hb-days">{[['Day 1','Deposit & bid'],['Day 2','Auction result'],['Day 3–6','Inspection & payment'],['Day 7','Vessel booking'],['Day 18–42','Transit to your port'],['Arrival','Customs & collection']].map(x=><span><b>{x[0]}</b><small>{x[1]}</small></span>)}</div></div><div className="hb-pay"><div className="kicker">PAYMENT OPTIONS</div><h2>Pay the way your market prefers.</h2><div className="pay-grid">{PAYMENTS.map(x=>{const PI=x[2];return <article key={x[0]}><PI/><b>{x[0]}</b><p>{x[1]}</p></article>})}</div></div><div className="hb-docs"><div className="kicker">WITH EVERY SHIPMENT</div><h2>Documents we prepare for you.</h2><div className="doc-pills">{['Commercial invoice','Export certificate','Certificate of origin','Bill of lading','Insurance certificate','Sales contract'].map(x=><span key={x}><FileCheck/> {x}</span>)}</div></div></>}
  {type==='tools'&&<div className="tools-grid"><article className="tool-card"><BookOpen/><div className="kicker">DEMO CIF CALCULATOR</div><h3>Shipping cost to your port</h3><label>DESTINATION PORT<select value={shipDest} onChange={e=>setShipDest(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select></label><label>VEHICLE VALUE (FOB {display})<input type="number" value={shipPrice} onChange={e=>setShipPrice(Math.max(500,+e.target.value||0))}/></label><label>SHIPPING METHOD<select value={shipMethod} onChange={e=>setShipMethod(e.target.value)}><option>RoRo</option><option>Container (+$2,000)</option></select></label><div className="calc-out">{(()=>{const v=toUsd(shipPrice);const freight=Math.round(v*0.016+(DEST.find(x=>x[1]===shipDest)||DEST[0])[4]+(shipMethod==='Container (+$2,000)'?2000:0));const docs=350+Math.round(v*0.016);return <><span><small>FREIGHT</small><b>{fmt(freight)}</b></span><span><small>DOCS &amp; INSURANCE</small><b>{fmt(docs)}</b></span><span className="total"><small>EST. CIF TOTAL</small><b>{fmt(v+freight+docs)}</b></span></>})()}</div><small className="demo-note"><LockKeyhole/> Demo estimate in {display} — final quote issued by our export desk.</small></article><article className="tool-card"><Calculator/><div className="kicker">DEMO DUTY CALCULATOR</div><h3>Import duty &amp; taxes</h3><label>DESTINATION COUNTRY<select value={dutyCountry} onChange={e=>setDutyCountry(e.target.value)}>{Object.keys(DUTY).map(x=><option key={x}>{FLAG[x]} {x}</option>)}</select></label><label>VEHICLE VALUE ({display})<input type="number" value={dutyPrice} onChange={e=>setDutyPrice(Math.max(500,+e.target.value||0))}/></label><div className="calc-out"><span><small>EST. DUTY + TAX</small><b>{fmt(toUsd(dutyPrice)*DUTY[dutyCountry]/100)}</b></span><span className="total"><small>LANDED ESTIMATE (CIF + DUTY)</small><b>{fmt(toUsd(dutyPrice)*(1+DUTY[dutyCountry]/100))}</b></span></div><p className="tool-note">Percentages are demo approximations of common applied rates. Local registration fees and port charges vary — our team prepares the exact landed costing for your port.</p></article></div>}
  {type==='news'&&<>{article&&<article className="news-article"><button className="back-btn" onClick={()=>setArticle(null)}>← All articles</button><div className="kicker">{article.cat} · {article.date}</div><h2>{article.title}</h2><img loading="lazy" decoding="async" src={article.img} alt={article.title}/>{article.body.split('\n\n').map((x,i)=><p key={i}>{x}</p>)}<button className="primary" onClick={openAuction}>Ask our team about this <ArrowRight/></button></article>}
- {!article&&<div className="news-grid">{NEWS.map(x=><article key={x.title} onClick={()=>setArticle(x)}><img loading="lazy" decoding="async" src={x.img} alt={x.title||"AR7 Traders vehicle export"}/><div className="news-meta"><span>{x.cat}</span><small>{x.date} · {x.min} min</small></div><h3>{x.title}</h3><p>{x.excerpt}</p><b>Read article <ArrowRight/></b></article>)}</div>}</>}
+ {!article&&<div className="news-grid">{NEWS.map(x=><article key={x.title} onClick={()=>setArticle(x)}><img loading="lazy" decoding="async" src={x.img} alt={x.title||"AR7 Traders vehicle export"}/><div className="news-meta"><span>{x.cat}</span><small>{x.date} · {x.min} min</small></div><h3>{x.title}</h3><p>{x.excerpt||x.ex}</p><b>Read article <ArrowRight/></b></article>)}</div>}</>}
  </div></section>}
 
 function readRoute(loc=typeof location==='undefined'?{}:location){
@@ -322,7 +332,7 @@ function InnerPage({page,navigate,openAuction,favs,setFavs,vehicleId}){
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,saved)));
  };
  const copyVehicleLink=async()=>{
-  const url=location.origin+hrefFor('inventory',carRef(selected));
+  const url=location.origin+hrefFor('inventory',carRef(selected))+hashFor('inventory',carRef(selected));
   try{await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800)}
   catch{setCopied(false)}
  };
@@ -414,12 +424,11 @@ function App(){
  useEffect(()=>{let t=0;const fn=()=>{cancelAnimationFrame(t);t=requestAnimationFrame(()=>document.documentElement.style.setProperty('--scroll',window.scrollY+'px'))};window.addEventListener('scroll',fn,{passive:true});return()=>{window.removeEventListener('scroll',fn);cancelAnimationFrame(t)}},[]);
  useEffect(()=>{
   const apply=()=>{const route=readRoute();setPage(route.page);setVehicleId(route.carId)};
-  const clean=canonicalHref(location);
-  const now=location.pathname+location.search+location.hash;
-  if(clean && now!==clean) history.replaceState(null,'',clean);
+  const route=readRoute();
+  writeLocation(route.page,route.carId,{replace:true});
   apply();
   const onPop=()=>apply();
-  const onHash=()=>{const next=canonicalHref(location);if(location.pathname+location.search+location.hash!==next) history.replaceState(null,'',next);apply()};
+  const onHash=()=>{const next=readRoute();writeLocation(next.page,next.carId,{replace:true});apply()};
   addEventListener('popstate',onPop);
   addEventListener('hashchange',onHash);
   return()=>{removeEventListener('popstate',onPop);removeEventListener('hashchange',onHash)};
@@ -427,10 +436,7 @@ function App(){
  const shown=(filter==='All'?cars:cars.filter(c=>c.status===filter)).slice(0,6);
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
-  const url=hrefFor(route.page,route.carId);
-  const now=location.pathname+(location.search||'');
-  if(replace) history.replaceState(null,'',url);
-  else if(now!==url) history.pushState(null,'',url);
+  writeLocation(route.page,route.carId,{replace});
   setPage(route.page);setVehicleId(route.carId);setMenu(false);
   if(scroll) scrollTo({top:0,behavior:'smooth'});
  };

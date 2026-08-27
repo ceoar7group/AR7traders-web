@@ -1,13 +1,14 @@
-// Path-based routing for the public site.
+// Public-site routing.
 //
-// Vehicle details used to live at `#inventory?car=43`. A full refresh parses
-// that as "inventory page, no car", which dumps the visitor back at the top of
-// the stock list. Real paths (`/inventory/43` or `/inventory/STOCK-NO`) survive
-// refresh because Vercel already rewrites every non-API path to index.html,
-// and Vite's dev server does the same.
+// Vehicle details MUST survive a refresh. Two things historically broke that:
+//   1. `#inventory?car=43` — many browsers keep only `#inventory` after reload
+//      because `?` looks like a query string. Never put `?` in the hash.
+//   2. Preview / iframe reloads that drop the pathname back to `/` or `/inventory`.
 //
-// Legacy hashes (`#inventory?car=43`, `#contact`, …) still resolve so old
-// bookmarks and WhatsApp links keep working; we canonicalize them onto a path.
+// We write the car into three places so any one of them is enough on reload:
+//   • path   /inventory/STOCK
+//   • hash   #/inventory/STOCK   (no question mark)
+//   • sessionStorage last-open vehicle (restored only on an actual reload)
 
 export const PAGES = new Set([
   'home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
@@ -15,10 +16,15 @@ export const PAGES = new Set([
   'portal', 'crm', 'studio', 'shipping'
 ]);
 
+export const LAST_VEHICLE_KEY = 'ar7-open-vehicle';
+
 export function decodeRef(ref) {
   if (ref == null || ref === '') return '';
-  try { return decodeURIComponent(String(ref)); }
-  catch { return String(ref); }
+  let raw = String(ref);
+  try { raw = decodeURIComponent(raw); } catch { /* keep raw */ }
+  // `#inventory%3Fcar%3D43` from browsers that encode the old query-in-hash.
+  try { raw = decodeURIComponent(raw); } catch { /* already decoded */ }
+  return raw;
 }
 
 export function carSlug(c) {
@@ -47,6 +53,8 @@ export function findCar(list, ref) {
     if (String(c.id) === raw) return true;
     if (numOk && Number(c.id) === num) return true;
     if (c.stock_no && String(c.stock_no) === raw) return true;
+    if (c.sort_order != null && String(c.sort_order) === raw) return true;
+    if (numOk && Number(c.sort_order) === num) return true;
     if (carSlug(c) === lower) return true;
     return false;
   }) || null;
@@ -56,46 +64,66 @@ function pathParts(pathname) {
   return String(pathname || '/').split('/').filter(Boolean);
 }
 
-export function parseRoute(loc = {}) {
+function carFrom(...vals) {
+  for (const v of vals) {
+    const d = decodeRef(v);
+    if (d) return d;
+  }
+  return null;
+}
+
+function parseHash(hash) {
+  const raw = decodeRef(String(hash || '').replace(/^#/, ''));
+  if (!raw) return { page: null, carId: null };
+  const [hashPath, hashQuery = ''] = raw.split('?');
+  const hashParts = pathParts('/' + (hashPath || '').replace(/^\/+/, ''));
+  const hashParams = new URLSearchParams(hashQuery);
+  const page = hashParts[0] || null;
+  const carId = carFrom(
+    page === 'inventory' ? hashParts[1] : null,
+    hashParams.get('car'),
+    hashParams.get('id')
+  );
+  return { page, carId };
+}
+
+export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
   const pathname = loc.pathname ?? '/';
   const search = loc.search ?? '';
   const hash = loc.hash ?? '';
   const params = new URLSearchParams(String(search).replace(/^\?/, ''));
   const parts = pathParts(pathname);
+  const hashed = parseHash(hash);
 
-  const hashRaw = String(hash).replace(/^#/, '');
-  const [hashPath, hashQuery = ''] = hashRaw.split('?');
-  const hashParts = pathParts('/' + (hashPath || ''));
-  const hashParams = new URLSearchParams(hashQuery);
-
-  const carFrom = (...vals) => {
-    for (const v of vals) {
-      const d = decodeRef(v);
-      if (d) return d;
-    }
-    return null;
-  };
+  let page = null;
+  let carId = null;
 
   if (parts[0] === 'inventory') {
-    return { page: 'inventory', carId: carFrom(parts[1], params.get('car')) };
-  }
-  if (parts[0] && PAGES.has(parts[0])) {
-    return { page: parts[0], carId: carFrom(parts[1], params.get('car')) };
-  }
-
-  // Legacy hash / query bookmarks.
-  if (hashParts[0] === 'inventory') {
-    return { page: 'inventory', carId: carFrom(hashParts[1], hashParams.get('car'), params.get('car')) };
-  }
-  if (hashParts[0] && PAGES.has(hashParts[0])) {
-    return { page: hashParts[0], carId: carFrom(hashParts[1], hashParams.get('car')) };
-  }
-
-  if (!parts.length) {
-    return { page: 'home', carId: carFrom(params.get('car')) };
+    page = 'inventory';
+    carId = carFrom(parts[1], params.get('car'), hashed.carId);
+  } else if (parts[0] && PAGES.has(parts[0])) {
+    page = parts[0];
+    carId = carFrom(parts[1], params.get('car'), hashed.carId);
+  } else if (hashed.page && PAGES.has(hashed.page)) {
+    page = hashed.page;
+    carId = hashed.carId || carFrom(params.get('car'));
+  } else if (!parts.length) {
+    page = 'home';
+    carId = carFrom(params.get('car'), hashed.carId);
+  } else {
+    page = parts[0];
+    carId = carFrom(parts[1], params.get('car'), hashed.carId);
   }
 
-  return { page: parts[0], carId: carFrom(parts[1], params.get('car')) };
+  if (!carId && (restoreOnReload || isReload()) && (page === 'inventory' || page === 'home' || !page)) {
+    const saved = readLastVehicle();
+    if (saved) {
+      page = 'inventory';
+      carId = saved;
+    }
+  }
+
+  return { page: page || 'home', carId: carId || null };
 }
 
 /** Accepts navigate() strings: 'inventory', 'inventory?car=43', '/inventory/43', '#contact'. */
@@ -105,8 +133,13 @@ export function parseNavTarget(target) {
     return { page: 'home', carId: null };
   }
   if (raw.startsWith('/')) {
-    const [path, query = ''] = raw.split('?');
-    return parseRoute({ pathname: path, search: query ? '?' + query : '', hash: '' });
+    const [path, rest = ''] = raw.split('?');
+    const [query, hash = ''] = rest.split('#');
+    return parseRoute({
+      pathname: path,
+      search: query ? '?' + query : '',
+      hash: hash ? '#' + hash : ''
+    });
   }
   return parseRoute({ pathname: '/', search: '', hash: '#' + raw.replace(/^#/, '') });
 }
@@ -115,6 +148,13 @@ export function hrefFor(page, carId) {
   if (!page || page === 'home') return '/';
   if (page === 'inventory' && carId) return '/inventory/' + encodeURIComponent(String(carId));
   return '/' + page;
+}
+
+/** Hash form that never contains `?`, so a refresh cannot strip the car. */
+export function hashFor(page, carId) {
+  if (!page || page === 'home') return '';
+  if (page === 'inventory' && carId) return '#/inventory/' + encodeURIComponent(String(carId));
+  return '#/' + page;
 }
 
 export function hrefFromTarget(target) {
@@ -130,10 +170,48 @@ export function withSearch(href, search) {
   return href + (href.includes('?') ? '&' : '?') + q;
 }
 
-/** Clean path a refresh can round-trip, keeping extra query flags such as embed=1. */
 export function canonicalHref(loc) {
   const route = parseRoute(loc);
   const params = new URLSearchParams(String(loc.search || '').replace(/^\?/, ''));
   params.delete('car');
-  return withSearch(hrefFor(route.page, route.carId), params);
+  return withSearch(hrefFor(route.page, route.carId), params) + hashFor(route.page, route.carId);
+}
+
+export function isReload() {
+  try {
+    const nav = performance.getEntriesByType?.('navigation')?.[0];
+    if (nav) return nav.type === 'reload';
+    return performance.navigation?.type === 1;
+  } catch { return false; }
+}
+
+export function readLastVehicle() {
+  try { return sessionStorage.getItem(LAST_VEHICLE_KEY) || null; }
+  catch { return null; }
+}
+
+export function rememberVehicle(carId) {
+  try {
+    if (carId) sessionStorage.setItem(LAST_VEHICLE_KEY, String(carId));
+    else sessionStorage.removeItem(LAST_VEHICLE_KEY);
+  } catch { /* private mode */ }
+}
+
+export function writeLocation(page, carId, { replace = false } = {}) {
+  const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
+  params.delete('car');
+  const url = withSearch(hrefFor(page, carId), params) + hashFor(page, carId);
+  rememberVehicle(page === 'inventory' ? carId : null);
+  const now = (typeof location === 'undefined')
+    ? ''
+    : location.pathname + (location.search || '') + (location.hash || '');
+  if (now === url) return url;
+  try {
+    const fn = replace ? history.replaceState : history.pushState;
+    fn.call(history, { page, carId }, '', url);
+  } catch {
+    try { location.hash = hashFor(page, carId).replace(/^#/, '') || ''; }
+    catch { /* ignore */ }
+  }
+  return url;
 }

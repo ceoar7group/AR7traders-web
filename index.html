@@ -6,8 +6,30 @@
 <meta name="theme-color" content="#063f29"/>
 <!-- Build marker - lets anyone confirm which build of the site they are viewing
      (also printed in the browser console). Update when releasing. -->
-<meta name="build-id" content="ar7-2026-08-26-paths"/>
-<script>console.log('AR7 Traders build ar7-2026-08-26-paths · vehicle pages use /inventory/stock-no and survive refresh');</script>
+<meta name="build-id" content="ar7-2026-08-27-refresh"/>
+<script>console.log('AR7 Traders build ar7-2026-08-27-refresh · vehicle pages keep /inventory/ref and #/inventory/ref on refresh');</script>
+<script>
+(function(){
+  try{
+    var car=null;
+    var m=String(location.pathname||'').match(/^\/inventory\/([^/?#]+)/);
+    if(m) car=decodeURIComponent(m[1]);
+    if(!car){
+      var raw=String(location.hash||'').replace(/^#/,'');
+      try{raw=decodeURIComponent(raw);}catch(e){}
+      try{raw=decodeURIComponent(raw);}catch(e){}
+      var q=raw.indexOf('?')>=0?raw.split('?')[1]:'';
+      var parts=raw.split('?')[0].replace(/^\/+/,'').split('/').filter(Boolean);
+      if(parts[0]==='inventory'&&parts[1]) car=parts[1];
+      if(!car&&q){
+        var params=new URLSearchParams(q);
+        car=params.get('car')||params.get('id');
+      }
+    }
+    if(car) sessionStorage.setItem('ar7-open-vehicle',car);
+  }catch(e){}
+})();
+</script>
 
 <title>AR7 Traders | Japanese Car Exporter — Auction Vehicles Shipped Worldwide</title>
 <meta name="description" content="AR7 Traders exports auction-sourced Japanese cars worldwide. Translated auction sheets, honest inspections, transparent shipping to Pakistan, UAE, Kenya, the UK and 35+ countries."/>
