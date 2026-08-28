@@ -42,7 +42,11 @@ export const PAGE_SEO = {
   portal:      ['Client Portal | AR7 Traders',
                 'Track bids, shipments, documents and payments in the AR7 Traders client portal.'],
   crm:         ['AR7 Traders Staff CRM', 'Internal operations console.'],
-  studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.']
+  studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.'],
+  dealer:      ['Dealer Stock | Live Goo-net Listings — AR7 Traders',
+                'Fresh dealer stock imported from Goo-net Exchange: Toyota, Honda, Nissan and more, each with a full photo gallery and clear FOB pricing.'],
+  'new-arrivals': ['New Arrivals | Fresh Japan Stock — AR7 Traders',
+                'The newest vehicles added to AR7 Traders stock, imported from Goo-net Exchange with high-quality photo galleries.']
 };
 
 function setMeta(selector, attr, value) {

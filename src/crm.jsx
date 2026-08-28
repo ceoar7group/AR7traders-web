@@ -467,6 +467,7 @@ export default function CrmApp() {
   const [mobile, setMobile] = useState(false);
   const [perms, setPerms] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  const [gooneting, setGooneting] = useState(false);
   const [openCustomer, setOpenCustomer] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('ar7-crm-theme') || 'emerald');
 
@@ -553,6 +554,29 @@ export default function CrmApp() {
       setNotice(e.message);
     } finally {
       setSyncing(false);
+    }
+  }
+
+  // One-click Goo-net importer (admin only): scrapes goo-net-exchange.com for
+  // high-quality listings and refreshes dealer stock, respecting the goonet_*
+  // limits configured in Website settings.
+  async function syncGoonet() {
+    if (DEMO) { setNotice('The Goo-net importer needs the live database — it is disabled in demo mode.'); return; }
+    const ok = window.confirm(
+      'Import dealer stock from Goo-net Exchange now?\n\n' +
+      'This runs the importer on the server: it fetches high-quality listings, adds new cars to "Dealer Stock" (up to the daily limit), refreshes cars it has seen before, and hides Goo-net cars that are no longer available. Pinned/manual cars are never touched.'
+    );
+    if (!ok) return;
+    setGooneting(true);
+    try {
+      const result = await call('/api/goonet-sync', session.access_token, { method: 'POST' });
+      if (result.skipped) setNotice('Goo-net import skipped: ' + (result.reason || 'no work needed'));
+      else setNotice('Goo-net import finished: ' + (result.summary || 'done'));
+      await loadAll();
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      setGooneting(false);
     }
   }
 
@@ -777,6 +801,15 @@ export default function CrmApp() {
                 )}
                 <button onClick={loadAll} title="Refresh records"><RefreshCw /></button>
                 {tab === 'listings' && profile?.role === 'admin' && (
+                  <>
+                  <button
+                    className="crm-sync"
+                    onClick={syncGoonet}
+                    disabled={gooneting}
+                    title="Scrape goo-net-exchange.com for high-quality dealer stock. Adds new cars to Dealer Stock (daily limit), refreshes known cars, and hides Goo-net cars that are no longer available."
+                  >
+                    <Globe className={gooneting ? 'crm-sync-spin' : ''} /> {gooneting ? 'Importing…' : 'Import Goo-net stock'}
+                  </button>
                   <button
                     className="crm-sync"
                     onClick={syncWebsiteStock}
@@ -785,6 +818,7 @@ export default function CrmApp() {
                   >
                     <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock to latest'}
                   </button>
+                  </>
                 )}
                 <button className="crm-add" onClick={() => setEditor({ entity: tab, data: {} })}>
                   <Plus /> Add {tab.slice(0, -1)}
@@ -2713,7 +2747,17 @@ function SettingsView({ token, profile, perms, notify }) {
     ['whatsapp_number', 'WhatsApp number', 'The phone number for direct chat (digits and + only)'],
     ['whatsapp_message', 'WhatsApp greeting', 'Pre-filled message when someone taps WhatsApp'],
     ['enquiry_inbox', 'Enquiry inbox', 'Where website lead submissions are delivered'],
-    ['default_customer_currency', 'Default customer currency', 'Preselected for new customer accounts, quotes and invoices', 'currency']
+    ['default_customer_currency', 'Default customer currency', 'Preselected for new customer accounts, quotes and invoices', 'currency'],
+    ['goonet_enabled', 'Goo-net importer enabled', 'Master switch for the automatic dealer-stock import', 'bool'],
+    ['goonet_daily_limit', 'Goo-net daily import limit', 'Max NEW cars imported per run (default 40)'],
+    ['goonet_min_photos', 'Goo-net minimum photos', 'Only import listings with at least this many photos (default 10)'],
+    ['goonet_pinned_count', 'Goo-net pinned cars', 'First N cars stay permanently and are never auto-removed (default 60)'],
+    ['goonet_max_live', 'Goo-net live car cap', 'Soft ceiling on live dealer-stock cars to keep the site fast (default 400)'],
+    ['goonet_unavailable_grace', 'Goo-net unavailable grace (days)', 'Hide a Goo-net car after this many days unseen (default 21)'],
+    ['goonet_new_arrival_days', 'Goo-net new-arrival window', 'Days a fresh import keeps the New Arrival badge (default 7)'],
+    ['goonet_request_delay_ms', 'Goo-net request delay (ms)', 'Politeness delay between page requests (default 1500)'],
+    ['goonet_page_limit', 'Goo-net pages per run', 'Search pages walked each run (default 6)'],
+    ['goonet_jpy_to_usd', 'Goo-net JPY→USD rate', 'Conversion rate applied to FOB prices (default 155)']
   ];
 
   async function save(e) {
@@ -2741,8 +2785,13 @@ function SettingsView({ token, profile, perms, notify }) {
                 <select value={form[k] || 'USD'} disabled={!canEdit} onChange={e => setForm(v => ({ ...v, [k]: e.target.value }))}>
                   {['JPY','USD','EUR','GBP','PKR','AUD','NZD','CAD','AED','SAR','KES'].map(code => <option key={code} value={code}>{code}</option>)}
                 </select>
+              ) : type === 'bool' ? (
+                <select value={String(form[k] ?? 'true')} disabled={!canEdit} onChange={e => setForm(v => ({ ...v, [k]: e.target.value === 'true' ? 'true' : 'false' }))}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Paused</option>
+                </select>
               ) : (
-                <input value={form[k] ?? ''} disabled={!canEdit} onChange={e => setForm(v => ({ ...v, [k]: e.target.value }))} />
+                <input value={form[k] ?? ''} type={k.startsWith('goonet_daily_limit') || k === 'goonet_min_photos' || k === 'goonet_pinned_count' || k === 'goonet_max_live' || k === 'goonet_unavailable_grace' || k === 'goonet_new_arrival_days' || k === 'goonet_request_delay_ms' || k === 'goonet_page_limit' || k === 'goonet_jpy_to_usd' ? 'number' : 'text'} disabled={!canEdit} onChange={e => setForm(v => ({ ...v, [k]: e.target.value }))} />
               )}
               <small>{hint}</small>
             </label>

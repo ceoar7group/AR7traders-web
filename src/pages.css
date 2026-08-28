@@ -50,3 +50,8 @@ footer a.wa-link svg{color:#25d366}
 .related-stock{margin-top:70px;padding-top:40px;border-top:1px solid var(--line)}
 .related-stock h2{font:700 32px/1.1 Manrope;letter-spacing:-1.5px;margin:8px 0 22px}
 .detail-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+
+/* Dealer Stock / New Arrivals "Load more" pagination */
+.load-more-wrap{display:flex;justify-content:center;margin:30px 0 10px}
+.load-more-wrap .outline-btn{margin:0;display:inline-flex;align-items:center;gap:10px}
+.load-more-wrap .outline-btn svg{width:16px}

@@ -678,6 +678,61 @@ alter table public.vehicles      add column if not exists images  jsonb;
 alter table public.vehicles      add column if not exists gallery jsonb;
 alter table public.site_blocks   add column if not exists published boolean default true;
 
+
+-- =====================================================================
+--  PART 3 — GOO-NET IMPORTER (Dealer Stock)
+--  Columns, indexes, rules and run log for scripts/goonet-scraper.mjs
+--  and api/goonet-sync.js. See GOONET-SYNC.md.
+-- =====================================================================
+alter table public.site_listings add column if not exists source            text;
+alter table public.site_listings add column if not exists dealer_stock      boolean default false;
+alter table public.site_listings add column if not exists pinned            boolean default false;
+alter table public.site_listings add column if not exists goonet_id         text;
+alter table public.site_listings add column if not exists photo_count       int;
+alter table public.site_listings add column if not exists first_seen_at     timestamptz;
+alter table public.site_listings add column if not exists last_seen_at      timestamptz;
+alter table public.site_listings add column if not exists unavailable_since timestamptz;
+
+update public.site_listings
+   set source = coalesce(source, 'manual'),
+       pinned = true
+ where sort_order <= 60;
+
+create index if not exists site_listings_source_idx      on public.site_listings (source);
+create index if not exists site_listings_dealer_idx      on public.site_listings (dealer_stock);
+create index if not exists site_listings_pinned_idx      on public.site_listings (pinned);
+create index if not exists site_listings_goonet_id_idx   on public.site_listings (goonet_id);
+create index if not exists site_listings_last_seen_idx   on public.site_listings (last_seen_at);
+create index if not exists site_listings_published_idx   on public.site_listings (published);
+
+insert into public.site_settings (key,value,label) values
+  ('goonet_enabled','true','Goo-net importer: master switch (true/false)'),
+  ('goonet_daily_limit','40','Goo-net importer: max NEW cars imported per run/day'),
+  ('goonet_min_photos','10','Goo-net importer: minimum photos for a "high quality" listing'),
+  ('goonet_pinned_count','60','Goo-net importer: first N cars are permanent fixtures'),
+  ('goonet_max_live','400','Goo-net importer: soft cap on live Goo-net cars (site smoothness)'),
+  ('goonet_unavailable_grace','21','Goo-net importer: days unseen before a car is hidden'),
+  ('goonet_new_arrival_days','7','Goo-net importer: days a car keeps the New Arrival badge'),
+  ('goonet_request_delay_ms','1500','Goo-net importer: ms delay between requests (politeness)'),
+  ('goonet_page_limit','6','Goo-net importer: search pages walked per run'),
+  ('goonet_jpy_to_usd','155','Goo-net importer: JPY→USD rate for price conversion')
+on conflict (key) do nothing;
+
+create table if not exists public.goonet_runs (
+  id            uuid primary key default gen_random_uuid(),
+  started_at    timestamptz not null default now(),
+  finished_at   timestamptz,
+  status        text not null default 'running' check (status in ('running','ok','error','skipped')),
+  summary       text,
+  candidates    int,
+  fetched       int,
+  inserted      int,
+  updated       int,
+  unpublished   int,
+  error         text
+);
+create index if not exists goonet_runs_started_idx on public.goonet_runs (started_at desc);
+
 -- Show the result
 select u.email, p.role, p.active
 from public.profiles p join auth.users u on u.id = p.id;

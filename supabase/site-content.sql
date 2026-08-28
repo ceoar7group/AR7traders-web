@@ -34,9 +34,24 @@ create table if not exists public.site_listings (
   st            text,
   published     boolean default true,
   sort_order    int default 0,
+  -- Goo-net importer provenance & lifecycle (see GOONET-SYNC.md)
+  source        text default 'manual',
+  dealer_stock  boolean default false,
+  pinned        boolean default false,
+  goonet_id     text,
+  photo_count   int,
+  first_seen_at timestamptz,
+  last_seen_at  timestamptz,
+  unavailable_since timestamptz,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
+
+create index if not exists site_listings_source_idx    on public.site_listings (source);
+create index if not exists site_listings_dealer_idx    on public.site_listings (dealer_stock);
+create index if not exists site_listings_pinned_idx    on public.site_listings (pinned);
+create index if not exists site_listings_goonet_id_idx on public.site_listings (goonet_id);
+create index if not exists site_listings_last_seen_idx on public.site_listings (last_seen_at);
 
 -- ------------------------------------------------------------------ routes
 -- Shipping destinations powering the Shipping page + CIF calculator.

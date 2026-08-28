@@ -13,7 +13,7 @@
 export const PAGES = new Set([
   'home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
   'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'account',
-  'portal', 'crm', 'studio', 'shipping'
+  'portal', 'crm', 'studio', 'shipping', 'dealer', 'new-arrivals'
 ]);
 
 export const LAST_VEHICLE_KEY = 'ar7-open-vehicle';
