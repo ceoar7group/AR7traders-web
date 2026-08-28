@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import { Ship, ArrowRight, CarFront, Gavel, BadgeCheck } from 'lucide-react';
+import { linkClick } from './routing.js';
 
 /* ============================================================
    AR7 WORLD NETWORK — big realistic globe
@@ -209,7 +210,7 @@ export function WorldPage({navigate}){
     <div className="kicker">AR7 GLOBAL EXPORT NETWORK</div>
     <h1>Where AR7<br/><em>ships.</em></h1>
     <p>Spin the globe. Every gold route is a live AR7 demo lane from Japan to the world's ports — <b>click Japan</b> to browse the inventory, or press any country to open its market guide.</p>
-    <div className="world-cta"><button className="primary" onClick={()=>navigate('inventory')}>Browse inventory <ArrowRight/></button><button className="outline-btn" onClick={()=>navigate('destinations')}>Market guides</button></div>
+    <div className="world-cta"><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>Browse inventory <ArrowRight/></a><a className="outline-btn" href="/destinations" onClick={linkClick('destinations',navigate)}>Market guides</a></div>
     <div className="world-stats">
      {[['08','Live demo routes'],['35+','Markets served'],['24/7','Shipment tracking'],['100%','Auction-sourced']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
     </div>
@@ -220,14 +221,14 @@ export function WorldPage({navigate}){
   <div className="shell">
    <div className="section-head"><div><div className="kicker">DEMO ROUTES</div><h2>From Japan to<br/><em>your port.</em></h2></div><p>Eight live demo lanes with estimated transit. Click any card to open that market's guide.</p></div>
    <div className="markets-grid">
-    {MARKETS.map(m=><article key={m.name} onClick={()=>navigate('destinations')}>
+    {MARKETS.map(m=><a className="mkt-card" key={m.name} href="/destinations" onClick={linkClick('destinations',navigate)}>
      <span className="mkt-flag"><Flag c={m.name} w={36} h={23}/></span>
      <div className="kicker">{m.port}</div>
      <h3>{m.name}</h3>
      <p><Ship/> {m.transit} transit</p>
      <small>{m.models}</small>
-     <button onClick={e=>{e.stopPropagation();navigate('destinations')}}>Market guide <ArrowRight/></button>
-    </article>)}
+     <span className="mkt-go">Market guide <ArrowRight/></span>
+    </a>)}
    </div>
   </div>
   <div className="shell net-dash-wrap"><div className="section-head"><div><div className="kicker">LIVE NETWORK DATA</div><h2>Port to port,<br/><em>in real time.</em></h2></div><p>Demo operational data for the AR7 network — vessels, lanes and what our team handled this week.</p></div>
@@ -245,5 +246,5 @@ export function WorldPage({navigate}){
     </article>
    </div>
   </div>
-  <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">YOUR PORT IS ON THIS MAP</div><h2>Let's put your car<br/>on a <em>route.</em></h2><p>Tell us your market — we quote FOB, CIF and landed cost within 24 hours.</p></div><button className="gold-btn large" onClick={()=>navigate('contact')}>Start your import <ArrowRight/></button></section>
+  <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">YOUR PORT IS ON THIS MAP</div><h2>Let's put your car<br/>on a <em>route.</em></h2><p>Tell us your market — we quote FOB, CIF and landed cost within 24 hours.</p></div><a className="gold-btn large" href="/contact" onClick={linkClick('contact',navigate)}>Start your import <ArrowRight/></a></section>
  </section>}

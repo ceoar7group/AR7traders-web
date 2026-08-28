@@ -11,6 +11,7 @@ import {supabase, hasSupabase} from './supabase-client.js';
 import {useSettings, waLink} from './site-settings.js';
 import {WhatsAppIcon} from './brand-icons.jsx';
 import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
+import {linkClick} from './routing.js';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
 const nice  = s => s ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(s)) : '—';
@@ -276,7 +277,7 @@ function MyAccount({session,navigate}){
      <span><CarFront/></span>
      <h2>Your account is ready.</h2>
      <p>{data.message||'As soon as our team links an order to you, it will appear here with every payment and the balance remaining.'}</p>
-     <div><button className="primary" onClick={()=>navigate('inventory')}>Browse inventory <ArrowRight/></button>
+     <div><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>Browse inventory <ArrowRight/></a>
       <a className="outline-btn" href={'mailto:'+s.contact_email}><Mail/> {s.contact_email}</a></div>
     </div>
    : <>
