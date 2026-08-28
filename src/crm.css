@@ -3022,3 +3022,35 @@ html[data-crm-theme="light"] .crm-shell {
   .crm-lead-grid footer { flex-wrap: wrap; }
   .crm-lead-grid footer button:not(.crm-del) { margin-left: 0; order: 3; width: 100%; justify-content: center; }
 }
+
+/* ================= Profit & sourcing ================= */
+.crm-profit{font:800 12px/1.2 Manrope,sans-serif;letter-spacing:.2px;white-space:nowrap}
+.crm-profit-pos{color:#2ecc8f}
+.crm-profit-neg{color:#ff6b6b}
+.crm-margin{font:800 11px/1.2 Manrope,sans-serif;white-space:nowrap}
+.crm-margin-pos{color:#2ecc8f}
+.crm-margin-neg{color:#ff6b6b}
+.crm-sourcing .crm-table-wrap{margin-top:6px}
+.crm-sourcing .crm-panel{padding:18px}
+.crm-sourcing .kpi-card{cursor:default}
+.crm-hint{display:flex;align-items:center;gap:6px;color:var(--muted,#93a89b);font-size:11px;line-height:1.5;margin:12px 0 0}
+
+/* ================= Japan dealer stock ================= */
+.crm-goonet .crm-chips{margin:14px 0 12px}
+.crm-goonet .crm-sync{display:inline-flex;align-items:center;gap:6px}
+.crm-goonet .crm-tools button.active{background:var(--gold);color:#04150d;border-color:var(--gold)}
+.crm-goonet-settings{background:var(--panel,#0a2418);border:1px solid var(--border,#ffffff1f);border-radius:16px;padding:16px;margin-bottom:16px}
+.crm-goonet-settings .crm-editor-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.crm-goonet-settings label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;color:var(--muted,#cfe2d6)}
+.crm-goonet-settings input[type=text],.crm-goonet-settings input:not([type=checkbox]){height:36px;border-radius:10px;border:1px solid var(--border,#ffffff26);background:#071b12;color:#fff;padding:0 10px;font-size:12px}
+.crm-goonet-settings .crm-check-field{flex-direction:row;align-items:center;gap:10px}
+.crm-goonet-settings footer{margin-top:14px;display:flex;justify-content:flex-end}
+.crm-goonet-settings .save{display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:#04150d;border:0;border-radius:10px;padding:10px 16px;font-weight:800;font-size:11px;cursor:pointer}
+.crm-goonet .goonet-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:280px}
+.crm-goonet .goonet-actions button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border,#ffffff26);background:transparent;color:var(--muted,#d8e6de);border-radius:9px;padding:6px 9px;font-size:10px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
+.crm-goonet .goonet-actions button:hover{background:#ffffff14;color:#fff}
+.crm-goonet .goonet-actions .crm-del:hover{background:#ff6b6b22;border-color:#ff6b6b88;color:#ff9d9d}
+.crm-goonet tr.row-muted{opacity:.55}
+.crm-score{position:relative;display:inline-block;min-width:64px;height:16px;border-radius:8px;background:#ffffff14;overflow:hidden;vertical-align:middle}
+.crm-score b{position:absolute;inset:0;display:grid;place-items:center;font:800 9px/1 Manrope,sans-serif;color:#fff;z-index:1}
+.crm-score i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#1f7a4d,#2ecc8f);border-radius:8px}

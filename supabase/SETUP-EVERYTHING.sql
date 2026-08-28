@@ -681,3 +681,80 @@ alter table public.site_blocks   add column if not exists published boolean defa
 -- Show the result
 select u.email, p.role, p.active
 from public.profiles p join auth.users u on u.id = p.id;
+
+-- =====================================================================
+--  GOO-NET DEALER STOCK IMPORTER  (Japan dealer stock)
+--
+--  Safe to run more than once. Adds:
+--    • japan_dealer_stock — cars imported from goo-net (new website page)
+--    • profit & vendor columns on `vehicles` (CRM profit system)
+--    • goonet_* settings used by the scheduled importer (/api/goonet-sync)
+-- =====================================================================
+
+-- ---- Japan dealer stock (public page + CRM management) ---------------
+create table if not exists public.japan_dealer_stock (
+  id             uuid primary key default gen_random_uuid(),
+  goonet_id      text unique not null,          -- goo-net car id (from its URL)
+  stock_no       text unique,                   -- goo-net stock number (display)
+  make           text not null,
+  model          text not null,
+  year           int,
+  km             text,
+  fuel           text,
+  body           text,
+  price_jpy      numeric(14,0),                 -- original yen asking price
+  price_usd      numeric(14,2),                 -- converted estimate
+  price          text,                          -- display price string (e.g. $21,000)
+  image          text,
+  images         jsonb,                         -- photo gallery (quality-gated)
+  grade          text,
+  status         text default 'New Arrival',
+  location       text,
+  tr             text,
+  drv            text,
+  eng            text,
+  seats          int,
+  col            text,
+  st             text,
+  vendor         text default 'Goo-net',
+  goonet_url     text,
+  photo_count    int default 0,
+  quality_score  int default 0,
+  available      boolean default true,          -- false = delisted (not shown on site)
+  promoted       text default 'none',           -- none | listings | vehicles | both
+  imported_at    timestamptz default now(),
+  last_seen_at   timestamptz default now(),
+  delisted_at    timestamptz,
+  updated_at     timestamptz default now()
+);
+create index if not exists japan_dealer_stock_available_idx on public.japan_dealer_stock(available);
+create index if not exists japan_dealer_stock_imported_idx  on public.japan_dealer_stock(imported_at desc);
+create index if not exists japan_dealer_stock_make_idx      on public.japan_dealer_stock(make);
+
+-- ---- Profit system: cost fields + sourcing vendor on CRM vehicles ----
+alter table public.vehicles add column if not exists vendor        text default 'Other';
+alter table public.vehicles add column if not exists cost_price    numeric(14,2) default 0;
+alter table public.vehicles add column if not exists freight_cost  numeric(14,2) default 0;
+alter table public.vehicles add column if not exists duty_cost     numeric(14,2) default 0;
+alter table public.vehicles add column if not exists other_cost    numeric(14,2) default 0;
+alter table public.vehicles add column if not exists sourcing_currency text default 'USD';
+
+-- ---- Importer settings (editable from CRM → Japan dealer stock) ------
+insert into public.site_settings (key,value,label) values
+  ('goonet_search_url','https://www.goo-net.com/usedcar/price-100-300/','Goo-net search page to import from (newest first)'),
+  ('goonet_min_photos','8','Minimum photos a car must have to be imported (quality gate)'),
+  ('goonet_max_new_per_run','6','Max new cars imported per sync run (keeps the site fast)'),
+  ('goonet_max_delist_per_run','5','Max cars checked for delisting per run'),
+  ('goonet_weekly_delist_limit','5','How many older cars the weekly maintenance delists at most'),
+  ('goonet_weekly_promote_limit','2','How many fresh cars are auto-promoted to the website per week'),
+  ('goonet_jpy_usd_rate','0.0068','JPY → USD rate used for estimated prices'),
+  ('goonet_bookmark_page','1','Next goo-net listing page to crawl (the importer advances this)'),
+  ('goonet_last_run_at','','When the importer last ran'),
+  ('goonet_last_weekly_delist','','When the weekly delisting last ran'),
+  ('goonet_last_weekly_promote','','When the weekly promotion last ran'),
+  ('goonet_auto_promote','true','Auto-promote a few fresh cars to the website each week')
+on conflict (key) do nothing;
+
+alter table public.japan_dealer_stock enable row level security;
+-- No direct browser policies on purpose: public reads go through
+-- /api/goonet-stock, writes through the service-role functions only.
