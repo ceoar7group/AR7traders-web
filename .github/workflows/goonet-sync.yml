@@ -1,0 +1,46 @@
+name: Goo-net importer
+
+# Runs the Goo-net dealer stock importer on a schedule — without paying for
+# Vercel cron. The action simply calls the Vercel function once per run; the
+# function itself stays small and never slows the site down.
+#
+# Setup (one time):
+#   1. Deploy this repo to Vercel and add the env var:
+#        GOONET_SYNC_KEY = <a long random string>
+#   2. Add the SAME string as a GitHub secret (Settings → Secrets and
+#      variables → Actions → New repository secret):
+#        GOONET_SYNC_KEY = <the same long random string>
+#   3. The workflow below then fires automatically.
+#
+# Run cadence: once a day. The importer must stay inside free Vercel Hobby
+# limits and never slow the site down, so a single small run per day is the
+# default (each run imports at most a handful of cars and resumes from a
+# bookmark). Want more frequent runs? Change the cron line below — but keep
+# the "once daily at most" free-tier rule in mind.
+on:
+  schedule:
+    # UTC — 03:00 (quiet time for the site and for goo-net)
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Goo-net sync on Vercel
+        env:
+          SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
+          SYNC_KEY: ${{ secrets.GOONET_SYNC_KEY }}
+        run: |
+          if [ -z "$SYNC_KEY" ]; then
+            echo "::error::GOONET_SYNC_KEY secret is not set. Add it in GitHub → Settings → Secrets, matching the GOONET_SYNC_KEY env var in Vercel."
+            exit 1
+          fi
+          URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}"
+          curl -fsS -m 60 -o /tmp/goonet-sync.json "$URL" \
+            && cat /tmp/goonet-sync.json \
+            || echo "::warning::Importer call failed (the site may be asleep — Vercel wakes it on the next run)"

@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState, useReducer} from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, UserPlus, CarFront, Eye, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Wrench, Landmark, UserCog, Share2 } from 'lucide-react';
+import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, UserPlus, CarFront, Eye, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Wrench, Landmark, UserCog, Share2, Layers } from 'lucide-react';
 import './styles.css';
 import './pages.css';
 import './extra-pages.css';
@@ -303,21 +303,125 @@ const INVENTORY_SCROLL_KEY='ar7-inventory-scroll';
 
 function VehicleLightbox({selected,detailImage,detailGallery,zoomLevel,setZoomLevel,setZoomOpen,stepGallery}){
  const isZoomed=zoomLevel>1;
+ const idx=detailGallery.indexOf(detailImage)+1;
+ // Every control lives OUTSIDE the picture area: close in the top bar,
+ // prev/next + zoom in the bottom bar — the image itself stays clean.
  return createPortal(<div className="gallery-lightbox" role="dialog" aria-modal="true" aria-label={`${selected.make} ${selected.model} image viewer`} onClick={()=>setZoomOpen(false)}>
-  <button className="lightbox-close" onClick={()=>setZoomOpen(false)} aria-label="Close enlarged image"><X/></button>
   <div className="lightbox-stage" onClick={e=>e.stopPropagation()}>
-   <img className={'lightbox-image '+(isZoomed?'is-zoomed':'')} src={detailImage} alt={`${selected.make} ${selected.model} enlarged`} style={{transform:`scale(${zoomLevel})`}} onClick={e=>{e.stopPropagation();setZoomLevel(v=>v>1?1:1.5)}}/>
-   {detailGallery.length>1&&<><button className="lightbox-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous image"><ChevronLeft/></button><button className="lightbox-arrow next" onClick={()=>stepGallery(1)} aria-label="Next image"><ChevronRight/></button></>}
-   <div className="zoom-controls" role="group" aria-label="Image zoom controls">
-    <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.max(1,v-.25))} disabled={zoomLevel<=1} aria-label="Zoom out" title="Zoom out"><ZoomOut/><span>Out</span></button>
-    <button className="zoom-level" onClick={()=>setZoomLevel(1)} disabled={zoomLevel===1} aria-label="Reset zoom" title="Reset zoom"><strong>{Math.round(zoomLevel*100)}%</strong><small>Reset</small></button>
-    <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.min(2.5,v+.25))} disabled={zoomLevel>=2.5} aria-label="Zoom in" title="Zoom in"><ZoomIn/><span>In</span></button>
+   <div className="lightbox-topbar">
+    <span className="lightbox-title"><b>{selected.make} {selected.model}</b><small>{detailGallery.length>1?`${idx} / ${detailGallery.length}`:''}</small></span>
+    <button className="lightbox-close" onClick={()=>setZoomOpen(false)} aria-label="Close enlarged image" title="Close (Esc)"><X/></button>
+   </div>
+   <div className="lightbox-img-wrap">
+    <img className={'lightbox-image '+(isZoomed?'is-zoomed':'')} src={detailImage} alt={`${selected.make} ${selected.model} enlarged`} style={{transform:`scale(${zoomLevel})`}} onClick={e=>{e.stopPropagation();setZoomLevel(v=>v>1?1:1.5)}}/>
+   </div>
+   <div className="lightbox-bottom">
+    <div className="lightbox-nav" role="group" aria-label="Image navigation">
+     <button className="lightbox-arrow prev" onClick={()=>stepGallery(-1)} disabled={detailGallery.length<=1} aria-label="Previous image" title="Previous"><ChevronLeft/><span>Prev</span></button>
+     <span className="lightbox-count">{detailGallery.length>1?`${idx} / ${detailGallery.length}`:''}</span>
+     <button className="lightbox-arrow next" onClick={()=>stepGallery(1)} disabled={detailGallery.length<=1} aria-label="Next image" title="Next"><span>Next</span><ChevronRight/></button>
+    </div>
+    <div className="zoom-controls" role="group" aria-label="Image zoom controls">
+     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.max(1,v-.25))} disabled={zoomLevel<=1} aria-label="Zoom out" title="Zoom out"><ZoomOut/><span>Out</span></button>
+     <button className="zoom-level" onClick={()=>setZoomLevel(1)} disabled={zoomLevel===1} aria-label="Reset zoom" title="Reset zoom"><strong>{Math.round(zoomLevel*100)}%</strong><small>Reset</small></button>
+     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.min(3.5,v+.25))} disabled={zoomLevel>=3.5} aria-label="Zoom in" title="Zoom in"><ZoomIn/><span>In</span></button>
+    </div>
    </div>
   </div>
  </div>,document.body);
 }
 
+// ---------------------------------------------------------------------------
+// Japan dealer stock — the page fed by the Goo-net importer (/api/goonet-stock).
+// Shows only quality-gated, currently-available dealer cars; cars delisted on
+// Goo-net disappear automatically. Photo galleries open in a clean modal whose
+// controls sit outside the picture area.
+// ---------------------------------------------------------------------------
+function JapanStockPage({navigate, openAuction}){
+ const [rows,setRows]=useState([]);
+ const [loading,setLoading]=useState(true);
+ const [query,setQuery]=useState('');
+ const [make,setMake]=useState('All');
+ const [body,setBody]=useState('All');
+ const [openCar,setOpenCar]=useState(null);
+ const [galleryIdx,setGalleryIdx]=useState(0);
+ useEffect(()=>{
+  let live=true;
+  fetch('/api/goonet-stock').then(r=>r.ok?r.json():[]).then(d=>{if(live)setRows(Array.isArray(d)?d:[])}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});
+  return ()=>{live=false};
+ },[]);
+ const makes=[...new Set(rows.map(r=>r.make).filter(Boolean))].sort();
+ const bodies=[...new Set(rows.map(r=>r.body).filter(Boolean))].sort();
+ const list=rows.filter(r=>{
+  const hay=(r.make+' '+r.model+' '+(r.stock_no||'')+' '+r.year).toLowerCase();
+  const q=query.trim().toLowerCase();
+  return (!q||hay.includes(q))&&(make==='All'||r.make===make)&&(body==='All'||r.body===body);
+ });
+ const gallery=openCar?((Array.isArray(openCar.images)&&openCar.images.length)?openCar.images:[openCar.image].filter(Boolean)):[];
+ const cur=gallery[Math.min(galleryIdx,gallery.length-1)]||openCar?.image;
+ const stepG=d=>{setGalleryIdx(i=>Math.max(0,Math.min(gallery.length-1,i+d)))};
+ const closeG=()=>{setOpenCar(null);setGalleryIdx(0)};
+ return <>
+  <section className="inner-page japan-stock-page">
+   <div className="page-hero mini"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">LIVE GOO-NET DEALER STOCK</div><h1>Japan <em>dealer stock.</em></h1><p>{loading?'Checking the latest dealer listings…':`${rows.length} quality-gated dealer cars · imported straight from Goo-net, refreshed continuously.`}</p></div></div>
+   <div className="shell page-content">
+    <div className="inv-toolbar">
+     <label className="inv-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search make, model or stock no."/></label>
+     <select value={make} onChange={e=>setMake(e.target.value)}><option>All</option>{makes.map(m=><option key={m}>{m}</option>)}</select>
+     <select value={body} onChange={e=>setBody(e.target.value)}><option>All</option>{bodies.map(b=><option key={b}>{b}</option>)}</select>
+    </div>
+    <div className="results-line"><b>{list.length} vehicles</b><span>verified photos · auction-sheet quality · updated by the AR7 importer</span></div>
+    {loading?<div className="empty-state"><CarFront/><h3>Loading dealer stock…</h3><p>Fetching the latest imports from Goo-net.</p></div>:
+     list.length===0?<div className="empty-state"><Search/><h3>No dealer cars match</h3><p>New Goo-net stock is imported all the time — try another filter or ask our team.</p><button className="primary" onClick={openAuction}>Request a search <ArrowRight/></button></div>:
+     <div className="car-grid full-grid jstock-grid">{list.map(r=>{
+      const photos=Array.isArray(r.images)?r.images.filter(Boolean):(r.image?[r.image]:[]);
+      const price=r.price||(r.price_usd?'$'+Math.round(r.price_usd).toLocaleString('en-US'):'—');
+      return <article className="car-card page-car jstock-card" key={r.id||r.stock_no}>
+       <div className="car-image" onClick={()=>{setGalleryIdx(0);setOpenCar(r)}}>
+        <img loading="lazy" decoding="async" src={r.image||photos[0]||'/assets/ar7-mark.png'} alt={`${r.make} ${r.model}`}/>
+        <span className="status New Arrival">{r.status||'New Arrival'}</span>
+        {r.grade&&<span className="grade">Grade <b>{r.grade}</b></span>}
+        {photos.length>0&&<span className="photo-count"><Camera/> {photos.length}</span>}
+       </div>
+       <div className="car-info">
+        <div className="make">{r.make}</div><h3>{r.model}</h3>
+        <div className="specs"><span><CalendarDays/> {r.year||'—'}</span><span><Gauge/> {r.km?r.km+' km':'—'}</span>{r.fuel&&<span><Fuel/> {r.fuel}</span>}{r.tr&&<span><ArrowLeftRight/> {r.tr}</span>}</div>
+        <div className="car-bottom"><div><small>DEALER PRICE</small><b>{price}</b></div><span className="card-open" onClick={()=>{setGalleryIdx(0);setOpenCar(r)}}>Photos <ArrowUpRight/></span></div>
+        <div className="loc"><MapPin/> {r.location?r.location+', Japan':'Japan'}</div>
+        <div className="jstock-actions">
+         <button className="primary" onClick={openAuction}>Enquire <ArrowRight/></button>
+         {r.goonet_url&&<a className="ghost-btn" href={r.goonet_url} target="_blank" rel="noopener noreferrer" title="View the original Goo-net listing">Goo-net <ArrowUpRight/></a>}
+        </div>
+       </div>
+      </article>;
+     })}</div>}
+   </div>
+  </section>
+  {openCar&&createPortal(<div className="gallery-lightbox jstock-lightbox" role="dialog" aria-modal="true" onClick={closeG}>
+   <div className="lightbox-stage" onClick={e=>e.stopPropagation()}>
+    <div className="lightbox-topbar">
+     <span className="lightbox-title"><b>{openCar.make} {openCar.model}</b><small>{openCar.stock_no||''}</small></span>
+     <button className="lightbox-close" onClick={closeG} aria-label="Close"><X/></button>
+    </div>
+    <div className="lightbox-img-wrap"><img className="lightbox-image" src={cur} alt={`${openCar.make} ${openCar.model}`} onError={e=>{if(e.currentTarget.src!==(openCar.image||''))e.currentTarget.src=openCar.image||'/assets/ar7-mark.png'}}/></div>
+    <div className="lightbox-bottom">
+     <div className="lightbox-nav">
+      <button className="lightbox-arrow prev" onClick={()=>stepG(-1)} disabled={gallery.length<=1} aria-label="Previous photo"><ChevronLeft/><span>Prev</span></button>
+      <span className="lightbox-count">{gallery.length>1?`${galleryIdx+1} / ${gallery.length}`:''}</span>
+      <button className="lightbox-arrow next" onClick={()=>stepG(1)} disabled={gallery.length<=1} aria-label="Next photo"><span>Next</span><ChevronRight/></button>
+     </div>
+     <div className="jstock-actions lightbox-cta">
+      <button className="primary" onClick={()=>{closeG();openAuction()}}>Enquire now <ArrowRight/></button>
+      {openCar.goonet_url&&<a className="ghost-btn" href={openCar.goonet_url} target="_blank" rel="noopener noreferrer">View on Goo-net <ArrowUpRight/></a>}
+     </div>
+    </div>
+   </div>
+  </div>,document.body)}
+ </>;
+}
+
 function InnerPage({page,navigate,openAuction,favs,setFavs,vehicleId}){
+ if(page==='japan-stock')return <JapanStockPage navigate={navigate} openAuction={openAuction}/>;
  const settings=useSettings();
  const price=useCarPrice();
  const {fmt}=useCurrency();
@@ -376,7 +480,7 @@ function InnerPage({page,navigate,openAuction,favs,setFavs,vehicleId}){
  const stepGallery=dir=>{if(detailGallery.length<2)return;const at=Math.max(0,detailGallery.indexOf(detailImage));setGalleryImage(detailGallery[(at+dir+detailGallery.length)%detailGallery.length])};
  stepGalleryRef.current=stepGallery;
  if(page==='inventory'&&vehicleId&&!selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href="/inventory" onClick={linkClick('inventory',backToInventory)}>← Back to inventory</a><div className="empty-state vehicle-missing">{isContentHydrated()?<><Search/><h3>This vehicle is no longer listed</h3><p>It may have sold or the link is out of date. Browse current Japan stock instead.</p><PageLink className="primary" to="inventory" navigate={backToInventory}>View inventory <ArrowRight/></PageLink></>:<><CarFront/><h3>Loading vehicle…</h3><p>Fetching the latest stock so we can open this car.</p></>}</div></div></section>;
- if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href="/inventory" onClick={linkClick('inventory',backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" src={detailImage} onError={()=>{if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}}/>{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image"><ChevronLeft/></button><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image"><ChevronRight/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image"><Maximize2/> Enlarge</button></div><div className="hero-orb in-page detail-orb"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i}><img loading="lazy" decoding="async" src={img} onError={e=>{if(!e.currentTarget.dataset.f){e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div><span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><b>{price(selected)}</b></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span><span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span><span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div><div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div><div className="cif-box"><div className="kicker">DEMO CIF ESTIMATE</div><select value={destSel} onChange={e=>setDestSel(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" src={LOGO(selected.make)} alt={selected.make+" logo"}/><span>{selected.make} · official AR7 partner network</span></div><div className="detail-actions"><button className="primary" onClick={openAuction}>Enquire now <ArrowRight/></button><button className={favs.includes(selected.id)?'ghost-btn fav-on':'ghost-btn'} onClick={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])}><Heart fill={favs.includes(selected.id)?'currentColor':'none'}/> {favs.includes(selected.id)?'Saved':'Save'}</button><button className="ghost-btn" type="button" onClick={copyVehicleLink}><Share2/> {copied?'Link copied':'Copy link'}</button></div><div className="sheet-box"><ClipboardCheck/><div><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></div></div></div></div>{(()=>{const related=cars.filter(c=>c!==selected&&(c.make===selected.make||c.body===selected.body)).slice(0,3);return related.length?<div className="related-stock"><div className="kicker">SIMILAR STOCK</div><h2>You might also like</h2><div className="car-grid">{related.map(c=><VehicleCard key={c.id} c={c} onOpen={openVehicle}/>)}</div></div>:null})()}</div></section>;
+ if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href="/inventory" onClick={linkClick('inventory',backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" src={detailImage} onError={()=>{if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}}/></div><div className="detail-gallery-toolbar">{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image"><ChevronLeft/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image"><ChevronRight/></button></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image"><Maximize2/> Enlarge</button></div><div className="hero-orb in-page detail-orb"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i}><img loading="lazy" decoding="async" src={img} onError={e=>{if(!e.currentTarget.dataset.f){e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div><span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><b>{price(selected)}</b></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span><span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span><span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div><div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div><div className="cif-box"><div className="kicker">DEMO CIF ESTIMATE</div><select value={destSel} onChange={e=>setDestSel(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" src={LOGO(selected.make)} alt={selected.make+" logo"}/><span>{selected.make} · official AR7 partner network</span></div><div className="detail-actions"><button className="primary" onClick={openAuction}>Enquire now <ArrowRight/></button><button className={favs.includes(selected.id)?'ghost-btn fav-on':'ghost-btn'} onClick={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])}><Heart fill={favs.includes(selected.id)?'currentColor':'none'}/> {favs.includes(selected.id)?'Saved':'Save'}</button><button className="ghost-btn" type="button" onClick={copyVehicleLink}><Share2/> {copied?'Link copied':'Copy link'}</button></div><div className="sheet-box"><ClipboardCheck/><div><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></div></div></div></div>{(()=>{const related=cars.filter(c=>c!==selected&&(c.make===selected.make||c.body===selected.body)).slice(0,3);return related.length?<div className="related-stock"><div className="kicker">SIMILAR STOCK</div><h2>You might also like</h2><div className="car-grid">{related.map(c=><VehicleCard key={c.id} c={c} onOpen={openVehicle}/>)}</div></div>:null})()}</div></section>;
 if(['services','destinations','reviews','faq','portal'].includes(page))return <ExtraPage type={page} navigate={navigate} openAuction={openAuction}/>;
  if(['brands','howbuy','tools','news'].includes(page))return <ExtraPages2 type={page} navigate={navigate} openAuction={openAuction}/>;
  const makes=[...new Set(cars.map(c=>c.make))];
@@ -459,12 +563,12 @@ function App(){
     <div className="nav-orb" title="AR7 360° world network — click to explore"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div>
    </div>
    <div className={'navlinks '+(menu?'open':'')}>
-    <a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory</a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands</a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access</a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators</a>
+    <a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory</a><a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan dealer stock</a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands</a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access</a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators</a>
     <div className="nav-more">
      <button className="more-btn" onMouseDown={()=>setMenu(!menu)}>More <ChevronDown className="more-chev"/></button>
      <div className="more-panel">
       {[
-        [Globe2,'World network','world'],[CarFront,'Inventory','inventory'],[Gavel,'Live auctions','auction'],[Wrench,'Services','services'],[Ship,'Shipping','shipping'],[MapPin,'Destinations','destinations'],[BookOpen,'How to buy','howbuy'],[Newspaper,'News & guides','news'],[MessageCircle,'Reviews','reviews'],[ClipboardCheck,'Help & FAQ','faq'],[BadgeCheck,'About AR7','about'],[Landmark,'Staff CRM','crm'],[Mail,'Contact us','contact']
+        [Globe2,'World network','world'],[CarFront,'Inventory','inventory'],[Layers,'Japan dealer stock','japan-stock'],[Gavel,'Live auctions','auction'],[Wrench,'Services','services'],[Ship,'Shipping','shipping'],[MapPin,'Destinations','destinations'],[BookOpen,'How to buy','howbuy'],[Newspaper,'News & guides','news'],[MessageCircle,'Reviews','reviews'],[ClipboardCheck,'Help & FAQ','faq'],[BadgeCheck,'About AR7','about'],[Landmark,'Staff CRM','crm'],[Mail,'Contact us','contact']
       ].map(x=>{const I=x[0];return <a key={x[2]} href={hrefFor(x[2])} onClick={linkClick(x[2],navigate)}><i><I/></i><span>{x[1]}</span></a>})}
      </div>
     </div>
@@ -538,7 +642,7 @@ function App(){
      <div className="footer-trust"><span><ShieldCheck/> Escrow protected</span><span><FileCheck/> Auction sheets verified</span><span><Ship/> 35+ markets served</span></div>
      <div className="socials"><a href="/inventory" onClick={linkClick('inventory',navigate)} title="Vehicle gallery"><Camera/></a><a href="/reviews" onClick={linkClick('reviews',navigate)} title="Customer stories"><MessageCircle/></a><a href="/contact" onClick={linkClick('contact',navigate)} title="Contact AR7"><Send/></a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer" title="WhatsApp AR7"><WhatsAppIcon size={15}/></a></div>
     </div>
-    <div><b>EXPLORE</b><a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory<ArrowUpRight/></a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access<ArrowUpRight/></a><a href="/services" onClick={linkClick('services',navigate)}>Services<ArrowUpRight/></a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands<ArrowUpRight/></a><a href="/destinations" onClick={linkClick('destinations',navigate)}>Destinations<ArrowUpRight/></a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators<ArrowUpRight/></a><a href="/world" onClick={linkClick('world',navigate)}>World network<ArrowUpRight/></a></div>
+    <div><b>EXPLORE</b><a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory<ArrowUpRight/></a><a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan dealer stock<ArrowUpRight/></a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access<ArrowUpRight/></a><a href="/services" onClick={linkClick('services',navigate)}>Services<ArrowUpRight/></a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands<ArrowUpRight/></a><a href="/destinations" onClick={linkClick('destinations',navigate)}>Destinations<ArrowUpRight/></a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators<ArrowUpRight/></a><a href="/world" onClick={linkClick('world',navigate)}>World network<ArrowUpRight/></a></div>
     <div><b>COMPANY</b><a href="/howbuy" onClick={linkClick('howbuy',navigate)}>How to buy<ArrowUpRight/></a><a href="/news" onClick={linkClick('news',navigate)}>News & guides<ArrowUpRight/></a><a href="/about" onClick={linkClick('about',navigate)}>About us<ArrowUpRight/></a><a href="/reviews" onClick={linkClick('reviews',navigate)}>Customer stories<ArrowUpRight/></a><a href="/faq" onClick={linkClick('faq',navigate)}>Help & FAQ<ArrowUpRight/></a>{signedIn&&<a href="/account" onClick={linkClick('account',navigate)}>My account<ArrowUpRight/></a>}<a href="/portal" onClick={linkClick('portal',navigate)}>Portal tour<ArrowUpRight/></a><a href="/crm" onClick={linkClick('crm',navigate)}>Staff CRM<ArrowUpRight/></a>{!signedIn&&<a href="/account" onClick={linkClick('account',navigate)}>Customer sign up<ArrowUpRight/></a>}</div>
     <div><b>GET IN TOUCH</b><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={15}/> WhatsApp</a><a href="/contact" onClick={linkClick('contact',navigate)}><MapPin/> {settings.contact_address}</a>
      <div className="footer-hours"><Clock3/><span><b>Mon–Sat</b><small>09:00–19:00 JST · live chat on WhatsApp</small></span></div>

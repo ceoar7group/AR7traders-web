@@ -4,11 +4,11 @@ import {
   LayoutDashboard, Users, UserRound, CarFront, FileText, Ship, CheckSquare,
   Activity, LogOut, Search, Plus, Mail, MessageCircle, ChevronRight, ChevronLeft,
   Clock3, DollarSign, TrendingUp, BadgeCheck, X, Save, RefreshCw, Menu,
-  ShieldCheck, Database, Trash2, Globe, Newspaper, UserCog, ShieldAlert,
+  ShieldCheck, Database, Trash2, Globe, Globe2, Newspaper, UserCog, ShieldAlert,
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy
+  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
@@ -151,10 +151,16 @@ const seed = {
     { id: 'c3', name: 'Oliver Brown', email: 'oliver@example.com', phone: '+44 7911 123456', country: 'United Kingdom', total_spend: 189000, vehicles_bought: 1, status: 'vip', created_at: '2026-04-02T09:00:00Z' }
   ],
   vehicles: [
-    { id: 'v1', stock_no: 'AR7-260184', make: 'Audi', model: 'R8 V10', year: 2021, price: 155000, status: 'available', location: 'Tokyo', steering: 'RHD', image: '/assets/gallery/audi-r8-v10-01.webp', images: ['/assets/gallery/audi-r8-v10-01.webp', '/assets/gallery/audi-r8-v10-02.webp', '/assets/gallery/audi-r8-v10-03.webp', '/assets/gallery/audi-r8-v10-04.webp', '/assets/gallery/audi-r8-v10-05.webp'] },
-    { id: 'v2', stock_no: 'AR7-260185', make: 'Lexus', model: 'LC 500', year: 2021, price: 95000, status: 'reserved', location: 'Yokohama', steering: 'LHD', image: '/assets/gallery/lexus-lc-500-01.jpg', images: ['/assets/gallery/lexus-lc-500-01.jpg', '/assets/gallery/lexus-lc-500-02.jpg', '/assets/gallery/lexus-lc-500-03.jpg', '/assets/gallery/lexus-lc-500-04.jpg', '/assets/gallery/lexus-lc-500-05.jpg'] },
-    { id: 'v3', stock_no: 'AR7-260186', make: 'Rolls-Royce', model: 'Ghost', year: 2023, price: 189000, status: 'available', location: 'Yokohama', steering: 'RHD', image: '/assets/lux/rolls-royce-ghost.jpg', images: ['/assets/lux/rolls-royce-ghost.jpg', '/assets/lux/rolls-royce-cullinan.jpg'] },
-    { id: 'v4', stock_no: 'AR7-260187', make: 'Toyota', model: 'Land Cruiser ZX', year: 2022, price: 58900, status: 'in_transit', location: 'Yokohama', steering: 'RHD', image: '/assets/used-japanese-cars-auction-export-toyota-3.jpg', images: ['/assets/used-japanese-cars-auction-export-toyota-3.jpg', '/assets/japan-used-car-export-inventory-toyota-h-1.jpg', '/assets/japan-used-car-export-inventory-toyota-h-2.jpg', '/assets/japan-used-car-export-inventory-toyota-h-3.jpg', '/assets/japan-used-car-export-inventory-toyota-h-4.jpg', '/assets/japan-used-car-export-inventory-toyota-h-5.jpg'] }
+    { id: 'v1', stock_no: 'AR7-260184', make: 'Audi', model: 'R8 V10', year: 2021, price: 155000, vendor: 'USS Auction', cost_price: 128000, freight_cost: 3200, duty_cost: 0, other_cost: 1800, status: 'available', location: 'Tokyo', steering: 'RHD', image: '/assets/gallery/audi-r8-v10-01.webp', images: ['/assets/gallery/audi-r8-v10-01.webp', '/assets/gallery/audi-r8-v10-02.webp', '/assets/gallery/audi-r8-v10-03.webp', '/assets/gallery/audi-r8-v10-04.webp', '/assets/gallery/audi-r8-v10-05.webp'] },
+    { id: 'v2', stock_no: 'AR7-260185', make: 'Lexus', model: 'LC 500', year: 2021, price: 95000, vendor: 'TAA Auction', cost_price: 74200, freight_cost: 2800, duty_cost: 0, other_cost: 1400, status: 'reserved', location: 'Yokohama', steering: 'LHD', image: '/assets/gallery/lexus-lc-500-01.jpg', images: ['/assets/gallery/lexus-lc-500-01.jpg', '/assets/gallery/lexus-lc-500-02.jpg', '/assets/gallery/lexus-lc-500-03.jpg', '/assets/gallery/lexus-lc-500-04.jpg', '/assets/gallery/lexus-lc-500-05.jpg'] },
+    { id: 'v3', stock_no: 'AR7-260186', make: 'Rolls-Royce', model: 'Ghost', year: 2023, price: 189000, vendor: 'Dealer network', cost_price: 162000, freight_cost: 4100, duty_cost: 0, other_cost: 2200, status: 'available', location: 'Yokohama', steering: 'RHD', image: '/assets/lux/rolls-royce-ghost.jpg', images: ['/assets/lux/rolls-royce-ghost.jpg', '/assets/lux/rolls-royce-cullinan.jpg'] },
+    { id: 'v4', stock_no: 'AR7-260187', make: 'Toyota', model: 'Land Cruiser ZX', year: 2022, price: 58900, vendor: 'Goo-net', cost_price: 46800, freight_cost: 2100, duty_cost: 0, other_cost: 900, status: 'in_transit', location: 'Yokohama', steering: 'RHD', image: '/assets/used-japanese-cars-auction-export-toyota-3.jpg', images: ['/assets/used-japanese-cars-auction-export-toyota-3.jpg', '/assets/japan-used-car-export-inventory-toyota-h-1.jpg', '/assets/japan-used-car-export-inventory-toyota-h-2.jpg', '/assets/japan-used-car-export-inventory-toyota-h-3.jpg', '/assets/japan-used-car-export-inventory-toyota-h-4.jpg', '/assets/japan-used-car-export-inventory-toyota-h-5.jpg'] }
+  ],
+  goonet: [
+    { id: 'g1', goonet_id: '0710232A30260801W001', stock_no: '0710232A30260801W001', make: 'Toyota', model: 'Harrier S', year: 2023, km: '24,204', fuel: 'Petrol', body: 'SUV', price: '$21,000', price_jpy: 3090000, price_usd: 21000, grade: '4.5', status: 'New Arrival', location: 'Hyogo', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Black', st: 'RHD', photo_count: 24, quality_score: 82, available: true, promoted: 'none', vendor: 'Goo-net', imported_at: '2026-08-26T09:00:00Z', image: 'https://picture1.goo-net.com/7000710232/30260801/J/70007102323026080100100.jpg', images: ['https://picture1.goo-net.com/7000710232/30260801/J/70007102323026080100100.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00101.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00102.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00103.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00104.jpg'] },
+    { id: 'g2', goonet_id: '0208264A20260802D002', stock_no: '0208264A20260802D002', make: 'Toyota', model: 'Harrier Z Leather Package', year: 2023, km: '14,000', fuel: 'Petrol', body: 'SUV', price: '$28,100', price_jpy: 4130000, price_usd: 28100, grade: '4.5', status: 'New Arrival', location: 'Gifu', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Silver Metallic', st: 'RHD', photo_count: 24, quality_score: 85, available: true, promoted: 'listings', vendor: 'Goo-net', imported_at: '2026-08-24T09:00:00Z', image: '/assets/inventory/988026080300208264002.jpg', images: ['/assets/inventory/988026080300208264002.jpg','https://picture1.goo-net.com/020/0208264/J/0208264A20260802D00201.jpg','https://picture1.goo-net.com/020/0208264/J/0208264A20260802D00202.jpg'] },
+    { id: 'g3', goonet_id: '1001974A30260726W001', stock_no: '1001974A30260726W001', make: 'Mazda', model: 'CX-30 20S L Package', year: 2021, km: '41,000', fuel: 'Petrol', body: 'SUV', price: '$14,100', price_jpy: 2070000, price_usd: 14100, grade: '4.0', status: 'New Arrival', location: 'Hiroshima', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Gray Metallic', st: 'RHD', photo_count: 24, quality_score: 74, available: true, promoted: 'none', vendor: 'Goo-net', imported_at: '2026-08-20T09:00:00Z', image: '/assets/inventory/700100197430260726001.jpg', images: ['/assets/inventory/700100197430260726001.jpg','https://picture1.goo-net.com/100/1001974/J/1001974A30260726W00101.jpg'] },
+    { id: 'g4', goonet_id: '0561037A30260717W002', stock_no: '0561037A30260717W002', make: 'Honda', model: 'Vezel Hybrid Z Honda Sensing', year: 2016, km: '46,353', fuel: 'Hybrid', body: 'SUV', price: '$21,100', price_jpy: 3100000, price_usd: 21100, grade: '4.5', status: 'New Arrival', location: 'Chiba', tr: 'AT', drv: '2WD', eng: '1,500cc', seats: 5, col: 'Pearl White', st: 'RHD', photo_count: 24, quality_score: 78, available: true, promoted: 'vehicles', vendor: 'Goo-net', imported_at: '2026-08-18T09:00:00Z', image: '/assets/inventory/700056103730260717002.jpg', images: ['/assets/inventory/700056103730260717002.jpg','https://picture1.goo-net.com/056/0561037/J/0561037A30260717W00201.jpg'] }
   ],
   quotes: [
     { id: 'q1', quote_no: 'Q-2026-1042', customer_name: 'Ahmed Khan', vehicle: 'Toyota Land Cruiser ZX', amount: 62750, status: 'sent', valid_until: '2026-08-30', created_at: '2026-08-23T10:00:00Z' },
@@ -186,6 +192,8 @@ const tabs = [
   ['customers', 'Customers', UserRound],
   ['accounts', 'Customer accounts', Wallet],
   ['vehicles', 'Inventory', CarFront],
+  ['sourcing', 'Profit & sourcing', DollarSign],
+  ['goonet', 'Japan dealer stock', Globe2],
   ['quotes', 'Quotes', FileText],
   ['shipments', 'Shipments', Ship],
   ['tasks', 'Tasks', CheckSquare],
@@ -240,8 +248,10 @@ const OPT = {
   body: ['Sedan', 'SUV', 'MPV', 'Hatchback', 'Luxury', 'Supercar', 'Hypercar', 'Van', 'Kei', 'Truck'],
   transmission: ['AT', 'CVT', 'DCT', 'MT'],
   drivetrain: ['2WD', '4WD', 'AWD', 'RWD'],
+  currencies: ['USD', 'JPY', 'EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'AED', 'SAR', 'PKR', 'KES'],
   grade: ['S', '5.0', '4.5', '4.0', '3.5', '3.0', '2.5', 'R', 'RA'],
-  articleCategory: ['MARKET WATCH', 'BUYING GUIDE', 'LOGISTICS', 'AUCTION', 'COMPANY']
+  articleCategory: ['MARKET WATCH', 'BUYING GUIDE', 'LOGISTICS', 'AUCTION', 'COMPANY'],
+  vendors: ['Goo-net', 'USS Auction', 'TAA Auction', 'JU Auction', 'CAA Auction', 'Other Auction', 'Dealer network', 'Private sale', 'Trade-in', 'Other']
 };
 const YEAR_THIS = new Date().getFullYear();
 const YEARS = Array.from({ length: YEAR_THIS - 1994 }, (_, i) => YEAR_THIS + 1 - i);
@@ -287,7 +297,13 @@ const configs = {
       ['make', 'Make', 'text', { required: true, placeholder: 'Toyota', section: 'Identity' }],
       ['model', 'Model', 'text', { required: true, placeholder: 'Land Cruiser ZX', section: 'Identity' }],
       ['year', 'Year', 'year', { section: 'Identity' }],
-      ['price', 'Price (USD)', 'number', { min: 0, step: 100, placeholder: '58900', section: 'Pricing & status' }],
+      ['price', 'Selling price (USD)', 'number', { min: 0, step: 100, placeholder: '58900', section: 'Pricing & status' }],
+      ['vendor', 'Sourcing vendor', 'select', { options: OPT.vendors, section: 'Pricing & status', hint: 'Where this vehicle was sourced — used for profit reporting' }],
+      ['cost_price', 'Purchase cost (USD)', 'number', { min: 0, step: 100, placeholder: '52000', section: 'Pricing & status', hint: 'What you paid the vendor' }],
+      ['freight_cost', 'Freight cost (USD)', 'number', { min: 0, step: 50, placeholder: '1800', section: 'Pricing & status' }],
+      ['duty_cost', 'Duty / tax (USD)', 'number', { min: 0, step: 50, placeholder: '2400', section: 'Pricing & status' }],
+      ['other_cost', 'Other costs (USD)', 'number', { min: 0, step: 50, placeholder: '600', section: 'Pricing & status', hint: 'Inspection, prep, docs, insurance…' }],
+      ['sourcing_currency', 'Sourcing currency', 'select', { options: OPT.currencies, section: 'Pricing & status', hint: 'Currency the vehicle was purchased in (JPY for auctions, USD default)' }],
       ['status', 'Status', 'select', { options: OPT.vehicleStatus, section: 'Pricing & status' }],
       ['location', 'Location', 'text', { placeholder: 'Yokohama yard / USS Tokyo', section: 'Pricing & status' }],
       ['steering', 'Steering', 'select', { options: OPT.steering, section: 'Specs' }],
@@ -350,6 +366,38 @@ const configs = {
       ['st', 'Steering', 'select', { options: OPT.steering, section: 'Details' }],
       ['image', 'Cover photo path', 'text', { placeholder: '/assets/… (first gallery photo is used)', section: 'Details' }],
       ['sort_order', 'Sort order', 'number', { min: 0, section: 'Details', hint: 'Lower numbers appear first' }]
+    ]
+  },
+  goonet: {
+    title: 'Japan dealer stock', subtitle: 'Cars imported from Goo-net with quality-gated photos. Move the best ones to the website or CRM inventory.',
+    statusOptions: ['New Arrival', 'In Stock', 'Reserved', 'Sold'],
+    fields: [
+      ['make', 'Make', 'text', { required: true, section: 'Identity' }],
+      ['model', 'Model', 'text', { required: true, section: 'Identity' }],
+      ['year', 'Year', 'year', { section: 'Identity' }],
+      ['stock_no', 'Goo-net stock no.', 'text', { section: 'Identity' }],
+      ['goonet_id', 'Goo-net car id', 'text', { section: 'Identity' }],
+      ['price', 'Display price', 'text', { placeholder: '$21,000', section: 'Pricing & status' }],
+      ['price_jpy', 'Asking price (JPY)', 'number', { min: 0, section: 'Pricing & status' }],
+      ['price_usd', 'Est. price (USD)', 'number', { min: 0, section: 'Pricing & status' }],
+      ['status', 'Status', 'select', { options: ['New Arrival', 'In Stock', 'Reserved', 'Sold'], section: 'Pricing & status' }],
+      ['available', 'Visible on website', 'check', { section: 'Pricing & status', hint: 'Untick to delist from the Japan dealer stock page' }],
+      ['km', 'Mileage', 'text', { placeholder: '24,000', section: 'Specs' }],
+      ['fuel', 'Fuel', 'select', { options: OPT.fuel, section: 'Specs' }],
+      ['body', 'Body type', 'select', { options: OPT.body, section: 'Specs' }],
+      ['grade', 'Grade', 'select', { options: OPT.grade, section: 'Specs' }],
+      ['tr', 'Transmission', 'select', { options: OPT.transmission, section: 'Specs' }],
+      ['drv', 'Drivetrain', 'select', { options: OPT.drivetrain, section: 'Specs' }],
+      ['eng', 'Engine', 'text', { placeholder: '2,000cc', section: 'Specs' }],
+      ['seats', 'Seats', 'number', { min: 1, max: 12, section: 'Specs' }],
+      ['col', 'Colour', 'text', { section: 'Details' }],
+      ['st', 'Steering', 'select', { options: OPT.steering, section: 'Details' }],
+      ['location', 'Location', 'text', { placeholder: 'Aichi', section: 'Details' }],
+      ['photo_count', 'Photo count', 'number', { min: 0, section: 'Details' }],
+      ['quality_score', 'Quality score', 'number', { min: 0, section: 'Details', hint: 'Set by the importer — higher is better' }],
+      ['promoted', 'Promoted to', 'text', { section: 'Details', hint: 'none · listings · vehicles · both' }],
+      ['image', 'Cover photo path', 'text', { section: 'Media & notes' }],
+      ['goonet_url', 'Goo-net URL', 'text', { placeholder: 'https://www.goo-net.com/usedcar/spread/…', section: 'Media & notes' }]
     ]
   },
   routes: {
@@ -438,7 +486,8 @@ function demoWrite(entity, rows) {
 
 async function api(entity, token, options = {}) {
   const { id, ...init } = options;
-  const base = SITE_ENTITIES.includes(entity) ? '/api/site-content' : '/api/crm';
+  const base = entity === 'goonet' ? '/api/goonet-stock'
+    : (SITE_ENTITIES.includes(entity) ? '/api/site-content' : '/api/crm');
   const url = base + '?entity=' + encodeURIComponent(entity) + (id ? '&id=' + encodeURIComponent(id) : '') + (SITE_ENTITIES.includes(entity) ? '&all=1' : '');
   const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(init.headers || {}) } });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Request failed');
@@ -575,6 +624,72 @@ export default function CrmApp() {
     }
   }
 
+  // Move an imported Goo-net car to the public website and/or CRM inventory.
+  async function goonetAction(row, action, target) {
+    if (!row?.id) return;
+    const label = `${row.make || ''} ${row.model || ''} (${row.stock_no || row.goonet_id || ''})`.trim();
+    if (action === 'promote') {
+      const prettyTarget = target === 'listings' ? 'Website cars' : target === 'vehicles' ? 'Inventory' : 'both';
+      if (!window.confirm(`Move ${label} to ${prettyTarget}? The car is copied there and marked as promoted so the importer does not re-import it.`)) return;
+    }
+    try {
+      if (DEMO) {
+        if (action === 'promote') {
+          const promoted = { ...row };
+          if (target === 'listings' || target === 'both') {
+            const existing = (rows.listings || []).find(l => String(l.stock_no) === String(row.stock_no || row.goonet_id));
+            const listing = {
+              stock_no: row.stock_no || row.goonet_id, make: row.make, model: row.model, year: row.year,
+              km: row.km, fuel: row.fuel || 'Petrol', body: row.body || 'SUV', price: row.price || '$15,000',
+              image: row.image, images: row.images, grade: row.grade || '4.0', status: 'In Stock',
+              location: row.location || 'Japan', tr: row.tr, drv: row.drv, eng: row.eng, seats: row.seats,
+              col: row.col, st: row.st, published: true, sort_order: existing ? existing.sort_order : (rows.listings || []).length + 13
+            };
+            const nextL = existing ? (rows.listings || []).map(l => l.id === existing.id ? { ...existing, ...listing } : l) : [listing, ...(rows.listings || [])];
+            demoWrite('listings', nextL);
+            setRows(v => ({ ...v, listings: nextL }));
+          }
+          if (target === 'vehicles' || target === 'both') {
+            const vehicle = { id: crypto.randomUUID(), stock_no: row.stock_no || row.goonet_id, make: row.make, model: row.model, year: row.year, price: row.price_usd || 0, vendor: 'Goo-net', cost_price: row.price_usd || 0, status: 'available', location: row.location || 'Japan', steering: row.st, colour: row.col, image: row.image, images: row.images };
+            demoWrite('vehicles', [vehicle, ...(rows.vehicles || [])]);
+            setRows(v => ({ ...v, vehicles: [vehicle, ...(v.vehicles || [])] }));
+          }
+          promoted.promoted = target === 'both' ? 'both' : target;
+          const next = (rows.goonet || []).map(x => x.id === row.id ? promoted : x);
+          demoWrite('goonet', next);
+          setRows(v => ({ ...v, goonet: next }));
+          setNotice(`Moved ${label} to ${prettyTarget} (demo)`);
+        } else if (action === 'delist') {
+          const next = (rows.goonet || []).map(x => x.id === row.id ? { ...x, available: false, delisted_at: new Date().toISOString() } : x);
+          demoWrite('goonet', next);
+          setRows(v => ({ ...v, goonet: next }));
+          setNotice(`Delisted ${label} (demo)`);
+        }
+        return;
+      }
+      const r = await call('/api/goonet-stock?action=' + action, session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id, target, available: action === 'delist' ? false : undefined }) });
+      setNotice(r.message || 'Done');
+      await loadAll();
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
+  // Trigger one importer run (admin) — same code the scheduled cron calls.
+  async function runGoonetSync() {
+    if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in demo mode.'); return; }
+    setSyncing(true);
+    try {
+      const r = await call('/api/goonet-sync', session.access_token, { method: 'POST' });
+      setNotice(`Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted` + (r.skipped?.length ? ` · skipped ${r.skipped.length}` : ''));
+      await loadAll();
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function savePhotos(entity, row, photos) {
     const updated = { ...row, images: photos, image: photos[0] || row.image || '' };
     try {
@@ -652,7 +767,7 @@ export default function CrmApp() {
   }
 
   const canDelete = (profile?.role || '') !== 'viewer';
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll' };
+  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock' };
   const current = configs[tab];
   const heading = tab === 'dashboard' ? 'Good day, ' + (profile?.full_name?.split(' ')[0] || 'Team') : (SPECIAL[tab] || current?.title || '');
   const data = rows[tab] || [];
@@ -678,6 +793,7 @@ export default function CrmApp() {
               {id === 'leads' && <em>{(rows.leads || []).filter(x => x.status === 'new').length}</em>}
               {id === 'vehicles' && <span className="crm-nav-count">{(rows.vehicles || []).length}</span>}
               {id === 'listings' && <span className="crm-nav-count">{(rows.listings || []).length}</span>}
+              {id === 'goonet' && <span className="crm-nav-count">{(rows.goonet || []).filter(x => x.available !== false).length}</span>}
             </button>
           ))}
         </nav>
@@ -763,6 +879,24 @@ export default function CrmApp() {
           ) : (
             <AccountsList customers={rows.customers || []} onOpen={setOpenCustomer} />
           )
+        ) : tab === 'sourcing' ? (
+          <SourcingView rows={rows.vehicles || []} onOpenInventory={() => setTab('vehicles')} />
+        ) : tab === 'goonet' ? (
+          <GoonetStockView
+            token={session.access_token}
+            rows={rows.goonet || []}
+            profile={profile}
+            notify={setNotice}
+            onEdit={data => setEditor({ entity: 'goonet', data })}
+            onDelete={canDelete ? row => remove('goonet', row) : null}
+            onManagePhotos={row => setPhotoTarget({ entity: 'goonet', row })}
+            onViewGallery={row => setGalleryView(row)}
+            onPromote={(row, target) => goonetAction(row, 'promote', target)}
+            onDelist={row => goonetAction(row, 'delist')}
+            onRun={runGoonetSync}
+            onRefresh={loadAll}
+            syncing={syncing}
+          />
         ) : (
           <>
             <div className="crm-page-head">
@@ -844,7 +978,9 @@ export default function CrmApp() {
           onManagePhotos={() => {
             const r = galleryView;
             setGalleryView(null);
-            setPhotoTarget({ entity: r.stock_no && (rows.vehicles || []).some(x => x.id === r.id) ? 'vehicles' : 'listings', row: r });
+            const inGoonet = (rows.goonet || []).some(x => x.id === r.id);
+            const inVehicles = (rows.vehicles || []).some(x => x.id === r.id);
+            setPhotoTarget({ entity: inGoonet ? 'goonet' : (inVehicles ? 'vehicles' : 'listings'), row: r });
           }}
         />
       )}
@@ -962,7 +1098,8 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
           [Users, 'Open leads', openLeads.length, leads.filter(x => x.status === 'new').length + ' new · ' + overdueLeads.length + ' overdue', 'trend-up'],
           [DollarSign, 'Pipeline value', fmt(pipeline), 'Across open opportunities', 'trend-gold'],
           [TrendingUp, 'Accepted quotes', fmt(won), quotes.filter(x => x.status === 'accepted').length + ' converted deals', 'trend-green'],
-          [CarFront, 'Managed stock', vehicles.length + listings.length, vehicles.length + ' internal · ' + listings.length + ' website', 'trend-blue']
+          [CarFront, 'Managed stock', vehicles.length + listings.length, vehicles.length + ' internal · ' + listings.length + ' website', 'trend-blue'],
+          [Wallet, 'Stock profit potential', fmt(vehicles.filter(vehicleCost).reduce((a, v) => a + vehicleProfit(v), 0)), vehicles.filter(vehicleCost).length + ' vehicles with cost data', 'trend-green']
         ].map(([I, l, v, s, cls]) => (
           <article key={l} className={`kpi-card ${cls}`}>
             <i><I /></i>
@@ -1414,7 +1551,11 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       <td key={k}>
                         {k === 'status' && onQuickPatch && statusOptions
                           ? statusPicker(row, row.status)
-                          : renderCell(k, row[k], fmt)}
+                          : k === 'profit'
+                            ? <em className={'crm-profit ' + profitTone(vehicleProfit(row))}>{vehicleProfit(row) > 0 ? '+' : ''}{fmt(vehicleProfit(row))}</em>
+                            : k === 'margin'
+                              ? <em className={'crm-margin ' + profitTone(vehicleMargin(row))}>{vehicleMargin(row).toFixed(1)}%</em>
+                              : renderCell(k, row[k], fmt)}
                       </td>
                     ))}
                     <td className="crm-row-actions">
@@ -1443,12 +1584,27 @@ function tableColumns(e) {
     routes: ['country', 'port', 'transit', 'freight_base', 'duty_pct', 'published'],
     articles: ['title', 'category', 'date', 'read_min', 'published'],
     customers: ['name', 'country', 'status', 'total_spend', 'vehicles_bought'],
-    vehicles: ['stock_no', 'make', 'model', 'year', 'price', 'status', 'steering'],
+    vehicles: ['stock_no', 'make', 'model', 'year', 'vendor', 'price', 'profit', 'margin', 'status', 'steering'],
     quotes: ['quote_no', 'customer_name', 'vehicle', 'amount', 'status', 'valid_until'],
     shipments: ['tracking_no', 'vehicle', 'destination', 'vessel', 'status', 'eta', 'progress'],
-    tasks: ['title', 'owner', 'priority', 'status', 'due_date']
+    tasks: ['title', 'owner', 'priority', 'status', 'due_date'],
+    goonet: ['stock_no', 'make', 'model', 'year', 'price', 'photo_count', 'quality_score', 'status', 'location', 'available']
   }[e] || [];
 }
+
+// ---- Profit math used by the inventory table and the Profit & sourcing tab.
+export function vehicleCost(v) {
+  return [v.cost_price, v.freight_cost, v.duty_cost, v.other_cost]
+    .reduce((a, x) => a + (Number(x) || 0), 0);
+}
+export function vehicleProfit(v) {
+  return (Number(v.price) || 0) - vehicleCost(v);
+}
+export function vehicleMargin(v) {
+  const price = Number(v.price) || 0;
+  return price > 0 ? (vehicleProfit(v) / price) * 100 : 0;
+}
+const profitTone = n => n > 0 ? 'crm-profit-pos' : (n < 0 ? 'crm-profit-neg' : '');
 
 function renderCell(k, v, fmt = money) {
   if (['price', 'amount', 'total_spend', 'budget'].includes(k)) {
@@ -1466,6 +1622,313 @@ function renderCell(k, v, fmt = money) {
   }
   if (k === 'progress') return <span className="table-progress"><i style={{ width: v + '%' }} /><b>{v}%</b></span>;
   return v ?? '—';
+}
+
+// ---------------------------------------------------------------------
+//  Profit & sourcing — upgraded profit system with per-vendor breakdown.
+// ---------------------------------------------------------------------
+function sourcingCsv(rows) {
+  const esc = v => {
+    if (v == null) return '';
+    if (typeof v === 'object') v = JSON.stringify(v);
+    const s = String(v);
+    return /[\",\n]/.test(s) ? '\"' + s.replaceAll('\"', '\"\"') + '\"' : s;
+  };
+  const head = ['Stock no.', 'Vehicle', 'Vendor', 'Purchase cost', 'Freight', 'Duty', 'Other costs', 'Total cost', 'Selling price', 'Profit', 'Margin %', 'Status'];
+  const body = (rows || []).map(v => {
+    const hasCost = vehicleCost(v) > 0;
+    const profit = hasCost ? vehicleProfit(v) : null;
+    const margin = hasCost ? vehicleMargin(v) : null;
+    return [
+      v.stock_no || '', `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim(), v.vendor || 'Other',
+      v.cost_price || 0, v.freight_cost || 0, v.duty_cost || 0, v.other_cost || 0,
+      hasCost ? vehicleCost(v).toFixed(2) : '', Number(v.price) || 0,
+      profit === null ? '' : profit.toFixed(2),
+      margin === null ? '' : margin.toFixed(1),
+      v.status || 'available'
+    ].map(esc).join(',');
+  });
+  const csv = [head.join(','), ...body].join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ar7-sourcing-profit-${todayKey()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function SourcingView({ rows, onOpenInventory }) {
+  const { fmt } = useCurrency();
+  const withCost = (rows || []).filter(v => vehicleCost(v) > 0);
+  const inventoryValue = rows.reduce((a, v) => a + (Number(v.price) || 0), 0);
+  const totalCost = withCost.reduce((a, v) => a + vehicleCost(v), 0);
+  const totalProfit = withCost.reduce((a, v) => a + vehicleProfit(v), 0);
+  const avgMargin = totalCost > 0 ? (totalProfit / (totalCost + totalProfit)) * 100 : 0;
+
+  const byVendor = {};
+  (rows || []).forEach(v => {
+    const key = v.vendor || 'Other';
+    (byVendor[key] = byVendor[key] || []).push(v);
+  });
+  const vendorRows = Object.entries(byVendor).map(([vendor, list]) => {
+    const priced = list.filter(x => Number(x.price) > 0);
+    const units = list.length;
+    const value = priced.reduce((a, x) => a + (Number(x.price) || 0), 0);
+    const cost = list.filter(vehicleCost).reduce((a, x) => a + vehicleCost(x), 0);
+    const profit = list.filter(vehicleCost).reduce((a, x) => a + vehicleProfit(x), 0);
+    const margin = value > 0 ? (profit / value) * 100 : 0;
+    return { vendor, units, value, cost, profit, margin };
+  }).sort((a, b) => b.profit - a.profit);
+
+  return (
+    <div className="crm-sourcing">
+      <div className="crm-page-head">
+        <div><p>Every vehicle's purchase cost, freight, duty and other costs vs. its selling price — with a per-vendor breakdown.</p></div>
+        <div className="crm-tools">
+          <button onClick={() => sourcingCsv(rows)} title="Download per-vehicle profit report as CSV">CSV <Download size={14} /></button>
+          <button onClick={onOpenInventory}>Open inventory <ChevronRight /></button>
+        </div>
+      </div>
+
+      <div className="crm-kpis">
+        {[
+          [CarFront, 'Vehicles tracked', rows.length, withCost.length + ' with full cost data', 'trend-blue'],
+          [DollarSign, 'Stock value', fmt(inventoryValue), 'Sum of selling prices', 'trend-gold'],
+          [Wallet, 'Total cost', fmt(totalCost), 'Purchase + freight + duty + other', 'trend-blue'],
+          [TrendingUp, 'Potential profit', fmt(totalProfit), fmt(avgMargin) + ' avg margin', 'trend-green']
+        ].map(([I, l, v, s, cls]) => (
+          <article key={l} className={`kpi-card ${cls}`}>
+            <i><I /></i><span>{l}</span><b>{v}</b><small>{s}</small>
+          </article>
+        ))}
+      </div>
+
+      {vendorRows.length > 0 && (
+        <section className="crm-panel crm-span">
+          <div className="crm-panel-head">
+            <div><small>SOURCING VENDORS</small><h3>Profit by sourcing channel</h3></div>
+          </div>
+          <div className="crm-table-wrap">
+            <table>
+              <thead><tr>{['Vendor', 'Units', 'Stock value', 'Total cost', 'Profit', 'Margin'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <tbody>
+                {vendorRows.map(vr => (
+                  <tr key={vr.vendor}>
+                    <td><b>{vr.vendor}</b></td>
+                    <td>{vr.units}</td>
+                    <td>{fmt(vr.value)}</td>
+                    <td>{fmt(vr.cost)}</td>
+                    <td><em className={'crm-profit ' + profitTone(vr.profit)}>{vr.profit > 0 ? '+' : ''}{fmt(vr.profit)}</em></td>
+                    <td><em className={'crm-margin ' + profitTone(vr.margin)}>{vr.margin.toFixed(1)}%</em></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <section className="crm-panel crm-span">
+        <div className="crm-panel-head">
+          <div><small>PER-VEHICLE PROFIT</small><h3>Costs, price and margin</h3></div>
+        </div>
+        <div className="crm-table-wrap">
+          <table>
+            <thead><tr>{['Stock no.', 'Vehicle', 'Vendor', 'Cost', 'Price', 'Profit', 'Margin', 'Status'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map(v => {
+                const hasCost = vehicleCost(v) > 0;
+                const profit = hasCost ? vehicleProfit(v) : null;
+                const margin = hasCost ? vehicleMargin(v) : null;
+                return (
+                  <tr key={v.id || v.stock_no}>
+                    <td>{v.stock_no || '—'}</td>
+                    <td><b>{v.year} {v.make} {v.model}</b></td>
+                    <td>{v.vendor || 'Other'}</td>
+                    <td>{hasCost ? fmt(vehicleCost(v)) : '—'}</td>
+                    <td>{fmt(v.price)}</td>
+                    <td>{profit === null ? '—' : <em className={'crm-profit ' + profitTone(profit)}>{profit > 0 ? '+' : ''}{fmt(profit)}</em>}</td>
+                    <td>{margin === null ? '—' : <em className={'crm-margin ' + profitTone(margin)}>{margin.toFixed(1)}%</em>}</td>
+                    <td><em className={'crm-status ' + statusClass(v.status || 'available')}>{pretty(v.status || 'available')}</em></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="crm-hint"><ShieldAlert size={13} /> Enter purchase cost, freight, duty and other costs in <b>Inventory</b> → Edit. Vehicles without cost data are excluded from profit totals so the books cannot be overstated.</p>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------
+//  Japan dealer stock — manage cars imported from Goo-net.
+// ---------------------------------------------------------------------
+export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete, onManagePhotos, onViewGallery, onPromote, onDelist, onRun, onRefresh, syncing }) {
+  const { fmt } = useCurrency();
+  const [chip, setChip] = useState('all');
+  const [query, setQuery] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState(null);
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const isAdmin = profile?.role === 'admin';
+
+  useEffect(() => { fetch('/api/settings').then(r => r.json()).then(setSettingsForm).catch(() => setSettingsForm({})); }, []);
+
+  const now = Date.now();
+  const weekAgo = new Date(now - 7 * 864e5).toISOString();
+  const counts = {
+    all: rows.length,
+    available: rows.filter(x => x.available !== false).length,
+    newweek: rows.filter(x => x.available !== false && String(x.imported_at || '') >= weekAgo).length,
+    delisted: rows.filter(x => x.available === false).length,
+    promoted: rows.filter(x => x.promoted && x.promoted !== 'none').length
+  };
+  const filtered = rows.filter(x => {
+    const hay = (x.make + ' ' + x.model + ' ' + (x.stock_no || '') + ' ' + x.year).toLowerCase();
+    const okChip = chip === 'all' ? true
+      : chip === 'available' ? x.available !== false
+        : chip === 'newweek' ? (x.available !== false && String(x.imported_at || '') >= weekAgo)
+          : chip === 'delisted' ? x.available === false
+            : chip === 'promoted' ? (x.promoted && x.promoted !== 'none') : true;
+    return okChip && (!query.trim() || hay.includes(query.trim().toLowerCase()));
+  });
+
+  async function saveSettings(e) {
+    e.preventDefault();
+    setSettingsBusy(true);
+    try {
+      await call('/api/settings', token, { method: 'PATCH', body: JSON.stringify(settingsForm) });
+      notify('Importer settings saved — the next scheduled run uses them.');
+    } catch (err) { notify(err.message); } finally { setSettingsBusy(false); }
+  }
+
+  const settingsFields = [
+    ['goonet_search_url', 'Goo-net search page', 'Newest-first listing to crawl, e.g. https://www.goo-net.com/usedcar/price-100-300/'],
+    ['goonet_min_photos', 'Minimum photos (quality gate)', 'Cars with fewer good photos are skipped'],
+    ['goonet_max_new_per_run', 'Max new cars per run', 'Small batches keep the site fast on free hosting'],
+    ['goonet_max_delist_per_run', 'Delist checks per run', 'How many existing cars are verified per run'],
+    ['goonet_weekly_delist_limit', 'Weekly delist limit', 'Max older cars the weekly maintenance removes'],
+    ['goonet_weekly_promote_limit', 'Weekly auto-promote limit', 'Max fresh cars promoted to the website per week'],
+    ['goonet_jpy_usd_rate', 'JPY → USD rate', 'Used for estimated US prices']
+  ];
+
+  return (
+    <div className="crm-goonet">
+      <div className="crm-page-head">
+        <div><p>Cars the Goo-net importer brought in (quality-gated photos). Delisted cars disappear from the website automatically.</p></div>
+        <div className="crm-tools">
+          <label><Search /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search dealer stock…" /></label>
+          {filtered.length > 0 && <button onClick={() => exportCsv('goonet', filtered)} title="Download these records as CSV">CSV</button>}
+          <button onClick={onRefresh} title="Refresh records"><RefreshCw /></button>
+          <button className={showSettings ? 'active' : ''} onClick={() => setShowSettings(v => !v)} title="Importer rules and limits"><Settings /> Importer rules</button>
+          {isAdmin && (
+            <button className="crm-sync" onClick={onRun} disabled={syncing} title="Run one importer cycle now — crawls the next Goo-net page, quality-gates and imports">
+              <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Running…' : 'Run import now'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showSettings && (
+        <form className="crm-settings-form crm-goonet-settings" onSubmit={saveSettings}>
+          <div className="crm-editor-fields">
+            {settingsFields.map(([k, label, hint]) => (
+              <label key={k}>
+                {label}
+                <input value={settingsForm?.[k] ?? ''} disabled={!isAdmin} onChange={e => setSettingsForm(v => ({ ...v, [k]: e.target.value }))} />
+                <small>{hint}</small>
+              </label>
+            ))}
+            <label className="crm-check-field">
+              <span>Auto-promote fresh cars to the website each week</span>
+              <input type="checkbox" checked={(settingsForm?.goonet_auto_promote ?? 'true') === 'true'} disabled={!isAdmin}
+                onChange={e => setSettingsForm(v => ({ ...v, goonet_auto_promote: e.target.checked ? 'true' : 'false' }))} />
+            </label>
+          </div>
+          <footer>
+            {isAdmin
+              ? <button className="save" disabled={settingsBusy}><Save /> {settingsBusy ? 'Saving…' : 'Save importer rules'}</button>
+              : <p className="crm-hint"><ShieldAlert size={13} /> Only administrators can change importer rules.</p>}
+          </footer>
+        </form>
+      )}
+
+      <div className="crm-chips">
+        {[['all', 'All'], ['available', 'Available'], ['newweek', 'New this week'], ['promoted', 'Promoted'], ['delisted', 'Delisted']].map(([id, label]) => (
+          <button key={id} className={'crm-chip ' + (chip === id ? 'active' : '') + (id === 'delisted' && counts.delisted > 0 ? ' alert' : '')} onClick={() => setChip(id)}>
+            {label} <em>{counts[id]}</em>
+          </button>
+        ))}
+      </div>
+
+      {!filtered.length ? (
+        <div className="crm-empty"><Search /><h3>No imported cars in this view</h3><p>{rows.length ? 'Try another filter or search.' : 'Run the importer or add a car manually with Add.'}</p></div>
+      ) : (
+        <div className="crm-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th className="th-photo">Photo</th>
+                <th>Stock no.</th><th>Vehicle</th><th>Year</th><th>Km</th><th>Price</th>
+                <th>Photos</th><th>Quality</th><th>Status</th><th>Promoted</th><th>Imported</th>
+                <th className="th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(row => {
+                const photos = extractPhotos(row);
+                const cover = photos[0] || row.image || '/assets/ar7-mark.png';
+                const importDate = row.imported_at ? new Date(row.imported_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
+                return (
+                  <tr key={row.id || row.stock_no} className={row.available === false ? 'row-muted' : ''}>
+                    <td className="td-photo">
+                      <div className="table-thumb-wrap" onClick={() => onViewGallery && onViewGallery(row)} title="Click to view photos">
+                        <img src={cover} alt="" loading="lazy" onError={imgFallback} />
+                        <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
+                      </div>
+                    </td>
+                    <td>{row.stock_no || row.goonet_id || '—'}</td>
+                    <td><b>{row.make} {row.model}</b></td>
+                    <td>{row.year || '—'}</td>
+                    <td>{row.km ? row.km + ' km' : '—'}</td>
+                    <td>{row.price || (row.price_usd ? fmt(row.price_usd) : '—')}</td>
+                    <td>{row.photo_count ?? photos.length}</td>
+                    <td><span className="crm-score" title="Quality score set by the importer"><b>{row.quality_score ?? '—'}</b><i style={{ width: Math.min(100, row.quality_score || 0) + '%' }} /></span></td>
+                    <td>
+                      {row.available === false
+                        ? <em className="crm-status dormant">Delisted</em>
+                        : <em className={'crm-status ' + statusClass(row.status || 'New Arrival')}>{row.status || 'New Arrival'}</em>}
+                    </td>
+                    <td>{row.promoted && row.promoted !== 'none' ? <em className="crm-status active">{row.promoted}</em> : <em className="crm-status">—</em>}</td>
+                    <td>{importDate}</td>
+                    <td className="crm-row-actions">
+                      <div className="goonet-actions">
+                        {row.available !== false && (
+                          <>
+                            <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')}><Globe size={13} /> Website</button>
+                            <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')}><CarFront size={13} /> Inventory</button>
+                          </>
+                        )}
+                        {row.available !== false
+                          ? <button className="crm-del" title="Delist (remove from website)" onClick={() => onDelist(row)}><Ban size={13} /> Delist</button>
+                          : <button title="Re-list on the website" onClick={() => onDelist(row)}><Check size={13} /> Re-list</button>}
+                        <button title="Manage photo gallery" onClick={() => onManagePhotos && onManagePhotos(row)}><Camera size={13} /> Photos</button>
+                        <button onClick={() => onEdit(row)}>Edit</button>
+                        {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)}><Trash2 /></button>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {!isAdmin && <p className="crm-hint"><ShieldAlert size={13} /> Moving cars to the website or inventory requires an administrator.</p>}
+    </div>
+  );
 }
 
 function ActivityView({ rows }) {

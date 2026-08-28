@@ -5,7 +5,7 @@ const entities={leads:'leads',customers:'customers',vehicles:'vehicles',quotes:'
 const allowed={
  leads:['name','email','phone','country','vehicle_interest','source','status','budget','assigned_to','next_follow_up'],
  customers:['name','email','phone','country','status','total_spend','vehicles_bought','notes'],
- vehicles:['stock_no','make','model','year','price','status','location','steering','colour','interior','image','images','gallery','notes'],
+ vehicles:['stock_no','make','model','year','price','status','location','steering','colour','interior','image','images','gallery','notes','vendor','cost_price','freight_cost','duty_cost','other_cost','sourcing_currency'],
  quotes:['quote_no','customer_name','vehicle','amount','status','valid_until','notes'],
  shipments:['tracking_no','customer_name','vehicle','origin','destination','vessel','status','eta','progress','notes'],
  tasks:['title','owner','priority','status','due_date','notes'],activities:['action','actor','entity_type','entity_id']

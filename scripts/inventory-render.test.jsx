@@ -43,7 +43,9 @@ ok(tableHtml.includes('entity-status-chips'), 'table: status chip row renders');
   ok((chips.match(/<em>/g) || []).length === 5, 'table: All + 3 status + no-photos chips carry counts');
 }
 ok(tableHtml.includes('No photos'), 'table: no-photos chip appears for empty gallery');
-ok((tableHtml.match(/class="th-sort( |")/g) || []).length === 7, 'table: all 7 columns sortable');
+ok((tableHtml.match(/class="th-sort( |")/g) || []).length === 10, 'table: all 10 columns sortable (incl. vendor, profit, margin)');
+ok(tableHtml.includes('crm-profit'), 'table: profit cell renders');
+ok(tableHtml.includes('crm-margin'), 'table: margin cell renders');
 ok(tableHtml.includes('crm-status-select'), 'table: inline status picker renders');
 ok(tableHtml.includes('thumb-count'), 'table: photo-count thumb renders');
 ok(tableHtml.includes('src="/assets/ar7-mark.png"'), 'table: photo-less vehicle falls back to brand mark');

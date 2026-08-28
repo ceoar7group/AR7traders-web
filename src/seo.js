@@ -41,6 +41,8 @@ export const PAGE_SEO = {
                 'Sign in to see your vehicle orders, payments received and remaining balance.'],
   portal:      ['Client Portal | AR7 Traders',
                 'Track bids, shipments, documents and payments in the AR7 Traders client portal.'],
+  'japan-stock': ['Japan Dealer Stock | Fresh Goo-net Imports — AR7 Traders',
+                'Hand-picked dealer stock straight from Goo-net Japan: fresh arrivals with verified photos, full specs and export pricing, updated regularly.'],
   crm:         ['AR7 Traders Staff CRM', 'Internal operations console.'],
   studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.']
 };
