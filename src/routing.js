@@ -177,6 +177,21 @@ export function canonicalHref(loc) {
   return withSearch(hrefFor(route.page, route.carId), params) + hashFor(route.page, route.carId);
 }
 
+/**
+ * Click handler for real <a href> page links. A plain left-click is handled
+ * in-app (SPA navigation); any other gesture — Ctrl/Cmd+click, Shift+click,
+ * middle-click, right-click — falls through to the browser, so "Open link in
+ * new tab / new window" works natively on every page link.
+ */
+export function linkClick(target, navigate, opts = {}) {
+  return (e) => {
+    if (e.defaultPrevented) return;
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(target, opts);
+  };
+}
+
 export function isReload() {
   try {
     const nav = performance.getEntriesByType?.('navigation')?.[0];
