@@ -558,7 +558,7 @@ function App(){
  if(page==='crm')return <CrmApp/>;
  return <div className="site">
   <div className="grain"/><header className="nav-wrap"><nav className="nav shell">
-   <a className="brand" href="/" onClick={linkClick('home',navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b></span></a>
+   <a className="brand" href="/" onClick={linkClick('home',navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b><small>TRADERS</small></span><div className="nav-orb"><div className="nav-orb-inner"><div className="nav-orb-ring"/><div className="nav-orb-dot"/></div></div></a>
    <div className={'navlinks '+(menu?'open':'')}>
     <a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory</a>
     <a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan Stock</a>
@@ -568,7 +568,6 @@ function App(){
     <div className={'nav-dropdown'+(exploreOpen?' open':'')}>
      <button className="nav-dropdown-btn" onClick={()=>setExploreOpen(!exploreOpen)}>Explore <ChevronDown/></button>
      <div className="nav-dropdown-panel">
-      <a href="/brands" onClick={linkClick('brands',navigate)}><CarFront size={14}/><span>Brands</span></a>
       <a href="/destinations" onClick={linkClick('destinations',navigate)}><Globe2 size={14}/><span>Destinations</span></a>
       <a href="/howbuy" onClick={linkClick('howbuy',navigate)}><BookOpen size={14}/><span>How to Buy</span></a>
       <a href="/tools" onClick={linkClick('tools',navigate)}><Calculator size={14}/><span>Calculators</span></a>
