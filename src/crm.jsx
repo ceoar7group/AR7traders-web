@@ -681,7 +681,12 @@ export default function CrmApp() {
     setSyncing(true);
     try {
       const r = await call('/api/goonet-sync', session.access_token, { method: 'POST' });
-      setNotice(`Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted` + (r.skipped?.length ? ` · skipped ${r.skipped.length}` : ''));
+      const skipped = r.skipped?.length ? ` · skipped ${r.skipped.length}` : '';
+      // A blocked run must not read like a clean one: the report's own note
+      // says the bookmark was held, so no pages were silently skipped.
+      setNotice(r.blocked
+        ? `Importer blocked by goo-net — page ${r.page || '?'} gave ${r.cardsSeen ?? 0} card(s), nothing imported.${skipped} ${r.note || ''}`.trim()
+        : `Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}`);
       await loadAll();
     } catch (e) {
       setNotice(e.message);

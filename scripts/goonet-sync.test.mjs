@@ -229,5 +229,50 @@ ok(res2.body?.note === 'goo-net blocked the direct request (bot protection) — 
   'report explains the bot gate');
 ok(db2.tables.japan_dealer_stock.length >= 1, 'cars are imported from the relayed page');
 
+// ---- Third run: bot gate AND the relay is down → say so, hold the bookmark --
+resetFetchState();
+
+// Shaped like the real thing: the gate still links one car, so the page parses
+// as exactly 1 card. 1 is truthy — that is what made the old bookmark rule
+// advance past a page nobody read.
+const gatedStubHtml = '<html><body>セキュリティによるアクセス制限 <ul>'
+  + '<li><h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/700100218030260418003.html">'
+  + 'ホンダ N-BOX カスタム</a></h3><span>車両本体価格 98.0万円</span></li></ul></body></html>';
+
+const db3 = memDb();
+db3.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+// One live car on the books: a run that read nothing must not touch it.
+db3.tables.japan_dealer_stock = [{
+  id: 'old-1', goonet_id: '988026062900208975002', stock_no: '988026062900208975002',
+  make: 'Nissan', model: 'Note', available: true, promoted: 'none',
+  goonet_url: 'https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975002.html',
+  last_seen_at: '2026-01-01T00:00:00Z', imported_at: '2026-01-01T00:00:00Z', quality_score: 50
+}];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  let body = '', status = 200;
+  if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
+  else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; } // relay unavailable
+  else if (u.includes('/usedcar/')) body = gatedStubHtml;                    // every page is the stub
+  else body = '<html><body>goo-net</body></html>';
+  return { ok: status < 400, status, text: async () => body };
+};
+
+const res3 = fakeRes();
+await handler(req, res3, { db: db3.db });
+
+const settings3 = Object.fromEntries(db3.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res3.statusCode === 200 && res3.body?.blocked === true, 'a blocked run answers 200 and says blocked:true');
+ok(res3.body?.cardsSeen === 1, 'the stub is counted as 1 card, not mistaken for a real listing');
+ok(Number(settings3.goonet_bookmark_page) === 1, 'the bookmark is held on the stub — never advanced past it');
+ok(res3.body?.note !== 'Nothing new this run — the importer is caught up or still quality-gating.',
+  'a blocked run is never reported as "caught up"');
+ok(res3.body?.diagnostics?.relayAttempted === true && res3.body.diagnostics.finalStub === true,
+  'blocked runs report diagnostics (relay attempted, page still a stub)');
+ok(db3.tables.japan_dealer_stock.find(r => r.id === 'old-1')?.available !== false,
+  'a blocked run does not delist live inventory');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

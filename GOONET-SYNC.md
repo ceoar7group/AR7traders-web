@@ -69,7 +69,9 @@ healthchecks.io) can call the same URL — one call per day is plenty.
 
 What a run does, in order:
 
-1. **Crawl** the next bookmarked Goo-net listing page (newest first).
+1. **Crawl** the next bookmarked Goo-net listing page (newest first). The
+   bookmark only advances when that page was actually read (2+ car cards), so
+   a blocked run re-reads the same page instead of walking past it.
 2. **Quality gate**: for each new car, fetch its detail page, count photos,
    read price/year/mileage/condition — only import cars that pass. Skipped
    cars are listed in the run report.
@@ -166,6 +168,15 @@ same URL through the free `r.jina.ai` reader relay, keeping the relayed copy
 only when it really contains more cars. When that happens the report says
 *"goo-net blocked the direct request (bot protection) — page fetched via
 relay."* Nothing to configure — no key, no account.
+
+If even the relay cannot read the page, the run reports **`blocked: true`**
+with a `diagnostics` object (direct HTTP status, bytes, car links seen, which
+gate markers matched, whether the relay was tried) and a note saying so — never
+the *"caught up"* line, which used to hide a day of skipped pages. A blocked
+run also **holds the bookmark** on that page and skips the delist and weekly
+maintenance sweeps, so it cannot advance past unread pages or churn the
+catalogue on a day it read nothing. `bookmarkAdvanced` in the report tells you
+which one happened.
 
 **Can I stop the importer?** Delete the GitHub secret or the workflow file,
 or untick "Auto-promote" and set limits to 0 in the CRM rules. The site is
