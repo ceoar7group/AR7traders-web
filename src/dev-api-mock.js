@@ -123,6 +123,20 @@ export function devApiMock() {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(STOCK));
       });
+      
+      // Mock sync endpoint — explains that the real scraper needs Supabase + Vercel
+      server.middlewares.use('/api/goonet-sync', (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          error: 'The Goo-net importer requires Supabase credentials and Vercel deployment. In development, use the CLI: SUPABASE_URL="..." SUPABASE_SERVICE_ROLE_KEY="..." node scripts/goonet-crawl.mjs --dry-run',
+          blocked: true,
+          note: 'Dev mode: no live database connected. Deploy to Vercel or run the CLI script locally.',
+          page: 0,
+          inserted: 0,
+          delisted: 0,
+          promoted: 0
+        }));
+      });
     }
   };
 }
