@@ -220,11 +220,14 @@
 .navlinks .auction-link{border-left:1px solid var(--line);padding-left:20px;color:var(--green-text)}
 .navlinks .auction-link:hover{color:var(--gold)}
 
-/* More dropdown */
-.nav-more{position:relative}
-.nav-more .more-btn{display:flex;align-items:center;gap:5px}
-.nav-more .more-chev{width:12px;transition:transform .3s}
-.nav-more:hover .more-chev{transform:rotate(180deg)}
+/* Header dropdowns */
+.nav-more,.nav-inventory{position:relative}
+.nav-more .more-btn,.nav-inventory .inventory-btn{display:flex;align-items:center;gap:5px}
+.nav-more .more-chev,.nav-inventory .inventory-chev{width:12px;transition:transform .3s}
+.nav-more:hover .more-chev,.nav-more:focus-within .more-chev,
+.nav-inventory:hover .inventory-chev,.nav-inventory:focus-within .inventory-chev{transform:rotate(180deg)}
+.inventory-panel{position:absolute;top:calc(100% + 12px);left:50%;margin-left:-105px;width:210px;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;display:grid;gap:2px;opacity:0;visibility:hidden;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
+.nav-inventory:hover .inventory-panel,.nav-inventory:focus-within .inventory-panel{opacity:1;visibility:visible;transform:perspective(800px) rotateX(0deg) translateY(0)}
 .more-panel{position:absolute;top:calc(100% + 12px);left:50%;margin-left:-140px;width:270px;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;display:grid;grid-template-columns:1fr 1fr;gap:2px;opacity:0;visibility:hidden;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
 .nav-more:hover .more-panel,.nav-more:focus-within .more-panel{opacity:1;visibility:visible;transform:perspective(800px) rotateX(0deg) translateY(0)}
 .more-panel a,.more-panel button{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;border:0;background:none;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;transition:transform .22s,background .2s,color .2s}
@@ -232,6 +235,11 @@
 .more-panel a,.more-panel button svg{width:13px;color:var(--gold)}
 .more-panel a,.more-panel button:hover{background:color-mix(in srgb,var(--green) 10%,transparent);transform:translateX(4px);color:var(--green-text)}
 .more-panel a,.more-panel button:hover svg{color:var(--green-text)}
+.inventory-panel a{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:11.5px;font-weight:700;color:var(--ink);text-align:left;transition:transform .22s,background .2s,color .2s}
+.inventory-panel a i{width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--gold) 16%,transparent);display:grid;place-items:center;flex:none}
+.inventory-panel a svg{width:13px;color:var(--gold)}
+.inventory-panel a:hover{background:color-mix(in srgb,var(--green) 10%,transparent);transform:translateX(4px);color:var(--green-text)}
+.inventory-panel a:hover svg{color:var(--green-text)}
 
 /* 3D brand + buttons */
 .brand{perspective:600px}
@@ -246,9 +254,9 @@
 
 /* mobile: dropdown becomes flat list in the overlay menu */
 @media(max-width:1000px){
- .nav-more .more-btn{display:none}
- .more-panel{position:static;width:auto;opacity:1;visibility:visible;transform:none;background:none;border:0;box-shadow:none;padding:0;display:grid;grid-template-columns:1fr 1fr;margin:0}
- .navlinks.open .more-panel{display:grid}
+ .nav-more .more-btn,.nav-inventory .inventory-btn{display:none}
+ .more-panel,.inventory-panel{position:static;width:auto;opacity:1;visibility:visible;transform:none;background:none;border:0;box-shadow:none;padding:0;display:grid;grid-template-columns:1fr 1fr;margin:0}
+ .navlinks.open .more-panel,.navlinks.open .inventory-panel{display:grid}
  .navlinks button:after{display:none}
 }
 

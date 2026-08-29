@@ -18,3 +18,9 @@ a.search-btn{text-decoration:none}
 a.gold-btn,a.outline-btn,a.primary,a.icon-btn,a.text-btn{text-decoration:none}
 .car-bottom .card-open{width:39px;height:39px;border:0;border-radius:10px;background:var(--bg);color:var(--green-text);display:grid;place-items:center;cursor:pointer;flex:none}
 a.car-card .fav{cursor:pointer}
+/* Keep vehicle pricing inside the AR7 green/gold palette. Explicit link colors
+   prevent native blue/visited-blue anchor styling from leaking into car cards. */
+a.car-card,a.car-card:visited{color:var(--ink);text-decoration:none}
+.car-card .car-bottom small,.detail-price small{color:var(--gold)}
+.car-card .car-bottom b,.detail-price b{color:var(--green-text)}
+.auction-demo section strong,.dashboard .dash-cars strong{color:var(--gold)}
