@@ -145,7 +145,9 @@ global.fetch = async (url) => {
   fetchCalls.push(u);
   let body = '';
   let status = 200;
-  if (u.includes('/usedcar/spread/goo/15/988026062900208975002')) { body = notFoundHtml; }
+  if (u === 'https://www.goo-net.com/') { body = '<html><body>goo-net</body></html>'; }
+  else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; }
+  else if (u.includes('/usedcar/spread/goo/15/988026062900208975002')) { body = notFoundHtml; }
   else if (u.includes('/usedcar/spread/goo/15/988026081900208975001')) { body = detailHtml; }
   else if (u.includes('price--100')) { body = listingHtml; }
   else if (u.includes('/usedcar/spread/goo/')) { body = detailHtml; }
@@ -185,9 +187,47 @@ ok(inserted[0]?.quality_score > 0, 'inserted car has a quality score');
 ok(delistedOld?.available === false, 'delisted car marked unavailable');
 ok(Number(settings.goonet_bookmark_page) === 2, 'bookmark advanced to page 2');
 ok(fetchCalls.length >= 3, 'fetch was called for listing + detail + delist check');
-ok(fetchCalls[0].includes('price--100'), 'first fetch was the listing page');
+ok(fetchCalls.some(u => u.includes('price--100')), 'the listing page was fetched');
+ok(fetchCalls[0] === 'https://www.goo-net.com/', 'the run warms up a cookie jar against goo-net first');
 ok(activities.length >= 1, 'activity log written');
 ok(activities.some(a => String(a.action || '').includes('Delisted')), 'delist logged');
+ok(!fetchCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net.com/usedcar/price--100/'),
+  'no relay needed when goo-net answers with a real listing page');
+ok(!fetchCalls.some(u => u.startsWith('https://r.jina.ai/') && u.includes('988026062900208975002')),
+  'delist checks never go through the relay');
+ok(res.body?.note !== 'goo-net blocked the direct request (bot protection) — page fetched via relay.',
+  'no bot-protection note on a healthy direct run');
+
+// ---- Second run: goo-net serves the bot-gate stub, relay rescues it --------
+const { resetFetchState } = await import('./goonet-core.mjs');
+resetFetchState();
+
+const stubHtml = '<html><body><a href="https://www.goo-net.com/usedcar/spread/goo/15/700100218030260418003.html">car</a>セキュリティ</body></html>';
+const relayCalls = [];
+const db2 = memDb();
+db2.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db2.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  let body = '', status = 200;
+  if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
+  else if (u.startsWith('https://r.jina.ai/')) { relayCalls.push(u); body = listingHtml; }
+  else if (u.includes('/usedcar/spread/goo/')) body = detailHtml;
+  else body = stubHtml;
+  return { ok: status < 400, status, text: async () => body };
+};
+
+const res2 = fakeRes();
+await handler(req, res2, { db: db2.db });
+
+ok(res2.statusCode === 200, 'stub run still responds 200');
+ok(relayCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net.com/usedcar/price--100/'),
+  'the stub listing page was re-fetched through the relay');
+ok(res2.body?.cardsSeen >= 2, 'relayed page yields real cards instead of the 1-card stub');
+ok(res2.body?.note === 'goo-net blocked the direct request (bot protection) — page fetched via relay.',
+  'report explains the bot gate');
+ok(db2.tables.japan_dealer_stock.length >= 1, 'cars are imported from the relayed page');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

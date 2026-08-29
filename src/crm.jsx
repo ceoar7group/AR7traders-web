@@ -1807,6 +1807,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   const settingsFields = [
     ['goonet_search_url', 'Goo-net search page', 'Newest-first listing to crawl, e.g. https://www.goo-net.com/usedcar/price-100-300/'],
     ['goonet_min_photos', 'Minimum photos (quality gate)', 'Cars with fewer good photos are skipped'],
+    ['goonet_min_year', 'Oldest model year', 'Cars older than this year are skipped'],
     ['goonet_max_new_per_run', 'Max new cars per run', 'Small batches keep the site fast on free hosting'],
     ['goonet_max_delist_per_run', 'Delist checks per run', 'How many existing cars are verified per run'],
     ['goonet_weekly_delist_limit', 'Weekly delist limit', 'Max older cars the weekly maintenance removes'],

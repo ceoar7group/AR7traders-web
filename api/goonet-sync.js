@@ -21,7 +21,7 @@ import {adminClient, send} from './_supabase.js';
 import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
-  DEFAULT_SEARCH_URL
+  DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL
 } from '../scripts/goonet-core.mjs';
 
 export const config = { maxDuration: 60 };
@@ -174,7 +174,8 @@ export default async function handler(req, res, injected) {
 
   try {
     const s = await settings(db);
-    const minPhotos = num(s.goonet_min_photos, 8);
+    const minPhotos = num(s.goonet_min_photos, 5);
+    const minYear = num(s.goonet_min_year, 2000);
     const maxNew = num(s.goonet_max_new_per_run, 6);
     const maxDelistCheck = num(s.goonet_max_delist_per_run, 5);
     const weeklyDelistLimit = num(s.goonet_weekly_delist_limit, 5);
@@ -195,7 +196,29 @@ export default async function handler(req, res, injected) {
       await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
       return send(res, 200, report);
     }
-    const page = parseListingPage(fetched.html, pageUrl);
+    let page = parseListingPage(fetched.html, pageUrl);
+    let usedFetch = fetched;
+
+    // Rescue: the bookmarked search can come back (nearly) empty — retry the
+    // same bookmark page against a wider, always-populated search.
+    if (page.cars.length < 2) {
+      const rescueUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, bookmark);
+      if (rescueUrl !== pageUrl) {
+        const rescue = await fetchPage(rescueUrl, { timeoutMs: 7000 });
+        if (rescue.ok) {
+          const rescuePage = parseListingPage(rescue.html, rescueUrl);
+          if (rescuePage.cars.length > page.cars.length) {
+            page = rescuePage;
+            usedFetch = rescue;
+          }
+        }
+      }
+    }
+
+    if (usedFetch.via === 'relay') {
+      report.note = 'goo-net blocked the direct request (bot protection) — page fetched via relay.';
+    }
+
     report.page = bookmark;
     report.cardsSeen = page.cars.length;
 
@@ -215,7 +238,7 @@ export default async function handler(req, res, injected) {
         report.skipped.push(`${card.stock_no}: detail fetch failed`);
         continue;
       }
-      const q = qualityScore(car, { minPhotos });
+      const q = qualityScore(car, { minPhotos, minYear });
       if (!q.pass) {
         report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.reasons.join(', ')})`);
         continue;
@@ -258,7 +281,7 @@ export default async function handler(req, res, injected) {
         if (overBudget()) break;
         const url = row.goonet_url || detailUrlFor(row.goonet_id);
         if (!url) continue;
-        const d = await fetchPage(url, { timeoutMs: 4000 });
+        const d = await fetchPage(url, { timeoutMs: 4000, allowRelay: false });
         if (isDelistedPage(d)) {
           await delistCar(db, row, actor);
           report.delisted++;

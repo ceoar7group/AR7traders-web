@@ -25,6 +25,15 @@ export const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 export const DEFAULT_SEARCH_URL = 'https://www.goo-net.com/usedcar/price-100-300/';
 
+// Wider, always-populated search used as a rescue when the bookmarked search
+// URL returns (almost) no cards.
+export const FALLBACK_SEARCH_URL = 'https://www.goo-net.com/usedcar/price--100/';
+
+// Free reader relay. goo-net serves datacenter IPs (Vercel, CI) a stub page
+// with no car data; the relay fetches the very same URL from a residential-ish
+// edge and hands back the real HTML.
+export const JINA_RELAY = 'https://r.jina.ai/';
+
 // goo-net writes "万円" (man yen) prices: 34.8万円 = 348,000 yen.
 export function manToYen(text) {
   const m = String(text || '').replace(/[,\s]/g, '').match(/(\d+(?:\.\d+)?)\s*万円/);
@@ -232,10 +241,54 @@ export function detailUrlFor(stock) {
 // Fetch helpers (global fetch + timeout + a browser-like UA). goo-net serves
 // different markup to bots, so a UA string matters a lot here.
 // ---------------------------------------------------------------------------
-export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = 'goo_session=active; cookie_consent=1' } = {}) {
-  const start = Date.now();
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+const GOONET_HOST = 'www.goo-net.com';
+const GOONET_HOME = 'https://www.goo-net.com/';
+const DEFAULT_COOKIE = 'goo_session=active; cookie_consent=1';
+
+// Stub markers goo-net (or its bot gate) serves instead of real search results.
+const STUB_MARKERS = ['ページが見つかりません', 'アクセスが集中', 'セキュリティ',
+  'cookie', 'Cookie', '一時的に', 'メンテナンス', 'お探しのページ',
+  'utilized', 'verify', 'reCAPTCHA', 'captcha'];
+
+// Cookie jar shared across a single run (warm-up happens at most once).
+let cookieJar = '';
+let warmedUp = false;
+
+// Test helper: forget the jar so each test starts from a clean slate.
+export function resetFetchState() {
+  cookieJar = '';
+  warmedUp = false;
+}
+
+function isGoonetUrl(url) {
+  try { return new URL(String(url)).hostname === GOONET_HOST; }
+  catch { return false; }
+}
+
+function collectCookies(res) {
+  try {
+    const raw = (res.headers && (
+      (typeof res.headers.getSetCookie === 'function' && res.headers.getSetCookie().join(', ')) ||
+      (typeof res.headers.get === 'function' && res.headers.get('set-cookie')) || ''
+    )) || '';
+    const pairs = String(raw).split(/,(?=[^;]+?=)/)
+      .map(c => c.split(';')[0].trim()).filter(Boolean);
+    if (pairs.length) {
+      const jar = new Map();
+      for (const c of (cookieJar ? cookieJar.split('; ') : [])) {
+        const i = c.indexOf('=');
+        if (i > 0) jar.set(c.slice(0, i), c.slice(i + 1));
+      }
+      for (const c of pairs) {
+        const i = c.indexOf('=');
+        if (i > 0) jar.set(c.slice(0, i), c.slice(i + 1));
+      }
+      cookieJar = [...jar.entries()].map(([k, v]) => k + '=' + v).join('; ');
+    }
+  } catch { /* header shape differs in tests — ignore */ }
+}
+
+function browserHeaders(url, cookie) {
   const headers = {
     'User-Agent': UA,
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -246,38 +299,158 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
     'Sec-Ch-Ua-Mobile': '?0',
     'Sec-Ch-Ua-Platform': '"Windows"',
-    'Cookie': cookie
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'same-origin',
+    'Upgrade-Insecure-Requests': '1'
   };
+  // Cookies and the goo-net Referer must never leak to another host.
+  if (isGoonetUrl(url)) {
+    headers['Cookie'] = cookie || DEFAULT_COOKIE;
+    headers['Referer'] = GOONET_HOME;
+  }
+  return headers;
+}
+
+// How many distinct car cards a page links to. A real listing page has many;
+// the bot-gate stub has 0 or 1.
+export function countSpreadLinks(html) {
+  const re = /https:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/([A-Za-z0-9]+)\.html/g;
+  const seen = new Set();
+  let m;
+  while ((m = re.exec(String(html || '')))) seen.add(m[1]);
+  return seen.size;
+}
+
+// True when the HTML we got back is not a real listing page.
+export function looksLikeStub(html) {
+  const s = String(html || '');
+  if (countSpreadLinks(s) < 2) return true;
+  return STUB_MARKERS.some(marker => s.includes(marker));
+}
+
+export function pageDiagnostics(html) {
+  const s = String(html || '');
+  return {
+    contentLength: s.length,
+    spreadLinks: countSpreadLinks(s),
+    markers: STUB_MARKERS.filter(marker => s.includes(marker)),
+    stub: looksLikeStub(s)
+  };
+}
+
+async function rawFetch(url, { timeoutMs, maxBytes, headers }) {
+  const start = Date.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers, signal: ctrl.signal, redirect: 'follow' });
     const text = await res.text();
-    const durationMs = Date.now() - start;
-    const diagnostics = {
-      url,
-      status: res.status,
-      ok: res.ok,
-      durationMs,
-      contentLength: text.length,
-      headersUsed: Object.keys(headers),
-      cookieSent: Boolean(cookie),
-      fallbackUsed: false
-    };
-    if (text.length > maxBytes) {
-      return { ok: res.ok, status: res.status, html: text.slice(0, maxBytes), truncated: true, diagnostics };
-    }
-    return { ok: res.ok, status: res.status, html: text, truncated: false, diagnostics };
-  } catch (e) {
-    const durationMs = Date.now() - start;
+    if (isGoonetUrl(url)) collectCookies(res);
+    const truncated = text.length > maxBytes;
     return {
-      ok: false,
-      status: 0,
-      html: '',
-      error: e.message,
-      diagnostics: { url, status: 0, ok: false, durationMs, error: e.message, fallbackUsed: true }
+      ok: res.ok,
+      status: res.status,
+      html: truncated ? text.slice(0, maxBytes) : text,
+      truncated,
+      durationMs: Date.now() - start,
+      headersUsed: Object.keys(headers)
+    };
+  } catch (e) {
+    return {
+      ok: false, status: 0, html: '', truncated: false,
+      durationMs: Date.now() - start, error: e.message,
+      headersUsed: Object.keys(headers)
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Warm up once: hit the homepage like a browser would so we pick up the
+// session cookies goo-net expects on the following search request.
+async function warmUp(timeoutMs) {
+  if (warmedUp) return;
+  warmedUp = true;
+  await rawFetch(GOONET_HOME, {
+    timeoutMs: Math.min(timeoutMs, 4000),
+    maxBytes: 400_000,
+    headers: browserHeaders(GOONET_HOME, cookieJar || DEFAULT_COOKIE)
+  });
+}
+
+export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true } = {}) {
+  if (isGoonetUrl(url)) await warmUp(timeoutMs);
+  const cookieToSend = cookie || cookieJar || DEFAULT_COOKIE;
+  const headers = browserHeaders(url, cookieToSend);
+  const direct = await rawFetch(url, { timeoutMs, maxBytes, headers });
+
+  const diagnostics = {
+    url,
+    status: direct.status,
+    ok: direct.ok,
+    durationMs: direct.durationMs,
+    contentLength: (direct.html || '').length,
+    headersUsed: direct.headersUsed,
+    cookieSent: isGoonetUrl(url),
+    warmedUp,
+    via: 'direct',
+    fallbackUsed: false,
+    ...(direct.error ? { error: direct.error } : {})
+  };
+
+  if (direct.error) {
+    return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', diagnostics: { ...diagnostics, fallbackUsed: true } };
+  }
+
+  const directPage = pageDiagnostics(direct.html);
+  const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404 && looksLikeStub(direct.html);
+
+  if (shouldRelay) {
+    const relayHeaders = {
+      'User-Agent': UA,
+      'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+      'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+      'X-Return-Format': 'html',
+      'X-No-Cache': 'true',
+      'X-With-Links-Summary': 'false'
+    };
+    const relayed = await rawFetch(JINA_RELAY + url, { timeoutMs, maxBytes, headers: relayHeaders });
+    const relayPage = pageDiagnostics(relayed.html);
+    // Only trust the relay when it genuinely saw more cars than we did.
+    if (relayed.ok && relayPage.spreadLinks > directPage.spreadLinks) {
+      return {
+        ok: true,
+        status: relayed.status,
+        html: relayed.html,
+        truncated: relayed.truncated,
+        via: 'relay',
+        directDiagnostics: directPage,
+        diagnostics: {
+          ...diagnostics,
+          via: 'relay',
+          relayUrl: JINA_RELAY + url,
+          fallbackUsed: true,
+          contentLength: (relayed.html || '').length,
+          relayDurationMs: relayed.durationMs,
+          directDiagnostics: directPage,
+          relayDiagnostics: relayPage
+        }
+      };
+    }
+    diagnostics.relayAttempted = true;
+    diagnostics.relayDiagnostics = relayPage;
+  }
+
+  return {
+    ok: direct.ok,
+    status: direct.status,
+    html: direct.html,
+    truncated: direct.truncated,
+    via: 'direct',
+    directDiagnostics: directPage,
+    diagnostics: { ...diagnostics, directDiagnostics: directPage }
+  };
 }
 
 // A delisted goo-net page is either an HTTP 404 or the live "this vehicle was
@@ -489,7 +662,7 @@ export function mergeCardAndDetail(card, detail) {
 // Quality gate — the rule the user asked for: only import cars with good
 // quality pictures (plus a real price/year/mileage so listings are complete).
 // ---------------------------------------------------------------------------
-export function qualityScore(car, { minPhotos = 8 } = {}) {
+export function qualityScore(car, { minPhotos = 5, minYear = 2000 } = {}) {
   const reasons = [];
   let score = 0;
 
@@ -506,7 +679,7 @@ export function qualityScore(car, { minPhotos = 8 } = {}) {
   if (car.price_jpy && car.price_jpy > 0) score += 10;
   else reasons.push('no price');
 
-  if (car.year && car.year >= 2005) score += 10;
+  if (car.year && car.year >= minYear) score += 10;
   else reasons.push('no/old year');
 
   if (car.km) score += 5;
