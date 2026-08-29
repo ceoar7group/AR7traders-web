@@ -16,11 +16,17 @@
 .hero-orb .iglobe,.page-orb-wrap .iglobe{pointer-events:auto}
 
 /* tighter nav to fit extra links */
+.navlinks{gap:16px}
+.navlinks button{font-size:12.5px;white-space:nowrap}
 .primary.compact{white-space:nowrap;font-size:12px;padding:0 14px}
 .nav-actions{gap:7px}
 @media(max-width:1240px){
+ .navlinks{gap:11px}
+ .navlinks button{font-size:11.5px}
 }
 @media(max-width:1120px){
+ .navlinks{gap:8px;margin:0 6px}
+ .navlinks button{font-size:11px}
 }
 
 /* ---------- INVENTORY: filter toolbar ---------- */
@@ -205,8 +211,27 @@
    ============================================================ */
 
 /* ---------- 3D nav ---------- */
+.nav{perspective:1100px;height:64px}
+.navlinks{gap:17px}
+.navlinks button{position:relative;font-size:12.5px;transform-style:preserve-3d;transition:transform .3s cubic-bezier(.2,.7,.3,1.5),color .2s;padding:6px 2px}
+.navlinks button:after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--gold),var(--green));transform:scaleX(0);transition:transform .3s;transform-origin:left}
+.navlinks button:hover{transform:translateY(-2px) rotateX(14deg) scale(1.05);color:var(--green-text)}
+.navlinks button:hover:after{transform:scaleX(1)}
+.navlinks .auction-link{border-left:1px solid var(--line);padding-left:20px;color:var(--green-text)}
+.navlinks .auction-link:hover{color:var(--gold)}
 
 /* More dropdown */
+.nav-more{position:relative}
+.nav-more .more-btn{display:flex;align-items:center;gap:5px}
+.nav-more .more-chev{width:12px;transition:transform .3s}
+.nav-more:hover .more-chev{transform:rotate(180deg)}
+.more-panel{position:absolute;top:calc(100% + 12px);left:50%;margin-left:-140px;width:270px;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;display:grid;grid-template-columns:1fr 1fr;gap:2px;opacity:0;visibility:hidden;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
+.nav-more:hover .more-panel,.nav-more:focus-within .more-panel{opacity:1;visibility:visible;transform:perspective(800px) rotateX(0deg) translateY(0)}
+.more-panel a,.more-panel button{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;border:0;background:none;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;transition:transform .22s,background .2s,color .2s}
+.more-panel a,.more-panel button i{width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--gold) 16%,transparent);display:grid;place-items:center;flex:none}
+.more-panel a,.more-panel button svg{width:13px;color:var(--gold)}
+.more-panel a,.more-panel button:hover{background:color-mix(in srgb,var(--green) 10%,transparent);transform:translateX(4px);color:var(--green-text)}
+.more-panel a,.more-panel button:hover svg{color:var(--green-text)}
 
 /* 3D brand + buttons */
 .brand{perspective:600px}
@@ -216,6 +241,7 @@
 .brand:hover span{letter-spacing:2.6px}
 .icon-btn,.menu-btn{transition:transform .28s cubic-bezier(.2,.7,.3,1.5),box-shadow .25s,border-color .2s,color .2s}
 .icon-btn:hover,.menu-btn:hover{transform:translateY(-3px) rotateX(16deg);border-color:var(--gold);box-shadow:0 12px 22px -8px #0a3a2755;color:var(--green-text)}
+.nav-orb .iglobe{transition:transform .3s}
 .nav-orb:hover .iglobe{transform:scale(1.12) rotate(6deg)}
 
 /* mobile: dropdown becomes flat list in the overlay menu */
@@ -689,6 +715,11 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
 /* ============================================================
    PERMANENT WORLD TIME RIBBON
    ============================================================ */
+.world-time-ribbon{width:min(1240px,calc(100% - 64px));height:35px;margin:7px auto 0;display:flex;align-items:center;overflow:hidden;border:1px solid color-mix(in srgb,var(--gold) 28%,var(--line));border-radius:11px;background:linear-gradient(110deg,color-mix(in srgb,var(--card) 94%,transparent),color-mix(in srgb,var(--card) 84%,var(--gold)));box-shadow:0 9px 28px rgba(3,43,27,.11);backdrop-filter:blur(18px) saturate(1.25);color:var(--ink)}
+.world-time-label{height:100%;flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:0 13px;border-right:1px solid color-mix(in srgb,var(--gold) 30%,var(--line));background:linear-gradient(135deg,var(--green),var(--deep));color:#fff;font-size:7px;font-weight:800;letter-spacing:1.6px;white-space:nowrap;position:relative;z-index:2;box-shadow:9px 0 20px rgba(2,47,29,.13)}
+.world-time-label svg{width:14px;color:var(--gold2)}
+.world-time-label>i{width:5px;height:5px;border-radius:50%;background:#62e39d;box-shadow:0 0 0 4px rgba(98,227,157,.12);animation:clockLive 2s ease-in-out infinite}
+@keyframes clockLive{50%{opacity:.45;box-shadow:0 0 0 7px rgba(98,227,157,0)}}
 .world-time-viewport{min-width:0;overflow:hidden;flex:1;height:100%;display:flex;align-items:center;mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent)}
 .world-time-track{display:flex;align-items:center;width:max-content;will-change:transform;animation:worldClockSlide 42s linear infinite}
 .world-time-ribbon:hover .world-time-track{animation-play-state:paused}
@@ -700,6 +731,21 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
 .world-time-item>strong{font:750 10px/1 Manrope;color:var(--green-text);font-variant-numeric:tabular-nums;letter-spacing:.5px}
 .world-time-item>small{font-size:6.5px;font-weight:700;letter-spacing:.6px;color:var(--muted);text-transform:uppercase}
 @keyframes worldClockSlide{to{transform:translateX(-50%)}}
+html[data-theme=dark] .world-time-ribbon{background:linear-gradient(110deg,rgba(13,33,24,.97),rgba(22,46,34,.94));border-color:#375c49;box-shadow:0 12px 32px #0006}
+html[data-theme=dark] .world-time-item>strong{color:#85e2b3}
+
+/* Account for the permanent second header row */
+@media (min-width:1367px){.hero{padding-top:160px}.page-hero.mini{padding-top:145px}}
+@media (min-width:1001px) and (max-width:1366px){.world-time-ribbon{width:min(100% - 40px,1180px)}.hero{padding-top:158px}.page-hero.mini{padding-top:145px}}
+@media (min-width:651px) and (max-width:1000px){.world-time-ribbon{width:min(100% - 36px,900px);margin-top:6px}.hero{padding-top:142px!important}.page-hero.mini{padding-top:140px}.account-form-wrap{padding-top:150px}}
+@media (max-width:650px){
+ .world-time-ribbon{width:min(100% - 24px,620px);height:31px;margin-top:5px;border-radius:9px}
+ .world-time-label{padding:0 9px}.world-time-label span{display:none}.world-time-label svg{width:15px}
+ .world-time-item{height:30px;padding:0 11px;gap:5px}.world-time-item>b{font-size:8.5px}.world-time-item>strong{font-size:9px}.world-time-item>small{display:none}
+ .world-time-track{animation-duration:34s}
+ .hero{padding-top:122px!important}.page-hero.mini{padding-top:122px!important}.account-form-wrap{padding-top:125px}
+}
+@media (max-width:420px){.world-time-ribbon{width:calc(100% - 18px)}.world-time-item{padding-inline:9px}.world-time-item>i{display:none}}
 @media (prefers-reduced-motion:reduce){.world-time-track{animation:none;transform:none}.world-time-viewport{overflow-x:auto;mask-image:none}.world-time-label>i{animation:none}}
 
 /* Crisp vector country flags in the permanent time ribbon */
@@ -1101,42 +1147,3 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
   .detail-gallery .detail-gallery-toolbar .gallery-expand{font-size:0!important;width:38px!important;padding:0!important;justify-content:center}
   .detail-gallery .detail-gallery-toolbar .gallery-arrow{width:36px!important;height:36px!important}
 }
-
-/* ============= Modern Header Mobile ============= */
-@media(max-width:1000px){
-  .nav{height:56px;border-radius:14px;padding:0 12px}
-  .brand img{width:38px;height:38px}
-  .brand small{display:none}
-  .navlinks{position:absolute;top:68px;left:8px;right:8px;background:color-mix(in srgb,var(--card) 97%,transparent);backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:14px;padding:12px;display:none;flex-direction:column;align-items:stretch;gap:4px;box-shadow:0 20px 60px #04271a22;z-index:80}
-  .navlinks.open{display:flex}
-  .navlinks a{padding:12px 14px;font-size:14px;border-radius:10px}
-  .nav-dropdown{position:static}
-  .nav-dropdown-btn{padding:12px 14px;font-size:14px;width:100%;justify-content:space-between;border-radius:10px}
-  .nav-dropdown-panel{position:static;opacity:1;visibility:visible;transform:none;box-shadow:none;border:0;padding:4px 0 4px 12px;min-width:auto;display:none}
-  .nav-dropdown.open .nav-dropdown-panel{display:block}
-  .nav-dropdown-panel a{padding:10px 14px;font-size:13px}
-  .nav-contact{display:none}
-  .nav-signin{display:none}
-  .nav-cta{display:none}
-  .menu-btn{display:grid}
-  .brand img{width:40px;height:40px}
-  .world-time-strip{display:none}
-}
-@media(min-width:1001px){
-  .nav-dropdown:hover .nav-dropdown-panel{display:block}
-  .nav-dropdown-panel{display:none}
-}
-
-/* Nav globe orb */
-.nav-orb{width:34px;height:34px;position:relative;flex-shrink:0;margin-left:2px}
-.nav-orb-inner{position:relative;width:100%;height:100%}
-.nav-orb-ring{position:absolute;inset:2px;border:1.5px solid color-mix(in srgb,var(--gold) 50%,transparent);border-radius:50%;animation:orbSpin 8s linear infinite}
-.nav-orb-ring:after{content:'';position:absolute;width:5px;height:5px;background:var(--gold);border-radius:50%;top:-2.5px;left:50%;margin-left:-2.5px;box-shadow:0 0 6px rgba(200,136,27,.5)}
-.nav-orb-dot{position:absolute;top:50%;left:50%;width:8px;height:8px;margin:-4px 0 0 -4px;background:radial-gradient(circle,var(--green-text) 40%,transparent 70%);border-radius:50%;opacity:.6}
-@keyframes orbSpin{to{transform:rotate(360deg)}}
-.nav-orb .iglobe{transition:transform .3s}
-.nav-orb:hover .iglobe{transform:scale(1.12) rotate(6deg)}
-.brand img{transition:transform .4s cubic-bezier(.2,.7,.3,1.4)}
-.brand:hover img{transform:rotateY(16deg) rotateZ(-4deg) scale(1.07)}
-.brand span{transition:letter-spacing .35s}
-.brand:hover span{letter-spacing:2.6px}

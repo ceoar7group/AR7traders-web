@@ -529,7 +529,7 @@ function App(){
  const {session:customerSession}=useCustomerSession();
  const signedIn=!!customerSession;
  const initialRoute=readRoute();
- const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [exploreOpen,setExploreOpen]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId);
+ const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
  useSeo(page, vehicleId);
@@ -550,7 +550,7 @@ function App(){
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
   writeLocation(route.page,route.carId,{replace});
-  setPage(route.page);setVehicleId(route.carId);setMenu(false);setExploreOpen(false);
+  setPage(route.page);setVehicleId(route.carId);setMenu(false);
   if(scroll) scrollTo({top:0,behavior:'smooth'});
  };
  const go=(id)=>{if(page!=='home'){navigate('home');setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'}),100)}else document.getElementById(id)?.scrollIntoView({behavior:'smooth'});setMenu(false)};
@@ -558,35 +558,24 @@ function App(){
  if(page==='crm')return <CrmApp/>;
  return <div className="site">
   <div className="grain"/><header className="nav-wrap"><nav className="nav shell">
-   <a className="brand" href="/" onClick={linkClick('home',navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b><small>TRADERS</small></span><div className="nav-orb"><div className="nav-orb-inner"><div className="nav-orb-ring"/><div className="nav-orb-dot"/></div></div></a>
+   <div className="brand-group">
+    <a className="brand" href="/" onClick={linkClick('home',navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
+    <div className="nav-orb" title="AR7 360° world network — click to explore"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div>
+   </div>
    <div className={'navlinks '+(menu?'open':'')}>
-    <a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory</a>
-    <a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan Stock</a>
-    <a href="/auction" onClick={linkClick('auction',navigate)}>Auction</a>
-    <a href="/services" onClick={linkClick('services',navigate)}>Services</a>
-    <a href="/about" onClick={linkClick('about',navigate)}>About</a>
-    <div className={'nav-dropdown'+(exploreOpen?' open':'')}>
-     <button className="nav-dropdown-btn" onClick={()=>setExploreOpen(!exploreOpen)}>Explore <ChevronDown/></button>
-     <div className="nav-dropdown-panel">
-      <a href="/destinations" onClick={linkClick('destinations',navigate)}><Globe2 size={14}/><span>Destinations</span></a>
-      <a href="/howbuy" onClick={linkClick('howbuy',navigate)}><BookOpen size={14}/><span>How to Buy</span></a>
-      <a href="/tools" onClick={linkClick('tools',navigate)}><Calculator size={14}/><span>Calculators</span></a>
-      <a href="/news" onClick={linkClick('news',navigate)}><Newspaper size={14}/><span>News & Guides</span></a>
-      <a href="/reviews" onClick={linkClick('reviews',navigate)}><MessageCircle size={14}/><span>Reviews</span></a>
-      <a href="/faq" onClick={linkClick('faq',navigate)}><ClipboardCheck size={14}/><span>Help & FAQ</span></a>
-      <a href="/world" onClick={linkClick('world',navigate)}><Layers size={14}/><span>World Network</span></a>
+    <a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory</a><a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan dealer stock</a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands</a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access</a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators</a>
+    <div className="nav-more">
+     <button className="more-btn" onMouseDown={()=>setMenu(!menu)}>More <ChevronDown className="more-chev"/></button>
+     <div className="more-panel">
+      {[
+        [Globe2,'World network','world'],[CarFront,'Inventory','inventory'],[Layers,'Japan dealer stock','japan-stock'],[Gavel,'Live auctions','auction'],[Wrench,'Services','services'],[Ship,'Shipping','shipping'],[MapPin,'Destinations','destinations'],[BookOpen,'How to buy','howbuy'],[Newspaper,'News & guides','news'],[MessageCircle,'Reviews','reviews'],[ClipboardCheck,'Help & FAQ','faq'],[BadgeCheck,'About AR7','about'],[Landmark,'Staff CRM','crm'],[Mail,'Contact us','contact']
+      ].map(x=>{const I=x[0];return <a key={x[2]} href={hrefFor(x[2])} onClick={linkClick(x[2],navigate)}><i><I/></i><span>{x[1]}</span></a>})}
      </div>
     </div>
+    <a className="auction-link" href="/contact" onClick={linkClick('contact',navigate)}><MessageCircle size={15}/> Contact</a>
    </div>
-   <div className="nav-actions">
-    <CurrencyDropdown/>
-    <button className="icon-btn nav-theme" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button>
-    <a className="nav-signin" href="/account" onClick={linkClick('account',navigate)}>{signedIn?<><UserCog size={14}/> Account</>:<><LogIn size={14}/> Sign In</>}</a>
-    <a className="nav-cta" href="/contact" onClick={linkClick('contact',navigate)}>Get Quote <ArrowRight size={14}/></a>
-    <button className="menu-btn" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button>
-   </div>
-  </nav>
-  <div className="world-time-strip"><div className="world-time-strip-inner"><span className="wt-label"><Globe2 size={11}/> WORLD TIME</span>{WORLD_CLOCKS.map(c=>{const parts=c.formatter.formatToParts(new Date()),time=parts.filter(p=>['hour','minute','second'].includes(p.type)).map(p=>p.value).join('');return <span className="wt-city" key={c.city}><i>{c.code}</i><b>{c.city}</b><em>{time}</em></span>})}</div></div></header>
+   <div className="nav-actions"><CurrencyDropdown/><a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio',navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a><button className="icon-btn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button><a className="icon-btn portal-btn" href="/account" onClick={linkClick('account',navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a><a className="primary compact" href="/account" onClick={linkClick('account',navigate)}>{signedIn?<>My account <UserCog/></>:<>Sign up <UserPlus/></>}</a><button className="menu-btn" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button></div>
+  </nav><WorldTimeRibbon/></header>
 
   <main>
    {page==='home'?<>
