@@ -1,0 +1,28 @@
+name: Goo-net importer
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Goo-net sync on Vercel
+        env:
+          SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
+          SYNC_KEY: ${{ secrets.GOONET_SYNC_KEY }}
+        run: |
+          if [ -z "$SYNC_KEY" ]; then
+            echo "::error::GOONET_SYNC_KEY secret is not set. Add it in GitHub → Settings → Secrets, matching the GOONET_SYNC_KEY env var in Vercel."
+            exit 1
+          fi
+          URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}"
+          curl -fsS -m 60 -o /tmp/goonet-sync.json "$URL" \
+            && cat /tmp/goonet-sync.json \
+            || echo "::warning::Importer call failed (the site may be asleep — Vercel wakes it on the next run)"
