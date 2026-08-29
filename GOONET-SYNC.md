@@ -70,8 +70,9 @@ healthchecks.io) can call the same URL — one call per day is plenty.
 What a run does, in order:
 
 1. **Crawl** the next bookmarked Goo-net listing page (newest first). The
-   bookmark only advances when that page was actually read (2+ car cards), so
-   a blocked run re-reads the same page instead of walking past it.
+   bookmark only advances when that page was actually read (2+ parsed car cards).
+   A blocked run, or a real page whose card markup the parser no longer
+   understands, re-reads the same page instead of walking past it.
 2. **Quality gate**: for each new car, fetch its detail page, count photos,
    read price/year/mileage/condition — only import cars that pass. Skipped
    cars are listed in the run report.
@@ -82,7 +83,9 @@ What a run does, in order:
 4. **Weekly maintenance** (once per 7 days): delists a *few* older/lower-quality
    cars, and auto-promotes a *few* fresh high-quality cars to the website so
    stock keeps growing without ever flooding the site.
-5. Advances the page bookmark and writes an Activity-log line.
+5. Writes the run timestamps/settings. The page bookmark has already advanced
+   only if step 1 yielded a readable listing; otherwise it stays held for the
+   next run.
 
 Everything is idempotent — running it twice changes nothing the second time.
 
@@ -160,23 +163,27 @@ marks it `available=false` (hidden from the site) and unpublishes the matching
 server: GitHub Actions (free) wakes the function once a day for a few
 seconds. If the site is sleeping, the first request just wakes it.
 
-**The run reports `cardsSeen: 1` and imports nothing — what is that?**
-Goo-net serves datacenter IPs (Vercel, CI) a stub page: one card link and no
-car fields. The importer now detects that stub (too few car links, or bot-gate
-markers such as アクセスが集中 / captcha / verify) and automatically re-fetches the
-same URL through the free `r.jina.ai` reader relay, keeping the relayed copy
-only when it really contains more cars. When that happens the report says
-*"goo-net blocked the direct request (bot protection) — page fetched via
-relay."* Nothing to configure — no key, no account.
+**The run reports `cardsSeen: 1` or `cardsSeen: 0` and imports nothing — what is that?**
+There are two different failures that can look similar at first glance:
 
-If even the relay cannot read the page, the run reports **`blocked: true`**
-with a `diagnostics` object (direct HTTP status, bytes, car links seen, which
-gate markers matched, whether the relay was tried) and a note saying so — never
-the *"caught up"* line, which used to hide a day of skipped pages. A blocked
-run also **holds the bookmark** on that page and skips the delist and weekly
-maintenance sweeps, so it cannot advance past unread pages or churn the
-catalogue on a day it read nothing. `bookmarkAdvanced` in the report tells you
-which one happened.
+- **`blocked: true`** means Goo-net served a bot-gate/interstitial page: fewer
+  than 2 car links, plus the gate's own wording (for example `アクセスが集中`,
+  `セキュリティ`, `reCAPTCHA` / `captcha`) or an interstitial-sized body. Generic
+  page boilerplate such as `cookie`, `Cookie`, `utilized`, or `verify` is
+  diagnostic only — it never overrules real car links. The importer may retry
+  through the free `r.jina.ai` reader relay, and keeps the relayed copy only
+  when it really contains more cars. If the relay cannot read more either, the
+  report holds the bookmark and skips delist/weekly sweeps so a day that read
+  nothing cannot churn the catalogue.
+
+- **`parseMiss: true`** means Goo-net returned a real listing page (many raw
+  car links and usually a large body), but the importer parsed fewer than 2
+  cards. That is a parser/markup-change bug, not a blockade. The report includes
+  `diagnostics.rawCarLinks` and `diagnostics.directBytes`, keeps the bookmark
+  held to avoid blind crawling, and still runs delist/weekly maintenance because
+  those steps do not depend on the listing-card parser.
+
+`bookmarkAdvanced` in the JSON tells you whether the page bookmark moved.
 
 **Can I stop the importer?** Delete the GitHub secret or the workflow file,
 or untick "Auto-promote" and set limits to 0 in the CRM rules. The site is

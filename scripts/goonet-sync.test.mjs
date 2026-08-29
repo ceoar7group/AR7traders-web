@@ -274,5 +274,48 @@ ok(res3.body?.diagnostics?.relayAttempted === true && res3.body.diagnostics.fina
 ok(db3.tables.japan_dealer_stock.find(r => r.id === 'old-1')?.available !== false,
   'a blocked run does not delist live inventory');
 
+
+// ---- Fourth run: a REAL listing page our parser cannot read ----------------
+// The live incident: 50 car links in 1.1 MB of HTML that also mentions cookies.
+// Must be reported as a parse miss — not as goo-net blocking us — must not burn
+// the 8s budget on a relay round-trip, and must still finish the run's work.
+resetFetchState();
+
+const carLink = i => `<a href="https://www.goo-net.com/usedcar/spread/goo/15/LIVE${i}.html">car</a>`;
+const realButUnparsable = '<html><body><a href="/policy/cookie">Cookie</a> Cookie conditions '
+  + Array.from({ length: 50 }, (_, i) => carLink(i)).join('') + '</body></html>';
+
+const db4 = memDb();
+db4.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db4.tables.japan_dealer_stock = [{
+  id: 'old-1', goonet_id: '988026062900208975002', stock_no: '988026062900208975002',
+  make: 'Nissan', model: 'Note', available: true, promoted: 'none',
+  goonet_url: 'https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975002.html',
+  last_seen_at: '2026-01-01T00:00:00Z', imported_at: '2026-01-01T00:00:00Z', quality_score: 50
+}];
+
+const relayCalls4 = [];
+global.fetch = async (url) => {
+  const u = String(url);
+  let body = '', status = 200;
+  if (u.startsWith('https://r.jina.ai/')) { relayCalls4.push(u); body = ''; status = 500; }
+  else if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
+  else if (u.includes('988026062900208975002')) body = notFoundHtml;  // that car really is gone
+  else body = realButUnparsable;
+  return { ok: status < 400, status, text: async () => body };
+};
+
+const res4 = fakeRes();
+await handler(req, res4, { db: db4.db });
+const settings4 = Object.fromEntries(db4.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res4.body?.blocked === false, 'a page we failed to parse is not blamed on the bot gate');
+ok(relayCalls4.length === 0, 'no relay round-trip is burned on a page full of car links');
+ok(res4.body?.parseMiss === true && res4.body?.diagnostics?.rawCarLinks === 50,
+  'the report names the parse miss and how many links it saw');
+ok(Number(settings4.goonet_bookmark_page) === 1, 'a parse miss still holds the bookmark — no blind crawling');
+ok(db4.tables.japan_dealer_stock.find(r => r.id === 'old-1')?.available === false,
+  'a parse-miss run still does its delist work');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
