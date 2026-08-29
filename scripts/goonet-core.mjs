@@ -232,23 +232,49 @@ export function detailUrlFor(stock) {
 // Fetch helpers (global fetch + timeout + a browser-like UA). goo-net serves
 // different markup to bots, so a UA string matters a lot here.
 // ---------------------------------------------------------------------------
-export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000 } = {}) {
+export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = 'goo_session=active; cookie_consent=1' } = {}) {
+  const start = Date.now();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const headers = {
+    'User-Agent': UA,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Cookie': cookie
+  };
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': UA, 'Accept-Language': 'ja,en;q=0.8' },
-      signal: ctrl.signal,
-      redirect: 'follow'
-    });
+    const res = await fetch(url, { headers, signal: ctrl.signal, redirect: 'follow' });
     const text = await res.text();
+    const durationMs = Date.now() - start;
+    const diagnostics = {
+      url,
+      status: res.status,
+      ok: res.ok,
+      durationMs,
+      contentLength: text.length,
+      headersUsed: Object.keys(headers),
+      cookieSent: Boolean(cookie),
+      fallbackUsed: false
+    };
     if (text.length > maxBytes) {
-      // Keep the head: card data sits at the top of the document.
-      return { ok: res.ok, status: res.status, html: text.slice(0, maxBytes), truncated: true };
+      return { ok: res.ok, status: res.status, html: text.slice(0, maxBytes), truncated: true, diagnostics };
     }
-    return { ok: res.ok, status: res.status, html: text, truncated: false };
+    return { ok: res.ok, status: res.status, html: text, truncated: false, diagnostics };
   } catch (e) {
-    return { ok: false, status: 0, html: '', error: e.message };
+    const durationMs = Date.now() - start;
+    return {
+      ok: false,
+      status: 0,
+      html: '',
+      error: e.message,
+      diagnostics: { url, status: 0, ok: false, durationMs, error: e.message, fallbackUsed: true }
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -287,6 +313,14 @@ export function extractCarImages(html) {
 const PIC_RE = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
 
 export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
+  const s = String(html || '');
+  if (!s.trim()) {
+    return {
+      cars: [],
+      pagination: { total: 1 },
+      diagnostics: { parseStatus: 'empty_html', fallbackTemplate: true }
+    };
+  }
   const cars = [];
   // Each car card is anchored by its spread link. Split on those links so
   // fields never bleed between neighbouring cards: card i owns the HTML
@@ -294,7 +328,7 @@ export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
   const linkRe = /https:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/([A-Za-z0-9]+)\.html/g;
   const seen = new Map(); // stock → first link position (thumbnail anchors repeat the card link)
   let m;
-  while ((m = linkRe.exec(html))) {
+  while ((m = linkRe.exec(s))) {
     if (!seen.has(m[1])) seen.set(m[1], m.index);
   }
   const segments = [...seen.entries()].map(([stock, start]) => ({ stock, start }))
@@ -302,12 +336,16 @@ export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
-    const end = i + 1 < segments.length ? segments[i + 1].start : html.length;
-    const cardHtml = html.slice(seg.start, end);
+    const end = i + 1 < segments.length ? segments[i + 1].start : s.length;
+    const cardHtml = s.slice(seg.start, end);
     const card = parseCard(cardHtml, seg.stock, baseUrl);
     if (card) cars.push(card);
   }
-  return { cars, pagination: parsePagination(html) };
+  return {
+    cars,
+    pagination: parsePagination(s),
+    diagnostics: { parseStatus: cars.length ? 'success' : 'no_cards_matched', cardCount: cars.length, fallbackTemplate: cars.length === 0 }
+  };
 }
 
 export function parsePagination(html) {
