@@ -59,7 +59,8 @@ healthchecks.io) can call the same URL — one call per day is plenty.
 | Setting | Default | Meaning |
 |---|---|---|
 | Goo-net search page | `price-100-300` listing | Which newest-first listing to crawl |
-| Minimum photos | 8 | The quality gate — fewer good photos = skipped |
+| Minimum photos | 5 | The quality gate — fewer good photos = skipped |
+| Oldest model year | 2000 | Cars older than this year are skipped |
 | Max new cars per run | 6 | Batch size per run (keeps the site fast) |
 | Delist checks per run | 5 | How many existing cars are verified per run |
 | Weekly delist limit | 5 | Maintenance removes at most this many older cars/week |
@@ -156,6 +157,15 @@ marks it `available=false` (hidden from the site) and unpublishes the matching
 **Will my free Vercel keep running?** Yes. No cron add-on, no always-on
 server: GitHub Actions (free) wakes the function once a day for a few
 seconds. If the site is sleeping, the first request just wakes it.
+
+**The run reports `cardsSeen: 1` and imports nothing — what is that?**
+Goo-net serves datacenter IPs (Vercel, CI) a stub page: one card link and no
+car fields. The importer now detects that stub (too few car links, or bot-gate
+markers such as アクセスが集中 / captcha / verify) and automatically re-fetches the
+same URL through the free `r.jina.ai` reader relay, keeping the relayed copy
+only when it really contains more cars. When that happens the report says
+*"goo-net blocked the direct request (bot protection) — page fetched via
+relay."* Nothing to configure — no key, no account.
 
 **Can I stop the importer?** Delete the GitHub secret or the workflow file,
 or untick "Auto-promote" and set limits to 0 in the CRM rules. The site is

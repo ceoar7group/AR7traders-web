@@ -742,7 +742,8 @@ alter table public.vehicles add column if not exists sourcing_currency text defa
 -- ---- Importer settings (editable from CRM → Japan dealer stock) ------
 insert into public.site_settings (key,value,label) values
   ('goonet_search_url','https://www.goo-net.com/usedcar/price-100-300/','Goo-net search page to import from (newest first)'),
-  ('goonet_min_photos','8','Minimum photos a car must have to be imported (quality gate)'),
+  ('goonet_min_photos','5','Minimum photos a car must have to be imported (quality gate)'),
+  ('goonet_min_year','2000','Oldest model year a car may be to be imported'),
   ('goonet_max_new_per_run','6','Max new cars imported per sync run (keeps the site fast)'),
   ('goonet_max_delist_per_run','5','Max cars checked for delisting per run'),
   ('goonet_weekly_delist_limit','5','How many older cars the weekly maintenance delists at most'),

@@ -7,7 +7,9 @@ import {
   extractStockFromUrl, extractCarImages, extendGallery,
   parseListingPage, parseDetailPage, mergeCardAndDetail, qualityScore,
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
-  BRAND_MAP, MODEL_MAP
+  BRAND_MAP, MODEL_MAP,
+  countSpreadLinks, looksLikeStub, pageDiagnostics, fetchPage, resetFetchState,
+  FALLBACK_SEARCH_URL, JINA_RELAY, UA
 } from './goonet-core.mjs';
 
 let pass = 0, fail = 0;
@@ -162,6 +164,134 @@ eq(ratingAfter('外装 4 内装 4', '外装'), 4, 'ratingAfter() exterior');
 eq(ratingAfter('外装 **4**内装 **4**', '内装'), 4, 'ratingAfter() interior in bold-markdown text');
 ok(Object.keys(BRAND_MAP).length > 30, 'brand map is populated');
 ok(Object.keys(MODEL_MAP).length > 40, 'model map is populated');
+
+// ---- Bot gate: stub detection ----------------------------------------------
+const spread = n => `<a href="https://www.goo-net.com/usedcar/spread/goo/15/70010021803026041800${n}.html">car</a>`;
+const stubHtml = `<html><body>${spread(1)}</body></html>`;
+const realHtml = `<html><body>${spread(1)}${spread(2)}${spread(3)}<p>年式2018年</p></body></html>`;
+
+eq(countSpreadLinks(stubHtml), 1, 'countSpreadLinks counts the single stub link');
+eq(countSpreadLinks(realHtml), 3, 'countSpreadLinks counts unique cards');
+eq(countSpreadLinks(`${spread(1)}${spread(1)}`), 1, 'countSpreadLinks de-duplicates repeated links');
+eq(countSpreadLinks(''), 0, 'countSpreadLinks on empty html');
+ok(looksLikeStub(stubHtml), 'looksLikeStub: 1 card link is a stub');
+ok(looksLikeStub(''), 'looksLikeStub: empty page is a stub');
+ok(!looksLikeStub(realHtml), 'looksLikeStub: real listing page is not a stub');
+ok(looksLikeStub(realHtml + 'アクセスが集中しています'), 'looksLikeStub: アクセスが集中 marker');
+ok(looksLikeStub(realHtml + 'セキュリティ確認'), 'looksLikeStub: セキュリティ marker');
+ok(looksLikeStub(realHtml + 'ページが見つかりません'), 'looksLikeStub: ページが見つかりません marker');
+ok(looksLikeStub(realHtml + '一時的に'), 'looksLikeStub: 一時的に marker');
+ok(looksLikeStub(realHtml + 'メンテナンス'), 'looksLikeStub: メンテナンス marker');
+ok(looksLikeStub(realHtml + 'お探しのページ'), 'looksLikeStub: お探しのページ marker');
+ok(looksLikeStub(realHtml + 'Please enable cookie support'), 'looksLikeStub: cookie marker');
+ok(looksLikeStub(realHtml + 'utilized'), 'looksLikeStub: utilized marker');
+ok(looksLikeStub(realHtml + 'please verify you are human'), 'looksLikeStub: verify marker');
+ok(looksLikeStub(realHtml + 'reCAPTCHA'), 'looksLikeStub: reCAPTCHA marker');
+ok(looksLikeStub(realHtml + 'captcha'), 'looksLikeStub: captcha marker');
+
+const diag = pageDiagnostics(stubHtml);
+eq(diag.spreadLinks, 1, 'pageDiagnostics reports spread link count');
+ok(diag.stub === true, 'pageDiagnostics flags a stub');
+ok(diag.contentLength > 0, 'pageDiagnostics reports content length');
+eq(pageDiagnostics(realHtml).markers, [], 'pageDiagnostics: no markers on a clean page');
+
+eq(FALLBACK_SEARCH_URL, 'https://www.goo-net.com/usedcar/price--100/', 'fallback search url');
+eq(JINA_RELAY, 'https://r.jina.ai/', 'jina relay base');
+
+// ---- fetchPage: cookies, headers, relay fallback ---------------------------
+const realFetch = global.fetch;
+function mockFetch(handler) {
+  const calls = [];
+  global.fetch = async (url, opts = {}) => {
+    calls.push({ url: String(url), headers: opts.headers || {} });
+    const r = handler(String(url), opts) || {};
+    return {
+      ok: (r.status || 200) < 400,
+      status: r.status || 200,
+      headers: { get: k => (k.toLowerCase() === 'set-cookie' ? (r.setCookie || null) : null) },
+      text: async () => r.body || ''
+    };
+  };
+  return calls;
+}
+
+const listUrl = 'https://www.goo-net.com/usedcar/price--100/';
+
+// 1) direct fetch already good → no relay
+resetFetchState();
+let calls = mockFetch(u => (u === 'https://www.goo-net.com/' ? { body: 'home', setCookie: 'sid=abc; Path=/' } : { body: realHtml }));
+let r = await fetchPage(listUrl, { timeoutMs: 2000 });
+ok(r.ok && r.via === 'direct', 'fetchPage keeps the direct response when it is real');
+ok(calls[0].url === 'https://www.goo-net.com/', 'fetchPage warms up against the goo-net homepage first');
+ok(calls[1].headers['User-Agent'] === UA, 'fetchPage sends a browser User-Agent');
+ok(calls[1].headers['Referer'] === 'https://www.goo-net.com/', 'fetchPage sends the goo-net Referer');
+ok(String(calls[1].headers['Cookie']).includes('sid=abc'), 'fetchPage replays cookies captured at warm-up');
+ok(Boolean(calls[1].headers['Accept-Language']), 'fetchPage sends Accept-Language');
+ok(!calls.some(c => c.url.startsWith(JINA_RELAY)), 'no relay call when the direct page is fine');
+
+// warm-up happens once per run
+const before = calls.length;
+await fetchPage(listUrl, { timeoutMs: 2000 });
+ok(calls.filter(c => c.url === 'https://www.goo-net.com/').length === 1, 'warm-up runs only once per process');
+ok(calls.length > before, 'second fetchPage still fetched the page');
+
+// 2) stub → relay with more cards wins
+resetFetchState();
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return { body: realHtml };
+  return { body: stubHtml };
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+eq(r.via, 'relay', 'stub response is retried through the relay');
+ok(r.html.includes('年式'), 'relayed html replaces the stub');
+ok(r.directDiagnostics.stub === true, 'relay result reports the direct diagnostics');
+const relayCall = calls.find(c => c.url.startsWith(JINA_RELAY));
+eq(relayCall.url, JINA_RELAY + listUrl, 'relay fetches the same url');
+eq(relayCall.headers['X-Return-Format'], 'html', 'relay asks for html');
+eq(relayCall.headers['X-No-Cache'], 'true', 'relay bypasses cache');
+eq(relayCall.headers['X-With-Links-Summary'], 'false', 'relay skips the links summary');
+ok(!relayCall.headers['Cookie'], 'goo-net cookies are not leaked to the relay host');
+
+// 3) relay no better → keep the direct response
+resetFetchState();
+calls = mockFetch(u => (u === 'https://www.goo-net.com/' ? { body: 'home' } : { body: stubHtml }));
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+eq(r.via, 'direct', 'relay result is ignored when it has no more cars');
+ok(calls.some(c => c.url.startsWith(JINA_RELAY)), 'relay was still attempted');
+
+// 4) 404 pages are never relayed (delist detection must stay honest)
+resetFetchState();
+calls = mockFetch(u => (u === 'https://www.goo-net.com/' ? { body: 'home' } : { status: 404, body: 'ページが見つかりません' }));
+r = await fetchPage('https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975002.html', { timeoutMs: 2000 });
+eq(r.status, 404, 'fetchPage reports 404');
+ok(!calls.some(c => c.url.startsWith(JINA_RELAY)), '404 is not sent to the relay');
+ok(isDelistedPage(r), '404 result still detected as delisted');
+
+// 5) non-goo-net hosts get no cookies / referer
+resetFetchState();
+calls = mockFetch(() => ({ body: 'ok' }));
+await fetchPage('https://example.com/page', { timeoutMs: 2000 });
+ok(calls.length === 1 && calls[0].url === 'https://example.com/page', 'no warm-up for other hosts');
+ok(!calls[0].headers['Cookie'] && !calls[0].headers['Referer'], 'cookies/referer scoped to goo-net only');
+
+global.fetch = realFetch;
+resetFetchState();
+
+// ---- Relaxed quality gate --------------------------------------------------
+const okCar = {
+  images: Array.from({ length: 5 }, (_, i) => `https://picture1.goo-net.com/a/Q/p0${i}.jpg`),
+  image: 'https://picture1.goo-net.com/a/Q/p00.jpg',
+  price_jpy: 500000, year: 2003, km: '90000', make: 'Toyota', model: 'Corolla',
+  ext_rating: 4, int_rating: 4, repair_history: 'No'
+};
+ok(qualityScore(okCar).pass, 'default gate passes a normal 5-photo car');
+eq(qualityScore(okCar).photo_count, 5, 'default gate counts 5 photos');
+ok(!qualityScore({ ...okCar, images: okCar.images.slice(0, 4) }).pass, 'fewer than 5 photos still fails');
+ok(qualityScore({ ...okCar, year: 2000 }).pass, 'model year 2000 is allowed by default');
+ok(qualityScore({ ...okCar, year: 1999 }).reasons.includes('no/old year'), 'pre-2000 year is flagged');
+ok(qualityScore({ ...okCar, year: 1999 }, { minYear: 1990 }).pass, 'minYear is configurable');
+ok(!qualityScore(okCar, { minPhotos: 8 }).pass, 'minPhotos is still configurable upwards');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
