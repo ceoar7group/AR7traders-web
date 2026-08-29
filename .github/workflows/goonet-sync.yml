@@ -23,7 +23,8 @@ jobs:
             exit 1
           fi
           URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}"
-          CODE=$(curl -sS -m 60 -o /tmp/goonet-sync.json -w "%{http_code}" "$URL")
+          # -L follows the site's canonical-domain redirect (ar7traders.com → www.ar7traders.com)
+          CODE=$(curl -sSL -m 60 -o /tmp/goonet-sync.json -w "%{http_code}" "$URL")
           echo "HTTP status: $CODE"
           echo "Response:"
           cat /tmp/goonet-sync.json
