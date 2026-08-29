@@ -29,6 +29,9 @@ export const config = { maxDuration: 60 };
 
 const TIME_BUDGET_MS = 8000;      // stay well inside Vercel Hobby's 10s cap
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// A bot-gate interstitial is a few KB; a real goo-net listing page is ~1 MB.
+// Used only to name the cause when a page has no car links to read.
+const GATE_PAGE_BYTES = 64_000;
 
 async function settings(db) {
   const { data } = await db.from('site_settings').select('key,value');
@@ -172,7 +175,7 @@ export default async function handler(req, res, injected) {
     delisted: 0, delistedWeekly: 0, promoted: 0,
     // blocked: goo-net answered with its bot-gate stub, so this run read
     // nothing. It must never be dressed up as "caught up".
-    blocked: false, bookmarkAdvanced: false, diagnostics: null,
+    blocked: false, bookmarkAdvanced: false, parseMiss: false, diagnostics: null,
     skipped: [], note: null
   };
 
@@ -226,23 +229,35 @@ export default async function handler(req, res, injected) {
     report.page = bookmark;
     report.cardsSeen = page.cars.length;
 
-    // ---- Was the page actually readable? ----------------------------------
-    // The bot-gate stub parses as exactly ONE card (it links a single car id
-    // and carries no car fields), so "1 card" means "we were blocked" far more
-    // often than "this search has one car left". The gate's own wording is the
-    // tell — a genuinely finished search carries no marker text at all. Only
-    // worth re-scanning the HTML when a page looks thin (healthy runs skip it).
+    // ---- Why did we see (almost) no cards? --------------------------------
+    // Two unrelated failures look identical in the counts, and telling them
+    // apart is the whole point of the report:
+    //   • blocked   — goo-net handed back a gate interstitial: no car links to
+    //                 read, plus its own wording or a suspiciously small body.
+    //   • parseMiss — goo-net handed back a REAL listing page (many car links,
+    //                 ~1 MB) but the parser understood almost none of it, i.e.
+    //                 the card markup changed. That is our bug, not a blockade.
     let blocked = false;
-    let directDiag = null;
-    let finalDiag = null;
+    let parseMiss = false;
+    let thinRunDiag = null;
     if (page.cars.length < 2) {
-      directDiag = fetched.directDiagnostics || pageDiagnostics(fetched.html || '');
-      // Diagnostics for the HTML we actually parsed (via relay or rescue search),
-      // which is not necessarily what the direct request handed back.
-      finalDiag = pageDiagnostics(usedFetch.html || '');
-      blocked = (directDiag.markers || []).length > 0
-        || (finalDiag.markers || []).length > 0
-        || usedFetch.via === 'relay';
+      const directDiag = fetched.directDiagnostics || pageDiagnostics(fetched.html || '');
+      // Diagnostics for the HTML we actually parsed (via relay or rescue
+      // search), which is not necessarily what the direct request handed back.
+      const finalDiag = pageDiagnostics(usedFetch.html || '');
+      const rawLinks = Math.max(directDiag.spreadLinks || 0, finalDiag.spreadLinks || 0);
+      const gateWords = [...new Set([...(directDiag.gateMarkers || []), ...(finalDiag.gateMarkers || [])])];
+      const thin = (directDiag.contentLength || 0) < GATE_PAGE_BYTES;
+      const relayTried = (fetched.diagnostics && fetched.diagnostics.relayAttempted) === true;
+      blocked = rawLinks < 2 && (gateWords.length > 0 || thin || usedFetch.via === 'relay');
+      parseMiss = !blocked;
+      thinRunDiag = {
+        pageUrl, bookmarkHeldOn: bookmark, parsedCards: page.cars.length,
+        rawCarLinks: rawLinks, directStatus: fetched.status ?? 0,
+        directBytes: directDiag.contentLength ?? 0, directMarkers: directDiag.markers || [],
+        gateMarkers: gateWords, relayAttempted: relayTried, relayUsed: usedFetch.via === 'relay',
+        rescueUsed: usedFetch !== fetched, finalStub: finalDiag.stub === true
+      };
     }
 
     // ---- 2. Import new cars that pass the quality gate --------------------
@@ -305,29 +320,34 @@ export default async function handler(req, res, injected) {
     if (blocked) {
       // Be honest: this run read nothing. Do not call it "caught up".
       report.blocked = true;
-      const relayTried = (fetched.diagnostics && fetched.diagnostics.relayAttempted) === true;
+      const relayTried = thinRunDiag.relayAttempted;
       report.note = 'goo-net is bot-gating this host: the listing page came back as a stub ('
-        + page.cars.length + ' card' + (page.cars.length === 1 ? '' : 's') + ', no car fields)'
+        + page.cars.length + ' card' + (page.cars.length === 1 ? '' : 's') + ', no car links to read)'
         + (relayTried ? ', and the relay could not read more of it either' : '')
         + '. The bookmark was held on page ' + bookmark + ' so no pages were skipped — '
         + 'retry later, or point goonet_search_url at a search this host can read.';
-      report.diagnostics = {
-        pageUrl,
-        bookmarkHeldOn: bookmark,
-        directStatus: fetched.status ?? 0,
-        directBytes: directDiag.contentLength ?? 0,
-        directCards: directDiag.spreadLinks ?? 0,
-        directMarkers: directDiag.markers || [],
-        relayAttempted: relayTried,
-        relayUsed: usedFetch.via === 'relay',
-        rescueUsed: usedFetch !== fetched,
-        finalStub: finalDiag.stub === true
-      };
+      report.diagnostics = thinRunDiag;
       // Steps 3–5 are skipped on purpose: a run that read nothing must not
       // mutate the catalogue. The delist check re-reads detail pages from the
       // same gated host, and the weekly sweep would delist or promote cars
       // based on a day when goo-net answered with nothing but a stub.
       return send(res, 200, report);
+    }
+
+    if (parseMiss) {
+      // We reached goo-net and it answered properly — the importer is the one
+      // that could not read the answer. Say so, and keep doing the rest of the
+      // run's work (delist checks and weekly maintenance do not depend on the
+      // listing parser), but hold the bookmark: crawling on while blind would
+      // skip pages exactly like the old bug did.
+      report.parseMiss = true;
+      report.note = 'Goo-net returned a real listing page (' + thinRunDiag.rawCarLinks
+        + ' car links, ' + thinRunDiag.directBytes + ' bytes) but the importer only read '
+        + page.cars.length + ' card' + (page.cars.length === 1 ? '' : 's')
+        + ' — the card markup has changed, so this is a parser fix, not a bot block. '
+        + 'The bookmark was held on page ' + bookmark + ' so no pages were skipped; '
+        + 'update parseCard in scripts/goonet-core.mjs (GOONET-SYNC.md → "Parser says no cards").';
+      report.diagnostics = thinRunDiag;
     }
 
     // ---- 3. Delist check on a few existing cars ---------------------------

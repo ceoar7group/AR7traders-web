@@ -8,7 +8,7 @@ import {
   parseListingPage, parseDetailPage, mergeCardAndDetail, qualityScore,
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
   BRAND_MAP, MODEL_MAP,
-  countSpreadLinks, looksLikeStub, pageDiagnostics, fetchPage, resetFetchState,
+  countSpreadLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
   FALLBACK_SEARCH_URL, JINA_RELAY, UA
 } from './goonet-core.mjs';
 
@@ -177,17 +177,24 @@ eq(countSpreadLinks(''), 0, 'countSpreadLinks on empty html');
 ok(looksLikeStub(stubHtml), 'looksLikeStub: 1 card link is a stub');
 ok(looksLikeStub(''), 'looksLikeStub: empty page is a stub');
 ok(!looksLikeStub(realHtml), 'looksLikeStub: real listing page is not a stub');
-ok(looksLikeStub(realHtml + 'アクセスが集中しています'), 'looksLikeStub: アクセスが集中 marker');
-ok(looksLikeStub(realHtml + 'セキュリティ確認'), 'looksLikeStub: セキュリティ marker');
-ok(looksLikeStub(realHtml + 'ページが見つかりません'), 'looksLikeStub: ページが見つかりません marker');
-ok(looksLikeStub(realHtml + '一時的に'), 'looksLikeStub: 一時的に marker');
-ok(looksLikeStub(realHtml + 'メンテナンス'), 'looksLikeStub: メンテナンス marker');
-ok(looksLikeStub(realHtml + 'お探しのページ'), 'looksLikeStub: お探しのページ marker');
-ok(looksLikeStub(realHtml + 'Please enable cookie support'), 'looksLikeStub: cookie marker');
-ok(looksLikeStub(realHtml + 'utilized'), 'looksLikeStub: utilized marker');
-ok(looksLikeStub(realHtml + 'please verify you are human'), 'looksLikeStub: verify marker');
-ok(looksLikeStub(realHtml + 'reCAPTCHA'), 'looksLikeStub: reCAPTCHA marker');
-ok(looksLikeStub(realHtml + 'captcha'), 'looksLikeStub: captcha marker');
+// Marker wording is diagnostics only — it must never overrule a page that
+// plainly contains results. Regression guard for the live false positive: a
+// 1.1 MB goo-net page with 50 car links matched "cookie"/"Cookie", was called
+// a stub, wasted a relay round-trip, and was reported as blocked:true.
+ok(!looksLikeStub(realHtml + 'アクセスが集中しています'), 'looksLikeStub: gate wording cannot overrule real car links');
+ok(!looksLikeStub(realHtml + 'Please enable cookie support'), 'looksLikeStub: cookie boilerplate cannot overrule real car links');
+ok(!looksLikeStub(realHtml + 'utilized please verify reCAPTCHA captcha'),
+  'looksLikeStub: no generic English marker can overrule real car links');
+ok(!looksLikeStub(`<html><body>${Array.from({ length: 50 }, (_, i) => spread(i)).join('')} Cookie conditions</body></html>`),
+  'looksLikeStub: the 50-link page from the live incident is not a stub');
+
+// With nothing to read, the page is thin regardless of wording, and the gate's
+// own words are reported so the caller can name the cause.
+ok(looksLikeStub(stubHtml + 'Cookie conditions'), 'looksLikeStub: a 1-link page is thin whatever it says');
+eq(botGateMarkers(realHtml).length, 0, 'botGateMarkers: a clean page carries no gate wording');
+eq(botGateMarkers(stubHtml + 'アクセスが集中しています').length, 1, 'botGateMarkers: reports the gate wording it saw');
+ok(botGateMarkers(stubHtml + 'Cookie conditions').length === 0,
+  'botGateMarkers: cookie boilerplate is not gate evidence');
 
 const diag = pageDiagnostics(stubHtml);
 eq(diag.spreadLinks, 1, 'pageDiagnostics reports spread link count');

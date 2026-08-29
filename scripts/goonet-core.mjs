@@ -245,10 +245,20 @@ const GOONET_HOST = 'www.goo-net.com';
 const GOONET_HOME = 'https://www.goo-net.com/';
 const DEFAULT_COOKIE = 'goo_session=active; cookie_consent=1';
 
-// Stub markers goo-net (or its bot gate) serves instead of real search results.
-const STUB_MARKERS = ['ページが見つかりません', 'アクセスが集中', 'セキュリティ',
-  'cookie', 'Cookie', '一時的に', 'メンテナンス', 'お探しのページ',
-  'utilized', 'verify', 'reCAPTCHA', 'captcha'];
+// Words the bot gate itself prints. These are the only markers treated as
+// evidence of blocking.
+const BOT_GATE_MARKERS = ['ページが見つかりません', 'アクセスが集中', 'セキュリティ',
+  '一時的に', 'メンテナンス', 'お探しのページ', 'reCAPTCHA', 'captcha'];
+
+// Extra words that suggest "this is not a listing page" — but only on a page
+// that has no car links to read. They are boilerplate on ordinary goo-net
+// pages (cookie-consent links, JS bundles), so they are reported for
+// diagnostics and NEVER allowed to overrule a page full of real car links.
+// In production a 1.1 MB listing page with 50 car links matched "cookie" +
+// "Cookie", was called a stub, and the run was mis-reported as bot-blocked.
+const THIN_PAGE_MARKERS = ['cookie', 'Cookie', 'utilized', 'verify'];
+
+const STUB_MARKERS = [...BOT_GATE_MARKERS, ...THIN_PAGE_MARKERS];
 
 // Cookie jar shared across a single run (warm-up happens at most once).
 let cookieJar = '';
@@ -323,10 +333,19 @@ export function countSpreadLinks(html) {
 }
 
 // True when the HTML we got back is not a real listing page.
+//
+// The car-link count is the only hard signal: a page that links 2+ distinct
+// cars can be read, whatever fine print it also contains. Gate wording is used
+// for diagnostics (and by the caller to name the blocker), never to overrule
+// results that are plainly there.
 export function looksLikeStub(html) {
+  return countSpreadLinks(html) < 2;
+}
+
+// Which bot-gate phrases this HTML contains, if any. Empty for a real page.
+export function botGateMarkers(html) {
   const s = String(html || '');
-  if (countSpreadLinks(s) < 2) return true;
-  return STUB_MARKERS.some(marker => s.includes(marker));
+  return BOT_GATE_MARKERS.filter(marker => s.includes(marker));
 }
 
 export function pageDiagnostics(html) {
@@ -335,6 +354,7 @@ export function pageDiagnostics(html) {
     contentLength: s.length,
     spreadLinks: countSpreadLinks(s),
     markers: STUB_MARKERS.filter(marker => s.includes(marker)),
+    gateMarkers: botGateMarkers(s),
     stub: looksLikeStub(s)
   };
 }
