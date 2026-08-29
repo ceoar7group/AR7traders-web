@@ -8,7 +8,8 @@
 //
 // Each run is deliberately small so it stays inside the free tier's function
 // time limit and never slows the site down:
-//   • crawls ONE goo-net listing page (bookmarked, resumes next run)
+//   • crawls ONE goo-net listing page (bookmarked, resumes next run — the
+//     bookmark only moves when the page was actually read, never past a stub)
 //   • imports at most `goonet_max_new_per_run` new cars that PASS the quality
 //     gate (minimum photo count etc. — configured in the CRM)
 //   • checks at most `goonet_max_delist_per_run` existing cars for delisting
@@ -21,7 +22,7 @@ import {adminClient, send} from './_supabase.js';
 import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
-  DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL
+  pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL
 } from '../scripts/goonet-core.mjs';
 
 export const config = { maxDuration: 60 };
@@ -169,6 +170,9 @@ export default async function handler(req, res, injected) {
   const report = {
     page: null, cardsSeen: 0, inserted: 0, updated: 0,
     delisted: 0, delistedWeekly: 0, promoted: 0,
+    // blocked: goo-net answered with its bot-gate stub, so this run read
+    // nothing. It must never be dressed up as "caught up".
+    blocked: false, bookmarkAdvanced: false, diagnostics: null,
     skipped: [], note: null
   };
 
@@ -222,6 +226,25 @@ export default async function handler(req, res, injected) {
     report.page = bookmark;
     report.cardsSeen = page.cars.length;
 
+    // ---- Was the page actually readable? ----------------------------------
+    // The bot-gate stub parses as exactly ONE card (it links a single car id
+    // and carries no car fields), so "1 card" means "we were blocked" far more
+    // often than "this search has one car left". The gate's own wording is the
+    // tell — a genuinely finished search carries no marker text at all. Only
+    // worth re-scanning the HTML when a page looks thin (healthy runs skip it).
+    let blocked = false;
+    let directDiag = null;
+    let finalDiag = null;
+    if (page.cars.length < 2) {
+      directDiag = fetched.directDiagnostics || pageDiagnostics(fetched.html || '');
+      // Diagnostics for the HTML we actually parsed (via relay or rescue search),
+      // which is not necessarily what the direct request handed back.
+      finalDiag = pageDiagnostics(usedFetch.html || '');
+      blocked = (directDiag.markers || []).length > 0
+        || (finalDiag.markers || []).length > 0
+        || usedFetch.via === 'relay';
+    }
+
     // ---- 2. Import new cars that pass the quality gate --------------------
     const known = await getKnownIds(db);
     let imported = 0;
@@ -266,11 +289,46 @@ export default async function handler(req, res, injected) {
     }
     report.inserted = imported;
 
-    // Advance the bookmark so the next run crawls the next page. Only advance
-    // when we actually saw cards (a parse miss on the same page would spin).
-    const nextBookmark = (page.cars.length ? bookmark + 1 : bookmark);
+    // Advance the bookmark so the next run crawls the next page.
+    //
+    // Only advance when the page yielded a real listing (2+ cards). A bot-gate
+    // stub parses as 1 card, and 1 is truthy — advancing on it silently walked
+    // the crawler past every page it never read, so a blocked day could skip
+    // hundreds of cars while reporting a clean run. Re-reading a page is
+    // harmless; skipping one loses stock.
+    const advance = page.cars.length >= 2;
+    const nextBookmark = advance ? bookmark + 1 : bookmark;
     await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
     await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
+    report.bookmarkAdvanced = advance;
+
+    if (blocked) {
+      // Be honest: this run read nothing. Do not call it "caught up".
+      report.blocked = true;
+      const relayTried = (fetched.diagnostics && fetched.diagnostics.relayAttempted) === true;
+      report.note = 'goo-net is bot-gating this host: the listing page came back as a stub ('
+        + page.cars.length + ' card' + (page.cars.length === 1 ? '' : 's') + ', no car fields)'
+        + (relayTried ? ', and the relay could not read more of it either' : '')
+        + '. The bookmark was held on page ' + bookmark + ' so no pages were skipped — '
+        + 'retry later, or point goonet_search_url at a search this host can read.';
+      report.diagnostics = {
+        pageUrl,
+        bookmarkHeldOn: bookmark,
+        directStatus: fetched.status ?? 0,
+        directBytes: directDiag.contentLength ?? 0,
+        directCards: directDiag.spreadLinks ?? 0,
+        directMarkers: directDiag.markers || [],
+        relayAttempted: relayTried,
+        relayUsed: usedFetch.via === 'relay',
+        rescueUsed: usedFetch !== fetched,
+        finalStub: finalDiag.stub === true
+      };
+      // Steps 3–5 are skipped on purpose: a run that read nothing must not
+      // mutate the catalogue. The delist check re-reads detail pages from the
+      // same gated host, and the weekly sweep would delist or promote cars
+      // based on a day when goo-net answered with nothing but a stub.
+      return send(res, 200, report);
+    }
 
     // ---- 3. Delist check on a few existing cars ---------------------------
     if (!overBudget()) {
