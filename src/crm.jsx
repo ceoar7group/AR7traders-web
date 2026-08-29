@@ -867,7 +867,7 @@ export default function CrmApp() {
         )}
 
         {tab === 'dashboard' ? (
-          <Dashboard rows={rows} setTab={setTab} onOpenPhotos={car => setGalleryView(car)} onManagePhotos={(entity, car) => setPhotoTarget({ entity, row: car })} />
+          <Dashboard rows={rows} setTab={setTab} onOpenPhotos={car => setGalleryView(car)} onManagePhotos={(entity, car) => setPhotoTarget({ entity, row: car })} onRunScraper={runGoonetSync} scraperSyncing={syncing} />
         ) : tab === 'activities' ? (
           <ActivityView rows={rows.activities || []} />
         ) : tab === 'team' ? (
@@ -1050,7 +1050,7 @@ function CrmSetup() {
   );
 }
 
-function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
+function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos, onRunScraper, scraperSyncing }) {
   const { fmt } = useCurrency();
   const leads = rows.leads || [];
   const quotes = rows.quotes || [];
@@ -1246,6 +1246,41 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
                 <small>{x.vessel} · ETA {date(x.eta)}</small>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="crm-panel crm-scraper-panel">
+          <div className="crm-panel-head">
+            <div>
+              <small>GOO-NET SCRAPER</small>
+              <h3>Japan dealer stock importer</h3>
+            </div>
+            <button onClick={() => setTab('goonet')}>Manage stock <ChevronRight /></button>
+          </div>
+          <div className="crm-scraper-body">
+            <div className="crm-scraper-info">
+              <Globe2 size={20} />
+              <div>
+                <p>Crawls Goo-net dealer listings, quality-gates photos and imports fresh stock automatically. The scheduler runs daily at 03:00 UTC.</p>
+                <div className="crm-scraper-stats">
+                  <span><b>{(rows.goonet || []).filter(x => x.available !== false).length}</b> available</span>
+                  <span><b>{(rows.goonet || []).filter(x => x.promoted && x.promoted !== 'none').length}</b> promoted</span>
+                  <span><b>{(rows.goonet || []).filter(x => x.available === false).length}</b> delisted</span>
+                </div>
+              </div>
+            </div>
+            <div className="crm-scraper-actions">
+              <button
+                className={'crm-scraper-run ' + (scraperSyncing ? 'is-running' : '')}
+                onClick={onRunScraper}
+                disabled={scraperSyncing}
+                title="Trigger one importer run now — same as the scheduled daily run"
+              >
+                <Play size={15} className={scraperSyncing ? 'crm-sync-spin' : ''} />
+                {scraperSyncing ? 'Scraping…' : 'Run scraper now'}
+              </button>
+              <small className="crm-scraper-note">Auto-run: daily at 03:00 UTC via GitHub Actions</small>
+            </div>
           </div>
         </section>
       </div>

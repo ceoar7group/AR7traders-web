@@ -3054,3 +3054,20 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-score{position:relative;display:inline-block;min-width:64px;height:16px;border-radius:8px;background:#ffffff14;overflow:hidden;vertical-align:middle}
 .crm-score b{position:absolute;inset:0;display:grid;place-items:center;font:800 9px/1 Manrope,sans-serif;color:#fff;z-index:1}
 .crm-score i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#1f7a4d,#2ecc8f);border-radius:8px}
+
+/* ================= Dashboard scraper panel ================= */
+.crm-scraper-panel{border:1px solid var(--border,#ffffff1f)!important;background:linear-gradient(135deg,#072c1b,#0a3a27)!important}
+[data-crm-theme=light] .crm-scraper-panel{background:linear-gradient(135deg,#e8f5ee,#f0faf4)!important;border-color:#c8ddcf!important}
+.crm-scraper-body{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.crm-scraper-info{display:flex;align-items:flex-start;gap:12px;flex:1;min-width:240px}
+.crm-scraper-info svg{color:var(--gold,#c8881b);flex:none;margin-top:2px}
+.crm-scraper-info p{font-size:11.5px;line-height:1.55;color:var(--muted,#94a59c);margin:0 0 8px}
+.crm-scraper-stats{display:flex;gap:16px}
+.crm-scraper-stats span{font-size:10px;color:var(--muted,#94a59c)}
+.crm-scraper-stats b{font-size:16px;color:var(--ink,#eff7f2);display:block;line-height:1.2}
+.crm-scraper-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.crm-scraper-run{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:10px 20px;font:700 12px Manrope,sans-serif;cursor:pointer;transition:.2s;background:linear-gradient(135deg,var(--green,#043f28),var(--forest,#075b36));color:#fff;box-shadow:0 8px 24px rgba(4,63,40,.25)}
+.crm-scraper-run:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 12px 32px rgba(4,63,40,.35)}
+.crm-scraper-run:disabled{opacity:.7;cursor:wait}
+.crm-scraper-run.is-running{background:linear-gradient(135deg,var(--gold,#c8881b),var(--gold2,#e4ad43));color:#04150d}
+.crm-scraper-note{font-size:9px;color:var(--muted,#94a59c);letter-spacing:.5px}
