@@ -563,20 +563,12 @@ function App(){
     <div className="nav-orb" title="AR7 360° world network — click to explore"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div>
    </div>
    <div className={'navlinks '+(menu?'open':'')}>
+    <a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory</a><a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan dealer stock</a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands</a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access</a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators</a>
     <div className="nav-more">
-     <button className="more-btn">Inventory <ChevronDown className="more-chev"/></button>
+     <button className="more-btn" onMouseDown={()=>setMenu(!menu)}>More <ChevronDown className="more-chev"/></button>
      <div className="more-panel">
       {[
-        [Layers,'Japan dealer stock','japan-stock'],[CarFront,'Brands','brands']
-      ].map(x=>{const I=x[0];return <a key={x[2]} href={hrefFor(x[2])} onClick={linkClick(x[2],navigate)}><i><I/></i><span>{x[1]}</span></a>})}
-     </div>
-    </div>
-    <a href="/auction" onClick={linkClick('auction',navigate)}>Auction access</a>
-    <div className="nav-more">
-     <button className="more-btn">More <ChevronDown className="more-chev"/></button>
-     <div className="more-panel">
-      {[
-        [Globe2,'World network','world'],[CarFront,'Inventory','inventory'],[Gavel,'Live auctions','auction'],[Wrench,'Services','services'],[Ship,'Shipping','shipping'],[MapPin,'Destinations','destinations'],[BookOpen,'How to buy','howbuy'],[Calculator,'Calculators','tools'],[Newspaper,'News & guides','news'],[MessageCircle,'Reviews','reviews'],[ClipboardCheck,'Help & FAQ','faq'],[BadgeCheck,'About AR7','about'],[Landmark,'Staff CRM','crm'],[Mail,'Contact us','contact']
+        [Globe2,'World network','world'],[CarFront,'Inventory','inventory'],[Layers,'Japan dealer stock','japan-stock'],[Gavel,'Live auctions','auction'],[Wrench,'Services','services'],[Ship,'Shipping','shipping'],[MapPin,'Destinations','destinations'],[BookOpen,'How to buy','howbuy'],[Newspaper,'News & guides','news'],[MessageCircle,'Reviews','reviews'],[ClipboardCheck,'Help & FAQ','faq'],[BadgeCheck,'About AR7','about'],[Landmark,'Staff CRM','crm'],[Mail,'Contact us','contact']
       ].map(x=>{const I=x[0];return <a key={x[2]} href={hrefFor(x[2])} onClick={linkClick(x[2],navigate)}><i><I/></i><span>{x[1]}</span></a>})}
      </div>
     </div>
