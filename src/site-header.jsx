@@ -55,10 +55,15 @@ export function NavDropdown({label, panel, className, routeKey, children}) {
 
 // The More menu. Kept as data so the panel's two-column shape stays even:
 // add or remove entries in PAIRS.
+// Inventory dropdown items
+const INVENTORY_LINKS = [
+  [CarFront, 'All Inventory', 'inventory'],
+  [Layers, 'Japan dealer stock', 'japan-stock']
+];
+
+// More dropdown items - organized and duplicates removed
 export const MORE_LINKS = [
   [Globe2, 'World network', 'world'],
-  [CarFront, 'Inventory', 'inventory'],
-  [Layers, 'Japan dealer stock', 'japan-stock'],
   [Gavel, 'Live auctions', 'auction'],
   [Calculator, 'Calculators', 'tools'],
   [Wrench, 'Services', 'services'],
@@ -70,8 +75,7 @@ export const MORE_LINKS = [
   [ClipboardCheck, 'Help & FAQ', 'faq'],
   [BadgeCheck, 'About AR7', 'about'],
   [LogIn, 'Client portal', 'portal'],
-  [Landmark, 'Staff CRM', 'crm'],
-  [Mail, 'Contact us', 'contact']
+  [Landmark, 'Staff CRM', 'crm']
 ];
 
 export function SiteHeader({
@@ -85,8 +89,12 @@ export function SiteHeader({
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div className={'navlinks ' + (menu ? 'open' : '')}>
-      <a className={page === 'inventory' && !vehicleId ? ' current' : ''} href="/inventory" onClick={linkClick('inventory', navigate)}>Inventory</a>
-      <a className={page === 'japan-stock' ? ' current' : ''} href="/japan-stock" onClick={linkClick('japan-stock', navigate)}>Japan dealer stock</a>
+      <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={page + '/' + (makeFilter || '')} label="Inventory">
+        {close => INVENTORY_LINKS.map(x => {
+          const I = x[0];
+          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
+        })}
+      </NavDropdown>
       <a className={page === 'auction' ? ' current' : ''} href="/auction" onClick={linkClick('auction', navigate)}>Auction access</a>
       <NavDropdown className="nav-brands" panel="brands-panel" routeKey={page + '/' + (makeFilter || '')} label="Brands">
         {close => <>

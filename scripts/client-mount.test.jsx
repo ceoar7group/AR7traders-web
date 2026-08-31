@@ -149,10 +149,22 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
 // ---- the header actually drives navigation ---------------------------------
 {
   await goto('/');
-  const clicked = await clickLink('Japan dealer stock');
-  ok(clicked, 'the "Japan dealer stock" header link is clickable');
-  ok(location.pathname === '/japan-stock' || document.body.textContent.includes('LIVE GOO-NET DEALER STOCK'),
-    'clicking it lands on the Japan dealer stock page');
+  // Japan dealer stock is now in the Inventory dropdown
+  const invBtn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim().startsWith('Inventory'));
+  ok(!!invBtn, 'the Inventory dropdown button exists');
+  if (invBtn) {
+    await act(async () => { invBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+    ok(invBtn.getAttribute('aria-expanded') === 'true', 'clicking Inventory sets aria-expanded');
+    const jpLink = [...document.querySelectorAll('.inventory-panel a')].find(a => (a.textContent || '').trim() === 'Japan dealer stock');
+    ok(!!jpLink, 'Japan dealer stock is in the Inventory dropdown');
+    if (jpLink) {
+      await act(async () => { jpLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+      ok(location.pathname === '/japan-stock' || document.body.textContent.includes('LIVE GOO-NET DEALER STOCK'),
+        'clicking Japan dealer stock lands on the Japan dealer stock page');
+    }
+    await act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+    ok(invBtn.getAttribute('aria-expanded') === 'false', 'Escape closes the Inventory panel');
+  }
   ok(!crash(), 'the app survives the click-driven navigation');
 }
 

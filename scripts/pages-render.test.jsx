@@ -84,8 +84,9 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const home = renderPage('/');
   ok(home.includes('nav-drop-panel more-panel'), 'the More dropdown panel is in the markup');
   ok(home.includes('nav-drop-panel brands-panel'), 'the Brands dropdown panel is in the markup');
+  ok(home.includes('nav-drop-panel inventory-panel'), 'the Inventory dropdown panel is in the markup');
   ok(home.includes('Calculators'), 'Calculators is reachable from the More menu');
-  ok(home.includes('/japan-stock'), 'Japan dealer stock is linked in the header');
+  ok(home.includes('/japan-stock'), 'Japan dealer stock is linked in the Inventory dropdown');
 }
 
 console.error = realError; console.warn = realWarn;
