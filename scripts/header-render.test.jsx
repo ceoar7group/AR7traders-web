@@ -36,9 +36,9 @@ const render = (props = {}) => renderToString(
 const html = render();
 
 // ---- the primary row -------------------------------------------------------
-ok(html.includes('>Inventory</a>'), 'Inventory is in the primary nav');
-ok(html.includes('>Japan dealer stock</a>'), 'Japan dealer stock is in the primary nav');
-ok(html.includes('href="/japan-stock"'), 'Japan dealer stock is a real link (new-tab safe)');
+ok(html.includes('>Inventory</button>'), 'Inventory dropdown is in the primary nav');
+ok(html.includes('nav-inventory'), 'the Inventory dropdown renders');
+ok(!html.includes('>Japan dealer stock</a>'), 'Japan dealer stock is NOT in the primary nav (moved to dropdown)');
 ok(html.includes('>Auction access</a>'), 'Auction access is in the primary nav');
 ok(html.includes(' Contact</a>'), 'Contact is in the primary nav');
 ok(!/>Calculators</.test(html.split('nav-drop-panel more-panel')[0]), 'Calculators is no longer a top-level nav link');
@@ -60,18 +60,26 @@ ok(MORE_LINKS.length % 2 === 0, `the More menu has an even item count (${MORE_LI
 ok(moreItems === MORE_LINKS.length, `the More panel rendered ${MORE_LINKS.length} links`);
 ok(morePanel.includes('>Calculators</span>'), 'Calculators is in the More dropdown');
 ok(morePanel.includes('href="/tools"'), 'the Calculators entry points at /tools');
-ok(morePanel.includes('>Japan dealer stock</span>'), 'Japan dealer stock is in the More dropdown too');
+ok(!morePanel.includes('>Japan dealer stock</span>'), 'Japan dealer stock is NOT in the More dropdown (moved to Inventory dropdown)');
 ok(morePanel.includes('>Client portal</span>'), 'the client portal is reachable from More');
 ok(new Set(MORE_LINKS.map(x => x[2])).size === MORE_LINKS.length, 'no duplicate entries in the More menu');
 
 // ---- both dropdowns share one component ----------------------------------
 const dropCount = (html.match(/class="nav-drop /g) || []).length;
-ok(dropCount === 2, 'exactly two dropdowns (Brands + More) render');
+ok(dropCount === 3, 'exactly three dropdowns (Inventory + Brands + More) render');
 ok(html.includes('aria-expanded="false"'), 'dropdown buttons expose aria-expanded');
 ok(renderToString(<NavDropdown label="X" panel="p">child</NavDropdown>).includes('nav-drop-panel p'), 'NavDropdown accepts plain children too');
 
+// ---- Inventory dropdown ----------------------------------------------------
+const invPanel = (html.split('nav-drop-panel inventory-panel')[1] || '').split('nav-brands')[0];
+ok(invPanel.includes('>All Inventory</span>'), 'All Inventory is in the Inventory dropdown');
+ok(invPanel.includes('href="/inventory"'), 'All Inventory points at /inventory');
+ok(invPanel.includes('>Japan dealer stock</span>'), 'Japan dealer stock is in the Inventory dropdown');
+ok(invPanel.includes('href="/japan-stock"'), 'Japan dealer stock points at /japan-stock');
+
 // ---- active-page highlight ----------------------------------------------
-ok(render({ page: 'japan-stock' }).includes('class=" current" href="/japan-stock"'), 'the Japan dealer stock link marks the current page');
+ok(render({ page: 'inventory' }).includes('nav-inventory'), 'the Inventory dropdown is present');
+ok(render({ page: 'japan-stock' }).includes('nav-inventory'), 'the Inventory dropdown is present on japan-stock page');
 ok(render({ page: 'inventory', makeFilter: 'Toyota' }).includes('class=" current" href="/inventory?make=Toyota"'), 'the filtered brand is marked current');
 ok(!render({ page: 'inventory', vehicleId: '43' }).includes('class=" current" href="/inventory"'), 'a vehicle deep link does not highlight the inventory tab');
 ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reaches the nav');
