@@ -11,8 +11,10 @@ It is deliberately engineered to run on **free Vercel (Hobby)** hosting:
 - No Vercel cron add-on. The importer is triggered by a free **GitHub Actions
   workflow** (or any uptime/cron service) calling one small Vercel function.
 - Every run is **tiny** — it crawls one Goo-net page, imports at most a few
-  cars, and stops early if it has been running ~8 seconds. It never hammers
-  the site, never times out, and resumes where it left off.
+  cars, and stops early once its time budget is used (45 s for the whole run,
+  of which at most 30 s goes to importing cars — well inside the
+  `maxDuration: 60` the function declares). It never hammers the site, never
+  times out, and resumes where it left off.
 - Only cars that pass the **quality gate** (minimum photo count, price, year,
   mileage, condition rating) are imported.
 
@@ -137,7 +139,8 @@ terminal version with `--dry-run`.
 ## 7. Terminal runner (optional)
 
 The scraper core (`scripts/goonet-core.mjs`) is dependency-free and tested
-(`node scripts/goonet-core.test.mjs` — 66 assertions). A CLI is included:
+(`npm run test:goonet` — 247 assertions across the parser, the seed builder and
+the importer endpoint). A CLI is included:
 
 ```
 SUPABASE_URL="https://xxx.supabase.co" \
@@ -147,6 +150,71 @@ node scripts/goonet-crawl.mjs --dry-run
 
 Flags: `--dry-run` (print what would change, write nothing), `--page N`
 (start at listing page N), `--min-photos N` (override the quality gate).
+
+## 8. Seed the page from a real Goo-net batch
+
+`scripts/fixtures/goonet-capture-2026-08-31.json` is a real capture of the
+`price-100-300` listing (8 cars: make, title, both prices, year, mileage,
+engine, transmission, repair history, condition ratings, prefecture, dealer,
+photo URLs — all verbatim; only `fuel`/`body` are classified, because Goo-net
+prints those on the detail page, not on the card).
+
+`scripts/goonet-seed.mjs` turns that capture into `japan_dealer_stock` rows
+using **the same `goonet-core` maths the live importer uses** — `manToYen` →
+`yenToUsd` → `usdText` for pricing, `detectMake`/`detectModel` for the name,
+the same 外装/内装 grade average, the same `qualityScore` gate — so the seed and
+the importer cannot drift.
+
+```
+node scripts/goonet-seed.mjs            print the cars and their quality verdicts
+node scripts/goonet-seed.mjs --sql      write supabase/japan-stock-seed.sql
+SUPABASE_URL="https://xxx.supabase.co" \
+SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
+node scripts/goonet-seed.mjs --push     upsert into japan_dealer_stock
+```
+
+The SQL is keyed on `goonet_id` with `on conflict … do update`, so re-running
+it refreshes the cars instead of duplicating them. Run it **after**
+`supabase/SETUP-EVERYTHING.sql` (which creates the table).
+
+`src/dev-api-mock.js` builds the same rows from the same capture, so the local
+dev preview of the Japan dealer stock page shows exactly what `--push` writes.
+
+## 9. Why it was importing nothing (fixed)
+
+Four separate defects, each enough on its own to make a run report
+`inserted: 0` with no error:
+
+1. **The relay was never tried on a network error.** `fetchPage` returned
+   `{ok:false, status:0}` as soon as the direct fetch threw — *before* the
+   relay branch. Goo-net answers data-centre IPs with a connection reset
+   (`ECONNRESET`) rather than a 403, so the bot-gate relay that was supposed
+   to be the fallback never ran and every page looked permanently blocked.
+   Both paths now go through one `relayFetch()` helper; a dead socket is no
+   longer mistaken for "delisted", and `allowRelay:false` still never dials
+   the relay.
+2. **The crawl ate the whole time budget.** A single `TIME_BUDGET_MS` was
+   shared by the crawl and the import loop, whose first statement was
+   `if (overBudget()) break;`. Any run that spent its seconds reading the
+   listing imported nothing. There are now two budgets (`RUN_BUDGET_MS`,
+   `IMPORT_BUDGET_MS`), and the import loop measures from the moment the
+   crawl finished. Measured in the importer tests: `inserted 0` before,
+   `inserted 2` after.
+3. **Cards whose URL the parser missed were dropped silently.** The import
+   loop only used `card.url`, which is `null` whenever the `<h3><a …spread…>`
+   regex misses. It now falls back to `detailUrlFor(card.goonet_id)` (and
+   stores the rebuilt URL in `goonet_url`), so a markup change surfaces as a
+   fetch failure in the run report instead of a silent no-op.
+4. **The year regex did not match live cards.** `numberAfter` required
+   `\d{4}` followed by `年`/`(`/`（`, but live cards render `年式2019後`.
+   Every car therefore got `year: null` → the gate's `no/old year` reason →
+   `pass: false`. The parser now accepts `(19|20)\d{2}` followed by 年/( /（
+   **or** a word boundary, while `年式 指定なし` (the search-form selector) and
+   `20199` still parse as null.
+
+A fifth, smaller bug: `detectModel` returned the *first* matching key, so
+`カローラクロス` became "Corolla" and `ランドクルーザープラド` became "Land Cruiser".
+The longest matching key now wins.
 
 ## FAQ
 

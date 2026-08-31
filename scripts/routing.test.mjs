@@ -1,6 +1,7 @@
 import {
   parseRoute, parseNavTarget, hrefFor, hrefFromTarget, canonicalHref,
-  findCar, carRef, carSlug, hashFor, LAST_VEHICLE_KEY
+  findCar, carRef, carSlug, hashFor, writeLocation, makeFrom, inventoryHref,
+  LAST_VEHICLE_KEY
 } from '../src/routing.js';
 
 let failed = 0;
@@ -42,12 +43,47 @@ ok(hrefFromTarget('inventory?car=43') === '/inventory/43', 'old navigate target 
 ok(canonicalHref({ pathname: '/', hash: '#inventory?car=43', search: '' }) === '/inventory/43#/inventory/43', 'canonical upgrade writes path and safe hash');
 ok(canonicalHref({ pathname: '/inventory/43', hash: '', search: '?embed=1' }) === '/inventory/43?embed=1#/inventory/43', 'embed query is preserved next to the hash');
 
+// ---- Brand filter: /inventory?make=Toyota ---------------------------------
+// The header's Brands dropdown must produce a real link that survives a
+// refresh, a new tab and a copy/paste — not an in-memory "pending" variable.
+ok(makeFrom('Toyota') === 'Toyota', 'makeFrom keeps a real brand');
+ok(makeFrom('All') === null && makeFrom('') === null && makeFrom(null) === null, 'makeFrom drops the "All" placeholder');
+ok(inventoryHref('Toyota') === '/inventory?make=Toyota', 'brand link is a real inventory URL');
+ok(inventoryHref('All') === '/inventory', '"All brands" links to the plain list');
+ok(inventoryHref('Mercedes-Benz') === '/inventory?make=Mercedes-Benz', 'hyphenated brands stay intact');
+
+const brandQuery = parseRoute({ pathname: '/inventory', hash: '', search: '?make=Toyota' });
+ok(brandQuery.page === 'inventory' && brandQuery.make === 'Toyota' && !brandQuery.carId, '/inventory?make=Toyota carries the brand filter');
+ok(parseNavTarget('/inventory?make=Nissan').make === 'Nissan', 'navigate("/inventory?make=Nissan") parses the brand');
+ok(parseNavTarget('inventory?make=Nissan').make === 'Nissan', 'navigate("inventory?make=Nissan") parses the brand');
+ok(hrefFromTarget('inventory?make=Nissan') === '/inventory?make=Nissan', 'brand navigate target becomes a shareable href');
+ok(!hashFor('inventory', null).includes('?'), 'brand hash still never contains ?');
+ok(!hrefFromTarget('inventory?make=Nissan').includes('#'), 'brand href keeps the filter out of the hash');
+
+const brandAndCar = parseRoute({ pathname: '/inventory/43', hash: '', search: '?make=Toyota' });
+ok(!brandAndCar.make && brandAndCar.carId === '43', 'a car deep link ignores the brand filter behind it');
+
+ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?make=Toyota&embed=1' }) === '/inventory?make=Toyota&embed=1#/inventory', 'canonical keeps the brand filter with other query params');
+
+// writeLocation must persist the filter (and clear it when we leave the list).
 const store = { [LAST_VEHICLE_KEY]: '51' };
 globalThis.sessionStorage = {
   getItem: k => store[k] || null,
   setItem: (k, v) => { store[k] = String(v); },
   removeItem: k => { delete store[k]; }
 };
+let pushed = '';
+globalThis.location = { pathname: '/', search: '', hash: '', origin: 'https://ar7traders.com' };
+globalThis.history = { pushState: (s, t, url) => { pushed = url; }, replaceState: (s, t, url) => { pushed = url; } };
+ok(writeLocation('inventory', null, { make: 'Toyota' }) === '/inventory?make=Toyota#/inventory', 'writeLocation writes the brand filter into the URL');
+ok(pushed === '/inventory?make=Toyota#/inventory', 'the brand filter reaches history.pushState');
+location.pathname = '/inventory'; location.search = '?make=Toyota'; location.hash = '#/inventory';
+ok(writeLocation('inventory', null) === '/inventory#/inventory', 'leaving a brand clears ?make from the URL');
+location.search = ''; location.hash = '';
+ok(writeLocation('inventory', '43', { make: 'Toyota' }) === '/inventory/43#/inventory/43', 'opening a car drops the brand filter from the URL');
+ok(parseRoute({ pathname: '/inventory', hash: '', search: '?make=Toyota' }, { restoreOnReload: true }).carId === null, 'a brand link is never hijacked by the last-open vehicle');
+
+store[LAST_VEHICLE_KEY] = '51'; // the writeLocation calls above clear it
 const restored = parseRoute({ pathname: '/', hash: '', search: '' }, { restoreOnReload: true });
 ok(restored.page === 'inventory' && restored.carId === '51', 'reload of / restores the last open vehicle');
 const restoredHash = parseRoute({ pathname: '/', hash: '#inventory', search: '' }, { restoreOnReload: true });

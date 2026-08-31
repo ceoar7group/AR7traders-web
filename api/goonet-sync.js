@@ -27,7 +27,14 @@ import {
 
 export const config = { maxDuration: 60 };
 
-const TIME_BUDGET_MS = 8000;      // stay well inside Vercel Hobby's 10s cap
+// Vercel Hobby runs this function for up to `maxDuration` (60s, set below).
+// The budget is split: a hard stop for the whole run, and a separate allowance
+// for the import loop. It used to be one 8s budget measured from the start of
+// the request — the listing fetch (up to 7s) plus a relay or rescue fetch could
+// consume all of it, so the import loop began already over budget and the run
+// reported `inserted: 0` even though goo-net had been read perfectly.
+const RUN_BUDGET_MS = 45000;      // hard stop for the whole run
+const IMPORT_BUDGET_MS = 30000;   // the import loop's own allowance
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // A bot-gate interstitial is a few KB; a real goo-net listing page is ~1 MB.
 // Used only to name the cause when a page has no car links to read.
@@ -169,7 +176,7 @@ export default async function handler(req, res, injected) {
 
   const db = injected.db || adminClient();
   const start = Date.now();
-  const overBudget = () => Date.now() - start > TIME_BUDGET_MS;
+  const overBudget = () => Date.now() - start > RUN_BUDGET_MS;
   const report = {
     page: null, cardsSeen: 0, inserted: 0, updated: 0,
     delisted: 0, delistedWeekly: 0, promoted: 0,
@@ -262,13 +269,20 @@ export default async function handler(req, res, injected) {
 
     // ---- 2. Import new cars that pass the quality gate --------------------
     const known = await getKnownIds(db);
+    const importStart = Date.now();
+    const overImportBudget = () => overBudget() || Date.now() - importStart > IMPORT_BUDGET_MS;
     let imported = 0;
     for (const card of page.cars) {
-      if (overBudget() || imported >= maxNew) break;
+      if (overImportBudget() || imported >= maxNew) break;
       if (known.has(String(card.goonet_id))) continue;
 
       // Fetch the detail page: full gallery + specs drive the quality gate.
-      const detailFetched = await fetchPage(card.url, { timeoutMs: 5000 });
+      // A card whose <h3> title link did not parse has no `url`, but its stock
+      // id is enough to rebuild the canonical detail URL — without this the car
+      // was skipped as "detail fetch failed" even though goo-net had it.
+      const detailUrl = card.url || detailUrlFor(card.goonet_id);
+      if (!detailUrl) { report.skipped.push(`${card.stock_no}: no usable detail URL`); continue; }
+      const detailFetched = await fetchPage(detailUrl, { timeoutMs: 5000 });
       let car = card;
       if (detailFetched.ok) {
         car = mergeCardAndDetail(card, parseDetailPage(detailFetched.html, card.url));
@@ -292,7 +306,7 @@ export default async function handler(req, res, injected) {
         grade: car.grade, status: 'New Arrival', location: car.location || 'Japan',
         tr: car.tr, drv: car.drv, eng: car.eng, seats: car.seats,
         col: car.col, st: car.st,
-        vendor: 'Goo-net', goonet_url: card.url,
+        vendor: 'Goo-net', goonet_url: detailUrl,
         photo_count: car.photo_count || (car.images || []).length,
         quality_score: q.score,
         available: true, promoted: 'none',
