@@ -529,7 +529,16 @@ function App(){
  const {session:customerSession}=useCustomerSession();
  const signedIn=!!customerSession;
  const initialRoute=readRoute();
- const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId);
+ const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [moreOpen,setMoreOpen]=useState(false);
+ const moreRef=useRef(null);
+ useEffect(()=>{
+  if(!moreOpen)return;
+  const onDown=e=>{if(moreRef.current&&!moreRef.current.contains(e.target))setMoreOpen(false)};
+  const onKey=e=>{if(e.key==='Escape')setMoreOpen(false)};
+  document.addEventListener('pointerdown',onDown);
+  document.addEventListener('keydown',onKey);
+  return()=>{document.removeEventListener('pointerdown',onDown);document.removeEventListener('keydown',onKey)};
+ },[moreOpen]);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
  useSeo(page, vehicleId);
@@ -550,23 +559,23 @@ function App(){
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
   writeLocation(route.page,route.carId,{replace});
-  setPage(route.page);setVehicleId(route.carId);setMenu(false);
+  setPage(route.page);setVehicleId(route.carId);setMenu(false);setMoreOpen(false);
   if(scroll) scrollTo({top:0,behavior:'smooth'});
  };
- const go=(id)=>{if(page!=='home'){navigate('home');setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'}),100)}else document.getElementById(id)?.scrollIntoView({behavior:'smooth'});setMenu(false)};
+ const go=(id)=>{if(page!=='home'){navigate('home');setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'}),100)}else document.getElementById(id)?.scrollIntoView({behavior:'smooth'});setMenu(false);setMoreOpen(false)};
  const submitLead=async e=>{e.preventDefault();setLeadSending(true);setLeadError('');const f=new FormData(e.currentTarget),payload=Object.fromEntries(f.entries());try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Unable to send request');setSent(true);e.currentTarget.reset()}catch(err){setLeadError(err.message)}finally{setLeadSending(false)}};
  if(page==='crm')return <CrmApp/>;
  return <div className="site">
-  <div className="grain"/><header className="nav-wrap"><nav className="nav shell">
+  <div className="grain"/><header className="nav-wrap"><WorldTimeRibbon/><nav className="nav shell">
    <div className="brand-group">
     <a className="brand" href="/" onClick={linkClick('home',navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
     <div className="nav-orb" title="AR7 360° world network — click to explore"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div>
    </div>
    <div className={'navlinks '+(menu?'open':'')}>
     <a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory</a><a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan dealer stock</a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands</a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access</a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators</a>
-    <div className="nav-more">
-     <button className="more-btn" onMouseDown={()=>setMenu(!menu)}>More <ChevronDown className="more-chev"/></button>
-     <div className="more-panel">
+    <div className={'nav-more'+(moreOpen?' open':'')} ref={moreRef}>
+     <button className="more-btn" type="button" aria-expanded={moreOpen} aria-haspopup="true" onClick={e=>{e.preventDefault();setMoreOpen(v=>!v)}}>More <ChevronDown className="more-chev"/></button>
+     <div className="more-panel" role="menu">
       {[
         [Globe2,'World network','world'],[CarFront,'Inventory','inventory'],[Layers,'Japan dealer stock','japan-stock'],[Gavel,'Live auctions','auction'],[Wrench,'Services','services'],[Ship,'Shipping','shipping'],[MapPin,'Destinations','destinations'],[BookOpen,'How to buy','howbuy'],[Newspaper,'News & guides','news'],[MessageCircle,'Reviews','reviews'],[ClipboardCheck,'Help & FAQ','faq'],[BadgeCheck,'About AR7','about'],[Landmark,'Staff CRM','crm'],[Mail,'Contact us','contact']
       ].map(x=>{const I=x[0];return <a key={x[2]} href={hrefFor(x[2])} onClick={linkClick(x[2],navigate)}><i><I/></i><span>{x[1]}</span></a>})}
@@ -575,7 +584,7 @@ function App(){
     <a className="auction-link" href="/contact" onClick={linkClick('contact',navigate)}><MessageCircle size={15}/> Contact</a>
    </div>
    <div className="nav-actions"><CurrencyDropdown/><a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio',navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a><button className="icon-btn" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun/>:<Moon/>}</button><a className="icon-btn portal-btn" href="/account" onClick={linkClick('account',navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a><a className="primary compact" href="/account" onClick={linkClick('account',navigate)}>{signedIn?<>My account <UserCog/></>:<>Sign up <UserPlus/></>}</a><button className="menu-btn" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button></div>
-  </nav><WorldTimeRibbon/></header>
+  </nav></header>
 
   <main>
    {page==='home'?<>
