@@ -317,5 +317,76 @@ ok(Number(settings4.goonet_bookmark_page) === 1, 'a parse miss still holds the b
 ok(db4.tables.japan_dealer_stock.find(r => r.id === 'old-1')?.available === false,
   'a parse-miss run still does its delist work');
 
+
+// ---- Fifth run: the crawl took its time — the import loop must still run ----
+// Regression: one 8s budget was measured from the start of the request, and the
+// crawl (direct fetch + relay + rescue) could eat all of it, so the import loop
+// began already over budget and the run reported `inserted: 0` after reading
+// goo-net perfectly. The listing fetch below sleeps past that old limit.
+resetFetchState();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const db5 = memDb();
+db5.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db5.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('price--100')) {
+    await sleep(8300);                       // a slow, stubbed first answer
+    return { ok: true, status: 200, text: async () => '<html><body>セキュリティ</body></html>' };
+  }
+  return { ok: true, status: 200, text: async () => detailHtml };
+};
+
+const res5 = fakeRes();
+await handler(req, res5, { db: db5.db });
+ok(res5.statusCode === 200, 'the slow-crawl run still responds 200');
+ok(res5.body?.cardsSeen >= 2, 'the slow crawl still read the listing (via the relay)');
+ok(res5.body?.inserted >= 1,
+  `a slow crawl does not starve the import loop (inserted ${res5.body?.inserted})`);
+ok(db5.tables.japan_dealer_stock.length >= 1, 'cars from a slow run really reached the table');
+
+// ---- Sixth run: a card whose title link did not parse -----------------------
+// parseCard only builds a url from an <h3><a href=…spread…>. When goo-net ships
+// different card markup the card still has a stock id, and the canonical detail
+// URL can be rebuilt from it — the old code fetched `null`, logged "detail
+// fetch failed" and dropped the car.
+resetFetchState();
+const noTitleCard = i => `<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE000${i}.html"><img src="https://picture1.goo-net.com/a/Q/p0${i}.jpg"></a>
+  <p>トヨタ</p>
+  <div class="carName"><a href="https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE000${i}.html">プリウス Ｓ</a></div>
+  <p>車両本体価格(税込)</p><p>120万円</p>
+  <p>年式2020年</p><p>走行距離3.2万km</p><p>修復歴なし</p>
+</div>`;
+const noTitleListing = `<html><body>${noTitleCard(1)}${noTitleCard(2)}</body></html>`;
+const db6 = memDb();
+db6.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db6.tables.japan_dealer_stock = [];
+const detailUrls6 = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => noTitleListing };
+  if (u.includes('/usedcar/spread/goo/')) { detailUrls6.push(u); return { ok: true, status: 200, text: async () => detailHtml }; }
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res6 = fakeRes();
+await handler(req, res6, { db: db6.db });
+ok(res6.body?.cardsSeen === 2, 'cards without an <h3> title link are still seen');
+ok(!res6.body?.skipped?.some(x => String(x).includes('detail fetch failed')),
+  'no card is dropped for a failed detail fetch');
+ok(detailUrls6.includes('https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE0001.html'),
+  'the canonical detail URL was rebuilt from the stock id');
+ok(db6.tables.japan_dealer_stock.some(r => r.goonet_id === 'NOTITLE0001'),
+  'a title-less card was imported');
+ok(db6.tables.japan_dealer_stock.find(r => r.goonet_id === 'NOTITLE0001')?.goonet_url
+  === 'https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE0001.html',
+  'the imported row keeps the rebuilt goo-net url');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

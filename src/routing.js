@@ -74,7 +74,7 @@ function carFrom(...vals) {
 
 function parseHash(hash) {
   const raw = decodeRef(String(hash || '').replace(/^#/, ''));
-  if (!raw) return { page: null, carId: null };
+  if (!raw) return { page: null, carId: null, make: null };
   const [hashPath, hashQuery = ''] = raw.split('?');
   const hashParts = pathParts('/' + (hashPath || '').replace(/^\/+/, ''));
   const hashParams = new URLSearchParams(hashQuery);
@@ -84,7 +84,21 @@ function parseHash(hash) {
     hashParams.get('car'),
     hashParams.get('id')
   );
-  return { page, carId };
+  return { page, carId, make: makeFrom(hashParams.get('make')) };
+}
+
+/** Brand filter carried in the URL as `?make=Toyota` (never in the hash). */
+export function makeFrom(value) {
+  const raw = decodeRef(value == null ? '' : value).trim();
+  if (!raw) return null;
+  if (/^(all|any)$/i.test(raw)) return null;
+  return raw.slice(0, 40);
+}
+
+/** Real, shareable href for "show me this brand's stock". */
+export function inventoryHref(make) {
+  const m = makeFrom(make);
+  return m ? '/inventory?make=' + encodeURIComponent(m) : '/inventory';
 }
 
 export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
@@ -115,7 +129,15 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
     carId = carFrom(parts[1], params.get('car'), hashed.carId);
   }
 
-  if (!carId && (restoreOnReload || isReload()) && (page === 'inventory' || page === 'home' || !page)) {
+  // The brand filter only means something on the inventory list. A deep link to
+  // one car (`/inventory/43?make=Toyota`) must not filter the list behind it.
+  const make = (page === 'inventory' && !carId)
+    ? (makeFrom(params.get('make')) || hashed.make)
+    : null;
+
+  // A brand link is an explicit "show me this list" — never let the
+  // last-open-vehicle restore hijack it into a detail page.
+  if (!carId && !make && (restoreOnReload || isReload()) && (page === 'inventory' || page === 'home' || !page)) {
     const saved = readLastVehicle();
     if (saved) {
       page = 'inventory';
@@ -123,7 +145,7 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
     }
   }
 
-  return { page: page || 'home', carId: carId || null };
+  return { page: page || 'home', carId: carId || null, make };
 }
 
 /** Accepts navigate() strings: 'inventory', 'inventory?car=43', '/inventory/43', '#contact'. */
@@ -159,7 +181,10 @@ export function hashFor(page, carId) {
 
 export function hrefFromTarget(target) {
   const r = typeof target === 'string' ? parseNavTarget(target) : (target || {});
-  return hrefFor(r.page, r.carId);
+  const href = hrefFor(r.page, r.carId);
+  // Brand filters live in the query string, never in the hash (a `?` in the
+  // hash is dropped by browsers on reload — see the note at the top).
+  return r.make ? withSearch(href, 'make=' + encodeURIComponent(r.make)) : href;
 }
 
 export function withSearch(href, search) {
@@ -174,6 +199,8 @@ export function canonicalHref(loc) {
   const route = parseRoute(loc);
   const params = new URLSearchParams(String(loc.search || '').replace(/^\?/, ''));
   params.delete('car');
+  if (route.make) params.set('make', route.make);
+  else params.delete('make');
   return withSearch(hrefFor(route.page, route.carId), params) + hashFor(route.page, route.carId);
 }
 
@@ -212,9 +239,12 @@ export function rememberVehicle(carId) {
   } catch { /* private mode */ }
 }
 
-export function writeLocation(page, carId, { replace = false } = {}) {
+export function writeLocation(page, carId, { replace = false, make = null } = {}) {
   const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
   params.delete('car');
+  const m = makeFrom(make);
+  if (m && page === 'inventory' && !carId) params.set('make', m);
+  else params.delete('make');
   const url = withSearch(hrefFor(page, carId), params) + hashFor(page, carId);
   rememberVehicle(page === 'inventory' ? carId : null);
   const now = (typeof location === 'undefined')

@@ -1,0 +1,57 @@
+<!--
+  Trimmed capture of a live goo-net listing page, taken 2026-08-31 from
+  https://www.goo-net.com/usedcar/price-100-300/index-2.html
+
+  Kept as a regression fixture because it carries the details the parser keys
+  on and the synthetic fixtures get wrong:
+    • 年式2019後  — a bare year with no trailing 年 (card 1). Cards like this
+      parsed as year=null, and a car with no year fails the quality gate.
+    • 車検車検整備付 — a label that contains no year at all (card 2).
+    • the shop block (住所/営業時間/定休日/無料 tel) sits INSIDE the card, and
+      the phone link points back at the same spread URL.
+    • the shop logo lives under /shop/ and /S/ and must not be counted as a
+      car photo.
+-->
+<html><body>
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082700209395001.html"><img src="https://picture1.goo-net.com/9880260827/00209395/Q/98802608270020939500100.jpg">New</a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082700209395001.html#2"><img src="https://picture1.goo-net.com/020/0209395/Q/0209395A20260826D00101.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082700209395001.html#3"><img src="https://picture1.goo-net.com/020/0209395/Q/0209395A20260826D00102.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082700209395001.html#4"><img src="https://picture1.goo-net.com/020/0209395/Q/0209395A20260826D00103.jpg"></a>
+  <p>マツダ</p>
+  <h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082700209395001.html">アテンザセダン ＸＤ　Ｌパッケージ　４ＷＤ　ディーゼルターボ　６ヶ月走行距離無制限保証付</a></h3>
+  <p>支払総額(税込)(リ済込)</p><p>207.8万円</p><p>（諸費用7.9万円を含む）</p>
+  <p>車両本体価格(税込)</p><p>199.9万円</p>
+  <p>年式2019後</p><p>走行距離4.7万km</p><p>車検2028年3月</p><p>修復歴なし</p>
+  <p>整備法定整備付</p><p>保証付6ヶ月・走行無制限</p>
+  <p>排気量2200cc</p><p>ミッションMTモード付きAT</p>
+  <p>外装 <span>4</span></p><p>内装 <span>3</span></p>
+  <p>住所：愛知県小牧市川西３－１０</p>
+  <a href="https://www.goo-net.com/usedcar_shop/0209395/detail.html"><img src="https://picture1.goo-net.com/shop/020/0209395/S/0209395.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082700209395001.html">無料 0078-6043-7396</a>
+</div>
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082600208975002.html"><img src="https://picture1.goo-net.com/9880260826/00208975/Q/98802608260020897500200.jpg">New</a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082600208975002.html#2"><img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260825D00201.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082600208975002.html#3"><img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260825D00202.jpg"></a>
+  <p>トヨタ</p>
+  <h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082600208975002.html">カローラフィールダー ハイブリッドＧ　クロスフィールダー</a></h3>
+  <p>支払総額(税込)(リ済込)</p><p>124.1万円</p><p>（諸費用10.1万円を含む）</p>
+  <p>車両本体価格(税込)</p><p>114万円</p>
+  <p>年式2017年</p><p>走行距離9.4万km</p><p>車検車検整備付</p><p>修復歴なし</p>
+  <p>排気量1500cc</p><p>ミッションAT</p>
+  <p>外装 <span>3</span></p><p>内装 <span>3</span></p>
+  <p>住所：岐阜県可児市土田２５４５－２９３</p>
+</div>
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082600208975003.html"><img src="https://picture1.goo-net.com/9880260826/00208975/Q/98802608260020897500300.jpg">New</a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082600208975003.html#2"><img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260825D00301.jpg"></a>
+  <p>ホンダ</p>
+  <h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/988026082600208975003.html">Ｎ－ＢＯＸカスタム Ｌターボ　両側パワースライドドア</a></h3>
+  <p>車両本体価格(税込)</p><p>164万円</p>
+  <p>年式2022年</p><p>走行距離2.6万km</p><p>車検2027年4月</p><p>修復歴なし</p>
+  <p>排気量660cc</p><p>ミッションインパネAT</p>
+  <p>外装 <span>4</span></p><p>内装 <span>4</span></p>
+  <p>住所：岐阜県可児市土田２５４５－２９３</p>
+</div>
+</body></html>

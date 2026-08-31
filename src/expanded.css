@@ -17,16 +17,20 @@
 
 /* tighter nav to fit extra links */
 .navlinks{gap:16px}
-.navlinks button{font-size:12.5px;white-space:nowrap}
+/* The top-level links are real <a> elements (so Ctrl/right-click "open in new
+   tab" works) — these rules used to target `button` only, which meant the
+   links never got the compact type or `nowrap`, so "Japan dealer stock" could
+   wrap to two lines and push the 64px header out of shape. */
+.navlinks a,.navlinks button{font-size:12.5px;white-space:nowrap}
 .primary.compact{white-space:nowrap;font-size:12px;padding:0 14px}
 .nav-actions{gap:7px}
 @media(max-width:1240px){
  .navlinks{gap:11px}
- .navlinks button{font-size:11.5px}
+ .navlinks a,.navlinks button{font-size:11.5px}
 }
 @media(max-width:1120px){
  .navlinks{gap:8px;margin:0 6px}
- .navlinks button{font-size:11px}
+ .navlinks a,.navlinks button{font-size:11px}
 }
 
 /* ---------- INVENTORY: filter toolbar ---------- */
@@ -213,26 +217,48 @@
 /* ---------- 3D nav ---------- */
 .nav{perspective:1100px;height:64px}
 .navlinks{gap:17px}
-.navlinks button{position:relative;font-size:12.5px;transform-style:preserve-3d;transition:transform .3s cubic-bezier(.2,.7,.3,1.5),color .2s;padding:6px 2px}
-.navlinks button:after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--gold),var(--green));transform:scaleX(0);transition:transform .3s;transform-origin:left}
-.navlinks button:hover{transform:translateY(-2px) rotateX(14deg) scale(1.05);color:var(--green-text)}
-.navlinks button:hover:after{transform:scaleX(1)}
+.navlinks a,.navlinks button{position:relative;font-size:12.5px;transform-style:preserve-3d;transition:transform .3s cubic-bezier(.2,.7,.3,1.5),color .2s;padding:6px 2px}
+.navlinks a:after,.navlinks button:after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--gold),var(--green));transform:scaleX(0);transition:transform .3s;transform-origin:left}
+.navlinks a:hover,.navlinks button:hover{transform:translateY(-2px) rotateX(14deg) scale(1.05);color:var(--green-text)}
+.navlinks a:hover:after,.navlinks button:hover:after{transform:scaleX(1)}
+.navlinks a.current{color:var(--gold)}
+.navlinks a.current:after{transform:scaleX(1)}
 .navlinks .auction-link{border-left:1px solid var(--line);padding-left:20px;color:var(--green-text)}
 .navlinks .auction-link:hover{color:var(--gold)}
 
-/* More dropdown */
-.nav-more{position:relative}
-.nav-more .more-btn{display:flex;align-items:center;gap:5px}
-.nav-more .more-chev{width:12px;transition:transform .3s}
-.nav-more.open .more-chev{transform:rotate(180deg)}
-.nav-more:before{content:'';position:absolute;left:0;right:0;top:100%;height:14px}
-.more-panel{position:absolute;top:calc(100% + 12px);left:50%;margin-left:-140px;width:270px;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;display:grid;grid-template-columns:1fr 1fr;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
-.nav-more.open .more-panel,.nav-more:focus-within .more-panel{opacity:1;visibility:visible;pointer-events:auto;transform:perspective(800px) rotateX(0deg) translateY(0)}
+/* Header dropdowns (Brands + More) share one container/open-state so they
+   behave identically; only the panel contents differ. */
+.nav-drop{position:relative}
+.nav-drop .nav-drop-btn{display:flex;align-items:center;gap:5px}
+.nav-drop .more-chev{width:12px;transition:transform .3s}
+.nav-drop.open .more-chev{transform:rotate(180deg)}
+.nav-drop:before{content:'';position:absolute;left:0;right:0;top:100%;height:14px}
+.nav-drop-panel{position:absolute;top:calc(100% + 12px);left:50%;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;opacity:0;visibility:hidden;pointer-events:none;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
+.nav-drop.open .nav-drop-panel,.nav-drop:focus-within .nav-drop-panel{opacity:1;visibility:visible;pointer-events:auto;transform:perspective(800px) rotateX(0deg) translateY(0)}
+/* More panel keeps its exact 2-column shape — items are added in pairs. */
+.more-panel{margin-left:-140px;width:270px;display:grid;grid-template-columns:1fr 1fr;gap:2px}
 .more-panel a,.more-panel button{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;border:0;background:none;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;text-decoration:none;transition:transform .22s,background .2s,color .2s}
 .more-panel a i,.more-panel button i{width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--gold) 16%,transparent);display:grid;place-items:center;flex:none}
 .more-panel a svg,.more-panel button svg{width:13px;color:var(--gold)}
 .more-panel a:hover,.more-panel button:hover{background:color-mix(in srgb,var(--green) 10%,transparent);transform:translateX(4px);color:var(--green-text)}
 .more-panel a:hover svg,.more-panel button:hover svg{color:var(--green-text)}
+
+/* ---------- Brands dropdown: the makes currently in inventory ---------- */
+.brands-panel{margin-left:-230px;width:min(460px,calc(100vw - 32px));padding:12px;display:block;max-height:min(72vh,540px);overflow:auto}
+.brands-panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:2px 4px 10px}
+.brands-panel-head b{font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green-text)}
+.brands-panel-head span{font-size:10px;color:var(--muted);white-space:nowrap}
+.brands-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.brands-grid a{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:9px;text-decoration:none;color:var(--ink);font-size:11px;font-weight:700;transition:background .2s,color .2s}
+.brands-grid a img{width:26px;height:17px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px;flex:none}
+.brands-grid a span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brands-grid a b{font-size:9.5px;color:var(--muted)}
+.brands-grid a:hover,.brands-grid a.current{background:color-mix(in srgb,var(--green) 10%,transparent);color:var(--green-text)}
+.brands-panel-foot{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.brands-panel-foot a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:9px;background:color-mix(in srgb,var(--gold) 13%,transparent);color:var(--ink);font-size:10.5px;font-weight:800;text-decoration:none;transition:background .2s,color .2s}
+.brands-panel-foot a svg{width:12px;color:var(--gold);flex:none}
+.brands-panel-foot a:hover{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green-text)}
+
 
 /* 3D brand + buttons */
 .brand{perspective:600px}
@@ -247,12 +273,13 @@
 
 /* mobile: dropdown becomes flat list in the overlay menu */
 @media(max-width:1000px){
- .nav-more{width:100%}
- .nav-more .more-btn{display:none}
- .nav-more:before{display:none}
- .more-panel{position:static;width:auto;opacity:1;visibility:visible;pointer-events:auto;transform:none;background:none;border:0;box-shadow:none;padding:0;display:grid;grid-template-columns:1fr 1fr;margin:0}
+ .nav-drop{width:100%}
+ .nav-drop .nav-drop-btn{display:none}
+ .nav-drop:before{display:none}
+ .nav-drop-panel{position:static;width:auto;max-height:none;opacity:1;visibility:visible;pointer-events:auto;transform:none;background:none;border:0;box-shadow:none;padding:0;margin:0}
  .navlinks.open .more-panel{display:grid}
- .navlinks button:after{display:none}
+ .navlinks.open .brands-panel{display:block}
+ .navlinks a:after,.navlinks button:after{display:none}
 }
 
 /* ---------- WORLD NETWORK PAGE ---------- */
@@ -443,8 +470,10 @@ section[id]{scroll-margin-top:120px}
  .inv-chips button,.inv-toolbar select,.inv-search{height:42px}
  .fav{width:40px;height:40px}
  .grade{font-size:10px;padding:6px 10px}
- .navlinks button{padding:13px 10px;font-size:14px}
+ .navlinks a,.navlinks button{padding:13px 10px;font-size:14px}
  .more-panel a,.more-panel button{padding:11px 10px}
+ .brands-grid{grid-template-columns:repeat(2,1fr)}
+ .brands-grid a{padding:11px 10px}
  .footer-grid a{min-height:38px;display:inline-flex;align-items:center}
  .footer-news{grid-template-columns:1fr;gap:26px}
  .floating-card{pointer-events:none}
@@ -1156,4 +1185,26 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
 .nav-wrap .nav{position:relative;z-index:5}
 @media(max-width:1000px){
  .nav-wrap .navlinks{top:calc(100% + 8px);left:0;right:0}
+}
+
+/* ------------------------------------------------------------
+   HEADER FIT — collapse the nav to the hamburger a little earlier.
+   The row is brand + 6 links + currency/theme/studio/account, which needs
+   ~1100px. Below that it used to keep laying out in one line and spilled
+   outside the rounded bar between 1000px and 1240px, so the hamburger now
+   takes over at 1180px instead. Only nav rules live here — page layouts keep
+   their own 1000px breakpoint.
+   ------------------------------------------------------------ */
+@media(max-width:1180px){
+ .menu-btn{display:grid}
+ .primary.compact{display:none}
+ .nav-wrap .navlinks{position:absolute;top:calc(100% + 8px);left:0;right:0;margin:0;background:var(--card);border:1px solid var(--line);border-radius:15px;padding:17px;display:none;flex-direction:column;align-items:stretch;gap:10px;box-shadow:0 24px 60px #04271a26}
+ .nav-wrap .navlinks.open{display:flex}
+ .navlinks a,.navlinks button{padding:10px;font-size:14px}
+ .navlinks .auction-link{border:0;padding-left:10px}
+ .nav-drop{width:100%}
+ .nav-drop .nav-drop-btn{display:none}
+ .nav-drop:before{display:none}
+ .nav-drop-panel{position:static;width:auto;max-height:none;opacity:1;visibility:visible;pointer-events:auto;transform:none;background:none;border:0;box-shadow:none;padding:0;margin:0}
+ .navlinks a:after,.navlinks button:after{display:none}
 }

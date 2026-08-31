@@ -90,11 +90,15 @@ export const BRAND_MAP = {
 };
 
 // Common models → English + a body-type hint so imported cars display nicely
-// even before a human touches them. Easily extended.
+// even before a human touches them. Easily extended. Lookup takes the LONGEST
+// matching key, so a shorter name can never shadow a longer one.
 export const MODEL_MAP = {
+  'アテンザ': ['Atenza', 'Sedan'], 'マツダ６': ['Mazda6', 'Sedan'],
+  'カローラフィールダー': ['Corolla Fielder', 'Wagon'], 'カローラツーリング': ['Corolla Touring', 'Wagon'],
   'アルファード': ['Alphard', 'MPV'], 'ヴェルファイア': ['Vellfire', 'MPV'],
   'ノア': ['Noah', 'MPV'], 'ヴォクシー': ['Voxy', 'MPV'], 'エスティマ': ['Estima', 'MPV'],
   'ステップワゴン': ['Stepwgn', 'MPV'], 'セレナ': ['Serena', 'MPV'], 'オデッセイ': ['Odyssey', 'MPV'],
+  'ランドクルーザープラド': ['Land Cruiser Prado', 'SUV'],
   'ランドクルーザー': ['Land Cruiser', 'SUV'], 'プラド': ['Land Cruiser Prado', 'SUV'],
   'ハリアー': ['Harrier', 'SUV'], 'ヴェゼル': ['Vezel', 'SUV'], 'ＣＸ－５': ['CX-5', 'SUV'],
   'ＣＸ－３０': ['CX-30', 'SUV'], 'ＣＸ－８': ['CX-8', 'SUV'], 'エクストレイル': ['X-Trail', 'SUV'],
@@ -187,9 +191,14 @@ export function detectFuel(text) {
 export function detectModel(title, make) {
   const s = String(title || '');
   const flat = s.replace(/\u3000/g, ' ').replace(/[（(].*?[)）]/g, '');
+  // Longest key wins. First-match returned "Corolla" for カローラクロス and
+  // "Land Cruiser" for ランドクルーザープラド, because the shorter name is a
+  // substring of the longer one and sat earlier in the map.
+  let best = null;
   for (const [jp, [en]] of Object.entries(MODEL_MAP)) {
-    if (flat.includes(jp)) return en;
+    if (flat.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, en };
   }
+  if (best) return best.en;
   // Fallback: keep the first two visible tokens, cleaned of option chatter.
   const tokens = flat.split(/\s+/).filter(Boolean);
   const keep = tokens.slice(0, 2).join(' ').trim().slice(0, 40);
@@ -225,6 +234,16 @@ export function extendGallery(images, max = 40) {
     if (u) out.push(u);
   }
   return out;
+}
+
+// goo-net prints 排気量 as "2200cc"; everywhere else in the site it reads
+// "2,200cc". One formatter so the importer and the seed cannot drift.
+export function formatEngine(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return null;
+  const n = raw.replace(/cc|ＣＣ/i, '').trim();
+  if (!n) return null;
+  return n.replace(/(\d)(?=(\d{3})+$)/g, '$1,') + 'cc';
 }
 
 export function extractStockFromUrl(url) {
@@ -399,6 +418,22 @@ async function warmUp(timeoutMs) {
   });
 }
 
+// Fetch `url` through the free reader relay. Used whenever this host cannot
+// read goo-net itself — either because goo-net answered with its bot-gate stub
+// or because the connection failed at the network level.
+async function relayFetch(url, { timeoutMs, maxBytes }) {
+  const relayHeaders = {
+    'User-Agent': UA,
+    'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+    'X-Return-Format': 'html',
+    'X-No-Cache': 'true',
+    'X-With-Links-Summary': 'false'
+  };
+  const relayed = await rawFetch(JINA_RELAY + url, { timeoutMs, maxBytes, headers: relayHeaders });
+  return { relayed, relayPage: pageDiagnostics(relayed.html) };
+}
+
 export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true } = {}) {
   if (isGoonetUrl(url)) await warmUp(timeoutMs);
   const cookieToSend = cookie || cookieJar || DEFAULT_COOKIE;
@@ -420,23 +455,43 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
   };
 
   if (direct.error) {
-    return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', diagnostics: { ...diagnostics, fallbackUsed: true } };
+    // A connection that never completed (DNS failure, TLS reset, connection
+    // refused — what a bot-filtered datacenter IP usually gets) is the SAME
+    // "this host cannot read goo-net" situation as a stub page, so it earns the
+    // same relay attempt. This used to return immediately, so an importer whose
+    // direct socket was refused never even tried the relay and imported nothing.
+    const networkDiag = { ...diagnostics, fallbackUsed: true, directDiagnostics: pageDiagnostics('') };
+    if (allowRelay && isGoonetUrl(url)) {
+      const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
+      if (relayed.ok && !looksLikeStub(relayed.html)) {
+        return {
+          ok: true,
+          status: relayed.status,
+          html: relayed.html,
+          truncated: relayed.truncated,
+          via: 'relay',
+          directDiagnostics: networkDiag.directDiagnostics,
+          diagnostics: {
+            ...networkDiag,
+            via: 'relay',
+            relayUrl: JINA_RELAY + url,
+            contentLength: (relayed.html || '').length,
+            relayDurationMs: relayed.durationMs,
+            relayDiagnostics: relayPage
+          }
+        };
+      }
+      networkDiag.relayAttempted = true;
+      networkDiag.relayDiagnostics = relayPage;
+    }
+    return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', diagnostics: networkDiag };
   }
 
   const directPage = pageDiagnostics(direct.html);
   const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404 && looksLikeStub(direct.html);
 
   if (shouldRelay) {
-    const relayHeaders = {
-      'User-Agent': UA,
-      'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-      'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
-      'X-Return-Format': 'html',
-      'X-No-Cache': 'true',
-      'X-With-Links-Summary': 'false'
-    };
-    const relayed = await rawFetch(JINA_RELAY + url, { timeoutMs, maxBytes, headers: relayHeaders });
-    const relayPage = pageDiagnostics(relayed.html);
+    const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
     // Only trust the relay when it genuinely saw more cars than we did.
     if (relayed.ok && relayPage.spreadLinks > directPage.spreadLinks) {
       return {
@@ -560,8 +615,7 @@ function parseCard(chunk, stock, baseUrl) {
   const year = numberAfter(chunk, '年式');
   const km = kmToNumber(after(chunk, '走行距離', v => /km/i.test(v)));
   const priceJpy = manToYen(after(chunk, '車両本体価格', v => /万円/.test(v)) || after(chunk, '支払総額', v => /万円/.test(v)));
-  const engRaw = after(chunk, '排気量');
-  const eng = engRaw ? engRaw.replace(/cc|ＣＣ/i, '').trim().replace(/(\d)(?=(\d{3})+$)/g, '$1,') + 'cc' : null;
+  const eng = formatEngine(after(chunk, '排気量'));
   const trRaw = after(chunk, 'ミッション');
   const tr = trRaw ? trRaw.trim().slice(0, 12) : null;
   const repair = after(chunk, '修復歴');
@@ -618,8 +672,7 @@ export function parseDetailPage(html, url) {
   const st = steeringRaw ? (steeringRaw.includes('左') ? 'LHD' : 'RHD') : null;
   const drvRaw = after(text, '駆動方式');
   const drv = drvRaw ? drvRaw.trim().slice(0, 8) : null;
-  const engRaw = after(text, '排気量');
-  const eng = engRaw ? engRaw.replace(/cc|ＣＣ/i, '').trim().replace(/(\d)(?=(\d{3})+$)/g, '$1,') + 'cc' : null;
+  const eng = formatEngine(after(text, '排気量'));
   const seats = seatsNumber(after(text, '乗車定員'));
   const trRaw = after(text, 'ミッション');
   const tr = trRaw ? trRaw.trim().slice(0, 12) : null;
@@ -769,9 +822,13 @@ export function after(text, label, validate = null) {
 }
 
 export function numberAfter(text, label) {
-  const v = after(text, label, val => /\d{4}\s*[年(（]/.test(val));
+  // goo-net writes the year several ways on real pages: "年式2018年" on a detail
+  // page, "年式2017(平29)" on some cards, and — on today's listing cards —
+  // a bare "年式2019後". The old check demanded a trailing 年/( so the bare form
+  // parsed as null, and a car with no year is dropped by the quality gate.
+  const v = after(text, label, val => /(19|20)\d{2}\s*[年(（]/.test(val) || /^\s*(19|20)\d{2}\b/.test(val));
   if (!v) return null;
-  const m = v.match(/(\d{4})\s*[年(（]/);
+  const m = v.match(/((?:19|20)\d{2})/);
   if (m) return Number(m[1]);
   const n = v.match(/(\d+)/);
   return n ? Number(n[1]) : null;
