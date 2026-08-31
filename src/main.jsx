@@ -9,7 +9,9 @@ import './motion-account.css';
 import './landing-v2.css';
 import './expanded.css';
 import { WorldPage, BigNetworkGlobe, Flag } from './network.jsx';
-import CrmApp from './crm.jsx';
+// The CRM is only reached from the /crm route, so load it on demand
+// instead of shipping it to every visitor.
+const CrmApp = React.lazy(() => import('./crm.jsx'));
 import { CustomerAccountPage, WhatsAppButton, useCustomerSession } from './customer-portal.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { useSettings, telHref, waLink } from './site-settings.js';
@@ -560,7 +562,7 @@ export function App(){
  };
  const go=(id)=>{if(page!=='home'){navigate('home');setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'}),100)}else document.getElementById(id)?.scrollIntoView({behavior:'smooth'});setMenu(false)};
  const submitLead=async e=>{e.preventDefault();setLeadSending(true);setLeadError('');const f=new FormData(e.currentTarget),payload=Object.fromEntries(f.entries());try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Unable to send request');setSent(true);e.currentTarget.reset()}catch(err){setLeadError(err.message)}finally{setLeadSending(false)}};
- if(page==='crm')return <CrmApp/>;
+ if(page==='crm')return <React.Suspense fallback={<div className="empty-state"><Monitor/><h3>Loading the CRM…</h3><p>Fetching your workspace.</p></div>}><CrmApp/></React.Suspense>;
  return <div className="site">
   <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={BRANDS()} vehicleCount={cars.length}
     menu={menu} setMenu={setMenu} dark={dark} setDark={setDark} signedIn={signedIn} navigate={navigate} logoFor={LOGO}

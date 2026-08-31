@@ -133,6 +133,7 @@ const ROUTES = [
   ['/account', 'AR7'],
   ['/studio', 'AR7'],
   ['/japan-stock', 'LIVE GOO-NET DEALER STOCK'],
+  ['/crm', 'crm-'],
   ['/inventory', 'inv-toolbar'],
   ['/services', 'AR7 SERVICE']
 ];
