@@ -224,14 +224,15 @@
 .nav-more{position:relative}
 .nav-more .more-btn{display:flex;align-items:center;gap:5px}
 .nav-more .more-chev{width:12px;transition:transform .3s}
-.nav-more:hover .more-chev{transform:rotate(180deg)}
-.more-panel{position:absolute;top:calc(100% + 12px);left:50%;margin-left:-140px;width:270px;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;display:grid;grid-template-columns:1fr 1fr;gap:2px;opacity:0;visibility:hidden;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
-.nav-more:hover .more-panel,.nav-more:focus-within .more-panel{opacity:1;visibility:visible;transform:perspective(800px) rotateX(0deg) translateY(0)}
-.more-panel a,.more-panel button{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;border:0;background:none;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;transition:transform .22s,background .2s,color .2s}
-.more-panel a,.more-panel button i{width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--gold) 16%,transparent);display:grid;place-items:center;flex:none}
-.more-panel a,.more-panel button svg{width:13px;color:var(--gold)}
-.more-panel a,.more-panel button:hover{background:color-mix(in srgb,var(--green) 10%,transparent);transform:translateX(4px);color:var(--green-text)}
-.more-panel a,.more-panel button:hover svg{color:var(--green-text)}
+.nav-more.open .more-chev{transform:rotate(180deg)}
+.nav-more:before{content:'';position:absolute;left:0;right:0;top:100%;height:14px}
+.more-panel{position:absolute;top:calc(100% + 12px);left:50%;margin-left:-140px;width:270px;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;display:grid;grid-template-columns:1fr 1fr;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
+.nav-more.open .more-panel,.nav-more:focus-within .more-panel{opacity:1;visibility:visible;pointer-events:auto;transform:perspective(800px) rotateX(0deg) translateY(0)}
+.more-panel a,.more-panel button{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;border:0;background:none;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;text-decoration:none;transition:transform .22s,background .2s,color .2s}
+.more-panel a i,.more-panel button i{width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--gold) 16%,transparent);display:grid;place-items:center;flex:none}
+.more-panel a svg,.more-panel button svg{width:13px;color:var(--gold)}
+.more-panel a:hover,.more-panel button:hover{background:color-mix(in srgb,var(--green) 10%,transparent);transform:translateX(4px);color:var(--green-text)}
+.more-panel a:hover svg,.more-panel button:hover svg{color:var(--green-text)}
 
 /* 3D brand + buttons */
 .brand{perspective:600px}
@@ -246,8 +247,10 @@
 
 /* mobile: dropdown becomes flat list in the overlay menu */
 @media(max-width:1000px){
+ .nav-more{width:100%}
  .nav-more .more-btn{display:none}
- .more-panel{position:static;width:auto;opacity:1;visibility:visible;transform:none;background:none;border:0;box-shadow:none;padding:0;display:grid;grid-template-columns:1fr 1fr;margin:0}
+ .nav-more:before{display:none}
+ .more-panel{position:static;width:auto;opacity:1;visibility:visible;pointer-events:auto;transform:none;background:none;border:0;box-shadow:none;padding:0;display:grid;grid-template-columns:1fr 1fr;margin:0}
  .navlinks.open .more-panel{display:grid}
  .navlinks button:after{display:none}
 }
@@ -715,7 +718,7 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
 /* ============================================================
    PERMANENT WORLD TIME RIBBON
    ============================================================ */
-.world-time-ribbon{width:min(1240px,calc(100% - 64px));height:35px;margin:7px auto 0;display:flex;align-items:center;overflow:hidden;border:1px solid color-mix(in srgb,var(--gold) 28%,var(--line));border-radius:11px;background:linear-gradient(110deg,color-mix(in srgb,var(--card) 94%,transparent),color-mix(in srgb,var(--card) 84%,var(--gold)));box-shadow:0 9px 28px rgba(3,43,27,.11);backdrop-filter:blur(18px) saturate(1.25);color:var(--ink)}
+.world-time-ribbon{width:min(1240px,calc(100% - 64px));height:35px;margin:0 auto 7px;position:relative;z-index:1;display:flex;align-items:center;overflow:hidden;border:1px solid color-mix(in srgb,var(--gold) 28%,var(--line));border-radius:11px;background:linear-gradient(110deg,color-mix(in srgb,var(--card) 94%,transparent),color-mix(in srgb,var(--card) 84%,var(--gold)));box-shadow:0 9px 28px rgba(3,43,27,.11);backdrop-filter:blur(18px) saturate(1.25);color:var(--ink)}
 .world-time-label{height:100%;flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:0 13px;border-right:1px solid color-mix(in srgb,var(--gold) 30%,var(--line));background:linear-gradient(135deg,var(--green),var(--deep));color:#fff;font-size:7px;font-weight:800;letter-spacing:1.6px;white-space:nowrap;position:relative;z-index:2;box-shadow:9px 0 20px rgba(2,47,29,.13)}
 .world-time-label svg{width:14px;color:var(--gold2)}
 .world-time-label>i{width:5px;height:5px;border-radius:50%;background:#62e39d;box-shadow:0 0 0 4px rgba(98,227,157,.12);animation:clockLive 2s ease-in-out infinite}
@@ -737,9 +740,9 @@ html[data-theme=dark] .world-time-item>strong{color:#85e2b3}
 /* Account for the permanent second header row */
 @media (min-width:1367px){.hero{padding-top:160px}.page-hero.mini{padding-top:145px}}
 @media (min-width:1001px) and (max-width:1366px){.world-time-ribbon{width:min(100% - 40px,1180px)}.hero{padding-top:158px}.page-hero.mini{padding-top:145px}}
-@media (min-width:651px) and (max-width:1000px){.world-time-ribbon{width:min(100% - 36px,900px);margin-top:6px}.hero{padding-top:142px!important}.page-hero.mini{padding-top:140px}.account-form-wrap{padding-top:150px}}
+@media (min-width:651px) and (max-width:1000px){.world-time-ribbon{width:min(100% - 36px,900px);margin-bottom:6px}.hero{padding-top:142px!important}.page-hero.mini{padding-top:140px}.account-form-wrap{padding-top:150px}}
 @media (max-width:650px){
- .world-time-ribbon{width:min(100% - 24px,620px);height:31px;margin-top:5px;border-radius:9px}
+ .world-time-ribbon{width:min(100% - 24px,620px);height:31px;margin-bottom:5px;border-radius:9px}
  .world-time-label{padding:0 9px}.world-time-label span{display:none}.world-time-label svg{width:15px}
  .world-time-item{height:30px;padding:0 11px;gap:5px}.world-time-item>b{font-size:8.5px}.world-time-item>strong{font-size:9px}.world-time-item>small{display:none}
  .world-time-track{animation-duration:34s}
@@ -1146,4 +1149,11 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
   .detail-gallery .detail-gallery-toolbar{padding:6px 8px!important;gap:8px!important}
   .detail-gallery .detail-gallery-toolbar .gallery-expand{font-size:0!important;width:38px!important;padding:0!important;justify-content:center}
   .detail-gallery .detail-gallery-toolbar .gallery-arrow{width:36px!important;height:36px!important}
+}
+
+/* World time ribbon sits above the nav row; nav + dropdowns stack on top */
+.nav-wrap>.world-time-ribbon{order:-1}
+.nav-wrap .nav{position:relative;z-index:5}
+@media(max-width:1000px){
+ .nav-wrap .navlinks{top:calc(100% + 8px);left:0;right:0}
 }
