@@ -34,6 +34,14 @@ export const FALLBACK_SEARCH_URL = 'https://www.goo-net.com/usedcar/price--100/'
 // edge and hands back the real HTML.
 export const JINA_RELAY = 'https://r.jina.ai/';
 
+// Last-resort public CORS proxies, tried only when r.jina.ai cannot read the
+// page. They are plain pass-through proxies (no markdown conversion), free and
+// keyless — flaky, but they fail independently of the primary relay.
+export const BACKUP_RELAYS = {
+  allorigins: 'https://api.allorigins.win/raw?url=',
+  codetabs: 'https://api.codetabs.com/v1/proxy?quest='
+};
+
 // goo-net writes "万円" (man yen) prices: 34.8万円 = 348,000 yen.
 export function manToYen(text) {
   const m = String(text || '').replace(/[,\s]/g, '').match(/(\d+(?:\.\d+)?)\s*万円/);
@@ -203,6 +211,20 @@ export function detectModel(title, make) {
   const tokens = flat.split(/\s+/).filter(Boolean);
   const keep = tokens.slice(0, 2).join(' ').trim().slice(0, 40);
   return keep || (make || 'Car');
+}
+
+// Body-type hint for a car from its Japanese model name. goo-net's detail
+// pages have NO ボディタイプ row in their 基本仕様 table (the label only exists
+// in the search form, which detail pages do not carry), and listing cards do
+// not print a body type either — so the MODEL_MAP hint is the only body source
+// for most cars. Longest key wins, same rule as detectModel.
+export function bodyHintFor(title) {
+  const flat = String(title || '').replace(/\u3000/g, ' ').replace(/[（(].*?[)）]/g, '');
+  let best = null;
+  for (const [jp, [, hint]] of Object.entries(MODEL_MAP)) {
+    if (flat.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, hint };
+  }
+  return best ? best.hint : null;
 }
 
 // Sequential goo-net photo sets end in 01.jpg … NN.jpg. When a page lists
@@ -418,23 +440,125 @@ async function warmUp(timeoutMs) {
   });
 }
 
-// Fetch `url` through the free reader relay. Used whenever this host cannot
-// read goo-net itself — either because goo-net answered with its bot-gate stub
-// or because the connection failed at the network level.
-async function relayFetch(url, { timeoutMs, maxBytes }) {
-  const relayHeaders = {
-    'User-Agent': UA,
-    'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
-    'X-Return-Format': 'html',
-    'X-No-Cache': 'true',
-    'X-With-Links-Summary': 'false'
-  };
-  const relayed = await rawFetch(JINA_RELAY + url, { timeoutMs, maxBytes, headers: relayHeaders });
-  return { relayed, relayPage: pageDiagnostics(relayed.html) };
+// ---------------------------------------------------------------------------
+// Relay layer
+// ---------------------------------------------------------------------------
+// goo-net answers datacenter IPs (Vercel, CI) with a connection reset, so the
+// importer can only read it through a relay fetching from a friendlier
+// network. r.jina.ai is the primary relay (HTML mode, free); two public CORS
+// proxies follow as last resorts.
+//
+// Anonymous r.jina.ai use is rate-limited per caller IP. On a laptop that is
+// plenty; on serverless hosting the egress IP is shared by every function in
+// the region, so the shared allowance is often exhausted and the relay
+// answers HTTP 429. Setting JINA_API_KEY (or GOONET_RELAY_KEY) in the
+// environment sends it as a Bearer token, giving the relay its own allowance
+// — the documented permanent fix for rate-limited runs.
+export function relayApiKey() {
+  try {
+    const env = (typeof process !== 'undefined' && process.env) || {};
+    return String(env.GOONET_RELAY_KEY || env.JINA_API_KEY || '');
+  } catch { return ''; }
 }
 
-export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true } = {}) {
+const RELAY_BACKOFF_MS = 1000;    // pause before re-dialling a fast-failed relay
+const RELAY_MIN_SLICE_MS = 3000;  // never start an attempt too short to finish
+
+export const RELAY_PROVIDERS = [
+  {
+    id: 'jina',
+    build: url => JINA_RELAY + url,
+    retries: 1,
+    headers(budgetMs) {
+      const h = {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+        'X-Return-Format': 'html',
+        'X-With-Links-Summary': 'false',
+        // Ask the relay itself to give up inside our own abort window, so a
+        // hopeless render never eats the whole relay budget.
+        'X-Timeout': String(Math.max(3, Math.ceil(budgetMs / 1000)))
+      };
+      const key = relayApiKey();
+      if (key) h['Authorization'] = 'Bearer ' + key;
+      return h;
+    }
+  },
+  {
+    id: 'allorigins',
+    build: url => BACKUP_RELAYS.allorigins + encodeURIComponent(url),
+    retries: 0,
+    headers() { return { 'User-Agent': UA, 'Accept': 'text/html,*/*;q=0.8' }; }
+  },
+  {
+    id: 'codetabs',
+    build: url => BACKUP_RELAYS.codetabs + encodeURIComponent(url),
+    retries: 0,
+    headers() { return { 'User-Agent': UA, 'Accept': 'text/html,*/*;q=0.8' }; }
+  }
+];
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Try the relays in order until one returns a page with MORE than
+// `minSpreadLinks` car links. Every attempt shares one deadline, so the relay
+// phase can never outlive its budget, and each attempt is recorded for the
+// run report (which relay, what status, how long, how many car links).
+async function relayFetchAll(url, { relayTimeoutMs = 12000, maxBytes, minSpreadLinks = 0 }) {
+  const deadline = Date.now() + Math.max(RELAY_MIN_SLICE_MS, relayTimeoutMs);
+  const attempts = [];
+  let best = null; // { provider, res, page } — the relay result with most car links
+  const consider = (provider, res) => {
+    const page = pageDiagnostics(res.html || '');
+    attempts.push({
+      provider: provider.id, status: res.status ?? 0, error: res.error || null,
+      ms: res.durationMs ?? 0, bytes: (res.html || '').length, spreadLinks: page.spreadLinks
+    });
+    if (res.ok && (!best || page.spreadLinks > best.page.spreadLinks)) {
+      best = { provider, res, page };
+    }
+  };
+
+  for (const provider of RELAY_PROVIDERS) {
+    const shots = provider.retries + 1;
+    for (let shot = 0; shot < shots; shot++) {
+      const left = deadline - Date.now();
+      if (left < RELAY_MIN_SLICE_MS) return { best, attempts };
+      const started = Date.now();
+      // The first attempt gets a slice of the budget (not all of it), so a
+      // slow failure still leaves time for the retry or the next relay.
+      const budget = shot === 0
+        ? Math.min(left, Math.max(RELAY_MIN_SLICE_MS, Math.round(relayTimeoutMs * 0.6)))
+        : left;
+      const res = await rawFetch(provider.build(url), { timeoutMs: budget, maxBytes, headers: provider.headers(budget) });
+      consider(provider, res);
+      if (best && best.res === res && best.page.spreadLinks > minSpreadLinks) {
+        return { best, attempts };
+      }
+      // Only fast failures (429 / 5xx / refused) are worth an immediate
+      // retry — a timeout already proved this relay is slow for this page.
+      if (shot + 1 < shots && Date.now() - started <= 3500) {
+        await sleep(RELAY_BACKOFF_MS);
+        continue;
+      }
+      break;
+    }
+  }
+  return { best, attempts };
+}
+
+// Relays re-fetch (and usually re-render) the page from their own network, so
+// they need a far bigger allowance than the direct call: goo-net listing pages
+// are 1–2 MB and r.jina.ai regularly needs 8–15 s. The relay used to inherit
+// the direct fetch's 5–7 s timeout, so every relay attempt aborted mid-flight
+// and hosts whose direct socket gets reset (all of Vercel) could never read
+// anything — the importer reported `blocked` every single day.
+function defaultRelayTimeout(timeoutMs) {
+  return Math.min(20000, Math.max(10000, timeoutMs + 5000));
+}
+
+export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, relayTimeoutMs = null } = {}) {
   if (isGoonetUrl(url)) await warmUp(timeoutMs);
   const cookieToSend = cookie || cookieJar || DEFAULT_COOKIE;
   const headers = browserHeaders(url, cookieToSend);
@@ -457,32 +581,39 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
   if (direct.error) {
     // A connection that never completed (DNS failure, TLS reset, connection
     // refused — what a bot-filtered datacenter IP usually gets) is the SAME
-    // "this host cannot read goo-net" situation as a stub page, so it earns the
-    // same relay attempt. This used to return immediately, so an importer whose
-    // direct socket was refused never even tried the relay and imported nothing.
+    // "this host cannot read goo-net" situation as a stub page, so it earns
+    // the same relay attempt. This used to return immediately, so an importer
+    // whose direct socket was refused never even tried the relay and imported
+    // nothing.
     const networkDiag = { ...diagnostics, fallbackUsed: true, directDiagnostics: pageDiagnostics('') };
     if (allowRelay && isGoonetUrl(url)) {
-      const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
-      if (relayed.ok && !looksLikeStub(relayed.html)) {
+      const { best, attempts } = await relayFetchAll(url, {
+        relayTimeoutMs: relayTimeoutMs ?? defaultRelayTimeout(timeoutMs),
+        maxBytes, minSpreadLinks: 1
+      });
+      if (best && best.page.spreadLinks > 1) {
         return {
           ok: true,
-          status: relayed.status,
-          html: relayed.html,
-          truncated: relayed.truncated,
+          status: best.res.status,
+          html: best.res.html,
+          truncated: best.res.truncated,
           via: 'relay',
+          provider: best.provider.id,
           directDiagnostics: networkDiag.directDiagnostics,
           diagnostics: {
             ...networkDiag,
             via: 'relay',
-            relayUrl: JINA_RELAY + url,
-            contentLength: (relayed.html || '').length,
-            relayDurationMs: relayed.durationMs,
-            relayDiagnostics: relayPage
+            relayUrl: best.provider.build(url),
+            relayProvider: best.provider.id,
+            contentLength: (best.res.html || '').length,
+            relayDurationMs: best.res.durationMs,
+            relayDiagnostics: best.page,
+            relayAttempts: attempts
           }
         };
       }
       networkDiag.relayAttempted = true;
-      networkDiag.relayDiagnostics = relayPage;
+      networkDiag.relayAttempts = attempts;
     }
     return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', diagnostics: networkDiag };
   }
@@ -491,30 +622,36 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
   const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404 && looksLikeStub(direct.html);
 
   if (shouldRelay) {
-    const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
+    const { best, attempts } = await relayFetchAll(url, {
+      relayTimeoutMs: relayTimeoutMs ?? defaultRelayTimeout(timeoutMs),
+      maxBytes, minSpreadLinks: directPage.spreadLinks
+    });
     // Only trust the relay when it genuinely saw more cars than we did.
-    if (relayed.ok && relayPage.spreadLinks > directPage.spreadLinks) {
+    if (best && best.page.spreadLinks > directPage.spreadLinks) {
       return {
         ok: true,
-        status: relayed.status,
-        html: relayed.html,
-        truncated: relayed.truncated,
+        status: best.res.status,
+        html: best.res.html,
+        truncated: best.res.truncated,
         via: 'relay',
+        provider: best.provider.id,
         directDiagnostics: directPage,
         diagnostics: {
           ...diagnostics,
           via: 'relay',
-          relayUrl: JINA_RELAY + url,
+          relayUrl: best.provider.build(url),
+          relayProvider: best.provider.id,
           fallbackUsed: true,
-          contentLength: (relayed.html || '').length,
-          relayDurationMs: relayed.durationMs,
+          contentLength: (best.res.html || '').length,
+          relayDurationMs: best.res.durationMs,
           directDiagnostics: directPage,
-          relayDiagnostics: relayPage
+          relayDiagnostics: best.page,
+          relayAttempts: attempts
         }
       };
     }
     diagnostics.relayAttempted = true;
-    diagnostics.relayDiagnostics = relayPage;
+    diagnostics.relayAttempts = attempts;
   }
 
   return {
@@ -667,7 +804,9 @@ export function parseDetailPage(html, url) {
   const year = numberAfter(text, '年式(初度登録)') || numberAfter(text, '年式');
   const km = kmToNumber(after(text, '走行距離', v => /km/i.test(v)));
   const fuel = detectFuel(after(text, '燃料'));
-  const body = detectBody(after(text, 'ボディタイプ'));
+  // Real goo-net detail pages never carry a ボディタイプ row — fall back to
+  // the model-name hint so imported cars still get a sensible body type.
+  const body = detectBody(after(text, 'ボディタイプ')) || bodyHintFor(title);
   const steeringRaw = after(text, 'ハンドル');
   const st = steeringRaw ? (steeringRaw.includes('左') ? 'LHD' : 'RHD') : null;
   const drvRaw = after(text, '駆動方式');

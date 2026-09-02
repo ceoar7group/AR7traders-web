@@ -225,7 +225,7 @@ ok(res2.statusCode === 200, 'stub run still responds 200');
 ok(relayCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net.com/usedcar/price--100/'),
   'the stub listing page was re-fetched through the relay');
 ok(res2.body?.cardsSeen >= 2, 'relayed page yields real cards instead of the 1-card stub');
-ok(res2.body?.note === 'goo-net blocked the direct request (bot protection) — page fetched via relay.',
+ok(String(res2.body?.note || '').startsWith('goo-net blocked the direct request (bot protection) — page fetched via relay.'),
   'report explains the bot gate');
 ok(db2.tables.japan_dealer_stock.length >= 1, 'cars are imported from the relayed page');
 
@@ -387,6 +387,95 @@ ok(db6.tables.japan_dealer_stock.some(r => r.goonet_id === 'NOTITLE0001'),
 ok(db6.tables.japan_dealer_stock.find(r => r.goonet_id === 'NOTITLE0001')?.goonet_url
   === 'https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE0001.html',
   'the imported row keeps the rebuilt goo-net url');
+
+// ---- Seventh run: listing reads fine, but every detail fetch fails ---------
+// The live failure mode on serverless hosts: the listing arrives through the
+// relay, but the relay cannot read the detail pages that day. The bookmark
+// must be HELD (the cars were never processed), the failures counted, and the
+// report must not say "caught up".
+resetFetchState();
+const db7 = memDb();
+db7.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db7.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) {
+    // the relay can read the listing but nothing else today
+    if (u.includes('price--100')) return { ok: true, status: 200, text: async () => listingHtml };
+    return { ok: false, status: 500, text: async () => '' };
+  }
+  throw new Error('fetch failed');   // goo-net resets our datacenter socket
+};
+
+const res7 = fakeRes();
+await handler(req, res7, { db: db7.db });
+const settings7 = Object.fromEntries(db7.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res7.body?.inserted === 0, 'no car is imported when every detail fetch fails');
+ok(res7.body?.detailFailures >= 1, `detail fetch failures are counted (${res7.body?.detailFailures})`);
+ok(Number(settings7.goonet_bookmark_page) === 1, 'the bookmark is held for a page whose cars were not processed');
+ok(String(res7.body?.note || '').includes('Bookmark held'), 'the report explains why the bookmark was held');
+ok(res7.body?.bookmarkAdvanced === false, 'bookmarkAdvanced is false on an infrastructure-failure run');
+
+// ---- Eighth run: every card on the page is known or blocklisted ------------
+// Nothing new to do — the page was still fully processed, so the crawler MUST
+// advance. Holding here would park the importer on page 1 forever.
+resetFetchState();
+const db8 = memDb();
+db8.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db8.tables.japan_dealer_stock = [];
+db8.tables.goonet_blocklist = [
+  '988026062900208975002', '988026081900208975001', '988026082700206352001'
+].map(stock => ({ goonet_id: stock, stock_no: stock, reason: 'test blocklist' }));
+
+global.fetch = async (url) => {
+  const u = String(url);
+  let body = '', status = 200;
+  if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
+  else if (u.includes('price--100')) body = listingHtml;
+  else if (u.includes('/usedcar/spread/goo/')) body = detailHtml;
+  else status = 404;
+  return { ok: status < 400, status, text: async () => body };
+};
+
+const res8 = fakeRes();
+await handler(req, res8, { db: db8.db });
+const settings8 = Object.fromEntries(db8.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res8.body?.inserted === 0 && res8.body?.newCards === 0, 'a fully blocklisted page imports nothing and reports no new cards');
+ok(Number(settings8.goonet_bookmark_page) === 2, 'a fully processed (all known/blocked) page advances the bookmark');
+ok(res8.body?.bookmarkAdvanced === true, 'bookmarkAdvanced is true when the page was fully processed');
+
+// ---- Ninth run: a car whose detail page is already 404 (sold) --------------
+// A sold car is a content change, not an infrastructure failure — it must be
+// skipped without holding the bookmark hostage.
+resetFetchState();
+const db9 = memDb();
+db9.tables.site_settings = seedSettings.map(([key, value]) =>
+  key === 'goonet_max_new_per_run' ? { key, value: '3' } : { key, value });
+db9.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  let body = '', status = 200;
+  if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
+  else if (u.includes('price--100')) body = listingHtml;
+  else if (u.includes('/usedcar/spread/goo/15/988026062900208975002')) { body = notFoundHtml; status = 404; }
+  else if (u.includes('/usedcar/spread/goo/')) body = detailHtml;
+  else status = 404;
+  return { ok: status < 400, status, text: async () => body };
+};
+
+const res9 = fakeRes();
+await handler(req, res9, { db: db9.db });
+const settings9 = Object.fromEntries(db9.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res9.body?.inserted === 2, 'the two live cars are imported');
+ok(res9.body?.skipped?.some(x => String(x).includes('detail page gone')), 'the sold car is skipped as gone');
+ok(res9.body?.detailFailures === 0, 'a 404 detail page is not counted as an infrastructure failure');
+ok(Number(settings9.goonet_bookmark_page) === 2, 'a sold car does not hold the bookmark');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

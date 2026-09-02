@@ -51,6 +51,32 @@ site fast. If you ever want more frequent runs, change the `cron` line in
 that file (e.g. `cron: '0 */6 * * *'` = every 6 hours) — but keep the "once
 daily at most" free-tier rule as the recommended setting.
 
+### The relay (why the importer can read goo-net from Vercel at all)
+
+goo-net refuses connections from datacenter IPs — every Vercel function gets
+its socket reset. The importer therefore reads goo-net through the free
+**r.jina.ai reader relay**, which fetches the same URL from its own network
+and hands back the real HTML. Two public CORS proxies follow as last-resort
+backups when the primary relay cannot read a page.
+
+Things to know:
+
+- The relay gets its **own, much larger timeout** than a direct fetch
+  (re-rendering a 1–2 MB goo-net page regularly takes 8–15 s). Sharing the
+  direct fetch's 5–7 s timeout aborted every relay call mid-flight — that is
+  what made the importer report `blocked` day after day.
+- Anonymous r.jina.ai use is **rate-limited per caller IP**. On Vercel the
+  egress IP is shared by every function in the region, so the shared
+  allowance is often exhausted and the relay answers **HTTP 429**. The run
+  report then says so explicitly and suggests the fix:
+- **Optional, recommended:** add a free Jina reader API key
+  (https://jina.ai/reader) as the `JINA_API_KEY` environment variable in
+  Vercel (redeploy once after adding it). The key is sent as a Bearer token
+  and gives the relay its own allowance — a permanent fix for rate-limited
+  runs. `GOONET_RELAY_KEY` works as an alias.
+- Delist checks deliberately never use the relay: an unreadable page must
+  never be mistaken for a delisted car.
+
 No GitHub Actions? Any free cron service (cron-job.org, UptimeRobot,
 healthchecks.io) can call the same URL — one call per day is plenty.
 
@@ -216,6 +242,37 @@ A fifth, smaller bug: `detectModel` returned the *first* matching key, so
 `カローラクロス` became "Corolla" and `ランドクルーザープラド` became "Land Cruiser".
 The longest matching key now wins.
 
+## 10. Why it was STILL importing nothing (fixed, round two)
+
+Three more defects found after the first round — together they were enough to
+keep the catalogue empty even when everything else worked:
+
+5. **The relay inherited the direct fetch's timeout.** `fetchPage` passed its
+   5–7 s `timeoutMs` to the relay call, but r.jina.ai re-renders goo-net's
+   1–2 MB pages and regularly needs 8–15 s. Every relay attempt aborted
+   mid-flight, so a host whose direct socket is reset (all of Vercel) could
+   never read anything and every run reported `blocked`. Relays now get their
+   own generous budget (`relayTimeoutMs`), one fast-failure retry, and two
+   backup proxies; an optional `JINA_API_KEY` env var upgrades the primary
+   relay past the anonymous per-IP rate limit.
+6. **The "missing fields" gate demanded fields goo-net never prints.** A hard
+   check required `fuel` and `body` on every car, but goo-net's detail pages
+   have no ボディタイプ row in their 基本仕様 table and listing cards carry
+   neither field — so **every** car was skipped as "missing fields: fuel,
+   body" and `inserted` was permanently 0. The hard gate now covers the
+   fields that are always there (`make, model, year, price_jpy, km`); body
+   type falls back to the model-name hint (`Ｎ－ＢＯＸ` → Kei, `ハリアー` →
+   SUV) and both stay best-effort, with sensible defaults applied when a car
+   is promoted to the website.
+7. **The bookmark advanced past pages it had not finished.** The bookmark
+   moved as soon as a page *parsed* (2+ cards), even when every detail fetch
+   failed or the run hit its time budget mid-page — silently skipping those
+   cars forever. It now advances only when the page was fully *processed*
+   (every new card fetched and either imported, quality-gated out, or sold);
+   infrastructure failures hold the bookmark so the next run re-reads the
+   same page. A car whose detail page 404s (sold in the meantime) is a
+   content change, not a failure, and does not hold the page.
+
 ## FAQ
 
 **Will this slow the website?** No. Runs are batched (a few cars per run),
@@ -238,11 +295,14 @@ There are two different failures that can look similar at first glance:
   than 2 car links, plus the gate's own wording (for example `アクセスが集中`,
   `セキュリティ`, `reCAPTCHA` / `captcha`) or an interstitial-sized body. Generic
   page boilerplate such as `cookie`, `Cookie`, `utilized`, or `verify` is
-  diagnostic only — it never overrules real car links. The importer may retry
-  through the free `r.jina.ai` reader relay, and keeps the relayed copy only
-  when it really contains more cars. If the relay cannot read more either, the
-  report holds the bookmark and skips delist/weekly sweeps so a day that read
-  nothing cannot churn the catalogue.
+  diagnostic only — it never overrules real car links. The importer retries
+  through the free `r.jina.ai` reader relay (with its own generous timeout,
+  one retry and two backup proxies), and keeps the relayed copy only when it
+  really contains more cars. If the relay cannot read more either, the report
+  holds the bookmark and skips delist/weekly sweeps so a day that read nothing
+  cannot churn the catalogue. If the relay was **rate-limited (HTTP 429)** the
+  note says so — the permanent fix is a free Jina reader key in the
+  `JINA_API_KEY` env var (see "The relay" above).
 
 - **`parseMiss: true`** means Goo-net returned a real listing page (many raw
   car links and usually a large body), but the importer parsed fewer than 2
