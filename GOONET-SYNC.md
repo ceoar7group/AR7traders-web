@@ -15,10 +15,49 @@ It is deliberately engineered to run on **free Vercel (Hobby)** hosting:
   of which at most 30 s goes to importing cars — well inside the
   `maxDuration: 60` the function declares). It never hammers the site, never
   times out, and resumes where it left off.
-- Only cars that pass the **quality gate** (minimum photo count, price, year,
-  mileage, condition rating) are imported.
+- Only cars that pass the **quality gate** (8+ photos, model year 2000+, a
+  real price, and every one of make / model / year / price / km / fuel / body)
+  are imported.
+- A car that was **deleted never comes back**: every deletion is recorded in
+  `goonet_blocklist`, and the importer skips anything on that list.
 
 ---
+
+## 0. Cleaning up bad imports (do this once)
+
+Old runs imported cars with a single photo, placeholder headings ("Unknown",
+"Car") or missing details, and re-imported cars that had been deleted. To
+clear them out and stop it happening again:
+
+1. **Back up first** — Supabase → Database → Backups (or export
+   `japan_dealer_stock` as CSV from the Table editor).
+2. Open **Supabase → SQL Editor**, paste **`supabase/goonet-cleanup.sql`**,
+   press Run. It creates `goonet_blocklist`, blocks + deletes every car with
+   fewer than 8 photos or missing make/model/year/price, removes the website
+   and CRM copies that were promoted from them, raises the importer's photo
+   minimum to 8, and prints the check counts:
+
+   ```sql
+   select count(*) from public.japan_dealer_stock where photo_count < 8;  -- expect 0
+   select count(*) from public.goonet_blocklist;                          -- expect > 0
+   ```
+
+   (`supabase/SETUP-EVERYTHING.sql` contains the same block, so a fresh
+   database gets it automatically — both are safe to re-run.)
+3. Deploy this version. From now on the CRM **Delete** button, the cleanup
+   script and the importer all share the blocklist.
+
+The same cleanup is available from a terminal, with a dry run:
+
+```
+SUPABASE_URL="https://xxx.supabase.co" \
+SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
+node scripts/clean-goonet.js --dry-run      # list what would go, change nothing
+node scripts/clean-goonet.js                # block + delete (and the promoted copies)
+```
+
+Flags: `--min-photos N` (default 8), `--keep-copies` (leave `site_listings` /
+`vehicles` alone). Test on staging before production.
 
 ## 1. Run the database update (required)
 
@@ -61,8 +100,8 @@ healthchecks.io) can call the same URL — one call per day is plenty.
 | Setting | Default | Meaning |
 |---|---|---|
 | Goo-net search page | `price-100-300` listing | Which newest-first listing to crawl |
-| Minimum photos | 5 | The quality gate — fewer good photos = skipped |
-| Oldest model year | 2000 | Cars older than this year are skipped |
+| Minimum photos | 8 | The quality gate — fewer photos = skipped. **8 is a floor**: a lower value in the CRM is ignored, a higher one is honoured |
+| Oldest model year | 2000 | Cars older than this year are skipped (also a floor) |
 | Max new cars per run | 6 | Batch size per run (keeps the site fast) |
 | Delist checks per run | 5 | How many existing cars are verified per run |
 | Weekly delist limit | 5 | Maintenance removes at most this many older cars/week |
@@ -75,17 +114,37 @@ What a run does, in order:
    bookmark only advances when that page was actually read (2+ parsed car cards).
    A blocked run, or a real page whose card markup the parser no longer
    understands, re-reads the same page instead of walking past it.
-2. **Quality gate**: for each new car, fetch its detail page, count photos,
-   read price/year/mileage/condition — only import cars that pass. Skipped
-   cars are listed in the run report.
-3. **Delist check**: a few existing cars are re-visited; if Goo-net shows the
+2. **Blocklist check**: a car whose goo-net id is on `goonet_blocklist` (it
+   was deleted before) is skipped without even fetching its page, and shows
+   in the report as `<stock no>: blocked (previously deleted)`.
+3. **Quality gate**: for each new car, fetch its detail page and require ALL of:
+   - **8 or more photos** that belong to *this* car (the full gallery is read,
+     including the part goo-net ships as JSON; photos of the dealer's other
+     cars on the same page are not counted);
+   - a real **price** (car body price; anything under ¥50,000 is treated as a
+     placeholder and rejected), **model year 2000 or newer** and not in the
+     future, and a **mileage**;
+   - every required field present: `make, model, year, price_jpy, km, fuel,
+     body` — no "Unknown", no empty values;
+   - a real heading: a make read from the car's own `<h1>` (not from the site
+     menu), and a model that is not a placeholder ("Car", "Used Car",
+     "Vehicle", or just the make name again);
+   - the listing card and the detail page naming the **same make** — a
+     mismatch means the page was misread, and the car is skipped rather than
+     listed under the wrong brand;
+   - no "listed until …" (already delisted) notice on the detail page.
+
+   Skipped cars are listed in the run report with the reason, for example
+   `988026081900208975902 Honda N-BOX (photos 1/8)`. The condition rating and
+   repair history only move the quality *score*, they never block a car.
+4. **Delist check**: a few existing cars are re-visited; if Goo-net shows the
    car is gone (404 or the "listed until …" notice), it is **delisted** — it
    disappears from the *Japan dealer stock* page, and if it had been promoted
    to the website, that listing is hidden too (`published=false`, reversible).
-4. **Weekly maintenance** (once per 7 days): delists a *few* older/lower-quality
+5. **Weekly maintenance** (once per 7 days): delists a *few* older/lower-quality
    cars, and auto-promotes a *few* fresh high-quality cars to the website so
    stock keeps growing without ever flooding the site.
-5. Writes the run timestamps/settings. The page bookmark has already advanced
+6. Writes the run timestamps/settings. The page bookmark has already advanced
    only if step 1 yielded a readable listing; otherwise it stays held for the
    next run.
 
@@ -117,8 +176,16 @@ terminal version with `--dry-run`.
     shown in Inventory too since it becomes a listing).
   - **Inventory** — copy it into the CRM *Inventory* as a vehicle with
     `vendor = Goo-net` and its estimated cost.
-  - **Delist / Re-list** — hide or restore it on the Japan dealer stock page.
-  - Photos / Edit / Delete as usual.
+  - **Delist / Re-list** — hide or restore it on the Japan dealer stock page
+    (reversible).
+  - **Delete** — *permanent*. The car's goo-net id is written to
+    `goonet_blocklist` **before** the row is removed, its website / CRM
+    inventory copies (same stock number, vendor Goo-net) are removed too, and
+    the activity log records "Permanently deleted and blocked car …". The
+    importer will never bring that car back. If the blocklist table does not
+    exist yet the delete is refused with a message telling you to run the SQL,
+    because a delete that can be undone by the next import is not a delete.
+  - Photos / Edit as usual.
 - **Run import now** (admin) and **Importer rules** settings panel.
 - In demo mode (no Supabase keys) everything works with sample data.
 
@@ -139,8 +206,10 @@ terminal version with `--dry-run`.
 ## 7. Terminal runner (optional)
 
 The scraper core (`scripts/goonet-core.mjs`) is dependency-free and tested
-(`npm run test:goonet` — 247 assertions across the parser, the seed builder and
-the importer endpoint). A CLI is included:
+(`npm run test:goonet` — 375 assertions across the parser, the seed builder,
+the importer endpoint, the delete endpoint and the cleanup script). A CLI is
+included; it applies exactly the importer's rules (blocklist, 8-photo floor,
+required fields):
 
 ```
 SUPABASE_URL="https://xxx.supabase.co" \
@@ -149,7 +218,8 @@ node scripts/goonet-crawl.mjs --dry-run
 ```
 
 Flags: `--dry-run` (print what would change, write nothing), `--page N`
-(start at listing page N), `--min-photos N` (override the quality gate).
+(start at listing page N), `--min-photos N` (raise the photo gate above 8 —
+lower values are ignored, like the importer).
 
 ## 8. Seed the page from a real Goo-net batch
 
@@ -225,7 +295,25 @@ small inserts.
 
 **What happens to a car that disappears from Goo-net?** The next delist check
 marks it `available=false` (hidden from the site) and unpublishes the matching
-*Website cars* listing if one exists. Nothing is ever hard-deleted.
+*Website cars* listing if one exists. The importer never hard-deletes on its
+own; only the CRM **Delete** button and the cleanup script do, and those also
+blocklist the car.
+
+**I deleted a car and it came back the next day — why?** That was the bug this
+version fixes: the importer only knew what was in the table *right now*, so a
+deleted car looked new again. Every deletion now lands in `goonet_blocklist`
+and the import loop skips those ids (`blocked (previously deleted)` in the run
+report, `blockedSkipped` in the counts). Run `supabase/goonet-cleanup.sql`
+once so the table exists and the old bad imports are blocked too.
+
+**Why were cars imported with 1 photo / the wrong make / "Car" as the model?**
+Three parser faults, all fixed and covered by tests: the photo scanner only
+saw the first thumbnails, not the full gallery goo-net embeds as JSON (and
+counted the dealer's *other* cars' photos); the make was the first brand
+found anywhere on the page — usually the site's brand menu — instead of the
+car's own heading; and unmapped models fell back to "Car" or the make name.
+The gate now refuses anything that is not complete and consistent, so a
+parser miss produces a skip (visible in the report), never a bad listing.
 
 **Will my free Vercel keep running?** Yes. No cron add-on, no always-on
 server: GitHub Actions (free) wakes the function once a day for a few

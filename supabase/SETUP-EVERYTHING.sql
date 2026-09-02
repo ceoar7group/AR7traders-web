@@ -742,7 +742,7 @@ alter table public.vehicles add column if not exists sourcing_currency text defa
 -- ---- Importer settings (editable from CRM → Japan dealer stock) ------
 insert into public.site_settings (key,value,label) values
   ('goonet_search_url','https://www.goo-net.com/usedcar/price-100-300/','Goo-net search page to import from (newest first)'),
-  ('goonet_min_photos','5','Minimum photos a car must have to be imported (quality gate)'),
+  ('goonet_min_photos','8','Minimum photos a car must have to be imported (quality gate; the importer never goes below 8)'),
   ('goonet_min_year','2000','Oldest model year a car may be to be imported'),
   ('goonet_max_new_per_run','6','Max new cars imported per sync run (keeps the site fast)'),
   ('goonet_max_delist_per_run','5','Max cars checked for delisting per run'),
@@ -759,3 +759,62 @@ on conflict (key) do nothing;
 alter table public.japan_dealer_stock enable row level security;
 -- No direct browser policies on purpose: public reads go through
 -- /api/goonet-stock, writes through the service-role functions only.
+
+-- ---- Goo-net blocklist: cars that must never be imported again ---------
+-- Every deletion (CRM "Delete", scripts/clean-goonet.js, the cleanup block
+-- below) records the goo-net id here, and the importer skips anything on
+-- this list. Without it a deleted car was re-imported on the next run.
+create table if not exists public.goonet_blocklist (
+  goonet_id   text primary key,
+  stock_no    text,
+  reason      text,
+  blocked_at  timestamptz default now()
+);
+create index if not exists goonet_blocklist_blocked_idx on public.goonet_blocklist(blocked_at desc);
+alter table public.goonet_blocklist enable row level security;
+
+-- The importer's minimum is now 8 photos: raise an older, lower setting.
+update public.site_settings set value = '8', updated_at = now()
+ where key = 'goonet_min_photos' and (value is null or value = '' or value::numeric < 8);
+
+-- ---- One-off cleanup of bad imports (safe to run again — idempotent) ----
+-- Old imports with a thin gallery or missing/placeholder details are blocked
+-- first (so they cannot come back), then removed from japan_dealer_stock and
+-- from the website / CRM copies that were promoted from them.
+with bad as (
+  select id, goonet_id, stock_no, make, model, year, price_jpy, photo_count,
+         case when images is null or jsonb_typeof(images) <> 'array' then 0
+              else jsonb_array_length(images) end as image_count
+  from public.japan_dealer_stock
+),
+flagged as (
+  select *,
+    case
+      when coalesce(photo_count, 0) < 8 or image_count < 8
+        then 'Cleanup: only ' || least(coalesce(photo_count, 0), image_count) || ' photos (<8)'
+      when make is null or btrim(make) = '' or make = 'Unknown'
+        then 'Cleanup: missing make'
+      when model is null or btrim(model) = '' or lower(model) in ('car','vehicle','used car','unknown')
+        then 'Cleanup: generic/missing model'
+      when year is null or year < 2000
+        then 'Cleanup: missing/old year'
+      when price_jpy is null or price_jpy <= 0
+        then 'Cleanup: missing price'
+    end as reason
+  from bad
+)
+insert into public.goonet_blocklist (goonet_id, stock_no, reason, blocked_at)
+select goonet_id, stock_no, reason, now() from flagged where reason is not null
+on conflict (goonet_id) do nothing;
+
+delete from public.site_listings
+ where stock_no in (select stock_no from public.japan_dealer_stock j
+                     join public.goonet_blocklist b using (goonet_id)
+                    where j.stock_no is not null);
+delete from public.vehicles
+ where vendor = 'Goo-net'
+   and stock_no in (select stock_no from public.japan_dealer_stock j
+                     join public.goonet_blocklist b using (goonet_id)
+                    where j.stock_no is not null);
+delete from public.japan_dealer_stock
+ where goonet_id in (select goonet_id from public.goonet_blocklist);
