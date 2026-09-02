@@ -28,6 +28,8 @@ function memDb() {
           return api;
         },
         eq: (k, v) => { ctx.filters.push(r => r[k] === v); return api; },
+        in: (k, list) => { ctx.filters.push(r => list.includes(r[k])); return api; },
+        or: () => api,
         lt: (k, v) => { ctx.filters.push(r => r[k] < v); return api; },
         gte: (k, v) => { ctx.filters.push(r => r[k] >= v); return api; },
         order: (k, opts = {}) => {
@@ -93,14 +95,19 @@ function memDb() {
         };
         return chain;
       },
-      async upsert(list) {
+      async upsert(list, opts = {}) {
+        // site_settings is keyed on `key`; goonet_blocklist on `goonet_id`
+        // (mirrors the `onConflict` the real code passes).
+        const keyCol = opts.onConflict || (name === 'goonet_blocklist' ? 'goonet_id' : 'key');
         for (const item of (Array.isArray(list) ? list : [list])) {
-          const existing = rows.find(r => r.key === item.key);
+          const existing = rows.find(r => r[keyCol] === item[keyCol]);
           if (existing) Object.assign(existing, item);
           else rows.push({ ...item });
         }
         return { error: null };
-      }
+      },
+      in: (k, list) => q().in(k, list),
+      or: () => q()
     };
   }
   return {
@@ -354,10 +361,13 @@ ok(db5.tables.japan_dealer_stock.length >= 1, 'cars from a slow run really reach
 // URL can be rebuilt from it — the old code fetched `null`, logged "detail
 // fetch failed" and dropped the car.
 resetFetchState();
+// The detail page served for these cards is the Honda N-BOX fixture, so the
+// cards describe the same Honda — a card that named a different make would
+// (correctly) be refused as a card/detail mismatch, which is tested next.
 const noTitleCard = i => `<div class="searchResult">
   <a href="https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE000${i}.html"><img src="https://picture1.goo-net.com/a/Q/p0${i}.jpg"></a>
-  <p>トヨタ</p>
-  <div class="carName"><a href="https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE000${i}.html">プリウス Ｓ</a></div>
+  <p>ホンダ</p>
+  <div class="carName"><a href="https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE000${i}.html">Ｎ－ＢＯＸ Ｇ</a></div>
   <p>車両本体価格(税込)</p><p>120万円</p>
   <p>年式2020年</p><p>走行距離3.2万km</p><p>修復歴なし</p>
 </div>`;
@@ -387,6 +397,105 @@ ok(db6.tables.japan_dealer_stock.some(r => r.goonet_id === 'NOTITLE0001'),
 ok(db6.tables.japan_dealer_stock.find(r => r.goonet_id === 'NOTITLE0001')?.goonet_url
   === 'https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE0001.html',
   'the imported row keeps the rebuilt goo-net url');
+
+// ---- Seventh run: the rebuild's rules ---------------------------------------
+// One listing page with five cards, each exercising one of the bugs that put
+// bad cars on the site:
+//   …975901 (BLOCKED)  — deleted earlier (on goonet_blocklist)        → skipped, never fetched
+//   …975902 (ONE PIC)  — detail page has a single photo                → skipped (photos 1/8)
+//   …975903 (GONE)     — detail page says "listed until …"             → skipped (delisted)
+//   …975904 (WRONG MK) — card says Toyota, detail page says Honda      → skipped (make mismatch)
+//   …975001 (GOOD)     — complete Honda N-BOX with an 11-photo gallery → imported
+resetFetchState();
+const rebuildCard = (id, makeJp, title) => `<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/${id}.html"><img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260628D00101.jpg"></a>
+  <p>${makeJp}</p>
+  <h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/${id}.html">${title}</a></h3>
+  <p>車両本体価格(税込)</p><p>44.8万円</p>
+  <p>年式2014年</p><p>走行距離7.1万km</p><p>修復歴なし</p>
+  <p>外装 <span>4</span></p><p>内装 <span>3</span></p>
+  <p>住所：愛知県小牧市</p>
+</div>`;
+const rebuildListing = '<html><body>'
+  + rebuildCard('988026081900208975901', 'ホンダ', 'Ｎ－ＢＯＸ Ｇ')
+  + rebuildCard('988026081900208975902', 'ホンダ', 'Ｎ－ＢＯＸ Ｇ')
+  + rebuildCard('988026081900208975903', 'ホンダ', 'Ｎ－ＢＯＸ Ｇ')
+  + rebuildCard('988026081900208975904', 'トヨタ', 'プリウス Ｓ')
+  + rebuildCard('988026081900208975001', 'ホンダ', 'Ｎ－ＢＯＸ Ｇ')
+  + '</body></html>';
+// A detail page for stock …975902 whose ONLY own photo is its cover shot — the
+// fixture's 001-series gallery belongs to a different car and must not count.
+const onePhotoDetail = detailHtml.replace(/<script>[\s\S]*?<\/script>/, '')
+  .replace('<img src="https://picture1.goo-net.com/9880260819/00208975/J/98802608190020897500100.jpg">',
+    '<img src="https://picture1.goo-net.com/9880260819/00208975/J/98802608190020897590200.jpg">');
+const goneDetail = detailHtml.replace('<h1>', '<p>このクルマは2026/08/29まで掲載されていた車両です</p><h1>');
+
+const db7 = memDb();
+db7.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value: key === 'goonet_min_photos' ? '3' : (key === 'goonet_max_new_per_run' ? '10' : value) }));
+db7.tables.japan_dealer_stock = [];
+db7.tables.goonet_blocklist = [{ goonet_id: '988026081900208975901', stock_no: '988026081900208975901', reason: 'Manually deleted via CRM', blocked_at: '2026-08-30T00:00:00Z' }];
+const fetched7 = [];
+global.fetch = async (url) => {
+  const u = String(url);
+  fetched7.push(u);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => rebuildListing };
+  if (u.includes('/988026081900208975902.html')) return { ok: true, status: 200, text: async () => onePhotoDetail };
+  if (u.includes('/988026081900208975903.html')) return { ok: true, status: 200, text: async () => goneDetail };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+const res7 = fakeRes();
+await handler(req, res7, { db: db7.db });
+const stock7 = db7.tables.japan_dealer_stock;
+const skipped7 = res7.body?.skipped || [];
+ok(res7.statusCode === 200, 'rebuild run responds 200');
+ok(res7.body?.cardsSeen === 5, 'all five cards were seen');
+ok(res7.body?.rules?.minPhotos === 8, 'a CRM setting of 3 photos is raised to the 8-photo floor');
+ok(res7.body?.rules?.minYear === 2000, 'the year floor is reported');
+ok(res7.body?.blocklistAvailable === true, 'the blocklist was consulted');
+ok(res7.body?.blockedSkipped === 1, 'exactly one card was skipped as previously deleted');
+ok(skipped7.some(x => x === '988026081900208975901: blocked (previously deleted)'), 'the blocked car is named in the report');
+ok(!fetched7.some(u => u.includes('/988026081900208975901.html')), 'a blocked car is never even fetched');
+ok(!stock7.some(r => r.goonet_id === '988026081900208975901'), 'a previously deleted car is NOT re-imported');
+ok(!stock7.some(r => r.goonet_id === '988026081900208975902'), 'a 1-photo car is NOT imported');
+ok(skipped7.some(x => x.startsWith('988026081900208975902') && /photos 1\/8/.test(x)), 'the 1-photo car is reported as "photos 1/8"');
+ok(!stock7.some(r => r.goonet_id === '988026081900208975903'), 'a car whose detail page says "listed until…" is NOT imported');
+ok(skipped7.some(x => x.startsWith('988026081900208975903') && /delisted/.test(x)), 'the delisted car is reported as delisted');
+ok(!stock7.some(r => r.goonet_id === '988026081900208975904'), 'a card/detail make mismatch is NOT imported');
+ok(skipped7.some(x => x.startsWith('988026081900208975904') && /make mismatch/.test(x)), 'the mismatch is reported');
+const good7 = stock7.find(r => r.goonet_id === '988026081900208975001');
+ok(!!good7, 'the complete car IS imported');
+ok(good7?.make === 'Honda' && good7?.model === 'N-BOX', 'imported car has the correct make/model heading');
+ok(good7?.photo_count === 11 && good7?.images?.length === 11, `imported car carries the full 11-photo gallery (got ${good7?.photo_count})`);
+ok(good7?.images?.every(u => u.includes('0208975')) && !good7?.images?.some(u => u.includes('00208975002') || u.includes('D00201')),
+  "imported gallery holds only this car's photos, not the dealer's other stock");
+ok(good7?.fuel === 'Petrol' && good7?.body === 'Kei' && good7?.km === '71000' && good7?.year === 2014 && good7?.price_jpy === 448000,
+  'imported car has every required field populated');
+ok(good7?.make !== 'Unknown' && good7?.model !== 'Car', 'no "Unknown"/"Car" placeholders are ever written');
+ok(stock7.length === 1, `exactly one car was imported this run (got ${stock7.length})`);
+
+// ---- Eighth run: the blocklist table is missing → the run still works ------
+resetFetchState();
+const db8 = memDb();
+db8.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db8.tables.japan_dealer_stock = [];
+const brokenFrom = db8.db.from;
+db8.db.from = name => name === 'goonet_blocklist'
+  ? { select: () => ({ then: resolve => resolve({ data: null, error: new Error('relation "goonet_blocklist" does not exist') }) }) }
+  : brokenFrom(name);
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+const res8 = fakeRes();
+await handler(req, res8, { db: db8.db });
+ok(res8.statusCode === 200, 'a database without goonet_blocklist still runs');
+ok(res8.body?.blocklistAvailable === false, 'the report says the blocklist is unavailable');
+ok(String(res8.body?.note || '').includes('goonet_blocklist'), 'the note tells the admin to run the SQL');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

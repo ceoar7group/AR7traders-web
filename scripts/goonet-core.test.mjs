@@ -11,7 +11,8 @@ import {
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
   BRAND_MAP, MODEL_MAP,
   countSpreadLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
-  FALLBACK_SEARCH_URL, JINA_RELAY, UA
+  FALLBACK_SEARCH_URL, JINA_RELAY, UA,
+  isGenericModel, photoBelongsTo, DEFAULT_MIN_PHOTOS, REQUIRED_FIELDS
 } from './goonet-core.mjs';
 
 let pass = 0, fail = 0;
@@ -362,20 +363,106 @@ ok(!isDelistedPage(r), 'a dead socket is never mistaken for a delisted car');
 global.fetch = realFetch;
 resetFetchState();
 
-// ---- Relaxed quality gate --------------------------------------------------
+// ---- Quality gate: 8+ photos and EVERY required field -----------------------
+// The gate is the rule that keeps "old cars with 1 picture" and cars with
+// missing/wrong details out of japan_dealer_stock, so its contract is pinned
+// down here field by field.
 const okCar = {
-  images: Array.from({ length: 5 }, (_, i) => `https://picture1.goo-net.com/a/Q/p0${i}.jpg`),
+  images: Array.from({ length: 8 }, (_, i) => `https://picture1.goo-net.com/a/Q/p0${i}.jpg`),
   image: 'https://picture1.goo-net.com/a/Q/p00.jpg',
   price_jpy: 500000, year: 2003, km: '90000', make: 'Toyota', model: 'Corolla',
+  fuel: 'Petrol', body: 'Sedan',
   ext_rating: 4, int_rating: 4, repair_history: 'No'
 };
-ok(qualityScore(okCar).pass, 'default gate passes a normal 5-photo car');
-eq(qualityScore(okCar).photo_count, 5, 'default gate counts 5 photos');
-ok(!qualityScore({ ...okCar, images: okCar.images.slice(0, 4) }).pass, 'fewer than 5 photos still fails');
+ok(qualityScore(okCar).pass, 'default gate passes a complete 8-photo car');
+eq(qualityScore(okCar).photo_count, 8, 'default gate counts 8 photos');
+eq(qualityScore(okCar).missingFields, [], 'a complete car has no missing fields');
+ok(!qualityScore({ ...okCar, images: okCar.images.slice(0, 7) }).pass, '7 photos fail the default gate (8 required)');
+ok(!qualityScore({ ...okCar, images: okCar.images.slice(0, 5) }).pass, 'the old 5-photo minimum no longer passes');
+ok(qualityScore({ ...okCar, images: okCar.images.slice(0, 5) }, { minPhotos: 5 }).reasons.length === 0 &&
+   qualityScore({ ...okCar, images: okCar.images.slice(0, 5) }, { minPhotos: 5 }).pass, 'minPhotos is still configurable downwards for tests/seeds');
+ok(!qualityScore(okCar, { minPhotos: 12 }).pass, 'minPhotos is still configurable upwards');
 ok(qualityScore({ ...okCar, year: 2000 }).pass, 'model year 2000 is allowed by default');
-ok(qualityScore({ ...okCar, year: 1999 }).reasons.includes('no/old year'), 'pre-2000 year is flagged');
+ok(qualityScore({ ...okCar, year: 1999 }).reasons.some(r => r.startsWith('old year')), 'pre-2000 year is flagged');
 ok(qualityScore({ ...okCar, year: 1999 }, { minYear: 1990 }).pass, 'minYear is configurable');
-ok(!qualityScore(okCar, { minPhotos: 8 }).pass, 'minPhotos is still configurable upwards');
+ok(!qualityScore({ ...okCar, year: new Date().getFullYear() + 5 }).pass, 'a year in the future is rejected');
+for (const f of ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body']) {
+  const q = qualityScore({ ...okCar, [f]: null });
+  ok(!q.pass && q.missingFields.includes(f), `a car without ${f} is rejected and ${f} is listed as missing`);
+}
+ok(!qualityScore({ ...okCar, make: 'Unknown' }).pass, 'make "Unknown" is rejected');
+ok(!qualityScore({ ...okCar, model: 'Car' }).pass, 'placeholder model "Car" is rejected');
+ok(!qualityScore({ ...okCar, model: 'Used Car' }).pass, 'placeholder model "Used Car" is rejected');
+ok(!qualityScore({ ...okCar, model: 'Vehicle' }).pass, 'placeholder model "Vehicle" is rejected');
+ok(!qualityScore({ ...okCar, model: 'Toyota' }).pass, 'a model that just repeats the make is rejected');
+ok(!qualityScore({ ...okCar, price_jpy: 0 }).pass, 'price 0 is rejected');
+ok(!qualityScore({ ...okCar, price_jpy: 12000 }).reasons.every(r => !r.startsWith('suspicious price')),
+  'an implausibly low price (¥12,000) is flagged as suspicious');
+ok(!qualityScore({ ...okCar, make_mismatch: true }).pass, 'a card/detail make mismatch is rejected');
+ok(!qualityScore({ ...okCar, delisted: true }).pass, 'a car whose detail page says "listed until…" is rejected');
+ok(qualityScore({ ...okCar, ext_rating: null, int_rating: null }).pass, 'a missing condition rating only lowers the score');
+ok(qualityScore({ ...okCar, repair_history: 'Yes' }).score < qualityScore(okCar).score, 'repair history lowers the score');
+eq(DEFAULT_MIN_PHOTOS, 8, 'the default photo minimum is 8');
+eq(REQUIRED_FIELDS, ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'], 'the required field list is pinned');
+
+// ---- Generic headings ------------------------------------------------------
+ok(isGenericModel('Car'), 'isGenericModel: "Car"');
+ok(isGenericModel('Used Car'), 'isGenericModel: "Used Car"');
+ok(isGenericModel(''), 'isGenericModel: empty');
+ok(isGenericModel(null), 'isGenericModel: null');
+ok(isGenericModel('Toyota', 'Toyota'), 'isGenericModel: the make itself');
+ok(!isGenericModel('Corolla', 'Toyota'), 'isGenericModel: a real model is not generic');
+ok(!isGenericModel('86', 'Toyota'), 'isGenericModel: a numeric model name is fine');
+eq(detectModel('', 'Toyota'), null, 'detectModel never falls back to the make name');
+eq(detectModel('Toyota', 'Toyota'), null, 'detectModel drops a title that is just the make');
+eq(detectModel('ハイエースバン ロングＤＸ', 'Toyota'), 'Hiace Van', 'detectModel maps ハイエースバン');
+eq(detectModel('ソリオ バンディット', 'Suzuki'), 'Solio', 'detectModel spells Solio correctly (was "Sonio")');
+eq(detectModel('ＸＹＺ９９ 未知グレード', 'Toyota'), 'XYZ99 未知グレード', 'unmapped models keep a half-width cleaned heading');
+
+// ---- Make/prefecture: the car\'s own, not the first in the map -------------
+eq(detectMake('ホンダ Ｎ－ＢＯＸ トヨタ車も取扱い'), 'Honda', 'detectMake: the brand that appears FIRST wins, not the first in BRAND_MAP');
+eq(detectMake('スバル フォレスター マツダ車／スバル車専門店'), 'Subaru', 'detectMake: a dealer name mentioning another brand does not win');
+eq(detectMake('メルセデス・ベンツ Ｃクラス'), 'Mercedes-Benz', 'detectMake: full name beats its suffix at the same position');
+eq(detectPrefecture('（愛知県）の中古車 北海道 青森県'), '愛知県', 'detectPrefecture: earliest prefecture wins');
+
+const navDetail = '<html><head><title>ホンダ Ｎ－ＢＯＸ Ｇ（愛知県）の中古車販売情報｜グーネット</title></head><body>'
+  + '<nav>トヨタ 日産 ホンダ マツダ</nav><h1>ホンダ Ｎ－ＢＯＸ Ｇ　ＳＳパッケージ（愛知県）の中古車販売情報</h1>'
+  + '<p>年式(初度登録)2014(平成26)年</p><p>走行距離7.1万km</p><p>燃料ガソリン</p><p>ボディタイプ軽自動車</p><p>車両本体価格44.8万円</p>'
+  + '<footer>北海道 青森県 沖縄県</footer></body></html>';
+const navD = parseDetailPage(navDetail, 'https://www.goo-net.com/usedcar/spread/goo/15/988026081900208975001.html');
+eq(navD.make, 'Honda', 'detail page: make comes from the <h1>, not the brand menu');
+eq(navD.model, 'N-BOX', 'detail page: model comes from the <h1>');
+eq(navD.location, '愛知県', 'detail page: prefecture comes from the <h1>, not the footer');
+eq(navD.fuel, 'Petrol', 'detail page: fuel');
+eq(navD.body, 'Kei', 'detail page: body');
+ok(navD.delisted === false, 'detail page: a live page is not delisted');
+const goneD = parseDetailPage(navDetail.replace('<nav>', '<p>このクルマは2026/08/29まで掲載されていた車両です</p><nav>'),
+  'https://www.goo-net.com/usedcar/spread/goo/15/988026081900208975001.html');
+ok(goneD.delisted === true, 'detail page: the "listed until…" notice marks the car delisted');
+ok(!qualityScore(mergeCardAndDetail({ goonet_id: '988026081900208975001', make: 'Honda', model: 'N-BOX', images: [] }, goneD)).pass,
+  'a delisted detail page can never pass the gate');
+const mism = mergeCardAndDetail({ goonet_id: '988026081900208975001', make: 'Toyota', model: 'Prius', images: [] }, navD);
+ok(mism.make_mismatch === true, 'merge flags a card/detail make mismatch');
+ok(!qualityScore(mism).pass && qualityScore(mism).reasons.some(r => r.includes('make mismatch')),
+  'a make mismatch is a hard fail with a named reason');
+
+// ---- Photos: the full gallery, and only this car\'s ------------------------
+const jsonGallery = '<img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260628D00101.jpg">'
+  + '<script>var g=["https:\\/\\/picture1.goo-net.com\\/020\\/0208975\\/Q\\/0208975A20260628D00102.jpg",'
+  + '"https:\\/\\/picture1.goo-net.com\\/020\\/0208975\\/Q\\/0208975A20260628D00103.jpg",'
+  + '"https:\\/\\/picture1.goo-net.com\\/020\\/0208975\\/Q\\/0208975A20260628D00104.jpg"]</script>';
+eq(extractCarImages(jsonGallery).length, 4, 'extractCarImages reads the JSON-embedded gallery (escaped slashes)');
+const foreign = '<img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260628D00101.jpg">'
+  + '<img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260628D00102.jpg">'
+  + '<img src="https://picture1.goo-net.com/9880260819/00208975/J/98802608190020897500100.jpg">'
+  + '<img src="https://picture1.goo-net.com/9880260827/00209395/J/98802608270020939500100.jpg">'
+  + '<img src="https://picture1.goo-net.com/020/0208975/Q/0208975A20260628D00201.jpg">';
+eq(extractCarImages(foreign, '988026081900208975001').length, 3, 'extractCarImages keeps only this car\'s photos when the stock id is known');
+eq(extractCarImages(foreign).length, 5, 'extractCarImages without a stock id keeps everything (listing chunks)');
+ok(photoBelongsTo('https://picture1.goo-net.com/054/0541069/Q/0541069A30260526W00305.jpg', '700054106930260526003'),
+  'photoBelongsTo accepts the W-series gallery names from the live capture');
+ok(!photoBelongsTo('https://picture1.goo-net.com/020/0208975/Q/0208975A20260628D00201.jpg', '988026081900208975001'),
+  'photoBelongsTo rejects a sibling car from the same dealer');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

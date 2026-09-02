@@ -63,8 +63,13 @@ export function kmToNumber(text) {
   return null;
 }
 
+// Full-width digits AND letters → ASCII (goo-net writes grades and model codes
+// as "ＸＤ　Ｌパッケージ"). Full-width hyphen/space are normalised too so
+// "ＣＸ－５" becomes "CX-5" in fallback headings.
 export function fullWidthToHalf(s) {
-  return String(s || '').replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+  return String(s || '')
+    .replace(/[０-９Ａ-Ｚａ-ｚ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/－/g, '-').replace(/\u3000/g, ' ');
 }
 
 export function seatsNumber(text) {
@@ -123,7 +128,7 @@ export const MODEL_MAP = {
   'Ｑ７': ['Q7', 'SUV'], 'レヴォーグ': ['Levorg', 'Wagon'], 'インプレッサ': ['Impreza', 'Sedan'],
   'フォレスター': ['Forester', 'SUV'], 'アウトランダー': ['Outlander', 'SUV'],
   'エクリプスクロス': ['Eclipse Cross', 'SUV'], 'デリカ': ['Delica', 'MPV'],
-  'ソリオ': ['Sonio', 'MPV'], 'フリード': ['Freed', 'MPV'], 'シエンタ': ['Sienta', 'MPV'],
+  'ソリオ': ['Solio', 'MPV'], 'フリード': ['Freed', 'MPV'], 'シエンタ': ['Sienta', 'MPV'],
   'ジャスティ': ['Justy', 'Kei'], 'タント': ['Tanto', 'Kei'], 'ｅ－Ｋ': ['eK', 'Kei'],
   'デイズ': ['Dayz', 'Kei'], 'ルークス': ['Roox', 'Kei'], 'サクラ': ['Sakura', 'Kei'],
   'リーフ': ['Leaf', 'Hatchback'], 'ＭＧ４': ['MG4', 'Hatchback'],
@@ -132,7 +137,104 @@ export const MODEL_MAP = {
   'ゴルフ': ['Golf', 'Hatchback'], 'ポロ': ['Polo', 'Hatchback'],
   'パサート': ['Passat', 'Sedan'], 'ティグアン': ['Tiguan', 'SUV'],
   'Ａ１': ['A1', 'Hatchback'], 'Ａ３': ['A3', 'Hatchback'], 'Ａ４': ['A4', 'Sedan'],
-  'Ａ６': ['A6', 'Sedan'], 'ミラ': ['Mira', 'Kei'], 'コペン': ['Copen', 'Coupe']
+  'Ａ６': ['A6', 'Sedan'], 'ミラ': ['Mira', 'Kei'], 'コペン': ['Copen', 'Coupe'],
+  // High-volume export models that used to fall through to the raw-token
+  // fallback (and so were imported under a Japanese heading).
+  'ハイエースバン': ['Hiace Van', 'Van'], 'ハイエースワゴン': ['Hiace Wagon', 'Van'],
+  'ハイエース': ['Hiace', 'Van'], 'レジアスエース': ['Regius Ace', 'Van'],
+  'ハイラックス': ['Hilux', 'Pickup'], 'ヴィッツ': ['Vitz', 'Hatchback'],
+  'パッソ': ['Passo', 'Hatchback'], 'ルーミー': ['Roomy', 'Kei'], 'タンク': ['Tank', 'Kei'],
+  'ポルテ': ['Porte', 'Hatchback'], 'スペイド': ['Spade', 'Hatchback'],
+  'ウィッシュ': ['Wish', 'MPV'], 'アイシス': ['Isis', 'MPV'], 'エスクァイア': ['Esquire', 'MPV'],
+  'ブレイド': ['Blade', 'Hatchback'], 'オーリス': ['Auris', 'Hatchback'], 'ＣＨ－Ｒ': ['C-HR', 'SUV'],
+  'Ｃ－ＨＲ': ['C-HR', 'SUV'], 'ＳＡＩ': ['SAI', 'Sedan'], 'プレミオ': ['Premio', 'Sedan'],
+  'アリオン': ['Allion', 'Sedan'], 'カローラアクシオ': ['Corolla Axio', 'Sedan'],
+  'カローラスポーツ': ['Corolla Sport', 'Hatchback'], 'カローラルミオン': ['Corolla Rumion', 'Wagon'],
+  'ランドクルーザー７０': ['Land Cruiser 70', 'SUV'], 'ＦＪクルーザー': ['FJ Cruiser', 'SUV'],
+  'ＬＸ': ['LX', 'SUV'], 'ＲＸ': ['RX', 'SUV'], 'ＮＸ': ['NX', 'SUV'], 'ＵＸ': ['UX', 'SUV'],
+  'ＩＳ': ['IS', 'Sedan'], 'ＥＳ': ['ES', 'Sedan'], 'ＬＳ': ['LS', 'Sedan'], 'ＣＴ': ['CT', 'Hatchback'],
+  'ＧＳ': ['GS', 'Sedan'], 'ＲＣ': ['RC', 'Coupe'],
+  'キャラバン': ['Caravan', 'Van'], 'ＮＶ３５０キャラバン': ['NV350 Caravan', 'Van'],
+  'ＮＶ２００バネット': ['NV200 Vanette', 'Van'], 'エルグランド': ['Elgrand', 'MPV'],
+  'ジューク': ['Juke', 'SUV'], 'キックス': ['Kicks', 'SUV'], 'キューブ': ['Cube', 'Hatchback'],
+  'ティアナ': ['Teana', 'Sedan'], 'スカイライン': ['Skyline', 'Sedan'], 'フーガ': ['Fuga', 'Sedan'],
+  'シルフィ': ['Sylphy', 'Sedan'], 'ラティオ': ['Latio', 'Sedan'], 'ウイングロード': ['Wingroad', 'Wagon'],
+  'ＡＤ': ['AD Van', 'Van'], 'フェアレディＺ': ['Fairlady Z', 'Coupe'], 'モコ': ['Moco', 'Kei'],
+  'ステップワゴンスパーダ': ['Stepwgn Spada', 'MPV'], 'インサイト': ['Insight', 'Sedan'],
+  'グレイス': ['Grace', 'Sedan'], 'シャトル': ['Shuttle', 'Wagon'], 'ジェイド': ['Jade', 'MPV'],
+  'ＣＲ－Ｖ': ['CR-V', 'SUV'], 'ＺＲ－Ｖ': ['ZR-V', 'SUV'], 'ＷＲ－Ｖ': ['WR-V', 'SUV'],
+  'Ｎ－ＷＧＮ': ['N-WGN', 'Kei'], 'Ｎ－ＶＡＮ': ['N-VAN', 'Kei'], 'ライフ': ['Life', 'Kei'],
+  'ゼスト': ['Zest', 'Kei'], 'バモス': ['Vamos', 'Kei'], 'アクティ': ['Acty', 'Kei'],
+  'ＣＸ－６０': ['CX-60', 'SUV'], 'ＣＸ－８０': ['CX-80', 'SUV'], 'マツダ２': ['Mazda2', 'Hatchback'],
+  'マツダ３': ['Mazda3', 'Hatchback'], 'アクセラ': ['Axela', 'Hatchback'], 'プレマシー': ['Premacy', 'MPV'],
+  'ビアンテ': ['Biante', 'MPV'], 'ＭＰＶ': ['MPV', 'MPV'], 'ボンゴ': ['Bongo', 'Van'],
+  'キャロル': ['Carol', 'Kei'], 'フレア': ['Flair', 'Kei'],
+  'エブリイ': ['Every', 'Kei'], 'エブリイワゴン': ['Every Wagon', 'Kei'], 'キャリイ': ['Carry', 'Truck'],
+  'ラパン': ['Lapin', 'Kei'], 'アルトラパン': ['Alto Lapin', 'Kei'], 'ワゴンＲスティングレー': ['Wagon R Stingray', 'Kei'],
+  'スイフトスポーツ': ['Swift Sport', 'Hatchback'], 'クロスビー': ['Xbee', 'SUV'], 'イグニス': ['Ignis', 'Hatchback'],
+  'エスクード': ['Escudo', 'SUV'], 'ジムニーシエラ': ['Jimny Sierra', 'SUV'], 'ランディ': ['Landy', 'MPV'],
+  'タントカスタム': ['Tanto Custom', 'Kei'], 'ムーヴキャンバス': ['Move Canbus', 'Kei'],
+  'ムーヴコンテ': ['Move Conte', 'Kei'], 'ウェイク': ['Wake', 'Kei'], 'キャスト': ['Cast', 'Kei'],
+  'トール': ['Thor', 'Kei'], 'ブーン': ['Boon', 'Hatchback'], 'ハイゼットカーゴ': ['Hijet Cargo', 'Kei'],
+  'ハイゼットトラック': ['Hijet Truck', 'Truck'], 'ハイゼット': ['Hijet', 'Kei'], 'アトレー': ['Atrai', 'Kei'],
+  'タフト': ['Taft', 'Kei'], 'ミライース': ['Mira e:S', 'Kei'], 'ミラココア': ['Mira Cocoa', 'Kei'],
+  'ミラトコット': ['Mira Tocot', 'Kei'], 'テリオスキッド': ['Terios Kid', 'Kei'],
+  'パジェロ': ['Pajero', 'SUV'], 'パジェロミニ': ['Pajero Mini', 'Kei'], 'デリカＤ：５': ['Delica D:5', 'MPV'],
+  'デリカＤ：２': ['Delica D:2', 'MPV'], 'ＲＶＲ': ['RVR', 'SUV'], 'ミラージュ': ['Mirage', 'Hatchback'],
+  'ｅＫワゴン': ['eK Wagon', 'Kei'], 'ｅＫクロス': ['eK X', 'Kei'], 'ｅＫスペース': ['eK Space', 'Kei'],
+  'レガシィ': ['Legacy', 'Wagon'], 'レガシィアウトバック': ['Legacy Outback', 'Wagon'],
+  'ＷＲＸ': ['WRX', 'Sedan'], 'ＢＲＺ': ['BRZ', 'Coupe'], 'ＸＶ': ['XV', 'SUV'], 'クロストレック': ['Crosstrek', 'SUV'],
+  'ステラ': ['Stella', 'Kei'], 'プレオ': ['Pleo', 'Kei'], 'サンバー': ['Sambar', 'Kei'],
+  'エルフ': ['Elf', 'Truck'], 'キャンター': ['Canter', 'Truck'], 'デュトロ': ['Dutro', 'Truck'],
+  'ダイナ': ['Dyna', 'Truck'], 'トヨエース': ['Toyoace', 'Truck'], 'アトラス': ['Atlas', 'Truck'],
+  'ミニキャブ': ['Minicab', 'Kei'], 'タウンエース': ['Townace', 'Van'], 'ライトエース': ['Liteace', 'Van'],
+  'ヴァンガード': ['Vanguard', 'SUV'], 'クルーガー': ['Kluger', 'SUV'], 'ＩＱ': ['iQ', 'Hatchback'],
+  'ピクシス': ['Pixis', 'Kei'], 'マークＩＩ': ['Mark II', 'Sedan'], 'チェイサー': ['Chaser', 'Sedan'],
+  'スープラ': ['Supra', 'Coupe'], '８６': ['86', 'Coupe'], 'ＧＲ８６': ['GR86', 'Coupe'],
+  'ＧＲヤリス': ['GR Yaris', 'Hatchback'], 'ＧＲカローラ': ['GR Corolla', 'Hatchback'],
+  'ミライ': ['Mirai', 'Sedan'], 'ｂＺ４Ｘ': ['bZ4X', 'SUV'], 'センチュリー': ['Century', 'Sedan'],
+  'クラウンクロスオーバー': ['Crown Crossover', 'SUV'], 'クラウンスポーツ': ['Crown Sport', 'SUV'],
+  'ヴェルファイアハイブリッド': ['Vellfire Hybrid', 'MPV'], 'アルファードハイブリッド': ['Alphard Hybrid', 'MPV'],
+  'ノアハイブリッド': ['Noah Hybrid', 'MPV'], 'ヴォクシーハイブリッド': ['Voxy Hybrid', 'MPV'],
+  'ハリアーハイブリッド': ['Harrier Hybrid', 'SUV'], 'プリウスα': ['Prius Alpha', 'Wagon'],
+  'プリウスＰＨＶ': ['Prius PHV', 'Sedan'], 'アクアクロスオーバー': ['Aqua Crossover', 'Hatchback'],
+  'エスティマハイブリッド': ['Estima Hybrid', 'MPV'], 'カムリハイブリッド': ['Camry Hybrid', 'Sedan'],
+  'クラウンハイブリッド': ['Crown Hybrid', 'Sedan'], 'ヴェゼルハイブリッド': ['Vezel Hybrid', 'SUV'],
+  'フィットハイブリッド': ['Fit Hybrid', 'Hatchback'], 'フリードハイブリッド': ['Freed Hybrid', 'MPV'],
+  'エクストレイルハイブリッド': ['X-Trail Hybrid', 'SUV'], 'セレナｅ－パワー': ['Serena e-Power', 'MPV'],
+  'ノートｅ－パワー': ['Note e-Power', 'Hatchback'], 'ノートオーラ': ['Note Aura', 'Hatchback'],
+  'アウトランダーＰＨＥＶ': ['Outlander PHEV', 'SUV'],
+  'Ｇクラス': ['G-Class', 'SUV'], 'ＧＬＡ': ['GLA', 'SUV'], 'ＧＬＢ': ['GLB', 'SUV'], 'ＧＬＳ': ['GLS', 'SUV'],
+  'ＣＬＡ': ['CLA', 'Sedan'], 'ＣＬＳ': ['CLS', 'Sedan'], 'Ｂクラス': ['B-Class', 'Hatchback'],
+  'Ｖクラス': ['V-Class', 'MPV'], 'ＥＱＡ': ['EQA', 'SUV'], 'ＥＱＢ': ['EQB', 'SUV'], 'ＥＱＣ': ['EQC', 'SUV'],
+  '２シリーズ': ['2 Series', 'Coupe'], '４シリーズ': ['4 Series', 'Coupe'], '７シリーズ': ['7 Series', 'Sedan'],
+  '８シリーズ': ['8 Series', 'Coupe'], 'Ｘ１': ['X1', 'SUV'], 'Ｘ２': ['X2', 'SUV'], 'Ｘ４': ['X4', 'SUV'],
+  'Ｘ６': ['X6', 'SUV'], 'Ｘ７': ['X7', 'SUV'], 'ｉ３': ['i3', 'Hatchback'], 'ｉＸ': ['iX', 'SUV'],
+  'Ａ５': ['A5', 'Coupe'], 'Ａ７': ['A7', 'Sedan'], 'Ａ８': ['A8', 'Sedan'], 'Ｑ２': ['Q2', 'SUV'],
+  'Ｑ３': ['Q3', 'SUV'], 'Ｑ８': ['Q8', 'SUV'], 'ＴＴ': ['TT', 'Coupe'], 'ｅ－ｔｒｏｎ': ['e-tron', 'SUV'],
+  'カイエン': ['Cayenne', 'SUV'], 'マカン': ['Macan', 'SUV'], 'パナメーラ': ['Panamera', 'Sedan'],
+  '９１１': ['911', 'Coupe'], 'ケイマン': ['Cayman', 'Coupe'], 'タイカン': ['Taycan', 'Sedan'],
+  'レンジローバー': ['Range Rover', 'SUV'], 'レンジローバーイヴォーク': ['Range Rover Evoque', 'SUV'],
+  'レンジローバースポーツ': ['Range Rover Sport', 'SUV'], 'レンジローバーヴェラール': ['Range Rover Velar', 'SUV'],
+  'ディスカバリー': ['Discovery', 'SUV'], 'ディスカバリースポーツ': ['Discovery Sport', 'SUV'],
+  'ディフェンダー': ['Defender', 'SUV'], 'Ｖ４０': ['V40', 'Hatchback'],
+  'Ｖ６０': ['V60', 'Wagon'], 'Ｖ９０': ['V90', 'Wagon'], 'アルテオン': ['Arteon', 'Sedan'],
+  'Ｔ－クロス': ['T-Cross', 'SUV'], 'Ｔ－ロック': ['T-Roc', 'SUV'], 'トゥアレグ': ['Touareg', 'SUV'],
+  'シャラン': ['Sharan', 'MPV'], 'ゴルフヴァリアント': ['Golf Variant', 'Wagon'],
+  'ゴルフトゥーラン': ['Golf Touran', 'MPV'], 'アップ！': ['up!', 'Hatchback'], 'ビートル': ['Beetle', 'Hatchback'],
+  'ミニクロスオーバー': ['MINI Crossover', 'SUV'], 'ミニクラブマン': ['MINI Clubman', 'Wagon'],
+  'ミニコンバーチブル': ['MINI Convertible', 'Convertible'], 'ラングラー': ['Wrangler', 'SUV'],
+  'グランドチェロキー': ['Grand Cherokee', 'SUV'], 'チェロキー': ['Cherokee', 'SUV'],
+  'コンパス': ['Compass', 'SUV'], 'レネゲード': ['Renegade', 'SUV'], 'モデル３': ['Model 3', 'Sedan'],
+  'モデルＹ': ['Model Y', 'SUV'], 'モデルＳ': ['Model S', 'Sedan'], 'モデルＸ': ['Model X', 'SUV'],
+  '５００': ['500', 'Hatchback'], 'パンダ': ['Panda', 'Hatchback'], 'ジュリア': ['Giulia', 'Sedan'],
+  'ステルヴィオ': ['Stelvio', 'SUV'], '２０８': ['208', 'Hatchback'], '３００８': ['3008', 'SUV'],
+  '５００８': ['5008', 'SUV'], 'カングー': ['Kangoo', 'Van'], 'キャプチャー': ['Captur', 'SUV'],
+  'ルーテシア': ['Lutecia', 'Hatchback'], 'ギブリ': ['Ghibli', 'Sedan'], 'レヴァンテ': ['Levante', 'SUV'],
+  'ベンテイガ': ['Bentayga', 'SUV'], 'コンチネンタルＧＴ': ['Continental GT', 'Coupe'],
+  'カリナン': ['Cullinan', 'SUV'], 'ゴースト': ['Ghost', 'Sedan'], 'ウルス': ['Urus', 'SUV'],
+  'ウラカン': ['Huracan', 'Coupe'], 'エスカレード': ['Escalade', 'SUV'], 'カマロ': ['Camaro', 'Coupe'],
+  'コルベット': ['Corvette', 'Coupe'], 'マスタング': ['Mustang', 'Coupe'], 'エクスプローラー': ['Explorer', 'SUV']
 };
 
 export const BODY_MAP = {
@@ -160,18 +262,33 @@ const PREFECTURES = [
   '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
 ];
 
+// The brand that appears EARLIEST in the text wins — not the brand that sits
+// earliest in BRAND_MAP. Scanning in map order returned "Toyota" for a Honda
+// whose page mentioned トヨタ anywhere at all (a shop called "トヨタ車専門店",
+// the brand menu in the nav), which is exactly how cars were imported under
+// the wrong heading. Ties (same index) go to the longer name, so
+// メルセデス・ベンツ beats ベンツ.
 export function detectMake(text) {
   const s = String(text || '');
+  let best = null;
   for (const [jp, en] of Object.entries(BRAND_MAP)) {
-    if (s.includes(jp)) return en;
+    const i = s.indexOf(jp);
+    if (i < 0) continue;
+    if (!best || i < best.i || (i === best.i && jp.length > best.jp.length)) best = { i, jp, en };
   }
-  return null;
+  return best ? best.en : null;
 }
 
+// Earliest prefecture in the text wins (same reasoning as detectMake: the
+// first match in LIST order picked 北海道 from a prefecture footer menu).
 export function detectPrefecture(text) {
   const s = String(text || '');
-  for (const p of PREFECTURES) if (s.includes(p)) return p;
-  return null;
+  let best = null;
+  for (const p of PREFECTURES) {
+    const i = s.indexOf(p);
+    if (i >= 0 && (!best || i < best.i)) best = { i, p };
+  }
+  return best ? best.p : null;
 }
 
 export function detectBody(text) {
@@ -199,10 +316,54 @@ export function detectModel(title, make) {
     if (flat.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, en };
   }
   if (best) return best.en;
-  // Fallback: keep the first two visible tokens, cleaned of option chatter.
-  const tokens = flat.split(/\s+/).filter(Boolean);
-  const keep = tokens.slice(0, 2).join(' ').trim().slice(0, 40);
-  return keep || (make || 'Car');
+  // Fallback: keep the first two visible tokens, cleaned of option chatter and
+  // of the make itself (goo-net titles never repeat the make, but the caller
+  // may pass one in when the card title did not parse). Never answer with the
+  // make name or a placeholder — an unknown model is `null`, and the quality
+  // gate turns that into a skip instead of a listing headed "Toyota Toyota".
+  const makeWords = new Set([String(make || '').toLowerCase(), ...Object.keys(BRAND_MAP)]);
+  const tokens = flat.split(/\s+/).filter(Boolean)
+    .filter(t => !makeWords.has(t.toLowerCase()) && !makeWords.has(t));
+  const keep = fullWidthToHalf(tokens.slice(0, 2).join(' ')).trim().slice(0, 40);
+  return keep || null;
+}
+
+// Body type implied by the model name (the second MODEL_MAP column), used when
+// a page does not print ボディタイプ. Longest key wins, like detectModel.
+export function modelBodyHint(title) {
+  const flat = String(title || '').replace(/\u3000/g, ' ');
+  let best = null;
+  for (const [jp, [, body]] of Object.entries(MODEL_MAP)) {
+    if (body && flat.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, body };
+  }
+  return best ? best.body : null;
+}
+
+// Fuel type when the title itself says so ("ハイブリッドＧ", "ディーゼルターボ",
+// "ＰＨＥＶ"). Only unambiguous words — never the 2-letter ＥＶ, which appears
+// inside other katakana-latin strings.
+export function fuelFromTitle(title) {
+  const s = String(title || '');
+  if (/プラグインハイブリッド|ＰＨＥＶ|PHEV|ＰＨＶ|PHV/.test(s)) return 'Plug-in Hybrid';
+  if (/ハイブリッド|ｅ－ＰＯＷＥＲ|ｅ－パワー|e-POWER|ｅ：ＨＥＶ|e:HEV/i.test(s)) return 'Hybrid';
+  if (/ディーゼル|クリーンディーゼル/.test(s)) return 'Diesel';
+  if (/電気自動車|ＥＶ専用|バッテリーＥＶ/.test(s)) return 'Electric';
+  return null;
+}
+
+// A heading that is not a real model: empty, a placeholder the old importer
+// wrote ("Car", "Vehicle", "Used Car"), just the make, or a string with no
+// letters/digits at all. Used by the quality gate and by the cleanup script.
+const GENERIC_MODELS = new Set(['car', 'vehicle', 'used car', 'usedcar', 'used vehicle',
+  'auto', 'automobile', 'unknown', 'n/a', 'na', 'none', 'null', 'undefined', '-', '—', '–', 'other']);
+export function isGenericModel(model, make = null) {
+  const m = String(model || '').trim().toLowerCase();
+  if (!m) return true;
+  if (GENERIC_MODELS.has(m)) return true;
+  if (!/[a-z0-9\u3040-\u30ff\u4e00-\u9fff]/i.test(m)) return true;
+  const mk = String(make || '').trim().toLowerCase();
+  if (mk && (m === mk || m === mk + ' ' + mk)) return true;
+  return false;
 }
 
 // Sequential goo-net photo sets end in 01.jpg … NN.jpg. When a page lists
@@ -546,19 +707,61 @@ export function isDelistedPage({ ok, status = 0, html = '', text = '' } = {}) {
 
 // All unique car photos on a goo-net page (J/Q folder images only — shop
 // logos live in /shop/, /P/ and /S/ folders and are excluded).
-export function extractCarImages(html) {
+//
+// goo-net ships the gallery two ways: plain <img src> tags for the first few
+// thumbnails, and the FULL set inside a JSON blob for the slider, where every
+// slash is escaped ("https:\/\/picture1.goo-net.com\/…"). The old regex only
+// matched the plain form, so a car with a 30-photo gallery was imported with
+// the 1–4 thumbnails the page happened to render as <img> — that is where the
+// "old cars with only 1 picture" came from. Unescape first, then scan.
+//
+// When `stock` (the 21-digit goo-net id) is given, only photos that belong to
+// THAT car are kept: a detail page also shows the dealer's other stock, and
+// those photos used to be counted towards this car's gallery.
+const PIC_RE = /https:\/\/picture1\.goo-net\.com\/[^"'()<>\s\\]+?\.(?:jpg|jpeg|png)/gi;
+export function extractCarImages(html, stock = null) {
+  const s = String(html || '').replace(/\\\//g, '/').replace(/\\u002[Ff]/g, '/').replace(/&amp;/g, '&');
   const out = [];
-  const re = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
   let m;
-  while ((m = re.exec(html))) {
-    const u = m[0];
+  PIC_RE.lastIndex = 0;
+  while ((m = PIC_RE.exec(s))) {
+    const u = m[0].split('?')[0];
     if (u.includes('/shop/') || /\/[PS]\//.test(u)) continue;
     out.push(u);
   }
-  return extendGallery([...new Set(out)]);
+  let unique = [...new Set(out)];
+  if (stock) {
+    const own = unique.filter(u => photoBelongsTo(u, stock));
+    // Only trust the ownership filter when it recognises the id scheme; an
+    // unfamiliar URL layout must not wipe a genuine gallery.
+    if (own.length || ownershipKnown(stock)) unique = own;
+  }
+  return extendGallery(unique);
 }
 
-const PIC_RE = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
+// goo-net photo file names encode the car: the cover ("J"/"Q" folder) is
+//   <21-digit stock id>00.jpg
+// and the gallery shots are
+//   <7-digit shop id>A<8-digit date><letter><3-digit seq><2-digit index>.jpg
+// The 21-digit stock id is <3-digit prefix><7 digits><8 digits><3-digit seq>;
+// depending on the feed the 7-digit shop id sits at [3..10) (700… ids) or at
+// [11..18) (988…/965… ids), and the seq is always the last 3 digits. Both
+// layouts are recognised. Anything else on the page (other cars, banners)
+// fails every pattern.
+function ownershipKnown(stock) {
+  return /^\d{21}$/.test(String(stock || ''));
+}
+export function photoBelongsTo(url, stock) {
+  const id = String(stock || '');
+  const file = String(url || '').split('/').pop() || '';
+  if (!ownershipKnown(id)) return true; // unknown id scheme → cannot judge, keep
+  if (file.startsWith(id)) return true;
+  const seq = id.slice(18, 21);
+  for (const shop of [id.slice(11, 18), id.slice(3, 10)]) {
+    if (new RegExp('^' + shop + '[A-Z]\\d{8}[A-Z]' + seq + '\\d{2}\\.(?:jpe?g|png)$', 'i').test(file)) return true;
+  }
+  return false;
+}
 
 export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
   const s = String(html || '');
@@ -621,12 +824,12 @@ function parseCard(chunk, stock, baseUrl) {
   const repair = after(chunk, '修復歴');
   const ext = ratingAfter(chunk, '外装');
   const int = ratingAfter(chunk, '内装');
-  const location = detectPrefecture(chunk);
-  const images = extractCarImages(chunk);
+  const location = detectPrefecture(after(chunk, '住所') || '') || detectPrefecture(chunk);
+  const images = extractCarImages(chunk, stock);
 
   if (!title && !make && !priceJpy) return null;
 
-  const model = make ? detectModel(title || make, make) : null;
+  const model = make ? detectModel(title || '', make) : null;
 
   return {
     goonet_id: stock,
@@ -637,6 +840,12 @@ function parseCard(chunk, stock, baseUrl) {
     url,
     year,
     km,
+    // goo-net prints neither fuel nor body type on the card; the detail page
+    // has them, and the title often does too (ハイブリッド, ディーゼル, a model
+    // whose body type is known). Petrol is NOT assumed — a missing fuel is a
+    // missing field, and the gate says so.
+    fuel: fuelFromTitle(title),
+    body: modelBodyHint(title),
     price_jpy: priceJpy,
     price_usd: yenToUsd(priceJpy),
     price: usdText(yenToUsd(priceJpy)),
@@ -659,15 +868,25 @@ function parseCard(chunk, stock, baseUrl) {
 export function parseDetailPage(html, url) {
   const s = String(html || '');
   const text = stripTags(s).replace(/\s+/g, ' ');
-  const stock = extractStockFromUrl(url) || detectMake(s) ? extractStockFromUrl(url) : null;
+  const stock = extractStockFromUrl(url);
 
-  const title = (s.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1];
-  const make = detectMake(text) || (title ? detectMake(title) : null);
-  const location = detectPrefecture(text);
+  // The car's own heading. goo-net prints "<make> <model> <grade>（<prefecture>）の中古車販売情報"
+  // in the <h1> and repeats it in <title>/og:title. The make, model and
+  // prefecture are read from THIS text only — the rest of the page is full of
+  // other brands (nav menu, "other cars from this dealer") and other
+  // prefectures (footer), which is how cars were imported under the wrong make.
+  const h1 = (s.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1];
+  const ogTitle = (s.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) || [])[1]
+    || (s.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i) || [])[1];
+  const docTitle = (s.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+  const heading = [h1, ogTitle, docTitle].map(t => t ? stripTags(t).replace(/\s+/g, ' ').trim() : '').find(Boolean) || '';
+  const title = heading || null;
+  const make = detectMake(heading) || null;
+  const location = detectPrefecture(heading) || detectPrefecture(after(text, '住所') || '') || detectPrefecture(text);
   const year = numberAfter(text, '年式(初度登録)') || numberAfter(text, '年式');
   const km = kmToNumber(after(text, '走行距離', v => /km/i.test(v)));
-  const fuel = detectFuel(after(text, '燃料'));
-  const body = detectBody(after(text, 'ボディタイプ'));
+  const fuel = detectFuel(after(text, '燃料')) || fuelFromTitle(heading);
+  const body = detectBody(after(text, 'ボディタイプ')) || modelBodyHint(heading);
   const steeringRaw = after(text, 'ハンドル');
   const st = steeringRaw ? (steeringRaw.includes('左') ? 'LHD' : 'RHD') : null;
   const drvRaw = after(text, '駆動方式');
@@ -682,14 +901,28 @@ export function parseDetailPage(html, url) {
   const ext = ratingAfter(text, '外装');
   const int = ratingAfter(text, '内装');
   const priceJpy = manToYen(after(text, '車両本体価格', v => /万円/.test(v)) || after(text, '支払総額', v => /万円/.test(v)));
-  const images = extractCarImages(s);
+  // Only this car's photos (see photoBelongsTo) — the page also shows the
+  // dealer's other stock.
+  const images = extractCarImages(s, stock);
 
-  const model = make ? detectModel(title || '', make) : null;
+  // Model from the heading with the make and the "（prefecture）の中古車販売情報"
+  // suffix removed, so a heading like "ホンダ Ｎ－ＢＯＸ Ｇ（愛知県）の中古車販売情報"
+  // yields "N-BOX" and never the make or the boilerplate.
+  const headingModelText = heading
+    .replace(/[（(][^）)]*[）)]\s*の?中古車(?:販売)?情報.*$/, '')
+    .replace(/の中古車(?:販売)?情報.*$/, '')
+    .replace(/\s*[|｜].*$/, '');
+  const model = make ? detectModel(headingModelText, make) : null;
+
+  // goo-net's own "this car was listed until …" notice: the car is gone even
+  // though the page still answers 200. The importer must never import it.
+  const delisted = isDelistedPage({ ok: true, status: 200, html: s });
 
   return {
     goonet_id: stock,
     make,
     model,
+    delisted,
     title: title ? stripTags(title).replace(/\s+/g, ' ').trim() : null,
     url,
     year,
@@ -716,53 +949,122 @@ export function parseDetailPage(html, url) {
 }
 
 // Merge card data with richer detail data (detail wins where present).
+//
+// Consistency is checked rather than assumed: the listing card and the detail
+// page describe the same stock number, so when they disagree on the make the
+// pair is flagged (`make_mismatch`) and the quality gate rejects the car — a
+// listing headed with the wrong brand is worse than no listing.
 export function mergeCardAndDetail(card, detail) {
-  if (!detail || !detail.make) return card;
-  const out = { ...card, ...detail };
+  if (!detail) return card;
+  const cardMake = card && card.make && card.make !== 'Unknown' ? card.make : null;
+  if (!detail.make) {
+    // The detail page did not name the car (stub, gated or reshaped page):
+    // keep the card, but still pick up its gallery/spec fields if any parsed.
+    const out = { ...card };
+    for (const k of ['fuel', 'body', 'st', 'drv', 'seats', 'col', 'delisted']) {
+      if (detail[k] !== undefined && detail[k] !== null && out[k] == null) out[k] = detail[k];
+    }
+    out.images = mergeGalleries(card.images, detail.images, card.goonet_id);
+    out.image = out.image || out.images[0] || null;
+    out.photo_count = out.images.length;
+    return out;
+  }
+  // Drop null/undefined detail fields so they cannot erase card values.
+  const detailClean = Object.fromEntries(Object.entries(detail).filter(([, v]) => v !== null && v !== undefined));
+  const out = { ...card, ...detailClean };
+  out.make_mismatch = !!(cardMake && detail.make && cardMake !== detail.make);
+  // The card title is the dealer's own heading for the car; prefer a model
+  // read from it when the detail heading could not be mapped.
+  if (isGenericModel(out.model, out.make) && card.model && !isGenericModel(card.model, out.make)) out.model = card.model;
   if (!out.price_jpy && card.price_jpy) out.price_jpy = card.price_jpy;
   if (!out.price_usd) out.price_usd = yenToUsd(out.price_jpy);
   if (!out.price) out.price = usdText(out.price_usd);
-  if (!out.image && card.image) out.image = card.image;
-  if ((out.images || []).length < (card.images || []).length) out.images = card.images;
-  out.photo_count = (out.images || []).length;
+  out.images = mergeGalleries(card.images, detail.images, card.goonet_id || detail.goonet_id);
+  out.image = out.images[0] || out.image || card.image || null;
+  out.photo_count = out.images.length;
   out.grade = (out.ext_rating && out.int_rating)
     ? String(Math.round(((out.ext_rating + out.int_rating) / 2) * 2) / 2)
     : (out.grade || null);
   return out;
 }
 
+// Union of the card thumbnails and the detail gallery (detail first — it is
+// the complete, ordered set), keeping only photos that belong to the car.
+function mergeGalleries(cardImages, detailImages, stock) {
+  const all = [...(detailImages || []), ...(cardImages || [])].filter(Boolean);
+  const own = stock ? all.filter(u => photoBelongsTo(u, stock)) : all;
+  return extendGallery([...new Set(own)]);
+}
+
 // ---------------------------------------------------------------------------
 // Quality gate — the rule the user asked for: only import cars with good
 // quality pictures (plus a real price/year/mileage so listings are complete).
+//
+// Defaults: 8+ photos (DEFAULT_MIN_PHOTOS), model year 2000+, and every one of
+// REQUIRED_FIELDS present and meaningful. A car fails (pass:false) for ANY of:
+//   • fewer than minPhotos photos, or no cover photo
+//   • no price, or an implausibly low one (< MIN_PRICE_JPY — a typo/placeholder)
+//   • no year / older than minYear / in the future
+//   • a missing required field (make, model, year, price_jpy, km, fuel, body)
+//   • an "Unknown" make, or a generic/placeholder model ("Car", "Used Car", …)
+//   • the listing card and the detail page naming DIFFERENT makes
+//   • the detail page carrying goo-net's "listed until …" delisted notice
+// Everything else (condition rating, repair history) only moves the score.
 // ---------------------------------------------------------------------------
-export function qualityScore(car, { minPhotos = 5, minYear = 2000 } = {}) {
-  const reasons = [];
-  let score = 0;
+export const DEFAULT_MIN_PHOTOS = 8;
+export const DEFAULT_MIN_YEAR = 2000;
+// 車両本体価格 below 5万円 is never a real dealer asking price for an export car.
+export const MIN_PRICE_JPY = 50_000;
+export const REQUIRED_FIELDS = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
 
-  const photos = (car.images || []).filter(Boolean);
+function present(v) {
+  if (v === null || v === undefined) return false;
+  const s = String(v).trim();
+  return s !== '' && s !== 'Unknown' && s !== 'null' && s !== 'undefined' && s !== '0';
+}
+
+export function qualityScore(car, { minPhotos = DEFAULT_MIN_PHOTOS, minYear = DEFAULT_MIN_YEAR, minPriceJpy = MIN_PRICE_JPY } = {}) {
+  const reasons = [];
+  const hard = [];
+  let score = 0;
+  car = car || {};
+
+  const photos = (car.images || []).filter(u => u && /^https?:\/\//.test(String(u)));
   if (photos.length >= minPhotos) {
     score += 25 + Math.min(10, photos.length - minPhotos);
   } else {
-    reasons.push(`photos ${photos.length}/${minPhotos}`);
+    hard.push(`photos ${photos.length}/${minPhotos}`);
   }
 
   if (car.image && /^https?:\/\//.test(car.image)) score += 5;
-  else reasons.push('no cover photo');
+  else hard.push('no cover photo');
 
-  if (car.price_jpy && car.price_jpy > 0) score += 10;
-  else reasons.push('no price');
+  const price = Number(car.price_jpy);
+  if (Number.isFinite(price) && price > 0) {
+    if (price < minPriceJpy) hard.push(`suspicious price ¥${price.toLocaleString('en-US')}`);
+    else score += 10;
+  } else hard.push('no price');
 
-  if (car.year && car.year >= minYear) score += 10;
-  else reasons.push('no/old year');
+  const year = Number(car.year);
+  const thisYear = new Date().getFullYear() + 1;
+  if (Number.isInteger(year) && year >= minYear && year <= thisYear) score += 10;
+  else hard.push(year && year < minYear ? `old year ${year}` : 'no/old year');
 
-  if (car.km) score += 5;
-  else reasons.push('no mileage');
+  if (present(car.km)) score += 5;
+  else hard.push('no mileage');
 
-  if (car.make && car.make !== 'Unknown') score += 5;
-  else reasons.push('unknown make');
+  if (present(car.make)) score += 5;
+  else hard.push('unknown make');
 
-  if (car.model) score += 5;
-  else reasons.push('unknown model');
+  if (present(car.model) && !isGenericModel(car.model, car.make)) score += 5;
+  else hard.push(present(car.model) ? `generic model "${car.model}"` : 'unknown model');
+
+  for (const f of ['fuel', 'body']) {
+    if (!present(car[f])) hard.push(`no ${f}`);
+  }
+
+  if (car.make_mismatch) hard.push('make mismatch between card and detail page');
+  if (car.delisted) hard.push('delisted on goo-net');
 
   if (car.ext_rating && car.ext_rating >= 3 && car.int_rating && car.int_rating >= 3) score += 10;
   else if (!car.ext_rating) reasons.push('no condition rating');
@@ -770,12 +1072,15 @@ export function qualityScore(car, { minPhotos = 5, minYear = 2000 } = {}) {
   if (car.repair_history === 'No') score += 5;
   else if (car.repair_history === 'Yes') score -= 10;
 
-  const pass = reasons.length === 0 || (reasons.length === 1 && reasons[0].startsWith('no condition rating'));
-  // A car without a condition rating can still pass if photos are excellent.
-  const hardFail = reasons.some(r =>
-    r.startsWith('photos ') || r.startsWith('no price') || r.startsWith('unknown make') || r.startsWith('unknown model'));
-
-  return { pass: pass && !hardFail, score, reasons, photo_count: photos.length };
+  const missing = REQUIRED_FIELDS.filter(f => !present(car[f]));
+  return {
+    pass: hard.length === 0,
+    score: Math.max(0, score),
+    reasons: [...hard, ...reasons],
+    hardReasons: hard,
+    missingFields: missing,
+    photo_count: photos.length
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -834,12 +1139,24 @@ export function numberAfter(text, label) {
   return n ? Number(n[1]) : null;
 }
 
+// The グー鑑定 condition rating: a single digit 1–5 right after "外装"/"内装"
+// (allowing a few separator characters such as spaces, "：" or markdown "**").
+// It used to accept ANY digit within 30 characters, so "外装パーツ多数 2020年式"
+// scored a 2 and a fictitious grade went on the listing. A digit that is part
+// of a longer number is never a rating.
 export function ratingAfter(text, label) {
-  const i = String(text || '').indexOf(label);
-  if (i < 0) return null;
-  const rest = String(text).slice(i + label.length).slice(0, 30);
-  const m = rest.match(/(\d)(?:点)?/);
-  return m ? Number(m[1]) : null;
+  const hay = fullWidthToHalf(String(text || ''));
+  let from = 0;
+  while (true) {
+    const i = hay.indexOf(label, from);
+    if (i < 0) return null;
+    // Cards carry the digit inside markup ("外装 <span>4</span>"); look through
+    // the tags but stay within a short window so nothing further away counts.
+    const rest = stripTags(hay.slice(i + label.length, i + label.length + 60)).replace(/\s+/g, ' ').slice(0, 12);
+    const m = rest.match(/^[\s:：*＊評価点\-–—]{0,4}([1-5])(?!\d)(?!\.\d)/);
+    if (m) return Number(m[1]);
+    from = i + label.length;
+  }
 }
 
 export function listingPageUrlFor(baseUrl, page) {

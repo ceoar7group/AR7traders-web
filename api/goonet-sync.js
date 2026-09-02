@@ -11,7 +11,12 @@
 //   • crawls ONE goo-net listing page (bookmarked, resumes next run — the
 //     bookmark only moves when the page was actually read, never past a stub)
 //   • imports at most `goonet_max_new_per_run` new cars that PASS the quality
-//     gate (minimum photo count etc. — configured in the CRM)
+//     gate (8+ photos, model year, price and EVERY required field — see
+//     qualityScore in scripts/goonet-core.mjs; the photo/year limits are
+//     configurable in the CRM, never below the hard floor)
+//   • never re-imports a car that was deleted: every deletion (CRM button,
+//     cleanup script, SQL) records the goo-net id in `goonet_blocklist`, and
+//     the import loop skips anything on that list
 //   • checks at most `goonet_max_delist_per_run` existing cars for delisting
 //   • weekly maintenance (once every 7 days): delists a FEW older cars and
 //     auto-promotes a FEW fresh high-quality cars to the website
@@ -22,7 +27,8 @@ import {adminClient, send} from './_supabase.js';
 import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
-  pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL
+  pageDiagnostics, isGenericModel, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
+  DEFAULT_MIN_PHOTOS, DEFAULT_MIN_YEAR, REQUIRED_FIELDS
 } from '../scripts/goonet-core.mjs';
 
 export const config = { maxDuration: 60 };
@@ -63,6 +69,70 @@ function bool(v, dflt) {
 async function getKnownIds(db) {
   const { data } = await db.from('japan_dealer_stock').select('goonet_id');
   return new Set((data || []).map(r => String(r.goonet_id)));
+}
+
+// ---- Blocklist: cars that must never come back -----------------------------
+// `goonet_blocklist(goonet_id primary key, stock_no, reason, blocked_at)`.
+// A deleted car used to reappear on the next run because the importer only
+// checked "is this id in japan_dealer_stock right now?" — and after a delete
+// it was not. The blocklist is the permanent memory of every deletion.
+export async function isBlocked(db, goonetId) {
+  const { data } = await db.from('goonet_blocklist')
+    .select('goonet_id')
+    .eq('goonet_id', String(goonetId))
+    .maybeSingle();
+  return !!data;
+}
+
+// One round-trip for the whole run (the per-id check above stays available
+// for callers that only have one id). Falls back to an empty set when the
+// table does not exist yet, so a database that has not run the SQL still
+// imports — it just cannot remember deletions until it does.
+export async function getBlockedIds(db) {
+  try {
+    const { data, error } = await db.from('goonet_blocklist').select('goonet_id');
+    if (error) return { ids: new Set(), available: false, error: error.message };
+    return { ids: new Set((data || []).map(r => String(r.goonet_id))), available: true };
+  } catch (e) {
+    return { ids: new Set(), available: false, error: e.message };
+  }
+}
+
+export async function blockCar(db, { goonet_id, stock_no, reason }) {
+  if (!goonet_id) return { error: 'goonet_id is required' };
+  try {
+    const { error } = await db.from('goonet_blocklist').upsert({
+      goonet_id: String(goonet_id),
+      stock_no: stock_no || null,
+      reason: reason || 'Deleted',
+      blocked_at: new Date().toISOString()
+    }, { onConflict: 'goonet_id' });
+    return { error: error ? error.message : null };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+// The CRM can raise these limits, never lower them below the floor: the whole
+// point of the rebuild is that a 1-photo car cannot get in by editing a
+// setting.
+const MIN_PHOTOS_FLOOR = DEFAULT_MIN_PHOTOS;   // 8
+const MIN_YEAR_FLOOR = DEFAULT_MIN_YEAR;       // 2000
+
+// Every rule the importer applies AFTER the detail page was read. Exported so
+// the CLI runner and the tests apply exactly the same checks.
+export function importVerdict(car, { minPhotos = MIN_PHOTOS_FLOOR, minYear = MIN_YEAR_FLOOR } = {}) {
+  const q = qualityScore(car, { minPhotos, minYear });
+  const problems = [...q.reasons.filter(r => q.hardReasons.includes(r))];
+  // Belt and braces — the gate already enforces these, but the import row is
+  // built from `car`, so verify the exact values that will be written.
+  const images = (car.images || []).filter(Boolean);
+  if (images.length < minPhotos) problems.push(`only ${images.length} images (need ${minPhotos}+)`);
+  const missing = REQUIRED_FIELDS.filter(f => !car[f] || car[f] === 'Unknown' || String(car[f]).trim() === '');
+  if (missing.length) problems.push(`missing fields: ${missing.join(', ')}`);
+  if (isGenericModel(car.model, car.make)) problems.push(`generic heading "${car.model || ''}"`);
+  if (!car.stock_no && !car.goonet_id) problems.push('no stock number');
+  return { ok: problems.length === 0, score: q.score, problems: [...new Set(problems)], photo_count: images.length };
 }
 
 // A goo-net car that no longer exists → remove it from the site too.
@@ -183,13 +253,17 @@ export default async function handler(req, res, injected) {
     // blocked: goo-net answered with its bot-gate stub, so this run read
     // nothing. It must never be dressed up as "caught up".
     blocked: false, bookmarkAdvanced: false, parseMiss: false, diagnostics: null,
+    // Cars skipped because they were deleted before (goonet_blocklist).
+    blockedSkipped: 0, blocklistAvailable: true,
+    rules: { minPhotos: null, minYear: null, requiredFields: REQUIRED_FIELDS },
     skipped: [], note: null
   };
 
   try {
     const s = await settings(db);
-    const minPhotos = num(s.goonet_min_photos, 5);
-    const minYear = num(s.goonet_min_year, 2000);
+    // Minimum 8 photos, not 5 — and a CRM value below the floor is ignored.
+    const minPhotos = Math.max(MIN_PHOTOS_FLOOR, num(s.goonet_min_photos, MIN_PHOTOS_FLOOR));
+    const minYear = Math.max(MIN_YEAR_FLOOR, num(s.goonet_min_year, MIN_YEAR_FLOOR));
     const maxNew = num(s.goonet_max_new_per_run, 6);
     const maxDelistCheck = num(s.goonet_max_delist_per_run, 5);
     const weeklyDelistLimit = num(s.goonet_weekly_delist_limit, 5);
@@ -197,6 +271,8 @@ export default async function handler(req, res, injected) {
     const autoPromote = bool(s.goonet_auto_promote, true);
     const baseUrl = s.goonet_search_url || DEFAULT_SEARCH_URL;
     const bookmark = Math.max(1, num(s.goonet_bookmark_page, 1));
+    report.rules.minPhotos = minPhotos;
+    report.rules.minYear = minYear;
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------
     const pageUrl = listingPageUrlFor(baseUrl, bookmark);
@@ -269,12 +345,28 @@ export default async function handler(req, res, injected) {
 
     // ---- 2. Import new cars that pass the quality gate --------------------
     const known = await getKnownIds(db);
+    const blocklist = await getBlockedIds(db);
+    report.blocklistAvailable = blocklist.available;
+    if (!blocklist.available) {
+      report.note = (report.note ? report.note + ' ' : '')
+        + 'goonet_blocklist table is missing — run supabase/SETUP-EVERYTHING.sql so deleted cars stay deleted.';
+    }
     const importStart = Date.now();
     const overImportBudget = () => overBudget() || Date.now() - importStart > IMPORT_BUDGET_MS;
     let imported = 0;
     for (const card of page.cars) {
       if (overImportBudget() || imported >= maxNew) break;
-      if (known.has(String(card.goonet_id))) continue;
+      const gid = String(card.goonet_id || '');
+      if (!gid || !card.stock_no) { report.skipped.push(`${gid || '?'}: no stock number`); continue; }
+      if (known.has(gid)) continue;
+
+      // Previously deleted (CRM delete, cleanup script, SQL) → never again.
+      const blocked = blocklist.ids.has(gid);
+      if (blocked) {
+        report.blockedSkipped++;
+        report.skipped.push(`${card.stock_no}: blocked (previously deleted)`);
+        continue;
+      }
 
       // Fetch the detail page: full gallery + specs drive the quality gate.
       // A card whose <h3> title link did not parse has no `url`, but its stock
@@ -283,37 +375,45 @@ export default async function handler(req, res, injected) {
       const detailUrl = card.url || detailUrlFor(card.goonet_id);
       if (!detailUrl) { report.skipped.push(`${card.stock_no}: no usable detail URL`); continue; }
       const detailFetched = await fetchPage(detailUrl, { timeoutMs: 5000 });
-      let car = card;
-      if (detailFetched.ok) {
-        car = mergeCardAndDetail(card, parseDetailPage(detailFetched.html, card.url));
-      } else {
+      if (!detailFetched.ok) {
         report.skipped.push(`${card.stock_no}: detail fetch failed`);
         continue;
       }
-      const q = qualityScore(car, { minPhotos, minYear });
-      if (!q.pass) {
-        report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.reasons.join(', ')})`);
+      // goo-net answers 404 / "listed until …" for a car that is already gone
+      // — it must not be imported just because the listing page still had it.
+      if (isDelistedPage(detailFetched)) {
+        report.skipped.push(`${card.stock_no}: already delisted on goo-net`);
         continue;
       }
+      const car = mergeCardAndDetail(card, parseDetailPage(detailFetched.html, detailUrl));
+
+      // ---- Quality gate: 8+ photos, valid year/price, every required field,
+      // a real make/model heading, no card/detail mismatch (importVerdict) ----
+      const q = importVerdict(car, { minPhotos, minYear });
+      if (!q.ok) {
+        report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.problems.join(', ')})`);
+        continue;
+      }
+
       const now = new Date().toISOString();
       const row = {
-        goonet_id: String(card.goonet_id),
-        stock_no: card.stock_no || card.goonet_id,
-        make: car.make || 'Unknown', model: car.model || 'Car',
+        goonet_id: gid,
+        stock_no: card.stock_no || gid,
+        make: car.make, model: car.model,
         year: car.year, km: car.km, fuel: car.fuel, body: car.body,
         price_jpy: car.price_jpy, price_usd: car.price_usd, price: car.price,
-        image: car.image, images: car.images,
+        image: car.image || car.images[0], images: car.images,
         grade: car.grade, status: 'New Arrival', location: car.location || 'Japan',
         tr: car.tr, drv: car.drv, eng: car.eng, seats: car.seats,
         col: car.col, st: car.st,
         vendor: 'Goo-net', goonet_url: detailUrl,
-        photo_count: car.photo_count || (car.images || []).length,
+        photo_count: car.images.length,
         quality_score: q.score,
         available: true, promoted: 'none',
         imported_at: now, last_seen_at: now, updated_at: now
       };
       const { error } = await db.from('japan_dealer_stock').insert(row);
-      if (!error) { imported++; known.add(String(card.goonet_id)); }
+      if (!error) { imported++; known.add(gid); }
       else if (!/duplicate/i.test(error.message)) report.skipped.push(`${card.stock_no}: ${error.message}`);
     }
     report.inserted = imported;

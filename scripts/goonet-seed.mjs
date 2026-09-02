@@ -40,6 +40,9 @@ export function buildSeedRows(capture, { minPhotos = 4, importedAt = new Date().
     const images = (c.images || []).filter(Boolean);
     const car = {
       make, model, year: c.year || null, km: kmToNumber(c.km),
+      // fuel/body are the curator's classification (goo-net prints them on the
+      // detail page only) — the gate must judge the row that is written.
+      fuel: c.fuel || null, body: c.body || null,
       price_jpy: priceJpy, price_usd: yenToUsd(priceJpy), price: usdText(yenToUsd(priceJpy)),
       image: images[0] || null, images, photo_count: images.length,
       ext_rating: c.ext || null, int_rating: c.int || null,

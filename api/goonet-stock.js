@@ -10,7 +10,7 @@
 import {adminClient, requireUser, send} from './_supabase.js';
 import {
   delistCar as coreDelist,
-  promoteToListings, promoteToInventory
+  promoteToListings, promoteToInventory, blockCar
 } from './goonet-sync.js';
 
 const ALLOWED = [
@@ -26,15 +26,17 @@ function clean(body) {
   return out;
 }
 
-async function admin(req) {
-  const auth = await requireUser(req);
+async function admin(req, injected) {
+  const auth = injected?.auth ? injected.auth : await requireUser(req);
   if (auth.profile?.role !== 'admin') throw Object.assign(new Error('Admin access required'), { status: 403 });
   return auth;
 }
 
-export default async function handler(req, res) {
+// `injected` is a test hook only: { db, auth } replace Supabase and the
+// signed-in admin so the endpoint can be exercised without credentials.
+export default async function handler(req, res, injected = null) {
   try {
-    const db = adminClient();
+    const db = injected?.db || adminClient();
 
     // ---- Public read: the Japan dealer stock page -------------------------
     if (req.method === 'GET' && req.query.all !== '1') {
@@ -47,7 +49,7 @@ export default async function handler(req, res) {
     }
 
     // ---- Everything below requires an admin -------------------------------
-    const auth = await admin(req);
+    const auth = await admin(req, injected);
     const actor = auth.profile.full_name || auth.user.email;
 
     // POST action routes (promote / delist) — separate from plain CRUD.
@@ -111,20 +113,60 @@ export default async function handler(req, res) {
       return send(res, 200, data);
     }
 
+    // ---- DELETE = permanent. The car is removed AND its goo-net id goes on
+    // goonet_blocklist, so the importer can never bring it back. (Before this,
+    // a deleted car was re-imported on the next run because the importer only
+    // knew what was in the table right now.) Copies that were promoted to the
+    // website / CRM inventory are removed too — a deleted car must not linger
+    // on the public site under the same stock number.
     if (req.method === 'DELETE') {
       const id = req.query.id || req.body?.id;
       if (!id) return send(res, 400, { error: 'Record id is required' });
+
+      // First, get the car to add to blocklist
+      const { data: car, error: readErr } = await db.from('japan_dealer_stock')
+        .select('id, goonet_id, stock_no, make, model, promoted')
+        .eq('id', id)
+        .single();
+      if (readErr || !car) return send(res, 404, { error: 'Car not found' });
+
+      // Add to blocklist to prevent re-import
+      const blocked = await blockCar(db, {
+        goonet_id: car.goonet_id,
+        stock_no: car.stock_no,
+        reason: `Manually deleted via CRM by ${actor}`
+      });
+      if (blocked.error) {
+        // Refuse to delete a car we cannot block: it would just come back.
+        return send(res, 500, { error: `Could not add ${car.stock_no || car.goonet_id} to goonet_blocklist (${blocked.error}). Run supabase/SETUP-EVERYTHING.sql, then delete again.` });
+      }
+
+      // Now delete from main table
       const { error } = await db.from('japan_dealer_stock').delete().eq('id', id);
       if (error) return send(res, 500, { error: error.message });
+
+      // Remove the promoted copies as well (same stock number).
+      let removedCopies = [];
+      if (car.stock_no) {
+        const { error: lErr } = await db.from('site_listings').delete().eq('stock_no', car.stock_no);
+        if (!lErr) removedCopies.push('site_listings');
+        const { error: vErr } = await db.from('vehicles').delete().eq('stock_no', car.stock_no).eq('vendor', 'Goo-net');
+        if (!vErr) removedCopies.push('vehicles');
+      }
+
       await db.from('activities').insert({
-        action: `Deleted imported car record`, actor, entity_type: 'japan_dealer_stock', entity_id: id
+        action: `Permanently deleted and blocked car ${car.make || ''} ${car.model || ''} (${car.stock_no || car.goonet_id}) — it will not be re-imported`,
+        actor, entity_type: 'japan_dealer_stock', entity_id: id
       });
-      return send(res, 200, { ok: true });
+
+      return send(res, 200, { ok: true, blocked: true, goonet_id: car.goonet_id, removedCopies });
     }
 
     return send(res, 405, { error: 'Method not allowed' });
   } catch (e) {
-    console.error(e);
+    // 401/403 are expected outcomes (not signed in / not an admin) — only
+    // real failures go to the function log.
+    if (!e.status || e.status >= 500) console.error(e);
     return send(res, e.status || 500, { error: e.message || 'Japan stock request failed' });
   }
 }
