@@ -114,11 +114,32 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const id = req.query.id || req.body?.id;
       if (!id) return send(res, 400, { error: 'Record id is required' });
+
+      // First, get the car to add to blocklist to prevent re-import
+      const { data: car, error: readErr } = await db.from('japan_dealer_stock')
+        .select('goonet_id, stock_no')
+        .eq('id', id)
+        .single();
+
+      if (readErr || !car) return send(res, 404, { error: 'Car not found' });
+
+      // Add to blocklist to prevent re-import
+      await db.from('goonet_blocklist').upsert({
+        goonet_id: car.goonet_id,
+        stock_no: car.stock_no,
+        reason: 'Manually deleted via CRM',
+        blocked_at: new Date().toISOString()
+      }, { onConflict: 'goonet_id' });
+
+      // Now delete from main table
       const { error } = await db.from('japan_dealer_stock').delete().eq('id', id);
       if (error) return send(res, 500, { error: error.message });
+
       await db.from('activities').insert({
-        action: `Deleted imported car record`, actor, entity_type: 'japan_dealer_stock', entity_id: id
+        action: `Permanently deleted and blocked car ${car.stock_no}`,
+        actor, entity_type: 'japan_dealer_stock', entity_id: id
       });
+
       return send(res, 200, { ok: true });
     }
 

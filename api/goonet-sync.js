@@ -65,6 +65,15 @@ async function getKnownIds(db) {
   return new Set((data || []).map(r => String(r.goonet_id)));
 }
 
+// Check if a goonet_id has been blocklisted (previously deleted or failed quality)
+async function isBlocked(db, goonetId) {
+  const { data } = await db.from('goonet_blocklist')
+    .select('goonet_id')
+    .eq('goonet_id', String(goonetId))
+    .maybeSingle();
+  return !!data;
+}
+
 // A goo-net car that no longer exists → remove it from the site too.
 export async function delistCar(db, row, actor = 'Goo-net sync') {
   const now = new Date().toISOString();
@@ -188,7 +197,7 @@ export default async function handler(req, res, injected) {
 
   try {
     const s = await settings(db);
-    const minPhotos = num(s.goonet_min_photos, 5);
+    const minPhotos = num(s.goonet_min_photos, 8);
     const minYear = num(s.goonet_min_year, 2000);
     const maxNew = num(s.goonet_max_new_per_run, 6);
     const maxDelistCheck = num(s.goonet_max_delist_per_run, 5);
@@ -275,6 +284,11 @@ export default async function handler(req, res, injected) {
     for (const card of page.cars) {
       if (overImportBudget() || imported >= maxNew) break;
       if (known.has(String(card.goonet_id))) continue;
+      const blocked = await isBlocked(db, card.goonet_id);
+      if (blocked) {
+        report.skipped.push(`${card.stock_no}: blocked (previously deleted)`);
+        continue;
+      }
 
       // Fetch the detail page: full gallery + specs drive the quality gate.
       // A card whose <h3> title link did not parse has no `url`, but its stock
@@ -295,6 +309,21 @@ export default async function handler(req, res, injected) {
         report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.reasons.join(', ')})`);
         continue;
       }
+
+      // Verify at least 8 images exist
+      if (!car.images || car.images.length < 8) {
+        report.skipped.push(`${card.stock_no}: only ${car.images?.length || 0} images (need 8+)`);
+        continue;
+      }
+
+      // Verify all required fields
+      const requiredFields = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
+      const missingFields = requiredFields.filter(f => !car[f] || car[f] === 'Unknown' || car[f] === '');
+      if (missingFields.length > 0) {
+        report.skipped.push(`${card.stock_no}: missing fields: ${missingFields.join(', ')}`);
+        continue;
+      }
+
       const now = new Date().toISOString();
       const row = {
         goonet_id: String(card.goonet_id),
