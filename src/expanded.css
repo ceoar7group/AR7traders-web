@@ -236,8 +236,9 @@
 .nav-drop-panel{position:absolute;top:calc(100% + 12px);left:50%;background:color-mix(in srgb,var(--card) 96%,transparent);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 30px 70px #04271a33;opacity:0;visibility:hidden;pointer-events:none;transform:perspective(800px) rotateX(-16deg) translateY(14px);transform-origin:top center;transition:opacity .25s,transform .3s cubic-bezier(.2,.7,.3,1.4),visibility .25s;z-index:60}
 .nav-drop.open .nav-drop-panel,.nav-drop:focus-within .nav-drop-panel{opacity:1;visibility:visible;pointer-events:auto;transform:perspective(800px) rotateX(0deg) translateY(0)}
 /* More panel keeps its exact 2-column shape — items are added in pairs. */
-.more-panel{margin-left:-140px;width:270px;display:grid;grid-template-columns:1fr 1fr;gap:2px;max-height:min(72vh,500px);overflow-y:auto;overflow-x:hidden}
-.more-panel a,.more-panel button{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;border:0;background:none;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;text-decoration:none;transition:transform .22s,background .2s,color .2s}
+.more-panel{margin-left:-320px;width:640px;display:grid;grid-template-columns:1fr 1fr;gap:12px;max-height:min(72vh,500px);overflow-y:auto;overflow-x:hidden}
+.more-panel a,.more-panel button{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;border:0;background:none;font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;text-decoration:none;transition:transform .22s,background .2s,color .2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.more-panel a span,.more-panel button span{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .more-panel a i,.more-panel button i{width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--gold) 16%,transparent);display:grid;place-items:center;flex:none}
 .more-panel a svg,.more-panel button svg{width:13px;color:var(--gold)}
 .more-panel a:hover,.more-panel button:hover{background:color-mix(in srgb,var(--green) 10%,transparent);transform:translateX(4px);color:var(--green-text)}
@@ -1133,6 +1134,8 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
 /* ---- Japan dealer stock page ---- */
 .jstock-grid{gap:22px!important}
 .jstock-card .car-image{cursor:pointer}
+.jstock-card .car-info h3{color:var(--ink)}
+.jstock-card .car-info .make{color:var(--gold)}
 .jstock-card .photo-count{
   position:absolute!important;
   z-index:6!important;

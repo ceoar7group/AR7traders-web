@@ -197,7 +197,7 @@ export default async function handler(req, res, injected) {
 
   try {
     const s = await settings(db);
-    const minPhotos = num(s.goonet_min_photos, 8);
+    const minPhotos = num(s.goonet_min_photos, 5);
     const minYear = num(s.goonet_min_year, 2000);
     const maxNew = num(s.goonet_max_new_per_run, 6);
     const maxDelistCheck = num(s.goonet_max_delist_per_run, 5);
@@ -310,9 +310,13 @@ export default async function handler(req, res, injected) {
         continue;
       }
 
-      // Verify at least 8 images exist
-      if (!car.images || car.images.length < 8) {
-        report.skipped.push(`${card.stock_no}: only ${car.images?.length || 0} images (need 8+)`);
+      // Verify at least the configured minimum number of images exist.
+      // This gate must follow `minPhotos` (site setting or its default) —
+      // a hardcoded 8 here used to re-impose a stricter rule than the
+      // quality gate and reject cars even when the operator lowered
+      // goonet_min_photos in the CRM.
+      if (!car.images || car.images.length < minPhotos) {
+        report.skipped.push(`${card.stock_no}: only ${car.images?.length || 0} images (need ${minPhotos}+)`);
         continue;
       }
 

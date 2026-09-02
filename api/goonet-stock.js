@@ -50,8 +50,22 @@ export default async function handler(req, res) {
     const auth = await admin(req);
     const actor = auth.profile.full_name || auth.user.email;
 
-    // POST action routes (promote / delist) — separate from plain CRUD.
+    // POST action routes (promote / delist / reset_bookmark) — separate from plain CRUD.
     if (req.method === 'POST' && req.body?.action) {
+      // Reset the crawler bookmark back to page 1 so the next import run
+      // re-crawls from the beginning. No car id is involved here, so it is
+      // handled before the id check below.
+      if (req.body.action === 'reset_bookmark') {
+        await db.from('site_settings').upsert(
+          { key: 'goonet_bookmark_page', value: '1', updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+        await db.from('activities').insert({
+          action: 'Reset the Goo-net importer bookmark to page 1',
+          actor, entity_type: 'japan_dealer_stock'
+        });
+        return send(res, 200, { ok: true, message: 'Importer bookmark reset to page 1 — the next run starts from the first page.' });
+      }
       const id = req.body.id;
       if (!id) return send(res, 400, { error: 'Car id is required' });
       const { data: row, error: readErr } = await db.from('japan_dealer_stock').select('*').eq('id', id).single();
