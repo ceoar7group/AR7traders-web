@@ -8,7 +8,7 @@ import {
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download
+  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
@@ -695,6 +695,20 @@ export default function CrmApp() {
     }
   }
 
+  // Reset the Goo-net crawler bookmark back to page 1 (admin only). The next
+  // "Run import now" then re-crawls from the first listing page instead of the
+  // page where the crawler last stopped.
+  async function resetGoonetBookmark() {
+    if (DEMO) { setNotice('The Goo-net bookmark reset needs the live database — disabled in demo mode.'); return; }
+    if (!window.confirm('Reset the Goo-net importer bookmark to page 1?\n\nAlready-imported cars are skipped automatically, so no duplicates are created. Use this when the bookmark is stuck on an old page or the search URL changed.')) return;
+    try {
+      const r = await call('/api/goonet-stock?action=reset_bookmark', session.access_token, { method: 'POST', body: JSON.stringify({}) });
+      setNotice(r.message || 'Bookmark reset to page 1.');
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
   async function savePhotos(entity, row, photos) {
     const updated = { ...row, images: photos, image: photos[0] || row.image || '' };
     try {
@@ -899,6 +913,7 @@ export default function CrmApp() {
             onPromote={(row, target) => goonetAction(row, 'promote', target)}
             onDelist={row => goonetAction(row, 'delist')}
             onRun={runGoonetSync}
+            onResetBookmark={resetGoonetBookmark}
             onRefresh={loadAll}
             syncing={syncing}
           />
@@ -1770,7 +1785,7 @@ export function SourcingView({ rows, onOpenInventory }) {
 // ---------------------------------------------------------------------
 //  Japan dealer stock — manage cars imported from Goo-net.
 // ---------------------------------------------------------------------
-export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete, onManagePhotos, onViewGallery, onPromote, onDelist, onRun, onRefresh, syncing }) {
+export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete, onManagePhotos, onViewGallery, onPromote, onDelist, onRun, onResetBookmark, onRefresh, syncing }) {
   const { fmt } = useCurrency();
   const [chip, setChip] = useState('all');
   const [query, setQuery] = useState('');
@@ -1830,9 +1845,14 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
           <button onClick={onRefresh} title="Refresh records"><RefreshCw /></button>
           <button className={showSettings ? 'active' : ''} onClick={() => setShowSettings(v => !v)} title="Importer rules and limits"><Settings /> Importer rules</button>
           {isAdmin && (
-            <button className="crm-sync" onClick={onRun} disabled={syncing} title="Run one importer cycle now — crawls the next Goo-net page, quality-gates and imports">
-              <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Running…' : 'Run import now'}
-            </button>
+            <>
+              <button className="crm-sync" onClick={onResetBookmark} title="Reset the crawler bookmark to page 1 — the next import run starts from the first listing page">
+                <RotateCcw size={13} /> Reset bookmark
+              </button>
+              <button className="crm-sync" onClick={onRun} disabled={syncing} title="Run one importer cycle now — crawls the next Goo-net page, quality-gates and imports">
+                <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Running…' : 'Run import now'}
+              </button>
+            </>
           )}
         </div>
       </div>
