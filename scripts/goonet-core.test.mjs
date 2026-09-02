@@ -295,9 +295,10 @@ ok(r.directDiagnostics.stub === true, 'relay result reports the direct diagnosti
 const relayCall = calls.find(c => c.url.startsWith(JINA_RELAY));
 eq(relayCall.url, JINA_RELAY + listUrl, 'relay fetches the same url');
 eq(relayCall.headers['X-Return-Format'], 'html', 'relay asks for html');
-eq(relayCall.headers['X-No-Cache'], 'true', 'relay bypasses cache');
+ok(Boolean(relayCall.headers['X-Timeout']), 'relay is told to give up inside our own abort window (X-Timeout)');
 eq(relayCall.headers['X-With-Links-Summary'], 'false', 'relay skips the links summary');
 ok(!relayCall.headers['Cookie'], 'goo-net cookies are not leaked to the relay host');
+ok(!relayCall.headers['Authorization'], 'no Authorization header without a relay API key');
 
 // 3) relay no better → keep the direct response
 resetFetchState();
@@ -358,6 +359,74 @@ calls = mockFetch(u => {
 r = await fetchPage('https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975002.html', { timeoutMs: 2000, allowRelay: false });
 ok(!r.ok && !calls.some(c => c.url.startsWith(JINA_RELAY)), 'allowRelay:false never touches the relay');
 ok(!isDelistedPage(r), 'a dead socket is never mistaken for a delisted car');
+
+// 9) the relay rate-limits us (HTTP 429, instantly) → one retry, then success.
+// This is exactly what Vercel's shared egress IPs see from anonymous r.jina.ai.
+resetFetchState();
+let jinaShots = 0;
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return (++jinaShots === 1) ? { status: 429, body: 'rate limit' } : { body: realHtml };
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+ok(r.ok && r.via === 'relay', 'a 429 from the relay is retried and can still succeed');
+eq(jinaShots, 2, 'the relay was re-dialled exactly once after the 429');
+ok(r.html.includes('年式'), 'the retried relay response is used');
+eq(r.diagnostics.relayAttempts.length, 2, 'both relay attempts are recorded for the run report');
+eq(r.diagnostics.relayAttempts[0].status, 429, 'the recorded first attempt shows HTTP 429');
+
+// 10) jina cannot read the page → the backup relays are tried.
+resetFetchState();
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return { status: 500, body: '' };
+  if (u.startsWith('https://api.allorigins.win/')) return { body: realHtml };
+  return { status: 502, body: '' };
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000, relayTimeoutMs: 9000 });
+ok(r.ok && r.via === 'relay', 'a backup relay can rescue the run when jina fails');
+eq(r.provider, 'allorigins', 'the winning relay is named on the result');
+ok(calls.some(c => c.url.startsWith('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.goo-net.com'))),
+  'the backup relay received the encoded goo-net url');
+const relayOnly = calls.filter(c =>
+  c.url.startsWith(JINA_RELAY) || c.url.startsWith('https://api.allorigins.win/') || c.url.startsWith('https://api.codetabs.com/'));
+ok(relayOnly.length > 0 && relayOnly.every(c => !c.headers['Cookie']), 'no goo-net cookies are sent to any relay');
+
+// 11) the relay gets its OWN, much larger timeout than the direct fetch.
+// goo-net resets datacenter sockets instantly, and r.jina.ai needs seconds to
+// re-render a 1–2 MB listing page. The relay used to inherit the direct 5–7 s
+// timeout, so every attempt aborted mid-flight and the importer reported
+// blocked on every serverless run. Here the relay answers after 2.4 s — longer
+// than the direct timeout of 500 ms — and must still be used.
+resetFetchState();
+const delay = ms => new Promise(res => setTimeout(res, ms));
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, headers: { get: () => null }, text: async () => 'home' };
+  if (u.startsWith(JINA_RELAY)) { await delay(2400); return { ok: true, status: 200, headers: { get: () => null }, text: async () => realHtml }; }
+  throw new Error('fetch failed');
+};
+r = await fetchPage(listUrl, { timeoutMs: 500, relayTimeoutMs: 4000 });
+ok(r.ok && r.via === 'relay', 'a relay response slower than the direct timeout is still waited for');
+ok((r.diagnostics.relayDurationMs || 0) >= 2300, 'the slow relay response really took its time');
+
+// 12) a relay API key is sent as a Bearer token when configured
+resetFetchState();
+process.env.GOONET_RELAY_KEY = 'test-relay-key-123';
+try {
+  calls = mockFetch(u => {
+    if (u === 'https://www.goo-net.com/') return { body: 'home' };
+    if (u.startsWith(JINA_RELAY)) return { body: realHtml };
+    return { body: stubHtml };
+  });
+  r = await fetchPage(listUrl, { timeoutMs: 2000 });
+  eq(r.via, 'relay', 'keyed relay still rescues a stubbed page');
+  const keyed = calls.find(c => c.url.startsWith(JINA_RELAY));
+  eq(keyed.headers['Authorization'], 'Bearer test-relay-key-123', 'the relay key is sent as a Bearer token');
+} finally {
+  delete process.env.GOONET_RELAY_KEY;
+}
 
 global.fetch = realFetch;
 resetFetchState();

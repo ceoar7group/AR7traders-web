@@ -22,7 +22,7 @@ import {adminClient, send} from './_supabase.js';
 import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
-  pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL
+  pageDiagnostics, relayApiKey, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL
 } from '../scripts/goonet-core.mjs';
 
 export const config = { maxDuration: 60 };
@@ -33,8 +33,16 @@ export const config = { maxDuration: 60 };
 // the request — the listing fetch (up to 7s) plus a relay or rescue fetch could
 // consume all of it, so the import loop began already over budget and the run
 // reported `inserted: 0` even though goo-net had been read perfectly.
-const RUN_BUDGET_MS = 45000;      // hard stop for the whole run
-const IMPORT_BUDGET_MS = 30000;   // the import loop's own allowance
+//
+// The relay needs its own, much bigger allowance than the direct fetch:
+// goo-net resets datacenter sockets (every Vercel IP), so the listing always
+// arrives through r.jina.ai, which re-renders 1–2 MB pages and regularly takes
+// 8–15 s. 48s run budget + 36s import budget keeps the whole run comfortably
+// inside the 60s function limit even when the crawl relays everything.
+const RUN_BUDGET_MS = 48000;      // hard stop for the whole run
+const IMPORT_BUDGET_MS = 36000;   // the import loop's own allowance
+const LISTING_RELAY_MS = 16000;   // relay allowance for the listing / rescue fetch
+const DETAIL_RELAY_MS = 8000;     // relay allowance per detail-page fetch
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // A bot-gate interstitial is a few KB; a real goo-net listing page is ~1 MB.
 // Used only to name the cause when a page has no car links to read.
@@ -192,6 +200,11 @@ export default async function handler(req, res, injected) {
     // blocked: goo-net answered with its bot-gate stub, so this run read
     // nothing. It must never be dressed up as "caught up".
     blocked: false, bookmarkAdvanced: false, parseMiss: false, diagnostics: null,
+    // Why the bookmark moved or stayed: new cards seen, how many of their
+    // detail pages could not be fetched (infrastructure), how many cards the
+    // run never got to examine (budget/limits), and failed DB inserts.
+    newCards: 0, detailFailures: 0, unexamined: 0, insertErrors: 0,
+    relayProvider: null,
     skipped: [], note: null
   };
 
@@ -209,7 +222,7 @@ export default async function handler(req, res, injected) {
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------
     const pageUrl = listingPageUrlFor(baseUrl, bookmark);
-    const fetched = await fetchPage(pageUrl, { timeoutMs: 7000 });
+    const fetched = await fetchPage(pageUrl, { timeoutMs: 7000, relayTimeoutMs: LISTING_RELAY_MS });
     if (!fetched.ok && fetched.status !== 404) {
       return send(res, 502, { error: 'Could not fetch ' + pageUrl + (fetched.error ? ' — ' + fetched.error : '') });
     }
@@ -227,7 +240,7 @@ export default async function handler(req, res, injected) {
     if (page.cars.length < 2) {
       const rescueUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, bookmark);
       if (rescueUrl !== pageUrl) {
-        const rescue = await fetchPage(rescueUrl, { timeoutMs: 7000 });
+        const rescue = await fetchPage(rescueUrl, { timeoutMs: 7000, relayTimeoutMs: Math.min(LISTING_RELAY_MS, 10000) });
         if (rescue.ok) {
           const rescuePage = parseListingPage(rescue.html, rescueUrl);
           if (rescuePage.cars.length > page.cars.length) {
@@ -239,6 +252,7 @@ export default async function handler(req, res, injected) {
     }
 
     if (usedFetch.via === 'relay') {
+      report.relayProvider = usedFetch.provider || 'jina';
       report.note = 'goo-net blocked the direct request (bot protection) — page fetched via relay.';
     }
 
@@ -272,7 +286,8 @@ export default async function handler(req, res, injected) {
         rawCarLinks: rawLinks, directStatus: fetched.status ?? 0,
         directBytes: directDiag.contentLength ?? 0, directMarkers: directDiag.markers || [],
         gateMarkers: gateWords, relayAttempted: relayTried, relayUsed: usedFetch.via === 'relay',
-        rescueUsed: usedFetch !== fetched, finalStub: finalDiag.stub === true
+        rescueUsed: usedFetch !== fetched, finalStub: finalDiag.stub === true,
+        relayAttempts: (usedFetch.diagnostics && usedFetch.diagnostics.relayAttempts) || []
       };
     }
 
@@ -281,14 +296,26 @@ export default async function handler(req, res, injected) {
     const importStart = Date.now();
     const overImportBudget = () => overBudget() || Date.now() - importStart > IMPORT_BUDGET_MS;
     let imported = 0;
+    // Bookmark accounting: the bookmark may only advance when the page was not
+    // just read but PROCESSED. A card whose detail page could not be fetched,
+    // or that the run never reached (time budget / per-run cap), must be
+    // retried on the next run — advancing past it would silently skip cars
+    // exactly like the old "advance on any readable page" bug did.
+    let examined = 0;        // cards the loop actually looked at
+    let newCards = 0;        // candidates that were neither known nor blocked
+    let attempted = 0;       // candidates whose detail page was fetched
+    let detailFailures = 0;  // detail fetches that failed at the network level
+    let insertErrors = 0;    // DB inserts that errored (not duplicates)
     for (const card of page.cars) {
       if (overImportBudget() || imported >= maxNew) break;
+      examined++;
       if (known.has(String(card.goonet_id))) continue;
-      const blocked = await isBlocked(db, card.goonet_id);
-      if (blocked) {
+      const blockedCard = await isBlocked(db, card.goonet_id);
+      if (blockedCard) {
         report.skipped.push(`${card.stock_no}: blocked (previously deleted)`);
         continue;
       }
+      newCards++;
 
       // Fetch the detail page: full gallery + specs drive the quality gate.
       // A card whose <h3> title link did not parse has no `url`, but its stock
@@ -296,14 +323,21 @@ export default async function handler(req, res, injected) {
       // was skipped as "detail fetch failed" even though goo-net had it.
       const detailUrl = card.url || detailUrlFor(card.goonet_id);
       if (!detailUrl) { report.skipped.push(`${card.stock_no}: no usable detail URL`); continue; }
-      const detailFetched = await fetchPage(detailUrl, { timeoutMs: 5000 });
-      let car = card;
-      if (detailFetched.ok) {
-        car = mergeCardAndDetail(card, parseDetailPage(detailFetched.html, card.url));
-      } else {
-        report.skipped.push(`${card.stock_no}: detail fetch failed`);
+      const detailFetched = await fetchPage(detailUrl, { timeoutMs: 6000, relayTimeoutMs: DETAIL_RELAY_MS });
+      attempted++;
+      if (!detailFetched.ok) {
+        // A 404 means the car was sold between the listing snapshot and now —
+        // a content change, not an infrastructure failure. It must not hold
+        // the bookmark; it simply is not imported.
+        if (detailFetched.status === 404) {
+          report.skipped.push(`${card.stock_no}: detail page gone (sold on goo-net?)`);
+          continue;
+        }
+        report.skipped.push(`${card.stock_no}: detail fetch failed${detailFetched.error ? ' — ' + detailFetched.error : ''}`);
+        detailFailures++;
         continue;
       }
+      const car = mergeCardAndDetail(card, parseDetailPage(detailFetched.html, card.url));
       const q = qualityScore(car, { minPhotos, minYear });
       if (!q.pass) {
         report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.reasons.join(', ')})`);
@@ -320,8 +354,16 @@ export default async function handler(req, res, injected) {
         continue;
       }
 
-      // Verify all required fields
-      const requiredFields = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
+      // Verify all required fields.
+      //
+      // NOTE: `fuel` and `body` are deliberately NOT hard requirements.
+      // goo-net's detail pages print 燃料 but never a body-type row, and
+      // listing cards carry neither — demanding them here rejected every
+      // single car (skipped as "missing fields: fuel, body") and took the
+      // importer from a few cars a day to zero. They stay best-effort: body
+      // falls back to the model-name hint in goonet-core, and a promoted
+      // listing defaults both before it is published.
+      const requiredFields = ['make', 'model', 'year', 'price_jpy', 'km'];
       const missingFields = requiredFields.filter(f => !car[f] || car[f] === 'Unknown' || car[f] === '');
       if (missingFields.length > 0) {
         report.skipped.push(`${card.stock_no}: missing fields: ${missingFields.join(', ')}`);
@@ -347,18 +389,31 @@ export default async function handler(req, res, injected) {
       };
       const { error } = await db.from('japan_dealer_stock').insert(row);
       if (!error) { imported++; known.add(String(card.goonet_id)); }
-      else if (!/duplicate/i.test(error.message)) report.skipped.push(`${card.stock_no}: ${error.message}`);
+      else if (!/duplicate/i.test(error.message)) {
+        report.skipped.push(`${card.stock_no}: ${error.message}`);
+        insertErrors++;
+      }
     }
     report.inserted = imported;
+    report.newCards = newCards;
+    report.detailFailures = detailFailures;
+    report.insertErrors = insertErrors;
+    report.unexamined = Math.max(0, page.cars.length - examined);
 
     // Advance the bookmark so the next run crawls the next page.
     //
-    // Only advance when the page yielded a real listing (2+ cards). A bot-gate
-    // stub parses as 1 card, and 1 is truthy — advancing on it silently walked
-    // the crawler past every page it never read, so a blocked day could skip
-    // hundreds of cars while reporting a clean run. Re-reading a page is
-    // harmless; skipping one loses stock.
-    const advance = page.cars.length >= 2;
+    // Only advance when the page yielded a real listing (2+ cards) AND every
+    // new card on it was fully processed: fetched, gated and inserted (or
+    // rejected by the quality gate / already sold). A bot-gate stub parses as
+    // 1 card, and 1 is truthy — advancing on it silently walked the crawler
+    // past every page it never read, so a blocked day could skip hundreds of
+    // cars while reporting a clean run. For the same reason a day when the
+    // relay could not read the detail pages holds the bookmark: the same page
+    // is retried next run (already-imported cards are skipped cheaply).
+    // Re-reading a page is harmless; skipping one loses stock.
+    const processedCleanly = newCards === 0
+      || (detailFailures === 0 && insertErrors === 0 && report.unexamined === 0 && attempted >= newCards);
+    const advance = page.cars.length >= 2 && processedCleanly;
     const nextBookmark = advance ? bookmark + 1 : bookmark;
     await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
     await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
@@ -368,11 +423,18 @@ export default async function handler(req, res, injected) {
       // Be honest: this run read nothing. Do not call it "caught up".
       report.blocked = true;
       const relayTried = thinRunDiag.relayAttempted;
+      const relayAttempts = thinRunDiag.relayAttempts || [];
+      const rateLimited = relayAttempts.some(a => a.status === 429);
       report.note = 'goo-net is bot-gating this host: the listing page came back as a stub ('
         + page.cars.length + ' card' + (page.cars.length === 1 ? '' : 's') + ', no car links to read)'
         + (relayTried ? ', and the relay could not read more of it either' : '')
         + '. The bookmark was held on page ' + bookmark + ' so no pages were skipped — '
-        + 'retry later, or point goonet_search_url at a search this host can read.';
+        + 'retry later, or point goonet_search_url at a search this host can read.'
+        + (rateLimited && !relayApiKey()
+          ? ' The relay answered HTTP 429 (rate limit): add a free Jina reader API key as the '
+            + 'JINA_API_KEY environment variable in Vercel (see GOONET-SYNC.md → "The relay") '
+            + 'for a permanent fix.'
+          : '');
       report.diagnostics = thinRunDiag;
       // Steps 3–5 are skipped on purpose: a run that read nothing must not
       // mutate the catalogue. The delist check re-reads detail pages from the
@@ -395,6 +457,17 @@ export default async function handler(req, res, injected) {
         + 'The bookmark was held on page ' + bookmark + ' so no pages were skipped; '
         + 'update parseCard in scripts/goonet-core.mjs (GOONET-SYNC.md → "Parser says no cards").';
       report.diagnostics = thinRunDiag;
+    }
+
+    // A readable page whose new cars could not all be processed: say why the
+    // bookmark is held, so "0 imported" never looks like "caught up".
+    if (!advance && page.cars.length >= 2 && (detailFailures > 0 || report.unexamined > 0 || insertErrors > 0)) {
+      const why = [];
+      if (detailFailures > 0) why.push(`${detailFailures} detail fetch${detailFailures === 1 ? '' : 'es'} failed`);
+      if (report.unexamined > 0) why.push(`${report.unexamined} card${report.unexamined === 1 ? '' : 's'} not examined (run budget / per-run cap)`);
+      if (insertErrors > 0) why.push(`${insertErrors} insert${insertErrors === 1 ? '' : 's'} errored`);
+      report.note = (report.note ? report.note + ' ' : '')
+        + `Bookmark held on page ${bookmark}: ${why.join(', ')} — the next run re-reads this page instead of skipping it.`;
     }
 
     // ---- 3. Delist check on a few existing cars ---------------------------
