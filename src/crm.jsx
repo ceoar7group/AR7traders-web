@@ -1794,7 +1794,8 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   const [settingsBusy, setSettingsBusy] = useState(false);
   const isAdmin = profile?.role === 'admin';
 
-  useEffect(() => { fetch('/api/settings').then(r => r.json()).then(setSettingsForm).catch(() => setSettingsForm({})); }, []);
+  const [settingsError, setSettingsError] = useState(null);
+  useEffect(() => { fetch('/api/settings', { headers: token ? { Authorization: 'Bearer ' + token } : {} }).then(r => { if (!r.ok) throw new Error('Could not load importer settings'); return r.json(); }).then(d => { setSettingsForm(d); setSettingsError(null); }).catch(e => { setSettingsForm({}); setSettingsError(e.message); }); }, [token]);
 
   const now = Date.now();
   const weekAgo = new Date(now - 7 * 864e5).toISOString();
@@ -3189,11 +3190,16 @@ function SettingsView({ token, profile, perms, notify }) {
   const [busy, setBusy] = useState(false);
   const canEdit = hasPerm(perms, profile?.role, 'settings.write');
 
+  const [loadError, setLoadError] = useState(null);
   useEffect(() => {
-    fetch('/api/settings').then(r => r.json()).then(setForm).catch(() => setForm({}));
-  }, []);
+    fetch('/api/settings', { headers: token ? { Authorization: 'Bearer ' + token } : {} })
+      .then(r => { if (!r.ok) throw new Error('Could not load settings — please sign in again'); return r.json(); })
+      .then(d => { setForm(d); setLoadError(null); })
+      .catch(e => { setForm({}); setLoadError(e.message); });
+  }, [token]);
 
   if (!form) return <div className="crm-boot"><RefreshCw /><span>Loading settings…</span></div>;
+  {loadError && <p className="crm-hint"><ShieldAlert size={13} /> {loadError}</p>}
 
   const fields = [
     ['contact_email', 'Contact email', 'The address shown on the website and where enquiries go'],
