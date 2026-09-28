@@ -212,14 +212,14 @@ export function WorldPage({navigate}){
     <p>Spin the globe. Every gold route is a live AR7 demo lane from Japan to the world's ports — <b>click Japan</b> to browse the inventory, or press any country to open its market guide.</p>
     <div className="world-cta"><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>Browse inventory <ArrowRight/></a><a className="outline-btn" href="/destinations" onClick={linkClick('destinations',navigate)}>Market guides</a></div>
     <div className="world-stats">
-     {[['08','Live demo routes'],['35+','Markets served'],['24/7','Shipment tracking'],['100%','Auction-sourced']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
+     {[['08','Demo routes'],['6','Market guides'],['24/7','Portal access'],['100%','Cost transparency']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
     </div>
    </div>
    <div className="hero-orb world-hero-orb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
    <BigNetworkGlobe navigate={navigate}/>
   </div>
   <div className="shell">
-   <div className="section-head"><div><div className="kicker">DEMO ROUTES</div><h2>From Japan to<br/><em>your port.</em></h2></div><p>Eight live demo lanes with estimated transit. Click any card to open that market's guide.</p></div>
+   <div className="section-head"><div><div className="kicker">DEMO ROUTES</div><h2>From Japan to<br/><em>your port.</em></h2></div><p>Eight demo lanes with estimated transit. Click any card to open that market's guide.</p></div>
    <div className="markets-grid">
     {MARKETS.map(m=><a className="mkt-card" key={m.name} href="/destinations" onClick={linkClick('destinations',navigate)}>
      <span className="mkt-flag"><Flag c={m.name} w={36} h={23}/></span>
@@ -231,9 +231,9 @@ export function WorldPage({navigate}){
     </a>)}
    </div>
   </div>
-  <div className="shell net-dash-wrap"><div className="section-head"><div><div className="kicker">LIVE NETWORK DATA</div><h2>Port to port,<br/><em>in real time.</em></h2></div><p>Demo operational data for the AR7 network — vessels, lanes and what our team handled this week.</p></div>
+  <div className="shell net-dash-wrap"><div className="section-head"><div><div className="kicker">NETWORK SNAPSHOT · SAMPLE</div><h2>Port to port,<br/><em>at a glance.</em></h2></div><p>Illustrative demo data for the AR7 network — vessels, lanes and milestones as the portal presents them.</p></div>
    <div className="net-grid">
-    <div className="net-stats">{[[Ship,'14','Vessels at sea'],[CarFront,'96','Cars in transit'],[Gavel,'06','Weekly departures'],[BadgeCheck,'35+','Active ports']].map(x=>{const I=x[0];return <div key={x[2]}><i><I/></i><b>{x[1]}</b><span>{x[2]}</span></div>})}</div>
+    <div className="net-stats">{[[Ship,'RoRo','Sea freight'],[CarFront,'Docs','Handled end to end'],[Gavel,'Auction','+ dealer sourcing'],[BadgeCheck,'1','Accountable team']].map(x=>{const I=x[0];return <div key={x[2]}><i><I/></i><b>{x[1]}</b><span>{x[2]}</span></div>})}</div>
     <article className="net-panel">
      <h3>Demo sailing schedule</h3>
      <table><thead><tr><th>Vessel</th><th>Route</th><th>ETA</th><th>Status</th></tr></thead><tbody>
@@ -241,10 +241,10 @@ export function WorldPage({navigate}){
      </tbody></table>
     </article>
     <article className="net-panel">
-     <h3>Live network feed <i className="live-dot"/></h3>
+     <h3>Sample activity feed <i className="live-dot"/></h3>
      <ul>{[['now','Lot 38214 won — Porsche 911 Turbo S'],['6m','Vessel departed Yokohama · AR7-260184'],['14m','Inspection photos uploaded — Bugatti Chiron'],['31m','Auction sheet translated — Rolls-Royce Ghost'],['1h','Freight booked Karachi · AR7-260191'],['2h','New lot — Ferrari F8 Tributo · USS Tokyo'],['3h','CIF quote sent — Cullinan to Jebel Ali'],['5h','Deposit received · UK buyer']].map(x=><li key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></li>)}</ul>
     </article>
    </div>
   </div>
-  <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">YOUR PORT IS ON THIS MAP</div><h2>Let's put your car<br/>on a <em>route.</em></h2><p>Tell us your market — we quote FOB, CIF and landed cost within 24 hours.</p></div><a className="gold-btn large" href="/contact" onClick={linkClick('contact',navigate)}>Start your import <ArrowRight/></a></section>
+  <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">YOUR PORT IS ON THIS MAP</div><h2>Let's put your car<br/>on a <em>route.</em></h2><p>Tell us your market — we quote FOB, CIF and landed cost before you commit.</p></div><a className="gold-btn large" href="/contact" onClick={linkClick('contact',navigate)}>Start your import <ArrowRight/></a></section>
  </section>}

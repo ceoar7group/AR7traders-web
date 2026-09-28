@@ -187,7 +187,7 @@ function SignupForm({settings,onDone}){
  return <form onSubmit={submit}>
   <div className="kicker">CREATE ACCOUNT</div>
   <h1>Create your buyer profile.</h1>
-  <p>Join buyers in 35+ countries. It takes less than a minute.</p>
+  <p>Create your buyer account — it takes less than a minute.</p>
   {err && <div className="account-error">{err}</div>}
   <label>FULL NAME<input name="name" required placeholder="Your name"/></label>
   <label>EMAIL<input name="email" required type="email" placeholder="you@email.com"/></label>
@@ -317,7 +317,7 @@ function MyAccount({session,navigate}){
         <td>{fmt(p.amount)}</td><td>{fmt(p.applied)}</td>
         <td className={Number(p.unapplied)>0?'credit':''}>{fmt(p.unapplied)}</td>
        </tr>)}</tbody></table></div>}
-    <p className="ma-foot"><ShieldCheck/> Every payment we receive is listed here the day it clears. If something looks wrong, message us on WhatsApp or email {s.contact_email} and we will check it the same day.</p>
+    <p className="ma-foot"><ShieldCheck/> Every payment we receive is listed here the day it clears. If something looks wrong, message us on WhatsApp or email {s.contact_email} and we will check it with you.</p>
    </>}
   </div>
  </section>;

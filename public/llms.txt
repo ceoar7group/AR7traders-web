@@ -1,13 +1,13 @@
 # AR7 Traders
 
-> AR7 Traders is a Japanese vehicle exporter based in Tokyo that sources cars from Japanese auctions and dealer stock, inspects them, translates auction sheets, and ships them to 35+ countries worldwide — including Pakistan, the UAE, Kenya, Tanzania and the UK — at one clear price to the buyer's port.
+> AR7 Traders is a Japanese vehicle exporter based in Tokyo that sources cars from Japanese auctions and dealer stock, inspects them, translates auction sheets, and ships them worldwide — including to Pakistan, the UAE, Kenya, Tanzania and the UK — at one clear price to the buyer's port.
 
 ## What AR7 Traders does
 
 - **Auction bidding:** bids on the buyer's behalf at major Japanese auction houses (USS Tokyo, TAA, JU Aichi, CAA and others) with translated auction sheets, condition-grade advice and a pre-agreed maximum bid.
 - **Sourcing & inspection:** selects vehicles from auction and dealer stock (including Goo-net listings), then inspects and photographs every car before export.
 - **Export paperwork:** de-registration, export certificates, bills of lading, marine insurance (1.6% of vehicle value) and customs-ready documentation.
-- **Shipping:** RoRo and container sea freight from Japanese ports to the buyer's port, with live milestone tracking.
+- **Shipping:** RoRo and container sea freight from Japanese ports to the buyer's port, with milestone tracking.
 - **Cost transparency:** an import cost calculator estimates freight, import duty and total landed cost before purchase.
 
 ## Key pages

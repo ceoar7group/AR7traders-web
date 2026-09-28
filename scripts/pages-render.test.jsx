@@ -89,6 +89,41 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(home.includes('/japan-stock'), 'Japan dealer stock is linked in the Inventory dropdown');
 }
 
+// ---- honest public claims ----------------------------------------------------
+// The 1,200+ figure is the founder's career total across various suppliers —
+// never an AR7 Traders sales total, buyer count or rating. It must always
+// carry its visible qualifier, and unsupported ratings/stats must not return.
+{
+  const home = renderPage('/');
+  ok(home.includes('vehicles sold across our founder'), 'home hero states the founder-career experience claim');
+  ok(home.includes('Experience gained through various suppliers; these are not AR7 Traders sales totals'),
+    'the founder-claim qualifier is visible on the home page');
+  ok(!home.includes('4.9/5') && !home.includes('Trusted by 1,200+ buyers'),
+    'no unsupported rating or buyer-count in the home hero');
+  ok(!home.includes('98%') && !home.includes('On-time delivery'), 'no unsupported on-time delivery stat on the home page');
+  ok(home.includes('SAMPLE AUCTION'), 'the hero auction countdown card is visibly labelled SAMPLE');
+  ok(home.includes('SAMPLE ROUTE'), 'the hero route card is visibly labelled SAMPLE');
+}
+{
+  const about = renderPage('/about');
+  ok(about.includes('vehicles sold across our founder') && about.includes('Experience gained through various suppliers'),
+    'about page carries the founder claim with its qualifier');
+  ok(!about.includes('98%') && !about.includes('Countries served'), 'about page drops the unsupported 98% / countries-served stats');
+}
+{
+  const world = renderPage('/world');
+  ok(!world.includes('Markets served') && !world.includes('Vessels at sea'), 'world page drops invented market/fleet counts');
+}
+{
+  const reviews = renderPage('/reviews');
+  ok(reviews.includes('No reviews published yet'), 'reviews page shows the truthful empty state');
+  ok(!reviews.includes('★★★★★') && !reviews.includes('Demo customer rating'), 'no fabricated star rating on the reviews page');
+  for (const name of ['Ahmed H.', 'Mary K.', 'Daniel O.', 'Saeed A.', 'James M.', 'Fatima K.']) {
+    ok(!reviews.includes(name), `no fictional testimonial from ${name}`);
+  }
+  ok(reviews.includes('/contact'), 'reviews page offers a contact/feedback route');
+}
+
 console.error = realError; console.warn = realWarn;
 const real = warnings.filter(w => !/not wrapped in act|useLayoutEffect does nothing on the server/.test(w));
 ok(real.length === 0, `React logged no warnings${real.length ? ': ' + real.slice(0, 3).join(' | ') : ''}`);

@@ -124,7 +124,7 @@ const ROUTES = [
   ['/shipping', 'One clear route'],
   ['/howbuy', 'Tell us the car'],
   ['/news', 'NEWS'],
-  ['/reviews', '★★★★★'],
+  ['/reviews', 'No reviews published yet'],
   ['/faq', 'POPULAR QUESTIONS'],
   ['/about', 'ABOUT'],
   ['/contact', 'Contact'],

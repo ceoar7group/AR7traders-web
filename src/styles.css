@@ -22,3 +22,8 @@ a.search-btn{text-decoration:none}
 a.gold-btn,a.outline-btn,a.primary,a.icon-btn,a.text-btn{text-decoration:none}
 .car-bottom .card-open{width:39px;height:39px;border:0;border-radius:10px;background:var(--bg);color:var(--green-text);display:grid;place-items:center;cursor:pointer;flex:none}
 a.car-card .fav{cursor:pointer}
+
+/* Visible qualifier for the founder-experience claim (must stay next to the
+   1,200+ figure wherever it appears — see FOUNDER_CLAIM in main.jsx). */
+.claim-note{font-size:10.5px;color:var(--muted);max-width:430px;line-height:1.65;margin:10px 0 0}
+.world .claim-note{color:#66766d}
