@@ -27,6 +27,7 @@ with live network access) to confirm after deploy.
 | B3 | Unsubstantiated stats removed (4.9/5, 98%, 35+ countries, manufacturer partnerships, universal auction-sheet verification) | ✅ Repo (negative assertions in test suites) | Reintroduction blocked by `CLAIMS-POLICY.md` §2. |
 | B4 | No `aggregateRating`, no invented `sameAs` | ✅ Repo (seo-render suite checks JSON-LD) | Rules in `CLAIMS-POLICY.md` §3. |
 | B5 | No UK physical-location implication from the UK phone | ✅ Repo | No address is claimed anywhere. |
+| B6 | Founder-stat prominence (owner-approved 2026-09-28): `1,200+` dominant at all three sites (hero, world section, about story grid), label + qualifier secondary small print directly adjacent, wording untouched | ✅ Repo | Dedicated `.founder-stat` class (shared `.stats`/`.trust-row` rules unchanged; 650px media query covered); pages suite asserts figure+qualifier in the same block at each site (86 passed). Presentation approval recorded in `CLAIMS-POLICY.md` §1. |
 
 ## C. SEO implementation — repo (commit `7452005`)
 
@@ -41,6 +42,9 @@ with live network access) to confirm after deploy.
 | C7 | Breadcrumbs + vehicle OG tags, canonical real-path | ✅ Repo | seo-render suite. |
 | C8 | Sitemap 16 URLs, all routes exist, no staff URLs, `/shipping` priority 0.7 | ✅ Repo | seo-render suite. |
 | C9 | Static shell (index.html) carries semantic initial HTML + build marker `ar7-2026-09-28-seo` | ✅ Repo | seo-render suite. |
+| C10 | Per-page `og:image` (+ `og:image:width/height`, `og:image:alt`, `twitter:image`) for all 16 public routes — 4-image set under `public/assets/og/` (1200×630 crops of real site photography); static shell keeps the default image with its dimensions corrected to the actual 1240×800 asset | ✅ Repo (owner-approved 2026-09-28) | seo-render suite: per-route mapping, absolute URLs, declared dimensions asserted against the actual JPEG headers. |
+| C11 | Vehicle pages: `og:image`/`twitter:image` = the car's own photo via `imageFor(car.image)` (absolute), default image when absent/loading/missing, no fabricated dimensions on listing photos | ✅ Repo | seo-render suite. |
+| C12 | Dynamic vehicle sitemap `/api/sitemap-vehicles.xml`: published `site_listings` only, sold/private/delisted excluded, `carRef`-based URLs, XML-escaped, `<lastmod>` only for real `updated_at`, `public, max-age=120, s-maxage=600`, honest 503 on failure (never 200 + malformed XML); `robots.txt` gained a second Sitemap line; static 16-URL `sitemap.xml` unchanged and still authoritative for landing pages. `japan_dealer_stock` deliberately excluded — no public AR7 detail pages (decision recorded in `SEO-SUBMIT.md` §4) | ✅ Repo (owner-approved 2026-09-28) | New `test:sitemap-vehicles` suite, 28 passed / 0 failed (injected fake-db pattern). |
 
 ## D. Settings API security — repo (commit `1b1d649`)
 
@@ -62,20 +66,22 @@ with live network access) to confirm after deploy.
 | E3 | Full import path green: direct, relay-rescued, slow-crawl and title-less card scenarios import | ✅ Repo | sync suite 41/41 (was 31/41). |
 | E4 | Photo/quality gates, safe delisting, bookmark behaviour, permission checks, budgets, relay safeguards | ✅ Repo, unchanged | same assertions as before. |
 | E5 | Production stock sync while testing | ⛔ Not done (correctly) | No production sync or inventory mutation was run in this session. |
+| E6 | Scheduler configured as documented | ✅ Repo (2026-09-28) | `.github/workflows/goonet-sync.yml` present: daily `03:00 UTC` cron calling `/api/goonet-sync` per `GOONET-SYNC.md` §2. Owner-side secrets (`GOONET_SYNC_KEY`) are not verifiable from the repo. First production run remains owner-gated (Task E of the handoff). |
 
 ## F. Build & test suites — repo
 
 | Suite | Result |
 |-------|--------|
 | `test:routing` | ALL PASS |
+| `test:contacts` | ALL PASS |
 | `test:header` | ALL PASS |
-| `test:pages` | 79 passed, 0 failed |
+| `test:pages` | 86 passed, 0 failed (79 before this session's same-block claim assertions) |
 | `test:currency` | ALL PASS |
 | `test:inventory` | ALL PASS |
 | `test:client` | 63 passed, 0 failed |
-| `test:seo` (contacts/llms etc.) | ALL PASS |
-| `test:seo-render` | ALL PASS |
-| `test:settings` (new) | 28 passed, 0 failed |
+| `test:seo` (= `test:seo-render`, `scripts/seo-render.test.mjs`) | ALL PASS |
+| `test:settings` (28) | 28 passed, 0 failed |
+| `test:sitemap-vehicles` (new this session) | 28 passed, 0 failed |
 | `test:goonet` (core+seed+sync) | 158 + 54 + 41, all passed |
 | `npm run build` / `npm run build:crm` | ✓ both |
 
@@ -97,6 +103,32 @@ Then in a browser: spot-check `/`, `/inventory`, one vehicle page, `/shipping`,
 authed) with no console errors. In GSC, **URL Inspection → live test** one
 vehicle page and `/faq` to confirm the new metadata is served; do not re-submit
 indexing requests for pages already requested.
+
+### §G results — 2026-09-28, session `arena/01a0e7ed-ar7traders-web`
+
+**Direct network from this sandbox is blocked at TLS.** `curl` to
+`https://ar7traders.com/` and `https://www.ar7traders.com/` both fail during
+the handshake with `SSL_ERROR_SYSCALL` (unrelated hosts fail the same way —
+all outbound TLS from the sandbox is blocked). Every §G **curl** check below
+is therefore **not tested (no network access)**; no HTTP status, redirect or
+header claim is made. Content-level checks were repeated through a separate
+page-fetch service (it executes JavaScript and returns page content only — it
+does **not** expose status codes, redirect chains, headers or console output):
+
+| # | §G check | Result | Evidence / notes |
+|---|----------|--------|------------------|
+| G1 | `curl -I https://ar7traders.com/` → 200, no Location | **not tested (no network access)** | Sandbox TLS blocked. The page-fetch service does render `https://ar7traders.com/` successfully (status not observable through it). |
+| G2 | `curl -I https://www.ar7traders.com/` → 301 → apex | **not tested (no network access)** — indirect evidence only | Fetching `https://www.ar7traders.com/inventory/AR7-26001?source=seo` via the page-fetch service ends at `https://ar7traders.com/inventory/AR7-26001?source=seo` — apex host, path and query preserved. Consistent with A2; the 301 itself was not observed. |
+| G3 | build marker `ar7-2026-09-28-seo` in live HTML | **not tested (no network access)** | The marker lives in `<head>`; the page-fetch service returns rendered body only. The marker is present in repo and production build (C9). |
+| G4 | sitemap `<loc>` count = 16 | ✅ content-level (2026-09-28, page-fetch) | Live `sitemap.xml` lists exactly 16 `<loc>` entries including `/shipping`, with no staff routes. |
+| G5 | 404 on unknown path | **not tested (no network access)** — content checked, status not observable | A path outside the rewrites (`/this-path-should-404-2026`) serves the branded 404 page ("Page not found — AR7 Traders"). `/inventory/DOES-NOT-EXIST` is **covered by the `vercel.json` rewrite** to the SPA shell, so its expected live status is 200 + the honest "no longer listed" `noindex` page (C4), *not* 404 — the §G command as written will likely show 200 there. Owner: confirm the actual status from an unblocked network; no redirect/DNS change is implied either way. |
+| G6 | `/api/settings` public keys only | ✅ content-level (2026-09-28, page-fetch) | Anonymous response contains exactly `contact_email, contact_phone, contact_address, whatsapp_number, whatsapp_message, enquiry_inbox, exchange_rates` with the confirmed public values — no importer/operational keys. |
+| G7 | Browser spot-check `/`, `/inventory`, one vehicle page, `/shipping`, `/faq` | ✅ content-level (2026-09-28, page-fetch renders JS) | All five render with the correct per-page titles; `/inventory` lists 29 vehicles in its two groups; `/inventory/AR7-26001` shows the correct detail page ("2023 Rolls-Royce Ghost (Stock AR7-26001)"); `/shipping` and `/faq` match `PAGE_SEO`. Not a human browser session — no console/network panel observed. |
+| G8 | `/crm` Website-settings form shows values (sign-in) | **not tested** | Requires the owner's credentials; only the CRM shell load was observed. If the form is empty, sign out/in first (§H.3). |
+| G9 | GSC live test / indexing | **not tested (owner-only)** | No GSC action was taken; no indexing requests submitted or repeated. |
+
+Nothing failed, so no rollback (§H) was triggered; nothing was redeployed and
+no DNS or redirect settings were touched.
 
 ## H. Rollback
 

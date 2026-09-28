@@ -98,6 +98,19 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(home.includes('vehicles sold across our founder'), 'home hero states the founder-career experience claim');
   ok(home.includes('Experience gained through various suppliers; these are not AR7 Traders sales totals'),
     'the founder-claim qualifier is visible on the home page');
+  // Owner-approved prominence (2026-09-28): a dedicated large stat per site,
+  // with the qualifier rendered in the same block as the figure everywhere.
+  ok((home.match(/founder-stat--hero/g) || []).length === 1 &&
+    /founder-stat--hero[\s\S]{0,900}?class="claim-note">Experience gained through various suppliers/.test(home),
+    'home hero: qualifier renders in the same block as the 1,200+ figure');
+  ok((home.match(/founder-stat--world/g) || []).length === 1 &&
+    /founder-stat--world[\s\S]{0,900}?class="claim-note">Experience gained through various suppliers/.test(home),
+    'world section: qualifier renders in the same block as the 1,200+ figure');
+  ok((home.match(/founder-stat-figure">1,200\+</g) || []).length === 1 &&
+    home.includes('founder-stat-figure">1,200<sup>+</sup>'),
+    'both home figures render the FOUNDER_CLAIM constant (hero plain, world with sup)');
+  ok(!home.includes('class="stats"'), 'no shared .stats block carries the founder figure anymore');
+  ok(!home.includes('class="trust-row"'), 'the hero no longer uses the small 13px trust-row stat');
   ok(!home.includes('4.9/5') && !home.includes('Trusted by 1,200+ buyers'),
     'no unsupported rating or buyer-count in the home hero');
   ok(!home.includes('98%') && !home.includes('On-time delivery'), 'no unsupported on-time delivery stat on the home page');
@@ -108,6 +121,10 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const about = renderPage('/about');
   ok(about.includes('vehicles sold across our founder') && about.includes('Experience gained through various suppliers'),
     'about page carries the founder claim with its qualifier');
+  ok((about.match(/founder-stat--about/g) || []).length === 1 &&
+    /founder-stat--about[\s\S]{0,900}?class="claim-note">Experience gained through various suppliers/.test(about),
+    'about page: qualifier renders in the same block as the 1,200+ figure');
+  ok(/founder-stat-figure">1,200\+</.test(about), 'about figure renders the FOUNDER_CLAIM constant');
   ok(!about.includes('98%') && !about.includes('Countries served'), 'about page drops the unsupported 98% / countries-served stats');
 }
 {

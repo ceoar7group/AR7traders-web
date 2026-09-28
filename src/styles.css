@@ -28,6 +28,21 @@ a.car-card .fav{cursor:pointer}
 .claim-note{font-size:10.5px;color:var(--muted);max-width:430px;line-height:1.65;margin:10px 0 0}
 .world .claim-note{color:#66766d}
 
+/* ---- Founder experience stat — owner-approved prominence (2026-09-28) -----
+   The 1,200+ figure must read as the dominant element wherever it appears;
+   the label and the .claim-note qualifier stay clearly secondary but visible
+   right next to it (CLAIMS-POLICY.md §1 — presentation only, wording comes
+   from FOUNDER_CLAIM and must never be retyped). Dedicated class so the shared
+   .stats / .trust-row rules are untouched. */
+.founder-stat{display:grid;justify-items:start;gap:7px;margin-top:36px}
+.founder-stat-figure{font:800 clamp(46px,4.6vw,64px)/1 Manrope,sans-serif;letter-spacing:-3.5px;color:var(--green-text)}
+.founder-stat-label{font-size:12px;letter-spacing:.6px;color:var(--muted);max-width:380px;line-height:1.55}
+.founder-stat--world{margin-top:30px}
+.founder-stat--world .founder-stat-figure,.founder-stat--about .founder-stat-figure{font-size:clamp(40px,4vw,52px);letter-spacing:-2.5px}
+.founder-stat--world .founder-stat-figure sup{font-size:.42em;color:var(--gold);top:-.5em}
+@media(max-width:1000px){.founder-stat--hero{justify-items:center;text-align:center}.founder-stat--hero .founder-stat-label{max-width:440px}.founder-stat--hero + .claim-note{margin-left:auto;margin-right:auto;text-align:center}}
+@media(max-width:650px){.founder-stat{margin-top:26px}.founder-stat-figure{font-size:46px;letter-spacing:-2.5px}.founder-stat--world .founder-stat-figure,.founder-stat--about .founder-stat-figure{font-size:38px;letter-spacing:-2px}.founder-stat-label{font-size:11.5px}}
+
 /* Visible DEMO marker for the homepage portal dashboard mock (the link title
    alone is not visible enough — see 6A in the audit). */
 .dashboard{position:relative}

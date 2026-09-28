@@ -13,6 +13,8 @@
     "test:contacts": "node scripts/contacts.test.mjs",
     "test:settings": "node scripts/settings-api.test.mjs",
     "test:seo": "node scripts/seo-render.test.mjs",
+    "test:seo-render": "node scripts/seo-render.test.mjs",
+    "test:sitemap-vehicles": "node scripts/sitemap-vehicles.test.mjs",
     "test:goonet": "node scripts/goonet-core.test.mjs && node scripts/goonet-seed.test.mjs && node scripts/goonet-sync.test.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "test:header": "npx --yes esbuild scripts/header-render.test.jsx --bundle --format=cjs --external:jsdom --platform=node --loader:.css=empty --jsx=automatic --define:import.meta.env.VITE_CRM_DEMO=false --define:import.meta.env.VITE_SUPABASE_URL=undefined --define:import.meta.env.VITE_SUPABASE_ANON_KEY=undefined --outfile=node_modules/.tmp/header-render.test.cjs --log-level=error && node node_modules/.tmp/header-render.test.cjs",
