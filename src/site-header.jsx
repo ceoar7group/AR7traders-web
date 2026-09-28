@@ -53,15 +53,14 @@ export function NavDropdown({label, panel, className, routeKey, children}) {
   </div>;
 }
 
-// The More menu. Kept as data so the panel's two-column shape stays even:
-// add or remove entries in PAIRS.
 // Inventory dropdown items
 const INVENTORY_LINKS = [
   [CarFront, 'All Inventory', 'inventory'],
   [Layers, 'Japan dealer stock', 'japan-stock']
 ];
 
-// More dropdown items - organized and duplicates removed
+// More dropdown items - organized and duplicates removed.
+// The grid supports an unpaired final item; do not add filler navigation links.
 export const MORE_LINKS = [
   [Globe2, 'World network', 'world'],
   [Gavel, 'Live auctions', 'auction'],

@@ -1,11 +1,12 @@
 // Render smoke test for the site header (src/site-header.jsx).
 // The header is the part of the site that broke silently before: nav link
 // styles targeted `button` while the links were `<a>`s, "Calculators" crowded
-// the row, and the More panel's two-column shape depended on an even item
-// count. These assertions pin all three down. Run:
+// the row, and dropdown entries moved without matching test updates.
+// These assertions pin the current navigation structure down. Run:
 //   npm run test:header
 import React from 'react';
 import { renderToString } from 'react-dom/server';
+import { JSDOM } from 'jsdom';
 import { SiteHeader, MORE_LINKS, NavDropdown, logoOnError } from '../src/site-header.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
 
@@ -34,9 +35,10 @@ const render = (props = {}) => renderToString(
 );
 
 const html = render();
+const document = new JSDOM(html).window.document;
 
 // ---- the primary row -------------------------------------------------------
-ok(html.includes('>Inventory</button>'), 'Inventory dropdown is in the primary nav');
+ok(document.querySelector('.navlinks .nav-inventory > button')?.textContent.trim() === 'Inventory', 'Inventory dropdown is in the primary nav (with its chevron)');
 ok(html.includes('nav-inventory'), 'the Inventory dropdown renders');
 ok(!html.includes('>Japan dealer stock</a>'), 'Japan dealer stock is NOT in the primary nav (moved to dropdown)');
 ok(html.includes('>Auction access</a>'), 'Auction access is in the primary nav');
@@ -52,11 +54,14 @@ ok(/3<!-- --> makes · <!-- -->23<!-- --> vehicles live/.test(html), 'the Brands
 ok(html.includes('src="/assets/logos/mercedes-benz.png"'), 'brand logos come from the brand name');
 ok(html.includes('href="/brands"'), 'the Brands panel links to the full brands page');
 
-// ---- More dropdown keeps its shape ---------------------------------------
+// ---- More dropdown matches the current navigation ------------------------
 // Everything between the More panel opening and the next top-level link.
 const morePanel = (html.split('nav-drop-panel more-panel')[1] || '').split('auction-link')[0];
 const moreItems = (morePanel.match(/<i>/g) || []).length;
-ok(MORE_LINKS.length % 2 === 0, `the More menu has an even item count (${MORE_LINKS.length}) so the 2-column grid stays even`);
+const expectedMoreRoutes = ['world', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal', 'crm'];
+ok(JSON.stringify(MORE_LINKS.map(x => x[2])) === JSON.stringify(expectedMoreRoutes), 'More contains the 13 intended routes; an unpaired final grid item is allowed');
+const renderedMoreRoutes = [...document.querySelectorAll('.more-panel a')].map(a => a.getAttribute('href'));
+ok(JSON.stringify(renderedMoreRoutes) === JSON.stringify(expectedMoreRoutes.map(route => '/' + route)), 'More renders every intended real-path link in order');
 ok(moreItems === MORE_LINKS.length, `the More panel rendered ${MORE_LINKS.length} links`);
 ok(morePanel.includes('>Calculators</span>'), 'Calculators is in the More dropdown');
 ok(morePanel.includes('href="/tools"'), 'the Calculators entry points at /tools');
