@@ -27,6 +27,7 @@ with live network access) to confirm after deploy.
 | B3 | Unsubstantiated stats removed (4.9/5, 98%, 35+ countries, manufacturer partnerships, universal auction-sheet verification) | ✅ Repo (negative assertions in test suites) | Reintroduction blocked by `CLAIMS-POLICY.md` §2. |
 | B4 | No `aggregateRating`, no invented `sameAs` | ✅ Repo (seo-render suite checks JSON-LD) | Rules in `CLAIMS-POLICY.md` §3. |
 | B5 | No UK physical-location implication from the UK phone | ✅ Repo | No address is claimed anywhere. |
+| B6 | Founder-stat prominence (owner-approved 2026-09-28): `1,200+` dominant at all three sites (hero, world section, about story grid), label + qualifier secondary small print directly adjacent, wording untouched | ✅ Repo | Dedicated `.founder-stat` class (shared `.stats`/`.trust-row` rules unchanged; 650px media query covered); pages suite asserts figure+qualifier in the same block at each site (86 passed). Presentation approval recorded in `CLAIMS-POLICY.md` §1. |
 
 ## C. SEO implementation — repo (commit `7452005`)
 
@@ -41,6 +42,9 @@ with live network access) to confirm after deploy.
 | C7 | Breadcrumbs + vehicle OG tags, canonical real-path | ✅ Repo | seo-render suite. |
 | C8 | Sitemap 16 URLs, all routes exist, no staff URLs, `/shipping` priority 0.7 | ✅ Repo | seo-render suite. |
 | C9 | Static shell (index.html) carries semantic initial HTML + build marker `ar7-2026-09-28-seo` | ✅ Repo | seo-render suite. |
+| C10 | Per-page `og:image` (+ `og:image:width/height`, `og:image:alt`, `twitter:image`) for all 16 public routes — 4-image set under `public/assets/og/` (1200×630 crops of real site photography); static shell keeps the default image with its dimensions corrected to the actual 1240×800 asset | ✅ Repo (owner-approved 2026-09-28) | seo-render suite: per-route mapping, absolute URLs, declared dimensions asserted against the actual JPEG headers. |
+| C11 | Vehicle pages: `og:image`/`twitter:image` = the car's own photo via `imageFor(car.image)` (absolute), default image when absent/loading/missing, no fabricated dimensions on listing photos | ✅ Repo | seo-render suite. |
+| C12 | Dynamic vehicle sitemap `/api/sitemap-vehicles.xml`: published `site_listings` only, sold/private/delisted excluded, `carRef`-based URLs, XML-escaped, `<lastmod>` only for real `updated_at`, `public, max-age=120, s-maxage=600`, honest 503 on failure (never 200 + malformed XML); `robots.txt` gained a second Sitemap line; static 16-URL `sitemap.xml` unchanged and still authoritative for landing pages. `japan_dealer_stock` deliberately excluded — no public AR7 detail pages (decision recorded in `SEO-SUBMIT.md` §4) | ✅ Repo (owner-approved 2026-09-28) | New `test:sitemap-vehicles` suite, 28 passed / 0 failed (injected fake-db pattern). |
 
 ## D. Settings API security — repo (commit `1b1d649`)
 
@@ -69,14 +73,15 @@ with live network access) to confirm after deploy.
 | Suite | Result |
 |-------|--------|
 | `test:routing` | ALL PASS |
+| `test:contacts` | ALL PASS |
 | `test:header` | ALL PASS |
-| `test:pages` | 79 passed, 0 failed |
+| `test:pages` | 86 passed, 0 failed (79 before this session's same-block claim assertions) |
 | `test:currency` | ALL PASS |
 | `test:inventory` | ALL PASS |
 | `test:client` | 63 passed, 0 failed |
-| `test:seo` (contacts/llms etc.) | ALL PASS |
-| `test:seo-render` | ALL PASS |
-| `test:settings` (new) | 28 passed, 0 failed |
+| `test:seo` (= `test:seo-render`, `scripts/seo-render.test.mjs`) | ALL PASS |
+| `test:settings` (28) | 28 passed, 0 failed |
+| `test:sitemap-vehicles` (new this session) | 28 passed, 0 failed |
 | `test:goonet` (core+seed+sync) | 158 + 54 + 41, all passed |
 | `npm run build` / `npm run build:crm` | ✓ both |
 

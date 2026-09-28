@@ -25,6 +25,16 @@ the contacts (`0da8b06`) and claims (`13a5fec`, `a2e5286`) commits. See
 `SEO-AUDIT.md` for the full audit matrix, post-deploy checks and rollback,
 and `CLAIMS-POLICY.md` for the marketing-claims rules.
 
+Session `arena/01a0e7ed-ar7traders-web` (same day, PR to `main`) adds:
+owner-approved prominence for the 1,200+ founder stat (wording unchanged,
+`CLAIMS-POLICY.md` §1), per-page Open Graph images for all 16 public routes
+plus per-vehicle photos on detail pages, and the dynamic vehicle sitemap
+route `/api/sitemap-vehicles.xml` (referenced from `robots.txt`). Post-deploy
+status for this session: every direct `curl` check is **not tested (no
+network access)** — sandbox TLS to ar7traders.com (and any host) fails at
+handshake — while content-level checks passed through a separate page-fetch
+service; full table in `SEO-AUDIT.md` §G. Nothing was submitted to GSC.
+
 Repository verification in this session:
 
 - PR #38 merged as `70f83384373577b16c83a28485b08a29b2a83de8`
@@ -85,16 +95,25 @@ does not execute all scripts):
 
 ```sh
 npm ci
-for task in routing header pages currency inventory client seo seo-render settings; do
+for task in routing contacts header pages currency inventory client seo settings goonet sitemap-vehicles; do
   npm run "test:$task" || exit 1
 done
 npm run build && npm run build:crm
 ```
 
+Script notes: `test:seo` and `test:seo-render` are aliases for the same file
+(`scripts/seo-render.test.mjs`); `test:goonet` runs the core + seed + sync
+suites (158 / 54 / 41); `test:sitemap-vehicles` covers the dynamic vehicle
+sitemap route (`api/sitemap-vehicles.xml.js`). Passing multiple names to a
+single `npm run` still does not execute all scripts — run them one by one
+or via the loop above.
+
 The header tests check the Inventory button's DOM text (allowing its chevron),
 and the intended 13 More links rather than an obsolete even-item requirement.
-SEO tests enforce `noindex,nofollow` on all four staff pages. Keep real-path
-canonicals, static crawler content, structured data, robots rules, and 404 handling.
+SEO tests enforce `noindex,nofollow` on all four staff pages, per-route
+`og:image` mapping (dimensions asserted against the actual asset files), and
+the same-block figure+qualifier claim assertions. Keep real-path canonicals,
+static crawler content, structured data, robots rules, and 404 handling.
 
 ## 3. Bing Webmaster Tools — owner account required
 
@@ -115,11 +134,31 @@ submission does not guarantee indexing or AI citations.
 
 ## 4. Optional work — owner approval first
 
-- Dynamic sitemap listing public, available `/inventory/STOCK` detail URLs from
-  the authoritative inventory source. Plan caching, XML escaping, failures and
-  removal of sold/private stock before implementation.
+- ✅ **Dynamic vehicle sitemap — implemented 2026-09-28**
+  (`arena/01a0e7ed-ar7traders-web`): `https://ar7traders.com/api/sitemap-vehicles.xml`
+  lists public, available `/inventory/<stock>` detail URLs from `site_listings`
+  only — `published = true`, status not sold/private/delisted — with
+  `carRef`-based (stock number, else row id) references, XML escaping,
+  `<lastmod>` only for real `updated_at` timestamps, and
+  `Cache-Control: public, max-age=120, s-maxage=600`. A database failure
+  returns an honest 503, never 200 with malformed XML. **Decision:**
+  `japan_dealer_stock` cars are excluded — they have no public AR7 detail
+  page (they render on `/japan-stock` and link out to goo-net); a car
+  promoted into `site_listings` is included automatically. `robots.txt`
+  references it as a second Sitemap; the static 16-URL `sitemap.xml` stays
+  authoritative for landing pages. Covered by `npm run test:sitemap-vehicles`.
+  **Owner: submit `https://ar7traders.com/api/sitemap-vehicles.xml` in GSC
+  and/or Bing if you want it crawled explicitly — nothing was submitted on
+  your behalf in this session.**
+- ✅ **Per-page Open Graph images — implemented 2026-09-28:** all 16 public
+  routes get `og:image` (+ truthful width/height + `og:image:alt` +
+  `twitter:image`) from a four-image set in `public/assets/og/` (1200×630
+  crops of real site photography); vehicle pages use the car's own photo
+  with the static shell image as fallback. The `index.html` shell keeps the
+  default image, with its declared dimensions corrected to the actual
+  1240×800 file.
 - Add only owner-confirmed real social profile URLs to AutoDealer `sameAs`.
-- Per-page Open Graph images.
+  (No profiles were supplied — nothing added, nothing invented.)
 - `aggregateRating` only if genuine, eligible reviews are visible on-page;
   never fabricate ratings, hours, social accounts, or business details.
 
@@ -135,5 +174,9 @@ readability but are not a guarantee of inclusion in AI answers.
   because a build or monthly review happened.
 - Keep `/faq` and `/news` accurate and useful. FAQ markup alone does not ensure
   rich results; Google's FAQ rich-result eligibility is restricted.
-- The current sitemap lists public landing pages, not individual vehicles.
-  Vehicle URLs can be discovered via links; a dynamic sitemap remains optional.
+- The static sitemap lists public landing pages; individual vehicle URLs
+  live in the dynamic `https://ar7traders.com/api/sitemap-vehicles.xml`
+  (referenced from `robots.txt`). Submitting that vehicle sitemap in GSC or
+  Bing is an owner action — this session submitted nothing; indexing
+  requests for `/`, `/inventory`, `/howbuy` were already made once and must
+  not be repeated.
