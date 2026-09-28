@@ -62,6 +62,7 @@ with live network access) to confirm after deploy.
 | E3 | Full import path green: direct, relay-rescued, slow-crawl and title-less card scenarios import | ✅ Repo | sync suite 41/41 (was 31/41). |
 | E4 | Photo/quality gates, safe delisting, bookmark behaviour, permission checks, budgets, relay safeguards | ✅ Repo, unchanged | same assertions as before. |
 | E5 | Production stock sync while testing | ⛔ Not done (correctly) | No production sync or inventory mutation was run in this session. |
+| E6 | Scheduler configured as documented | ✅ Repo (2026-09-28) | `.github/workflows/goonet-sync.yml` present: daily `03:00 UTC` cron calling `/api/goonet-sync` per `GOONET-SYNC.md` §2. Owner-side secrets (`GOONET_SYNC_KEY`) are not verifiable from the repo. First production run remains owner-gated (Task E of the handoff). |
 
 ## F. Build & test suites — repo
 
@@ -97,6 +98,32 @@ Then in a browser: spot-check `/`, `/inventory`, one vehicle page, `/shipping`,
 authed) with no console errors. In GSC, **URL Inspection → live test** one
 vehicle page and `/faq` to confirm the new metadata is served; do not re-submit
 indexing requests for pages already requested.
+
+### §G results — 2026-09-28, session `arena/01a0e7ed-ar7traders-web`
+
+**Direct network from this sandbox is blocked at TLS.** `curl` to
+`https://ar7traders.com/` and `https://www.ar7traders.com/` both fail during
+the handshake with `SSL_ERROR_SYSCALL` (unrelated hosts fail the same way —
+all outbound TLS from the sandbox is blocked). Every §G **curl** check below
+is therefore **not tested (no network access)**; no HTTP status, redirect or
+header claim is made. Content-level checks were repeated through a separate
+page-fetch service (it executes JavaScript and returns page content only — it
+does **not** expose status codes, redirect chains, headers or console output):
+
+| # | §G check | Result | Evidence / notes |
+|---|----------|--------|------------------|
+| G1 | `curl -I https://ar7traders.com/` → 200, no Location | **not tested (no network access)** | Sandbox TLS blocked. The page-fetch service does render `https://ar7traders.com/` successfully (status not observable through it). |
+| G2 | `curl -I https://www.ar7traders.com/` → 301 → apex | **not tested (no network access)** — indirect evidence only | Fetching `https://www.ar7traders.com/inventory/AR7-26001?source=seo` via the page-fetch service ends at `https://ar7traders.com/inventory/AR7-26001?source=seo` — apex host, path and query preserved. Consistent with A2; the 301 itself was not observed. |
+| G3 | build marker `ar7-2026-09-28-seo` in live HTML | **not tested (no network access)** | The marker lives in `<head>`; the page-fetch service returns rendered body only. The marker is present in repo and production build (C9). |
+| G4 | sitemap `<loc>` count = 16 | ✅ content-level (2026-09-28, page-fetch) | Live `sitemap.xml` lists exactly 16 `<loc>` entries including `/shipping`, with no staff routes. |
+| G5 | 404 on unknown path | **not tested (no network access)** — content checked, status not observable | A path outside the rewrites (`/this-path-should-404-2026`) serves the branded 404 page ("Page not found — AR7 Traders"). `/inventory/DOES-NOT-EXIST` is **covered by the `vercel.json` rewrite** to the SPA shell, so its expected live status is 200 + the honest "no longer listed" `noindex` page (C4), *not* 404 — the §G command as written will likely show 200 there. Owner: confirm the actual status from an unblocked network; no redirect/DNS change is implied either way. |
+| G6 | `/api/settings` public keys only | ✅ content-level (2026-09-28, page-fetch) | Anonymous response contains exactly `contact_email, contact_phone, contact_address, whatsapp_number, whatsapp_message, enquiry_inbox, exchange_rates` with the confirmed public values — no importer/operational keys. |
+| G7 | Browser spot-check `/`, `/inventory`, one vehicle page, `/shipping`, `/faq` | ✅ content-level (2026-09-28, page-fetch renders JS) | All five render with the correct per-page titles; `/inventory` lists 29 vehicles in its two groups; `/inventory/AR7-26001` shows the correct detail page ("2023 Rolls-Royce Ghost (Stock AR7-26001)"); `/shipping` and `/faq` match `PAGE_SEO`. Not a human browser session — no console/network panel observed. |
+| G8 | `/crm` Website-settings form shows values (sign-in) | **not tested** | Requires the owner's credentials; only the CRM shell load was observed. If the form is empty, sign out/in first (§H.3). |
+| G9 | GSC live test / indexing | **not tested (owner-only)** | No GSC action was taken; no indexing requests submitted or repeated. |
+
+Nothing failed, so no rollback (§H) was triggered; nothing was redeployed and
+no DNS or redirect settings were touched.
 
 ## H. Rollback
 
