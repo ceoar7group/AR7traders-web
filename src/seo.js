@@ -1,8 +1,19 @@
-// Per-page titles and descriptions.
+// Per-page titles, descriptions and structured data.
 //
 // The site is a single page with hash routing, so search engines and — more
 // importantly for a business like this — WhatsApp, browser tabs and bookmarks
 // all see one title unless we update it as the visitor moves around.
+//
+// Honesty rules that apply to everything below:
+//   • vehicle metadata comes from the vehicle record, not the listing default;
+//   • the Car/Offer JSON-LD only states what the page actually shows — real
+//     availability, a price whose currency matches the published string, and
+//     images that exist. Unsupported values are omitted, never invented;
+//   • a vehicle that is confirmed missing (content hydrated, not in the list)
+//     gets honest "no longer listed" metadata and noindex rather than
+//     posing as a live listing;
+//   • the FAQPage markup is scoped to /faq only (it used to sit in the static
+//     shell where every route inherited it).
 import {useEffect} from 'react';
 import { hrefFor } from './routing.js';
 
@@ -18,7 +29,7 @@ const PAGE_LABELS = {
 
 export const PAGE_SEO = {
   home:        ['AR7 Traders | Japanese Car Exporter — Auction Vehicles Shipped Worldwide',
-                'Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price to 35+ countries.'],
+                'Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price.'],
   inventory:   ['Japanese Cars for Export | Live Stock — AR7 Traders',
                 'Browse verified Japanese vehicles ready for export: Toyota, Nissan, Honda, Lexus, Mercedes and more, with mileage, grade and shipping cost to your port.'],
   auction:     ['Japan Car Auction Access | Bid With AR7 Traders',
@@ -32,19 +43,21 @@ export const PAGE_SEO = {
   tools:       ['Import Cost Calculator | Duty & Shipping Estimates — AR7 Traders',
                 'Estimate landed cost before you buy: freight by destination port, import duty by country and total cost for your vehicle.'],
   world:       ['Our Global Network | AR7 Traders Worldwide',
-                'AR7 Traders ships to 35+ countries. Explore our destination network, ports served and regional market guides.'],
+                'Explore AR7 Traders\u2019 shipping destinations, ports served and regional market guides.'],
   howbuy:      ['How to Buy a Car From Japan | Step-by-Step — AR7 Traders',
                 'From telling us the car you want to collecting it at your port: the full AR7 Traders buying process explained in plain language.'],
   news:        ['Japanese Car Import News & Guides | AR7 Traders',
                 'Auction tips, import rule changes, shipping updates and buying guides for importing vehicles from Japan.'],
   about:       ['About AR7 Traders | Japanese Vehicle Exporters',
-                'Who we are, how we work, and why buyers in 35+ countries trust AR7 Traders to source and ship their vehicles from Japan.'],
-  reviews:     ['Customer Stories | AR7 Traders Reviews',
-                'Real experiences from AR7 Traders buyers importing vehicles from Japan to Pakistan, Kenya, the UAE and beyond.'],
+                'Who we are, how we work, and how AR7 Traders sources and ships vehicles from Japan for buyers worldwide.'],
+  reviews:     ['Customer Reviews | AR7 Traders',
+                'Genuine reviews from AR7 Traders customers. Reviews appear here as verified customers share their import experiences \u2014 never invented testimonials or ratings.'],
   faq:         ['Japanese Car Import FAQ | Help — AR7 Traders',
                 'Answers on auctions, grading, shipping times, duty, payment and paperwork for importing a vehicle from Japan.'],
   contact:     ['Contact AR7 Traders | Japan Export Desk',
                 'Talk to our Japan export desk by email, phone or WhatsApp about sourcing and shipping your next vehicle.'],
+  shipping:    ['Vehicle Shipping from Japan | RoRo & Container — AR7 Traders',
+                'How AR7 Traders ships vehicles from Japan: RoRo and container sea freight, export documents, marine insurance and milestone tracking to your port.'],
   account:     ['Your Account | AR7 Traders',
                 'Sign in to see your vehicle orders, payments received and remaining balance.'],
   portal:      ['Client Portal | AR7 Traders',
@@ -54,6 +67,22 @@ export const PAGE_SEO = {
   crm:         ['AR7 Traders Staff CRM', 'Internal operations console.'],
   studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.']
 };
+
+// The /faq page renders these questions; the FAQPage JSON-LD is built from
+// the same list so markup and visible content can never drift apart.
+export const FAQ_ITEMS = [
+  ['How do Japanese car auctions work?', 'Members inspect and bid on vehicles at professional auction houses in Japan. AR7 provides translated sheets, condition advice and places an agreed bid on your behalf.'],
+  ['Can I see the auction sheet before bidding?', 'Yes. Every shortlisted auction vehicle includes its original sheet plus an English summary from our sourcing team.'],
+  ['What is included in the export price?', 'The displayed demo price is a starting FOB estimate. Your final quotation itemizes vehicle cost, auction fee, inland transport, export documentation, freight and optional insurance.'],
+  ['How long does shipping take?', 'Transit depends on destination and vessel schedule. Typical routes range from 18 to 42 days after loading.'],
+  ['Can AR7 source a specific model?', 'Yes. Share your model, year, mileage, grade, color and budget. We monitor auctions and dealer networks until the right match appears.'],
+  ['How do I track my vehicle?', 'Clients receive portal access with inspection photos, payment milestones, vessel details, documents and arrival estimates.']
+];
+
+const MISSING_VEHICLE_SEO = [
+  'Vehicle no longer listed | AR7 Traders',
+  'This vehicle is no longer in our current stock. Browse live Japanese vehicles ready for export on AR7 Traders.'
+];
 
 function setMeta(selector, attr, value) {
   let el = document.head.querySelector(selector);
@@ -66,21 +95,95 @@ function setMeta(selector, attr, value) {
   el.setAttribute(attr, value);
 }
 
-/** Builds schema.org JSON-LD for a single vehicle's detail page. */
+// ---- vehicle metadata helpers ------------------------------------------------
+
+const carName = car => [car?.year, car?.make, car?.model].filter(Boolean).join(' ');
+
+/** Numeric price from the published display string ('"$21,000"' → 21000). */
+function priceNumber(price) {
+  if (typeof price === 'number') return Number.isFinite(price) && price > 0 ? price : null;
+  const n = Number(String(price || '').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Currency that matches the published price string. The site's base display
+ *  currency is USD; strings that carry another symbol keep their currency. */
+function priceCurrency(price) {
+  const s = String(price ?? '').trim();
+  if (/^\u00a5|JPY/i.test(s)) return 'JPY';
+  if (/^\u20ac|EUR/i.test(s)) return 'EUR';
+  if (/^\u00a3|GBP/i.test(s)) return 'GBP';
+  if (/AED/i.test(s)) return 'AED';
+  if (/PKR/i.test(s)) return 'PKR';
+  return 'USD';
+}
+
+/** Display form of the published price for descriptions ('$21,000' stays as
+ *  published; a number is formatted in its currency). */
+function priceText(price) {
+  if (typeof price === 'string' && price.trim()) return price.trim();
+  const n = priceNumber(price);
+  if (!n) return null;
+  const cur = priceCurrency(price);
+  const symbol = {USD: '$', JPY: '\u00a5', EUR: '\u20ac', GBP: '\u00a3'}[cur];
+  return symbol ? symbol + n.toLocaleString('en-US') : `${n} ${cur}`;
+}
+
+/** Vehicle-specific title — replaces the listing-level default. */
+export function vehicleSeo(car, carId) {
+  const name = carName(car) || 'Vehicle';
+  const facts = [];
+  if (car?.km) facts.push(String(car.km).replace(/,\s*/g, ',') + ' km');
+  if (car?.fuel) facts.push(car.fuel);
+  if (car?.tr) facts.push(car.tr);
+  const price = priceText(car?.price);
+  if (price) facts.push('export price from ' + price);
+  const ref = carId != null && String(carId) !== '' ? ` (Stock ${String(carId)})` : '';
+  const title = `${name}${ref} — Japanese Import | AR7 Traders`;
+  const desc = facts.length
+    ? `${name} for export from Japan: ${facts.join(', ')}. See the full specification, photos and stock reference, then ask our team for a landed quote.`
+    : `${name} for export from Japan. See the full specification and photos, then ask our team for a landed quote.`;
+  return [title, desc];
+}
+
+/** schema.org availability that matches the record's status — or null when the
+ *  status does not support an honest availability claim (auction lots are not
+ *  AR7 stock, so no availability is published for them). */
+function availabilityFor(car) {
+  const s = String(car?.status || '').toLowerCase();
+  if (!s) return 'https://schema.org/InStock';
+  if (/sold|delivered/.test(s)) return 'https://schema.org/SoldOut';
+  if (/auction|bidding|upcoming/.test(s)) return null;
+  return 'https://schema.org/InStock';
+}
+
+/** Absolute image URL, or null when the record has no image (never
+ *  'https://ar7traders.com/undefined'). */
+function imageFor(src) {
+  const s = String(src || '').trim();
+  if (!s) return null;
+  return /^https?:\/\//i.test(s) ? s : BASE + s;
+}
+
+/** Builds schema.org JSON-LD for a single vehicle's detail page. Only fields
+ *  with real data are emitted; everything else is omitted, not faked. */
 function vehicleJsonLd(car, carId) {
   if (!car) return null;
-  const name = [car.year, car.make, car.model].filter(Boolean).join(' ');
+  const name = carName(car);
   const km = Number(String(car.km || '').replace(/[^0-9]/g, '')) || undefined;
-  const price = Number(String(car.price || '').replace(/[^0-9.]/g, '')) || undefined;
-  const image = String(car.image || '').startsWith('http') ? car.image : BASE + car.image;
+  const price = priceNumber(car.price);
+  const currency = price ? priceCurrency(car.price) : null;
+  const image = imageFor(car.image);
+  const availability = availabilityFor(car);
+  const url = BASE + hrefFor('inventory', carId);
   const data = {
     '@context': 'https://schema.org',
     '@type': 'Car',
     name,
     brand: {'@type': 'CarMake', name: car.make || undefined},
     model: car.model || undefined,
-    image,
-    url: BASE + hrefFor('inventory', carId),
+    image: image || undefined,
+    url,
     vehicleTransmission: ({AT: 'Automatic transmission', MT: 'Manual transmission',
       CVT: 'CVT', DCT: 'Dual-clutch transmission'})[car.tr] || undefined,
     fuelType: ({Petrol: 'Gasoline', Diesel: 'Diesel', Hybrid: 'Hybrid',
@@ -90,9 +193,9 @@ function vehicleJsonLd(car, carId) {
     offers: price ? {
       '@type': 'Offer',
       price: String(price),
-      priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
-      url: BASE + hrefFor('inventory', carId)
+      priceCurrency: currency,
+      availability: availability || undefined,
+      url
     } : undefined
   };
   const cc = Number(String(car.eng || '').replace(/[^0-9]/g, ''));
@@ -119,10 +222,16 @@ function setJsonLd(id, json) {
   el.textContent = json;
 }
 
-export function applySeo(page, carId, car) {
-  const [title, description] = PAGE_SEO[page] || PAGE_SEO.home;
+export function applySeo(page, carId, car, opts = {}) {
+  const isVehiclePage = page === 'inventory' && carId != null && String(carId) !== '';
+  const vehicleMissing = !!(isVehiclePage && !car && opts.vehicleMissing);
+  const [title, description] = vehicleMissing
+    ? MISSING_VEHICLE_SEO
+    : (isVehiclePage && car)
+      ? vehicleSeo(car, carId)
+      : (PAGE_SEO[page] || PAGE_SEO.home);
   const url = BASE + hrefFor(page, carId);
-  const noindex = ['crm', 'account', 'portal', 'studio'].includes(page);
+  const noindex = ['crm', 'account', 'portal', 'studio'].includes(page) || vehicleMissing;
 
   document.title = title;
   setMeta('meta[name="description"]', 'content', description);
@@ -148,7 +257,7 @@ export function applySeo(page, carId, car) {
   ];
   if (page && page !== 'home') {
     const label = (page === 'inventory' && car)
-      ? [car.year, car.make, car.model].filter(Boolean).join(' ')
+      ? carName(car)
       : PAGE_LABELS[page] || title;
     crumbs.push({'@type': 'ListItem', position: crumbs.length + 1, name: label, item: url});
   }
@@ -159,10 +268,22 @@ export function applySeo(page, carId, car) {
   }));
 
   // Vehicle structured data on the detail page only.
-  setJsonLd('vehicle-jsonld', vehicleJsonLd(page === 'inventory' ? car : null, carId));
+  setJsonLd('vehicle-jsonld', vehicleJsonLd(isVehiclePage ? car : null, carId));
+
+  // FAQ markup scoped to /faq — it must not ride along on every route.
+  setJsonLd('faq-jsonld', page === 'faq' ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ_ITEMS.map(([q, a]) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: {'@type': 'Answer', text: a}
+    }))
+  }) : null);
 }
 
 /** Keeps the tab title, share preview and structured data in step with the page. */
-export function useSeo(page, carId, car) {
-  useEffect(() => { applySeo(page, carId, car); }, [page, carId, car]);
+export function useSeo(page, carId, car, opts) {
+  const vehicleMissing = !!opts?.vehicleMissing;
+  useEffect(() => { applySeo(page, carId, car, { vehicleMissing }); }, [page, carId, car, vehicleMissing]);
 }
