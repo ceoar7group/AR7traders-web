@@ -222,6 +222,28 @@ run again on an existing database.
 
 ---
 
+## 17. The 1,200+ experience figure now stands out
+
+**Home page hero, the "Japan to everywhere" section, and the About page.**
+
+You asked for the founder-experience figure to be impossible to miss. It is
+now a large headline-sized number (64px on a desktop, sized down sensibly on
+phones), with the line *"vehicles sold across our founder's automotive
+career"* underneath it and the honesty qualifier — *"Experience gained through
+various suppliers; these are not AR7 Traders sales totals."* — kept as small
+print right beside it on every page where the figure appears.
+
+Only the size changed. The words are exactly the same as before, and the
+qualifier stays visible next to the number, never hidden.
+
+**Also in this update:** sharing any page of the site now uses a picture
+picked for that page — stock-yard photo for the inventory pages, port scene
+for shipping, inspection photo for auction pages — and sharing a single
+vehicle link uses that vehicle's own photograph, instead of every link
+showing the same default image.
+
+---
+
 ## Suggested first ten minutes
 
 1. Run the SQL in Supabase.

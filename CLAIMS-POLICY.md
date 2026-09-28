@@ -21,6 +21,15 @@ Rules for this claim:
   1,200+ unique buyers; that all exports ever made were ours; specific dates,
   countries, supplier names, or counts of transactions.
 
+**Presentation note (owner-approved 2026-09-28):** the figure may be shown as
+a large, prominent stat — hero trust area, "Japan to everywhere" section and
+the About page story grid — with the label and the qualifier rendered as
+clearly secondary (small print) directly adjacent to it on the same page
+section. Prominence is presentation only: the claim, label and qualifier
+wording above must not change; the qualifier must stay visible next to the
+figure (never a tooltip, hidden text, or pushed below the fold); and nothing
+wider than the claim above may be added (§2).
+
 ## 2. Prohibited without new, written substantiation
 
 The following were removed from the public site on 2026-09-28 because no
