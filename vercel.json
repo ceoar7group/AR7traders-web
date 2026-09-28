@@ -5,7 +5,10 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "rewrites": [
-    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/(inventory|auction|services|brands|destinations|tools|world|howbuy|news|about|reviews|faq|contact|account|portal|crm|studio|shipping|japan-stock)(/.*)?",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {

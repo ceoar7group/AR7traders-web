@@ -539,8 +539,8 @@ export function App(){
  const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
- useSeo(page, vehicleId);
- useEffect(()=>onContentChange(forceContent),[]);
+  useSeo(page, vehicleId, page === 'inventory' ? findCar(cars, vehicleId) : undefined);
+  useEffect(()=>onContentChange(forceContent),[]);
  useEffect(()=>{let t=0;const fn=()=>{cancelAnimationFrame(t);t=requestAnimationFrame(()=>document.documentElement.style.setProperty('--scroll',window.scrollY+'px'))};window.addEventListener('scroll',fn,{passive:true});return()=>{window.removeEventListener('scroll',fn);cancelAnimationFrame(t)}},[]);
  useEffect(()=>{
   const apply=()=>{const route=readRoute();setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make)};

@@ -32,6 +32,7 @@ npm run build   # website → dist/
 npm run build:crm        # CRM → crm-preview/dist/
 npm run test:currency    # currency logic + render tests
 npm run test:inventory   # inventory table/grid/listings render tests
+npm run test:seo         # per-page SEO head + Car/Breadcrumb JSON-LD
 ```
 
 Both test scripts bundle through esbuild into `node_modules/.tmp/`, so they also
