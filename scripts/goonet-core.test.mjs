@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   manToYen, yenToUsd, kmToNumber, seatsNumber, fullWidthToHalf,
-  detectMake, detectModel, detectPrefecture, detectBody, detectFuel,
+  detectMake, detectModel, detectPrefecture, detectBody, detectFuel, bodyForModel,
   extractStockFromUrl, extractCarImages, extendGallery,
   parseListingPage, parseDetailPage, mergeCardAndDetail, qualityScore,
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
@@ -164,6 +164,7 @@ eq(d.make, 'Nissan', 'detail make');
 eq(d.year, 2018, 'detail year');
 eq(d.km, '138000', 'detail km');
 eq(d.fuel, 'Hybrid', 'detail fuel');
+eq(d.body, 'Hatchback', 'detail body derived from the model map (real goo-net pages print no ボディタイプ row)');
 eq(d.st, 'RHD', 'detail steering 右');
 eq(d.drv, '2WD', 'detail drivetrain');
 eq(d.eng, '1,200cc', 'detail engine');
@@ -172,6 +173,13 @@ eq(d.tr, 'AT', 'detail transmission');
 eq(d.col, 'ブリリアントホワイトパール', 'detail colour');
 eq(d.repair_history, 'No', 'detail repair history なし');
 ok(d.photo_count >= 5, 'detail photo count from gallery');
+
+// ---- Body derivation from the model map -------------------------------------
+eq(bodyForModel('プリウス'), 'Sedan', 'bodyForModel: Prius is a Sedan');
+eq(bodyForModel('ランドクルーザープラド'), 'SUV', 'bodyForModel: longest match wins (Prado, not Land Cruiser)');
+eq(bodyForModel('Ｎ－ＢＯＸ'), 'Kei', 'bodyForModel: N-BOX is a Kei');
+eq(bodyForModel('全然知らない車'), null, 'bodyForModel: unknown model stays null so the gate skips the car');
+eq(bodyForModel(''), null, 'bodyForModel: empty input is null');
 
 // ---- Merge + quality gate --------------------------------------------------
 const merged = mergeCardAndDetail(c1, d);

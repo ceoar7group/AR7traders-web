@@ -216,6 +216,33 @@ A fifth, smaller bug: `detectModel` returned the *first* matching key, so
 `カローラクロス` became "Corolla" and `ランドクルーザープラド` became "Land Cruiser".
 The longest matching key now wins.
 
+## 10. Why imports were still skipping every car (fixed, 2026-09-28)
+
+The 2026-08-31 fixture batch imported fine, but live runs again reported
+`inserted: 0` with per-car skip reasons of `missing fields: body`:
+
+5. **Goo-net detail pages do not print a body-type row.** The importer's
+   required-fields gate demands `body`, but the live 基本仕様 table has
+   年式/走行距離/修復歴/排気量/乗車定員/駆動方式/燃料/ドア/ミッション/車体色 —
+   no ボディタイプ (verified against a live detail page). `parseDetailPage`
+   therefore always returned `body: null` and every candidate was skipped.
+   `body` is now derived from the curated `MODEL_MAP` body hint
+   (`bodyForModel`, longest match wins) — the same classification the seed
+   batch curates by hand. An unknown model still yields `null` and the car
+   is skipped honestly rather than imported with a guess.
+6. **The relay could replace a good detail page.** `looksLikeStub` counts
+   `/spread/` links, which is only meaningful for listing pages — a detail
+   page legitimately has few or none, so detail fetches were re-dialled
+   through the relay, and any larger page the relay returned (even a
+   listing page) replaced the good detail HTML. `fetchPage` now takes
+   `purpose: 'detail'` (used by the import loop) which never applies the
+   stub heuristic — the relay still runs when the direct socket fails —
+   and `mergeCardAndDetail` refuses to merge anything that did not parse
+   as a real detail page (make + `<h1>` title).
+
+After the fix the importer test suite is green end to end:
+`goonet-core` 158, `goonet-seed` 54, `goonet-sync` 41 passed, 0 failed.
+
 ## FAQ
 
 **Will this slow the website?** No. Runs are batched (a few cars per run),
