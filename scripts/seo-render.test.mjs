@@ -28,6 +28,23 @@ const jsonld = (id) => {
   return el ? JSON.parse(el.textContent) : null;
 };
 
+// Read a JPEG's real pixel size from its SOF marker — used to prove that
+// declared og:image:width/height always match the actual asset file.
+const jpegSize = (buf) => {
+  let i = 2;
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xff) { i++; continue; }
+    const marker = buf[i + 1];
+    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue; }
+    if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2 || marker === 0xc3) {
+      return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+    }
+    if (marker === 0xda) break; // start of scan — no SOF found
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return null;
+};
+
 // ---- home -----------------------------------------------------------------
 applySeo('home', null);
 ok(document.title.includes('Japanese Car Exporter'), 'home title is the exporter headline');
@@ -181,6 +198,70 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   }
 }
 
+// ---- per-page Open Graph images ---------------------------------------------
+{
+  // Route → mapped asset for all 16 public PAGE_SEO routes. Keep in sync with
+  // PAGE_OG in src/seo.js — this deliberately re-states the map so an
+  // accidental re-grouping has to be a conscious, reviewed change.
+  const EXPECTED = {
+    home: '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
+    inventory: '/assets/og/inventory.jpg', brands: '/assets/og/inventory.jpg', 'japan-stock': '/assets/og/inventory.jpg',
+    auction: '/assets/og/auction.jpg', services: '/assets/og/auction.jpg', howbuy: '/assets/og/auction.jpg',
+    shipping: '/assets/og/shipping.jpg', destinations: '/assets/og/shipping.jpg', world: '/assets/og/shipping.jpg',
+    faq: '/assets/og/help.jpg', news: '/assets/og/help.jpg', reviews: '/assets/og/help.jpg',
+    contact: '/assets/og/help.jpg', about: '/assets/og/help.jpg', tools: '/assets/og/help.jpg'
+  };
+  ok(Object.keys(EXPECTED).length === 16, 'the OG map covers all 16 public routes');
+  ok(Object.keys(EXPECTED).every(p => PAGE_SEO[p]), 'every OG-mapped route has PAGE_SEO metadata');
+  for (const [page, asset] of Object.entries(EXPECTED)) {
+    applySeo(page, null);
+    const img = meta('meta[property="og:image"]');
+    ok(img === 'https://ar7traders.com' + asset, `${page} og:image is its mapped absolute asset`);
+    ok(meta('meta[name="twitter:image"]') === img, `${page} twitter:image is synced with og:image`);
+    const w = Number(meta('meta[property="og:image:width"]'));
+    const h = Number(meta('meta[property="og:image:height"]'));
+    const actual = jpegSize(readFileSync(path.join(dir, '..', 'public', asset.slice(1))));
+    ok(!!actual && w === actual.width && h === actual.height,
+      `${page} declared og:image dimensions (${w}x${h}) match the actual asset file`);
+    ok((meta('meta[property="og:image:alt"]') || '').length > 10, `${page} og:image:alt describes the image`);
+  }
+  // Staff routes are noindex but must still get a sane default, never a
+  // stale image from a previously visited route.
+  applySeo('crm', null);
+  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg',
+    'staff route falls back to the default image');
+}
+
+// ---- vehicle pages: og:image = the car's own photo --------------------------
+{
+  applySeo('inventory', '43', car43);
+  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/inventory/700071023230260801001.jpg',
+    'vehicle og:image is the car photo (absolute URL)');
+  ok(meta('meta[name="twitter:image"]') === meta('meta[property="og:image"]'),
+    'vehicle twitter:image is synced with the car photo');
+  ok(!meta('meta[property="og:image:width"]') && !meta('meta[property="og:image:height"]'),
+    'a listing photo never carries fabricated width/height dimensions');
+  ok(meta('meta[property="og:image:alt"]') === '2023 Toyota Harrier S photo',
+    'vehicle og:image:alt names the car');
+  // Leaving the detail page restores the page image and its real dimensions.
+  applySeo('shipping', null);
+  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/og/shipping.jpg' &&
+    meta('meta[property="og:image:width"]') === '1200' &&
+    meta('meta[property="og:image:height"]') === '630',
+    'navigating away restores the page image and its real dimensions');
+  // Vehicle without a photo falls back to the default image, dims included.
+  applySeo('inventory', '43', { ...car43, image: null });
+  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg',
+    'vehicle without a photo falls back to the default image');
+  ok(meta('meta[property="og:image:width"]') === '1240' && meta('meta[property="og:image:height"]') === '800',
+    'the fallback image carries its real dimensions');
+  // Still loading (or confirmed missing): the default image until a photo lands.
+  applySeo('inventory', '43');
+  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg' &&
+    meta('meta[property="og:image:width"]') === '1240',
+    'a vehicle page still loading uses the default image until the photo arrives');
+}
+
 // ---- static shell: homepage business graph only, no sitewide FAQ ----------
 {
   const html = readFileSync(path.join(dir, '..', 'index.html'), 'utf8');
@@ -190,6 +271,16 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   ok(graph.includes('AutoDealer') && graph.includes('WebSite'), 'static graph keeps AutoDealer + WebSite');
   ok(!graph.includes('FAQPage'), 'static graph no longer ships FAQPage on every route');
   ok(!html.includes('35+ countries'), 'static shell no longer claims 35+ countries');
+  // The static shell keeps the default og:image and declares its true size.
+  const shellImg = html.match(/property="og:image" content="([^"]+)"/);
+  ok(shellImg?.[1] === 'https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg',
+    'static shell keeps the default og:image');
+  const shellW = html.match(/property="og:image:width" content="(\d+)"/);
+  const shellH = html.match(/property="og:image:height" content="(\d+)"/);
+  const shellActual = jpegSize(readFileSync(path.join(dir, '..', 'public', 'assets',
+    'used-japanese-cars-auction-export-toyota-3.jpg')));
+  ok(!!shellActual && Number(shellW?.[1]) === shellActual.width && Number(shellH?.[1]) === shellActual.height,
+    `static shell og:image dimensions (${shellW?.[1]}x${shellH?.[1]}) match the actual asset file`);
 }
 
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');

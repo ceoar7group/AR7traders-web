@@ -95,6 +95,56 @@ function setMeta(selector, attr, value) {
   el.setAttribute(attr, value);
 }
 
+function removeMeta(selector) {
+  const el = document.head.querySelector(selector);
+  if (el) el.remove();
+}
+
+// ---- per-page Open Graph images (owner-approved 2026-09-28) ----------------
+// A small branded set of honest, real photographs — no invented stats,
+// ratings, country counts or fabricated screenshots (CLAIMS-POLICY.md §2).
+// Every URL is absolute; declared dimensions must match the actual file
+// (asserted against the JPEG headers in scripts/seo-render.test.mjs):
+//   • the default/home image is the static shell's own picture (kept so the
+//     no-JS shell in index.html and the JS-applied head can never disagree);
+//   • public/assets/og/*.jpg are 1200×630 crops of site photography;
+//   • vehicle pages use the vehicle's own photo instead (width/height are
+//     omitted there because a listing photo is not a 1200×630 asset).
+const OG_DEFAULT = {
+  image: BASE + '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
+  width: 1240, height: 800,
+  alt: 'Japanese vehicles prepared for export by AR7 Traders'
+};
+const OG_SET = {
+  inventory: {
+    image: BASE + '/assets/og/inventory.jpg', width: 1200, height: 630,
+    alt: 'Japanese vehicle photographed for export in a showroom yard'
+  },
+  shipping: {
+    image: BASE + '/assets/og/shipping.jpg', width: 1200, height: 630,
+    alt: 'Vehicles and shipping containers at a Japanese export port'
+  },
+  auction: {
+    image: BASE + '/assets/og/auction.jpg', width: 1200, height: 630,
+    alt: 'Vehicle inspection being carried out at a Japanese facility'
+  },
+  help: {
+    image: BASE + '/assets/og/help.jpg', width: 1200, height: 630,
+    alt: 'Japanese vehicle photographed for export'
+  }
+};
+// Route → image group for every public route in PAGE_SEO (16). Staff routes
+// are noindex and fall back to the default image.
+export const PAGE_OG = {
+  home: OG_DEFAULT,
+  inventory: OG_SET.inventory, brands: OG_SET.inventory, 'japan-stock': OG_SET.inventory,
+  auction: OG_SET.auction, services: OG_SET.auction, howbuy: OG_SET.auction,
+  shipping: OG_SET.shipping, destinations: OG_SET.shipping, world: OG_SET.shipping,
+  faq: OG_SET.help, news: OG_SET.help, reviews: OG_SET.help,
+  contact: OG_SET.help, about: OG_SET.help, tools: OG_SET.help
+};
+export const ogFor = page => PAGE_OG[page] || OG_DEFAULT;
+
 // ---- vehicle metadata helpers ------------------------------------------------
 
 const carName = car => [car?.year, car?.make, car?.model].filter(Boolean).join(' ');
@@ -240,6 +290,28 @@ export function applySeo(page, carId, car, opts = {}) {
   setMeta('meta[property="og:url"]', 'content', url);
   setMeta('meta[name="twitter:title"]', 'content', title);
   setMeta('meta[name="twitter:description"]', 'content', description);
+
+  // Per-page preview image: the vehicle's own photo on detail pages (when it
+  // has one), otherwise the page's mapped branded asset. twitter:image stays
+  // in lockstep, og:image:alt describes what the image actually shows, and
+  // width/height only ever describe the real asset (never left stale from a
+  // previously visited route).
+  const vehiclePhoto = isVehiclePage && car ? imageFor(car.image) : null;
+  const og = isVehiclePage
+    ? (vehiclePhoto
+      ? { image: vehiclePhoto, width: null, height: null, alt: carName(car) + ' photo' }
+      : OG_DEFAULT)
+    : ogFor(page);
+  setMeta('meta[property="og:image"]', 'content', og.image);
+  setMeta('meta[property="og:image:alt"]', 'content', og.alt);
+  setMeta('meta[name="twitter:image"]', 'content', og.image);
+  if (og.width && og.height) {
+    setMeta('meta[property="og:image:width"]', 'content', String(og.width));
+    setMeta('meta[property="og:image:height"]', 'content', String(og.height));
+  } else {
+    removeMeta('meta[property="og:image:width"]');
+    removeMeta('meta[property="og:image:height"]');
+  }
   setMeta('meta[name="robots"], meta[name="robots"]', 'content',
     noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1');
 
