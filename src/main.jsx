@@ -14,7 +14,7 @@ import { WorldPage, BigNetworkGlobe, Flag } from './network.jsx';
 const CrmApp = React.lazy(() => import('./crm.jsx'));
 import { CustomerAccountPage, WhatsAppButton, useCustomerSession } from './customer-portal.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
-import { useSettings, telHref, waLink } from './site-settings.js';
+import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
 import { useSeo } from './seo.js';
 import { CurrencyProvider, CurrencyDropdown, useCurrency } from './currency.jsx';
 import { SiteHeader, logoOnError } from './site-header.jsx';
@@ -658,7 +658,7 @@ class BootErrorBoundary extends React.Component{
    <div style={{maxWidth:460}}>
     <img src="/assets/ar7-mark.png" alt="AR7 Traders" width="56" height="56" style={{borderRadius:12}}/>
     <h1 style={{fontSize:28,letterSpacing:'-0.04em',margin:'18px 0 10px'}}>AR7 Traders</h1>
-    <p style={{color:'#66736c',lineHeight:1.6,margin:'0 0 22px'}}>The page failed to load. Refresh, or email <a href="mailto:info@ar7traders.com" style={{color:'#043f28'}}>info@ar7traders.com</a>.</p>
+    <p style={{color:'#66736c',lineHeight:1.6,margin:'0 0 22px'}}>The page failed to load. Refresh, or email <a href={'mailto:'+FALLBACK.contact_email} style={{color:'#043f28'}}>{FALLBACK.contact_email}</a>.</p>
     <button type="button" onClick={()=>location.reload()} style={{border:0,background:'#043f28',color:'#fff',borderRadius:12,height:48,padding:'0 20px',fontWeight:700,cursor:'pointer'}}>Refresh the page</button>
    </div>
   </div>;

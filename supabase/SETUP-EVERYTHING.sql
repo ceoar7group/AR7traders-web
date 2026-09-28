@@ -501,12 +501,12 @@ create table if not exists public.site_settings (
   updated_at timestamptz not null default now()
 );
 insert into public.site_settings (key,value,label) values
-  ('contact_email','info@ar7traders.com','Public contact email'),
-  ('contact_phone','+81 80 0000 7007','Public phone number'),
+  ('contact_email','ar7tradersinfo@gmail.com','Public contact email'),
+  ('contact_phone','+44 7347 132624','Public phone number'),
   ('contact_address','Tokyo, Japan','Public address'),
-  ('whatsapp_number','+818000007007','WhatsApp button number'),
+  ('whatsapp_number','+447347132624','WhatsApp button number'),
   ('whatsapp_message','Hello AR7 Traders, I am interested in importing a vehicle.','WhatsApp pre-filled message'),
-  ('enquiry_inbox','info@ar7traders.com','Where website enquiries are sent'),
+  ('enquiry_inbox','ar7tradersinfo@gmail.com','Where website enquiries are sent'),
   ('base_currency','USD','Ledger base currency'),
   ('default_customer_currency','USD','Default currency for new customer accounts, quotes and invoices'),
   ('exchange_rates','{"USD":1,"JPY":155,"EUR":0.92,"GBP":0.79,"PKR":278,"AUD":1.52,"NZD":1.66,"CAD":1.37,"AED":3.6725,"SAR":3.75,"KES":129}','Display currency rates per 1 USD (JSON)')
