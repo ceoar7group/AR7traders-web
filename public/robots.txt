@@ -8,3 +8,4 @@ Disallow: /portal
 Disallow: /studio
 
 Sitemap: https://ar7traders.com/sitemap.xml
+Sitemap: https://ar7traders.com/api/sitemap-vehicles.xml
