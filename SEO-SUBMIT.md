@@ -8,9 +8,22 @@ Owner handoff records the following as completed (do not repeat DNS setup):
 - www CNAME: `268c62e82ffdcc9e.vercel-dns-017.com.`
 - **Never edit or delete** SPF TXT: `v=spf1 include:spf.efwd.registrar-servers.com ~all`.
 - **Never edit or delete** GSC TXT: `google-site-verification=yFi_NTpbdqz_DnWhzi0w5x1ihXT6tQebjvdRrfuQ7ss`.
-- GSC domain property verified; `https://ar7traders.com/sitemap.xml` accepted (15 URLs).
-- Indexing requested for `/`, `/inventory`, `/howbuy`. www is indexed;
-  apex has an old pre-DNS-fix “Page with redirect” result. Do not treat that old crawl as current behavior.
+- GSC domain property verified; `https://ar7traders.com/sitemap.xml` accepted (15 URLs
+  at the time; the sitemap now lists 16 — Google picks up the addition on recrawl).
+  Indexing requested **once** for `/`, `/inventory`, `/howbuy` — do not repeat.
+  www is indexed; apex has an old pre-DNS-fix “Page with redirect” result.
+  Do not treat that old crawl as current behavior.
+- **Host consolidation is DONE and live-tested (2026-09-28):** apex is served
+  directly, www 301s to apex, both hosts attached, deep-link path+query
+  preserved (GSC Test-live-URL passed). Do not reverse it, do not add a
+  duplicate `vercel.json` redirect, do not change DNS or detach www.
+
+Session 2026-09-28 (`arena/01a0e77f-ar7traders-web`) adds: honest
+vehicle-specific SEO (`7452005`), settings-API field-level security
+(`1b1d649`), and the goo-net importer body-type fix (`a7675de`), on top of
+the contacts (`0da8b06`) and claims (`13a5fec`, `a2e5286`) commits. See
+`SEO-AUDIT.md` for the full audit matrix, post-deploy checks and rollback,
+and `CLAIMS-POLICY.md` for the marketing-claims rules.
 
 Repository verification in this session:
 
@@ -29,31 +42,21 @@ Repository verification in this session:
   whether the result is fresh. Inspect Vercel settings before adding a redirect.
 - Vercel authenticated domain settings/build logs were not accessible in this session.
 
-## 1. Priority: consolidate to non-www (pending owner settings check)
+## 1. Canonical host — DONE, preserve (was: consolidate to non-www)
 
-In Vercel → project `ar-7traders-web` → **Settings → Domains**, inspect both
-hosts. Keep both attached. If apex redirects to www, reverse that configuration:
-serve apex directly and redirect www to `https://ar7traders.com` permanently
-(301 where available). Preserve paths and query strings. Inspect HTTPS options too.
-Do not create opposing redirects; do not change DNS or remove www.
+The consolidation described below has been completed in Vercel and verified by
+the owner with a GSC live test on 2026-09-28: apex `https://ar7traders.com` is
+served directly and `www.ar7traders.com` 301s to it, with both hosts attached.
+The `vercel.json` redirect block was deliberately **not** added — the redirect
+lives in Vercel domain settings, and a second code-level redirect would duplicate
+it. Leave existing rewrites (including staff routes) unchanged.
 
-If there is **no** apex→www domain-level redirect, add this top-level block to
-`vercel.json` before `rewrites`, through a PR to main:
+Standing rules: do not reverse the hosts, do not detach www, do not change DNS,
+never touch the SPF or Google-verification TXT records, and do not add a
+duplicate redirect to `vercel.json`.
 
-```json
-"redirects": [
-  {
-    "source": "/(.*)",
-    "has": [{ "type": "host", "value": "www.ar7traders.com" }],
-    "destination": "https://ar7traders.com/$1",
-    "statusCode": 301
-  }
-],
-```
-
-This block is intentionally not active yet: the reverse redirect must first be
-ruled out or removed. Leave existing rewrites unchanged, including staff routes.
-After the settings change or production deployment, run from a network that can reach the site:
+Re-run these checks from a network that can reach the site after any future
+domain or deployment change:
 
 ```sh
 curl -sS -I https://ar7traders.com/
@@ -68,11 +71,12 @@ preserved; followed www request ends at apex 200 without a loop. Also smoke-test
 `/crm`, `/account`, `/portal`, `/studio` and `/#crm` in a browser, and confirm an
 unknown path returns 404. Review Vercel production build logs for warnings/errors.
 
-After **24–48 hours from the successful host change**, inspect
-`https://ar7traders.com/` in GSC. Use **Test live URL** to separate current behavior
-from an old indexed crawl. Confirm no redirect and request indexing once if
-appropriate; avoid repeated requests. Google may take days or longer to select
-apex as canonical; indexing is not guaranteed. Keep www attached throughout.
+GSC note: use **Test live URL** to separate current behavior from an old
+indexed crawl. Indexing for `/`, `/inventory`, `/howbuy` has already been
+requested once — avoid repeated requests. Google may take days or longer to
+select apex as canonical; indexing is not guaranteed. Keep www attached
+throughout. For this branch's post-deploy checks and rollback, see
+`SEO-AUDIT.md` §G–H.
 
 ## 2. Regression checks
 
@@ -81,10 +85,10 @@ does not execute all scripts):
 
 ```sh
 npm ci
-for task in routing header pages currency inventory client seo; do
+for task in routing header pages currency inventory client seo seo-render settings; do
   npm run "test:$task" || exit 1
 done
-npm run build
+npm run build && npm run build:crm
 ```
 
 The header tests check the Inventory button's DOM text (allowing its chevron),
