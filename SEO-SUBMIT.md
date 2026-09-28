@@ -1,130 +1,135 @@
 # SEO + Search Submission Runbook (AR7 Traders)
 
-Everything in this file is copy-paste ready. It covers: fixing the one DNS
-problem, getting the site verified in Google Search Console, submitting the
-sitemap, and getting the site in front of AI answers (ChatGPT, Perplexity,
-Copilot, Gemini).
+## Status — 2026-09-28
 
-Done automatically by the codebase (no action needed):
+Owner handoff records the following as completed (do not repeat DNS setup):
 
-- Per-page `<title>` + meta description + canonical URL on every page
-- Open Graph / Twitter cards for WhatsApp & social sharing
-- JSON-LD structured data: `AutoDealer`, `WebSite`, `FAQPage` (home) +
-  `BreadcrumbList` (every page) + `Car`/`Offer` (every vehicle detail page)
-- `robots.txt` (staff areas blocked, sitemap referenced)
-- `sitemap.xml` with all 15 public pages
-- `llms.txt` — a plain-English site description that AI assistants read
-- Real 404 status for unknown URLs (branded 404 page)
-- Crawler-readable content in the initial HTML (visible to AI crawlers that
-  don't execute JavaScript)
+- Namecheap nameservers intentionally retained. Apex A: `76.76.21.21`.
+- www CNAME: `268c62e82ffdcc9e.vercel-dns-017.com.`
+- **Never edit or delete** SPF TXT: `v=spf1 include:spf.efwd.registrar-servers.com ~all`.
+- **Never edit or delete** GSC TXT: `google-site-verification=yFi_NTpbdqz_DnWhzi0w5x1ihXT6tQebjvdRrfuQ7ss`.
+- GSC domain property verified; `https://ar7traders.com/sitemap.xml` accepted (15 URLs).
+- Indexing requested for `/`, `/inventory`, `/howbuy`. www is indexed;
+  apex has an old pre-DNS-fix “Page with redirect” result. Do not treat that old crawl as current behavior.
 
----
+Repository verification in this session:
 
-## 1. FIX THE DOMAIN (do this first — 10 minutes)
+- PR #38 merged as `70f83384373577b16c83a28485b08a29b2a83de8`
+  (the handoff's `6c8d7c0` is not its merge SHA).
+- GitHub's Vercel status for that merge: success, “Deployment has completed”,
+  2026-09-28 09:05:24 UTC.
+- Deployment: https://vercel.com/ar-9/ar-7traders-web/6JFHJXVWStau1Ak42qgSsZ5iMLH4
+- Local production build passes without warnings; source and built HTML contain
+  `ar7-2026-09-28-seo`. This does **not** verify the live HTML marker or Vercel build logs.
+- Sandbox DNS resolves apex to `76.76.21.21`; direct HTTPS curl checks on both
+  hosts fail during TLS with `SSL_ERROR_SYSCALL`, including a pinned-IP check.
+  No HTTP status or Location header was obtained.
+- A separate page-fetch service reports www as the final URL for an apex fetch.
+  This suggests a reverse redirect, but does not establish its HTTP code or
+  whether the result is fresh. Inspect Vercel settings before adding a redirect.
+- Vercel authenticated domain settings/build logs were not accessible in this session.
 
-Your Vercel email is correct: DNS is managed at your registrar (Namecheap),
-and one record is stale.
+## 1. Priority: consolidate to non-www (pending owner settings check)
 
-- `www.ar7traders.com` → CNAME → Vercel ✅ (already correct)
-- `ar7traders.com` (the root) → A → `216.198.79.1` ❌ (an old Amazon/AWS
-  server — NOT Vercel)
+In Vercel → project `ar-7traders-web` → **Settings → Domains**, inspect both
+hosts. Keep both attached. If apex redirects to www, reverse that configuration:
+serve apex directly and redirect www to `https://ar7traders.com` permanently
+(301 where available). Preserve paths and query strings. Inspect HTTPS options too.
+Do not create opposing redirects; do not change DNS or remove www.
 
-### Copy-paste fix in Namecheap
+If there is **no** apex→www domain-level redirect, add this top-level block to
+`vercel.json` before `rewrites`, through a PR to main:
 
-1. Log in to Namecheap → **Domain List** → `ar7traders.com` → **Manage**.
-2. Open **Advanced DNS**.
-3. Find the **A Record** with host `@` (or blank host) pointing at
-   `216.198.79.1`. **Edit** it to point at:
+```json
+"redirects": [
+  {
+    "source": "/(.*)",
+    "has": [{ "type": "host", "value": "www.ar7traders.com" }],
+    "destination": "https://ar7traders.com/$1",
+    "statusCode": 301
+  }
+],
+```
 
-   ```
-   76.76.21.21
-   ```
+This block is intentionally not active yet: the reverse redirect must first be
+ruled out or removed. Leave existing rewrites unchanged, including staff routes.
+After the settings change or production deployment, run from a network that can reach the site:
 
-   (Vercel's IP — this is what Vercel's "Alternative setup with A or CNAME
-   records" instructs for the root record.)
-4. If there are other A records for `@` pointing at old hosts, delete them.
-   Leave the `www` CNAME as it is.
-5. Wait up to ~1 hour (usually minutes), then check
-   `https://ar7traders.com/` (without www) — it should load the Vercel site
-   with a valid padlock.
+```sh
+curl -sS -I https://ar7traders.com/
+curl -sS -I https://www.ar7traders.com/
+curl -sS -I 'https://www.ar7traders.com/inventory/AR7-26001?source=seo'
+curl -sS -IL --max-redirs 5 https://www.ar7traders.com/
+curl -sS https://ar7traders.com/ | grep 'ar7-2026-09-28-seo'
+```
 
-**Optional (not required):** if you'd rather have Vercel manage all DNS,
-change the nameservers in Namecheap to `ns1.vercel-dns.com` and
-`ns2.vercel-dns.com`. The email in your inbox explains this. Either way works;
-the A-record fix above is the only thing that's actually broken.
+Expected: apex 200 without Location; www 301 to apex; deep-link path and query
+preserved; followed www request ends at apex 200 without a loop. Also smoke-test
+`/crm`, `/account`, `/portal`, `/studio` and `/#crm` in a browser, and confirm an
+unknown path returns 404. Review Vercel production build logs for warnings/errors.
 
----
+After **24–48 hours from the successful host change**, inspect
+`https://ar7traders.com/` in GSC. Use **Test live URL** to separate current behavior
+from an old indexed crawl. Confirm no redirect and request indexing once if
+appropriate; avoid repeated requests. Google may take days or longer to select
+apex as canonical; indexing is not guaranteed. Keep www attached throughout.
 
-## 2. GOOGLE SEARCH CONSOLE (5 minutes)
+## 2. Regression checks
 
-This is how you "submit" the site to Google and watch what it indexes.
+Run each npm script separately (passing multiple names to a single `npm run`
+does not execute all scripts):
 
-1. Go to https://search.google.com/search-console and sign in with
-   `ceoar7grouplimited@gmail.com` (the domain owner account).
-2. Select **Add property → Domain** and enter `ar7traders.com` (a domain
-   property covers both www and root).
-3. Verify with **DNS** (easiest since you're in Namecheap anyway):
-   - Google gives you a TXT record: `google-site-verification=XXXX...`
-   - In Namecheap → **Advanced DNS** → **Add New Record** → Type `TXT`,
-     Host `@`, Value = the string Google gave you.
-   - Click **Verify** back in Google. (Takes a few minutes.)
-   - Alternative: choose "HTML tag" instead and send me the tag — I'll add it
-     to `index.html` for you.
-4. Once verified: **Indexing → Sitemaps** → enter
+```sh
+npm ci
+for task in routing header pages currency inventory client seo; do
+  npm run "test:$task" || exit 1
+done
+npm run build
+```
 
-   ```
-   sitemap.xml
-   ```
+The header tests check the Inventory button's DOM text (allowing its chevron),
+and the intended 13 More links rather than an obsolete even-item requirement.
+SEO tests enforce `noindex,nofollow` on all four staff pages. Keep real-path
+canonicals, static crawler content, structured data, robots rules, and 404 handling.
 
-   → **Submit**. All 15 pages should appear.
-5. For fastest pickup of the most important pages: **Indexing → URL
-   Inspection**, paste `https://ar7traders.com/`, then **Request indexing**.
-   Repeat for `/inventory`, `/howbuy`, `/contact`.
+## 3. Bing Webmaster Tools — owner account required
 
-Google will then crawl and index over the following days/weeks. In Search
-Console watch **Indexing → Pages** to confirm URLs move to "Indexed".
+1. Sign in with your Microsoft account at https://www.bing.com/webmasters.
+2. Choose **Import from Google Search Console** (also available via
+   **Settings → Site lists**; UI labels may vary).
+3. Authorize the Google account that owns the verified `ar7traders.com` domain
+   property, then select/import AR7 Traders. Use `https://ar7traders.com` if asked
+   for the site URL. Confirm verification succeeds; do not add or replace DNS
+   records when import works.
+4. Open the site's **Sitemaps** section. Check whether import already brought
+   over the sitemap; otherwise submit `https://ar7traders.com/sitemap.xml`.
+5. Confirm sitemap processing succeeds and review crawl/indexing reports later.
 
----
+Do not share login credentials in chat. Import/verification must be completed by
+the owner. Bing visibility can support discovery in Microsoft search and Copilot;
+submission does not guarantee indexing or AI citations.
 
-## 3. BING WEBMASTER TOOLS (3 minutes — powers Microsoft Copilot + more)
+## 4. Optional work — owner approval first
 
-1. Go to https://www.bing.com/webmasters → sign in → **Add a site** →
-   `https://ar7traders.com`.
-2. Verify with the same DNS TXT record Bing generates (add it in Namecheap
-   next to the Google one).
-3. **Sitemaps** → submit `sitemap.xml`.
-4. Bing can also import your verified Google property: **Settings → Site
-   lists → Import from Google Search Console** — one click if you did step 2.
+- Dynamic sitemap listing public, available `/inventory/STOCK` detail URLs from
+  the authoritative inventory source. Plan caching, XML escaping, failures and
+  removal of sold/private stock before implementation.
+- Add only owner-confirmed real social profile URLs to AutoDealer `sameAs`.
+- Per-page Open Graph images.
+- `aggregateRating` only if genuine, eligible reviews are visible on-page;
+  never fabricate ratings, hours, social accounts, or business details.
 
-Bing's index feeds Microsoft Copilot and is one of the main channels AI
-answers pull from, so this matters for "visible in AI searches".
+Contact details are CRM-controlled through `/api/settings`; do not substitute
+unverified static contacts. Existing `llms.txt` and structured data aid machine
+readability but are not a guarantee of inclusion in AI answers.
 
----
+## 5. Monthly maintenance
 
-## 4. AI SEARCH VISIBILITY (already done in code)
-
-- `https://ar7traders.com/llms.txt` is live and describes the business,
-  services, pages and contacts in plain English — this is the file LLM
-  assistants (ChatGPT, Perplexity, Claude, Gemini) are increasingly told to
-  consult.
-- The homepage HTML now contains real business content (not just an empty
-  app shell), so AI crawlers that don't run JavaScript still see what AR7
-  Traders is and does.
-- Structured data (`AutoDealer`, `Car`, `FAQPage`) makes the business and
-  each vehicle machine-readable.
-
-**Tip:** make sure the site (step 1) is reachable on the root domain before
-asking around in ChatGPT/Perplexity — they crawl the canonical root URL.
-
----
-
-## 5. Ongoing (monthly, ~5 minutes)
-
-- When the Goo-net stock sync adds new vehicles, no extra step is needed —
-  vehicle pages are indexable and the sitemap covers the listing pages.
-- Keep `/faq` and `/news` content current; FAQ + news pages are the fastest
-  way to earn rich results and AI citations.
-- In Google Search Console, monthly: check **Pages** report for crawl errors,
-  and **Enhancements** for structured-data issues (fix any red flags).
-- If you add real social profiles (Instagram, Facebook, LinkedIn), tell me
-  and I'll wire them into the `sameAs` field of the business structured data.
+- Review GSC **Indexing → Pages** and applicable **Enhancements** reports.
+- Check canonical selection and fix actual coverage/structured-data errors.
+- Update sitemap `lastmod` when substantive page content changes, not simply
+  because a build or monthly review happened.
+- Keep `/faq` and `/news` accurate and useful. FAQ markup alone does not ensure
+  rich results; Google's FAQ rich-result eligibility is restricted.
+- The current sitemap lists public landing pages, not individual vehicles.
+  Vehicle URLs can be discovered via links; a dynamic sitemap remains optional.

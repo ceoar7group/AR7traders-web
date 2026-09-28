@@ -69,9 +69,11 @@ bc = jsonld('breadcrumb-jsonld');
 ok(bc?.itemListElement[1]?.name === 'Vehicle Inventory', 'inventory breadcrumb uses the page label');
 
 // ---- staff pages stay noindex ---------------------------------------------
-applySeo('crm', null);
-ok(meta('meta[name="robots"]') === 'noindex,nofollow', 'crm is noindex,nofollow');
-ok(jsonld('vehicle-jsonld') === null, 'no stray Car JSON-LD on crm');
+for (const page of ['crm', 'account', 'portal', 'studio']) {
+  applySeo(page, null);
+  ok(meta('meta[name="robots"]') === 'noindex,nofollow', `${page} is noindex,nofollow`);
+  ok(jsonld('vehicle-jsonld') === null, `no stray Car JSON-LD on ${page}`);
+}
 
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');
 process.exit(failed ? 1 : 0);
