@@ -188,6 +188,19 @@ export function detectFuel(text) {
 
 // "ノート ｅ－パワー　Ｘ　６ヶ月…" → "Note e-Power X" via MODEL_MAP, else a
 // cleaned leading-token fallback.
+// Body-type hint for a model name, from MODEL_MAP's curated second column.
+// Longest match wins, mirroring detectModel. Returns null for unknown models —
+// an unknown body must stay null so the required-fields gate skips the car
+// rather than importing a guess.
+export function bodyForModel(text) {
+  const s = String(text || '');
+  let best = null;
+  for (const [jp, [, body]] of Object.entries(MODEL_MAP)) {
+    if (s.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, body };
+  }
+  return best ? best.body : null;
+}
+
 export function detectModel(title, make) {
   const s = String(title || '');
   const flat = s.replace(/\u3000/g, ' ').replace(/[（(].*?[)）]/g, '');
@@ -434,7 +447,7 @@ async function relayFetch(url, { timeoutMs, maxBytes }) {
   return { relayed, relayPage: pageDiagnostics(relayed.html) };
 }
 
-export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true } = {}) {
+export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing' } = {}) {
   if (isGoonetUrl(url)) await warmUp(timeoutMs);
   const cookieToSend = cookie || cookieJar || DEFAULT_COOKIE;
   const headers = browserHeaders(url, cookieToSend);
@@ -488,7 +501,12 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
   }
 
   const directPage = pageDiagnostics(direct.html);
-  const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404 && looksLikeStub(direct.html);
+  // The stub heuristic counts /spread/ links, which is only meaningful for a
+  // LISTING page — a detail page legitimately has few or zero of them. Relaying
+  // a detail fetch on that heuristic let whatever larger page the relay
+  // returned (even a listing page) replace perfectly good detail HTML.
+  const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404
+    && purpose !== 'detail' && looksLikeStub(direct.html);
 
   if (shouldRelay) {
     const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
@@ -667,7 +685,7 @@ export function parseDetailPage(html, url) {
   const year = numberAfter(text, '年式(初度登録)') || numberAfter(text, '年式');
   const km = kmToNumber(after(text, '走行距離', v => /km/i.test(v)));
   const fuel = detectFuel(after(text, '燃料'));
-  const body = detectBody(after(text, 'ボディタイプ'));
+  const body = detectBody(after(text, 'ボディタイプ')) || bodyForModel(title || '');
   const steeringRaw = after(text, 'ハンドル');
   const st = steeringRaw ? (steeringRaw.includes('左') ? 'LHD' : 'RHD') : null;
   const drvRaw = after(text, '駆動方式');
@@ -716,8 +734,11 @@ export function parseDetailPage(html, url) {
 }
 
 // Merge card data with richer detail data (detail wins where present).
+// The detail must actually have parsed as a detail page (a make AND an <h1>
+// title) — a relay or rescue that handed back some other page must not
+// contaminate the card with unrelated data.
 export function mergeCardAndDetail(card, detail) {
-  if (!detail || !detail.make) return card;
+  if (!detail || !detail.make || !detail.title) return card;
   const out = { ...card, ...detail };
   if (!out.price_jpy && card.price_jpy) out.price_jpy = card.price_jpy;
   if (!out.price_usd) out.price_usd = yenToUsd(out.price_jpy);

@@ -296,7 +296,7 @@ export default async function handler(req, res, injected) {
       // was skipped as "detail fetch failed" even though goo-net had it.
       const detailUrl = card.url || detailUrlFor(card.goonet_id);
       if (!detailUrl) { report.skipped.push(`${card.stock_no}: no usable detail URL`); continue; }
-      const detailFetched = await fetchPage(detailUrl, { timeoutMs: 5000 });
+      const detailFetched = await fetchPage(detailUrl, { timeoutMs: 5000, purpose: 'detail' });
       let car = card;
       if (detailFetched.ok) {
         car = mergeCardAndDetail(card, parseDetailPage(detailFetched.html, card.url));
