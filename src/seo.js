@@ -8,6 +8,14 @@ import { hrefFor } from './routing.js';
 
 const BASE = 'https://ar7traders.com';
 
+const PAGE_LABELS = {
+  inventory: 'Vehicle Inventory', auction: 'Auction Bidding', services: 'Export Services',
+  brands: 'Brands We Export', destinations: 'Shipping Destinations', tools: 'Import Cost Calculator',
+  world: 'Global Network', howbuy: 'How to Buy', news: 'News & Guides', about: 'About',
+  reviews: 'Reviews', faq: 'FAQ', contact: 'Contact', 'japan-stock': 'Japan Dealer Stock',
+  shipping: 'Shipping'
+};
+
 export const PAGE_SEO = {
   home:        ['AR7 Traders | Japanese Car Exporter — Auction Vehicles Shipped Worldwide',
                 'Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price to 35+ countries.'],
@@ -58,7 +66,60 @@ function setMeta(selector, attr, value) {
   el.setAttribute(attr, value);
 }
 
-export function applySeo(page, carId) {
+/** Builds schema.org JSON-LD for a single vehicle's detail page. */
+function vehicleJsonLd(car, carId) {
+  if (!car) return null;
+  const name = [car.year, car.make, car.model].filter(Boolean).join(' ');
+  const km = Number(String(car.km || '').replace(/[^0-9]/g, '')) || undefined;
+  const price = Number(String(car.price || '').replace(/[^0-9.]/g, '')) || undefined;
+  const image = String(car.image || '').startsWith('http') ? car.image : BASE + car.image;
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'Car',
+    name,
+    brand: {'@type': 'CarMake', name: car.make || undefined},
+    model: car.model || undefined,
+    image,
+    url: BASE + hrefFor('inventory', carId),
+    vehicleTransmission: ({AT: 'Automatic transmission', MT: 'Manual transmission',
+      CVT: 'CVT', DCT: 'Dual-clutch transmission'})[car.tr] || undefined,
+    fuelType: ({Petrol: 'Gasoline', Diesel: 'Diesel', Hybrid: 'Hybrid',
+      Electric: 'Electric'})[car.fuel] || undefined,
+    seatingCapacity: car.seats || undefined,
+    mileageFromOdometer: km ? {'@type': 'QuantitativeValue', value: km, unitCode: 'KMT'} : undefined,
+    offers: price ? {
+      '@type': 'Offer',
+      price: String(price),
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: BASE + hrefFor('inventory', carId)
+    } : undefined
+  };
+  const cc = Number(String(car.eng || '').replace(/[^0-9]/g, ''));
+  if (cc) data.vehicleEngine = {
+    '@type': 'EngineSpecification',
+    engineDisplacement: {'@type': 'QuantitativeValue', value: cc, unitCode: 'CMQ'}
+  };
+  // Drop keys with no value so the emitted JSON stays clean.
+  return JSON.stringify(data, (k, v) => (v === undefined ? undefined : v));
+}
+
+function setJsonLd(id, json) {
+  let el = document.getElementById(id);
+  if (!json) {
+    if (el) el.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement('script');
+    el.id = id;
+    el.type = 'application/ld+json';
+    document.head.appendChild(el);
+  }
+  el.textContent = json;
+}
+
+export function applySeo(page, carId, car) {
   const [title, description] = PAGE_SEO[page] || PAGE_SEO.home;
   const url = BASE + hrefFor(page, carId);
   const noindex = ['crm', 'account', 'portal', 'studio'].includes(page);
@@ -80,9 +141,28 @@ export function applySeo(page, carId) {
     document.head.appendChild(link);
   }
   link.href = url;
+
+  // Breadcrumb rich result: Home → Current page (Home → Car name on detail pages).
+  const crumbs = [
+    {'@type': 'ListItem', position: 1, name: 'Home', item: BASE + '/'}
+  ];
+  if (page && page !== 'home') {
+    const label = (page === 'inventory' && car)
+      ? [car.year, car.make, car.model].filter(Boolean).join(' ')
+      : PAGE_LABELS[page] || title;
+    crumbs.push({'@type': 'ListItem', position: crumbs.length + 1, name: label, item: url});
+  }
+  setJsonLd('breadcrumb-jsonld', JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs
+  }));
+
+  // Vehicle structured data on the detail page only.
+  setJsonLd('vehicle-jsonld', vehicleJsonLd(page === 'inventory' ? car : null, carId));
 }
 
-/** Keeps the tab title and share preview in step with the current page. */
-export function useSeo(page, carId) {
-  useEffect(() => { applySeo(page, carId); }, [page, carId]);
+/** Keeps the tab title, share preview and structured data in step with the page. */
+export function useSeo(page, carId, car) {
+  useEffect(() => { applySeo(page, carId, car); }, [page, carId, car]);
 }

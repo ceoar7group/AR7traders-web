@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#063f29"/>
 <!-- Build marker - lets anyone confirm which build of the site they are viewing
      (also printed in the browser console). Update when releasing. -->
-<meta name="build-id" content="ar7-2026-08-31-perf"/>
-<script>console.log('AR7 Traders build ar7-2026-08-31-perf · every page link is a real URL — right-click / Ctrl+click opens any page in a new tab');</script>
+<meta name="build-id" content="ar7-2026-09-28-seo"/>
+<script>console.log('AR7 Traders build ar7-2026-09-28-seo · every page link is a real URL — right-click / Ctrl+click opens any page in a new tab');</script>
 <script>
 (function(){
   try{
@@ -92,13 +92,40 @@
         {"@type":"Country","name":"United Kingdom"},
         {"@type":"Country","name":"Tanzania"}
       ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "customer service",
+          "email": "info@ar7traders.com",
+          "telephone": "+81-80-0000-7007",
+          "availableLanguage": ["English", "Urdu", "Arabic", "Swahili"]
+        },
+        {
+          "@type": "ContactPoint",
+          "contactType": "sales",
+          "telephone": "+81-80-0000-7007",
+          "url": "https://wa.me/818000007007",
+          "availableLanguage": ["English", "Urdu", "Arabic", "Swahili"]
+        }
+      ],
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Japanese vehicle export services",
+        "itemListElement": [
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Vehicle sourcing from Japanese auctions and dealer stock", "url": "https://ar7traders.com/auction"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Independent vehicle inspection and auction sheet translation", "url": "https://ar7traders.com/services"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "RoRo and container sea freight with marine insurance", "url": "https://ar7traders.com/shipping"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Export certificates and customs documentation", "url": "https://ar7traders.com/services"}}
+        ]
+      },
       "makesOffer": {
         "@type": "Offer",
         "itemOffered": {
           "@type": "Service",
           "name": "Japanese vehicle sourcing, inspection and export shipping"
         }
-      }
+      },
+      "sameAs": ["https://ar7traders.com/"]
     },
     {
       "@type": "WebSite",
@@ -141,12 +168,46 @@
 </script>
 </head>
 <body>
+<!-- Static preview + search-engine/AI-crawler content. React replaces this on
+     load; crawlers that don't execute JavaScript (including most LLM crawlers)
+     read what is here, so keep it accurate, semantic and current. -->
 <div id="root">
-  <div style="min-height:100vh;display:grid;place-items:center;background:#f5f6f2;color:#102018;font-family:system-ui,sans-serif">
-    <div style="text-align:center">
-      <img src="/assets/ar7-mark.png" alt="AR7 Traders" width="56" height="56" style="border-radius:12px"/>
-      <p style="letter-spacing:.22em;font-size:11px;font-weight:700;margin:16px 0 0">AR7 TRADERS</p>
+  <div style="max-width:880px;margin:0 auto;padding:64px 24px 96px;background:#f5f6f2;color:#102018;font-family:system-ui,sans-serif">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px">
+      <img src="/assets/ar7-mark.png" alt="AR7 Traders logo" width="44" height="44" style="border-radius:10px"/>
+      <span style="letter-spacing:.22em;font-size:12px;font-weight:700">AR7 TRADERS</span>
     </div>
+    <h1 style="font-size:32px;line-height:1.15;margin:0 0 16px">AR7 Traders — Japanese Car Exporter &amp; Auction Specialist</h1>
+    <p style="font-size:17px;line-height:1.7;color:#33413a;margin:0 0 12px">
+      AR7 Traders sources vehicles from Japanese auctions and dealer stock, inspects every car,
+      translates auction sheets, and ships worldwide to Pakistan, the UAE, Kenya, Tanzania, the
+      United Kingdom and 35+ countries — with one clear price to your port.
+    </p>
+    <p style="font-size:13px;color:#7a857e;margin:0 0 32px">Loading the full website…</p>
+
+    <h2 style="font-size:19px;margin:0 0 10px">What we do</h2>
+    <ul style="line-height:1.8;color:#33413a;font-size:15px;padding-left:20px;margin:0 0 32px">
+      <li><a href="/inventory">Live vehicle inventory</a> — verified Japanese cars ready for export, with mileage, grade, photos and price.</li>
+      <li><a href="/auction">Auction bidding</a> — we bid on your behalf at USS, TAA, JU and CAA with translated auction sheets and a pre-agreed maximum bid.</li>
+      <li><a href="/services">Export services</a> — inspection, de-registration, export certificates, RoRo and container shipping, customs documents.</li>
+      <li><a href="/tools">Import cost calculator</a> — estimate freight, duty and total landed cost before you buy.</li>
+      <li><a href="/howbuy">How to buy</a> — the full step-by-step process from enquiry to collecting your vehicle at your port.</li>
+    </ul>
+
+    <h2 style="font-size:19px;margin:0 0 10px">Explore</h2>
+    <p style="line-height:1.9;color:#33413a;font-size:15px;margin:0 0 32px">
+      <a href="/brands">Brands we export</a> · <a href="/destinations">Shipping destinations</a> ·
+      <a href="/japan-stock">Fresh Goo-net dealer stock</a> · <a href="/news">News &amp; buying guides</a> ·
+      <a href="/reviews">Customer reviews</a> · <a href="/faq">FAQ</a> · <a href="/about">About us</a> ·
+      <a href="/contact">Contact the Japan export desk</a>
+    </p>
+
+    <h2 style="font-size:19px;margin:0 0 10px">Contact</h2>
+    <p style="line-height:1.8;color:#33413a;font-size:15px;margin:0">
+      AR7 Traders, Tokyo, Japan · Email
+      <a href="mailto:info@ar7traders.com">info@ar7traders.com</a> · Phone / WhatsApp
+      <a href="tel:+818000007007">+81 80 0000 7007</a>
+    </p>
   </div>
 </div>
 <noscript>
