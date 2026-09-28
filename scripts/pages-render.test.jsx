@@ -8,7 +8,7 @@ import { renderToString } from 'react-dom/server';
 import { goto } from './browser-stubs.mjs';
 import { App } from '../src/main.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
-import { cars as CARS } from '../src/main.jsx';
+import { cars as CARS, stockLabel } from '../src/main.jsx';
 
 let pass = 0, fail = 0;
 // Write straight to the streams: console.error is stubbed below to catch React
@@ -122,6 +122,26 @@ for (const [path, markers] of Object.entries(ROUTES)) {
     ok(!reviews.includes(name), `no fictional testimonial from ${name}`);
   }
   ok(reviews.includes('/contact'), 'reviews page offers a contact/feedback route');
+}
+
+// ---- honest stock labels (no fabricated auction lot numbers) ------------------
+// The homepage dashboard used to render 'LOT 51' + database id + '08', which
+// is nonsense for CRM rows with uuid ids. Labels must be a real lot number
+// when one exists, otherwise the stock reference.
+{
+  ok(stockLabel({ id: '9b2f1c3e-0000-4abc-9def-1234567890ab' }) === 'Stock 9b2f1c3e-0000-4abc-9def-1234567890ab',
+    'a uuid id gets a plain Stock label — never LOT + id + 08');
+  ok(stockLabel({ id: 7, stock_no: 'AR7-26007' }) === 'Stock AR7-26007', 'stock number is used when present');
+  ok(stockLabel({ id: 7, stock_no: 'AR7-26007', lot_no: '38214' }) === 'Lot 38214', 'a real lot number wins when the record has one');
+  ok(stockLabel(null) === '', 'a missing car renders no label');
+  const home = renderPage('/');
+  ok(!home.includes('LOT 51') && !home.includes('LOT 28149'), 'homepage dashboard shows no fabricated LOT numbers');
+  ok(home.includes('Stock AR7-26'), 'homepage dashboard labels cars by stock reference');
+  ok(home.includes('dash-demo-chip') && home.includes('DEMO'), 'homepage dashboard is visibly labelled as a demo');
+  const auction = renderPage('/auction');
+  ok(!auction.includes('LOT 3821'), 'auction preview shows no invented lot numbers');
+  ok(auction.includes('Stock AR7-26'), 'auction preview labels cars by stock reference');
+  ok(auction.includes('AUCTION LOTS \u00b7 SAMPLE'), 'auction preview panel is visibly labelled SAMPLE');
 }
 
 console.error = realError; console.warn = realWarn;

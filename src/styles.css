@@ -27,3 +27,8 @@ a.car-card .fav{cursor:pointer}
    1,200+ figure wherever it appears — see FOUNDER_CLAIM in main.jsx). */
 .claim-note{font-size:10.5px;color:var(--muted);max-width:430px;line-height:1.65;margin:10px 0 0}
 .world .claim-note{color:#66766d}
+
+/* Visible DEMO marker for the homepage portal dashboard mock (the link title
+   alone is not visible enough — see 6A in the audit). */
+.dashboard{position:relative}
+.dash-demo-chip{position:absolute;top:-11px;left:22px;z-index:2;font:800 8.5px Manrope;letter-spacing:1.8px;background:var(--gold);color:#231a06;padding:5px 11px;border-radius:999px;box-shadow:0 4px 12px rgba(0,0,0,.18)}
