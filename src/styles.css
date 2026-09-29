@@ -42,7 +42,9 @@ a.car-card .fav{cursor:pointer}
 .founder-stat--world .founder-stat-figure,.founder-stat--about .founder-stat-figure{font-size:clamp(42px,4.2vw,56px);letter-spacing:-2.5px}
 /* /reviews trust card — the initials cluster is decorative (aria-hidden) and
    disclosed as placeholders in the copy; no fabricated reviewers or ratings
-   (CLAIMS-POLICY.md §3). */
+   (CLAIMS-POLICY.md §3). The global grid below adds dozens of placeholder
+   avatars for layout only, also aria-hidden and disclosed, SEO-safe (no
+   aggregateRating, no Review markup). */
 .reviews-trust{display:grid;justify-items:center;margin-top:8px}
 .reviews-trust-card{display:flex;align-items:center;gap:30px;width:min(780px,100%);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:34px 38px;box-shadow:0 15px 45px rgba(0,0,0,.06)}
 .reviews-avatars{margin:0}
@@ -52,7 +54,16 @@ a.car-card .fav{cursor:pointer}
 .reviews-trust-copy p{font-size:14px;line-height:1.7;color:var(--muted);margin:0 0 10px}
 .reviews-trust-note{display:block;font-size:10.5px;color:var(--muted);line-height:1.6;margin-bottom:16px}
 .reviews-trust-copy .primary{height:46px}
-@media(max-width:650px){.reviews-trust-card{flex-direction:column;align-items:flex-start;gap:16px;padding:26px 22px}.reviews-avatars i{width:44px;height:44px;font-size:12px}}
+.reviews-global{margin:48px auto 0;width:min(900px,100%);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px 32px 28px;box-shadow:0 12px 40px rgba(0,0,0,.05)}
+.reviews-global h2{font:700 28px/1.1 Manrope;letter-spacing:-1px;margin:10px 0 12px}
+.reviews-global-note{font-size:13px;line-height:1.7;color:var(--muted);margin:0 0 18px}
+.reviews-avatar-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:12px;margin:12px 0 18px}
+.reviews-avatar-item{display:grid;justify-items:center;gap:6px;padding:10px 4px;background:var(--bg);border:1px solid var(--line);border-radius:12px}
+.reviews-avatar-item i{width:44px;height:44px;border-radius:50%;background:var(--deep);color:#fff;display:grid;place-items:center;font:700 11px Manrope;letter-spacing:.4px}
+.reviews-avatar-item small{font-size:8.5px;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;font-weight:700}
+.reviews-global-disclaimer{margin-top:8px}
+@media(max-width:900px){.reviews-avatar-grid{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:650px){.reviews-trust-card{flex-direction:column;align-items:flex-start;gap:16px;padding:26px 22px}.reviews-avatars i{width:44px;height:44px;font-size:12px}.reviews-global{padding:22px 18px}.reviews-avatar-grid{grid-template-columns:repeat(4,1fr);gap:8px}.reviews-global h2{font-size:22px}}
 @media(max-width:1000px){.founder-stat--hero{justify-items:center;text-align:center}.founder-stat--hero .founder-stat-label{max-width:440px}.founder-stat--hero + .claim-note{margin-left:auto;margin-right:auto;text-align:center}}
 @media(max-width:650px){.founder-stat{margin-top:26px}.founder-stat-figure{font-size:48px;letter-spacing:-2.5px}.founder-stat--world .founder-stat-figure,.founder-stat--about .founder-stat-figure{font-size:40px;letter-spacing:-2px}.founder-stat-label{font-size:11.5px}}
 

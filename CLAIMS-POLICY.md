@@ -8,7 +8,14 @@ attestation with substantiation.
 
 ## 1. The one sales-experience claim we may make
 
-> **"1,200+ vehicles sold across our founder's automotive career."**
+> **"900+ cars sold, dozens of satisfied customers including car businesses."**  
+> Qualifier (must stay visible next to the figure):  
+> *"Experience gained through various suppliers; these are not AR7 Traders sales totals."*
+
+History: originally "1,200+ vehicles sold across our founder's automotive
+career" (owner-confirmed 2026-09-28), lowered to 900+ on 2026-09-29 by owner
+direction, then reworded on 2026-09-29 to the current label by owner direction
+("cars sold, dozens of satisfied customers including car businesses").
 
 Rules for this claim:
 
@@ -17,18 +24,23 @@ Rules for this claim:
 - Keep the visible qualifier near the figure:
   *"Experience gained through various suppliers; these are not AR7 Traders
   sales totals."*
-- Never imply: that AR7 Traders itself sold or exported all 1,200+ vehicles;
-  1,200+ unique buyers; that all exports ever made were ours; specific dates,
-  countries, supplier names, or counts of transactions.
+- The approved label is now "cars sold, dozens of satisfied customers
+  including car businesses." — do not widen beyond that (no country counts,
+  no buyer counts, no ratings).
+- Never imply: that AR7 Traders itself sold or exported all 900+ vehicles;
+  900+ unique buyers; that all exports ever made were ours; specific dates,
+  countries, supplier names, or counts of transactions beyond the approved
+  wording.
 
-**Presentation note (owner-approved 2026-09-28):** the figure may be shown as
-a large, prominent stat — hero trust area, "Japan to everywhere" section and
-the About page story grid — with the label and the qualifier rendered as
-clearly secondary (small print) directly adjacent to it on the same page
-section. Prominence is presentation only: the claim, label and qualifier
-wording above must not change; the qualifier must stay visible next to the
-figure (never a tooltip, hidden text, or pushed below the fold); and nothing
-wider than the claim above may be added (§2).
+**Presentation note (owner-approved 2026-09-28, figure revised 900+ on
+2026-09-29, wording revised 2026-09-29):** the figure may be shown as a large,
+prominent stat — hero trust area, "Japan to everywhere" section and the About
+page story grid — with the label and the qualifier rendered as clearly
+secondary (small print) directly adjacent to it on the same page section.
+Prominence is presentation only: the claim, label and qualifier wording above
+must not change; the qualifier must stay visible next to the figure (never a
+tooltip, hidden text, or pushed below the fold); and nothing wider than the
+claim above may be added (§2).
 
 ## 2. Prohibited without new, written substantiation
 
