@@ -6,6 +6,10 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/api/sitemap-vehicles.xml",
+      "destination": "/api/site-content?sitemap=vehicles"
+    },
+    {
       "source": "/(inventory|auction|services|brands|destinations|tools|world|howbuy|news|about|reviews|faq|contact|account|portal|crm|studio|shipping|japan-stock)(/.*)?",
       "destination": "/index.html"
     }

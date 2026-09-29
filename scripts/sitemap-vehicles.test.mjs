@@ -1,6 +1,8 @@
 // Dynamic vehicle sitemap regression suite (npm run test:sitemap-vehicles).
 //
-// Pins the contract of api/sitemap-vehicles.xml.js:
+// Pins the contract of the vehicle sitemap in api/site-content.js —
+// dispatched on GET ?sitemap=vehicles, publicly reachable at
+// /api/sitemap-vehicles.xml via a vercel.json rewrite:
 //   • only published rows, sold/private/delisted stock excluded;
 //   • URLs follow carRef (stock_no, else row id) and are XML-safe;
 //   • <lastmod> only for real timestamps;
@@ -46,8 +48,8 @@ function fakeRes() {
   };
 }
 
-const { default: handler } = await import('../api/sitemap-vehicles.xml.js');
-const { buildXml, esc, lastmodOf } = await import('../api/sitemap-vehicles.xml.js');
+const { sitemapVehicles: handler, buildXml, esc, lastmodOf } =
+  await import('../api/site-content.js');
 
 async function run(req, db) {
   const res = fakeRes();

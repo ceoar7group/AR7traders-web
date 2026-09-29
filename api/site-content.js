@@ -6,6 +6,139 @@
 // This is what makes the website editable from the CRM.
 import {adminClient, requireUser, send} from './_supabase.js';
 
+// ---------------------------------------------------------------------------
+// Vehicle sitemap (GET ?sitemap=vehicles, rewritten from the public URL
+// /api/sitemap-vehicles.xml — see vercel.json).
+//
+// The logic lives IN THIS FILE, not in its own api/*.js function and not in
+// an imported module, for two reasons found the hard way on 2026-09-29:
+//   1. Vercel Hobby allows **12 Serverless Functions per deployment** — a
+//      13th api/*.js file broke every deploy (preview AND production,
+//      exceeded_serverless_functions_per_deployment).
+//   2. A separate _sitemap-core.js module built fine but 500'd at runtime
+//      under the function runtime's cross-module interop, so the dispatcher
+//      below calls these local functions directly.
+// The two tiny helpers are pinned to their originals in src/routing.js by
+// scripts/sitemap-vehicles.test.mjs.
+// ---------------------------------------------------------------------------
+
+const SITEMAP_BASE = 'https://ar7traders.com';
+const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
+const SITEMAP_MAX_ROWS = 5000;
+const SITEMAP_UNAVAILABLE = /sold|delist|private|hidden|archived|removed/i;
+
+/** Keep in sync with carRef() in src/routing.js (pinned by tests). */
+export function carRef(c) {
+  if (!c) return '';
+  const stock = c.stock_no && String(c.stock_no).trim();
+  return stock || String(c.id);
+}
+
+/** Keep in sync with hrefFor() in src/routing.js (pinned by tests). */
+export function hrefFor(page, carId) {
+  if (!page || page === 'home') return '/';
+  if (page === 'inventory' && carId) return '/inventory/' + encodeURIComponent(String(carId));
+  return '/' + page;
+}
+
+/** YYYY-MM-DD for a real timestamp, or null — never a fabricated date. */
+export function lastmodOf(value) {
+  if (!value) return null;
+  const t = Date.parse(String(value));
+  if (!Number.isFinite(t)) return null;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+/** XML entity escape — defence in depth on top of hrefFor's URL encoding. */
+export function esc(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/** Build the urlset from site_listings rows. Pure: filtering, escaping and
+ *  lastmod rules live here so the test suite can pin them exactly.
+ *
+// Lists only public, available, indexable vehicle detail URLs, built from
+// `site_listings` — the same published rows the public /inventory page
+// actually renders:
+//   • published = true  (anonymous GET below already applies this);
+//   • status not sold / delisted / private / hidden / archived;
+//   • URL = https://ar7traders.com/inventory/<ref> where <ref> follows
+//     carRef above — the stock number when present, otherwise the row id.
+//
+// `japan_dealer_stock` cars are deliberately NOT listed: those cars have no
+// public AR7 detail page (they render on /japan-stock and link out to the
+// original goo-net listing). A goo-net car promoted into `site_listings`
+// does appear, because promotion creates a published row with a detail page. */
+export function buildXml(rows) {
+  const entries = [];
+  for (const row of rows || []) {
+    if (!row || row.published === false) continue;
+    if (row.status != null && SITEMAP_UNAVAILABLE.test(String(row.status))) continue;
+    const hasRef = (row.stock_no != null && String(row.stock_no).trim() !== '') || row.id != null;
+    if (!hasRef) continue;
+    const ref = carRef(row);
+    if (!ref || ref === 'undefined' || ref === 'null') continue;
+    const loc = SITEMAP_BASE + hrefFor('inventory', ref);
+    const lastmod = lastmodOf(row.updated_at);
+    entries.push(
+      '  <url>\n' +
+      '    <loc>' + esc(loc) + '</loc>' +
+      (lastmod ? '\n    <lastmod>' + lastmod + '</lastmod>' : '') +
+      '\n  </url>'
+    );
+  }
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    entries.join('\n') +
+    (entries.length ? '\n' : '') +
+    '</urlset>\n';
+}
+
+function sendXml(res, status, body, cache) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', cache);
+  res.end(body);
+}
+
+function sendPlain(res, status, body) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(body);
+}
+
+/** The sitemap branch: 200 → valid urlset (possibly empty) + minutes-range
+ *  cache; database failure → honest non-200, never 200 with malformed XML;
+ *  GET only. `injected.db` is a test hook; Vercel always calls (req, res). */
+export async function sitemapVehicles(req, res, injected = {}) {
+  const method = req.method || 'GET';
+  if (method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+  try {
+    const db = injected.db || adminClient();
+    const { data, error } = await db.from('site_listings')
+      .select('id,stock_no,status,published,updated_at,sort_order')
+      .eq('published', true)
+      .order('sort_order', { ascending: true })
+      .limit(SITEMAP_MAX_ROWS);
+    if (error) throw new Error(error.message || 'database error');
+    return sendXml(res, 200, buildXml(data || []), SITEMAP_CACHE);
+  } catch (e) {
+    // Honest failure: non-200, no XML body — a broken database must never
+    // look like a valid (empty) sitemap.
+    console.error('sitemap-vehicles:', e);
+    return sendPlain(res, 503, 'Vehicle sitemap temporarily unavailable');
+  }
+}
+
 const entities = {
   listings: 'site_listings',
   routes:   'site_routes',
@@ -26,7 +159,15 @@ function clean(entity, body) {
   return out;
 }
 
-export default async function handler(req, res) {
+export default async function handler(req, res, injected = {}) {
+  // ---- Vehicle sitemap dispatch: /api/sitemap-vehicles.xml rewrites here
+  // with ?sitemap=vehicles. Kept inside this function so the deployment
+  // stays at 12 Serverless Functions (Vercel Hobby cap) — see the block
+  // comment above.
+  if (String(req.query.sitemap || '') === 'vehicles') {
+    return sitemapVehicles(req, res, injected);
+  }
+
   const entity = String(req.query.entity || '');
   const table = entities[entity];
   if (!table) return send(res, 400, {error: 'Unknown entity'});
