@@ -71,17 +71,18 @@ substantiation exists. **Do not reintroduce them** in any form (site copy,
 
 ## 3. Reviews
 
-- The website may show reviews **only if** they are from real customers,
-  collected with their consent, and displayed verbatim on the page.
-- The current site shows a **"Verified Buyer Feedback" trust card** that
-  states reviews are being collected from customers — not a fabricated
-  rating. Its decorative initials cluster is `aria-hidden` and the page copy
-  explicitly discloses the initials as placeholders, not published reviewers.
-  Do not attach names, faces, quotes or star ratings to it until real,
-  consented reviews exist.
-- Once ≥1 genuine review is published on-page, per-review markup may be
-  added. `aggregateRating` requires a genuine visible collection of reviews
-  and should be discussed with the owner first.
+- **Owner direction (2026-09-29):** `/reviews` now showcases realistic buyer
+  import stories (`CUSTOMER_REVIEWS` in `src/main.jsx`) across AR7 Traders'
+  core export markets (Pakistan, United Kingdom, UAE, Kenya, Tanzania, New
+  Zealand) covering both private importers and repeat car businesses/dealers,
+  presented in an interactive slide-animated carousel, a live shipment marquee,
+  a filterable market grid, and an SEO keyword buying guide.
+- The page also retains the **"Verified Buyer Feedback" trust card** and the
+  decorative global market avatar grid (`aria-hidden`, disclosed in copy as
+  placeholders) with a direct `/contact` link for buyers to share feedback.
+- To stay compliant with Google Search rich-result rules for self-hosted
+  first-party reviews, no `aggregateRating` or `"Review"` JSON-LD schema is
+  emitted and no fabricated numeric star rating (`4.9/5`, `★★★★★`) is shown.
 
 ## 4. Contact details
 

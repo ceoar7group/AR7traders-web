@@ -214,6 +214,35 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   ok(!crash(), 'the app survives the founder-stat count-up');
 }
 
+// ---- the /reviews carousel slides and market filters work ------------------
+{
+  await goto('/reviews');
+  const slider = document.querySelector('.reviews-slider');
+  const nextBtn = document.querySelector('.slider-ctrl-btn.next');
+  const prevBtn = document.querySelector('.slider-ctrl-btn.prev');
+  const playBtn = document.querySelector('.slider-ctrl-btn.play-toggle');
+  ok(!!slider && !!nextBtn && !!prevBtn && !!playBtn, 'reviews slider and its controls mount on /reviews');
+  const activeSlideIdx = () => document.querySelector('.review-slide.is-active')?.getAttribute('data-slide-index');
+  ok(activeSlideIdx() === '0', 'reviews slider starts on slide 0');
+  await act(async () => { nextBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+  ok(activeSlideIdx() === '1' && document.querySelector('.review-slide.is-active')?.classList.contains('dir-next'),
+    'clicking Next advances the review slider to slide 1 with dir-next animation class');
+  await act(async () => { prevBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+  ok(activeSlideIdx() === '0' && document.querySelector('.review-slide.is-active')?.classList.contains('dir-prev'),
+    'clicking Prev returns the review slider to slide 0 with dir-prev animation class');
+  await act(async () => { playBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+  ok(playBtn.getAttribute('aria-pressed') === 'true' && playBtn.classList.contains('is-paused'),
+    'clicking the play/pause toggle pauses auto-slide');
+  const bizFilter = [...document.querySelectorAll('.reviews-filter-btn')].find(b => (b.textContent || '').includes('Car Businesses'));
+  ok(!!bizFilter, 'Car Businesses filter tab exists on /reviews');
+  if (bizFilter) {
+    await act(async () => { bizFilter.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+    const cards = [...document.querySelectorAll('.review-grid-card')];
+    ok(cards.length > 0 && cards.every(c => c.classList.contains('is-business-card')),
+      'filtering by Car Businesses shows only dealership/trade buyer reviews');
+  }
+}
+
 // ---- a vehicle deep link survives a reload ---------------------------------
 {
   const { cars } = await import('../src/main.jsx');

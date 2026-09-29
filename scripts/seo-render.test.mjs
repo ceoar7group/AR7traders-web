@@ -65,6 +65,15 @@ ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7tr
 bc = jsonld('breadcrumb-jsonld');
 ok(bc?.itemListElement.length === 2 && bc.itemListElement[1].name === 'Contact', 'contact breadcrumb is Home → Contact');
 
+// ---- reviews page has keyword-researched SEO metadata ---------------------
+applySeo('reviews', null);
+ok(document.title.includes('Customer Reviews & Buyer Stories') && document.title.includes('Japanese Car Exporter'),
+  'reviews title carries researched Japanese car exporter keywords');
+ok(meta('meta[name="description"]')?.includes('auction sheet translations') &&
+   meta('meta[name="description"]')?.includes('RoRo & container shipping'),
+  'reviews description highlights auction sheet translations and RoRo & container shipping');
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/reviews', 'reviews canonical is /reviews');
+
 // ---- shipping has its own metadata (was falling back to home) -------------
 applySeo('shipping', null);
 ok(PAGE_SEO.shipping, 'PAGE_SEO has a shipping entry');

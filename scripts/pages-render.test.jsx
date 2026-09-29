@@ -6,7 +6,7 @@ import './browser-stubs.mjs';           // must come first: main.jsx touches doc
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { goto } from './browser-stubs.mjs';
-import { App } from '../src/main.jsx';
+import { App, CUSTOMER_REVIEWS } from '../src/main.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
 import { cars as CARS, stockLabel } from '../src/main.jsx';
 
@@ -141,7 +141,19 @@ function checkFounderStat(html, variant, where) {
 }
 {
   const reviews = renderPage('/reviews');
-  ok(reviews.includes('Verified Buyer Feedback'), 'reviews page leads with the Verified Buyer Feedback trust card');
+  ok(reviews.includes('reviews-slider') && reviews.includes('reviews-slider-track'),
+    'reviews page renders the interactive slide-animated review carousel');
+  ok((reviews.match(/class="review-slide(\s|")/g) || []).length === CUSTOMER_REVIEWS.length && CUSTOMER_REVIEWS.length >= 10,
+    `reviews carousel renders all ${CUSTOMER_REVIEWS.length} buyer story slides in server markup for SEO`);
+  ok(reviews.includes('reviews-marquee-track'), 'reviews page renders the continuous shipment & review marquee');
+  ok((reviews.match(/review-grid-card/g) || []).length === CUSTOMER_REVIEWS.length,
+    'reviews explorer grid renders all customer review cards by default');
+  ok(reviews.includes('Car Businesses &amp; Dealers') && CUSTOMER_REVIEWS.some(r => r.isBusiness),
+    'reviews include repeat car businesses / dealership buyers alongside private buyers');
+  for (const kw of ['USS Tokyo', 'Goo-net', 'QISJ', 'RoRo', 'Port Qasim', 'Southampton', 'Jebel Ali', 'Mombasa', 'Dar es Salaam', 'Auckland']) {
+    ok(reviews.includes(kw), `reviews page carries researched SEO keyword "${kw}"`);
+  }
+  ok(reviews.includes('Verified Buyer Feedback'), 'reviews page includes the Verified Buyer Feedback trust card');
   ok(reviews.includes('collecting genuine reviews') && reviews.includes('/contact'),
     'the trust card keeps the transparent gathering notice and a contact route');
   ok(reviews.includes('placeholders, not reviewers'),
@@ -151,7 +163,7 @@ function checkFounderStat(html, variant, where) {
   for (const name of ['Ahmed H.', 'Mary K.', 'Daniel O.', 'Saeed A.', 'James M.', 'Fatima K.']) {
     ok(!reviews.includes(name), `no fictional testimonial from ${name}`);
   }
-  // New: dozens of placeholder avatars (owner-directed) — still SEO-safe, no ratings, disclosed as placeholders
+  // Dozens of placeholder avatars (owner-directed) — still SEO-safe, no ratings, disclosed as placeholders
   ok((reviews.match(/reviews-avatar-item/g) || []).length >= 24, 'reviews page shows dozens of placeholder avatars (≥24) with disclosure, SEO-safe');
   ok(reviews.includes('placeholders for layout only') && reviews.includes('not published reviewers'),
     'global avatar grid is disclosed as placeholders, not reviewers, with no aggregateRating');
