@@ -91,25 +91,35 @@ for (const [path, markers] of Object.entries(ROUTES)) {
 
 // ---- honest public claims ----------------------------------------------------
 // The 900+ figure (owner-directed revision 2026-09-29, previously 1,200+) is
-// the founder's career total across various suppliers — never an AR7 Traders
-// sales total, buyer count or rating. It must always carry its visible
-// qualifier, and unsupported ratings/stats must not return. Wording revised
-// 2026-09-29 to "cars sold, dozens of satisfied customers including car businesses."
+// the founder's career total across various suppliers — never a buyer count
+// or rating, and unsupported ratings/stats must not return. Wording revised
+// 2026-09-29 to "cars sold, dozens of satisfied customers including car
+// businesses."; the same day, at the owner's direction, the small-print
+// qualifier line was removed and the label promoted: "cars sold" is a bold
+// unit beside the figure and the supporting line highlights its key phrases
+// (see CLAIMS-POLICY.md §1). The figure counts up on the client; the server
+// markup must always carry the finished stat.
+const statBlock = (html, variant) =>
+  (html.match(new RegExp(`<div class="founder-stat founder-stat--${variant} [\\s\\S]*?</span></span></div>`)) || [''])[0];
+function checkFounderStat(html, variant, where) {
+  const block = statBlock(html, variant);
+  ok((html.match(new RegExp(`founder-stat--${variant}\\b`, 'g')) || []).length === 1 && block,
+    `${where}: exactly one founder stat block`);
+  ok(block.includes('is-static') && block.includes('<span class="founder-stat-live">900</span>'),
+    `${where}: server markup shows the finished figure (900), not the count's starting 0`);
+  ok(block.includes('<span class="sr-only">900+</span>') && block.includes('<span class="founder-stat-count" aria-hidden="true">'),
+    `${where}: the real "900+" is readable text; the rolling digits are aria-hidden`);
+  ok(block.includes('<sup aria-hidden="true">+</sup>'), `${where}: the gold + renders beside the figure`);
+  ok(block.includes('<strong class="founder-stat-unit">cars sold</strong>'), `${where}: "cars sold" is the bold unit beside the figure`);
+  ok(block.includes('Dozens of <em>satisfied customers</em>, including <em>car businesses</em>.'),
+    `${where}: the supporting line carries the owner-approved words with the key phrases highlighted`);
+}
 {
   const home = renderPage('/');
-  ok(home.includes('cars sold, dozens of satisfied customers including car businesses'), 'home hero states the founder-career experience claim (owner-directed 2026-09-29 wording)');
-  ok(home.includes('Experience gained through various suppliers; these are not AR7 Traders sales totals'),
-    'the founder-claim qualifier is visible on the home page');
-  // Owner-approved prominence (2026-09-28): a dedicated large stat per site,
-  // with the qualifier rendered in the same block as the figure everywhere.
-  ok((home.match(/founder-stat--hero/g) || []).length === 1 &&
-    /founder-stat--hero[\s\S]{0,900}?class="claim-note">Experience gained through various suppliers/.test(home),
-    'home hero: qualifier renders in the same block as the 900+ figure');
-  ok((home.match(/founder-stat--world/g) || []).length === 1 &&
-    /founder-stat--world[\s\S]{0,900}?class="claim-note">Experience gained through various suppliers/.test(home),
-    'world section: qualifier renders in the same block as the 900+ figure');
-  ok((home.match(/founder-stat-figure">900<sup>\+<\/sup>/g) || []).length === 2,
-    'both home figures render the FOUNDER_CLAIM constant (900+ with the gold sup)');
+  checkFounderStat(home, 'hero', 'home hero');
+  checkFounderStat(home, 'world', 'world section');
+  ok(!home.includes('Experience gained through various suppliers') && !home.includes('claim-note'),
+    'the small-print qualifier line is gone from the home page (owner direction 2026-09-29)');
   ok(!home.includes('class="stats"'), 'no shared .stats block carries the founder figure anymore');
   ok(!home.includes('class="trust-row"'), 'the hero no longer uses the small 13px trust-row stat');
   ok(!home.includes('4.9/5') && !home.includes('Trusted by 1,200+ buyers') && !home.includes('Trusted by 900+ buyers'),
@@ -120,12 +130,9 @@ for (const [path, markers] of Object.entries(ROUTES)) {
 }
 {
   const about = renderPage('/about');
-  ok(about.includes('cars sold, dozens of satisfied customers including car businesses') && about.includes('Experience gained through various suppliers'),
-    'about page carries the founder claim with its qualifier');
-  ok((about.match(/founder-stat--about/g) || []).length === 1 &&
-    /founder-stat--about[\s\S]{0,900}?class="claim-note">Experience gained through various suppliers/.test(about),
-    'about page: qualifier renders in the same block as the 900+ figure');
-  ok(/founder-stat-figure">900<sup>\+<\/sup>/.test(about), 'about figure renders the FOUNDER_CLAIM constant with the gold sup');
+  checkFounderStat(about, 'about', 'about page');
+  ok(!about.includes('Experience gained through various suppliers') && !about.includes('claim-note'),
+    'the small-print qualifier line is gone from the about page (owner direction 2026-09-29)');
   ok(!about.includes('98%') && !about.includes('Countries served'), 'about page drops the unsupported 98% / countries-served stats');
 }
 {

@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState, useReducer} from 'react';
+import React, {useEffect, useLayoutEffect, useRef, useState, useReducer} from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, UserPlus, CarFront, Eye, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Wrench, Landmark, UserCog, Share2, Layers } from 'lucide-react';
@@ -27,15 +27,71 @@ import './portal.css';
 // wording revised 2026-09-29 to owner-directed "cars sold, dozens of satisfied
 // customers including car businesses" — see CLAIMS-POLICY.md §1). The figure
 // counts vehicles the founder sold across his automotive career through
-// various suppliers — it is NOT an AR7 Traders sales total, and the qualifier
-// must stay visibly next to the figure wherever it appears. Never widen this
-// into "buyers", "exports by AR7" or a rating beyond the owner-approved text.
+// various suppliers. The small-print qualifier line was removed from the site
+// at the owner's direction on 2026-09-29. Never widen this into "buyers",
+// "exports by AR7" or a rating beyond the owner-approved text.
+//   unit   — shown bold beside the figure ("900+ cars sold")
+//   detail — the supporting line; **phrases** are highlighted (presentation only)
 // ---------------------------------------------------------------------------
 export const FOUNDER_CLAIM = {
   figure: '900+',
-  label: 'cars sold, dozens of satisfied customers including car businesses.',
-  qualifier: 'Experience gained through various suppliers; these are not AR7 Traders sales totals.'
+  unit: 'cars sold',
+  detail: 'Dozens of **satisfied customers**, including **car businesses**.'
 };
+
+// Founder stat, used in the home hero, the "Japan to everywhere" section and
+// the About page. The first time the block scrolls into view the figure counts
+// up from 0, the gold rule and label slide in, and when the count lands the
+// gold "+" pops in with a glow and a one-off glint across the digits.
+// Server render, no-JS and reduced-motion visitors get the finished figure
+// straight away. The real figure is always in the DOM as visually hidden text
+// (screen readers, crawlers); the rolling digits are aria-hidden. `delay`
+// (ms from mount) lets the hero wait for its own entrance animation — it only
+// applies when the block is already on screen at load.
+const COUNT_MS=2000;
+const countEase=t=>t>=1?1:1-Math.pow(2,-10*t); // easeOutExpo: quick rush, soft landing
+function FounderStat({variant,delay=0}){
+ const {figure,unit,detail}=FOUNDER_CLAIM;
+ const target=Number(figure.replace(/[^\d.]/g,''))||0;
+ const plus=/\+\s*$/.test(figure);
+ const ref=useRef(null);
+ const [n,setN]=useState(target);
+ const [phase,setPhase]=useState('static'); // static → armed → run → done
+ // Layout effect: arming happens before the first paint, so the finished
+ // number never flashes up before the count starts from 0.
+ useLayoutEffect(()=>{
+  const el=ref.current;
+  if(!el||typeof IntersectionObserver!=='function'||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+  setN(0);setPhase('armed');
+  const mounted=performance.now();let raf=0,timer=0,t0=-1;
+  const tick=now=>{
+   if(t0<0)t0=now;
+   const p=Math.min((now-t0)/COUNT_MS,1);
+   setN(Math.round(target*countEase(p)));
+   if(p<1)raf=requestAnimationFrame(tick);else setPhase('done');
+  };
+  const io=new IntersectionObserver(entries=>{
+   if(!entries.some(e=>e.isIntersecting))return;
+   io.disconnect();
+   timer=setTimeout(()=>{setPhase('run');raf=requestAnimationFrame(tick)},Math.max(120,delay-(performance.now()-mounted)));
+  },{threshold:.35});
+  io.observe(el);
+  return()=>{io.disconnect();clearTimeout(timer);cancelAnimationFrame(raf)};
+ },[target,delay]);
+ const fmt=v=>v.toLocaleString('en-US');
+ return <div ref={ref} className={`founder-stat founder-stat--${variant} is-${phase}`}>
+  <b className="founder-stat-figure">
+   <span className="sr-only">{figure}</span>
+   <span className="founder-stat-count" aria-hidden="true"><span className="founder-stat-sizer">{fmt(target)}</span><span className="founder-stat-live">{fmt(n)}</span>{phase==='done'&&<span className="founder-stat-glint">{fmt(target)}</span>}</span>
+   {plus&&<sup aria-hidden="true">+</sup>}
+  </b>
+  <i className="founder-stat-rule" aria-hidden="true"/>
+  <span className="founder-stat-copy">
+   <strong className="founder-stat-unit">{unit}</strong>
+   <span className="founder-stat-label">{detail.split('**').map((s,i)=>i%2?<em key={i}>{s}</em>:s)}</span>
+  </span>
+ </div>;
+}
 
 export const cars = [ {id:1, make:'Rolls-Royce', model:'Ghost', year:2023, km:'4,200', fuel:'Petrol', body:'Luxury', price:'$189,000', image:'/assets/lux/rolls-royce-ghost.jpg', grade:'5.0', status:'In Stock', location:'Yokohama', tr:'AT', drv:'AWD', eng:'6,750cc', seats:5, col:'Two-tone', st:'RHD'},
  {id:2, make:'Rolls-Royce', model:'Cullinan', year:2022, km:'9,800', fuel:'Petrol', body:'Luxury', price:'$205,000', image:'/assets/lux/rolls-royce-cullinan.jpg', grade:'5.0', status:'In Stock', location:'Tokyo', tr:'AT', drv:'AWD', eng:'6,750cc', seats:5, col:'Purple', st:'RHD'},
@@ -543,7 +599,7 @@ if(page==='inventory')return <section className="inner-page"><div className="pag
  return <section className="inner-page"><div className="page-hero split"><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p><button className="gold-btn" onClick={openAuction}>{page==='contact'?'Send an enquiry':'Get started'} <ArrowRight/></button></div><div className="page-hero-image"><img loading="lazy" decoding="async" src={p.image} alt={p.name||"AR7 Traders vehicle"}/><div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/></div></div></div></div>
  <div className="shell page-content">{page==='auction'?<><div className="feature-intro"><h2>Auction access without the guesswork.</h2><p>Every listing comes with translation support, market guidance and complete cost visibility before you bid.</p></div><div className="feature-cards">{[['01','Browse live listings','Filter by make, year, mileage, grade and auction venue.'],['02','Review with an expert','We translate the auction sheet and flag every detail.'],['03','Set your bid limit','Know your landed estimate before bidding begins.'],['04','Win & track','See results instantly and follow your car to port.']].map(x=><article key={x[1]}><span>{x[0]}</span><Gavel/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div><div className="auction-demo"><div><span className="live-dot"/> AUCTION LOTS · SAMPLE</div>{cars.slice(0,4).map(c=><section key={c.id}><img loading="lazy" decoding="async" src={c.image} alt={`${c.make} ${c.model} — Japanese import`}/><b>{c.make} {c.model}</b><small>{stockLabel(c)} · Grade {c.grade}</small><strong>{price(c)}</strong><PageLink className="lot-link" to={`inventory?car=${carRef(c)}`} navigate={navigate}>View vehicle</PageLink></section>)}</div></>:
  page==='shipping'?<><div className="feature-intro"><h2>One clear route. Complete support.</h2><p>From export certificate to customs-ready documents, our logistics desk handles the complexity.</p></div><div className="shipping-flow">{[['Japan yard','Inspection & preparation'],['Export port','Customs & loading'],['At sea','Live milestone tracking'],['Your port','Documents & collection']].map((x,i)=><div key={x[0]}><span>0{i+1}</span><Ship/><b>{x[0]}</b><small>{x[1]}</small></div>)}</div></>:
- page==='about'?<><div className="feature-intro"><h2>Built to be your trusted partner.</h2><p>AR7 Traders connects buyers worldwide to the depth and quality of the Japanese vehicle market.</p></div><div className="story-grid"><img loading="lazy" decoding="async" src="/assets/ar7-logo-circle.png" alt="AR7 Traders emblem"/><div><div className="founder-stat founder-stat--about"><b className="founder-stat-figure">{FOUNDER_CLAIM.figure.replace(/\+$/,'')}<sup>+</sup></b><span className="founder-stat-label">{FOUNDER_CLAIM.label}</span></div><p className="claim-note">{FOUNDER_CLAIM.qualifier}</p><p>Our team sources through major Japanese auction houses and trusted dealer networks. Every vehicle is selected with careful inspection, clear communication and full cost transparency.</p></div></div></>:
+ page==='about'?<><div className="feature-intro"><h2>Built to be your trusted partner.</h2><p>AR7 Traders connects buyers worldwide to the depth and quality of the Japanese vehicle market.</p></div><div className="story-grid"><img loading="lazy" decoding="async" src="/assets/ar7-logo-circle.png" alt="AR7 Traders emblem"/><div><FounderStat variant="about"/><p>Our team sources through major Japanese auction houses and trusted dealer networks. Every vehicle is selected with careful inspection, clear communication and full cost transparency.</p></div></div></>:
  <div className="contact-grid"><div><h2>Let’s source your car.</h2><p>Use the access form or contact our Japan export desk directly.</p><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={17}/> WhatsApp us</a><a href="/contact" onClick={linkClick('contact',navigate)}><MapPin/> {settings.contact_address}</a></div><form onSubmit={e=>{e.preventDefault();openAuction()}}><input placeholder="Your name" required/><input placeholder="Email address" type="email" required/><input placeholder="Destination country"/><textarea placeholder="Which vehicle are you looking for?"/><button className="primary">Send request <ArrowRight/></button></form></div>}</div></section>
 }
 
@@ -614,8 +670,7 @@ export function App(){
       <h1>Your next car.<br/><em>Anywhere</em> in the world.</h1>
       <p>We source verified vehicles from Japan's leading auctions, handle every detail, and deliver to your nearest port.</p>
       <div className="hero-cta"><button className="primary" onClick={()=>go('inventory')}>Explore vehicles <ArrowRight/></button><button className="text-btn" onClick={()=>setModal(true)}><span><Play fill="currentColor"/></span> See how bidding works</button></div>
-      <div className="founder-stat founder-stat--hero"><b className="founder-stat-figure">{FOUNDER_CLAIM.figure.replace(/\+$/,'')}<sup>+</sup></b><span className="founder-stat-label">{FOUNDER_CLAIM.label}</span></div>
-      <p className="claim-note">{FOUNDER_CLAIM.qualifier}</p>
+      <FounderStat variant="hero" delay={900}/>
     </div>
     <HeroVisual navigate={navigate}/>
     <div className="scroll-cue"><span>SCROLL TO DISCOVER</span><ChevronDown/></div>
@@ -651,7 +706,7 @@ export function App(){
     </div>
    </section>
 
-   <section className="world section"><div className="world-map"><BigNetworkGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">GLOBAL REACH, LOCAL CARE</div><h2>Japan to <em>everywhere.</em></h2><p>We ship through trusted carriers to ports worldwide. Spin the globe — tap Japan to browse stock, or any country for its market guide.</p><div className="founder-stat founder-stat--world"><b className="founder-stat-figure">{FOUNDER_CLAIM.figure.replace(/\+$/,'')}<sup>+</sup></b><span className="founder-stat-label">{FOUNDER_CLAIM.label}</span></div><p className="claim-note">{FOUNDER_CLAIM.qualifier}</p><PageLink className="primary" to="destinations" navigate={navigate}>Explore destinations <ArrowRight/></PageLink></div></section>
+   <section className="world section"><div className="world-map"><BigNetworkGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">GLOBAL REACH, LOCAL CARE</div><h2>Japan to <em>everywhere.</em></h2><p>We ship through trusted carriers to ports worldwide. Spin the globe — tap Japan to browse stock, or any country for its market guide.</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>Explore destinations <ArrowRight/></PageLink></div></section>
 
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">READY WHEN YOU ARE</div><h2>Let’s find your<br/>next <em>vehicle.</em></h2><p>Tell us what you’re looking for. Our Japan team will reply with suitable options.</p></div><button className="gold-btn large" onClick={()=>setModal(true)}>Start your search <ArrowUpRight/></button></section>
    </>:page==='world'?<WorldPage navigate={navigate}/>:page==='account'?<CustomerAccountPage navigate={navigate}/>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} openAuction={()=>setModal(true)} favs={favs} setFavs={setFavs}/>}
