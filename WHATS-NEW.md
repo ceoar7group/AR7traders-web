@@ -317,6 +317,20 @@ problems.
 
 ---
 
+## 21. The globe no longer shows star ratings
+
+**Home page and the World page — the spinning globe.**
+
+Each country pop-up on the globe had a row of five gold stars under the
+smiley. Stars read as a customer rating, and the site has no published reviews
+yet, so the claims policy doesn't allow them — the same reason they were taken
+off the Reviews page. They're gone; the smiley and the country bubble stay. A
+check now stops star symbols from coming back on any public page. Star ratings
+can return once genuine customer reviews are published (see `CLAIMS-POLICY.md`
+§3).
+
+---
+
 ## Suggested first ten minutes
 
 1. Run the SQL in Supabase.

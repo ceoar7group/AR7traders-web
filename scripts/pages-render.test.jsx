@@ -51,12 +51,25 @@ const ROUTES = {
   '/studio': ['AR7']
 };
 
+// CLAIMS-POLICY §2/§3: no star ratings on the public site until real, consented
+// reviews exist. Star glyphs read as a review score wherever they appear — the
+// home/world globe used to float ★★★★★ under every country pop-up.
+const ADMIN_ROUTES = new Set(['/account', '/studio']);
+const starred = [];
 for (const [path, markers] of Object.entries(ROUTES)) {
   let html = '';
   try { html = renderPage(path); }
   catch (err) { fail++; bad(`  ✗ ${path} threw: ${err.message}`); continue; }
   pass++; say(`  ✓ ${path} renders (${(html.length / 1024).toFixed(0)} KB of markup)`);
   for (const m of markers) ok(html.includes(m), `${path} contains "${m}"`);
+  if (!ADMIN_ROUTES.has(path) && /[★☆]/.test(html)) starred.push(path);
+}
+ok(starred.length === 0,
+  'no star-rating glyphs (★/☆) on any public page (CLAIMS-POLICY §3)' + (starred.length ? ' — found on ' + starred.join(', ') : ''));
+for (const path of ['/', '/world']) {
+  const html = renderPage(path);
+  ok((html.match(/class="whappy"/g) || []).length >= 8,
+    `${path}: the globe still renders its country pop-ups (so the star check above is not vacuous)`);
 }
 
 // ---- routing edge cases -----------------------------------------------------

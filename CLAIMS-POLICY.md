@@ -1,6 +1,6 @@
 # Marketing Claims Policy (AR7 Traders)
 
-**Status: active policy — 2026-09-28 (§1 revised 2026-09-29).** This file is the source of truth for what
+**Status: active policy — 2026-09-28 (§1 revised 2026-09-29; §3 note added 2026-09-30).** This file is the source of truth for what
 AR7 Traders may and may not state publicly (website copy, metadata, structured
 data, social profiles, listings, customer communications). Anyone editing site
 copy or CRM content must follow it. Changes require the owner's written
@@ -79,6 +79,10 @@ substantiation exists. **Do not reintroduce them** in any form (site copy,
   explicitly discloses the initials as placeholders, not published reviewers.
   Do not attach names, faces, quotes or star ratings to it until real,
   consented reviews exist.
+- Star symbols count as a rating wherever they appear, decorative or not.
+  The ★★★★★ that sat under every country pop-up on the home-page and `/world`
+  globe was removed on 2026-09-30 for this reason, and `npm run test:pages`
+  now fails if ★ or ☆ appears on any public page.
 - Once ≥1 genuine review is published on-page, per-review markup may be
   added. `aggregateRating` requires a genuine visible collection of reviews
   and should be discussed with the owner first.
