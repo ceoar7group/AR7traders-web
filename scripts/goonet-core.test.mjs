@@ -11,6 +11,7 @@ import {
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
   BRAND_MAP, MODEL_MAP,
   countSpreadLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
+  relayBaseUrl, relayApiKey,
   FALLBACK_SEARCH_URL, JINA_RELAY, UA
 } from './goonet-core.mjs';
 
@@ -366,6 +367,61 @@ calls = mockFetch(u => {
 r = await fetchPage('https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975002.html', { timeoutMs: 2000, allowRelay: false });
 ok(!r.ok && !calls.some(c => c.url.startsWith(JINA_RELAY)), 'allowRelay:false never touches the relay');
 ok(!isDelistedPage(r), 'a dead socket is never mistaken for a delisted car');
+
+// 9) relay overrides: env-configured base URL and API key
+eq(relayBaseUrl(), JINA_RELAY, 'relay base defaults to the free jina relay');
+eq(relayApiKey(), '', 'no relay key by default');
+process.env.GOONET_RELAY_URL = 'https://relay.example.com/reader';
+eq(relayBaseUrl(), 'https://relay.example.com/reader/', 'GOONET_RELAY_URL override gains a trailing slash');
+delete process.env.GOONET_RELAY_URL;
+eq(relayBaseUrl(), JINA_RELAY, 'relay base falls back once the override is unset');
+process.env.GOONET_RELAY_KEY = 'alt_key';
+eq(relayApiKey(), 'alt_key', 'GOONET_RELAY_KEY is picked up too');
+delete process.env.GOONET_RELAY_KEY;
+
+// 10) the relay call carries the API key when one is configured
+resetFetchState();
+process.env.JINA_API_KEY = 'jina_secret_123';
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return { body: realHtml };
+  return { body: stubHtml };
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+const keyedRelay = calls.find(c => c.url.startsWith(JINA_RELAY));
+eq(keyedRelay.headers['Authorization'], 'Bearer jina_secret_123', 'the relay call carries the configured API key');
+eq(r.via, 'relay', 'a keyed relay still replaces a stub listing');
+delete process.env.JINA_API_KEY;
+
+// 11) a gate-stubbed DETAIL page is relayed — a small body carrying gate
+// wording can never be real detail HTML — while a healthy detail page is
+// still never relayed (fix #6 holds)
+resetFetchState();
+const gateStub = '<html><body>セキュリティチェックを行っています。しばらくお待ちください。</body></html>';
+const gatedDetailUrl = 'https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975002.html';
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return { body: detailHtml };
+  return { body: gateStub };
+});
+r = await fetchPage(gatedDetailUrl, { timeoutMs: 2000, purpose: 'detail' });
+eq(r.via, 'relay', 'a gate-stubbed detail page is retried through the relay');
+ok(r.html.includes('<h1>'), 'the relayed detail page replaces the gate stub');
+
+resetFetchState();
+calls = mockFetch(u => (u === 'https://www.goo-net.com/' ? { body: 'home' } : { body: detailHtml }));
+r = await fetchPage(gatedDetailUrl, { timeoutMs: 2000, purpose: 'detail' });
+eq(r.via, 'direct', 'a healthy detail page is never relayed');
+ok(!calls.some(c => c.url.startsWith(JINA_RELAY)), 'no relay round-trip for a readable detail page');
+
+resetFetchState();
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return { body: gateStub + '<p>bigger, but still the gate — セキュリティ</p>' };
+  return { body: gateStub };
+});
+r = await fetchPage(gatedDetailUrl, { timeoutMs: 2000, purpose: 'detail' });
+eq(r.via, 'direct', 'a relayed gate page is not trusted over the direct answer');
 
 global.fetch = realFetch;
 resetFetchState();

@@ -694,11 +694,21 @@ export default function CrmApp() {
     try {
       const r = await call('/api/goonet-sync', session.access_token, { method: 'POST' });
       const skipped = r.skipped?.length ? ` · skipped ${r.skipped.length}` : '';
+      // The skip reasons ARE the diagnosis ("only 2 images (need 5+)",
+      // "missing fields: fuel, body", "detail fetch failed"…). Show the first
+      // few so a run that imported nothing explains itself right here.
+      const why = [];
+      if (r.note) why.push(r.note);
+      if (r.skipped?.length) {
+        const shown = r.skipped.slice(0, 3).join(' · ');
+        why.push('Skipped: ' + shown + (r.skipped.length > 3 ? ` · +${r.skipped.length - 3} more` : ''));
+      }
+      const detail = why.length ? ' — ' + why.join(' — ') : '';
       // A blocked run must not read like a clean one: the report's own note
       // says the bookmark was held, so no pages were silently skipped.
       setNotice(r.blocked
         ? `Importer blocked by goo-net — page ${r.page || '?'} gave ${r.cardsSeen ?? 0} card(s), nothing imported.${skipped} ${r.note || ''}`.trim()
-        : `Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}`);
+        : `Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
       await loadAll();
     } catch (e) {
       setNotice(e.message);

@@ -283,3 +283,33 @@ There are two different failures that can look similar at first glance:
 **Can I stop the importer?** Delete the GitHub secret or the workflow file,
 or untick "Auto-promote" and set limits to 0 in the CRM rules. The site is
 unaffected either way.
+
+**The importer is blocked every run / imports nothing — what now?**
+
+Read the run report first (CRM → Japan dealer stock → "Run import now" shows
+the skip reasons; the scheduled workflow prints the full JSON):
+
+- `blocked: true` or `via: "relay"` plus many `detail fetch failed` /
+  `missing fields` skips means goo-net is gating Vercel's datacenter IP and
+  the relay is the weak link. The keyless `r.jina.ai` tier is rate-limited
+  (401/429), so it works some days and not others. **Fix:** create a free API
+  key at <https://jina.ai> and add `JINA_API_KEY` in Vercel → Settings →
+  Environment Variables (no other change needed; redeploy once). The report's
+  `relayKey` field says `configured` once the key is live. To use a different
+  reader proxy entirely, set `GOONET_RELAY_URL` to its prefix.
+- `parseMiss: true` means goo-net answered fine but the card markup changed —
+  that is a parser bug in `scripts/goonet-core.mjs`, not a blockade.
+- Skip reasons like `only 3 images (need 5+)` or `no/old year` mean the
+  importer works and the quality gate is simply doing its job; lower the
+  limits under Importer rules if you want more cars through.
+
+**Escape hatch / one-off backfill from your own computer:** goo-net normally
+serves residential connections the real page, so the terminal runner works
+where Vercel is gated:
+
+```
+SUPABASE_URL="https://xxx.supabase.co" \
+SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
+node scripts/goonet-crawl.mjs --dry-run     # show what would import
+node scripts/goonet-crawl.mjs               # import for real
+```
