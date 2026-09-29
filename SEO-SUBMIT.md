@@ -105,7 +105,13 @@ npm run build && npm run build:crm
 Script notes: `test:seo` and `test:seo-render` are aliases for the same file
 (`scripts/seo-render.test.mjs`); `test:goonet` runs the core + seed + sync
 suites (158 / 54 / 41); `test:sitemap-vehicles` covers the dynamic vehicle
-sitemap route (`api/sitemap-vehicles.xml.js`). Passing multiple names to a
+sitemap route (logic inside `api/site-content.js`, dispatched on
+`?sitemap=vehicles`; the public URL `/api/sitemap-vehicles.xml` is kept by
+a `vercel.json` rewrite). The logic lives inside the site-content function
+because Vercel Hobby allows **12 Serverless Functions per deployment** and
+a standalone 13th function broke every deploy from 2026-09-28 to
+2026-09-29 — including production, which stayed on the PR #40 build until
+this fix. Passing multiple names to a
 single `npm run` still does not execute all scripts — run them one by one
 or via the loop above.
 
