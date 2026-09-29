@@ -34,6 +34,24 @@ export const FALLBACK_SEARCH_URL = 'https://www.goo-net.com/usedcar/price--100/'
 // edge and hands back the real HTML.
 export const JINA_RELAY = 'https://r.jina.ai/';
 
+// The keyless free relay tier is rate-limited (401/429), and when it is, a
+// Vercel host that sits behind goo-net's datacenter gate reads nothing at
+// all — every run reports blocked or skips every car. Both are overridable:
+//   JINA_API_KEY     → sent as Authorization: Bearer (free key from jina.ai)
+//   GOONET_RELAY_URL → any reader-relay-style proxy prefix you trust instead
+export function relayBaseUrl() {
+  const v = String(process.env.GOONET_RELAY_URL || '').trim();
+  if (!v) return JINA_RELAY;
+  return v.endsWith('/') ? v : v + '/';
+}
+export function relayApiKey() {
+  return String(process.env.JINA_API_KEY || process.env.GOONET_RELAY_KEY || '').trim();
+}
+
+// A bot-gate interstitial is a few KB; a real goo-net listing OR detail page
+// is ~1 MB. Under this size plus gate wording = unmistakably the gate.
+export const GATE_PAGE_BYTES = 64_000;
+
 // goo-net writes "万円" (man yen) prices: 34.8万円 = 348,000 yen.
 export function manToYen(text) {
   const m = String(text || '').replace(/[,\s]/g, '').match(/(\d+(?:\.\d+)?)\s*万円/);
@@ -443,7 +461,11 @@ async function relayFetch(url, { timeoutMs, maxBytes }) {
     'X-No-Cache': 'true',
     'X-With-Links-Summary': 'false'
   };
-  const relayed = await rawFetch(JINA_RELAY + url, { timeoutMs, maxBytes, headers: relayHeaders });
+  // An API key lifts the relay off the rate-limited keyless tier. It is only
+  // ever sent to the relay host itself (rawFetch headers are caller-built).
+  const key = relayApiKey();
+  if (key) relayHeaders['Authorization'] = 'Bearer ' + key;
+  const relayed = await rawFetch(relayBaseUrl() + url, { timeoutMs, maxBytes, headers: relayHeaders });
   return { relayed, relayPage: pageDiagnostics(relayed.html) };
 }
 
@@ -505,13 +527,31 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
   // LISTING page — a detail page legitimately has few or zero of them. Relaying
   // a detail fetch on that heuristic let whatever larger page the relay
   // returned (even a listing page) replace perfectly good detail HTML.
+  //
+  // A detail page behind the bot gate is a different, narrower case: the
+  // direct answer is a SMALL body carrying the gate's own wording. That can
+  // never be real detail HTML (a real one is ~1 MB and prints no gate
+  // phrases), so relaying it cannot replace anything good. Without this, a
+  // gated host reads the listing fine through the relay yet loses every car:
+  // each detail fetch hands back a 200 gate stub, fuel/body never parse, and
+  // the import loop skips the car for "missing fields".
+  const gateStubbedDetail = purpose === 'detail' && direct.status !== 404
+    && (direct.html || '').length < GATE_PAGE_BYTES
+    && directPage.gateMarkers.length > 0;
+
   const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404
-    && purpose !== 'detail' && looksLikeStub(direct.html);
+    && ((purpose !== 'detail' && looksLikeStub(direct.html)) || gateStubbedDetail);
 
   if (shouldRelay) {
     const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
-    // Only trust the relay when it genuinely saw more cars than we did.
-    if (relayed.ok && relayPage.spreadLinks > directPage.spreadLinks) {
+    // Only trust the relay when it genuinely saw more than we did: more cars
+    // for a listing page; for a gate-stubbed detail page, a bigger body with
+    // no gate wording (mergeCardAndDetail still refuses anything that does
+    // not parse as a real detail page before using it).
+    const relayIsBetter = gateStubbedDetail
+      ? relayPage.contentLength > directPage.contentLength && relayPage.gateMarkers.length === 0
+      : relayPage.spreadLinks > directPage.spreadLinks;
+    if (relayed.ok && relayIsBetter) {
       return {
         ok: true,
         status: relayed.status,

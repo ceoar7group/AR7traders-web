@@ -48,7 +48,7 @@ console.log(`  Listing page: ${page.cars.length} cars (pagination max ${page.pag
 
 let imported = 0, skipped = 0;
 for (const card of page.cars) {
-  const detail = await fetchPage(card.url, { timeoutMs: 6000 });
+  const detail = await fetchPage(card.url, { timeoutMs: 6000, purpose: 'detail' });
   const car = detail.ok ? mergeCardAndDetail(card, parseDetailPage(detail.html, card.url)) : card;
   const q = qualityScore(car, { minPhotos: minPhotosArg });
   if (!q.pass) {
@@ -69,7 +69,7 @@ if (dryRun) {
 
 // Live mode: insert the passing cars (same shape the Vercel function uses).
 for (const card of page.cars) {
-  const detail = await fetchPage(card.url, { timeoutMs: 6000 });
+  const detail = await fetchPage(card.url, { timeoutMs: 6000, purpose: 'detail' });
   const car = detail.ok ? mergeCardAndDetail(card, parseDetailPage(detail.html, card.url)) : card;
   const q = qualityScore(car, { minPhotos: minPhotosArg });
   if (!q.pass) continue;

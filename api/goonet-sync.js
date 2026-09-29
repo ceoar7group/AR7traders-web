@@ -22,7 +22,8 @@ import {adminClient, send} from './_supabase.js';
 import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
-  pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL
+  pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
+  GATE_PAGE_BYTES, relayApiKey
 } from '../scripts/goonet-core.mjs';
 
 export const config = { maxDuration: 60 };
@@ -36,9 +37,6 @@ export const config = { maxDuration: 60 };
 const RUN_BUDGET_MS = 45000;      // hard stop for the whole run
 const IMPORT_BUDGET_MS = 30000;   // the import loop's own allowance
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-// A bot-gate interstitial is a few KB; a real goo-net listing page is ~1 MB.
-// Used only to name the cause when a page has no car links to read.
-const GATE_PAGE_BYTES = 64_000;
 
 async function settings(db) {
   const { data } = await db.from('site_settings').select('key,value');
@@ -192,7 +190,12 @@ export default async function handler(req, res, injected) {
     // blocked: goo-net answered with its bot-gate stub, so this run read
     // nothing. It must never be dressed up as "caught up".
     blocked: false, bookmarkAdvanced: false, parseMiss: false, diagnostics: null,
-    skipped: [], note: null
+    skipped: [], note: null,
+    // How the listing page was read ('direct' or 'relay'), and whether the
+    // relay runs with an API key. When a blocked report shows
+    // relayKey: 'free (no key)', the keyless relay tier is the first suspect
+    // — see GOONET-SYNC.md → "The importer is blocked every run".
+    via: 'direct', relayKey: relayApiKey() ? 'configured' : 'free (no key)'
   };
 
   try {
@@ -244,6 +247,7 @@ export default async function handler(req, res, injected) {
 
     report.page = bookmark;
     report.cardsSeen = page.cars.length;
+    report.via = usedFetch.via || 'direct';
 
     // ---- Why did we see (almost) no cards? --------------------------------
     // Two unrelated failures look identical in the counts, and telling them

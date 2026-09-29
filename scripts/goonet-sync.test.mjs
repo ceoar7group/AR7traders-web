@@ -12,6 +12,11 @@ function ok(cond, name) {
   if (cond) { pass++; console.log('  ✓ ' + name); }
   else { fail++; console.error('  ✗ ' + name); }
 }
+function eq(a, b, name) {
+  const same = JSON.stringify(a) === JSON.stringify(b);
+  if (same) { pass++; console.log('  ✓ ' + name); }
+  else { fail++; console.error(`  ✗ ${name}\n      expected ${JSON.stringify(b)}\n      received ${JSON.stringify(a)}`); }
+}
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -387,6 +392,38 @@ ok(db6.tables.japan_dealer_stock.some(r => r.goonet_id === 'NOTITLE0001'),
 ok(db6.tables.japan_dealer_stock.find(r => r.goonet_id === 'NOTITLE0001')?.goonet_url
   === 'https://www.goo-net.com/usedcar/spread/goo/15/NOTITLE0001.html',
   'the imported row keeps the rebuilt goo-net url');
+
+// ---- Seventh run: goo-net gates the DETAIL pages, not the listing ----------
+// Regression: a gated Vercel host could still read the listing while every
+// detail fetch came back as a 200 bot-gate stub. Detail fetches were never
+// relayed (the stub heuristic is listing-only), so the merge kept card-only
+// data and every candidate was skipped for "missing fields: fuel, body" —
+// a run that read goo-net perfectly yet imported nothing. A small body with
+// the gate's own wording is unmistakably the gate, so it is relayed now.
+resetFetchState();
+const gateStub7 = '<html><body>セキュリティチェックを行っています。しばらくお待ちください。</body></html>';
+const db7 = memDb();
+db7.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db7.tables.japan_dealer_stock = [];
+const relayCalls7 = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) { relayCalls7.push(u); return { ok: true, status: 200, text: async () => detailHtml }; }
+  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => listingHtml };
+  return { ok: true, status: 200, text: async () => gateStub7 };   // every detail page is gated
+};
+
+const res7 = fakeRes();
+await handler(req, res7, { db: db7.db });
+ok(res7.body?.cardsSeen >= 2, 'gated-details run still reads the listing');
+ok(relayCalls7.length > 0, 'gated detail pages are retried through the relay');
+ok(res7.body?.inserted >= 1, `gated details do not starve the import (inserted ${res7.body?.inserted})`);
+ok(!(res7.body?.skipped || []).some(x => String(x).includes('missing fields')),
+  'no car is skipped for missing fields once the relayed detail parses');
+eq(res7.body?.via, 'direct', 'the report names how the listing was read');
+eq(res7.body?.relayKey, 'free (no key)', 'the report says the relay runs keyless until JINA_API_KEY is set');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
