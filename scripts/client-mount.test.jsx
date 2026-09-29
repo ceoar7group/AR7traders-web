@@ -141,6 +141,7 @@ const ROUTES = [
   ['/world', 'world-page'],
   ['/account', 'AR7'],
   ['/studio', 'AR7'],
+  ['/portal', 'portal-demo'],
   ['/japan-stock', 'LIVE GOO-NET DEALER STOCK'],
   ['/crm', 'crm-'],
   ['/inventory', 'inv-toolbar'],

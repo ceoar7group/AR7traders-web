@@ -341,7 +341,28 @@ insert into public.role_permissions (role,permission,allowed) values
   ('manager','hr.view',true),('manager','hr.manage',false),('manager','payroll.view',false),('manager','payroll.manage',false),
   ('sales','hr.view',false),('sales','hr.manage',false),('sales','payroll.view',false),('sales','payroll.manage',false),
   ('accounts','hr.view',true),('accounts','hr.manage',false),('accounts','payroll.view',true),('accounts','payroll.manage',true),
-  ('viewer','hr.view',false),('viewer','hr.manage',false),('viewer','payroll.view',false),('viewer','payroll.manage',false)
+  ('viewer','hr.view',false),('viewer','hr.manage',false),('viewer','payroll.view',false),('viewer','payroll.manage',false),
+  -- Quotes, shipments and tasks. api/crm.js enforces these, so a read-only
+  -- Viewer can no longer write them. Defaults follow the related screens:
+  -- quotes are sales documents, shipments are an accounts/logistics task,
+  -- tasks are open to everyone who works records.
+  ('admin','quotes.write',true),('admin','shipments.write',true),('admin','tasks.write',true),
+  ('manager','quotes.write',true),('manager','shipments.write',true),('manager','tasks.write',true),
+  ('sales','quotes.write',true),('sales','shipments.write',false),('sales','tasks.write',true),
+  ('accounts','quotes.write',false),('accounts','shipments.write',true),('accounts','tasks.write',true),
+  ('viewer','quotes.write',false),('viewer','shipments.write',false),('viewer','tasks.write',false)
+on conflict (role,permission) do nothing;
+
+-- ---- Migration: permission rows added after the first release -------------
+-- Safe to re-run. Databases created before quotes/shipments/tasks had their
+-- own permissions need these rows, otherwise every role except Administrator
+-- is refused. api/_perm.js also falls back to the same defaults in code, so
+-- nothing breaks between the deploy and running this.
+insert into public.role_permissions (role,permission,allowed) values
+  ('manager','quotes.write',true),('manager','shipments.write',true),('manager','tasks.write',true),
+  ('sales','quotes.write',true),('sales','shipments.write',false),('sales','tasks.write',true),
+  ('accounts','quotes.write',false),('accounts','shipments.write',true),('accounts','tasks.write',true),
+  ('viewer','quotes.write',false),('viewer','shipments.write',false),('viewer','tasks.write',false)
 on conflict (role,permission) do nothing;
 
 -- ---- Approvals -------------------------------------------------------

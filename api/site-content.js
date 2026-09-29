@@ -1,10 +1,28 @@
 // Public website content API.
 //
 // GET  is PUBLIC  — the live website reads its listings/routes/articles here.
-// POST/PATCH/DELETE require an authenticated admin (same rule as api/crm.js).
+// POST/PATCH/DELETE require an authenticated member holding `site.write` —
+// Administrator and Manager by default, and changeable from CRM → Team &
+// permissions without a redeploy. (This used to be hard-coded to role=admin,
+// which contradicted the "Edit the public website" box the grid shows ticked
+// for Manager: the box said yes, the API answered 403.)
 //
 // This is what makes the website editable from the CRM.
 import {adminClient, requireUser, send} from './_supabase.js';
+import {requirePerm} from './_perm.js';
+import {SITE_COLUMNS} from './_columns.js';
+
+// Editing the public website is gated by the `site.write` permission, so the
+// Team & permissions grid is the single place that decides who may do it
+// (Administrator and Manager by default). Tests inject {db, getUser, permsFor}.
+async function assertSiteWrite(profile, injected = {}) {
+  if (injected.permsFor) {
+    const allowedWrite = profile?.role === 'admin' || !!(await injected.permsFor(profile?.role))['site.write'];
+    if (!allowedWrite) throw Object.assign(new Error(`Your role (${profile?.role}) is not allowed to do this`), {status: 403});
+    return;
+  }
+  await requirePerm(profile, 'site.write');
+}
 
 // ---------------------------------------------------------------------------
 // Vehicle sitemap (GET ?sitemap=vehicles, rewritten from the public URL
@@ -148,12 +166,8 @@ const entities = {
   blocks:   'site_blocks'
 };
 
-const allowed = {
-  listings: ['stock_no','make','model','year','km','fuel','body','price','image','images','gallery','grade','status','location','tr','drv','eng','seats','col','st','published','sort_order'],
-  routes:   ['country','port','transit','popular','freight_base','duty_pct','lon','lat','show_on_map','published','sort_order'],
-  articles: ['title','category','date','read_min','image','excerpt','body','published','sort_order'],
-  blocks:   ['key','label','value','page']
-};
+// Writable columns live in api/_columns.js (shared with api/approvals.js).
+const allowed = SITE_COLUMNS;
 
 function clean(entity, body) {
   const out = {};
@@ -174,7 +188,7 @@ export default async function handler(req, res, injected = {}) {
   const table = entities[entity];
   if (!table) return send(res, 400, {error: 'Unknown entity'});
 
-  const db = adminClient();
+  const db = injected.db || adminClient();
 
   // ---- Public read: the live website calls this anonymously.
   if (req.method === 'GET') {
@@ -188,15 +202,19 @@ export default async function handler(req, res, injected = {}) {
     return send(res, 200, data);
   }
 
-  // ---- Everything below is admin-only.
+  // ---- Everything below needs the "Edit the public website" permission.
   // requireUser() throws with a status on failure — it does NOT return {ok}.
   let auth;
   try {
-    auth = await requireUser(req);
+    auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
   } catch (e) {
     return send(res, e.status || 401, {error: e.message || 'Unauthorized'});
   }
-  if (auth.profile?.role !== 'admin') return send(res, 403, {error: 'Admin access required'});
+  try {
+    await assertSiteWrite(auth.profile, injected);
+  } catch (e) {
+    return send(res, e.status || 403, {error: e.message || 'Not allowed'});
+  }
 
   if (req.method === 'POST') {
     const payload = clean(entity, req.body);

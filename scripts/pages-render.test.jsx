@@ -48,7 +48,10 @@ const ROUTES = {
   '/contact': ['inner-page'],
   '/shipping': ['inner-page'],
   '/account': ['AR7'],
-  '/studio': ['AR7']
+  '/studio': ['AR7'],
+  // /portal is in PAGES and in the vercel.json rewrites, so it is a real
+  // public route — it was the only one neither route suite visited.
+  '/portal': ['portal-demo', 'CLIENT PORTAL DEMO']
 };
 
 for (const [path, markers] of Object.entries(ROUTES)) {

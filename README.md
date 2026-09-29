@@ -30,10 +30,17 @@ npm ci          # uses package-lock.json; use `npm install` if the lockfile is m
 npm run dev     # website dev server on 0.0.0.0
 npm run build   # website → dist/
 npm run build:crm        # CRM → crm-preview/dist/
+npm test        # every suite below, in order (this is what CI runs)
 npm run test:currency    # currency logic + render tests
 npm run test:inventory   # inventory table/grid/listings render tests
 npm run test:seo         # per-page SEO head + Car/Breadcrumb JSON-LD
+npm run test:authz       # CRM/site/approval authorization (the permission grid, enforced)
+npm run test:crm         # mounts the real CRM, walks every tab, checks the grid
+npm run test:leads       # public enquiry-form validation
 ```
+
+CI (`.github/workflows/ci.yml`) runs `npm test` plus both builds on every push
+and pull request.
 
 Both test scripts bundle through esbuild into `node_modules/.tmp/`, so they also
 need dependencies installed first. Requires Node >= 20.19.0.

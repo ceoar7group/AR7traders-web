@@ -1,25 +1,62 @@
 import {requireUser,send} from './_supabase.js';
-import {can,log} from './_perm.js';
+import {can,log,requirePerm} from './_perm.js';
+import {CRM_COLUMNS} from './_columns.js';
 
+// Core CRM records.
+//
+//   GET     any signed-in member may read (the CRM screens are read-only views).
+//   POST    requires the entity's write permission.
+//   PATCH   requires the entity's write permission.
+//   DELETE  requires the entity's write permission, then either deletes
+//           (delete.direct) or raises an approval request.
+//
+// Every role in the Team & permissions grid has a box for each write
+// permission. Before this was enforced the API accepted writes from ANY
+// authenticated member — a Viewer, whose every box is unticked, could still
+// create and edit leads, customers and inventory by calling /api/crm
+// directly. The grid now means what it says.
+//
+// `activities` is deliberately read-only: it is the audit trail, and the
+// server writes to it itself. Staff cannot add, edit or delete entries
+// (WHATS-NEW.md §2).
 const entities={leads:'leads',customers:'customers',vehicles:'vehicles',quotes:'quotes',shipments:'shipments',tasks:'tasks',activities:'activities'};
-const allowed={
- leads:['name','email','phone','country','vehicle_interest','source','status','budget','assigned_to','next_follow_up'],
- customers:['name','email','phone','country','status','total_spend','vehicles_bought','notes'],
- vehicles:['stock_no','make','model','year','price','status','location','steering','colour','interior','image','images','gallery','notes','vendor','cost_price','freight_cost','duty_cost','other_cost','sourcing_currency'],
- quotes:['quote_no','customer_name','vehicle','amount','status','valid_until','notes'],
- shipments:['tracking_no','customer_name','vehicle','origin','destination','vessel','status','eta','progress','notes'],
- tasks:['title','owner','priority','status','due_date','notes'],activities:['action','actor','entity_type','entity_id']
+const WRITE_PERM={
+  leads:'leads.write',customers:'customers.write',vehicles:'vehicles.write',
+  quotes:'quotes.write',shipments:'shipments.write',tasks:'tasks.write'
 };
+const READ_ONLY=['activities'];
+// Writable columns live in api/_columns.js so the approval flow filters
+// against exactly the same lists these endpoints do.
+const allowed=CRM_COLUMNS;
 const clean=(entity,body)=>Object.fromEntries((allowed[entity]||[]).filter(k=>body[k]!==undefined).map(k=>[k,body[k]]));
 
-export default async function handler(req,res){
+// Test hook: same rule as requirePerm, resolved against an injected permission
+// table instead of the live role_permissions rows.
+async function assertPerm(profile,permission,injected){
+  if(injected.permsFor){
+    const allowedHere=profile?.role==='admin'||!!(await injected.permsFor(profile?.role))[permission];
+    if(!allowedHere)throw Object.assign(new Error(`Your role (${profile.role}) is not allowed to do this`),{status:403});
+    return;
+  }
+  await requirePerm(profile,permission);
+}
+
+// `injected` ({db, getUser, permsFor}) is a test hook; Vercel always calls (req, res).
+export default async function handler(req,res,injected={}){
  try{
-  const {user,profile,db}=await requireUser(req);const entity=String(req.query.entity||'');
+  const auth=injected.getUser?await injected.getUser(req):await requireUser(req);
+  const {user,profile}=auth;
+  const db=injected.db||auth.db;
+  const entity=String(req.query.entity||'');
   if(entity==='me')return send(res,200,profile);
   if(!entities[entity])return send(res,400,{error:'Unknown CRM entity'});
   if(req.method==='GET'){
    const {data,error}=await db.from(entities[entity]).select('*').order(entity==='tasks'?'due_date':'created_at',{ascending:false}).limit(500);if(error)throw error;return send(res,200,data||[])
   }
+  // The audit trail is written by the server, never by the browser.
+  if(READ_ONLY.includes(entity))
+   return send(res,403,{error:`The activity log is read-only — entries are recorded automatically.`});
+  await assertPerm(profile,WRITE_PERM[entity],injected);
   if(req.method==='POST'){
    const payload={...clean(entity,req.body||{}),created_by:user.id};const {data,error}=await db.from(entities[entity]).insert(payload).select().single();if(error)throw error;
    await db.from('activities').insert({action:`Created ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:data.id,created_by:user.id});return send(res,201,data)
@@ -33,7 +70,10 @@ export default async function handler(req,res){
    const label=row?.name||row?.title||row?.stock_no||row?.quote_no||row?.tracking_no||entity;
    // Staff without direct-delete rights raise an approval request instead
    // of being refused outright, so the work still moves.
-   if(!(await can(profile,'delete.direct'))){
+   const direct=injected.permsFor
+     ?(profile?.role==='admin'||!!(await injected.permsFor(profile?.role))['delete.direct'])
+     :await can(profile,'delete.direct');
+   if(!direct){
     const {data:ar,error:aErr}=await db.from('approval_requests').insert({
       kind:'delete',entity_type:entity,entity_id:id,entity_label:label,
       reason:req.query.reason||null,requested_by:user.id,
