@@ -302,6 +302,21 @@ a half-counted number.
 
 ---
 
+## 20. Dark mode: the "Japan to everywhere" heading is readable again
+
+**Home page, the "Japan to everywhere" section.**
+
+That section keeps its light background even when the site is in dark mode,
+but its heading and its small green label were switching to dark-mode colours
+— near-white and pale green on a light background, so "Japan to" had all but
+disappeared (contrast 1.09:1; comfortable reading needs at least 4.5:1). Both
+now keep their normal dark colours on that light band (14.3:1 and 10.1:1),
+exactly as in light mode. Light mode itself is unchanged, and a check of every
+piece of text on the home and About pages found no other dark-mode-only
+problems.
+
+---
+
 ## Suggested first ten minutes
 
 1. Run the SQL in Supabase.

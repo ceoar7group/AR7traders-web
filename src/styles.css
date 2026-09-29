@@ -63,10 +63,12 @@ a.car-card .fav{cursor:pointer}
 .founder-stat--world .founder-stat-figure,.founder-stat--about .founder-stat-figure{font-size:clamp(42px,4.2vw,56px);letter-spacing:-1px}
 .founder-stat--world .founder-stat-unit,.founder-stat--about .founder-stat-unit{font-size:19px}
 .founder-stat--world .founder-stat-label,.founder-stat--about .founder-stat-label{font-size:13.5px}
-/* the world band keeps its light surface in both themes, so pin light-surface
-   colours there (the dark-theme tokens would wash out on #e8ede8) */
-.world .founder-stat-figure,.world .founder-stat-label em{color:#043f28}
-.world .founder-stat-unit{color:#102018}
+/* The home "world" band keeps its light #e8ede8 surface in both themes, so all
+   of its text is pinned to light-surface colours. The dark-theme tokens (--ink,
+   --green-text) wash out on it: before this, dark mode measured 1.09:1 for the
+   "Japan to" heading and 1.41:1 for the kicker (light mode: 14.3:1 and 10.1:1). */
+.world .kicker,.world .founder-stat-figure,.world .founder-stat-label em{color:#043f28}
+.world h2,.world .founder-stat-unit{color:#102018}
 .world .founder-stat-label{color:#5a6b61}
 /* hero joins the page's entrance choreography, right after the buttons */
 .hero-copy .founder-stat{animation:fadeUp .9s .6s both}
