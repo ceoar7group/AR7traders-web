@@ -7,18 +7,19 @@
 // POST action=promote      → move a car to the public website (site_listings)
 //                            or to CRM inventory (vehicles)
 // POST action=delist       → manually delist / re-list a car
+//
+// Writes need the `site.write` permission (Administrator + Manager by default),
+// decided by CRM → Team & permissions rather than a hard-coded role check.
 import {adminClient, requireUser, send} from './_supabase.js';
+import {requirePerm} from './_perm.js';
+import {GOONET_COLUMNS} from './_columns.js';
 import {
   delistCar as coreDelist,
   promoteToListings, promoteToInventory
 } from './goonet-sync.js';
 
-const ALLOWED = [
-  'goonet_id', 'stock_no', 'make', 'model', 'year', 'km', 'fuel', 'body',
-  'price_jpy', 'price_usd', 'price', 'image', 'images', 'grade', 'status',
-  'location', 'tr', 'drv', 'eng', 'seats', 'col', 'st', 'vendor',
-  'goonet_url', 'photo_count', 'quality_score', 'available', 'promoted'
-];
+// Writable columns live in api/_columns.js (shared with api/approvals.js).
+const ALLOWED = GOONET_COLUMNS;
 
 function clean(body) {
   const out = {};
@@ -26,15 +27,23 @@ function clean(body) {
   return out;
 }
 
-async function admin(req) {
-  const auth = await requireUser(req);
-  if (auth.profile?.role !== 'admin') throw Object.assign(new Error('Admin access required'), { status: 403 });
+// Same rule as api/site-content.js: editing imported stock is gated by the
+// `site.write` permission, not by a hard-coded role, so CRM → Team &
+// permissions is the only place that decides who may do it.
+async function admin(req, injected = {}) {
+  const auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+  if (injected.permsFor) {
+    const allowedWrite = auth.profile?.role === 'admin' || !!(await injected.permsFor(auth.profile?.role))['site.write'];
+    if (!allowedWrite) throw Object.assign(new Error(`Your role (${auth.profile?.role}) is not allowed to do this`), { status: 403 });
+    return auth;
+  }
+  await requirePerm(auth.profile, 'site.write');
   return auth;
 }
 
-export default async function handler(req, res) {
+export default async function handler(req, res, injected = {}) {
   try {
-    const db = adminClient();
+    const db = injected.db || adminClient();
 
     // ---- Public read: the Japan dealer stock page -------------------------
     if (req.method === 'GET' && req.query.all !== '1') {
@@ -47,7 +56,7 @@ export default async function handler(req, res) {
     }
 
     // ---- Everything below requires an admin -------------------------------
-    const auth = await admin(req);
+    const auth = await admin(req, injected);
     const actor = auth.profile.full_name || auth.user.email;
 
     // POST action routes (promote / delist / reset_bookmark) — separate from plain CRUD.

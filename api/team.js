@@ -1,18 +1,24 @@
 import {requireUser,adminClient,send} from './_supabase.js';
-import {requirePerm,log,clearPermCache} from './_perm.js';
+import {requirePerm,log,clearPermCache,matrixRows,PERMISSION_KEYS} from './_perm.js';
 
 const ROLES=['admin','manager','sales','accounts','viewer'];
 
-export default async function handler(req,res){
+// `injected` ({db, getUser, matrixRows}) is a test hook; Vercel always calls (req, res).
+export default async function handler(req,res,injected={}){
  try{
-  const {user,profile,db}=await requireUser(req);
+  const auth=injected.getUser?await injected.getUser(req):await requireUser(req);
+  const {user,profile}=auth;
+  const db=injected.db||auth.db;
   const action=String(req.query.action||'members');
 
   // Anyone signed in may read the permission matrix (the UI greys out
   // buttons the user cannot use). Changing it needs team.manage.
+  // matrixRows() returns the full grid — database rows over the code
+  // defaults — so every permission is shown for every role even on a
+  // database provisioned before that permission existed.
   if(action==='permissions'&&req.method==='GET'){
-   const {data,error}=await db.from('role_permissions').select('*').order('role').order('permission');
-   if(error)throw error;return send(res,200,data||[]);
+   const rows=injected.matrixRows?await injected.matrixRows():await matrixRows();
+   return send(res,200,rows);
   }
   if(action==='me'&&req.method==='PATCH'){
    const {full_name,title,phone}=req.body||{};
@@ -87,6 +93,9 @@ export default async function handler(req,res){
    const {role,permission,allowed}=req.body||{};
    if(role==='admin')return send(res,400,{error:'Admin permissions cannot be reduced.'});
    if(!ROLES.includes(role))return send(res,400,{error:'Unknown role'});
+   // Only permissions this code understands may be written, so the table
+   // cannot be used as arbitrary storage for keys nothing ever reads.
+   if(!PERMISSION_KEYS.includes(permission))return send(res,400,{error:'Unknown permission'});
    const {error}=await db.from('role_permissions')
      .upsert({role,permission,allowed:!!allowed},{onConflict:'role,permission'});
    if(error)throw error;

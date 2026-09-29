@@ -41,6 +41,36 @@ so you cannot accidentally lock yourself out.
 You can also disable a member (they keep their history, they just cannot sign
 in) or set them a new password.
 
+### The grid is now enforced everywhere (2026-09-30)
+
+Before this, the grid was only partly wired up. `/api/crm` accepted writes from
+any signed-in member regardless of their boxes, so a Viewer could create and
+edit leads, customers and inventory by calling the API directly. Meanwhile
+"Edit the public website" was ticked for Manager in the grid but the endpoint
+hard-required Administrator, so Managers were refused.
+
+Now every write checks the matching permission:
+
+| Tab | Permission |
+|---|---|
+| Leads | Add / edit leads |
+| Customers | Add / edit customers |
+| Inventory | Add / edit inventory |
+| Quotes | **Add / edit quotes** (new) |
+| Shipments | **Add / edit shipments** (new) |
+| Tasks | **Add / edit tasks** (new) |
+| Website cars, Shipping routes, News & guides, Japan dealer stock | Edit the public website |
+
+**One step needed in Supabase.** Quotes, shipments and tasks are new rows, so
+re-run `supabase/SETUP-EVERYTHING.sql` in the SQL Editor (it is safe to re-run)
+to add them. Until you do, the API falls back to the same defaults in code, so
+nothing breaks — but the new boxes will not be visible in the grid.
+
+Two related hardenings: the **Activity log is now read-only** through the API
+(it always was in the UI), so log entries cannot be forged or edited; and an
+**approval request can only carry the columns its record type actually has**,
+so a crafted request cannot smuggle changes past whoever approves it.
+
 ## 2. Activity log
 
 **CRM → Activity**

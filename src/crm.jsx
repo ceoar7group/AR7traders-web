@@ -213,6 +213,9 @@ const PERM_LABELS = {
   'vehicles.write': 'Add / edit inventory',
   'orders.write': 'Add / edit orders',
   'payments.write': 'Record & apply payments',
+  'quotes.write': 'Add / edit quotes',
+  'shipments.write': 'Add / edit shipments',
+  'tasks.write': 'Add / edit tasks',
   'site.write': 'Edit the public website',
   'team.manage': 'Manage team members',
   'approvals.decide': 'Approve or reject requests',
@@ -226,6 +229,15 @@ const PERM_LABELS = {
 };
 
 const ROLE_LIST = ['admin', 'manager', 'sales', 'accounts', 'viewer'];
+
+// Which permission gates writes to each tab. Mirrors WRITE_PERM in
+// api/crm.js (and the site.write gate in api/site-content.js) so the buttons
+// the CRM shows match what the API will actually accept.
+const ENTITY_WRITE_PERM = {
+  leads: 'leads.write', customers: 'customers.write', vehicles: 'vehicles.write',
+  quotes: 'quotes.write', shipments: 'shipments.write', tasks: 'tasks.write',
+  listings: 'site.write', routes: 'site.write', articles: 'site.write', goonet: 'site.write'
+};
 const SITE_ENTITIES = ['listings', 'routes', 'articles'];
 
 // ---------------------------------------------------------------------------
@@ -785,7 +797,11 @@ export default function CrmApp() {
     }
   }
 
-  const canDelete = (profile?.role || '') !== 'viewer';
+  // Writing (and so deleting, directly or via an approval request) follows
+  // the permission grid. This used to be a hard-coded `role !== 'viewer'`,
+  // which showed Delete to roles the API would refuse — and hid it from a
+  // role an admin had deliberately granted the right to.
+  const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
   const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock' };
   const current = configs[tab];
   const heading = tab === 'dashboard' ? 'Good day, ' + (profile?.full_name?.split(' ')[0] || 'Team') : (SPECIAL[tab] || current?.title || '');
@@ -907,7 +923,7 @@ export default function CrmApp() {
             profile={profile}
             notify={setNotice}
             onEdit={data => setEditor({ entity: 'goonet', data })}
-            onDelete={canDelete ? row => remove('goonet', row) : null}
+            onDelete={canWrite('goonet') ? row => remove('goonet', row) : null}
             onManagePhotos={row => setPhotoTarget({ entity: 'goonet', row })}
             onViewGallery={row => setGalleryView(row)}
             onPromote={(row, target) => goonetAction(row, 'promote', target)}
@@ -949,7 +965,7 @@ export default function CrmApp() {
               entity={tab}
               rows={filtered}
               onEdit={data => setEditor({ entity: tab, data })}
-              onDelete={canDelete ? row => remove(tab, row) : null}
+              onDelete={canWrite(tab) ? row => remove(tab, row) : null}
               onManagePhotos={row => setPhotoTarget({ entity: tab, row })}
               onViewGallery={row => setGalleryView(row)}
               onQuickPatch={(row, patch) => quickPatch(tab, row, patch)}
@@ -971,7 +987,7 @@ export default function CrmApp() {
           data={editor.data}
           onClose={() => setEditor(null)}
           onSave={x => save(editor.entity, x)}
-          onDelete={canDelete && editor.data?.id ? () => remove(editor.entity, editor.data) : null}
+          onDelete={canWrite(editor.entity) && editor.data?.id ? () => remove(editor.entity, editor.data) : null}
           onDuplicate={editor.data?.id ? () => {
             const copy = { ...editor.data };
             delete copy.id; delete copy.created_at; delete copy.updated_at;
@@ -3263,7 +3279,11 @@ function AccountsList({ customers, onOpen }) {
   const [filter, setFilter] = useState('all');
   const searched = customers.filter(c => JSON.stringify(c).toLowerCase().includes(q.toLowerCase()));
   const list = filter === 'all' ? searched : searched.filter(c => statusClass(c.status) === filter);
-  const sum = (f, init) => searched.reduce((a, c) => a + (f(c) || 0), init);
+  // Default the accumulator to 0. Three of the KPIs below call sum() with a
+  // single argument, and reduce(fn, undefined) starts the accumulator at
+  // undefined — so "Vehicles delivered" and "Portal access" rendered NaN and
+  // "Lifetime revenue" silently collapsed to $0.
+  const sum = (f, init = 0) => searched.reduce((a, c) => a + (f(c) || 0), init);
   const statuses = [...new Set(customers.map(c => statusClass(c.status)).filter(Boolean))];
 
   return (
