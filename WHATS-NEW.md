@@ -238,6 +238,9 @@ direction; see `CLAIMS-POLICY.md` §1. Everything else stayed the same: the
 words are exactly as approved, and the qualifier stays visible next to the
 number, never hidden.
 
+*(Superseded later on 2026-09-29: the qualifier line was removed and the
+figure now animates — see §19.)*
+
 **Also in this update:** sharing any page of the site now uses a picture
 picked for that page — stock-yard photo for the inventory pages, port scene
 for shipping, inspection photo for auction pages — and sharing a single
@@ -264,6 +267,53 @@ with Land Cruisers and Lexus vehicles lined up on the quay.
 **Staff CRM demo thumbnails.** The five small dealer-stock demo photos were
 upscaled to 800×600 so nothing in the CRM looks fuzzy. The photos themselves
 are the same genuine dealer images — only the resolution improved.
+
+---
+
+## 19. The 900+ figure now counts up — and the small print is gone
+
+**Home page hero, the "Japan to everywhere" section, and the About page.**
+
+Done as you asked on 2026-09-29:
+
+- **The small-print line is removed.** *"Experience gained through various
+  suppliers; these are not AR7 Traders sales totals."* no longer appears
+  anywhere on the site. (On the home page and the About page it was actually
+  showing *larger* than the label above it.)
+- **The label is enhanced.** It used to be tiny grey small print. Now
+  **cars sold** sits in bold right beside the number, a thin gold line
+  separates the two, and the supporting line — *"Dozens of satisfied
+  customers, including car businesses."* — is a readable size, with
+  **satisfied customers** and **car businesses** picked out in the brand
+  green. Your words are unchanged; the only edits are a capital "D" and a
+  comma, because it now starts its own line.
+- **900+ is animated.** The first time the number scrolls into view it counts
+  up from 0 to 900. The gold line and the label slide in beside it, and as the
+  count lands the gold **+** pops in with a soft glow while a gold glint sweeps
+  across the digits. In the hero it waits for the page's opening animation
+  first. It plays once each time the page is opened.
+
+Visitors who have "reduce motion" switched on in their phone or computer
+settings see the finished 900+ straight away, with no animation. Screen
+readers and search engines always get the real "900+" in the page text, never
+a half-counted number.
+
+`CLAIMS-POLICY.md` §1 now records this decision.
+
+---
+
+## 20. Dark mode: the "Japan to everywhere" heading is readable again
+
+**Home page, the "Japan to everywhere" section.**
+
+That section keeps its light background even when the site is in dark mode,
+but its heading and its small green label were switching to dark-mode colours
+— near-white and pale green on a light background, so "Japan to" had all but
+disappeared (contrast 1.09:1; comfortable reading needs at least 4.5:1). Both
+now keep their normal dark colours on that light band (14.3:1 and 10.1:1),
+exactly as in light mode. Light mode itself is unchanged, and a check of every
+piece of text on the home and About pages found no other dark-mode-only
+problems.
 
 ---
 

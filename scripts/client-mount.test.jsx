@@ -39,7 +39,16 @@ setGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 dom.window.scrollTo = () => {};
 dom.window.HTMLElement.prototype.scrollIntoView = function () {};
 dom.window.matchMedia = dom.window.matchMedia || (() => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
-dom.window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } };
+// Records what each observer watches (never fires on its own), so a test can
+// scroll one specific element "into view" by calling its callback.
+const ioInstances = [];
+dom.window.IntersectionObserver = class {
+  constructor(cb) { this.cb = cb; this.targets = []; ioInstances.push(this); }
+  observe(el) { this.targets.push(el); }
+  unobserve() {}
+  disconnect() { this.targets = []; }
+  takeRecords() { return []; }
+};
 dom.window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 setGlobal('scrollTo', dom.window.scrollTo);
 setGlobal('matchMedia', dom.window.matchMedia);
@@ -180,6 +189,29 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     await act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     ok(btn.getAttribute('aria-expanded') === 'false', 'Escape closes the Brands panel');
   }
+}
+
+// ---- the 900+ founder stat counts up once it scrolls into view -------------
+// Server markup carries the finished figure (pages suite). On the client the
+// stat arms at 0 before first paint, waits for its IntersectionObserver, then
+// counts to the final figure and lands in is-done (which pops the gold "+").
+{
+  await goto('/about');
+  const stat = document.querySelector('.founder-stat--about');
+  const live = () => stat?.querySelector('.founder-stat-live')?.textContent;
+  ok(!!stat && stat.classList.contains('is-armed') && live() === '0',
+    `the founder stat waits at 0 until it is scrolled into view (${stat?.className} / ${live()})`);
+  ok(stat?.querySelector('.sr-only')?.textContent === '900+', 'screen readers get the real 900+ while the digits are at 0');
+  const io = ioInstances.find(o => o.targets.includes(stat));
+  ok(!!io, 'the founder stat is watched by an IntersectionObserver');
+  if (io) {
+    // COUNT_MS (2000) + the 120ms start delay, with margin
+    await act(async () => { io.cb([{ isIntersecting: true, target: stat }]); await new Promise(r => setTimeout(r, 2600)); });
+    ok(stat.classList.contains('is-done') && live() === '900',
+      `scrolled into view, it counts up and lands on 900 (${stat.className} / ${live()})`);
+    ok(!!stat.querySelector('.founder-stat-glint'), 'the landing glint overlay renders once the count is done');
+  }
+  ok(!crash(), 'the app survives the founder-stat count-up');
 }
 
 // ---- a vehicle deep link survives a reload ---------------------------------
