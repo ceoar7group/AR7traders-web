@@ -57,8 +57,12 @@ substantiation exists. **Do not reintroduce them** in any form (site copy,
 
 - The website may show reviews **only if** they are from real customers,
   collected with their consent, and displayed verbatim on the page.
-- The current site shows a truthful statement that reviews are being
-  collected from customers — not a fabricated rating.
+- The current site shows a **"Verified Buyer Feedback" trust card** that
+  states reviews are being collected from customers — not a fabricated
+  rating. Its decorative initials cluster is `aria-hidden` and the page copy
+  explicitly discloses the initials as placeholders, not published reviewers.
+  Do not attach names, faces, quotes or star ratings to it until real,
+  consented reviews exist.
 - Once ≥1 genuine review is published on-page, per-review markup may be
   added. `aggregateRating` requires a genuine visible collection of reviews
   and should be discussed with the owner first.

@@ -222,25 +222,48 @@ run again on an existing database.
 
 ---
 
-## 17. The 1,200+ experience figure now stands out
+## 17. The 900+ experience figure now stands out
 
 **Home page hero, the "Japan to everywhere" section, and the About page.**
 
 You asked for the founder-experience figure to be impossible to miss. It is
-now a large headline-sized number (64px on a desktop, sized down sensibly on
-phones), with the line *"vehicles sold across our founder's automotive
-career"* underneath it and the honesty qualifier — *"Experience gained through
-various suppliers; these are not AR7 Traders sales totals."* — kept as small
-print right beside it on every page where the figure appears.
+now a large headline-sized number (68px on a desktop, sized down sensibly on
+phones) with a gold **+**, the line *"vehicles sold across our founder's
+automotive career"* underneath it and the honesty qualifier — *"Experience
+gained through various suppliers; these are not AR7 Traders sales totals."* —
+kept as small print right beside it on every page where the figure appears.
 
-Only the size changed. The words are exactly the same as before, and the
-qualifier stays visible next to the number, never hidden.
+On 2026-09-29 the figure was lowered from 1,200+ to **900+** at the owner's
+direction; see `CLAIMS-POLICY.md` §1. Everything else stayed the same: the
+words are exactly as approved, and the qualifier stays visible next to the
+number, never hidden.
 
 **Also in this update:** sharing any page of the site now uses a picture
 picked for that page — stock-yard photo for the inventory pages, port scene
 for shipping, inspection photo for auction pages — and sharing a single
 vehicle link uses that vehicle's own photograph, instead of every link
 showing the same default image.
+
+---
+
+## 18. Reviews trust card and sharper photography
+
+**The Customer stories page (/reviews).** Instead of a bare "no reviews"
+message, the page now opens with a styled **"Verified Buyer Feedback"**
+trust card: a cluster of placeholder initials in the brand colours (with a
+gold **+** badge) beside the headline, an honest notice that genuine reviews
+are being collected right now, and a "Bought from us? Share your experience"
+button. The initials are decorative placeholders — the page says so in plain
+words — and no invented testimonials or star ratings are shown. When the
+first real, consented reviews arrive, they replace the placeholders.
+
+**/contact hero photo.** The blurry 500×322 dock picture was replaced with a
+crisp 1400×900 photograph of a Japanese Ro-Ro car carrier dock at sunrise,
+with Land Cruisers and Lexus vehicles lined up on the quay.
+
+**Staff CRM demo thumbnails.** The five small dealer-stock demo photos were
+upscaled to 800×600 so nothing in the CRM looks fuzzy. The photos themselves
+are the same genuine dealer images — only the resolution improved.
 
 ---
 

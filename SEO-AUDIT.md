@@ -27,7 +27,8 @@ with live network access) to confirm after deploy.
 | B3 | Unsubstantiated stats removed (4.9/5, 98%, 35+ countries, manufacturer partnerships, universal auction-sheet verification) | ✅ Repo (negative assertions in test suites) | Reintroduction blocked by `CLAIMS-POLICY.md` §2. |
 | B4 | No `aggregateRating`, no invented `sameAs` | ✅ Repo (seo-render suite checks JSON-LD) | Rules in `CLAIMS-POLICY.md` §3. |
 | B5 | No UK physical-location implication from the UK phone | ✅ Repo | No address is claimed anywhere. |
-| B6 | Founder-stat prominence (owner-approved 2026-09-28): `1,200+` dominant at all three sites (hero, world section, about story grid), label + qualifier secondary small print directly adjacent, wording untouched | ✅ Repo | Dedicated `.founder-stat` class (shared `.stats`/`.trust-row` rules unchanged; 650px media query covered); pages suite asserts figure+qualifier in the same block at each site (86 passed). Presentation approval recorded in `CLAIMS-POLICY.md` §1. |
+| B6 | Founder-stat prominence (owner-approved 2026-09-28; figure revised `1,200+` → **`900+`** owner-directed 2026-09-29): dominant at all three sites (hero, world section, about story grid) with gold `+`, label + qualifier secondary small print directly adjacent, wording untouched | ✅ Repo | Dedicated `.founder-stat` class (shared `.stats`/`.trust-row` rules unchanged; 650px media query covered); pages suite asserts the 900+ figure + qualifier in the same block at each site. Revision recorded in `CLAIMS-POLICY.md` §1. |
+| B7 | `/reviews` trust card: "Verified Buyer Feedback" headline, decorative placeholder initials (`aria-hidden`, disclosed in copy as placeholders), transparent reviews-being-gathered notice — no invented testimonials or ratings | ✅ Repo | `CLAIMS-POLICY.md` §3 updated; pages suite asserts headline + placeholder disclosure and still blocks fictional testimonials/star ratings. |
 
 ## C. SEO implementation — repo (commit `7452005`)
 

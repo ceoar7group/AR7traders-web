@@ -26,7 +26,8 @@ the contacts (`0da8b06`) and claims (`13a5fec`, `a2e5286`) commits. See
 and `CLAIMS-POLICY.md` for the marketing-claims rules.
 
 Session `arena/01a0e7ed-ar7traders-web` (same day, PR to `main`) adds:
-owner-approved prominence for the 1,200+ founder stat (wording unchanged,
+owner-approved prominence for the founder stat (figure since lowered to 900+
+by owner direction of 2026-09-29, wording unchanged,
 `CLAIMS-POLICY.md` §1), per-page Open Graph images for all 16 public routes
 plus per-vehicle photos on detail pages, and the dynamic vehicle sitemap
 route `/api/sitemap-vehicles.xml` (referenced from `robots.txt`). Post-deploy
