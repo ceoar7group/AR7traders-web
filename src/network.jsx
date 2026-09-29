@@ -150,7 +150,6 @@ function Seed({navigate}){
     <g className="whappy" style={{animationDelay:(i*0.45)+'s'}}>
      <circle className="wh-ring" r="17"/><circle className="wh-face" r="13"/><text className="wh-emoji" textAnchor="middle" dy="4.5">😊</text>
      <g className="wh-bub" transform="translate(-8,-42)"><rect className="wh-bub-bg" rx="9" width={64+m.name.length*6.2+16} height="21"/><Flag c={m.name} w={12} h={8} x={8} y={6.5}/><text className="wh-bub-txt" x="26" y="14.5">{m.name}</text></g>
-     <text className="wh-stars" textAnchor="middle" y="30">★★★★★</text>
     </g>
    </g>})}
   {MARKETS.slice(0,3).map((m,i)=>{const d=arcFor(m);return <g key={'pl'+m.name} className="wplane"><animateMotion dur={(14+i*2.5)+'s'} begin={(-i*5)+'s'} repeatCount="indefinite" path={d} rotate="auto"/><g transform="scale(1.35)"><path className="wp-con" d="M-32 0 h20"/><path className="wp-jet" d="M-8 0 L6 -5 L6 -2.2 L16 -2.8 L16 2.8 L6 2.2 L6 5 Z"/></g></g>})}
