@@ -93,10 +93,11 @@ for (const [path, markers] of Object.entries(ROUTES)) {
 // The 900+ figure (owner-directed revision 2026-09-29, previously 1,200+) is
 // the founder's career total across various suppliers — never an AR7 Traders
 // sales total, buyer count or rating. It must always carry its visible
-// qualifier, and unsupported ratings/stats must not return.
+// qualifier, and unsupported ratings/stats must not return. Wording revised
+// 2026-09-29 to "cars sold, dozens of satisfied customers including car businesses."
 {
   const home = renderPage('/');
-  ok(home.includes('vehicles sold across our founder'), 'home hero states the founder-career experience claim');
+  ok(home.includes('cars sold, dozens of satisfied customers including car businesses'), 'home hero states the founder-career experience claim (owner-directed 2026-09-29 wording)');
   ok(home.includes('Experience gained through various suppliers; these are not AR7 Traders sales totals'),
     'the founder-claim qualifier is visible on the home page');
   // Owner-approved prominence (2026-09-28): a dedicated large stat per site,
@@ -119,7 +120,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
 }
 {
   const about = renderPage('/about');
-  ok(about.includes('vehicles sold across our founder') && about.includes('Experience gained through various suppliers'),
+  ok(about.includes('cars sold, dozens of satisfied customers including car businesses') && about.includes('Experience gained through various suppliers'),
     'about page carries the founder claim with its qualifier');
   ok((about.match(/founder-stat--about/g) || []).length === 1 &&
     /founder-stat--about[\s\S]{0,900}?class="claim-note">Experience gained through various suppliers/.test(about),
@@ -143,6 +144,11 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   for (const name of ['Ahmed H.', 'Mary K.', 'Daniel O.', 'Saeed A.', 'James M.', 'Fatima K.']) {
     ok(!reviews.includes(name), `no fictional testimonial from ${name}`);
   }
+  // New: dozens of placeholder avatars (owner-directed) — still SEO-safe, no ratings, disclosed as placeholders
+  ok((reviews.match(/reviews-avatar-item/g) || []).length >= 24, 'reviews page shows dozens of placeholder avatars (≥24) with disclosure, SEO-safe');
+  ok(reviews.includes('placeholders for layout only') && reviews.includes('not published reviewers'),
+    'global avatar grid is disclosed as placeholders, not reviewers, with no aggregateRating');
+  ok(!reviews.includes('aggregateRating') && !reviews.includes('\"Review\"'), 'no Review structured data on /reviews until real consented reviews exist');
 }
 
 // ---- honest stock labels (no fabricated auction lot numbers) ------------------

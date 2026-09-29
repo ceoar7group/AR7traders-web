@@ -96,7 +96,7 @@ does not execute all scripts):
 
 ```sh
 npm ci
-for task in routing contacts header pages currency inventory client seo settings goonet sitemap-vehicles; do
+for task in routing contacts header pages currency inventory client seo settings goonet sitemap-vehicles functions; do
   npm run "test:$task" || exit 1
 done
 npm run build && npm run build:crm
@@ -107,7 +107,10 @@ Script notes: `test:seo` and `test:seo-render` are aliases for the same file
 suites (158 / 54 / 41); `test:sitemap-vehicles` covers the dynamic vehicle
 sitemap route (logic inside `api/site-content.js`, dispatched on
 `?sitemap=vehicles`; the public URL `/api/sitemap-vehicles.xml` is kept by
-a `vercel.json` rewrite). The logic lives inside the site-content function
+a `vercel.json` rewrite); `test:functions` guards the Vercel Hobby 12-function
+cap — it counts api/*.js excluding api/_*.js and fails loudly if a 13th
+function is added, pointing to the consolidation pattern in
+api/site-content.js. The sitemap logic lives inside the site-content function
 because Vercel Hobby allows **12 Serverless Functions per deployment** and
 a standalone 13th function broke every deploy from 2026-09-28 to
 2026-09-29 — including production, which stayed on the PR #40 build until

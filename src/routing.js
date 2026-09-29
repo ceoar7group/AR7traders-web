@@ -27,6 +27,10 @@ export function decodeRef(ref) {
   return raw;
 }
 
+import { carRef as _carRef, hrefFor as _hrefFor } from './sitemap-helpers.js';
+export const carRef = _carRef;
+export const hrefFor = _hrefFor;
+
 export function carSlug(c) {
   return [c?.year, c?.make, c?.model, c?.id]
     .filter(v => v != null && v !== '')
@@ -34,12 +38,6 @@ export function carSlug(c) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-}
-
-export function carRef(c) {
-  if (!c) return '';
-  const stock = c.stock_no && String(c.stock_no).trim();
-  return stock || String(c.id);
 }
 
 export function findCar(list, ref) {
@@ -164,12 +162,6 @@ export function parseNavTarget(target) {
     });
   }
   return parseRoute({ pathname: '/', search: '', hash: '#' + raw.replace(/^#/, '') });
-}
-
-export function hrefFor(page, carId) {
-  if (!page || page === 'home') return '/';
-  if (page === 'inventory' && carId) return '/inventory/' + encodeURIComponent(String(carId));
-  return '/' + page;
 }
 
 /** Hash form that never contains `?`, so a refresh cannot strip the car. */

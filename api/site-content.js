@@ -10,36 +10,38 @@ import {adminClient, requireUser, send} from './_supabase.js';
 // Vehicle sitemap (GET ?sitemap=vehicles, rewritten from the public URL
 // /api/sitemap-vehicles.xml — see vercel.json).
 //
-// The logic lives IN THIS FILE, not in its own api/*.js function and not in
-// an imported module, for two reasons found the hard way on 2026-09-29:
-//   1. Vercel Hobby allows **12 Serverless Functions per deployment** — a
-//      13th api/*.js file broke every deploy (preview AND production,
-//      exceeded_serverless_functions_per_deployment).
-//   2. A separate _sitemap-core.js module built fine but 500'd at runtime
-//      under the function runtime's cross-module interop, so the dispatcher
-//      below calls these local functions directly.
-// The two tiny helpers are pinned to their originals in src/routing.js by
-// scripts/sitemap-vehicles.test.mjs.
+// The logic lives IN THIS FILE, inlined for robustness and to stay under the
+// Vercel Hobby 12-function cap. History, corrected 2026-09-29:
+//
+//   • The standalone api/sitemap-vehicles.xml.js file was a 13th function and
+//     broke every deploy (preview AND production) with
+//     exceeded_serverless_functions_per_deployment. Production stayed on the
+//     PR #40 build until the fix in PR #42.
+//
+//   • During the fix, an attempt to extract the logic into a separate
+//     _sitemap-core.js module appeared to 500 at runtime. That diagnosis was
+//     wrong — the 500s came from an import line accidentally lost during
+//     editing (undefined identifier at request time), not from cross-module
+//     interop. Cross-module api imports are proven safe: goonet-stock.js →
+//     goonet-sync.js works in production.
+//
+//   • To keep the deployment at 12 functions and avoid any extra moving parts,
+//     the sitemap code is inlined here and dispatched on ?sitemap=vehicles.
+//     vercel.json rewrites /api/sitemap-vehicles.xml onto it so the public URL
+//     is unchanged.
+//
+// The two tiny helpers (carRef, hrefFor) are now deduplicated into
+// src/sitemap-helpers.js and imported by BOTH src/routing.js and this file.
+// The pin in scripts/sitemap-vehicles.test.mjs still guarantees the URLs match.
 // ---------------------------------------------------------------------------
+
+import { carRef, hrefFor } from '../src/sitemap-helpers.js';
+export { carRef, hrefFor };
 
 const SITEMAP_BASE = 'https://ar7traders.com';
 const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
 const SITEMAP_MAX_ROWS = 5000;
 const SITEMAP_UNAVAILABLE = /sold|delist|private|hidden|archived|removed/i;
-
-/** Keep in sync with carRef() in src/routing.js (pinned by tests). */
-export function carRef(c) {
-  if (!c) return '';
-  const stock = c.stock_no && String(c.stock_no).trim();
-  return stock || String(c.id);
-}
-
-/** Keep in sync with hrefFor() in src/routing.js (pinned by tests). */
-export function hrefFor(page, carId) {
-  if (!page || page === 'home') return '/';
-  if (page === 'inventory' && carId) return '/inventory/' + encodeURIComponent(String(carId));
-  return '/' + page;
-}
 
 /** YYYY-MM-DD for a real timestamp, or null — never a fabricated date. */
 export function lastmodOf(value) {
