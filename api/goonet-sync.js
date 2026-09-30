@@ -23,7 +23,8 @@ import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
-  GATE_PAGE_BYTES, relayApiKey
+  GATE_PAGE_BYTES, relayApiKey,
+  llmConfigured, extractCardsWithLlm, markupSample
 } from '../scripts/goonet-core.mjs';
 
 export const config = { maxDuration: 60 };
@@ -191,6 +192,11 @@ export default async function handler(req, res, injected) {
     // nothing. It must never be dressed up as "caught up".
     blocked: false, bookmarkAdvanced: false, parseMiss: false, diagnostics: null,
     skipped: [], note: null,
+    // The AI fallback report (llm: {via, model, extracted, error?}) is only
+    // present once an LLM key exists and a run the regex parser could not read
+    // asked the LLM to extract the cards. Absent (no key) means the fallback
+    // was never called; extracted: 0 means it was tried and found nothing.
+    // When it fires, the cards go through the SAME quality gate as regex cards.
     // How the listing page was read ('direct' or 'relay'), and whether the
     // relay runs with an API key. When a blocked report shows
     // relayKey: 'free (no key)', the keyless relay tier is the first suspect
@@ -278,6 +284,48 @@ export default async function handler(req, res, injected) {
         gateMarkers: gateWords, relayAttempted: relayTried, relayUsed: usedFetch.via === 'relay',
         rescueUsed: usedFetch !== fetched, finalStub: finalDiag.stub === true
       };
+
+      // Evidence pipeline: store a 2 KB slice of the exact markup goo-net
+      // served this run (the HTML we actually parsed) so a parser fix can be
+      // made against what the site really sent. The CRM surfaces it via
+      // "Copy parser diagnostic" (GET /api/goonet-stock?action=diag).
+      try {
+        await setSetting(db, 'goonet_parsemiss_sample', JSON.stringify({
+          saved_at: new Date().toISOString(),
+          page: pageUrl,
+          run: blocked ? 'blocked' : 'parseMiss',
+          via: usedFetch.via || 'direct',
+          spread_links: rawLinks,
+          bytes: thinRunDiag.directBytes,
+          sample: markupSample(usedFetch.html || '')
+        }));
+      } catch (e) { console.error('goonet evidence save failed', e.message); }
+    } else {
+      // A clean read (2+ cards by the regex parser) means the last stored
+      // diagnostic is stale — drop it so nobody copies an old sample.
+      try { await db.from('site_settings').delete().eq('key', 'goonet_parsemiss_sample'); } catch { /* evidence is best-effort */ }
+    }
+
+    // ---- AI fallback: a REAL page the regex parser could not read ---------
+    // With GEMINI_API_KEY (or OPENAI_API_KEY) the LLM extracts the cards
+    // (strict JSON schema) and they flow into the normal import loop below —
+    // same detail fetch, same quality gate, same required fields. No key →
+    // never called; the run keeps its honest parseMiss report.
+    let llmUsed = false;
+    if (parseMiss && llmConfigured() && !overBudget()) {
+      const llm = await extractCardsWithLlm(usedFetch.html, { baseUrl: pageUrl, timeoutMs: 25000 });
+      if (llm.cards.length > 0) {
+        llmUsed = true;
+        report.llm = { via: llm.via, model: llm.model, extracted: llm.cards.length };
+        page = {
+          cars: llm.cards,
+          pagination: page.pagination,
+          diagnostics: { parseStatus: 'llm_fallback', cardCount: llm.cards.length, fallbackTemplate: false }
+        };
+        report.cardsSeen = llm.cards.length;
+      } else {
+        report.llm = { via: llm.via, model: llm.model, extracted: 0, error: llm.error || 'no cards extracted' };
+      }
     }
 
     // ---- 2. Import new cars that pass the quality gate --------------------
@@ -362,7 +410,10 @@ export default async function handler(req, res, injected) {
     // the crawler past every page it never read, so a blocked day could skip
     // hundreds of cars while reporting a clean run. Re-reading a page is
     // harmless; skipping one loses stock.
-    const advance = page.cars.length >= 2;
+    // An AI-fallback run read the page through the LLM, not the parser — the
+    // parser may still be missing cards beyond the extraction window, so the
+    // bookmark stays held exactly like a plain parse miss.
+    const advance = page.cars.length >= 2 && !llmUsed;
     const nextBookmark = advance ? bookmark + 1 : bookmark;
     await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
     await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
@@ -392,12 +443,26 @@ export default async function handler(req, res, injected) {
       // listing parser), but hold the bookmark: crawling on while blind would
       // skip pages exactly like the old bug did.
       report.parseMiss = true;
-      report.note = 'Goo-net returned a real listing page (' + thinRunDiag.rawCarLinks
-        + ' car links, ' + thinRunDiag.directBytes + ' bytes) but the importer only read '
-        + page.cars.length + ' card' + (page.cars.length === 1 ? '' : 's')
-        + ' — the card markup has changed, so this is a parser fix, not a bot block. '
-        + 'The bookmark was held on page ' + bookmark + ' so no pages were skipped; '
-        + 'update parseCard in scripts/goonet-core.mjs (GOONET-SYNC.md → "Parser says no cards").';
+      if (report.llm && report.llm.extracted > 0) {
+        // Self-heal worked: name it so the owner sees the import happened and
+        // knows the regex parser still needs the markup fix (the saved sample
+        // backs it up).
+        report.note = 'The card parser could not read the current goo-net markup ('
+          + thinRunDiag.rawCarLinks + ' car links, ' + thinRunDiag.directBytes + ' bytes) — '
+          + 'AI fallback (' + report.llm.via + ') extracted ' + report.llm.extracted
+          + ' card(s) from the live page and ran them through the normal quality gate. '
+          + 'The bookmark was held on page ' + bookmark + '; press "Copy parser diagnostic" '
+          + 'to get the saved markup sample for the parser fix.';
+      } else {
+        const readCount = report.llm ? 0 : page.cars.length;
+        report.note = 'Goo-net returned a real listing page (' + thinRunDiag.rawCarLinks
+          + ' car links, ' + thinRunDiag.directBytes + ' bytes) but the importer only read '
+          + readCount + ' card' + (readCount === 1 ? '' : 's')
+          + ' — the card markup has changed, so this is a parser fix, not a bot block.'
+          + (report.llm ? ' The AI fallback was tried but extracted no usable cards (' + report.llm.error + '). ' : '')
+          + 'The bookmark was held on page ' + bookmark + ' so no pages were skipped; '
+          + 'update parseCard in scripts/goonet-core.mjs (GOONET-SYNC.md → "Parser says no cards").';
+      }
       report.diagnostics = thinRunDiag;
     }
 

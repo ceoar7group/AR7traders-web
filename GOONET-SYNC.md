@@ -243,6 +243,59 @@ The 2026-08-31 fixture batch imported fine, but live runs again reported
 After the fix the importer test suite is green end to end:
 `goonet-core` 158, `goonet-seed` 54, `goonet-sync` 41 passed, 0 failed.
 
+## 11. Self-healing: AI fallback, drift fallbacks, parser evidence (2026-09-30)
+
+Goo-net's listing markup changes without notice, and a `parseMiss` run used
+to mean: zero cars imported until somebody hand-fixed the regexes. Three
+layers now keep the importer working in between:
+
+1. **Markup-drift regex fallbacks** (`parseCard` in `scripts/goonet-core.mjs`).
+   Loose card titles: when the strict `<h3><a …spread…>` shape is gone, the
+   title is read from the spread anchor's text (longest candidate wins) or the
+   thumbnail's `img alt`. English make names: `トヨタ` cards that print
+   `Toyota` still detect (`detectMake` matches whole English words). Raw-yen
+   prices: `￥1,999,000` and `1500000円` parse where `万円` is absent
+   (`rawYen`, sanity-bounded so fee lines like `登録料15,000円` cannot win).
+2. **AI fallback (the self-heal).** When a run is `parseMiss` — a real listing
+   page the regex parser could not read — and `GEMINI_API_KEY` (or
+   `OPENAI_API_KEY`) is set, the importer asks the LLM to extract the cards
+   with a strict JSON schema, and the extracted cards flow into the **same**
+   import loop: same detail fetch, same quality gate, same required fields,
+   same blocklist. Rules that keep it safe:
+   - **No key → never called.** A keyless run behaves exactly as before.
+   - LLM image URLs must **literally occur in the source markup**; invented
+     photos are dropped, so the quality gate is never fed fake galleries.
+   - The report gains `llm: {via, model, extracted, error?}` and the CRM
+     notice names it — success reads like `AI fallback (gemini) extracted N
+     card(s)…`. The bookmark stays **held** (the parser may still be missing
+     cards beyond the extraction window), and `parseMiss` stays `true` so the
+     parser fix is not forgotten.
+   - If the LLM extracts nothing, the run keeps its honest `parseMiss` report
+     plus `llm.error` — the evidence below is then the fix's input.
+3. **Parser evidence.** Every `blocked` or `parseMiss` run stores a **2 KB
+   markup sample** of the exact HTML it parsed in
+   `site_settings.goonet_parsemiss_sample` (JSON envelope: saved_at, page,
+   run, via, spread_links, bytes, sample). A clean read clears the stale
+   sample. CRM → Japan dealer stock gains a **"Copy parser diagnostic"**
+   admin button that copies the sample (plus its metadata) to the clipboard,
+   served by the admin-only `GET /api/goonet-stock?action=diag`.
+
+**Workflow when a run says `parseMiss`:** press "Copy parser diagnostic",
+paste the stored markup where the fix is tracked, and fix `parseCard` /
+`parseListingPage` in `scripts/goonet-core.mjs` against that **exact** markup
+— then add the trimmed sample as a fixture in `scripts/fixtures/` with
+regression tests. Until the fix ships, the AI fallback keeps importing cars
+in the meantime (when a key is configured).
+
+**Vercel keys for this feature** (Settings → Environment Variables):
+
+- `GEMINI_API_KEY` — enables the AI fallback and the on-site assistant's
+  grounded answers. Any Google AI project works (the project chosen at key
+  creation is irrelevant). Free key: <https://aistudio.google.com/apikey>.
+- `OPENAI_API_KEY` — alternative provider, used only when no Gemini key is
+  set.
+- `JINA_API_KEY` / `GOONET_RELAY_URL` — the relay (see above) — unchanged.
+
 ## FAQ
 
 **Will this slow the website?** No. Runs are batched (a few cars per run),
@@ -277,6 +330,12 @@ There are two different failures that can look similar at first glance:
   `diagnostics.rawCarLinks` and `diagnostics.directBytes`, keeps the bookmark
   held to avoid blind crawling, and still runs delist/weekly maintenance because
   those steps do not depend on the listing-card parser.
+  With `GEMINI_API_KEY` (or `OPENAI_API_KEY`) set, the AI fallback extracts the
+  cards from the same page (strict JSON, validated, same quality gate) and the
+  report names it: `llm: {via: "gemini", extracted: N}` and a note starting
+  "AI fallback (gemini)". If the `llm` field is absent (no key) or shows
+  `extracted: 0`, press "Copy parser diagnostic" and fix `parseCard` against
+  the stored markup sample — see section 11.
 
 `bookmarkAdvanced` in the JSON tells you whether the page bookmark moved.
 
@@ -313,3 +372,17 @@ SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
 node scripts/goonet-crawl.mjs --dry-run     # show what would import
 node scripts/goonet-crawl.mjs               # import for real
 ```
+
+**The importer says `parseMiss` — where do I even start the parser fix?**
+Copy the exact markup the importer saw, then fix the regexes against it:
+
+1. CRM → Japan dealer stock → **"Copy parser diagnostic"** (admin). It copies
+   a 2 KB sample of the markup goo-net served on the last blocked/parse-miss
+   run plus its metadata (page URL, car-link count, byte count, when). The
+   same data is available from `GET /api/goonet-stock?action=diag`.
+2. Paste it where the fix is tracked and update `parseCard` /
+   `parseListingPage` in `scripts/goonet-core.mjs` so that exact markup
+   parses (title, price, year, km — whatever the gate then skips).
+3. Add the trimmed sample as a fixture in `scripts/fixtures/` with
+   regression tests (`scripts/goonet-core.test.mjs`), and make the whole
+   suite green before shipping.

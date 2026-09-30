@@ -12,6 +12,8 @@ import {
   BRAND_MAP, MODEL_MAP,
   countSpreadLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
   relayBaseUrl, relayApiKey,
+  llmConfigured, extractCardsWithLlm, markupSample, EVIDENCE_SAMPLE_BYTES,
+  rawYen, priceTextToYen,
   FALLBACK_SEARCH_URL, JINA_RELAY, UA
 } from './goonet-core.mjs';
 
@@ -440,6 +442,89 @@ ok(qualityScore({ ...okCar, year: 2000 }).pass, 'model year 2000 is allowed by d
 ok(qualityScore({ ...okCar, year: 1999 }).reasons.includes('no/old year'), 'pre-2000 year is flagged');
 ok(qualityScore({ ...okCar, year: 1999 }, { minYear: 1990 }).pass, 'minYear is configurable');
 ok(!qualityScore(okCar, { minPhotos: 8 }).pass, 'minPhotos is still configurable upwards');
+
+// ---- Self-healing: markup-drift fallbacks --------------------------------
+// Raw-yen prices and English make names are the drift shapes the strict
+// parser used to miss; without the fallbacks the page below parsed as 0 cards.
+eq(rawYen('￥1,999,000'), 1999000, 'rawYen reads ￥1,999,000');
+eq(rawYen('1500000円'), 1500000, 'rawYen reads 1500000円');
+eq(rawYen('登録料15,000円'), null, 'rawYen ignores fee-sized amounts (100,000 yen floor)');
+eq(priceTextToYen('￥2,300,000'), 2300000, 'priceTextToYen falls back to raw yen');
+eq(detectMake('Toyota Corolla Hybrid'), 'Toyota', 'detectMake reads the English make "Toyota"');
+eq(detectMake('a hyundai tucson here'), 'Hyundai', 'detectMake reads English makes case-insensitively');
+eq(detectMake('mazed'), null, 'detectMake English pass needs a whole word (no substring hits)');
+
+const driftedHtml = `<html><body>
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/DRIFT0001.html"><img src="https://picture1.goo-net.com/d/Q/d01_01.jpg"></a>
+  <p>Toyota</p>
+  <div class="carName"><a href="https://www.goo-net.com/usedcar/spread/goo/15/DRIFT0001.html">Prius S package</a></div>
+  <p>車両本体価格(税込)</p><p>￥1,999,000</p><p>年式2020年</p><p>走行距離3.2万km</p><p>修復歴なし</p>
+</div>
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/DRIFT0002.html"><img alt="Note e-Power X nav" src="https://picture1.goo-net.com/d/Q/d02_01.jpg"></a>
+  <p>Nissan</p><p>車両本体価格</p><p>1500000円</p><p>年式2018年</p><p>走行距離13.8万km</p>
+</div>
+</body></html>`;
+const drifted = parseListingPage(driftedHtml, 'https://www.goo-net.com/usedcar/price--100/');
+eq(drifted.cars.length, 2, 'a drift page with no <h3> titles still parses both cards');
+eq(drifted.cars[0].title, 'Prius S package', 'loose title: the spread anchor text is used');
+eq(drifted.cars[0].price_jpy, 1999000, 'drift price: ￥1,999,000 becomes price_jpy');
+eq(drifted.cars[1].title, 'Note e-Power X nav', 'loose title: the thumbnail img alt is used');
+eq(drifted.cars[1].price_jpy, 1500000, 'drift price: 1500000円 becomes price_jpy');
+
+// ---- Self-healing: AI fallback (LLM card extraction) ----------------------
+const llmPageHtml = '<html><body><a href="/policy/cookie">Cookie</a> Cookie conditions '
+  + Array.from({ length: 50 }, (_, i) => `<a href="https://www.goo-net.com/usedcar/spread/goo/15/LIVE80${i}.html"></a>`).join('')
+  + '<script>var gallery={"LLM8001":["https://picture1.goo-net.com/a/Q/L8001_01.jpg","https://picture1.goo-net.com/a/Q/L8001_02.jpg","https://picture1.goo-net.com/a/Q/L8001_03.jpg"],"LLM8002":["https://picture1.goo-net.com/a/Q/L8002_01.jpg","https://picture1.goo-net.com/a/Q/L8002_02.jpg","https://picture1.goo-net.com/a/Q/L8002_03.jpg"]}</script></body></html>';
+// (the 50 bare links parse as 0 cards — the parseMiss incident shape)
+eq(parseListingPage(llmPageHtml, 'https://www.goo-net.com/usedcar/price--100/').cars.length, 0,
+  'the 50-bare-link incident page is a parse miss for the regex parser');
+
+let llmFetchCalls = 0;
+global.fetch = async () => { llmFetchCalls++; return { ok: true, status: 200, json: async () => ({}) }; };
+let llmRes = await extractCardsWithLlm(llmPageHtml);
+ok(llmConfigured() === false && (process.env.GEMINI_API_KEY = 'test-gemini', llmConfigured()) === true,
+  'llmConfigured() is false with no key and true once a Gemini key is set');
+ok(llmRes.cards.length === 0 && llmRes.skipped === 'no-llm-key' && llmFetchCalls === 0,
+  'extractCardsWithLlm without a key never calls fetch');
+
+const llmReply = JSON.stringify([
+  { stock: 'LLM8001', make: 'Toyota', model: 'Prius', title: 'Prius S 2021',
+    url: 'https://www.goo-net.com/usedcar/spread/goo/15/LLM8001.html', year: 2021,
+    km: '4.2万km', price: '285万円', fuel: 'Hybrid', body: 'Sedan', location: '愛知県',
+    images: ['https://picture1.goo-net.com/a/Q/L8001_01.jpg', 'https://picture1.goo-net.com/a/Q/L8001_02.jpg',
+             'https://picture1.goo-net.com/a/Q/L8001_03.jpg', 'https://picture1.goo-net.com/a/Q/HALLUCINATED.jpg'] },
+  { stock: 'LLM8002', make: 'Nissan', model: 'Note', title: 'Note X 2018',
+    url: 'https://www.goo-net.com/usedcar/spread/goo/15/LLM8002.html', year: 2018,
+    km: '90000', price: '￥1,500,000', images: ['https://picture1.goo-net.com/a/Q/L8002_01.jpg'] }
+]);
+global.fetch = async (u) => {
+  llmFetchCalls++;
+  if (String(u).includes('generativelanguage')) {
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: '```json\n' + llmReply + '\n```' }] } }] }) };
+  }
+  return { ok: false, status: 404, json: async () => ({}) };
+};
+llmRes = await extractCardsWithLlm(llmPageHtml, { baseUrl: 'https://www.goo-net.com/usedcar/price--100/' });
+ok(llmRes.via === 'gemini' && llmRes.cards.length === 2, 'with a key the LLM reply (code-fenced JSON) is parsed into cards');
+ok(llmRes.cards[0] && !llmRes.cards[0].images.some(x => x.includes('HALLUCINATED')) && llmRes.cards[0].images.length === 3,
+  'LLM image URLs that do not occur in the source markup are dropped');
+eq(llmRes.cards[0].price_jpy, 2850000, 'LLM price text is normalised through the yen parsers');
+global.fetch = async (u) => {
+  if (String(u).includes('generativelanguage')) {
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'Sorry, I cannot extract anything.' }] } }] }) };
+  }
+  return { ok: false, status: 404, json: async () => ({}) };
+};
+llmRes = await extractCardsWithLlm(llmPageHtml);
+ok(llmRes.cards.length === 0 && /JSON array/.test(llmRes.error || ''), 'a non-JSON LLM reply yields zero cards and an error, not a crash');
+delete process.env.GEMINI_API_KEY;
+global.fetch = realFetch;
+
+// ---- Self-healing: evidence sample ----------------------------------------
+eq(markupSample('x'.repeat(5000)).length, 2048, 'markupSample trims to the 2 KB evidence size');
+eq(markupSample('<html><body>tiny</body></html>').length, 30, 'markupSample leaves a short page untouched');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

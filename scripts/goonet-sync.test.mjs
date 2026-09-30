@@ -425,5 +425,104 @@ ok(!(res7.body?.skipped || []).some(x => String(x).includes('missing fields')),
 eq(res7.body?.via, 'direct', 'the report names how the listing was read');
 eq(res7.body?.relayKey, 'free (no key)', 'the report says the relay runs keyless until JINA_API_KEY is set');
 
+
+// ---- Eighth run: the AI fallback self-heals a parse miss -------------------
+// A real listing page the regex parser cannot read (50 bare car links — the
+// live incident shape), a Gemini key configured, and a strict-JSON LLM reply.
+// The extracted cards must flow through the SAME quality gate as regex cards,
+// the report must name the fallback, and the bookmark must stay held.
+resetFetchState();
+const llmListingPage = '<html><body><a href="/policy/cookie">Cookie</a> Cookie conditions '
+  + Array.from({ length: 50 }, (_, i) => `<a href="https://www.goo-net.com/usedcar/spread/goo/15/LIVE80${i}.html"></a>`).join('')
+  + '<script>var gallery={"LLM8001":["https://picture1.goo-net.com/a/Q/L8001_01.jpg","https://picture1.goo-net.com/a/Q/L8001_02.jpg","https://picture1.goo-net.com/a/Q/L8001_03.jpg"],"LLM8002":["https://picture1.goo-net.com/a/Q/L8002_01.jpg","https://picture1.goo-net.com/a/Q/L8002_02.jpg","https://picture1.goo-net.com/a/Q/L8002_03.jpg"]}</script></body></html>';
+const llmCardsReply = JSON.stringify([
+  { stock: 'LLM8001', make: 'Toyota', model: 'Prius', title: 'Prius S 2021',
+    url: 'https://www.goo-net.com/usedcar/spread/goo/15/LLM8001.html', year: 2021,
+    km: '4.2万km', price: '285万円', fuel: 'Hybrid', body: 'Sedan', location: '愛知県',
+    images: ['https://picture1.goo-net.com/a/Q/L8001_01.jpg', 'https://picture1.goo-net.com/a/Q/L8001_02.jpg', 'https://picture1.goo-net.com/a/Q/L8001_03.jpg'] },
+  { stock: 'LLM8002', make: 'Nissan', model: 'Note', title: 'Note X 2018',
+    url: 'https://www.goo-net.com/usedcar/spread/goo/15/LLM8002.html', year: 2018,
+    km: '90000', price: '￥1,500,000',
+    images: ['https://picture1.goo-net.com/a/Q/L8002_01.jpg', 'https://picture1.goo-net.com/a/Q/L8002_02.jpg', 'https://picture1.goo-net.com/a/Q/L8002_03.jpg'] }
+]);
+const db8 = memDb();
+db8.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db8.tables.japan_dealer_stock = [];
+const llmCalls8 = [];
+process.env.GEMINI_API_KEY = 'test-gemini';
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('generativelanguage')) {
+    llmCalls8.push(u);
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: llmCardsReply }] } }] }) };
+  }
+  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => llmListingPage };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res8 = fakeRes();
+await handler(req, res8, { db: db8.db });
+delete process.env.GEMINI_API_KEY;
+const settings8 = Object.fromEntries(db8.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res8.body?.llm?.via === 'gemini' && res8.body?.llm?.extracted === 2,
+  'AI fallback: the report names the LLM provider and how many cards it extracted');
+ok(res8.body?.inserted >= 1 && llmCalls8.length === 1,
+  'AI fallback: the extracted cars pass the same quality gate and are imported (one LLM call per run)');
+ok(String(res8.body?.note || '').includes('AI fallback (gemini)'),
+  'AI fallback: the owner-facing notice names the fallback');
+ok(res8.body?.parseMiss === true && Number(settings8.goonet_bookmark_page) === 1,
+  'AI fallback: parseMiss stays honest and the bookmark is held');
+
+// ---- Ninth run: parse miss WITHOUT any LLM key ------------------------------
+// The fallback must not even be attempted: no llm field, no LLM dial, and the
+// run stores the 2 KB markup sample the parser fix is made against.
+resetFetchState();
+const db9 = memDb();
+db9.tables.site_settings = seedSettings.map(([key, value]) => ({ key, value }));
+db9.tables.japan_dealer_stock = [];
+const fetchCalls9 = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  fetchCalls9.push(u);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => llmListingPage };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res9 = fakeRes();
+await handler(req, res9, { db: db9.db });
+const settings9 = Object.fromEntries(db9.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res9.body?.parseMiss === true && res9.body?.llm === undefined
+  && !fetchCalls9.some(u => u.includes('generativelanguage') || u.includes('api.openai.com')),
+  'without an LLM key the run is a plain parseMiss — no llm field, no LLM dial');
+const evidence9 = settings9.goonet_parsemiss_sample ? JSON.parse(settings9.goonet_parsemiss_sample) : null;
+ok(evidence9 && evidence9.run === 'parseMiss' && typeof evidence9.sample === 'string'
+  && evidence9.sample.length > 0 && evidence9.sample.length <= 2048
+  && evidence9.sample.includes('LIVE80'),
+  'parseMiss runs store the 2 KB markup sample in site_settings.goonet_parsemiss_sample');
+
+// ---- Parser diagnostic endpoint (admin) ------------------------------------
+const { default: stockHandler } = await import('../api/goonet-stock.js');
+const diagRes = fakeRes();
+await stockHandler(
+  { method: 'GET', query: { action: 'diag' }, headers: {} },
+  diagRes,
+  {
+    db: db9.db,
+    getUser: async () => ({ user: { id: 'u1', email: 'admin@ar7traders.com' }, profile: { role: 'admin', full_name: 'Admin' } }),
+    permsFor: async () => ({ 'site.write': true })
+  }
+);
+ok(diagRes.statusCode === 200 && String(diagRes.body?.sample || '').length > 0 && String(diagRes.body?.sample).includes('LIVE80')
+  && diagRes.body?.run === 'parseMiss',
+  'GET /api/goonet-stock?action=diag serves the stored sample to an admin');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -13,6 +13,7 @@ import { WorldPage, BigNetworkGlobe, Flag } from './network.jsx';
 // instead of shipping it to every visitor.
 const CrmApp = React.lazy(() => import('./crm.jsx'));
 import { CustomerAccountPage, WhatsAppButton, useCustomerSession } from './customer-portal.jsx';
+import { ChatWidget } from './ChatWidget.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
 import { useSeo, FAQ_ITEMS } from './seo.js';
@@ -1445,6 +1446,8 @@ export function App(){
   </footer>
 
   <WhatsAppButton/>
+
+  <ChatWidget/>
 
   {modal&&<div className="modal-backdrop" onMouseDown={()=>setModal(false)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-x" onClick={()=>setModal(false)}><X/></button>{sent?<div className="success"><span><Check/></span><h2>Request received.</h2><p>Our auction specialist will contact you with your access details.</p><button className="primary" onClick={()=>{setSent(false);setModal(false)}}>Back to site</button></div>:<><div className="kicker">JOIN THE AUCTION</div><h2>Get free auction access.</h2><p>Tell us where you are and what you're looking for.</p><form onSubmit={submitLead}>{leadError&&<div className="form-api-error">{leadError}</div>}<input name="website" tabIndex="-1" autoComplete="off" style={{display:'none'}}/><label>YOUR NAME<input name="name" required placeholder="Full name"/></label><div className="form-row"><label>EMAIL<input name="email" required type="email" placeholder="you@email.com"/></label><label>DESTINATION<select name="country"><option>Pakistan</option><option>UAE</option><option>United Kingdom</option><option>Kenya</option><option>Other</option></select></label></div><label>VEHICLE YOU'RE LOOKING FOR<input name="vehicle_interest" placeholder="e.g. Toyota Land Cruiser, 2022+"/></label><button className="primary" type="submit" disabled={leadSending}>{leadSending?'Sending…':'Request access'} <ArrowRight/></button><small><LockKeyhole/> Your details stay private. No spam, ever.</small></form></>}</div></div>}
  </div>
