@@ -275,10 +275,33 @@ layers now keep the importer working in between:
 3. **Parser evidence.** Every `blocked` or `parseMiss` run stores a **2 KB
    markup sample** of the exact HTML it parsed in
    `site_settings.goonet_parsemiss_sample` (JSON envelope: saved_at, page,
-   run, via, spread_links, bytes, sample). A clean read clears the stale
-   sample. CRM → Japan dealer stock gains a **"Copy parser diagnostic"**
-   admin button that copies the sample (plus its metadata) to the clipboard,
-   served by the admin-only `GET /api/goonet-stock?action=diag`.
+   run, via, spread_links, bytes, sample). The sample is **centred on the
+   first car link**, not the top of the page — a live listing page is ~1 MB
+   and its first 2 KB are header boilerplate that would show a parser fix
+   nothing. A clean read clears the stale sample. CRM → Japan dealer stock
+   gains a **"Copy parser diagnostic"** admin button that copies the sample
+   (plus its metadata) to the clipboard, served by the admin-only
+   `GET /api/goonet-stock?action=diag`.
+
+   **Gemini model.** The fallback calls `models/gemini-3.8-flash` by default
+   (Google retired `gemini-2.5-flash` for new keys on 2026-09-30 — the first
+   live run 404'd on it). Override with the `GEMINI_MODEL` env var if Google
+   moves the default again.
+
+4. **Title-anchor segmentation (the 2026-09-30 fix).** The live page links
+   every stock in extra regions (hidden/preload grids), so "first spread
+   link per stock" no longer marks the card start — one live run parsed
+   **1 of 50 cards**. `parseListingPage` now anchors each card on its
+   **title anchor**: the spread anchor with a readable caption (anchor text
+   or `img alt`) whose following 2500 chars carry the spec block
+   (年式/万円/走行距離). An `<h3>` anchor always wins over a bare
+   thumbnail, and a bare thumbnail can never win over a spec-carrying
+   anchor. Segments are cut title-anchor → title-anchor; the make line and
+   photos are read from the region ABOVE the title, the spec fields from
+   BELOW it, so neither the previous card's fields nor the next card's
+   make line / thumbnails can bleed in. Regression fixtures:
+   `scripts/fixtures/goonet-listing-2026-09-30.html` (the live layout) and
+   the duplicate-grid case in `scripts/goonet-core.test.mjs`.
 
 **Workflow when a run says `parseMiss`:** press "Copy parser diagnostic",
 paste the stored markup where the fix is tracked, and fix `parseCard` /
@@ -292,6 +315,8 @@ in the meantime (when a key is configured).
 - `GEMINI_API_KEY` — enables the AI fallback and the on-site assistant's
   grounded answers. Any Google AI project works (the project chosen at key
   creation is irrelevant). Free key: <https://aistudio.google.com/apikey>.
+  `GEMINI_MODEL` optionally overrides the model (default
+  `gemini-3.8-flash`).
 - `OPENAI_API_KEY` — alternative provider, used only when no Gemini key is
   set.
 - `JINA_API_KEY` / `GOONET_RELAY_URL` — the relay (see above) — unchanged.
