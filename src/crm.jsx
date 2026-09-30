@@ -8,7 +8,7 @@ import {
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw
+  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
@@ -717,6 +717,27 @@ export default function CrmApp() {
     }
   }
 
+  // Copy the stored parser diagnostic — the 2 KB markup sample goo-net served
+  // on the last blocked / parse-miss run (site_settings.goonet_parsemiss_sample,
+  // served by GET /api/goonet-stock?action=diag). Pasting that exact markup is
+  // how scripts/goonet-core.mjs gets fixed against what the site really sent.
+  async function copyGoonetDiag() {
+    if (DEMO) { setNotice('The parser diagnostic needs the live database — disabled in demo mode.'); return; }
+    try {
+      const r = await call('/api/goonet-stock?action=diag', session.access_token);
+      if (!r.sample) { setNotice('No parser diagnostic stored — the importer last read the page successfully.'); return; }
+      const text = 'Goo-net parser diagnostic (saved ' + (r.saved_at || '?') + ')\n'
+        + 'page: ' + (r.page || '?') + ' · read via ' + (r.via || '?')
+        + ' · ' + (r.spread_links !== undefined ? r.spread_links : '?') + ' car links · '
+        + (r.bytes !== undefined ? r.bytes : '?') + ' bytes · run: ' + (r.run || 'parseMiss') + '\n\n'
+        + '--- markup sample (2 KB) ---\n' + r.sample;
+      await navigator.clipboard.writeText(text);
+      setNotice('Parser diagnostic copied — paste it where the parser fix is tracked.');
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
   // Reset the Goo-net crawler bookmark back to page 1 (admin only). The next
   // "Run import now" then re-crawls from the first listing page instead of the
   // page where the crawler last stopped.
@@ -940,6 +961,7 @@ export default function CrmApp() {
             onDelist={row => goonetAction(row, 'delist')}
             onRun={runGoonetSync}
             onResetBookmark={resetGoonetBookmark}
+            onCopyDiag={copyGoonetDiag}
             onRefresh={loadAll}
             syncing={syncing}
           />
@@ -1811,7 +1833,7 @@ export function SourcingView({ rows, onOpenInventory }) {
 // ---------------------------------------------------------------------
 //  Japan dealer stock — manage cars imported from Goo-net.
 // ---------------------------------------------------------------------
-export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete, onManagePhotos, onViewGallery, onPromote, onDelist, onRun, onResetBookmark, onRefresh, syncing }) {
+export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete, onManagePhotos, onViewGallery, onPromote, onDelist, onRun, onResetBookmark, onCopyDiag, onRefresh, syncing }) {
   const { fmt } = useCurrency();
   const [chip, setChip] = useState('all');
   const [query, setQuery] = useState('');
@@ -1873,6 +1895,9 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
           <button className={showSettings ? 'active' : ''} onClick={() => setShowSettings(v => !v)} title="Importer rules and limits"><Settings /> Importer rules</button>
           {isAdmin && (
             <>
+              <button className="crm-sync" onClick={onCopyDiag} title="Copy the stored parser diagnostic (the 2 KB markup sample from the last blocked/parse-miss run) — use it to fix the card parser">
+                <ClipboardCopy size={13} /> Copy parser diagnostic
+              </button>
               <button className="crm-sync" onClick={onResetBookmark} title="Reset the crawler bookmark to page 1 — the next import run starts from the first listing page">
                 <RotateCcw size={13} /> Reset bookmark
               </button>

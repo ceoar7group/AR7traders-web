@@ -45,6 +45,29 @@ export default async function handler(req, res, injected = {}) {
   try {
     const db = injected.db || adminClient();
 
+    // ---- Parser diagnostic (admin) ----------------------------------------
+    // Serves the 2 KB markup sample the importer stored on the last blocked or
+    // parse-miss run (site_settings.goonet_parsemiss_sample). The CRM "Copy
+    // parser diagnostic" button reads this so the saved markup can be pasted
+    // into the parser-fix ticket. It sits BEFORE the public read branch: this
+    // is an admin-only surface, not part of the website's car list.
+    if (req.method === 'GET' && req.query.action === 'diag') {
+      await admin(req, injected);
+      const { data: row } = await db.from('site_settings')
+        .select('value').eq('key', 'goonet_parsemiss_sample').maybeSingle();
+      const raw = row?.value ? String(row.value) : null;
+      if (!raw) {
+        return send(res, 200, { ok: true, sample: null,
+          message: 'No parser diagnostic stored — the importer last read the page successfully.' });
+      }
+      let diag = null;
+      try { diag = JSON.parse(raw); } catch { /* stored before the JSON envelope existed */ }
+      if (diag && typeof diag === 'object' && !Array.isArray(diag)) {
+        return send(res, 200, { ok: true, ...diag });
+      }
+      return send(res, 200, { ok: true, sample: raw });
+    }
+
     // ---- Public read: the Japan dealer stock page -------------------------
     if (req.method === 'GET' && req.query.all !== '1') {
       let q = db.from('japan_dealer_stock').select('*')

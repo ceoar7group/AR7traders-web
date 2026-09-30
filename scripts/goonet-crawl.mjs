@@ -13,7 +13,8 @@
 import {createClient} from '@supabase/supabase-js';
 import {
   fetchPage, parseListingPage, parseDetailPage, mergeCardAndDetail,
-  qualityScore, listingPageUrlFor, DEFAULT_SEARCH_URL, UA
+  qualityScore, listingPageUrlFor, DEFAULT_SEARCH_URL, UA,
+  llmConfigured, extractCardsWithLlm
 } from './goonet-core.mjs';
 
 const args = process.argv.slice(2);
@@ -45,6 +46,20 @@ if (!fetched.ok) {
 }
 const page = parseListingPage(fetched.html, pageUrl);
 console.log(`  Listing page: ${page.cars.length} cars (pagination max ${page.pagination.total})\n`);
+
+// Self-healing: the same AI fallback the Vercel importer uses. Only with an
+// LLM key (GEMINI_API_KEY / OPENAI_API_KEY); extracted cards run through the
+// same quality gate below.
+if (page.cars.length < 2 && llmConfigured()) {
+  console.log('  The parser read no cards — trying the AI fallback (LLM key configured)…');
+  const llm = await extractCardsWithLlm(fetched.html, { baseUrl: pageUrl });
+  if (llm.cards.length > 0) {
+    console.log(`  AI fallback (${llm.via}) extracted ${llm.cards.length} cards — they go through the same quality gate.`);
+    page.cars = llm.cards;
+  } else {
+    console.log(`  AI fallback extracted nothing (${llm.error || 'no cards'}) — a parser fix against the live markup is needed.`);
+  }
+}
 
 let imported = 0, skipped = 0;
 for (const card of page.cars) {

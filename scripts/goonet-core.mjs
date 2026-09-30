@@ -59,6 +59,33 @@ export function manToYen(text) {
   return Math.round(parseFloat(m[1]) * 10000);
 }
 
+// Raw-yen prices the parser used to miss when markup drifted away from 万円:
+// "￥1,999,000", "¥2,300,000", "1500000円" (half- or full-width digits and
+// yen signs). A sane used-car price is at least 100,000 yen, which keeps fee
+// lines ("登録料15,000円") from being mistaken for the car's price.
+export function rawYen(text) {
+  const s = fullWidthToHalf(String(text || '')).replace(/[、，,\s]/g, '');
+  let m = s.match(/[¥￥](\d{6,9})/);
+  if (m) {
+    const n = Number(m[1]);
+    if (n >= 100_000 && n <= 300_000_000) return n;
+  }
+  m = s.match(/(\d{6,9})円/);
+  if (m) {
+    const n = Number(m[1]);
+    if (n >= 100_000 && n <= 300_000_000) return n;
+  }
+  return null;
+}
+
+// One price parser for every shape goo-net prints: 万円 first (its house
+// format), raw yen as the drift fallback.
+export function priceTextToYen(text) {
+  const s = String(text || '');
+  if (!s.trim()) return null;
+  return manToYen(s) || rawYen(s);
+}
+
 export function yenToUsd(yen, rate = 0.0068) {
   const n = Number(yen);
   if (!Number.isFinite(n) || n <= 0) return null;
@@ -178,12 +205,41 @@ const PREFECTURES = [
   '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
 ];
 
+// English brand names. When goo-net's markup drifts, cards can print "Toyota"
+// where the parser expected "トヨタ". The Japanese map is checked first
+// (it is exact); the English pass then matches whole words only, so "Kia"
+// is never read out of some longer word and "BMW" boilerplate cannot fire on
+// random text.
+const EN_BRAND_MAP = {
+  'Toyota': 'Toyota', 'Nissan': 'Nissan', 'Honda': 'Honda', 'Mazda': 'Mazda',
+  'Suzuki': 'Suzuki', 'Daihatsu': 'Daihatsu', 'Mitsubishi': 'Mitsubishi', 'Subaru': 'Subaru',
+  'Lexus': 'Lexus', 'Isuzu': 'Isuzu', 'Mercedes-Benz': 'Mercedes-Benz', 'Mercedes': 'Mercedes-Benz',
+  'BMW': 'BMW', 'Audi': 'Audi', 'Volkswagen': 'Volkswagen', 'VW': 'Volkswagen',
+  'Porsche': 'Porsche', 'Land Rover': 'Land Rover', 'Jaguar': 'Jaguar', 'Volvo': 'Volvo',
+  'Peugeot': 'Peugeot', 'Citroen': 'Citroen', 'Renault': 'Renault', 'Fiat': 'Fiat',
+  'Alfa Romeo': 'Alfa Romeo', 'Maserati': 'Maserati', 'Ferrari': 'Ferrari',
+  'Lamborghini': 'Lamborghini', 'Rolls-Royce': 'Rolls-Royce', 'Bentley': 'Bentley',
+  'MINI': 'MINI', 'Hyundai': 'Hyundai', 'Kia': 'Kia', 'Abarth': 'Abarth',
+  'Smart': 'Smart', 'Dodge': 'Dodge', 'Chevrolet': 'Chevrolet', 'Cadillac': 'Cadillac',
+  'Jeep': 'Jeep', 'Tesla': 'Tesla'
+};
+
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function detectMake(text) {
   const s = String(text || '');
   for (const [jp, en] of Object.entries(BRAND_MAP)) {
     if (s.includes(jp)) return en;
   }
-  return null;
+  // English pass: longest brand wins ("Mercedes-Benz" over "Mercedes").
+  let best = null;
+  for (const [en, canon] of Object.entries(EN_BRAND_MAP)) {
+    const re = new RegExp('(?<![A-Za-z])' + escapeRe(en) + '(?![A-Za-z])', 'i');
+    if (re.test(s) && (!best || en.length > best.en.length)) best = { en, canon };
+  }
+  return best ? best.canon : null;
 }
 
 export function detectPrefecture(text) {
@@ -632,10 +688,17 @@ export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
   // fields never bleed between neighbouring cards: card i owns the HTML
   // from its first spread link up to the next card's first spread link.
   const linkRe = /https:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/([A-Za-z0-9]+)\.html/g;
-  const seen = new Map(); // stock → first link position (thumbnail anchors repeat the card link)
+  const seen = new Map(); // stock → first anchor start (thumbnail anchors repeat the card link)
   let m;
   while ((m = linkRe.exec(s))) {
-    if (!seen.has(m[1])) seen.set(m[1], m.index);
+    if (seen.has(m[1])) continue;
+    // The segment starts at the anchor's opening tag, not at the URL inside
+    // href="…": a thumbnail anchor's img alt lives between the two, and the
+    // loose-title fallback must be able to see it. Guarded so a URL that is
+    // not part of an anchor cannot reach into the previous card's fields.
+    const hrefQ = s.lastIndexOf('href="', m.index);
+    const aStart = hrefQ >= 0 ? s.lastIndexOf('<a', hrefQ) : -1;
+    seen.set(m[1], (aStart >= 0 && m.index - aStart <= 120) ? aStart : m.index);
   }
   const segments = [...seen.entries()].map(([stock, start]) => ({ stock, start }))
     .sort((a, b) => a.start - b.start);
@@ -666,13 +729,37 @@ export function parsePagination(html) {
 function parseCard(chunk, stock, baseUrl) {
   const titleRe = /<h3[^>]*>[\s\S]*?<a[^>]*href="([^"]*spread[^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/h3>/;
   const tm = chunk.match(titleRe);
-  const title = tm ? stripTags(tm[2]).replace(/\s+/g, ' ').trim() : null;
-  const url = tm ? new URL(tm[1], baseUrl).href : null;
+  let title = tm ? stripTags(tm[2]).replace(/\s+/g, ' ').trim() : null;
+  let url = tm ? new URL(tm[1], baseUrl).href : null;
+
+  // Markup-drift fallbacks: when the strict <h3> title link changed shape,
+  // the card still carries its title in the spread anchor's text (or the
+  // thumbnail's img alt). The longest readable candidate wins — thumbnail
+  // anchors print "New" or an empty caption, so they lose to the real title.
+  if (!title || !url) {
+    let best = null;
+    const anchorRe = /<a[^>]*href="(https?:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/[A-Za-z0-9]+\.html)(?:#[^"]*)?"[^>]*>([\s\S]*?)<\/a>/g;
+    let am;
+    while ((am = anchorRe.exec(chunk))) {
+      const inner = am[2];
+      const text = stripTags(inner).replace(/\s+/g, ' ').trim();
+      const alt = (inner.match(/<img[^>]*alt="([^"]+)"/) || [])[1];
+      const cand = text || (alt ? stripTags(alt).replace(/\s+/g, ' ').trim() : null);
+      if (cand && cand.length >= 4 && (!best || cand.length > best.title.length)) {
+        best = { url: am[1], title: cand };
+      }
+    }
+    if (best) {
+      if (!url) url = new URL(best.url, baseUrl).href;
+      if (!title) title = best.title;
+    }
+  }
 
   const make = detectMake(chunk);
   const year = numberAfter(chunk, '年式');
   const km = kmToNumber(after(chunk, '走行距離', v => /km/i.test(v)));
-  const priceJpy = manToYen(after(chunk, '車両本体価格', v => /万円/.test(v)) || after(chunk, '支払総額', v => /万円/.test(v)));
+  const priceJpy = manToYen(after(chunk, '車両本体価格', v => /万円/.test(v)) || after(chunk, '支払総額', v => /万円/.test(v)))
+    || priceTextToYen(after(chunk, '車両本体価格') || after(chunk, '支払総額') || after(chunk, '価格'));
   const eng = formatEngine(after(chunk, '排気量'));
   const trRaw = after(chunk, 'ミッション');
   const tr = trRaw ? trRaw.trim().slice(0, 12) : null;
@@ -907,4 +994,205 @@ export function listingPageUrlFor(baseUrl, page) {
   const clean = String(baseUrl || DEFAULT_SEARCH_URL).replace(/index-\d+\.html$/, '');
   if (page <= 1) return clean;
   return clean.replace(/\/$/, '') + '/index-' + page + '.html';
+}
+
+// ---------------------------------------------------------------------------
+// Self-healing: AI fallback + parser evidence
+// ---------------------------------------------------------------------------
+
+// True when an LLM key is configured. The AI fallback is NEVER called
+// without one — a keyless importer behaves exactly as before.
+export function llmConfigured() {
+  return Boolean(String(process.env.GEMINI_API_KEY || '').trim() || String(process.env.OPENAI_API_KEY || '').trim());
+}
+
+// One LLM call for both providers: Gemini first (the key the owner has),
+// OpenAI as the documented alternative. Global fetch + hard timeout, no
+// dependencies — bundles into the Vercel function like the rest of the core.
+export async function askLlm({ system, messages, json = false, maxTokens = 2048, timeoutMs = 20000 } = {}) {
+  const geminiKey = String(process.env.GEMINI_API_KEY || '').trim();
+  const openaiKey = String(process.env.OPENAI_API_KEY || '').trim();
+  if (!geminiKey && !openaiKey) throw new Error('no LLM key configured');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const start = Date.now();
+  try {
+    if (geminiKey) {
+      const model = String(process.env.GEMINI_MODEL || 'gemini-2.5-flash');
+      const body = {
+        contents: (messages || []).map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: String(m.content || '') }]
+        })),
+        generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens, ...(json ? { responseMimeType: 'application/json' } : {}) }
+      };
+      if (system) body.systemInstruction = { parts: [{ text: system }] };
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('gemini HTTP ' + res.status + (data?.error?.message ? ' — ' + data.error.message : ''));
+      const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+      if (!text) throw new Error('gemini returned no text');
+      return { text, via: 'gemini', model, durationMs: Date.now() - start };
+    }
+    const model = String(process.env.OPENAI_MODEL || 'gpt-4o-mini');
+    const msgs = [];
+    if (system) msgs.push({ role: 'system', content: system });
+    for (const m of messages || []) msgs.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') });
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + openaiKey },
+      body: JSON.stringify({ model, messages: msgs, temperature: 0.3, max_tokens: maxTokens, ...(json ? { response_format: { type: 'json_object' } } : {}) }),
+      signal: ctrl.signal
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error('openai HTTP ' + res.status + (data?.error?.message ? ' — ' + data.error.message : ''));
+    const text = String(data?.choices?.[0]?.message?.content || '').trim();
+    if (!text) throw new Error('openai returned no text');
+    return { text, via: 'openai', model, durationMs: Date.now() - start };
+  } catch (e) {
+    throw new Error((e.name === 'AbortError' || /abort/i.test(e.message || '')) ? 'LLM timed out after ' + timeoutMs + 'ms' : (e.message || 'LLM call failed'));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// The first top-level JSON array in a model reply. Models wrap JSON in code
+// fences or prose despite instructions; a tolerant read beats a dropped page.
+export function parseJsonArray(text) {
+  let s = String(text || '').trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1].trim();
+  const first = s.indexOf('[');
+  const last = s.lastIndexOf(']');
+  if (first < 0 || last <= first) return null;
+  try { return JSON.parse(s.slice(first, last + 1)); } catch { return null; }
+}
+
+// A 2 KB slice of the markup goo-net served — the evidence a parser fix is
+// made against (stored in site_settings.goonet_parsemiss_sample on blocked or
+// parse-miss runs, copied out of the CRM with "Copy parser diagnostic").
+export const EVIDENCE_SAMPLE_BYTES = 2048;
+export function markupSample(html, maxBytes = EVIDENCE_SAMPLE_BYTES) {
+  const s = String(html || '');
+  return s.length <= maxBytes ? s : s.slice(0, maxBytes);
+}
+
+const FUEL_VALUES = new Set(Object.values(FUEL_MAP));
+const BODY_VALUES = new Set(Object.values(BODY_MAP));
+
+function canonFrom(values, v) {
+  const s = String(v || '').trim();
+  return values.has(s) ? s : null;
+}
+
+function intInRange(v, lo, hi) {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= lo && n <= hi ? n : null;
+}
+
+// LLM card → the same shape parseCard produces. Every field is re-validated
+// against the parsers the regex path uses, and image URLs must literally
+// occur in the source markup — a URL the page does not carry is dropped, so
+// the quality gate is never fed invented photos.
+export function normalizeLlmCard(item, stock, src, baseUrl) {
+  if (!item || typeof item !== 'object') return null;
+  const title = stripTags(item.title || '').replace(/\s+/g, ' ').trim() || null;
+  let url = null;
+  try {
+    if (typeof item.url === 'string' && /\/spread\//.test(item.url) && /^https?:\/\//.test(item.url)) {
+      url = new URL(item.url, baseUrl).href;
+    }
+  } catch { /* malformed URL → rebuild from the stock id */ }
+  if (!url) url = detailUrlFor(stock);
+
+  const make = detectMake(String(item.make || '') + ' ' + String(title || '')) || null;
+  const model = make
+    ? (detectModel(String(item.model || '') || title || '', make) || (item.model ? String(item.model).slice(0, 60) : null))
+    : null;
+  const year = intInRange(item.year, 1900, 2100);
+  const km = kmToNumber(item.km) || (typeof item.km === 'string' && /^\d{3,7}$/.test(item.km.replace(/[\s,]/g, '')) ? item.km.replace(/[\s,]/g, '') : null);
+  const priceJpy = priceTextToYen(item.price);
+  const images = [];
+  for (const u of Array.isArray(item.images) ? item.images : []) {
+    if (typeof u !== 'string' || !/^https:\/\/picture1\.goo-net\.com\//.test(u)) continue;
+    if (u.includes('/shop/') || /\/[PS]\//.test(u)) continue;
+    if (!src.includes(u)) continue;
+    if (!images.includes(u)) images.push(u);
+  }
+  if (!title && !make && !priceJpy) return null;
+  return {
+    goonet_id: stock,
+    stock_no: stock,
+    make: make || 'Unknown',
+    model,
+    title,
+    url,
+    year,
+    km,
+    price_jpy: priceJpy,
+    price_usd: yenToUsd(priceJpy),
+    price: usdText(yenToUsd(priceJpy)),
+    image: images[0] || null,
+    images: extendGallery(images),
+    photo_count: images.length,
+    tr: item.tr ? String(item.tr).trim().slice(0, 12) : null,
+    eng: item.eng ? formatEngine(item.eng) : null,
+    fuel: detectFuel(item.fuel) || canonFrom(FUEL_VALUES, item.fuel),
+    body: detectBody(item.body) || canonFrom(BODY_VALUES, item.body),
+    location: detectPrefecture(item.location) || (item.location ? String(item.location).trim().slice(0, 60) : null),
+    via_llm: true
+  };
+}
+
+// Ask the LLM to extract car cards from a listing page the regex parser
+// could not read. Returns { cards, via, model, error? } — on any failure
+// (no key, HTTP error, unparseable reply, zero valid cards) the caller keeps
+// the honest parseMiss/blocked report. The reply is validated: cards without
+// a stock id are dropped, and the whole array is capped.
+export async function extractCardsWithLlm(html, { baseUrl = DEFAULT_SEARCH_URL, timeoutMs = 25000, maxChars = 120_000 } = {}) {
+  if (!llmConfigured()) return { cards: [], via: null, model: null, skipped: 'no-llm-key' };
+  const src = String(html || '');
+  const slice = src.length > maxChars ? src.slice(0, maxChars) + '\n<!-- [page truncated for extraction] -->' : src;
+  const system = 'You are a data-extraction engine for a Japanese used-car listing page (goo-net). '
+    + 'Extract the car cards from the raw HTML you are given and reply with ONLY a JSON array — no markdown fences, no commentary. '
+    + 'Each element is an object with exactly these keys: '
+    + 'stock (string, the id from /usedcar/spread/goo/N/<stock>.html links), '
+    + 'make (string), model (string or null), title (string), '
+    + 'url (string, the card\u2019s spread URL), year (integer or null), '
+    + 'km (string such as "47000" or "4.7万km", or null), '
+    + 'price (string exactly as printed, e.g. "199.9万円" or "￥1,999,000", or null), '
+    + 'fuel (string or null), body (string or null), location (Japanese prefecture or null), '
+    + 'images (array of picture1.goo-net.com URLs that appear in the HTML for this card, in order). '
+    + 'Only include a car whose spread link is present in the HTML. Never invent a value — use null for anything the HTML does not state. '
+    + 'Only use image URLs that literally appear in the HTML.';
+  let via = null, model = null;
+  try {
+    const r = await askLlm({
+      system,
+      messages: [{ role: 'user', content: 'Extract the car cards from this listing page HTML:\n\n' + slice }],
+      json: true, maxTokens: 8000, timeoutMs
+    });
+    via = r.via; model = r.model;
+    const arr = parseJsonArray(r.text);
+    if (!Array.isArray(arr)) return { cards: [], via, model, error: 'LLM reply was not a JSON array' };
+    const cards = [];
+    const seen = new Set();
+    for (const item of arr) {
+      if (!item || typeof item !== 'object') continue;
+      const stock = String(item.stock || extractStockFromUrl(item.url) || '').trim();
+      if (!stock || seen.has(stock)) continue;
+      seen.add(stock);
+      const card = normalizeLlmCard(item, stock, src, baseUrl);
+      if (card) cards.push(card);
+      if (cards.length >= 50) break;
+    }
+    return cards.length ? { cards, via, model } : { cards, via, model, error: 'no valid cards extracted' };
+  } catch (e) {
+    return { cards: [], via, model, error: e.message || 'LLM call failed' };
+  }
 }
