@@ -683,31 +683,60 @@ export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
       diagnostics: { parseStatus: 'empty_html', fallbackTemplate: true }
     };
   }
-  const cars = [];
-  // Each car card is anchored by its spread link. Split on those links so
-  // fields never bleed between neighbouring cards: card i owns the HTML
-  // from its first spread link up to the next card's first spread link.
-  const linkRe = /https:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/([A-Za-z0-9]+)\.html/g;
-  const seen = new Map(); // stock → first anchor start (thumbnail anchors repeat the card link)
-  let m;
-  while ((m = linkRe.exec(s))) {
-    if (seen.has(m[1])) continue;
-    // The segment starts at the anchor's opening tag, not at the URL inside
-    // href="…": a thumbnail anchor's img alt lives between the two, and the
-    // loose-title fallback must be able to see it. Guarded so a URL that is
-    // not part of an anchor cannot reach into the previous card's fields.
-    const hrefQ = s.lastIndexOf('href="', m.index);
-    const aStart = hrefQ >= 0 ? s.lastIndexOf('<a', hrefQ) : -1;
-    seen.set(m[1], (aStart >= 0 && m.index - aStart <= 120) ? aStart : m.index);
-  }
-  const segments = [...seen.entries()].map(([stock, start]) => ({ stock, start }))
-    .sort((a, b) => a.start - b.start);
 
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    const end = i + 1 < segments.length ? segments[i + 1].start : s.length;
-    const cardHtml = s.slice(seg.start, end);
-    const card = parseCard(cardHtml, seg.stock, baseUrl);
+  // 1) Every spread anchor, with its readable candidate (anchor text, or the
+  // img alt when the caption is a badge like "New"/"UP").
+  const anchors = [];
+  const anchorRe = /<a\b[^>]*href="(https?:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/([A-Za-z0-9]+)\.html)(?:#[^"]*)?"[^>]*>([\s\S]*?)<\/a>/g;
+  let m;
+  while ((m = anchorRe.exec(s))) {
+    const inner = m[3];
+    const text = stripTags(inner).replace(/\s+/g, ' ').trim();
+    const alt = (inner.match(/<img[^>]*alt="([^"]+)"/) || [])[1];
+    const candidate = (text.length >= 4 ? text : null)
+      || (alt ? stripTags(alt).replace(/\s+/g, ' ').trim() : null);
+    const tagStart = s.slice(Math.max(0, m.index - 300), m.index);
+    anchors.push({
+      stock: m[2],
+      url: m[1],
+      pos: m.index, // the regex starts at the <a> tag
+      aEnd: m.index + m[1].length,
+      candidate: candidate && candidate.length >= 4 ? candidate : null,
+      isH3: /<h3[^>]*>\s*$/.test(tagStart)
+    });
+  }
+
+  // 2) Per stock: the TITLE anchor. Ranked so the real card's title wins: an
+  // <h3> anchor first, then an anchor whose following 2500 chars carry the
+  // spec block (年式/万円/走行距離), then candidate length. A bare thumbnail
+  // (no readable candidate, no spec block after it — a hidden mobile grid or
+  // preload strip linking the same stocks) can never win.
+  //
+  // This is the fix for the 2026-09 live regression: the page links every
+  // stock in extra regions, so "first spread link per stock" no longer marks
+  // the card start — segments collapsed into bare thumbnail blocks and 49 of
+  // 50 cards parsed as nothing.
+  const SPEC_AHEAD = 2500;
+  for (const a of anchors) {
+    const ahead = s.slice(a.aEnd, a.aEnd + SPEC_AHEAD);
+    const hasSpec = /(万円|年式|走行距離)/.test(ahead);
+    a.rank = (a.isH3 ? 8 : 0) + (hasSpec ? 4 : 0) + (a.candidate ? 2 : 0)
+      + Math.min(2, Math.floor((a.candidate ? a.candidate.length : 0) / 50));
+  }
+  const bestByStock = new Map();
+  for (const a of anchors) {
+    const cur = bestByStock.get(a.stock);
+    if (!cur || a.rank > cur.rank) bestByStock.set(a.stock, a);
+  }
+  const marks = [...bestByStock.values()].sort((a, b) => a.pos - b.pos);
+
+  // 3) Cut segments title-anchor → title-anchor and parse each region.
+  const cars = [];
+  for (let i = 0; i < marks.length; i++) {
+    const mark = marks[i];
+    const prevPos = i > 0 ? marks[i - 1].pos : 0;
+    const nextPos = i + 1 < marks.length ? marks[i + 1].pos : s.length;
+    const card = parseCardRegion(s, prevPos, mark, nextPos, baseUrl);
     if (card) cars.push(card);
   }
   return {
@@ -726,36 +755,38 @@ export function parsePagination(html) {
   return { total: max };
 }
 
-function parseCard(chunk, stock, baseUrl) {
+function parseCardRegion(s, prevPos, mark, nextPos, baseUrl) {
+  // ABOVE the title anchor: the thumbnail block (photos) and the make line.
+  // Tail-bounded so the previous card's spec/shop block (and any filter
+  // sidebar) cannot donate its text.
+  const above = s.slice(Math.max(0, prevPos), mark.pos);
+  const aboveTail = above.slice(-2500);
+  // BELOW: this card's spec block (価格/年式/走行距離/…), loan and shop block —
+  // everything up to the next card's title anchor. The next card's make line
+  // and thumbnails sit just before it, so they are never used for make or
+  // photos (those come from aboveTail) but they cannot donate spec fields:
+  // the next card's own spec block starts past its title anchor.
+  const chunk = s.slice(mark.pos, nextPos);
+  // Photo region: the thumbnail block above the title. When the title anchor
+  // is not the <h3> (markup drift), the #3/#4 thumbnails can sit just below
+  // it — a short lower window catches those without reaching the NEXT card's
+  // thumbnail block (on a live page that is 2 KB+ away). Shop logos are
+  // filtered out by extractCarImages itself.
+  const belowWin = mark.isH3 ? 0 : 800;
+  const imgRegion = aboveTail + (belowWin ? s.slice(mark.aEnd, Math.min(s.length, mark.aEnd + belowWin)) : '');
+
+  // Title: the classic <h3><a …spread…> shape first, else the chosen anchor's
+  // candidate (its text, or the thumbnail's img alt).
   const titleRe = /<h3[^>]*>[\s\S]*?<a[^>]*href="([^"]*spread[^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/h3>/;
   const tm = chunk.match(titleRe);
-  let title = tm ? stripTags(tm[2]).replace(/\s+/g, ' ').trim() : null;
+  const title = tm ? stripTags(tm[2]).replace(/\s+/g, ' ').trim() : (mark.candidate || null);
   let url = tm ? new URL(tm[1], baseUrl).href : null;
-
-  // Markup-drift fallbacks: when the strict <h3> title link changed shape,
-  // the card still carries its title in the spread anchor's text (or the
-  // thumbnail's img alt). The longest readable candidate wins — thumbnail
-  // anchors print "New" or an empty caption, so they lose to the real title.
-  if (!title || !url) {
-    let best = null;
-    const anchorRe = /<a[^>]*href="(https?:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/[A-Za-z0-9]+\.html)(?:#[^"]*)?"[^>]*>([\s\S]*?)<\/a>/g;
-    let am;
-    while ((am = anchorRe.exec(chunk))) {
-      const inner = am[2];
-      const text = stripTags(inner).replace(/\s+/g, ' ').trim();
-      const alt = (inner.match(/<img[^>]*alt="([^"]+)"/) || [])[1];
-      const cand = text || (alt ? stripTags(alt).replace(/\s+/g, ' ').trim() : null);
-      if (cand && cand.length >= 4 && (!best || cand.length > best.title.length)) {
-        best = { url: am[1], title: cand };
-      }
-    }
-    if (best) {
-      if (!url) url = new URL(best.url, baseUrl).href;
-      if (!title) title = best.title;
-    }
+  if (!url && mark.url) {
+    try { url = new URL(mark.url, baseUrl).href; } catch { url = null; }
   }
+  if (!url) url = detailUrlFor(mark.stock);
 
-  const make = detectMake(chunk);
+  const make = detectMake(aboveTail) || detectMake(chunk);
   const year = numberAfter(chunk, '年式');
   const km = kmToNumber(after(chunk, '走行距離', v => /km/i.test(v)));
   const priceJpy = manToYen(after(chunk, '車両本体価格', v => /万円/.test(v)) || after(chunk, '支払総額', v => /万円/.test(v)))
@@ -767,15 +798,14 @@ function parseCard(chunk, stock, baseUrl) {
   const ext = ratingAfter(chunk, '外装');
   const int = ratingAfter(chunk, '内装');
   const location = detectPrefecture(chunk);
-  const images = extractCarImages(chunk);
+  const images = extractCarImages(imgRegion);
 
   if (!title && !make && !priceJpy) return null;
-
   const model = make ? detectModel(title || make, make) : null;
 
   return {
-    goonet_id: stock,
-    stock_no: stock,
+    goonet_id: mark.stock,
+    stock_no: mark.stock,
     make: make || 'Unknown',
     model,
     title,
@@ -1018,7 +1048,7 @@ export async function askLlm({ system, messages, json = false, maxTokens = 2048,
   const start = Date.now();
   try {
     if (geminiKey) {
-      const model = String(process.env.GEMINI_MODEL || 'gemini-2.5-flash');
+      const model = String(process.env.GEMINI_MODEL || 'gemini-3.8-flash');
       const body = {
         contents: (messages || []).map(m => ({
           role: m.role === 'assistant' ? 'model' : 'user',
@@ -1077,9 +1107,16 @@ export function parseJsonArray(text) {
 // made against (stored in site_settings.goonet_parsemiss_sample on blocked or
 // parse-miss runs, copied out of the CRM with "Copy parser diagnostic").
 export const EVIDENCE_SAMPLE_BYTES = 2048;
+// The sample is centred on the FIRST CAR LINK, not the top of the page: a
+// live listing page is ~1 MB and its first 2 KB are header boilerplate, so a
+// head slice would show a parser fix nothing. A page without car links falls
+// back to the head (that is the bot-gate case, where the head IS the story).
 export function markupSample(html, maxBytes = EVIDENCE_SAMPLE_BYTES) {
   const s = String(html || '');
-  return s.length <= maxBytes ? s : s.slice(0, maxBytes);
+  const m = s.match(/https:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\//);
+  if (!m || m.index === undefined) return s.length <= maxBytes ? s : s.slice(0, maxBytes);
+  const start = Math.max(0, m.index - 512);
+  return s.slice(start, start + maxBytes);
 }
 
 const FUEL_VALUES = new Set(Object.values(FUEL_MAP));

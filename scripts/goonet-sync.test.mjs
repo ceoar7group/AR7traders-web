@@ -470,6 +470,8 @@ const settings8 = Object.fromEntries(db8.tables.site_settings.map(r => [r.key, r
 
 ok(res8.body?.llm?.via === 'gemini' && res8.body?.llm?.extracted === 2,
   'AI fallback: the report names the LLM provider and how many cards it extracted');
+ok(llmCalls8.length === 1 && llmCalls8[0].includes('gemini-3.8-flash'),
+  'AI fallback: the live call targets gemini-3.8-flash (the 404 message from goo-net\u2019s gemini-2.5-flash retirement)');
 ok(res8.body?.inserted >= 1 && llmCalls8.length === 1,
   'AI fallback: the extracted cars pass the same quality gate and are imported (one LLM call per run)');
 ok(String(res8.body?.note || '').includes('AI fallback (gemini)'),

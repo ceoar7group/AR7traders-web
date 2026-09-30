@@ -526,5 +526,69 @@ global.fetch = realFetch;
 eq(markupSample('x'.repeat(5000)).length, 2048, 'markupSample trims to the 2 KB evidence size');
 eq(markupSample('<html><body>tiny</body></html>').length, 30, 'markupSample leaves a short page untouched');
 
+// ---- Live 2026-09-30 listing: title-anchor segmentation --------------------
+// The live page links every stock in extra regions (hidden/preload grids), so
+// "first spread link per stock" no longer marks the card start — 49 of 50
+// cards parsed as nothing. Cards are now anchored on their <h3> title
+// (readable candidate + spec block after it); make/photos are read from the
+// region ABOVE the title, spec fields from BELOW it.
+const liveSep30 = readFileSync(new URL('./fixtures/goonet-listing-2026-09-30.html', import.meta.url), 'utf8');
+const livePage = parseListingPage(liveSep30, 'https://www.goo-net.com/usedcar/price-100-300/');
+eq(livePage.cars.length, 3, 'the live 2026-09-30 page parses all 3 cards');
+const lc1 = livePage.cars[0];
+ok(lc1 && lc1.make === 'Toyota' && lc1.model === 'Prius', 'live card 1: make line above the <h3> + title gives the model');
+eq(lc1 && lc1.price_jpy, 990000, 'live card 1: 車両本体価格 99万円 below the <h3>');
+eq(lc1 && lc1.year, 2016, 'live card 1: 年式2016年');
+eq(lc1 && lc1.km, '96000', 'live card 1: 走行距離9.6万km');
+eq(lc1 && lc1.photo_count, 4, 'live card 1: 4 real photos, the /shop/…/S/ logo excluded');
+ok(lc1 && lc1.location === '愛知県' && lc1.repair_history === 'No', 'live card 1: 住所 prefecture + 修復歴なし');
+const lc2 = livePage.cars[1];
+ok(lc2 && lc2.price_jpy === 1649000 && lc2.photo_count === 3, 'live card 2: 164.9万円, 3 photos (the #movie anchor is a video, not a photo)');
+const lc3 = livePage.cars[2];
+ok(lc3 && lc3.price_jpy === 2679000 && lc3.eng === '2,500cc' && lc3.location === null, 'live card 3: 267.9万円, 2500cc (comma-formatted), no 住所 line → null location');
+
+// ---- Duplicate link regions (hidden mobile grid) ----------------------------
+// Every stock is linked FIRST in a bare thumbnail strip, then again inside the
+// full card. Old first-link segmentation cut the strip and parsed 0 of 2; the
+// title anchor (readable candidate + spec block ahead) must win.
+const dupGridHtml = '<html><body>'
+  + '<div id="mobileStrip" style="display:none">'
+  + '<a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0001.html"><img src="https://picture1.goo-net.com/d/Q/dup01_00.jpg"></a>'
+  + '<a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0002.html"><img src="https://picture1.goo-net.com/d/Q/dup02_00.jpg"></a>'
+  + '</div>'
+  + '<div class="searchResult"><a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0001.html"><img alt="Toyota Prius S 2021" src="https://picture1.goo-net.com/d/Q/dup01_00.jpg">New</a>'
+  + '<a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0001.html#2"><img src="https://picture1.goo-net.com/d/Q/dup01_01.jpg"></a>'
+  + '<a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0001.html#3"><img src="https://picture1.goo-net.com/d/Q/dup01_02.jpg"></a>'
+  + '<p>Toyota</p><h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0001.html">Prius S 2021 package</a></h3>'
+  + '<p>車両本体価格(税込)</p><p>285万円</p><p>年式2021年</p><p>走行距離4.2万km</p><p>修復歴なし</p></div>'
+  + '<div class="searchResult"><a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0002.html"><img alt="Nissan Note e-Power X" src="https://picture1.goo-net.com/d/Q/dup02_00.jpg">New</a>'
+  + '<a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0002.html#2"><img src="https://picture1.goo-net.com/d/Q/dup02_01.jpg"></a>'
+  + '<a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0002.html#3"><img src="https://picture1.goo-net.com/d/Q/dup02_02.jpg"></a>'
+  + '<p>Nissan</p><h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/DUP0002.html">Note e-Power X 2019</a></h3>'
+  + '<p>車両本体価格(税込)</p><p>￥1,500,000</p><p>年式2019年</p><p>走行距離6.1万km</p><p>修復歴なし</p></div>'
+  + '</body></html>';
+const dupPage = parseListingPage(dupGridHtml, 'https://www.goo-net.com/usedcar/price-100-300/');
+ok(dupPage.cars.length === 2 && dupPage.cars.every(c => c.price_jpy && c.make !== 'Unknown'),
+  'a bare thumbnail strip linking the same stocks first cannot collapse the cards');
+eq(dupPage.cars[0] && dupPage.cars[0].make, 'Toyota', 'duplicate grid: the make is read from the real card region, not the strip');
+
+// ---- AI fallback: current Gemini model ---------------------------------------
+process.env.GEMINI_API_KEY = 'test-gemini';
+let modelUrl = null;
+global.fetch = async (u) => { modelUrl = String(u); return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: '[]' }] } }] }) }; };
+await extractCardsWithLlm(llmPageHtml);
+ok(modelUrl && modelUrl.includes('gemini-3.8-flash'), 'the AI fallback calls gemini-3.8-flash by default (2.5-flash 404s for new keys)');
+delete process.env.GEMINI_API_KEY;
+global.fetch = realFetch;
+
+// ---- Evidence sample: centred on the first car link ---------------------------
+const samplePage = '<!-- HEAD-MARKER -->' + 'z'.repeat(6000) + '<body>' + 'y'.repeat(3000)
+  + '<a href="https://www.goo-net.com/usedcar/spread/goo/15/SAMP0001.html"><img src="https://picture1.goo-net.com/s/Q/s01_00.jpg">New</a>'
+  + '<p>トヨタ</p><h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/SAMP0001.html">Prius A 2016</a></h3>'
+  + '<p>車両本体価格(税込)</p><p>99万円</p><p>年式2016年</p><p>走行距離9.6万km</p></body></html>';
+const sample = markupSample(samplePage);
+ok(sample.includes('年式') && sample.includes('SAMP0001') && !sample.includes('HEAD-MARKER'),
+  'the 2 KB evidence sample centres on the first car link, not the page head');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

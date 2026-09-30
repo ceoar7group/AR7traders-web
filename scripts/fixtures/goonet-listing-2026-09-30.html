@@ -1,0 +1,98 @@
+<!--
+  Trimmed capture of the LIVE goo-net listing page, taken 2026-09-30 from
+  https://www.goo-net.com/usedcar/price-100-300/ (read directly, 1,177,727
+  bytes, 50 car links).
+
+  This is the markup shape that broke the first-link segmentation: the page
+  links every stock in extra regions (hidden/preload grids), so "first spread
+  link per stock" no longer marks the card start. Kept as a regression
+  fixture because it carries the details the parser keys on:
+    • thumbnail anchor = <img alt="FULL TITLE"> + badge text ("New"/"UP") + a
+      360° icon img inside the same anchor
+    • #2/#3/#4 photo anchors + an optional #movie anchor (movie1.goo-net.com,
+      must not be counted as a photo)
+    • make line ABOVE the <h3> title anchor
+    • spec block (支払総額/車両本体価格 万円, 年式, 走行距離, 車検, 修復歴,
+      排気量, ミッション, 外装/内装 rating) BELOW the <h3>
+    • loan block with a #sec-loan anchor back to the same spread URL
+    • shop block with a logo under /shop/ … /S/ (must not be counted) and,
+      where present, a 住所 line; the 無料 tel anchor points back at the same
+      spread URL
+-->
+<html><body>
+<div id="results">
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html"><img alt="トヨタ　プリウス　Ａ　６ヶ月走行距離無制限保証付　メモリーナビ　フルセグＴＶ" src="https://picture1.goo-net.com/9880260926/00206860/Q/98802609260020686000100.jpg">New<img alt="360°ビュー" src="https://img.goo-net.com/cache/common/icon_360.png"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html#2"><img alt="ご来店の際は案内等をスムーズに行うために事前に予約をお願いしております。 2" src="https://picture1.goo-net.com/020/0206860/Q/0206860A20260925D00101.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html#3"><img alt="☆インパネ周り 3" src="https://picture1.goo-net.com/020/0206860/Q/0206860A20260925D00102.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html#4"><img alt="☆メモリーナビ 4" src="https://picture1.goo-net.com/020/0206860/Q/0206860A20260925D00103.jpg"></a>
+  <p class="viewer">今あなたの他に 282人 が見ています</p>
+  <p class="brand">トヨタ</p>
+  <p>オプション見積り動画付き購入パックありグー保証付けられます</p>
+  <h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html">プリウス Ａ　６ヶ月走行距離無制限保証付　メモリーナビ　フルセグＴＶ　バックカメラ　ＥＴＣ　ＨＵＤ　トヨタセーフティセンス　コーナーセンサー　パーキングアシスト　Ｂｌｕｅｔｏｏｔｈ　ＬＥＤヘッドライト　禁煙車</a></h3>
+  <p>支払総額(税込)(リ済込)</p><p>108.9万円</p><p>（諸費用9.9万円を含む）</p>
+  <p>車両本体価格(税込)</p><p>99万円</p>
+  <p>年式2016年</p><p>走行距離9.6万km</p><p>車検車検整備付</p><p>修復歴なし</p>
+  <p>整備法定整備付</p><p>保証付6ヶ月・走行無制限</p>
+  <p>排気量1800cc</p><p>ミッションCVT</p>
+  <p><img alt="グー鑑定" src="https://img.goo-net.com/usedcar/common_v2/img/spread_new/icon_gookantei.png">外装 <b>4</b>内装 <b>4</b>機関／正常</p>
+  <p>通常ローン</p><p>ご利用時月々 15,800円 <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html#sec-loan">詳細</a></p>
+  <p>お気に入り<a href="https://www.goo-net.com/php/mysearch/compare_list.php?baitai=goo">お気に入り済</a></p>
+  <p>在庫の確認・お見積り（無料）</p>
+  <p><a href="https://www.goo-net.com/usedcar_shop/0206860/detail.html">セダン／スポーツ専門店　ファイントラスト高蔵寺店</a></p>
+  <p><img alt="☆" src="https://img.goo-net.com/ln/pc/star.png">4.9 <a href="https://www.goo-net.com/user_review/0206860/detail.html">986件</a></p>
+  <p><a href="https://www.goo-net.com/usedcar_shop/0206860/detail.html"><img alt="販売店画像" src="https://picture1.goo-net.com/shop/020/0206860/S/0206860.jpg"></a></p>
+  <p>住所：愛知県春日井市不二町２－１１－５</p>
+  <p>営業時間：9:30～19:00</p><p>定休日：毎週水曜日</p>
+  <p>無料 <a href="https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html">0078-6043-2858</a></p>
+</div>
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/17/700100218030260730002.html"><img alt="トヨタ　プリウス　Ｓツーリングセレクション　禁煙車　ＨＶ　モデリスタフルエアロ" src="https://picture1.goo-net.com/7001002180/30260730/Q/70010021803026073000200.jpg">UP<img alt="360°ビュー" src="https://img.goo-net.com/cache/common/icon_360.png"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/17/700100218030260730002.html#2"><img alt="５０系トヨタのプリウス、前期モデルが入荷しました。 2" src="https://picture1.goo-net.com/100/1002180/Q/1002180A30260730W00201.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/17/700100218030260730002.html#3"><img alt="オートローン各種取り扱いしております。 3" src="https://picture1.goo-net.com/100/1002180/Q/1002180A30260730W00202.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/17/700100218030260730002.html#movie"><img alt="プリウス Ｓツーリングセレクション　禁煙車　ＨＶ　モデリスタフルエアロ" src="https://movie1.goo-net.com/motion/goo/100/1002180/1002180A30260730W002_TC_20260802175136_1.mp4?mf-image-at=10&mf-image-size=128x96"></a>
+  <p class="viewer">今あなたの他に 401人 が見ています</p>
+  <p class="brand">トヨタ</p>
+  <p>オプション見積り動画付き購入パックありグー保証付けられます</p>
+  <h3><a href="https://www.goo-net.com/usedcar/spread/goo/17/700100218030260730002.html">プリウス Ｓツーリングセレクション　禁煙車　ＨＶ　モデリスタフルエアロ　黒革シート　衝突軽減ブレーキ　ＴＶナビ　バックカメラ　ＥＴＣ　レーダークルーズ　スマートキー　１７ＡＷ　ＡＵＴＯハイビーム　ＣＤ／ＤＶＤ再生　Ｂｌｕｅｔｏｏｔｈ接続</a></h3>
+  <p>支払総額(税込)(リ済込)</p><p>174.8万円</p><p>（諸費用9.9万円を含む）</p>
+  <p>車両本体価格(税込)</p><p>164.9万円</p>
+  <p>年式2017年</p><p>走行距離8.1万km</p><p>車検車検整備付</p><p>修復歴なし</p>
+  <p>整備法定整備付</p><p>保証付12ヶ月・走行無制限</p>
+  <p>排気量1800cc</p><p>ミッションインパネAT</p>
+  <p><img alt="グー鑑定" src="https://img.goo-net.com/usedcar/common_v2/img/spread_new/icon_gookantei.png">外装 <b>4</b>内装 <b>4</b>機関／正常</p>
+  <p>通常ローン</p><p>ご利用時月々 16,600円 <a href="https://www.goo-net.com/usedcar/spread/goo/17/700100218030260730002.html#sec-loan">詳細</a></p>
+  <p>お気に入り<a href="https://www.goo-net.com/php/mysearch/compare_list.php?baitai=goo">お気に入り済</a></p>
+  <p>在庫の確認・お見積り（無料）</p>
+  <p><a href="https://www.goo-net.com/usedcar_shop/1002180/detail.html">アールエスオート</a></p>
+  <p><img alt="☆" src="https://img.goo-net.com/ln/pc/star.png">4.8 <a href="https://www.goo-net.com/user_review/1002180/detail.html">463件</a></p>
+  <p><a href="https://www.goo-net.com/usedcar_shop/1002180/detail.html"><img alt="販売店画像" src="https://picture1.goo-net.com/shop/100/1002180/L/1002180_231222112942.jpg"></a></p>
+  <p>全国陸送費無料キャンペーン中</p>
+  <p>無料 <a href="https://www.goo-net.com/usedcar/spread/goo/17/700100218030260730002.html">0078-6048-0645</a></p>
+</div>
+<div class="searchResult">
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/965026092600203954001.html"><img alt="トヨタ　クラウンハイブリッド　アスリートＳ　Ｊ－フロンティア　セーフティセンス　ＬＥＤヘッドライト" src="https://picture1.goo-net.com/9650260926/00203954/Q/96502609260020395400100.jpg">New<img alt="360°ビュー" src="https://img.goo-net.com/cache/common/icon_360.png"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/965026092600203954001.html#2"><img alt="グループ総在庫数約３０，０００台！！ 2" src="https://picture1.goo-net.com/020/0203954/Q/0203954A20260925Q00101.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/965026092600203954001.html#3"><img alt="【メーカー純正ナビ】インテリアに溶け込むスタイリッシュな専用設計ナビ 3" src="https://picture1.goo-net.com/020/0203954/Q/0203954A20260925Q00102.jpg"></a>
+  <a href="https://www.goo-net.com/usedcar/spread/goo/15/965026092600203954001.html#4"><img alt="【プリクラッシュセーフティ】前方の車両等を検知して衝突を注意 4" src="https://picture1.goo-net.com/020/0203954/Q/0203954A20260925Q00103.jpg"></a>
+  <p class="viewer">今あなたの他に 119人 が見ています</p>
+  <p class="brand">トヨタ</p>
+  <p>動画付き購入パックありグー保証付けられます</p>
+  <h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/965026092600203954001.html">クラウンハイブリッド アスリートＳ　Ｊ－フロンティア　セーフティセンス　ＬＥＤヘッドライト　純正１８インチＡＷ　革巻ステアリング　電動チルトテレスコピック　ウルトラスエードコンビシート　シートヒーター　スーパーライブサウンドシステム</a></h3>
+  <p>支払総額(税込)(リ済込)</p><p>279.9万円</p><p>（諸費用12万円を含む）</p>
+  <p>車両本体価格(税込)</p><p>267.9万円</p>
+  <p>年式2017年</p><p>走行距離7.3万km</p><p>車検2028年3月</p><p>修復歴なし</p>
+  <p>整備法定整備付</p><p>保証付3ヶ月・3000km</p>
+  <p>排気量2500cc</p><p>ミッションCVT</p>
+  <p><img alt="グー鑑定" src="https://img.goo-net.com/usedcar/common_v2/img/spread_new/icon_gookantei.png">外装 <b>4</b>内装 <b>4</b>機関／正常</p>
+  <p>通常ローン</p><p>ご利用時月々 22,700円 <a href="https://www.goo-net.com/usedcar/spread/goo/15/965026092600203954001.html#sec-loan">詳細</a></p>
+  <p>お気に入り<a href="https://www.goo-net.com/php/mysearch/compare_list.php?baitai=goo">お気に入り済</a></p>
+  <p>在庫の確認・お見積り（無料）</p>
+  <p><a href="https://www.goo-net.com/usedcar_shop/0203954/detail.html">ネクステージ　天白セダン・スポーツ専門店</a></p>
+  <p><img alt="☆" src="https://img.goo-net.com/ln/pc/star.png">4.8 <a href="https://www.goo-net.com/user_review/0203954/detail.html">380件</a></p>
+  <p><a href="https://www.goo-net.com/usedcar_shop/0203954/detail.html"><img alt="販売店画像" src="https://picture1.goo-net.com/shop/020/0203954/L/0203954_260923122928.jpg"></a></p>
+  <p>見積り＋来店予約キャンペーン</p>
+  <p>無料 <a href="https://www.goo-net.com/usedcar/spread/goo/15/965026092600203954001.html">0078-6049-9200</a></p>
+</div>
+</div>
+</body></html>
