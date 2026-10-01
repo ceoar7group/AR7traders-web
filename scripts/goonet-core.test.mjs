@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import {
   manToYen, yenToUsd, kmToNumber, seatsNumber, fullWidthToHalf,
   detectMake, detectModel, detectPrefecture, detectBody, detectFuel, bodyForModel,
+  MODEL_BRAND, makeFromModel, TR_RE, isTransmissionValue, transmissionAfter,
+  isColourValue, colourAfter,
   extractStockFromUrl, extractCarImages, extendGallery,
   parseListingPage, parseDetailPage, mergeCardAndDetail, qualityScore,
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
@@ -25,6 +27,12 @@ import { legacyEncoder, byteResponse } from './legacy-jp.mjs';
 
 const eucJp = legacyEncoder('euc-jp');
 const shiftJis = legacyEncoder('shift_jis');
+
+// Rough page text without markup, used only to prove the old detection path
+// really did see another brand.
+function stripTextOf(html) {
+  return String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+}
 
 let pass = 0, fail = 0;
 function ok(cond, name) {
@@ -192,6 +200,58 @@ eq(bodyForModel('ランドクルーザープラド'), 'SUV', 'bodyForModel: long
 eq(bodyForModel('Ｎ－ＢＯＸ'), 'Kei', 'bodyForModel: N-BOX is a Kei');
 eq(bodyForModel('全然知らない車'), null, 'bodyForModel: unknown model stays null so the gate skips the car');
 eq(bodyForModel(''), null, 'bodyForModel: empty input is null');
+
+// ---- Make detection: the <h1> beats navigation text -------------------------
+// Captured from a live page (2026-10): the nav names other brands, the card
+// said Honda, and the imported car was stored as NISSAN.
+eq(makeFromModel('Ｎ－ＢＯＸ カスタム Ｌ'), 'Honda', 'makeFromModel: N-BOX is a Honda');
+eq(makeFromModel('ランドクルーザー ２５０ ＶＸ'), 'Toyota', 'makeFromModel: Land Cruiser is a Toyota');
+eq(makeFromModel('ＣＸ－５ ＸＤ'), 'Mazda', 'makeFromModel: CX-5 is a Mazda');
+eq(makeFromModel('全然知らない車'), null, 'makeFromModel: unknown model stays null (never a guess)');
+eq(makeFromModel(''), null, 'makeFromModel: empty input is null');
+eq(MODEL_BRAND['Ｎ－ＢＯＸ'], 'Honda', 'MODEL_BRAND maps N-BOX to Honda');
+
+const navContaminated = `<!doctype html><html><head><title>中古車検索</title></head><body>
+<header><nav><a>日産</a><a>トヨタ</a><a>マツダ</a><a>スズキ</a><a>BMW</a></nav></header>
+<div class="detail"><h1>ホンダ　Ｎ－ＢＯＸ カスタム Ｌ</h1>
+<img src="https://picture1.goo-net.com/7000000000/30260101/J/x00.jpg" alt="ホンダ N-BOX カスタム L 中古車">
+<table>
+<tr><th>年式(初度登録)</th><td>2021(令和3)年</td><th>ハンドル</th><td>右</td></tr>
+<tr><th>ミッション</th><td>CVT パワーステアリングＨ　エアコン</td><th>車体色</th><td>ブラックマイカパワーステアリングＨ</td></tr>
+<tr><th>燃料</th><td>ガソリン</td><th>排気量</th><td>660cc</td></tr>
+<tr><th>駆動方式</th><td>2WD</td><th>乗車定員</th><td>４名</td></tr>
+<tr><th>走行距離</th><td>2.3万km</td><th>修復歴</th><td>なし</td></tr>
+</table></div></body></html>`;
+const navDetail = parseDetailPage(navContaminated, 'https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975003.html');
+eq(navDetail.make, 'Honda', 'nav-contaminated detail: the <h1> brand wins over 日産 in the navigation');
+eq(navDetail.model, 'N-BOX', 'nav-contaminated detail: model still parses');
+eq(navDetail.tr, 'CVT', 'nav-contaminated detail: transmission does not swallow パワーステアリングＨ');
+eq(navDetail.col, 'ブラックマイカ', 'nav-contaminated detail: colour does not swallow パワーステアリングＨ');
+
+// The <h1> carries no brand, so the model→brand cross-check has to answer.
+const modelOnlyH1 = navContaminated.replace('<h1>ホンダ　Ｎ－ＢＯＸ カスタム Ｌ</h1>', '<h1>Ｎ－ＢＯＸ カスタム Ｌ</h1>');
+eq(parseDetailPage(modelOnlyH1, 'https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975003.html').make, 'Honda',
+  'nav-contaminated detail: model→brand cross-check names Honda when the <h1> omits the brand');
+ok(detectMake(stripTextOf(navContaminated)) !== 'Honda',
+  'sanity: the raw page text alone would not have named Honda (the old bug)');
+
+// ---- Spec values must look like the field ----------------------------------
+eq(TR_RE.test('AT'), true, 'TR_RE accepts AT');
+eq(TR_RE.test('６ＭＴ'), true, 'TR_RE accepts full-width 6MT');
+ok(!TR_RE.test('パワーステアリングＨ'), 'TR_RE rejects a feature-list word');
+eq(isTransmissionValue('ＡＴ'), true, 'isTransmissionValue normalises full-width AT');
+eq(isTransmissionValue('SEAT'), false, 'isTransmissionValue does not read AT out of SEAT');
+eq(transmissionAfter('ミッション６ＭＴパワーステアリングＨ エアコン'), '6MT',
+  'transmissionAfter reads 6MT before the equipment list');
+eq(transmissionAfter('ミッション パワーステアリングＨ. エアコン'), null,
+  'transmissionAfter invents nothing when the page states no transmission');
+eq(transmissionAfter('ミッション パワーステアリングＨ. その他 ミッション 4速AT'), '4速AT',
+  'transmissionAfter falls back to a bounded spec-region match');
+eq(colourAfter('車体色ブラックマイカパワーステアリングＨ'), 'ブラックマイカ',
+  'colourAfter cuts the equipment word off the colour');
+eq(colourAfter('車体色 パワーステアリングＨ'), null, 'colourAfter invents nothing');
+ok(isColourValue('ブリリアントホワイトパール'), 'isColourValue accepts a pearl colour');
+ok(!isColourValue('パワーステアリングＨ'), 'isColourValue rejects a feature word');
 
 // ---- Merge + quality gate --------------------------------------------------
 const merged = mergeCardAndDetail(c1, d);

@@ -124,9 +124,9 @@ ok(document.querySelector('.site'), 'the site shell renders');
 const ROUTES = [
   ['/', 'Anywhere'],
   ['/inventory', 'inv-toolbar'],
-  ['/japan-stock', 'LIVE GOO-NET DEALER STOCK'],
+  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
   ['/services', 'AR7 SERVICE'],
-  ['/japan-stock', 'LIVE GOO-NET DEALER STOCK'],
+  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
   ['/brands', 'brands'],
   ['/tools', 'Calculator'],
   ['/auction', 'AUCTION'],
@@ -142,7 +142,7 @@ const ROUTES = [
   ['/account', 'AR7'],
   ['/studio', 'AR7'],
   ['/portal', 'portal-demo'],
-  ['/japan-stock', 'LIVE GOO-NET DEALER STOCK'],
+  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
   ['/crm', 'crm-'],
   ['/inventory', 'inv-toolbar'],
   ['/services', 'AR7 SERVICE']
@@ -169,7 +169,7 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(!!jpLink, 'Japan dealer stock is in the Inventory dropdown');
     if (jpLink) {
       await act(async () => { jpLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
-      ok(location.pathname === '/japan-stock' || document.body.textContent.includes('LIVE GOO-NET DEALER STOCK'),
+      ok(location.pathname === '/japan-stock' || document.body.textContent.includes('LIVE JAPAN DEALER STOCK'),
         'clicking Japan dealer stock lands on the Japan dealer stock page');
     }
     await act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });

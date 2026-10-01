@@ -1031,7 +1031,7 @@ function ReviewsShowcase({navigate, openAuction}){
      <PageLink to={inventoryHref('Lexus')} navigate={navigate}>Lexus LC 500 &amp; Luxury Export Dubai Jebel Ali</PageLink>
      <PageLink to={inventoryHref('Toyota')} navigate={navigate}>QISJ Inspected Toyota Harrier to Mombasa Kenya</PageLink>
      <PageLink to={inventoryHref('Mazda')} navigate={navigate}>Mazda CX-60 &amp; Hybrid Import Auckland NZ</PageLink>
-     <PageLink to="japan-stock" navigate={navigate}>Fresh Goo-net Japan Dealer Stock</PageLink>
+     <PageLink to="japan-stock" navigate={navigate}>Fresh Japan Dealer Stock</PageLink>
      <PageLink to="auction" navigate={navigate}>USS Tokyo &amp; TAA Auction Sheet Translation</PageLink>
      <PageLink to="tools" navigate={navigate}>CIF Landed Cost &amp; Import Duty Calculator</PageLink>
      <PageLink to="shipping" navigate={navigate}>RoRo vs Container Sea Freight from Japan</PageLink>
@@ -1165,7 +1165,7 @@ function JapanStockPage({navigate, openAuction}){
  const closeG=()=>{setOpenCar(null);setGalleryIdx(0)};
  return <>
   <section className="inner-page japan-stock-page">
-   <div className="page-hero mini"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">LIVE GOO-NET DEALER STOCK</div><h1>Japan <em>dealer stock.</em></h1><p>{loading?'Checking the latest dealer listings…':`${rows.length} quality-gated dealer cars · imported straight from Goo-net, refreshed continuously.`}</p></div></div>
+   <div className="page-hero mini"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">LIVE JAPAN DEALER STOCK</div><h1>Japan <em>dealer stock.</em></h1><p>{loading?'Checking the latest dealer listings…':`${rows.length} quality-gated dealer cars · sourced from Japan's dealer network, refreshed continuously.`}</p></div></div>
    <div className="shell page-content">
     <div className="inv-toolbar">
      <label className="inv-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search make, model or stock no."/></label>
@@ -1173,8 +1173,8 @@ function JapanStockPage({navigate, openAuction}){
      <select value={body} onChange={e=>setBody(e.target.value)}><option>All</option>{bodies.map(b=><option key={b}>{b}</option>)}</select>
     </div>
     <div className="results-line"><b>{list.length} vehicles</b><span>verified photos · auction-sheet quality · updated by the AR7 importer</span></div>
-    {loading?<div className="empty-state"><CarFront/><h3>Loading dealer stock…</h3><p>Fetching the latest imports from Goo-net.</p></div>:
-     list.length===0?<div className="empty-state"><Search/><h3>No dealer cars match</h3><p>New Goo-net stock is imported all the time — try another filter or ask our team.</p><button className="primary" onClick={openAuction}>Request a search <ArrowRight/></button></div>:
+    {loading?<div className="empty-state"><CarFront/><h3>Loading dealer stock…</h3><p>Fetching the latest dealer listings from Japan.</p></div>:
+     list.length===0?<div className="empty-state"><Search/><h3>No dealer cars match</h3><p>New dealer stock arrives all the time — try another filter or ask our team.</p><button className="primary" onClick={openAuction}>Request a search <ArrowRight/></button></div>:
      <div className="car-grid full-grid jstock-grid">{list.map(r=>{
       const photos=Array.isArray(r.images)?r.images.filter(Boolean):(r.image?[r.image]:[]);
       const price=r.price||(r.price_usd?'$'+Math.round(r.price_usd).toLocaleString('en-US'):'—');
@@ -1192,7 +1192,6 @@ function JapanStockPage({navigate, openAuction}){
         <div className="loc"><MapPin/> {r.location?r.location+', Japan':'Japan'}</div>
         <div className="jstock-actions">
          <button className="primary" onClick={openAuction}>Enquire <ArrowRight/></button>
-         {r.goonet_url&&<a className="ghost-btn" href={r.goonet_url} target="_blank" rel="noopener noreferrer" title="View the original Goo-net listing">Goo-net <ArrowUpRight/></a>}
         </div>
        </div>
       </article>;
@@ -1214,7 +1213,6 @@ function JapanStockPage({navigate, openAuction}){
      </div>
      <div className="jstock-actions lightbox-cta">
       <button className="primary" onClick={()=>{closeG();openAuction()}}>Enquire now <ArrowRight/></button>
-      {openCar.goonet_url&&<a className="ghost-btn" href={openCar.goonet_url} target="_blank" rel="noopener noreferrer">View on Goo-net <ArrowUpRight/></a>}
      </div>
     </div>
    </div>

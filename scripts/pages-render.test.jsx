@@ -33,7 +33,7 @@ const ROUTES = {
   '/': ['AR7 Traders', 'hero'],
   '/inventory': ['Find your next', 'inv-toolbar'],
   '/inventory?make=Toyota': ['inv-toolbar'],
-  '/japan-stock': ['japan-stock-page', 'LIVE GOO-NET DEALER STOCK'],
+  '/japan-stock': ['japan-stock-page', 'LIVE JAPAN DEALER STOCK'],
   '/auction': ['inner-page'],
   '/services': ['inner-page'],
   '/brands': ['inner-page'],
