@@ -273,14 +273,16 @@ layers now keep the importer working in between:
    - If the LLM extracts nothing, the run keeps its honest `parseMiss` report
      plus `llm.error` — the evidence below is then the fix's input.
 3. **Parser evidence.** Every `blocked` or `parseMiss` run stores a **2 KB
-   markup sample** of the exact HTML it parsed in
-   `site_settings.goonet_parsemiss_sample` (JSON envelope: saved_at, page,
-   run, via, spread_links, bytes, sample). The sample is **centred on the
-   first car link**, not the top of the page — a live listing page is ~1 MB
-   and its first 2 KB are header boilerplate that would show a parser fix
-   nothing. A clean read clears the stale sample. CRM → Japan dealer stock
-   gains a **"Copy parser diagnostic"** admin button that copies the sample
-   (plus its metadata) to the clipboard, served by the admin-only
+   sample** of the exact HTML it parsed in
+   `site_settings.goonet_parsemiss_sample`. The sample is **anchored on a
+   real DOM car card**, not on the top of the page — a live listing page is
+   ~1 MB, its first 2 KB are header boilerplate, and the first car *link* in
+   the document is usually a JSON-LD `ItemList` entry that shows a parser fix
+   nothing about the rendered cards. When the page has no usable card anchor
+   at all, the sample is the structured-data block and says so. A clean read
+   clears the stale sample. CRM → Japan dealer stock gains a **"Copy parser
+   diagnostic"** admin button that copies the sample plus its metadata (the
+   envelope is described in §12), served by the admin-only
    `GET /api/goonet-stock?action=diag`.
 
    **Gemini model.** The fallback calls `models/gemini-3.8-flash` by default
@@ -320,6 +322,83 @@ in the meantime (when a key is configured).
 - `OPENAI_API_KEY` — alternative provider, used only when no Gemini key is
   set.
 - `JINA_API_KEY` / `GOONET_RELAY_URL` — the relay (see above) — unchanged.
+
+## 12. The 2026-10-01 fix: bytes, cards and AI input (and the URL import assistant)
+
+The live run of 2026-09-30 22:47 read **1,177,727 bytes**, counted **50 car
+links**, parsed **0 cards**, and the AI fallback extracted nothing. Three
+independent problems, all fixed and covered by regression tests:
+
+**a. The response was decoded as UTF-8 whatever the source declared.**
+`rawFetch` used `res.text()`, which ignores `Content-Type` and
+`<meta charset>` and never sniffs bytes. The stored diagnostic proved it:
+decoding the EUC-JP byte run `A5 C8 A5 E8 A5 BF C0 BE C5 EC B5 FE` as UTF-8
+yields `\uFFFD\u0225\u897F…`, the exact signature the sample showed, while
+the same bytes decoded as EUC-JP are `トヨタ西東京`. Every Japanese field
+(make/model/fuel/body) then failed its own validation, so no card could ever
+pass the gate. The reader now takes raw `arrayBuffer()` bytes and chooses the
+charset as BOM → `Content-Type` → `<meta>` → byte sniff (valid UTF-8 wins,
+otherwise EUC-JP vs Shift_JIS scored by replacement count), with aliases for
+`cp932`, `sjis`, `x-euc`, `cseucpkdfmtjapanese`, and the rest of the legacy
+labels. `maxBytes` now caps **bytes**, and byte count and character count are
+reported separately.
+
+**b. "50 car links" was never 50 cards.** The counter scanned the whole
+document — including the JSON-LD `ItemList` in `<head>` — while the card
+parser only accepted double-quoted **absolute** `www.goo-net.com` anchors.
+Links are now found in absolute / protocol-relative / root-relative /
+single-quoted / `\/`-escaped shapes, normalised to the canonical
+`https://www.goo-net.com/usedcar/spread/goo/<n>/<id>.html`, and classified as
+markup vs script vs bare. If no anchor can be used, the page's structured-data
+candidates are read instead — but every candidate is still fetched from its own
+detail page and passed through the same price/year/mileage/fuel/body/photo
+gate, so nothing is invented.
+
+**c. The AI fallback was sent the wrong 120,000 characters** — the header,
+JSON-LD and navigation of a 1.2 MB page. It now receives bounded windows (a
+small head, the ItemList lines, and the markup around each DOM card) with the
+stock id and photo URLs, keeping the same output validation and the "photo
+URLs must occur in the source markup" rule. It remains key-gated: no key, no
+request.
+
+**The diagnostic now describes the read, not just the bytes.**
+`GET /api/goonet-stock?action=diag` returns
+`{saved_at, page, source, via, run, bytes, chars, charset, charset_source,
+content_type, replacements, dom_card_found, dom_car_links, structured_cars,
+structure_source, spread_links, sample_kind, sample}`, so a bug report says
+whether the page arrived as mojibake, whether the cars were in markup or
+structured data, and which HTML source (direct or relay) it read. The run
+report gains `discovered / alreadyKnown / rejected / cardSource`, and the
+thin-page gate is judged in bytes. The CRM's "Copy parser diagnostic" writes
+those encoding facts into the copied text.
+
+**The URL import assistant** (CRM → Japan dealer stock → "Import from Goo-net
+URLs"; staff with the `site.write` permission):
+
+1. Paste up to **5** Goo-net vehicle URLs, one per line.
+2. **Preview** — the server validates each URL (https, a `goo-net.com` host,
+   no credentials, port 443, a `/usedcar/spread/goo/<n>/<id>.html` path) and
+   re-reads each page through the same core, then shows the verified
+   make/model/year/price/mileage/fuel/body, the photo URLs and count, the
+   quality verdict and any missing fields. Nothing is written.
+3. **Import** — the whole inspection runs again (a preview payload from the
+   browser is never trusted), then each ready car is inserted into
+   `japan_dealer_stock` as an **unpromoted** "New Arrival". Cars already in
+   stock report `already_present`, deleted cars stay blocked, and
+   quality/photo/missing-field failures report with their reason.
+4. **Publish** with the existing Website / Inventory buttons on the row.
+
+The assistant rides inside `api/goonet-stock.js` — no new serverless function,
+still 12 ≤ 12 — and is bounded: 5 URLs, 9 s per page, 45 s per request.
+
+**Live acceptance check for this fix:** run the importer now and confirm the
+report is no longer `0 cards / parseMiss` — either new cars import, or the
+counters honestly say the candidates were already known / quality-rejected.
+Then press "Copy parser diagnostic": the sample must show readable Japanese
+and real card markup, and the header must name the charset and its source.
+Finally paste one currently available goo-net detail URL into the assistant,
+preview, import, publish, and confirm the car reaches the public site; repeat
+the same URL and expect `already_present` instead of a duplicate.
 
 ## FAQ
 
