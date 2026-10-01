@@ -726,10 +726,21 @@ export default function CrmApp() {
     try {
       const r = await call('/api/goonet-stock?action=diag', session.access_token);
       if (!r.sample) { setNotice('No parser diagnostic stored — the importer last read the page successfully.'); return; }
+      // The importer's job is to turn bytes into Japanese. When it fails, the
+      // person reading this needs to see WHICH ENCODING those bytes were read
+      // as, where that decision came from, and whether the failure was "no card
+      // markup at all" or "structured data only" — otherwise a mojibake page
+      // and a DOM change look identical in a bug report.
       const text = 'Goo-net parser diagnostic (saved ' + (r.saved_at || '?') + ')\n'
-        + 'page: ' + (r.page || '?') + ' · read via ' + (r.via || '?')
-        + ' · ' + (r.spread_links !== undefined ? r.spread_links : '?') + ' car links · '
-        + (r.bytes !== undefined ? r.bytes : '?') + ' bytes · run: ' + (r.run || 'parseMiss') + '\n\n'
+        + 'page: ' + (r.page || '?') + ' · read via ' + (r.via || '?') + ' · run: ' + (r.run || 'parseMiss') + '\n'
+        + 'encoding: ' + (r.charset || 'not reported') + ' (from ' + (r.charset_source || '?') + ')'
+        + (r.content_type ? ' · content-type: ' + r.content_type : '')
+        + ' · U+FFFD replacements: ' + (r.replacements ?? 0) + '\n'
+        + 'read: ' + (r.bytes ?? '?') + ' bytes → ' + (r.chars ?? '?') + ' characters'
+        + ' · car links: ' + (r.spread_links ?? '?') + ' (' + (r.dom_car_links ?? 0) + ' in markup, '
+        + (r.structured_cars ?? 0) + ' in structured data)\n'
+        + 'sample: ' + (r.sample_kind || 'head')
+        + (r.dom_card_found ? ' — a real markup card was found' : ' — no markup card was found') + '\n\n'
         + '--- markup sample (2 KB) ---\n' + r.sample;
       await navigator.clipboard.writeText(text);
       setNotice('Parser diagnostic copied — paste it where the parser fix is tracked.');
@@ -1873,6 +1884,46 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
     } catch (err) { notify(err.message); } finally { setSettingsBusy(false); }
   }
 
+  // ---- Import assistant -----------------------------------------------------
+  // Paste a small batch of Goo-net vehicle URLs, preview what the server makes
+  // of each one, then import the ready ones. The preview is a server read of
+  // the real page, never a client-supplied payload, and importing re-runs the
+  // whole inspection before a single row is written — so a stale or edited
+  // preview cannot smuggle a car in.
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importResults, setImportResults] = useState(null);
+  const [previewedText, setPreviewedText] = useState('');
+  const importStale = importText.trim() !== previewedText;
+  const readyCount = (importPreview?.preview || []).filter(x => x.status === 'ready').length;
+
+  async function previewImport() {
+    if (DEMO) { notify('The URL import assistant needs the live database — disabled in demo mode.'); return; }
+    setImportBusy(true);
+    setImportResults(null);
+    try {
+      const r = await call('/api/goonet-stock?action=preview_import', token, { method: 'POST', body: JSON.stringify({ urls: importText }) });
+      setImportPreview(r);
+      setPreviewedText(importText.trim());
+      notify(r.message || 'Preview ready.');
+    } catch (e) { setImportPreview(null); notify(e.message); } finally { setImportBusy(false); }
+  }
+
+  async function confirmImport() {
+    if (DEMO) { notify('The URL import assistant needs the live database — disabled in demo mode.'); return; }
+    setImportBusy(true);
+    try {
+      const r = await call('/api/goonet-stock?action=import_urls', token, { method: 'POST', body: JSON.stringify({ urls: importText }) });
+      setImportResults(r);
+      setImportPreview(null);
+      setPreviewedText('');
+      notify(r.message || 'Import finished.');
+      if (onRefresh) await onRefresh();
+    } catch (e) { notify(e.message); } finally { setImportBusy(false); }
+  }
+
   const settingsFields = [
     ['goonet_search_url', 'Goo-net search page', 'Newest-first listing to crawl, e.g. https://www.goo-net.com/usedcar/price-100-300/'],
     ['goonet_min_photos', 'Minimum photos (quality gate)', 'Cars with fewer good photos are skipped'],
@@ -1931,6 +1982,89 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
               : <p className="crm-hint"><ShieldAlert size={13} /> Only administrators can change importer rules.</p>}
           </footer>
         </form>
+      )}
+
+      {isAdmin && (
+        <div className="crm-goonet-import">
+          <button className={'crm-import-toggle' + (showImport ? ' open' : '')} onClick={() => setShowImport(v => !v)}
+            title="Paste Goo-net vehicle URLs, preview the verified data, then import into Japan dealer stock">
+            <Link2 size={13} /> Import from Goo-net URLs
+            <em>{showImport ? 'Hide' : 'Paste a link'}</em>
+          </button>
+          {showImport && (
+            <div className="crm-import-body">
+              <p className="crm-hint">
+                Paste up to 5 Goo-net vehicle URLs, one per line. The server reads each page, decodes it and applies the
+                photo/quality rules below — <b>nothing is written until you press Import</b>, and imported cars stay
+                unpromoted until you publish them from the table.
+              </p>
+              <textarea value={importText} rows={3} spellCheck={false}
+                onChange={e => setImportText(e.target.value)}
+                placeholder={'https://www.goo-net.com/usedcar/spread/goo/15/…html\nhttps://www.goo-net.com/usedcar/spread/goo/16/…html'} />
+              <div className="crm-import-actions">
+                <button onClick={previewImport} disabled={importBusy || !importText.trim()}>
+                  <Search size={13} /> {importBusy ? 'Checking…' : 'Preview'}
+                </button>
+                <button className="save" onClick={confirmImport} disabled={importBusy || !readyCount || importStale}
+                  title={importStale ? 'Preview this URL list first — the server re-reads every page on import anyway' : 'Import the cars that passed the preview'}>
+                  <Download size={13} /> {readyCount ? `Import ${readyCount} car${readyCount > 1 ? 's' : ''}` : 'Import'}
+                </button>
+                <button onClick={() => { setImportText(''); setImportPreview(null); setImportResults(null); setPreviewedText(''); }} disabled={importBusy}>
+                  <X size={13} /> Clear
+                </button>
+                {importStale && importText.trim() && <small className="crm-hint">URL list changed — preview again before importing.</small>}
+              </div>
+
+              {importPreview?.rejected?.length > 0 && (
+                <ul className="crm-import-rejected">
+                  {importPreview.rejected.map((x, i) => (
+                    <li key={i}><b>{String(x.input || '').slice(0, 72)}</b> — {x.reason}</li>
+                  ))}
+                </ul>
+              )}
+
+              {importPreview?.preview?.length > 0 && (
+                <div className="crm-table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Status</th><th>Vehicle</th><th>Year</th><th>Km</th><th>Price</th><th>Photos</th><th>Quality</th><th>What the server found</th></tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.preview.map((x, i) => (
+                        <tr key={i}>
+                          <td><em className={'crm-status ' + (x.status === 'ready' ? 'active' : 'dormant')}>{x.status}</em></td>
+                          <td><b>{x.make || '?'} {x.model || ''}</b><br /><small>{x.title || x.stock_id}</small></td>
+                          <td>{x.year || '—'}</td>
+                          <td>{x.km ? x.km + ' km' : '—'}</td>
+                          <td>{x.price || (x.price_jpy ? '¥' + Number(x.price_jpy).toLocaleString() : '—')}</td>
+                          <td>{x.photo_count ?? 0}</td>
+                          <td>{x.quality ? (x.quality.pass ? 'pass' : 'fail') : '—'}{x.quality?.score ? ' · ' + x.quality.score : ''}</td>
+                          <td>{x.reason || (x.missing_fields?.length ? 'missing: ' + x.missing_fields.join(', ') : 'verified against the live page')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {importResults?.results?.length > 0 && (
+                <div className="crm-import-results">
+                  <b>{importResults.message}</b>
+                  <ul>
+                    {importResults.results.map((x, i) => (
+                      <li key={i} className={'import-' + x.status}>
+                        <em className={'crm-status ' + (x.status === 'imported' ? 'active' : 'dormant')}>{x.status}</em>
+                        {x.make ? `${x.make} ${x.model}` : (x.stock_id || 'unknown car')}
+                        {x.status === 'imported' && ' — now in the table below; publish it when you are ready'}
+                        {x.reason ? ' — ' + x.reason : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="crm-chips">

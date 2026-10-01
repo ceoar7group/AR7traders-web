@@ -3054,3 +3054,21 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-score{position:relative;display:inline-block;min-width:64px;height:16px;border-radius:8px;background:#ffffff14;overflow:hidden;vertical-align:middle}
 .crm-score b{position:absolute;inset:0;display:grid;place-items:center;font:800 9px/1 Manrope,sans-serif;color:#fff;z-index:1}
 .crm-score i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#1f7a4d,#2ecc8f);border-radius:8px}
+
+/* Goo-net import assistant: paste URLs → server-verified preview → import. */
+.crm-goonet .crm-goonet-import{margin:14px 0 4px}
+.crm-goonet .crm-import-toggle{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:10px;border:1px solid var(--border,#ffffff26);background:#071b12;color:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.crm-goonet .crm-import-toggle:hover{border-color:var(--gold)}
+.crm-goonet .crm-import-toggle.open{border-color:var(--gold);color:var(--gold)}
+.crm-goonet .crm-import-toggle em{font-style:normal;font-size:11px;opacity:.6}
+.crm-goonet .crm-import-body{margin-top:10px;background:var(--panel,#0a2418);border:1px solid var(--border,#ffffff1f);border-radius:16px;padding:14px}
+.crm-goonet .crm-import-body textarea{width:100%;min-height:74px;resize:vertical;border-radius:10px;border:1px solid var(--border,#ffffff26);background:#071b12;color:#fff;padding:9px 10px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.crm-goonet .crm-import-actions{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.crm-goonet .crm-import-actions button{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border,#ffffff26);background:#071b12;color:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.crm-goonet .crm-import-actions button.save{background:var(--gold);border-color:var(--gold);color:#04150d}
+.crm-goonet .crm-import-actions button:disabled{opacity:.45;cursor:not-allowed}
+.crm-goonet .crm-import-rejected{margin:10px 0 0;padding-left:18px;font-size:12px;color:#ffb4b4}
+.crm-goonet .crm-import-body small{opacity:.75}
+.crm-goonet .crm-import-results{margin-top:12px;font-size:12px}
+.crm-goonet .crm-import-results ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.crm-goonet .crm-import-results li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}

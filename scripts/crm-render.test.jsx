@@ -93,6 +93,45 @@ for (const label of TABS) {
   }
 }
 
+// ---- the Goo-net import assistant -------------------------------------------
+// The assistant writes nothing until an explicit Import, so its render-level
+// contract is: it exists for staff who can write stock, it stays closed until
+// opened, and Import is dead until a server preview has been produced.
+say('\nGoo-net import assistant');
+await clickText('.crm-side nav button', 'Japan dealer stock');
+const importToggle = document.querySelector('.crm-goonet .crm-import-toggle');
+ok(!!importToggle, 'the Japan dealer stock tab offers "Import from Goo-net URLs"');
+ok(!document.querySelector('.crm-goonet .crm-import-body'), 'the assistant is closed until it is opened');
+if (importToggle) {
+  await act(async () => { importToggle.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+  const body = document.querySelector('.crm-goonet .crm-import-body');
+  ok(!!body, 'opening it reveals the paste box');
+  const area = body?.querySelector('textarea');
+  ok(!!area, 'there is a textarea for the URLs');
+  const buttons = [...(body?.querySelectorAll('.crm-import-actions button') || [])];
+  ok(buttons.length === 3, `it offers Preview, Import and Clear (${buttons.map(b => b.textContent.trim()).join(' / ')})`);
+  const importBtn = buttons.find(b => /Import/.test(b.textContent));
+  ok(importBtn && importBtn.disabled, 'Import is disabled before anything has been previewed');
+  const previewBtn = buttons.find(b => /Preview/.test(b.textContent));
+  ok(previewBtn && previewBtn.disabled, 'Preview is disabled while the box is empty');
+  if (area) {
+    // React tracks the textarea value, so set it through the native setter.
+    const setValue = Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, 'value').set;
+    await act(async () => {
+      setValue.call(area, 'https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html');
+      area.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
+    const after = [...body.querySelectorAll('.crm-import-actions button')];
+    ok(!after.find(b => /Preview/.test(b.textContent))?.disabled, 'Preview wakes up once a URL is pasted');
+    ok(after.find(b => /Import/.test(b.textContent))?.disabled, 'Import stays disabled until the server has previewed the list');
+    if (previewBtn) {
+      await act(async () => { after.find(b => /Preview/.test(b.textContent)).dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+      const notice = document.querySelector('.crm-notice span')?.textContent || '';
+      ok(/demo mode/i.test(notice), `in demo mode Preview explains itself instead of faking a fetch ("${notice}")`);
+    }
+  }
+}
+
 // ---- the permission grid matches what the API enforces ----------------------
 say('\nTeam & permissions grid');
 await clickText('.crm-side nav button', 'Team & permissions');
