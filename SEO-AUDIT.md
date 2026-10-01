@@ -47,6 +47,8 @@ with live network access) to confirm after deploy.
 | C11 | Vehicle pages: `og:image`/`twitter:image` = the car's own photo via `imageFor(car.image)` (absolute), default image when absent/loading/missing, no fabricated dimensions on listing photos | ✅ Repo | seo-render suite. |
 | C12 | Dynamic vehicle sitemap `/api/sitemap-vehicles.xml`: published `site_listings` only, sold/private/delisted excluded, `carRef`-based URLs, XML-escaped, `<lastmod>` only for real `updated_at`, `public, max-age=120, s-maxage=600`, honest 503 on failure (never 200 + malformed XML); `robots.txt` gained a second Sitemap line; static `sitemap.xml` still authoritative for landing pages. `japan_dealer_stock` also included where live/unpromoted. **Deploy note (2026-09-29):** the logic lives inside `api/site-content.js` (dispatched on `?sitemap=vehicles` via a `vercel.json` rewrite) because Vercel Hobby's 12-Serverless-Functions-per-deployment cap made a standalone 13th function break every deploy — production stayed on the PR #40 build until this was fixed | ✅ Repo (owner-approved 2026-09-28; deploy fixed 2026-09-29, verified serving 25 vehicle URLs on the preview deployment) | `test:sitemap-vehicles`, 28 passed / 0 failed (injected fake-db pattern). |
 | C13 | Phase C1 buyer content (2026-10-01): `BuyerGuide` on `/inventory/<stock>` (5 steps, FOB/CIF plain-language note, per-vehicle `hasAuctionSheet()` condition wording, explicit customs authority duty note with no rate quoted, links to `/howbuy`, `/faq`, `/shipping`); `src/destinations.js` market guides on `/destinations` switched via `useRef` + `scrollIntoView` (transit labelled planning figure, no duty rates); addressable guides at `/news/<slug>` (`src/news-data.js` `articleSlug()` whole-word ≤90 chars, per-guide SEO + `noindex` on unknown slugs, `<a href>` cards + topic filter); `HOWBUY` exported with 4th element per step and step 05 reworded | ✅ Repo | `test:news`, `test:pages`, `test:seo`, `test:routing`, `test:sitemap-vehicles`. |
+| C14 | Phase C2 brand landing depth and contextual links (2026-10-01): known `?make=<Brand>` filters get brand-specific title/description/canonical/`og:url` and `Home → Inventory → <Brand>` breadcrumbs; `/inventory` shows a current-result-count brand context card, existing logo, qualified Japan sourcing note, and links back to all stock, `/brands` and `/howbuy`; vehicle details link up to 3 same-make/body published listings plus all stock for that make; each `/news/<slug>` guide footer links to destinations, shipping, tools, buying instructions and FAQ alongside its live-stock block | ✅ Repo | `test:seo` and `test:pages`; explicit checks cover Toyota SEO/context and Rolls-Royce related stock. |
+| C15 | Phase C3 rich-result completeness (2026-10-01): known `/news/<slug>` guides emit `Article` JSON-LD from `NEWS` content (headline, SEO description, guide image/canonical URL, organization author/publisher/logo, section); the script is removed on `/news`, unknown slugs and all non-guide routes; vehicle detail and brand-filtered inventory routes use `Home → Inventory → Vehicle/Brand`, while guide breadcrumbs remain `Home → News & Guides → Article` | ✅ Repo | `test:seo` checks Article fields/removal and 3-level vehicle, brand and guide `BreadcrumbList` objects. |
 
 ## D. Settings API security — repo (commit `1b1d649`)
 
@@ -70,43 +72,71 @@ with live network access) to confirm after deploy.
 | E5 | Production stock sync while testing | ⛔ Not done (correctly) | No production sync or inventory mutation was run in this session. |
 | E6 | Scheduler configured as documented | ✅ Repo (2026-09-28) | `.github/workflows/goonet-sync.yml` present: daily `03:00 UTC` cron calling `/api/goonet-sync` per `GOONET-SYNC.md` §2. Owner-side secrets (`GOONET_SYNC_KEY`) are not verifiable from the repo. First production run remains owner-gated (Task E of the handoff). |
 
-## F. Build & test suites — repo
+## F. Build & test suites — repo (final Phase C2/C3/D1 verification, 2026-10-01)
 
-| Suite | Result |
-|-------|--------|
-| `test:routing` | ALL PASS |
-| `test:news` (new Phase C1) | ALL PASS |
-| `test:contacts` | ALL PASS |
-| `test:header` | ALL PASS |
-| `test:pages` | 179 passed, 0 failed |
-| `test:currency` | ALL PASS |
-| `test:inventory` | ALL PASS |
+`npm test`: **24 suites, 1,999 assertions passed, 0 failed.** The scripts that
+print only `ALL PASS` are counted from their individual successful assertion
+lines in the run log. `test:goonet` and `test:imported` totals include each
+sub-suite shown below.
+
+| Suite | Final assertions |
+|-------|-----------------|
+| `test:currency` (logic + render) | 45 passed, 0 failed |
+| `test:inventory` | 23 passed, 0 failed |
+| `test:routing` | 50 passed, 0 failed |
+| `test:news` | 64 passed, 0 failed |
+| `test:contacts` | 65 passed, 0 failed |
+| `test:settings` | 28 passed, 0 failed |
+| `test:authz` | 134 passed, 0 failed |
+| `test:leads` | 31 passed, 0 failed |
+| `test:seo` (`scripts/seo-render.test.mjs`) | 264 passed, 0 failed |
+| `test:sitemap-vehicles` | 52 passed, 0 failed |
+| `test:sync` | 18 passed, 0 failed |
+| `test:goonet` (core 371 + seed 54 + sync 55 + assistant 84 + repair 30) | 594 passed, 0 failed |
+| `test:imported` (map 40 + render 33) | 73 passed, 0 failed |
+| `test:functions` | 1 cap assertion passed; 12/12 functions |
+| `test:crm` | 57 passed, 0 failed |
+| `test:crm-theme` | 46 passed, 0 failed |
+| `test:header` | 38 passed, 0 failed |
+| `test:pages` | 197 passed, 0 failed |
 | `test:client` | 87 passed, 0 failed |
-| `test:seo` (= `test:seo-render`, `scripts/seo-render.test.mjs`) | 109 passed, 0 failed |
-| `test:settings` (28) | 28 passed, 0 failed |
-| `test:sitemap-vehicles` (new this session) | 28 passed, 0 failed |
-| `test:bundle` (Phase B2 + B3 first-load JS & CSS budget) | 51 passed, 0 failed (first-load JS 410.38 kB raw / 120.30 kB gzip; first-load CSS 149.80 kB raw / 29.61 kB gzip; `/reviews`, `/account`, `/world`, `/crm` JS + CSS lazy-loaded) |
-| `test:goonet` (core+seed+sync) | 158 + 54 + 41, all passed |
-| `npm run build` / `npm run build:crm` | ✓ both |
+| `test:copy` | 12 passed, 0 failed |
+| `test:assets` | 13 passed, 0 failed |
+| `test:image-fallback` | 43 passed, 0 failed |
+| `test:bundle` | 51 passed, 0 failed; first-load JS 414.80 kB raw / 121.48 kB gzip; CSS 151.22 kB raw / 29.84 kB gzip; CRM, customer portal, network and reviews JS/CSS remain lazy-loaded |
+| `test:car-alt` | 13 passed, 0 failed |
+| `npm run build` / `npm run build:crm` | both production builds pass |
 
 ## G. Post-deploy verification — owner, after merging this branch
 
 Run each and record results. If anything fails, roll back (see H).
 
 ```sh
-curl -sS -I https://ar7traders.com/                      # 200, no Location
-curl -sS -I https://www.ar7traders.com/                  # 301 → apex
-curl -sS https://ar7traders.com/ | grep -c 'ar7-2026-09-28-seo'   # ≥1 (build marker)
-curl -sS https://ar7traders.com/sitemap.xml | grep -c '<loc>'     # 16
-curl -sS -I https://ar7traders.com/inventory/DOES-NOT-EXIST        # 404
-curl -sS https://ar7traders.com/api/settings | head -c 300        # public keys only
+curl -sS -I https://ar7traders.com/                                      # expect 200, no Location
+curl -sS -I https://www.ar7traders.com/                                  # expect 301 → apex
+curl -sS https://ar7traders.com/ | grep -c 'ar7-2026-09-28-seo'         # ≥1 (build marker)
+curl -sS https://ar7traders.com/sitemap.xml -o /tmp/ar7-sitemap.xml
+grep -c '<loc>' /tmp/ar7-sitemap.xml                                    # exactly 20
+grep -c '<loc>https://ar7traders.com/news/' /tmp/ar7-sitemap.xml       # exactly 4 guide URLs
+grep -F '<loc>https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean</loc>' /tmp/ar7-sitemap.xml
+curl -sS -L -o /dev/null -w 'guide HTTP %{http_code}\n' https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean
+curl -sS -L -o /dev/null -w 'Toyota inventory HTTP %{http_code}\n' 'https://ar7traders.com/inventory?make=Toyota'
+curl -sS -L -o /dev/null -w 'vehicle detail HTTP %{http_code}\n' https://ar7traders.com/inventory/AR7-26001
+curl -sS -o /tmp/ar7-sitemap-vehicles.xml -w 'vehicle sitemap HTTP %{http_code}\n' https://ar7traders.com/api/sitemap-vehicles.xml
+grep -c '<loc>' /tmp/ar7-sitemap-vehicles.xml                             # live published-vehicle URL count
+grep -q '</urlset>' /tmp/ar7-sitemap-vehicles.xml && echo 'vehicle sitemap XML closes correctly'
+curl -sS -I https://ar7traders.com/inventory/DOES-NOT-EXIST             # expect the app's missing-stock response
+curl -sS https://ar7traders.com/api/settings | head -c 300                # public keys only
 ```
 
-Then in a browser: spot-check `/`, `/inventory`, one vehicle page, `/shipping`,
-`/faq`; confirm `/crm` loads and its Website-settings form shows values (now
-authed) with no console errors. In GSC, **URL Inspection → live test** one
-vehicle page and `/faq` to confirm the new metadata is served; do not re-submit
-indexing requests for pages already requested.
+Then in a browser: spot-check `/`, `/inventory`, `/inventory?make=Toyota`,
+`/inventory/AR7-26001`, the guide above, `/shipping` and `/faq`; confirm related
+stock and guide links work. Inspect the guide's Article JSON-LD and the vehicle
+and brand BreadcrumbList in the rendered DOM; confirm `/crm` loads and its
+Website-settings form shows values (now authed) with no console errors. In GSC,
+**URL Inspection → live test** one vehicle page and `/faq` to confirm the new
+metadata is served; do not re-submit indexing requests for pages already
+requested.
 
 ### §G results — 2026-09-28, session `arena/01a0e7ed-ar7traders-web`
 

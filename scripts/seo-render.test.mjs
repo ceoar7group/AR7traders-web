@@ -17,11 +17,14 @@ const dom = new JSDOM(
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 
-const { applySeo, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS } = await import('../src/seo.js');
-const { NEWS, articleSlug } = await import('../src/news-data.js');
+const { applySeo, brandSeo, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS } = await import('../src/seo.js');
+const { NEWS, articleSlug, articleSeo } = await import('../src/news-data.js');
 
 let failed = 0;
-const ok = (cond, msg) => { if (!cond) { failed++; console.error('FAIL:', msg); } else console.log('ok  :', msg); };
+const ok = (cond, msg) => {
+  if (!cond) { failed++; process.stderr.write('FAIL: ' + msg + '\n'); }
+  else console.log('ok  :', msg);
+};
 
 const meta = (sel) => document.head.querySelector(sel)?.getAttribute('content');
 const jsonld = (id) => {
@@ -85,6 +88,30 @@ ok(meta('meta[property="og:title"]') === PAGE_SEO.shipping[0] && meta('meta[name
   'shipping OG/Twitter titles match the page title');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/shipping', 'shipping canonical is /shipping');
 
+// ---- brand-filtered inventory metadata and breadcrumbs --------------------
+const toyotaSeo = brandSeo('Toyota');
+ok(toyotaSeo?.title.includes('Toyota Used & Luxury Cars for Export from Japan'),
+  'brandSeo returns a Toyota-specific inventory title');
+ok(toyotaSeo?.description.includes('FOB or CIF') && toyotaSeo.description.includes('RoRo and container') &&
+   toyotaSeo.description.includes('auction-sourced vehicles'),
+  'brandSeo explains Japan sourcing, quote/shipping options and source-appropriate condition information');
+ok(brandSeo('not-a-known-make') === null, 'brandSeo ignores unknown make filters');
+applySeo('inventory', null, null, { make: 'Toyota' });
+ok(document.title === toyotaSeo.title, 'Toyota inventory page uses the brand title');
+ok(meta('meta[name="description"]') === toyotaSeo.description, 'Toyota inventory page uses the brand description');
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/inventory?make=Toyota',
+  'Toyota inventory canonical preserves the encoded make filter');
+ok(meta('meta[property="og:url"]') === 'https://ar7traders.com/inventory?make=Toyota',
+  'Toyota inventory og:url matches the brand canonical');
+bc = jsonld('breadcrumb-jsonld');
+ok(bc?.itemListElement.length === 3 && bc.itemListElement.map(x => x.name).join(' → ') === 'Home → Inventory → Toyota',
+  'Toyota inventory breadcrumb is Home → Inventory → Toyota');
+ok(bc?.itemListElement[2]?.item === 'https://ar7traders.com/inventory?make=Toyota',
+  'Toyota breadcrumb points to the canonical brand-filtered URL');
+applySeo('inventory', null, null, { make: 'All' });
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/inventory',
+  'All inventory keeps the plain /inventory canonical');
+
 // ---- FAQ markup is scoped to /faq -----------------------------------------
 applySeo('faq', null);
 let faq = jsonld('faq-jsonld');
@@ -111,8 +138,26 @@ for (const a of NEWS) {
   bc = jsonld('breadcrumb-jsonld');
   ok(bc?.itemListElement.length === 3 && bc.itemListElement[2].name === a.title,
     `/news/${slug} breadcrumb is Home → News & Guides → ${a.title}`);
+  const articleData = jsonld('article-jsonld');
+  const articleMetadata = articleSeo(a);
+  ok(articleData?.['@type'] === 'Article', `/news/${slug} injects Article JSON-LD`);
+  ok(articleData?.headline === a.title && articleData.description === articleMetadata.description,
+    `/news/${slug} Article JSON-LD matches the guide headline and SEO description`);
+  ok(articleData?.url === 'https://ar7traders.com' + articleMetadata.canonicalPath &&
+     articleData?.image === 'https://ar7traders.com' + a.img,
+    `/news/${slug} Article JSON-LD uses its canonical URL and guide image`);
+  ok(articleData?.publisher?.['@type'] === 'Organization' && articleData.publisher.name === 'AR7 Traders' &&
+     articleData.publisher.url === 'https://ar7traders.com/' &&
+     articleData.publisher.logo?.['@type'] === 'ImageObject' &&
+     articleData.publisher.logo.url === 'https://ar7traders.com/assets/ar7-logo.png',
+    `/news/${slug} Article JSON-LD has the AR7 Traders publisher and logo`);
+  ok(articleData?.author?.name === 'AR7 Traders' && articleData.articleSection === a.cat,
+    `/news/${slug} Article JSON-LD includes the organization author and section`);
 }
+applySeo('news', null);
+ok(jsonld('article-jsonld') === null, 'Article JSON-LD is removed when leaving a guide for /news');
 applySeo('news', 'unknown-guide-slug');
+ok(jsonld('article-jsonld') === null, 'unknown /news/<slug> does not keep or emit Article JSON-LD');
 ok(meta('meta[name="robots"]') === 'noindex,nofollow', 'unknown /news/<slug> is noindex,nofollow');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/news',
   'unknown /news/<slug> canonical falls back to /news');
@@ -147,7 +192,20 @@ ok(v?.offers?.availability === 'https://schema.org/InStock', 'in-stock status ma
 ok(v?.offers?.url === 'https://ar7traders.com/inventory/43', 'offer points at the vehicle URL');
 ok(v?.image === 'https://ar7traders.com/assets/inventory/700071023230260801001.webp', 'image is made absolute');
 bc = jsonld('breadcrumb-jsonld');
-ok(bc?.itemListElement[1]?.name === '2023 Toyota Harrier S', 'breadcrumb names the car on the detail page');
+ok(bc?.itemListElement.length === 3 && bc.itemListElement.map(x => x.name).join(' → ') ===
+   'Home → Inventory → 2023 Toyota Harrier S', 'vehicle breadcrumb includes Home → Inventory → the car name');
+const rollsRoyceGhost = {
+  make: 'Rolls-Royce', model: 'Ghost', year: 2023,
+  image: '/assets/lux/rolls-royce-ghost.webp', status: 'In Stock'
+};
+applySeo('inventory', 'AR7-26001', rollsRoyceGhost);
+bc = jsonld('breadcrumb-jsonld');
+ok(bc?.itemListElement.length === 3 && bc.itemListElement.map(x => x.name).join(' → ') ===
+   'Home → Inventory → 2023 Rolls-Royce Ghost',
+  'vehicle detail breadcrumb is Home → Inventory → 2023 Rolls-Royce Ghost');
+ok(bc?.itemListElement[1]?.item === 'https://ar7traders.com/inventory' &&
+   bc.itemListElement[2]?.item === 'https://ar7traders.com/inventory/AR7-26001',
+  'vehicle breadcrumb parent and detail URLs are canonical');
 
 // ---- async arrival: the same route re-applies once the car data lands -----
 applySeo('inventory', '43');           // before the data arrives: listing-level SEO
