@@ -50,3 +50,23 @@ footer a.wa-link svg{color:#25d366}
 .related-stock{margin-top:70px;padding-top:40px;border-top:1px solid var(--line)}
 .related-stock h2{font:700 32px/1.1 Manrope;letter-spacing:-1.5px;margin:8px 0 22px}
 .detail-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+
+.brand-context-card{display:grid;grid-template-columns:88px minmax(0,1fr);gap:18px;align-items:start;margin:24px 0;padding:22px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 36px rgba(3,43,27,.06)}
+.brand-context-logo{width:88px;height:54px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}
+.brand-context-copy .kicker{margin:0 0 7px}
+.brand-context-copy h2{font:700 23px/1.15 Manrope;letter-spacing:-.7px;margin:0 0 8px}
+.brand-context-copy p{max-width:820px;color:var(--muted);font-size:12px;line-height:1.7;margin:0 0 8px}
+.brand-context-copy p.brand-context-count{font-size:12px}
+.brand-context-count b{color:var(--green-text);font-size:15px}
+.brand-context-links{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.brand-context-links .outline-btn{height:40px;margin:0;padding:0 13px;font-size:10px}
+.news-article-footer{width:100%;margin-top:8px;padding-top:20px;border-top:1px solid var(--line)}
+.news-article-footer>.kicker{margin-bottom:12px}
+.news-article-links{display:flex;flex-wrap:wrap;gap:9px}
+.news-article-links .outline-btn{height:40px;margin:0;padding:0 13px;font-size:10px}
+@media(max-width:650px){
+  .brand-context-card{grid-template-columns:64px minmax(0,1fr);gap:13px;padding:16px}
+  .brand-context-logo{width:64px;height:48px}
+  .brand-context-copy h2{font-size:20px}
+  .brand-context-links .outline-btn,.news-article-links .outline-btn{height:38px;padding:0 10px;font-size:9px}
+}

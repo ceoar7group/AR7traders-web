@@ -47,7 +47,7 @@ await flushLazy();
 const ROUTES = {
   '/': ['AR7 Traders', 'hero'],
   '/inventory': ['Find your next', 'inv-toolbar'],
-  '/inventory?make=Toyota': ['inv-toolbar'],
+  '/inventory?make=Toyota': ['inv-toolbar', 'brand-context-card'],
   '/japan-stock': ['japan-stock-page', 'LIVE JAPAN DEALER STOCK'],
   '/auction': ['inner-page'],
   '/services': ['inner-page'],
@@ -81,6 +81,22 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   for (const m of markers) ok(html.includes(m), `${path} contains "${m}"`);
 }
 
+{
+  const html = await renderPage('/inventory?make=Toyota');
+  const start = html.indexOf('<div class="brand-context-card"');
+  const end = html.indexOf('<div class="logo-strip">', start);
+  const card = start >= 0 && end > start ? html.slice(start, end) : '';
+  const cardText = card.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  ok(!!card, '/inventory?make=Toyota renders its brand overview context card');
+  ok(card.includes('src="/assets/logos/toyota.png"') && cardText.includes('Toyota vehicles from Japan'),
+    'Toyota brand context shows the make logo and a Japan sourcing overview');
+  ok(/\d+ matching Toyota vehicles? currently listed/.test(cardText),
+    'Toyota brand context reports the current filtered listing count');
+  for (const href of ['/inventory', '/brands', '/howbuy']) {
+    ok(card.includes(`href="${href}"`), `Toyota brand context links to ${href}`);
+  }
+}
+
 // ---- routing edge cases -----------------------------------------------------
 {
   // A real stock number from the catalogue — vehicle pages are the SEO surface,
@@ -107,6 +123,22 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   delete CARS[0].auction_sheet;
   ok(detailWithSheet.includes('Auction sheet included') && detailWithSheet.includes('Translated auction inspection sheet'),
     'vehicle with auction_sheet evidence renders the auction-sheet condition wording');
+
+  const relatedStart = detail.indexOf('<section class="related-stock"');
+  const relatedEnd = detail.indexOf('</section>', relatedStart);
+  const related = relatedStart >= 0 && relatedEnd > relatedStart
+    ? detail.slice(relatedStart, relatedEnd + '</section>'.length) : '';
+  const relatedLinks = [...related.matchAll(/<a[^>]+href="(\/inventory\/[^\"]+)"[^>]*>/g)];
+  const relatedImages = [...related.matchAll(/<img[^>]*loading="lazy"[^>]*decoding="async"[^>]*width="\d+"[^>]*height="\d+"[^>]*alt="[^"]+"[^>]*>/g)];
+  ok(relatedLinks.length > 0 && relatedLinks.length <= 3,
+    '/inventory/AR7-26001 renders up to three related vehicle links');
+  ok(relatedLinks.every(([, href]) => href !== '/inventory/AR7-26001'),
+    'related stock excludes the current Rolls-Royce Ghost');
+  ok(relatedImages.length === relatedLinks.length,
+    'each related vehicle image is lazy, async-decoded, dimensioned and described with carAlt');
+  const relatedText = related.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  ok(related.includes('href="/inventory?make=Rolls-Royce"') && relatedText.includes('Browse all Rolls-Royce stock'),
+    'related stock links to all Rolls-Royce inventory');
 }
 {
   // Phase C1 buyer content checks across /faq, /destinations, /howbuy, and /news
@@ -140,6 +172,23 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const missingGuide = await renderPage('/news/not-a-real-guide');
   ok(missingGuide.includes('article-missing') && missingGuide.includes('Guide not found'),
     'an unknown /news/<slug> renders the Guide not found state');
+
+  const guide = NEWS.find(a => a.title.includes('Land Cruiser')) || NEWS[0];
+  const guideHtml = await renderPage('/news/' + articleSlug(guide));
+  const footerStart = guideHtml.indexOf('<footer class="news-article-footer"');
+  const footerEnd = guideHtml.indexOf('</footer>', footerStart);
+  const articleFooter = footerStart >= 0 && footerEnd > footerStart
+    ? guideHtml.slice(footerStart, footerEnd + '</footer>'.length) : '';
+  ok(!!articleFooter, 'individual guide pages render the contextual article footer');
+  for (const href of ['/destinations', '/shipping', '/tools', '/howbuy', '/faq']) {
+    ok(articleFooter.includes(`href="${href}"`), `guide footer links to ${href}`);
+  }
+  const liveStockStart = guideHtml.indexOf('<aside class="related-stock"');
+  const liveStockEnd = guideHtml.indexOf('</aside>', liveStockStart);
+  const liveStock = liveStockStart >= 0 && liveStockEnd > liveStockStart
+    ? guideHtml.slice(liveStockStart, liveStockEnd + '</aside>'.length) : '';
+  ok(/href="\/inventory\/[^"]+"/.test(liveStock),
+    'individual guide keeps its live-vehicle links alongside the contextual footer links');
 }
 {
   const bad = await renderPage('/this-page-does-not-exist');

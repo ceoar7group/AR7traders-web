@@ -28,6 +28,32 @@ const PAGE_LABELS = {
   shipping: 'Shipping'
 };
 
+// Only canonicalize makes we explicitly recognize. Keep the current catalogue
+// makes here as well as the major Japanese and export-market makes so an
+// unexpected query never creates a thin, misleading brand landing URL.
+const SEO_BRANDS = [
+  'Toyota', 'Lexus', 'Honda', 'Nissan', 'Mazda', 'Mercedes-Benz', 'BMW',
+  'Porsche', 'Land Rover', 'Audi', 'Suzuki', 'Subaru', 'Mitsubishi', 'Daihatsu',
+  'Rolls-Royce', 'Bentley', 'Lamborghini', 'Ferrari', 'Bugatti', 'McLaren'
+];
+const canonicalBrand = make => {
+  const value = String(make ?? '').trim();
+  if (!value || /^(all|any)$/i.test(value)) return null;
+  return SEO_BRANDS.find(brand => brand.toLowerCase() === value.toLowerCase()) || null;
+};
+
+/** Brand-specific landing metadata for a known inventory make filter. */
+export function brandSeo(make) {
+  const brand = canonicalBrand(make);
+  if (!brand) return null;
+  return {
+    make: brand,
+    title: `${brand} Used & Luxury Cars for Export from Japan | AR7 Traders`,
+    description: `Explore ${brand} vehicles sourced in Japan. Request itemized FOB or CIF quotes, compare RoRo and container shipping, and review source-appropriate condition notes: translated auction sheets for auction-sourced vehicles and yard notes for dealer or showroom stock.`,
+    canonicalPath: `/inventory?make=${encodeURIComponent(brand)}`
+  };
+}
+
 export const PAGE_SEO = {
   home:        ['AR7 Traders | Japanese Car Exporter — Auction Vehicles Shipped Worldwide',
                 'Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price.'],
@@ -274,6 +300,31 @@ function vehicleJsonLd(car, carId) {
   return JSON.stringify(data, (k, v) => (v === undefined ? undefined : v));
 }
 
+/** Builds Article JSON-LD from a guide's visible copy and canonical URL. */
+export function articleJsonLd(article) {
+  const seo = articleSeo(article);
+  if (!article || !seo) return null;
+  const url = BASE + seo.canonicalPath;
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    description: seo.description,
+    image: imageFor(seo.ogImage),
+    url,
+    mainEntityOfPage: {'@type': 'WebPage', '@id': url},
+    author: {'@type': 'Organization', name: 'AR7 Traders', url: BASE + '/'},
+    publisher: {
+      '@type': 'Organization',
+      name: 'AR7 Traders',
+      url: BASE + '/',
+      logo: {'@type': 'ImageObject', url: BASE + '/assets/ar7-logo.png'}
+    },
+    articleSection: article.cat
+  };
+  return JSON.stringify(data, (k, v) => (v === undefined ? undefined : v));
+}
+
 function setJsonLd(id, json) {
   let el = document.getElementById(id);
   if (!json) {
@@ -292,10 +343,9 @@ function setJsonLd(id, json) {
 export function applySeo(page, carId, car, opts = {}) {
   const isVehiclePage = page === 'inventory' && carId != null && String(carId) !== '';
   const vehicleMissing = !!(isVehiclePage && !car && opts.vehicleMissing);
+  const brand = page === 'inventory' && !isVehiclePage ? brandSeo(opts.make) : null;
   const isArticlePage = page === 'news' && carId != null && String(carId) !== '';
-  const article = isArticlePage
-    ? (opts.article !== undefined ? opts.article : articleBySlug(carId))
-    : null;
+  const article = isArticlePage ? articleBySlug(carId) : null;
   const articleMissing = isArticlePage && !article;
   const artSeo = article ? articleSeo(article) : null;
 
@@ -307,12 +357,16 @@ export function applySeo(page, carId, car, opts = {}) {
         ? MISSING_ARTICLE_SEO
         : artSeo
           ? [artSeo.title, artSeo.description]
-          : (PAGE_SEO[page] || PAGE_SEO.home);
+          : brand
+            ? [brand.title, brand.description]
+            : (PAGE_SEO[page] || PAGE_SEO.home);
   const url = articleMissing
     ? BASE + '/news'
     : artSeo
       ? BASE + artSeo.canonicalPath
-      : BASE + hrefFor(page, carId);
+      : brand
+        ? BASE + brand.canonicalPath
+        : BASE + hrefFor(page, carId);
   const noindex = ['crm', 'account', 'portal', 'studio'].includes(page) || vehicleMissing || articleMissing;
 
   document.title = title;
@@ -358,8 +412,8 @@ export function applySeo(page, carId, car, opts = {}) {
   }
   link.href = url;
 
-  // Breadcrumb rich result: Home → Current page (Home → Car name on detail pages,
-  // Home → News & Guides → Article title on guide detail pages).
+  // Breadcrumb rich result: inventory and guide detail routes retain their
+  // three-level parent context; other top-level routes remain Home → Page.
   const crumbs = [
     {'@type': 'ListItem', position: 1, name: 'Home', item: BASE + '/'}
   ];
@@ -367,10 +421,14 @@ export function applySeo(page, carId, car, opts = {}) {
     if (isArticlePage && article) {
       crumbs.push({'@type': 'ListItem', position: 2, name: PAGE_LABELS.news, item: BASE + '/news'});
       crumbs.push({'@type': 'ListItem', position: 3, name: article.title, item: url});
+    } else if (isVehiclePage && car) {
+      crumbs.push({'@type': 'ListItem', position: 2, name: 'Inventory', item: BASE + '/inventory'});
+      crumbs.push({'@type': 'ListItem', position: 3, name: carName(car), item: url});
+    } else if (brand) {
+      crumbs.push({'@type': 'ListItem', position: 2, name: 'Inventory', item: BASE + '/inventory'});
+      crumbs.push({'@type': 'ListItem', position: 3, name: brand.make, item: url});
     } else {
-      const label = (page === 'inventory' && car)
-        ? carName(car)
-        : PAGE_LABELS[page] || title;
+      const label = PAGE_LABELS[page] || title;
       crumbs.push({'@type': 'ListItem', position: crumbs.length + 1, name: label, item: url});
     }
   }
@@ -382,6 +440,10 @@ export function applySeo(page, carId, car, opts = {}) {
 
   // Vehicle structured data on the detail page only.
   setJsonLd('vehicle-jsonld', vehicleJsonLd(isVehiclePage ? car : null, carId));
+
+  // Article structured data exists only for a guide that resolves from NEWS.
+  // setJsonLd removes the node on /news, any other route, or an unknown slug.
+  setJsonLd('article-jsonld', articleJsonLd(isArticlePage && article ? article : null));
 
   // FAQ markup scoped to /faq — it must not ride along on every route.
   setJsonLd('faq-jsonld', page === 'faq' ? JSON.stringify({
@@ -396,7 +458,9 @@ export function applySeo(page, carId, car, opts = {}) {
 }
 
 /** Keeps the tab title, share preview and structured data in step with the page. */
-export function useSeo(page, carId, car, opts) {
-  const vehicleMissing = !!opts?.vehicleMissing;
-  useEffect(() => { applySeo(page, carId, car, { vehicleMissing }); }, [page, carId, car, vehicleMissing]);
+export function useSeo(page, carId, car, opts = {}) {
+  const vehicleMissing = !!opts.vehicleMissing;
+  const make = opts.make ?? null;
+  useEffect(() => { applySeo(page, carId, car, { vehicleMissing, make }); },
+    [page, carId, car, vehicleMissing, make]);
 }
