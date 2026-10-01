@@ -20,6 +20,7 @@ import { useSeo, FAQ_ITEMS } from './seo.js';
 import { CurrencyProvider, CurrencyDropdown, useCurrency } from './currency.jsx';
 import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, hashFor, linkClick, findCar, carRef, writeLocation, inventoryHref } from './routing.js';
+import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
 import './currency.css';
 import './portal.css';
 
@@ -162,21 +163,34 @@ const contentListeners=new Set();
 let contentHydrated=false;
 export const onContentChange=fn=>{contentListeners.add(fn);return()=>contentListeners.delete(fn)};
 export const isContentHydrated=()=>contentHydrated;
+// Re-render a component when the hydrated content lands (or changes).
+function useContentVersion(){const [,bump]=useReducer(n=>n+1,0);useEffect(()=>onContentChange(bump),[]);}
 const listingId=r=>{
  if(r?.id!=null&&String(r.id).trim()!=='')return r.id;
  const n=Number(r?.sort_order);
  return Number.isFinite(n)&&n>0?n:null;
 };
 async function hydrateSiteContent(){
+ // Both sources hydrate together, in parallel, so the built-in fallback is
+ // replaced in ONE step. Imported dealer cars are mapped into the same `cars`
+ // array as the CRM's published listings — that is what gives them the full
+ // inventory experience (search, compare, save, detail page, CIF estimate and
+ // related stock). mapDealerRows drops cars already promoted to the website
+ // (they are in site_listings) and cars the rotation system parked.
+ const getJson=url=>fetch(url).then(r=>r.ok?r.json():null).catch(()=>null);
  try{
-  const res=await fetch('/api/site-content?entity=listings');
-  if(res.ok){
-   const rows=await res.json();
-   if(Array.isArray(rows)&&rows.length){
-    const mapped=rows.map((r,i)=>enrichCar({...r,id:listingId(r)??(i+1),image:r.image||'/assets/ar7-mark.png'},i));
-    cars.length=0;cars.push(...mapped);
-   }
+  const [rows,dealer]=await Promise.all([
+   getJson('/api/site-content?entity=listings'),
+   getJson('/api/goonet-stock')
+  ]);
+  const mapped=[];
+  if(Array.isArray(rows)&&rows.length){
+   mapped.push(...rows.map((r,i)=>enrichCar({...r,id:listingId(r)??(i+1),image:r.image||'/assets/ar7-mark.png'},i)));
   }
+  if(Array.isArray(dealer)&&dealer.length){
+   mapped.push(...mapDealerRows(dealer).map((c,i)=>enrichCar({...c,image:c.image||'/assets/ar7-mark.png'},i)));
+  }
+  if(mapped.length){cars.length=0;cars.push(...mapped);}
  }catch{/* offline or not provisioned yet — keep built-in content */}
  contentHydrated=true;
  contentListeners.forEach(fn=>{try{fn()}catch{}});
@@ -1140,18 +1154,18 @@ function VehicleLightbox({selected,detailImage,detailGallery,zoomLevel,setZoomLe
 // controls sit outside the picture area.
 // ---------------------------------------------------------------------------
 function JapanStockPage({navigate, openAuction}){
- const [rows,setRows]=useState([]);
- const [loading,setLoading]=useState(true);
+ // Same hydrated content as the inventory (hydrateSiteContent fetches the
+ // published listings AND the dealer stock in parallel), so the page shows
+ // exactly the imported cars the rest of the site does — and re-renders when
+ // hydration lands instead of running its own one-shot request.
+ useContentVersion();
+ const rows=cars.filter(isImportedCar);
+ const loading=!isContentHydrated();
  const [query,setQuery]=useState('');
  const [make,setMake]=useState('All');
  const [body,setBody]=useState('All');
  const [openCar,setOpenCar]=useState(null);
  const [galleryIdx,setGalleryIdx]=useState(0);
- useEffect(()=>{
-  let live=true;
-  fetch('/api/goonet-stock').then(r=>r.ok?r.json():[]).then(d=>{if(live)setRows(Array.isArray(d)?d:[])}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});
-  return ()=>{live=false};
- },[]);
  const makes=[...new Set(rows.map(r=>r.make).filter(Boolean))].sort();
  const bodies=[...new Set(rows.map(r=>r.body).filter(Boolean))].sort();
  const list=rows.filter(r=>{
@@ -1176,7 +1190,7 @@ function JapanStockPage({navigate, openAuction}){
     {loading?<div className="empty-state"><CarFront/><h3>Loading dealer stock…</h3><p>Fetching the latest dealer listings from Japan.</p></div>:
      list.length===0?<div className="empty-state"><Search/><h3>No dealer cars match</h3><p>New dealer stock arrives all the time — try another filter or ask our team.</p><button className="primary" onClick={openAuction}>Request a search <ArrowRight/></button></div>:
      <div className="car-grid full-grid jstock-grid">{list.map(r=>{
-      const photos=Array.isArray(r.images)?r.images.filter(Boolean):(r.image?[r.image]:[]);
+      const photos=r.images||(r.image?[r.image]:[]);
       const price=r.price||(r.price_usd?'$'+Math.round(r.price_usd).toLocaleString('en-US'):'—');
       return <article className="car-card page-car jstock-card" key={r.id||r.stock_no}>
        <div className="car-image" onClick={()=>{setGalleryIdx(0);setOpenCar(r)}}>
@@ -1290,7 +1304,9 @@ function InnerPage({page,navigate,openAuction,favs,setFavs,vehicleId,initialMake
 if(['services','destinations','reviews','faq','portal'].includes(page))return <ExtraPage type={page} navigate={navigate} openAuction={openAuction}/>;
  if(['brands','howbuy','tools','news'].includes(page))return <ExtraPages2 type={page} navigate={navigate} openAuction={openAuction}/>;
  const makes=[...new Set(cars.map(c=>c.make))].sort();
- const isShowroom=c=>['Luxury','Supercar','Hypercar'].includes(c.body)||Number(c.id)<=12;
+ // Imported dealer cars are Japanese stock, never showroom cars — even a
+ // Lamborghini from the importer belongs in the Japan inventory group.
+ const isShowroom=c=>!isImportedCar(c)&&(['Luxury','Supercar','Hypercar'].includes(c.body)||Number(c.id)<=12);
  const list=cars.filter(c=>(c.make+' '+c.model+' '+c.location+' '+(c.stock_no||'')+' '+c.year).toLowerCase().includes(query.toLowerCase())&&(body==='All'||(body==='Showroom'&&isShowroom(c))||(body==='Japan Stock'&&!isShowroom(c))||c.body===body)&&(make==='All'||c.make===make)&&(fuel==='All'||c.fuel===fuel)&&(priceF==='Any'||(priceF==='Under $15k'&&priceOf(c)<15000)||(priceF==='$15k–$30k'&&priceOf(c)>=15000&&priceOf(c)<30000)||(priceF==='$30k+'&&priceOf(c)>=30000))).sort((a,b)=>{const p=x=>priceOf(x);switch(sortF){case 'Price: low to high':return p(a)-p(b);case 'Price: high to low':return p(b)-p(a);case 'Mileage: low to high':return Number(String(a.km||'').replace(/,/g,''))-Number(String(b.km||'').replace(/,/g,''));case 'Newest first':return b.year-a.year;default:{const as=isShowroom(a),bs=isShowroom(b);if(as!==bs)return as?-1:1;return as?a.id-b.id:b.id-a.id}}});
  const showroomList=list.filter(isShowroom),japanList=list.filter(c=>!isShowroom(c));
  const cardsFor=items=>items.map(c=><VehicleCard key={c.id} c={c} onOpen={openVehicle} comp={comp.includes(c.id)} onCmp={x=>{setComp(v=>v.includes(x.id)?v.filter(y=>y!==x.id):(v.length>=3?v:v.concat(x.id)))}}/>);
