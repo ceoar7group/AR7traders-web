@@ -12,6 +12,7 @@ import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
 import {useSettings, waLink} from './site-settings.js';
 import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
 import {linkClick} from './routing.js';
+import './portal.css';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
 const nice  = s => s ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(s)) : '—';

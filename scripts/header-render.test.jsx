@@ -102,5 +102,12 @@ ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reac
   ok(true, 'logoOnError survives a null target');
 }
 
+// ---- dropdown CSS never uses :focus-within to force panels open ------------
+{
+  const fs = require('node:fs');
+  const css = fs.readFileSync('src/expanded.css', 'utf8');
+  ok(!css.includes('.nav-drop:focus-within .nav-drop-panel'), 'expanded.css does not keep .nav-drop-panel open via :focus-within after clicking a link');
+}
+
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');
 process.exit(failed ? 1 : 0);

@@ -6,10 +6,13 @@ import './browser-stubs.mjs';           // must come first: main.jsx touches doc
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { goto, flushLazy } from './browser-stubs.mjs';
-import { App, CUSTOMER_REVIEWS } from '../src/main.jsx';
+import { App, HOWBUY, DEST, NEWS } from '../src/main.jsx';
+import { CUSTOMER_REVIEWS } from '../src/reviews.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
 import { cars as CARS, stockLabel } from '../src/main.jsx';
 import { carRef } from '../src/routing.js';
+import { FAQ_ITEMS, FAQ_TOPICS } from '../src/seo.js';
+import { articleSlug } from '../src/news-data.js';
 
 let pass = 0, fail = 0;
 // Write straight to the streams: console.error is stubbed below to catch React
@@ -54,6 +57,10 @@ const ROUTES = {
   '/world': ['world-page'],
   '/howbuy': ['inner-page'],
   '/news': ['inner-page'],
+  '/news/why-land-cruiser-demand-keeps-climbing-in-pakistan': ['news-article', 'Why Land Cruiser demand keeps climbing in Pakistan'],
+  '/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean': ['news-article', 'Auction sheet decoded: what R, A and 4.5 really mean'],
+  '/news/roro-vs-container-which-shipping-method-fits-your-car': ['news-article', 'RoRo vs container: which shipping method fits your car?'],
+  '/news/how-online-bidding-works-with-ar7': ['news-article', 'How online bidding works with AR7'],
   '/about': ['inner-page'],
   '/reviews': ['inner-page'],
   '/faq': ['inner-page'],
@@ -83,6 +90,56 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(detail.includes('detail-grid') && detail.includes('detail-gallery'),
     `a deep vehicle link (/inventory/${stock}) renders the detail view, not the list`);
   ok(!detail.includes('inv-toolbar'), 'the detail view replaces the inventory toolbar');
+  ok(detail.includes('class="buyer-guide"') && (detail.match(/class="buyer-guide-step"/g) || []).length === 5,
+    'vehicle detail page renders BuyerGuide with 5 ordered steps from enquiry to port');
+  ok(detail.includes('FOB (Free on Board)') && detail.includes('CIF (Cost, Insurance &amp; Freight)'),
+    'BuyerGuide explains FOB vs CIF in plain language');
+  ok(detail.includes('customs authority’s decision') && !/\b(48|25|10|5)%/.test(detail.split('class="buyer-guide"')[1] || ''),
+    'BuyerGuide states duty is your own customs authority’s decision and quotes no duty rate');
+  for (const href of ['/howbuy', '/shipping', '/faq']) {
+    ok(detail.includes(`href="${href}"`), `BuyerGuide links to ${href}`);
+  }
+  ok(!detail.includes('Auction sheet included') && detail.includes('Inspection photos &amp; condition records'),
+    'vehicle without auction_sheet evidence uses honest non-auction-sheet condition wording');
+  // Temporarily set auction_sheet on CARS[0] to verify the conditional branch
+  CARS[0].auction_sheet = true;
+  const detailWithSheet = await renderPage('/inventory/' + stock);
+  delete CARS[0].auction_sheet;
+  ok(detailWithSheet.includes('Auction sheet included') && detailWithSheet.includes('Translated auction inspection sheet'),
+    'vehicle with auction_sheet evidence renders the auction-sheet condition wording');
+}
+{
+  // Phase C1 buyer content checks across /faq, /destinations, /howbuy, and /news
+  const faqHtml = await renderPage('/faq');
+  ok(FAQ_ITEMS.length === 14 && FAQ_TOPICS.length >= 3, `FAQ_ITEMS has 14 answers across ${FAQ_TOPICS.length} topics`);
+  ok((faqHtml.match(/class="faq-topic-group"/g) || []).length === FAQ_TOPICS.length,
+    `/faq groups questions by all ${FAQ_TOPICS.length} FAQ_TOPICS`);
+  ok(!faqHtml.toLowerCase().includes('demo support content'), '/faq removes the "demo support content" label');
+
+  const destHtml = await renderPage('/destinations');
+  ok(destHtml.includes('class="destination-guide"') && destHtml.includes('What to expect in Japan') && destHtml.includes('On arrival at'),
+    '/destinations renders the selected market guide with "what to expect" and "on arrival" sections');
+  ok(destHtml.includes('planning figure') && !/\b(48|25|10|5)%/.test(destHtml),
+    '/destinations labels transit as a planning figure and quotes no duty percentage');
+
+  const howbuyHtml = await renderPage('/howbuy');
+  ok(Array.isArray(HOWBUY) && HOWBUY.length === 8 && HOWBUY.every(s => s.length === 4 && s[3]),
+    'HOWBUY is exported with a 4th element ("what actually happens") per step');
+  ok((howbuyHtml.match(/class="hb-what"/g) || []).length === HOWBUY.length,
+    '/howbuy renders the 4th element for every step');
+  ok(!howbuyHtml.includes('auction sheet-verified condition'),
+    '/howbuy step 05 drops universal auction-sheet-verification wording');
+
+  const newsHtml = await renderPage('/news');
+  ok(newsHtml.includes('news-filter-bar') && newsHtml.includes('>All guides</button>'),
+    '/news renders the topic filter bar with "All guides" reset');
+  for (const a of NEWS) {
+    const slug = articleSlug(a);
+    ok(newsHtml.includes(`href="/news/${slug}"`), `/news index links to /news/${slug} via <a href>`);
+  }
+  const missingGuide = await renderPage('/news/not-a-real-guide');
+  ok(missingGuide.includes('article-missing') && missingGuide.includes('Guide not found'),
+    'an unknown /news/<slug> renders the Guide not found state');
 }
 {
   const bad = await renderPage('/this-page-does-not-exist');

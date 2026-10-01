@@ -190,6 +190,50 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     await act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     ok(btn.getAttribute('aria-expanded') === 'false', 'Escape closes the Brands panel');
   }
+  const moreBtn = [...document.querySelectorAll('.nav-more > button')][0];
+  ok(!!moreBtn, 'the More dropdown button exists');
+  if (moreBtn) {
+    await act(async () => { moreBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+    ok(moreBtn.getAttribute('aria-expanded') === 'true' && document.querySelector('.nav-more')?.classList.contains('open'),
+      'clicking More opens the More dropdown');
+    const destLink = document.querySelector('.more-panel a[href="/destinations"]');
+    if (destLink) {
+      destLink.focus();
+      await act(async () => { destLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+      ok(moreBtn.getAttribute('aria-expanded') === 'false' && !document.querySelector('.nav-more')?.classList.contains('open'),
+        'clicking a dropdown link closes the dropdown on the next page');
+      ok(!document.querySelector('.nav-more')?.contains(document.activeElement),
+        'clicking a dropdown link blurs focus inside the dropdown so it never stays stuck open');
+    }
+  }
+}
+
+// ---- back navigation from a car details page returns to inventory ----------
+{
+  const { cars } = await import('../src/main.jsx');
+  const stock = cars[0].stock_no;
+  // Simulate a tab that was reloaded earlier in its lifetime.
+  const origPerf = dom.window.performance.getEntriesByType;
+  dom.window.performance.getEntriesByType = type => (type === 'navigation' ? [{ type: 'reload' }] : []);
+  try {
+    await goto('/inventory/' + encodeURIComponent(stock));
+    ok(!!document.querySelector('.detail-page'), 'opening a vehicle renders .detail-page');
+    const backBtn = document.querySelector('.detail-page .back-btn');
+    ok(!!backBtn, 'vehicle detail page renders the Back to inventory control');
+    if (backBtn) {
+      await act(async () => { backBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+      ok(!document.querySelector('.detail-page') && dom.window.location.pathname === '/inventory',
+        'clicking Back to inventory leaves the detail page and returns to /inventory even after a tab reload');
+    }
+    // Also verify browser Back (popstate) from a vehicle detail page.
+    await goto('/inventory/' + encodeURIComponent(stock));
+    ok(!!document.querySelector('.detail-page'), 're-opening a vehicle renders .detail-page');
+    await goto('/inventory');
+    ok(!document.querySelector('.detail-page') && dom.window.sessionStorage.getItem('ar7-open-vehicle') === null,
+      'browser Back (popstate) to /inventory closes the vehicle detail page and clears ar7-open-vehicle');
+  } finally {
+    dom.window.performance.getEntriesByType = origPerf;
+  }
 }
 
 // ---- the 900+ founder stat counts up once it scrolls into view -------------

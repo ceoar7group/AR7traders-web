@@ -1,0 +1,168 @@
+/* ============================================================
+   WORLD NETWORK PAGE & BIG NETWORK GLOBE — loaded lazily by src/network.jsx
+   ============================================================ */
+.world-page{padding-bottom:0}
+.world-hero{display:grid;grid-template-columns:.82fr 1.18fr;align-items:center;gap:44px;padding:140px 0 60px;position:relative}
+.world-copy h1{font:700 clamp(44px,5vw,72px)/.98 Manrope;letter-spacing:-4px;margin:16px 0}
+.world-copy h1 em{font-style:normal;color:var(--gold)}
+.world-copy>p{color:var(--muted);font-size:15px;line-height:1.75;max-width:470px}
+.world-copy>p b{color:var(--green-text)}
+.world-cta{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}
+.world-cta .outline-btn{margin:0}
+.world-stats{display:flex;gap:26px;margin-top:38px;flex-wrap:wrap}
+.world-stats div{display:grid;gap:2px}
+.world-stats b{font:800 26px Manrope;color:var(--green-text)}
+.world-stats span{font-size:9px;letter-spacing:1.1px;color:var(--muted);text-transform:uppercase}
+.world-hero-orb{left:auto;right:36%;top:auto;bottom:-44px}
+
+/* the big globe */
+.wglobe{position:relative;width:min(600px,92vw);aspect-ratio:1;margin:auto;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;perspective:1000px;contain:layout style}
+.wglobe.dragging{cursor:grabbing}
+.wglobe-glow{position:absolute;inset:-14%;border-radius:50%;background:radial-gradient(circle,rgba(34,176,105,.30),rgba(34,176,105,.07) 48%,transparent 70%);animation:haloPulse 4.8s ease-in-out infinite;pointer-events:none}
+.wsphere{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 30%,#0e5a3b,#052e1e 58%,#011f14);box-shadow:inset -42px -30px 85px #00150c,inset 14px 12px 40px #0d6846aa,0 0 110px #20a16844;animation:globeFloat 6s ease-in-out infinite;will-change:transform}
+.wsphere:after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 90px #01150e;pointer-events:none}
+.wsphere svg{position:absolute;left:0;top:0;width:300%;height:100%;transform:translateX(var(--rot,0px));will-change:transform}
+.wshade{position:absolute;inset:0;z-index:3;border-radius:50%;background:radial-gradient(circle at 68% 34%,transparent 42%,#00100996 88%);pointer-events:none!important}
+.wshine{position:absolute;inset:0;z-index:4;border-radius:50%;overflow:hidden;pointer-events:none!important}
+.wshine:before{content:'';position:absolute;top:-30%;bottom:-30%;left:0;width:13%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-140%) rotate(14deg);animation:sheenSweep 7s ease-in-out infinite;will-change:transform}
+.wgrid line{stroke:rgba(255,255,255,.06);stroke-width:1}
+.wland{fill:url(#wl);stroke:rgba(231,180,81,.55);stroke-width:1.6;stroke-linejoin:round;filter:drop-shadow(0 5px 10px #00160dcc)}
+.wland{fill:rgba(211,163,68,.88)}
+.warc{pointer-events:none;fill:none;stroke:#e5b553;stroke-width:2.2;stroke-linecap:round;stroke-dasharray:7 11;opacity:.9;animation:arcDash 2.1s linear infinite}
+.wship{pointer-events:none}
+.whull{fill:#12482f;stroke:#ffe1a6;stroke-width:1.1}
+.wdeck{fill:#e3b04b}
+.wmkt{cursor:pointer}
+.wmkt-dot{fill:#e5b553;stroke:#fff;stroke-width:1.6}
+.wmkt-ring{fill:none;stroke:#e5b553;stroke-width:1.2;opacity:.5;animation:mktPulse 2.6s ease-out infinite}
+.wmkt:hover .wmkt-ring{opacity:1}
+@keyframes mktPulse{0%{r:6;opacity:.8}100%{r:22;opacity:0}}
+.wmkt-chip{fill:rgba(2,28,17,.88);stroke:rgba(229,181,83,.4);stroke-width:1}
+.wmkt-txt{fill:#f3e9d2;font:700 13px Manrope,sans-serif;letter-spacing:.4px}
+.wjp{cursor:pointer}
+.wjp-dot{fill:#e9b64f;stroke:#fff;stroke-width:2.2}
+.wjp-p1,.wjp-p2{fill:none;stroke:#e9b64f;stroke-width:1.6;animation:jpPing 2.2s ease-out infinite}
+.wjp-p2{animation-delay:1.1s}
+@keyframes jpPing{0%{r:8;opacity:.95}100%{r:34;opacity:0}}
+.wjp:hover .wjp-dot{fill:#ffd98a}
+.wjp-chip{fill:#032c1cee;stroke:#e9b64f;stroke-width:1.6;filter:drop-shadow(0 6px 14px #0009)}
+.wjp-txt{fill:#ffe1a6;font:800 15px Manrope,sans-serif;letter-spacing:1.6px;text-anchor:middle}
+.wjp-pointer{fill:#e9b64f}
+.wjp:hover .wjp-chip{stroke:#ffd98a}
+
+/* market cards */
+.markets-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding-bottom:30px}
+.markets-grid .mkt-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;cursor:pointer;display:grid;gap:9px;transition:transform .28s,box-shadow .28s,border-color .2s}
+.markets-grid .mkt-card:hover{transform:translateY(-6px);box-shadow:0 26px 55px #072c1b22;border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
+.mkt-flag{font-size:30px;line-height:1}
+.markets-grid h3{font:800 19px Manrope;letter-spacing:-.5px;margin:0}
+.markets-grid p{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;margin:0}
+.markets-grid p svg{width:13px;color:var(--gold)}
+.markets-grid small{font-size:10px;color:var(--muted);letter-spacing:.4px}
+.markets-grid .mkt-go{margin-top:6px;border:0;background:none;color:var(--green-text);font-weight:800;font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer;padding:0;text-align:left}
+.markets-grid .mkt-go svg{width:13px;transition:transform .25s}
+.markets-grid .mkt-card:hover .mkt-go svg{transform:translateX(4px)}
+
+.wmkt-hit{cursor:pointer}
+.wjp-hit{cursor:pointer}
+
+/* happy customers on big globe */
+.whappy{animation:whFloat 4.6s ease-in-out infinite;pointer-events:none}
+@keyframes whFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.wh-ring{fill:none;stroke:#4fd08a;stroke-width:1.4;opacity:.55;animation:whRing 2.2s ease-out infinite;transform-origin:center}
+@keyframes whRing{0%{r:12;opacity:.7}100%{r:26;opacity:0}}
+.wh-face{fill:#fff8e6;stroke:#e2b04a;stroke-width:1.6;filter:drop-shadow(0 3px 6px #00160d88)}
+.wh-emoji{font-size:13px}
+.wh-bub{animation:whBub 4.6s ease-in-out infinite}
+@keyframes whBub{0%,100%{opacity:.9;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.wh-bub-bg{fill:rgba(2,28,17,.92);stroke:rgba(229,181,83,.45);stroke-width:1}
+.wh-bub-txt{fill:#f3e9d2;font:700 10.5px Manrope,sans-serif}
+.wh-stars{fill:#e9b64f;font-size:9px;letter-spacing:1.5px}
+
+.mkt-flag svg{width:36px;height:23px;border-radius:5px;box-shadow:0 2px 7px rgba(0,0,0,.18)}
+.wglobe.compact{width:min(470px,86vw)}
+.world-map .wglobe{width:min(470px,86vw)}
+.wglobe.compact .drag-hint{font-size:7.5px}
+.world-map .wland{fill:rgba(211,163,68,.88);stroke:rgba(231,180,81,.55);stroke-width:1.6}
+.world-map .warc{pointer-events:none;fill:none;stroke:#e5b553}
+.world-map .wgrid line{filter:none;stroke:rgba(255,255,255,.06)}
+
+.wplane{pointer-events:none}
+.wp-jet{fill:#fff;stroke:#0c3a26;stroke-width:.6}
+.wp-con{fill:none;stroke:rgba(255,255,255,.55);stroke-width:1.4;stroke-dasharray:4 5;animation:wpConDash 1.1s linear infinite}
+@keyframes wpConDash{to{stroke-dashoffset:-18}}
+.wcar{pointer-events:none}
+
+/* network dashboard */
+.net-dash-wrap{padding-bottom:110px}
+.net-grid{display:grid;grid-template-columns:1.05fr 1fr .9fr;gap:16px;align-items:start}
+.net-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.net-stats div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:4px;box-shadow:var(--shadow)}
+.net-stats i{width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--gold) 16%,transparent);display:grid;place-items:center;margin-bottom:4px}
+.net-stats svg{width:16px;color:var(--gold)}
+.net-stats b{font:800 30px Manrope;letter-spacing:-1.5px}
+.net-stats span{font-size:9px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase}
+.net-panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.net-panel h3{font:700 15px Manrope;display:flex;align-items:center;gap:8px;margin:0 0 14px}
+.net-panel .live-dot{width:7px;height:7px}
+.net-panel table{width:100%;border-collapse:collapse;font-size:11px}
+.net-panel th{text-align:left;font-size:8px;letter-spacing:1.4px;color:var(--muted);padding:0 0 8px;border-bottom:1px solid var(--line);text-transform:uppercase}
+.net-panel td{padding:8px 2px;border-bottom:1px dashed var(--line)}
+.net-panel td:first-child b{font-size:11px}
+.net-panel tr:last-child td{border-bottom:0}
+.st{padding:3px 8px;border-radius:12px;font-size:8px;font-weight:800;white-space:nowrap}
+.st.atos{background:#dcefe4;color:#147144}
+.st.loaded{background:#e9f0e2;color:#6d7f31}
+.st.loading{background:#fdf0d5;color:#a97820}
+.st.booking{background:#e6ecfa;color:#2b4fa3}
+.net-panel ul{list-style:none;padding:0;margin:0;display:grid;gap:9px}
+.net-panel li{display:flex;gap:10px;font-size:11px;line-height:1.4}
+.net-panel li b{font-size:8px;color:var(--gold);flex:none;padding-top:2px;font-weight:800}
+.net-panel li span{color:var(--ink)}
+
+@media(min-width:1800px){
+ .wglobe{width:min(660px,92vw)}
+}
+@media (min-width:1001px) and (max-width:1366px){
+ .world-hero{min-height:680px}
+ .net-grid{grid-template-columns:1fr 1fr}
+ .net-stats{grid-column:1/-1;grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:1000px){
+ .world-hero{grid-template-columns:1fr;gap:30px;padding-top:120px}
+ .wglobe{width:min(520px,94vw)}
+ .world-map .wglobe{width:min(430px,92vw)}
+ .markets-grid{grid-template-columns:1fr 1fr}
+ .world-hero-orb{display:none}
+ .net-grid{grid-template-columns:1fr 1fr}
+ .net-panel{grid-column:auto}
+}
+@media(max-width:650px){
+ .world-hero{padding-top:105px}
+ .world-copy h1{font-size:44px;letter-spacing:-2.4px}
+ .world-cta{flex-direction:column;align-items:stretch}
+ .world-cta a,.world-cta button{width:100%}
+ .world-stats{gap:18px}
+ .world-stats b{font-size:21px}
+ .wglobe{width:min(400px,96vw)}
+ .world-map .wglobe{width:min(360px,94vw)}
+ .markets-grid{grid-template-columns:1fr}
+ .mkt-flag svg{width:30px;height:20px}
+ .wmkt-txt{font-size:10px}
+ .wjp-txt{font-size:11px}
+ .wjp-chip{width:150px!important}
+ .wshade{opacity:.75}
+ .wh-bub{display:none}
+ .wh-emoji{font-size:10px}
+ .wh-face{stroke-width:1.2}
+ .net-grid{grid-template-columns:1fr}
+ .net-stats{grid-template-columns:1fr 1fr}
+ .net-panel{overflow-x:auto}
+ .net-panel table{font-size:10px;min-width:520px}
+}
+@media(max-width:420px){
+ .net-stats{grid-template-columns:1fr!important}
+}
+@media (prefers-reduced-motion: reduce){
+ .warc,.wship,.whappy,.wmkt-ring,.wjp-p1,.wjp-p2,.wglobe-glow,.wshine:before{animation:none!important}
+}

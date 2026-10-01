@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import { Ship, ArrowRight, CarFront, Gavel, BadgeCheck } from 'lucide-react';
 import { linkClick } from './routing.js';
 import { Flag } from './flag.jsx';
+import './network.css';
 export { Flag };
 
 /* ============================================================

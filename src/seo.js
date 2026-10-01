@@ -16,6 +16,7 @@
 //     shell where every route inherited it).
 import {useEffect} from 'react';
 import { hrefFor } from './routing.js';
+import { articleBySlug, articleSeo } from './news-data.js';
 
 const BASE = 'https://ar7traders.com';
 
@@ -68,20 +69,36 @@ export const PAGE_SEO = {
   studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.']
 };
 
-// The /faq page renders these questions; the FAQPage JSON-LD is built from
-// the same list so markup and visible content can never drift apart.
+// The /faq page renders these questions grouped by topic (the 3rd tuple
+// element); the FAQPage JSON-LD destructures only [q, a] so markup and visible
+// content never drift apart and schema.org receives only Question/Answer pairs.
 export const FAQ_ITEMS = [
-  ['How do Japanese car auctions work?', 'Members inspect and bid on vehicles at professional auction houses in Japan. AR7 provides translated sheets, condition advice and places an agreed bid on your behalf.'],
-  ['Can I see the auction sheet before bidding?', 'Yes. Every shortlisted auction vehicle includes its original sheet plus an English summary from our sourcing team.'],
-  ['What is included in the export price?', 'The displayed demo price is a starting FOB estimate. Your final quotation itemizes vehicle cost, auction fee, inland transport, export documentation, freight and optional insurance.'],
-  ['How long does shipping take?', 'Transit depends on destination and vessel schedule. Typical routes range from 18 to 42 days after loading.'],
-  ['Can AR7 source a specific model?', 'Yes. Share your model, year, mileage, grade, color and budget. We monitor auctions and dealer networks until the right match appears.'],
-  ['How do I track my vehicle?', 'Clients receive portal access with inspection photos, payment milestones, vessel details, documents and arrival estimates.']
+  ['How do Japanese car auctions work?', 'Licensed trade members inspect and bid on vehicles at wholesale auction houses across Japan. AR7 shortlists suitable lots, translates the inspector notes and places your agreed maximum bid on your behalf.', 'Auctions & condition'],
+  ['Can I see the auction sheet before bidding?', 'For auction-sourced lots, yes — we share the Japanese auction sheet and a plain-English summary of the grades and marks before you commit to a bid. For dealer-stock vehicles, condition is reviewed from the dealer report and yard photographs.', 'Auctions & condition'],
+  ['What do Japanese auction grades like 4.5, 4.0 and R mean?', 'Grades S, 5, 4.5 and 4.0 indicate overall condition and mileage Band, while panel codes like A1 (small scratch), U1 (minor dent) and W2 (paint wave) mark individual panels. An R or RA grade means repaired accident history — we flag those clearly before you decide.', 'Auctions & condition'],
+  ['How is dealer stock different from an auction vehicle?', 'Auction vehicles sell on a scheduled bidding day at a hammer price in Japanese yen, whereas dealer-stock vehicles are already priced at Japanese dealerships for immediate reservation without waiting for an auction session.', 'Auctions & condition'],
+  ['Can AR7 source a specific model?', 'Yes. Share your target make, model, year range, mileage cap, preferred colour and destination port. We monitor daily auction lists and Japanese dealer networks until a matching vehicle appears.', 'Auctions & condition'],
+  ['What is included in the export price?', 'The listed vehicle price is an FOB (Free on Board) starting estimate in Japan. Your written quotation itemizes the vehicle price, Japanese inland transport and export preparation, ocean freight and marine transit insurance (CIF).', 'Pricing & payment'],
+  ['What is the difference between FOB and CIF pricing?', 'FOB covers the vehicle and export preparation up to loading at the Japanese port. CIF (Cost, Insurance and Freight) adds sea freight to your destination port and marine transit insurance so you see the landed port cost before customs.', 'Pricing & payment'],
+  ['How do I pay for a vehicle and what currencies are accepted?', 'Purchases are settled by international bank transfer (T/T) against an itemized proforma invoice, typically in USD or JPY. For auction bidding, a refundable deposit activates your bidding limit and the balance is invoiced after a successful purchase.', 'Pricing & payment'],
+  ['Are the calculator numbers on the website final quotes?', 'No — all calculator outputs and transit windows on the website are planning estimates. Before you commit, our Japan export desk issues a written quotation with current carrier freight and documentation costs for your specific vehicle.', 'Pricing & payment'],
+  ['How long does shipping take?', 'Sea transit depends on your destination port, carrier schedule and whether the vessel sails direct or transships. Typical planning windows range from roughly 18 to 42 days after loading in Japan.', 'Shipping & documents'],
+  ['Should I choose RoRo or container shipping?', 'RoRo (Roll-on/Roll-off) is the standard, cost-effective choice for drivable cars, SUVs and vans. Dedicated or shared containers suit high-value supercars, low-clearance vehicles or multi-car dealership orders.', 'Shipping & documents'],
+  ['Which export documents will I receive?', 'Every shipment is prepared with a Commercial Invoice, original Bill of Lading, Japanese Export Certificate (de-registration certificate) and marine insurance certificate, plus pre-shipment inspection certificates (such as QISJ, JEVIC or EAA) where required by your market.', 'Shipping & documents'],
+  ['How do I track my vehicle?', 'Clients receive portal and WhatsApp updates covering yard arrival photos in Japan, pre-export inspection, vessel booking, Bill of Lading dispatch by courier and estimated port arrival.', 'Customs & arrival'],
+  ['Who calculates import duty and clears the car at my port?', 'Import duty, local taxes and registration fees are always assessed by your own country’s customs authority under local rules. Your licensed clearing agent at the destination port submits the original documents we courier to you and confirms the exact duty payable.', 'Customs & arrival']
 ];
+
+export const FAQ_TOPICS = [...new Set(FAQ_ITEMS.map(x => x[2]))];
 
 const MISSING_VEHICLE_SEO = [
   'Vehicle no longer listed | AR7 Traders',
   'This vehicle is no longer in our current stock. Browse live Japanese vehicles ready for export on AR7 Traders.'
+];
+
+const MISSING_ARTICLE_SEO = [
+  'Guide not found | AR7 Traders',
+  'This buying guide could not be found. Browse our Japanese car import guides and market notes on AR7 Traders.'
 ];
 
 function setMeta(selector, attr, value) {
@@ -275,13 +292,28 @@ function setJsonLd(id, json) {
 export function applySeo(page, carId, car, opts = {}) {
   const isVehiclePage = page === 'inventory' && carId != null && String(carId) !== '';
   const vehicleMissing = !!(isVehiclePage && !car && opts.vehicleMissing);
+  const isArticlePage = page === 'news' && carId != null && String(carId) !== '';
+  const article = isArticlePage
+    ? (opts.article !== undefined ? opts.article : articleBySlug(carId))
+    : null;
+  const articleMissing = isArticlePage && !article;
+  const artSeo = article ? articleSeo(article) : null;
+
   const [title, description] = vehicleMissing
     ? MISSING_VEHICLE_SEO
     : (isVehiclePage && car)
       ? vehicleSeo(car, carId)
-      : (PAGE_SEO[page] || PAGE_SEO.home);
-  const url = BASE + hrefFor(page, carId);
-  const noindex = ['crm', 'account', 'portal', 'studio'].includes(page) || vehicleMissing;
+      : articleMissing
+        ? MISSING_ARTICLE_SEO
+        : artSeo
+          ? [artSeo.title, artSeo.description]
+          : (PAGE_SEO[page] || PAGE_SEO.home);
+  const url = articleMissing
+    ? BASE + '/news'
+    : artSeo
+      ? BASE + artSeo.canonicalPath
+      : BASE + hrefFor(page, carId);
+  const noindex = ['crm', 'account', 'portal', 'studio'].includes(page) || vehicleMissing || articleMissing;
 
   document.title = title;
   setMeta('meta[name="description"]', 'content', description);
@@ -292,16 +324,19 @@ export function applySeo(page, carId, car, opts = {}) {
   setMeta('meta[name="twitter:description"]', 'content', description);
 
   // Per-page preview image: the vehicle's own photo on detail pages (when it
-  // has one), otherwise the page's mapped branded asset. twitter:image stays
-  // in lockstep, og:image:alt describes what the image actually shows, and
-  // width/height only ever describe the real asset (never left stale from a
-  // previously visited route).
+  // has one), the guide's own photo on /news/<slug>, otherwise the page's
+  // mapped branded asset. twitter:image stays in lockstep, og:image:alt
+  // describes what the image actually shows, and width/height only ever
+  // describe the real asset (never left stale from a previously visited route).
   const vehiclePhoto = isVehiclePage && car ? imageFor(car.image) : null;
+  const articlePhoto = artSeo ? imageFor(artSeo.ogImage) : null;
   const og = isVehiclePage
     ? (vehiclePhoto
       ? { image: vehiclePhoto, width: null, height: null, alt: carName(car) + ' photo' }
       : OG_DEFAULT)
-    : ogFor(page);
+    : (artSeo && articlePhoto)
+      ? { image: articlePhoto, width: null, height: null, alt: article.title }
+      : ogFor(page);
   setMeta('meta[property="og:image"]', 'content', og.image);
   setMeta('meta[property="og:image:alt"]', 'content', og.alt);
   setMeta('meta[name="twitter:image"]', 'content', og.image);
@@ -323,15 +358,21 @@ export function applySeo(page, carId, car, opts = {}) {
   }
   link.href = url;
 
-  // Breadcrumb rich result: Home → Current page (Home → Car name on detail pages).
+  // Breadcrumb rich result: Home → Current page (Home → Car name on detail pages,
+  // Home → News & Guides → Article title on guide detail pages).
   const crumbs = [
     {'@type': 'ListItem', position: 1, name: 'Home', item: BASE + '/'}
   ];
   if (page && page !== 'home') {
-    const label = (page === 'inventory' && car)
-      ? carName(car)
-      : PAGE_LABELS[page] || title;
-    crumbs.push({'@type': 'ListItem', position: crumbs.length + 1, name: label, item: url});
+    if (isArticlePage && article) {
+      crumbs.push({'@type': 'ListItem', position: 2, name: PAGE_LABELS.news, item: BASE + '/news'});
+      crumbs.push({'@type': 'ListItem', position: 3, name: article.title, item: url});
+    } else {
+      const label = (page === 'inventory' && car)
+        ? carName(car)
+        : PAGE_LABELS[page] || title;
+      crumbs.push({'@type': 'ListItem', position: crumbs.length + 1, name: label, item: url});
+    }
   }
   setJsonLd('breadcrumb-jsonld', JSON.stringify({
     '@context': 'https://schema.org',

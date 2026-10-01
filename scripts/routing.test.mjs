@@ -89,6 +89,16 @@ ok(restored.page === 'inventory' && restored.carId === '51', 'reload of / restor
 const restoredHash = parseRoute({ pathname: '/', hash: '#inventory', search: '' }, { restoreOnReload: true });
 ok(restoredHash.page === 'inventory' && restoredHash.carId === '51', 'reload of #inventory restores the last open vehicle');
 
+// Once a tab has been reloaded once, performance.getEntriesByType('navigation')[0].type
+// stays 'reload' for the lifetime of the tab. Explicit in-app navigation and
+// popstate back to /inventory must NEVER be hijacked by sessionStorage.
+globalThis.performance = { getEntriesByType: () => [{ type: 'reload' }] };
+ok(parseNavTarget('inventory').carId === null, 'parseNavTarget("inventory") is never hijacked by reload navigation timing');
+ok(parseNavTarget('/inventory').carId === null, 'parseNavTarget("/inventory") is never hijacked by reload navigation timing');
+ok(hrefFromTarget('inventory') === '/inventory', 'hrefFromTarget("inventory") stays /inventory after a reload');
+ok(parseRoute({ pathname: '/inventory', hash: '#/inventory', search: '' }).carId === null, 'parseRoute without restoreOnReload does not reopen the saved car on back navigation');
+delete globalThis.performance;
+
 const cars = [
   { id: 'uuid-43', make: 'Toyota', model: 'Harrier S', year: 2023, stock_no: '0710232A30260801W001', sort_order: 43 },
   { id: 1, make: 'Rolls-Royce', model: 'Ghost', year: 2023 }
