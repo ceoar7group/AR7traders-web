@@ -10,12 +10,21 @@ import {
   parseListingPage, parseDetailPage, mergeCardAndDetail, qualityScore,
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
   BRAND_MAP, MODEL_MAP,
-  countSpreadLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
+  countSpreadLinks, countDomCarLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
   relayBaseUrl, relayApiKey,
   llmConfigured, extractCardsWithLlm, markupSample, EVIDENCE_SAMPLE_BYTES,
   rawYen, priceTextToYen,
-  FALLBACK_SEARCH_URL, JINA_RELAY, UA
+  FALLBACK_SEARCH_URL, JINA_RELAY, UA,
+  decodeHtmlBytes, sniffCharset, charsetFromContentType, charsetFromMeta, supportedCharset,
+  normalizeCharsetLabel, isUtf8Bytes, bomCharset, firstIndexOutsideScripts,
+  scanCarLinks, parseJsonLdCarItems, normalizeCarUrl,
+  buildParserDiagnostic, buildLlmCardWindows, scrubSecrets, structuredDataSample,
+  parseGoonetCarUrl, parseGoonetCarUrls, GOONET_CAR_HOSTS
 } from './goonet-core.mjs';
+import { legacyEncoder, byteResponse } from './legacy-jp.mjs';
+
+const eucJp = legacyEncoder('euc-jp');
+const shiftJis = legacyEncoder('shift_jis');
 
 let pass = 0, fail = 0;
 function ok(cond, name) {
@@ -257,16 +266,33 @@ eq(JINA_RELAY, 'https://r.jina.ai/', 'jina relay base');
 
 // ---- fetchPage: cookies, headers, relay fallback ---------------------------
 const realFetch = global.fetch;
+// The mock hands out BYTES and exposes arrayBuffer(), like a real Response.
+// text() deliberately keeps the fetch spec's behaviour (UTF-8 decode, header
+// charset ignored) so a test can see the corruption production saw.
 function mockFetch(handler) {
   const calls = [];
   global.fetch = async (url, opts = {}) => {
     calls.push({ url: String(url), headers: opts.headers || {} });
     const r = handler(String(url), opts) || {};
+    if (r.throw) throw r.throw;
+    const bytes = r.bytes instanceof Uint8Array
+      ? r.bytes
+      : new TextEncoder().encode(String(r.body ?? ''));
+    const contentType = r.contentType === undefined ? 'text/html; charset=utf-8' : r.contentType;
     return {
       ok: (r.status || 200) < 400,
       status: r.status || 200,
-      headers: { get: k => (k.toLowerCase() === 'set-cookie' ? (r.setCookie || null) : null) },
-      text: async () => r.body || ''
+      url: r.finalUrl || String(url),
+      headers: {
+        get: k => {
+          const name = String(k).toLowerCase();
+          if (name === 'set-cookie') return r.setCookie || null;
+          if (name === 'content-type') return contentType;
+          return null;
+        }
+      },
+      arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      text: async () => new TextDecoder('utf-8').decode(bytes)
     };
   };
   return calls;
@@ -589,6 +615,329 @@ const samplePage = '<!-- HEAD-MARKER -->' + 'z'.repeat(6000) + '<body>' + 'y'.re
 const sample = markupSample(samplePage);
 ok(sample.includes('年式') && sample.includes('SAMP0001') && !sample.includes('HEAD-MARKER'),
   'the 2 KB evidence sample centres on the first car link, not the page head');
+
+
+// ===========================================================================
+// Response decoding: real legacy bytes through the real fetch path
+// ===========================================================================
+// goo-net serves EUC-JP. These byte values are not a guess: decoding
+// A5 C8 A5 E8 A5 BF C0 BE C5 EC B5 FE as EUC-JP gives "トヨタ西東京", and
+// decoding the same bytes as UTF-8 produces the "\uFFFD\u0225\u897F\uFFFD"
+// mojibake the live CRM diagnostic showed.
+const incidentBytes = Uint8Array.from([0xA5, 0xC8, 0xA5, 0xE8, 0xA5, 0xBF, 0xC0, 0xBE, 0xC5, 0xEC, 0xB5, 0xFE]);
+eq(new TextDecoder('euc-jp').decode(incidentBytes), 'トヨタ西東京', 'the incident byte run really is EUC-JP for トヨタ西東京');
+
+console.log('\n-- the bug this suite exists for --');
+const utf8Only = new TextDecoder('utf-8').decode(incidentBytes);
+ok(utf8Only.includes('\uFFFD\u0225\u897F'),
+  'UTF-8 decoding of those bytes reproduces the exact live mojibake signature ("\uFFFD\u0225\u897F")');
+eq(decodeHtmlBytes(incidentBytes, { contentType: 'text/html; charset=euc-jp' }).text, 'トヨタ西東京',
+  'the shared reader decodes the same bytes correctly from the Content-Type charset');
+eq(decodeHtmlBytes(incidentBytes, {}).text, 'トヨタ西東京',
+  'and correctly with no declaration at all (byte sniff)');
+eq(decodeHtmlBytes(incidentBytes, { contentType: 'text/html' }).charsetSource, 'sniff',
+  'the sniff records that it was the sniff that decided');
+
+console.log('\n-- charset selection policy --');
+const utf8Bytes = new TextEncoder().encode('<p>ホンダ Ｎ－ＢＯＸ</p>');
+const asUtf8 = decodeHtmlBytes(utf8Bytes, { contentType: 'text/html; charset=utf-8' });
+eq(asUtf8.text, '<p>ホンダ Ｎ－ＢＯＸ</p>', 'a UTF-8 response is not corrupted');
+eq(asUtf8.replacements, 0, 'a UTF-8 response needs no replacement characters');
+eq(decodeHtmlBytes(utf8Bytes, { contentType: 'text/html' }).charset, 'utf-8',
+  'an undeclared body of valid UTF-8 is read as UTF-8');
+const sjisBytes = shiftJis('<p>マツダ アテンザ</p>');
+eq(decodeHtmlBytes(sjisBytes, { contentType: 'text/html; charset=Shift_JIS' }).text, '<p>マツダ アテンザ</p>',
+  'a Shift_JIS response is decoded with its declared charset');
+eq(decodeHtmlBytes(sjisBytes, {}).text, '<p>マツダ アテンザ</p>', 'Shift_JIS is also reachable by sniffing');
+const metaBytes = Uint8Array.from([...new TextEncoder().encode('<html><head><meta charset="euc-jp"></head><body>'), ...incidentBytes]);
+const metaDecoded = decodeHtmlBytes(metaBytes, { contentType: 'text/html' });
+eq(metaDecoded.charset, 'euc-jp', 'a <meta charset> declaration is honoured');
+eq(metaDecoded.charsetSource, 'meta', 'and reported as the meta declaration');
+const equivBytes = Uint8Array.from([...new TextEncoder().encode('<head><meta http-equiv="Content-Type" content="text/html; charset=euc-jp"></head>'), ...incidentBytes]);
+eq(decodeHtmlBytes(equivBytes, {}).charset, 'euc-jp', 'the long http-equiv form is honoured too');
+const bomBytes = Uint8Array.from([0xEF, 0xBB, 0xBF, ...new TextEncoder().encode('日本語')]);
+eq(decodeHtmlBytes(bomBytes, { contentType: 'text/html; charset=euc-jp' }).text, '日本語',
+  'a UTF-8 BOM outranks a contradictory header');
+eq(decodeHtmlBytes(bomBytes, {}).charsetSource, 'bom', 'the BOM is reported as the source');
+eq(decodeHtmlBytes(metaBytes, { contentType: 'text/html; charset=x-not-a-charset-9000' }).charset, 'euc-jp',
+  'an unsupported label falls through to the next signal instead of throwing');
+eq(decodeHtmlBytes(incidentBytes, { contentType: 'text/html; charset=x-not-a-charset-9000' }).charset, 'euc-jp',
+  'an unsupported label on an undeclared body falls through to the sniff');
+eq(supportedCharset('cp932'), 'shift_jis', 'the cp932 label (which TextDecoder does not know) is aliased to Shift_JIS');
+ok(supportedCharset('x-euc-jp') === 'x-euc-jp', 'the legacy x-euc-jp label is usable by the runtime decoder');
+eq(decodeHtmlBytes(incidentBytes, { contentType: 'text/html; charset=x-euc-jp' }).text, 'トヨタ西東京',
+  'and it really decodes EUC-JP bytes as Japanese, not as mojibake');
+eq(normalizeCharsetLabel('  "EUC-JP"  '), 'euc-jp', 'labels are trimmed, unquoted and lower-cased');
+eq(supportedCharset('x-not-a-charset-9000'), null, 'an unknown label resolves to nothing');
+eq(charsetFromContentType('text/html; charset="Shift_JIS"'), 'Shift_JIS', 'charset parameter extraction (quoted)');
+eq(charsetFromContentType('text/html'), null, 'no charset parameter → null');
+eq(charsetFromMeta(new TextEncoder().encode('<meta charset=UTF-8>')), 'UTF-8', 'meta charset extraction (unquoted)');
+eq(bomCharset(new TextEncoder().encode('plain')), null, 'no BOM → null');
+ok(isUtf8Bytes(new TextEncoder().encode('日本語')) && !isUtf8Bytes(incidentBytes), 'UTF-8 byte validation');
+eq(sniffCharset(eucJp('日本語')), 'euc-jp', 'sniff picks EUC-JP for EUC-JP bytes');
+eq(sniffCharset(shiftJis('日本語')), 'shift_jis', 'sniff picks Shift_JIS for Shift_JIS bytes');
+ok(decodeHtmlBytes(incidentBytes, {}).byteLength === 12 && decodeHtmlBytes(incidentBytes, {}).encodedByteLength === 12,
+  'byte counts describe the bytes received, not the characters decoded');
+eq(decodeHtmlBytes(new TextEncoder().encode('あ'.repeat(50)), { maxBytes: 30 }).truncated, true,
+  'the size cap counts BYTES, so a multi-byte page is capped honestly');
+eq(decodeHtmlBytes(new TextEncoder().encode('あ'.repeat(50)), { maxBytes: 30 }).encodedByteLength, 30,
+  'the cap keeps exactly that many bytes');
+
+console.log('\n-- the same bytes through fetchPage --');
+const eucListing = eucJp(`<html><body><div class="searchResult">
+<a href="https://www.goo-net.com/usedcar/spread/goo/15/EUC0001.html"><img alt="ホンダ Ｎ－ＢＯＸ" src="https://picture1.goo-net.com/a/Q/e1_00.jpg">New</a>
+<a href="https://www.goo-net.com/usedcar/spread/goo/15/EUC0001.html#2"><img src="https://picture1.goo-net.com/a/Q/e1_01.jpg"></a>
+<p>ホンダ</p><h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/EUC0001.html">Ｎ－ＢＯＸ Ｇ　ＳＳパッケージ</a></h3>
+<p>車両本体価格(税込)</p><p>99万円</p><p>年式2014年</p><p>走行距離7.1万km</p><p>排気量660cc</p><p>ミッションCVT</p>
+<p>外装 <b>4</b>内装 <b>4</b></p><p>住所：愛知県春日井市</p></div>
+<div class="searchResult">
+<a href="https://www.goo-net.com/usedcar/spread/goo/15/EUC0002.html"><img alt="トヨタ プリウス" src="https://picture1.goo-net.com/a/Q/e2_00.jpg">New</a>
+<p>トヨタ</p><h3><a href="https://www.goo-net.com/usedcar/spread/goo/15/EUC0002.html">プリウス Ａ　６ヶ月走行距離無制限保証付</a></h3>
+<p>車両本体価格(税込)</p><p>108.9万円</p><p>年式2016年</p><p>走行距離9.6万km</p><p>排気量1800cc</p>
+<p>外装 <b>4</b>内装 <b>4</b></p></div></body></html>`);
+resetFetchState();
+calls = mockFetch(u => (u === 'https://www.goo-net.com/'
+  ? { bytes: new TextEncoder().encode('home'), contentType: 'text/html; charset=utf-8' }
+  : { bytes: eucListing, contentType: 'text/html; charset=euc-jp' }));
+r = await fetchPage('https://www.goo-net.com/usedcar/price--100/', { timeoutMs: 2000 });
+ok(r.ok && r.via === 'direct', 'an EUC-JP direct response is used directly');
+ok(!r.html.includes('\uFFFD'), 'the decoded listing carries no replacement characters');
+ok(r.html.includes('ホンダ') && r.html.includes('Ｎ－ＢＯＸ'), 'the decoded listing carries readable Japanese');
+eq(r.meta.charset, 'euc-jp', 'the fetch reports the charset it decoded with');
+eq(r.meta.charsetSource, 'content-type', 'and where that charset came from');
+eq(r.meta.byteLength, eucListing.length, 'the fetch reports the bytes received');
+ok(r.meta.charLength < r.meta.byteLength, 'and the (smaller) character count, as a separate number');
+const eucPage = parseListingPage(r.html, 'https://www.goo-net.com/usedcar/price--100/');
+eq(eucPage.cars.length, 2, 'the decoded EUC-JP listing parses both cards');
+eq(eucPage.cars[0].make, 'Honda', 'EUC-JP card 1 make');
+eq(eucPage.cars[0].model, 'N-BOX', 'EUC-JP card 1 model');
+eq(eucPage.cars[0].price_jpy, 990000, 'EUC-JP card 1 price (99万円)');
+eq(eucPage.cars[0].year, 2014, 'EUC-JP card 1 year');
+eq(eucPage.cars[0].km, '71000', 'EUC-JP card 1 mileage');
+eq(eucPage.cars[0].photo_count, 2, 'EUC-JP card 1 photos');
+eq(eucPage.cars[1].make, 'Toyota', 'EUC-JP card 2 make');
+eq(eucPage.cars[1].location, null, 'a card with no 住所 line has no location, not a corrupted one');
+
+// A relay may hand back UTF-8 even though goo-net serves EUC-JP: the decoder
+// must follow the response, not the host.
+resetFetchState();
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { bytes: new TextEncoder().encode('home') };
+  if (u.startsWith(JINA_RELAY)) return { bytes: new TextEncoder().encode('<html><body>' + spread(1) + spread(2) + '<p>年式2018年</p></body></html>'), contentType: 'text/html; charset=utf-8' };
+  return { bytes: eucJp('<html><body>ただいまアクセスが集中しております</body></html>'), contentType: 'text/html; charset=euc-jp' };
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+eq(r.via, 'relay', 'a gated direct response is still retried through the relay');
+eq(r.meta.charset, 'utf-8', 'the relayed UTF-8 answer is decoded as UTF-8 (not forced to the origin charset)');
+ok(r.html.includes('年式'), 'the relayed page is readable');
+ok(!calls.some(c => c.url.startsWith(JINA_RELAY) && String(c.headers['Cookie'] || '').includes('goo')), 'no goo-net cookie is sent to the relay');
+
+console.log('\n-- diagnostics keep bytes and characters apart --');
+resetFetchState();
+calls = mockFetch(u => (u === 'https://www.goo-net.com/' ? { bytes: new TextEncoder().encode('home') } : { bytes: eucListing, contentType: 'text/html; charset=euc-jp' }));
+r = await fetchPage('https://www.goo-net.com/usedcar/price--100/', { timeoutMs: 2000 });
+const d0 = r.diagnostics.directDiagnostics;
+eq(typeof d0.bytes, 'number', 'pageDiagnostics carries the received byte count');
+eq(typeof d0.chars, 'number', 'pageDiagnostics carries the decoded character count');
+eq(d0.charset, 'euc-jp', 'pageDiagnostics carries the charset');
+eq(d0.charsetSource, 'content-type', 'pageDiagnostics carries the charset source');
+eq(d0.replacements, 0, 'pageDiagnostics reports zero replacement characters on a clean read');
+eq(d0.domCarLinks, 2, 'pageDiagnostics separates markup car links from every other link');
+eq(d0.spreadLinks, 2, 'pageDiagnostics still reports the total distinct car links');
+
+// ===========================================================================
+// Card discovery: the link shapes goo-net has served
+// ===========================================================================
+console.log('\n-- href shapes and canonical URLs --');
+const shapePage = url => `<html><body><div class="searchResult"><a href="${url}"><img alt="トヨタ プリウス" src="https://picture1.goo-net.com/a/Q/s_00.jpg">New</a>`
+  + `<a href="${url}#2"><img src="https://picture1.goo-net.com/a/Q/s_01.jpg"></a>`
+  + `<p>トヨタ</p><h3><a href="${url}">プリウス Ｓ</a></h3>`
+  + `<p>車両本体価格(税込)</p><p>99万円</p><p>年式2016年</p><p>走行距離9.6万km</p><p>排気量1800cc</p>`
+  + `<p>外装 <b>4</b>内装 <b>4</b></p></div></body></html>`;
+const hrefShapes = {
+  absolute: 'https://www.goo-net.com/usedcar/spread/goo/15/SHAPE001.html',
+  'protocol-relative': '//www.goo-net.com/usedcar/spread/goo/15/SHAPE002.html',
+  relative: '/usedcar/spread/goo/16/SHAPE003.html',
+  'no-www host': 'https://goo-net.com/usedcar/spread/goo/15/SHAPE004.html',
+  'escaped slashes': 'https:\\/\\/www.goo-net.com\\/usedcar\\/spread\\/goo\\/15\\/SHAPE005.html',
+  'trailing query': 'https://www.goo-net.com/usedcar/spread/goo/17/SHAPE006.html?from=list'
+};
+for (const [label, href] of Object.entries(hrefShapes)) {
+  const page = parseListingPage(shapePage(href), 'https://www.goo-net.com/usedcar/price-100-300/');
+  ok(page.cars.length === 1 && page.cars[0].make === 'Toyota' && page.cars[0].price_jpy === 990000,
+    'a ' + label + ' car link is found and parses into a full card');
+  eq(page.cars[0]?.url, 'https://www.goo-net.com/usedcar/spread/goo/15/' + page.cars[0]?.goonet_id + '.html',
+    'the ' + label + ' link is normalised to the canonical https URL');
+}
+const singleQuoted = `<html><body><h3><a href='https://www.goo-net.com/usedcar/spread/goo/15/SHAPE007.html'>プリウス Ｓ</a></h3>`
+  + '<p>トヨタ</p><p>車両本体価格(税込)</p><p>99万円</p><p>年式2016年</p><p>走行距離9.6万km</p></body></html>';
+eq(parseListingPage(singleQuoted).cars.length, 1, 'a single-quoted href is found');
+eq(countDomCarLinks(singleQuoted), 1, 'countDomCarLinks sees it too');
+eq(countDomCarLinks('<html><body>' + spread(1) + spread(2) + '<script>var u="/usedcar/spread/goo/15/SCRIPT01.html";</script></body></html>'), 2,
+  'a URL inside <script> is not counted as a markup car link');
+eq(normalizeCarUrl('//www.goo-net.com/usedcar/spread/goo/15/SHAPE002.html', null),
+  'https://www.goo-net.com/usedcar/spread/goo/15/SHAPE002.html', 'normalizeCarUrl resolves a protocol-relative link');
+eq(normalizeCarUrl('/usedcar/spread/goo/16/SHAPE003.html', null),
+  'https://www.goo-net.com/usedcar/spread/goo/15/SHAPE003.html', 'normalizeCarUrl resolves a relative link to the canonical form');
+eq(normalizeCarUrl('', 'SHAPE009'), 'https://www.goo-net.com/usedcar/spread/goo/15/SHAPE009.html',
+  'normalizeCarUrl falls back to the stock id');
+
+console.log('\n-- structured data is a candidate source, never a shortcut past the gate --');
+const itemList = JSON.stringify({
+  '@context': 'https://schema.org', '@type': 'ItemList', numberOfItems: 2,
+  itemListElement: [
+    {
+      '@type': 'ListItem', position: 1, name: 'トヨタ　プリウス　Ａ　６ヶ月走行距離無制限保証付',
+      url: 'https://www.goo-net.com/usedcar/spread/goo/15/700020042130260925009.html',
+      image: { '@type': 'ImageObject', contentUrl: 'https://picture1.goo-net.com/7000200421/30260925/Q/70002004213026092500900.jpg', license: 'https://www.goo-net.com/info/tos.html' },
+      description: 'トヨタ　プリウス　Ａ　６ヶ月走行距離無制限保証付'
+    },
+    {
+      '@type': 'ListItem', position: 2, name: 'トヨタ　プリウス',
+      url: 'https://www.goo-net.com/usedcar/spread/goo/15/988026092600206860001.html',
+      image: { '@type': 'ImageObject', contentUrl: 'https://picture1.goo-net.com/9880260926/00206860/Q/98802609260020686000100.jpg' }
+    }
+  ]
+});
+const jsonLdOnly = `<html><head><script type="application/ld+json">${itemList}</script></head><body><div id="app"></div></body></html>`;
+eq(countSpreadLinks(jsonLdOnly), 2, 'structured-data links are counted as car links (the honest "50 car links" number)');
+eq(countDomCarLinks(jsonLdOnly), 0, 'but they are NOT markup car links — the two numbers are different things');
+const ldItems = parseJsonLdCarItems(jsonLdOnly);
+eq(ldItems.length, 2, 'the ItemList entries become candidates');
+eq(ldItems[0].stock, '700020042130260925009', 'candidate stock id');
+eq(ldItems[0].title, 'トヨタ プリウス Ａ ６ヶ月走行距離無制限保証付', 'candidate title (readable, not mojibake)');
+eq(ldItems[0].url, 'https://www.goo-net.com/usedcar/spread/goo/15/700020042130260925009.html', 'candidate canonical URL');
+eq(ldItems[0].image, 'https://picture1.goo-net.com/7000200421/30260925/Q/70002004213026092500900.jpg', 'candidate cover photo');
+eq(ldItems[0].via, 'json-ld', 'the candidate records that it came from JSON-LD');
+
+const ldPage = parseListingPage(jsonLdOnly, 'https://www.goo-net.com/usedcar/');
+eq(ldPage.cars.length, 2, 'a page with no markup anchors still yields its structured-data candidates');
+eq(ldPage.diagnostics.cardSource, 'structured', 'and says the cards came from structured data');
+eq(ldPage.cars[0].price_jpy, null, 'NO price is invented for a structured-data candidate');
+eq(ldPage.cars[0].year, null, 'NO year is invented either');
+eq(ldPage.cars[0].km, null, 'no mileage invented');
+eq(ldPage.cars[0].make, 'Toyota', 'the make still comes from the real title');
+const ldGate = qualityScore(ldPage.cars[0], { minPhotos: 5 });
+ok(!ldGate.pass, 'a single photo + no price/year cannot pass the quality gate: ' + ldGate.reasons.join(', '));
+ok(ldGate.reasons.some(x => x.startsWith('photos ')), 'the gate names the photo shortfall');
+ok(ldGate.reasons.includes('no price'), 'the gate names the missing price');
+
+// A structured candidate that DOES sit next to server-rendered specs reads
+// those specs from the page, and still reports nothing it cannot see.
+const mixed = `<html><head><script type="application/ld+json">${JSON.stringify({ '@type': 'ItemList', itemListElement: [{ '@type': 'ListItem', name: 'トヨタ　クラウン', url: 'https://www.goo-net.com/usedcar/spread/goo/15/MIXED001.html' }] })}</script></head>`
+  + `<body><div class="searchResult"><a href="/usedcar/spread/goo/15/MIXED001.html"><img alt="トヨタ クラウン" src="https://picture1.goo-net.com/a/Q/mx_00.jpg">New</a>`
+  + `<p>トヨタ</p><h3><a href="/usedcar/spread/goo/15/MIXED001.html">クラウン アスリート</a></h3>`
+  + `<p>車両本体価格(税込)</p><p>267.9万円</p><p>年式2017年</p><p>走行距離7.3万km</p><p>排気量2500cc</p>`
+  + `<img src="https://picture1.goo-net.com/a/Q/m_00.jpg"></div></body></html>`;
+const mixedPage = parseListingPage(mixed, 'https://www.goo-net.com/usedcar/');
+eq(mixedPage.cars.length, 1, 'the mixed page yields its one candidate');
+eq(mixedPage.cars.length, 1, 'the structured candidate merges with its DOM card instead of duplicating it');
+eq(mixedPage.cars[0].price_jpy, 2679000, 'the spec block next to the stock id supplies the real price');
+eq(mixedPage.cars[0].year, 2017, 'and the real year');
+eq(mixedPage.cars[0].model, 'Crown', 'and the model');
+ok(mixedPage.cars[0].fuel == null, 'fuel is not on the listing page, so it stays empty (the detail page must supply it)');
+
+console.log('\n-- duplicate regions, movies, shop logos and card isolation --');
+const isolationPage = '<html><body>'
+  + '<div id="preload" style="display:none">'
+  + '<a href="//www.goo-net.com/usedcar/spread/goo/15/ISO0001.html"><img src="https://picture1.goo-net.com/a/Q/i1_00.jpg"></a>'
+  + '<a href="/usedcar/spread/goo/15/ISO0002.html"><img src="https://picture1.goo-net.com/a/Q/i2_00.jpg"></a>'
+  + '</div>'
+  + '<div class="searchResult"><a href="/usedcar/spread/goo/15/ISO0001.html"><img alt="トヨタ プリウス" src="https://picture1.goo-net.com/a/Q/i1_00.jpg">New</a>'
+  + '<a href="/usedcar/spread/goo/15/ISO0001.html#2"><img src="https://picture1.goo-net.com/a/Q/i1_01.jpg"></a>'
+  + '<a href="/usedcar/spread/goo/15/ISO0001.html#3"><img src="https://picture1.goo-net.com/a/Q/i1_02.jpg"></a>'
+  + '<a href="/usedcar/spread/goo/15/ISO0001.html#movie"><img src="https://movie1.goo-net.com/motion/goo/m1.mp4"></a>'
+  + '<p>トヨタ</p><h3><a href="/usedcar/spread/goo/15/ISO0001.html">プリウス Ｓ　ムービー付き</a></h3>'
+  + '<p>車両本体価格(税込)</p><p>99万円</p><p>年式2016年</p><p>走行距離9.6万km</p><p>外装 <b>4</b>内装 <b>4</b></p>'
+  + '<a href="https://www.goo-net.com/usedcar_shop/0206860/detail.html"><img src="https://picture1.goo-net.com/shop/020/0206860/S/0206860.jpg"></a>'
+  + '</div>'
+  + '<div class="searchResult"><a href="/usedcar/spread/goo/15/ISO0002.html"><img alt="ホンダ Ｎ－ＢＯＸ" src="https://picture1.goo-net.com/a/Q/i2_00.jpg">UP</a>'
+  + '<p>ホンダ</p><h3><a href="/usedcar/spread/goo/15/ISO0002.html">Ｎ－ＢＯＸ Ｌ</a></h3>'
+  + '<p>車両本体価格(税込)</p><p>164万円</p><p>年式2022年</p><p>走行距離2.6万km</p><p>外装 <b>4</b>内装 <b>4</b></p>'
+  + '</div></body></html>';
+const isoPage = parseListingPage(isolationPage, 'https://www.goo-net.com/usedcar/price-100-300/');
+eq(isoPage.cars.length, 2, 'the hidden preload strip does not create or collapse cards');
+eq(isoPage.cars[0].stock_no, 'ISO0001', 'card order follows the real cards');
+ok(isoPage.cars[0].images.every(u => !u.includes('/shop/') && !/\/(?:P|S)\//.test(u)), 'the shop logo is not a car photo');
+ok(isoPage.cars[0].images.every(u => !u.includes('movie1.goo-net.com')), 'the #movie anchor is not counted as a photo');
+eq(isoPage.cars[0].photo_count, 3, 'the real photographic set is what remains (cover + #2 + #3)');
+eq(isoPage.cars[1].model, 'N-BOX', 'the second card still parses past its neighbour');
+
+// ===========================================================================
+// AI fallback: the payload must actually contain cards
+// ===========================================================================
+console.log('\n-- the AI fallback is given cards, not the page head --');
+// A ~1.2 MB page whose first 120,000 characters are header + JSON-LD + the
+// search form — the exact shape that made "send the first 120k chars" useless.
+const bigHead = '<html><head><meta charset="utf-8"><title>中古車情報一覧</title>'
+  + `<script type="application/ld+json">${itemList}</script>`
+  + '<style>' + 'x'.repeat(80000) + '</style></head><body>'
+  + '<nav>' + 'メーカー 車種 地域 価格 年式 走行距離 車体色 '.repeat(3200) + '</nav>'
+  + '<div id="results">' + isolationPage.replace('<html><body>', '').replace('</body></html>', '') + '</div></body></html>';
+ok(bigHead.length > 150000, 'the synthetic live-shaped page is bigger than one LLM window (' + bigHead.length + ' chars)');
+const naiveSlice = bigHead.slice(0, 120000);
+ok(!naiveSlice.includes('ムービー付き'), 'the old "first 120,000 characters" window does NOT contain the cards');
+const payload = buildLlmCardWindows(bigHead, { maxChars: 120000 });
+ok(payload.length <= 120000, 'the card-relevant payload stays inside the character budget');
+ok(payload.includes('プリウス Ｓ　ムービー付き') && payload.includes('Ｎ－ＢＯＸ Ｌ'),
+  'the payload contains both cards’ real markup');
+ok(payload.includes('年式2016年') && payload.includes('走行距離2.6万km'), 'the payload contains their spec blocks');
+ok(payload.includes('700020042130260925009'), 'the payload also carries the parsed structured-data stock ids');
+ok(payload.includes('トヨタ プリウス Ａ ６ヶ月走行距離無制限保証付'), 'and their readable titles');
+ok(/PAGE HEAD/.test(payload) && /CARD MARKUP/.test(payload), 'the payload labels its page head and card windows');
+ok(payload.includes('do not invent'), 'the payload tells the model not to invent fields');
+eq(buildLlmCardWindows(''), '', 'an empty page builds an empty payload');
+const capped = buildLlmCardWindows(bigHead, { maxChars: 4000 });
+ok(capped.length <= 4000 + 80, 'the payload respects a smaller cap');
+ok(/truncated/.test(capped), 'a capped payload says so');
+
+console.log('\n-- diagnostics show a card, not the JSON-LD in the head --');
+const diagCard = buildParserDiagnostic({
+  html: bigHead, page: 'https://www.goo-net.com/usedcar/price-100-300/', source: 'https://www.goo-net.com/usedcar/price-100-300/',
+  via: 'direct', run: 'parseMiss',
+  meta: { byteLength: 1177727, charLength: 1180000, charset: 'euc-jp', charsetSource: 'content-type', contentType: 'text/html; charset=euc-jp', replacements: 0 }
+});
+eq(diagCard.sample_kind, 'dom-card', 'the diagnostic sample is taken from a DOM card');
+eq(diagCard.dom_card_found, true, 'and it reports that a DOM card was found');
+eq(diagCard.dom_car_links, 2, 'the diagnostic separates markup car links');
+eq(diagCard.structured_cars, 2, 'from structured-data candidates');
+eq(diagCard.bytes, 1177727, 'the diagnostic reports raw bytes');
+eq(diagCard.charset, 'euc-jp', 'and the charset');
+eq(diagCard.charset_source, 'content-type', 'and where the charset came from');
+eq(diagCard.via, 'direct', 'and which source the markup came from');
+ok(diagCard.sample.includes('年式') || diagCard.sample.includes('車両本体価格'), 'the sample contains card spec markup');
+ok(!/application\/ld\+json/.test(diagCard.sample), 'the sample is NOT the JSON-LD block from <head>');
+eq(diagCard.sample.length <= EVIDENCE_SAMPLE_BYTES, true, 'the sample stays inside the 2 KB evidence budget');
+
+const diagStructured = buildParserDiagnostic({ html: jsonLdOnly, page: 'https://www.goo-net.com/usedcar/', meta: null });
+eq(diagStructured.dom_card_found, false, 'a page with no DOM card says so explicitly');
+eq(diagStructured.dom_car_links, 0, 'and reports zero markup car links');
+eq(diagStructured.structured_cars, 2, 'while reporting the structured data it does have');
+eq(diagStructured.sample_kind, 'structured-data', 'and samples that structured data instead');
+ok(diagStructured.sample.includes('application/ld+json'), 'the structured sample is the real ld+json block');
+ok(scrubSecrets('Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456').includes('[redacted]'),
+  'a bearer token is scrubbed from a diagnostic sample');
+ok(scrubSecrets('https://r.jina.ai/x?api_key=sk-TEST-KEY-abc').includes('[redacted'),
+  'an api key in a URL is scrubbed');
+ok(!/sk-TEST-KEY-abc/.test(scrubSecrets('key=sk-TEST-KEY-abc')), 'a sk- key never survives scrubbing');
+ok(structuredDataSample(jsonLdOnly).includes('itemListElement'), 'structuredDataSample returns the ld+json block');
+
+console.log('\n-- firstIndexOutsideScripts --');
+{
+  const html = '<head><script>var id="FINDME0001";</script></head><body><div id="FINDME0001">card</div></body>';
+  const at = firstIndexOutsideScripts(html, 'FINDME0001');
+  ok(at > html.indexOf('</script>'), 'the script mention is skipped in favour of the markup mention');
+}
+
+console.log('\n-- the parser still refuses to invent an import from nothing --');
+eq(parseListingPage('<html><body><div id="app"></div></body></html>').cars.length, 0,
+  'a page with no car links and no structured data yields no cars');
+eq(parseListingPage('<html><body><div id="app"></div></body></html>').diagnostics.cardSource, 'none',
+  'and names its source as none');
+const forged = parseListingPage('<html><body><script>var x="/usedcar/spread/goo/15/FORGE001.html";</script><div id="app"></div></body></html>');
+ok(forged.cars.length <= 1 && forged.cars[0]?.make === 'Unknown',
+  'a stock id that exists only in a script yields a candidate with no invented make');
+ok(!qualityScore(forged.cars[0] || {}, { minPhotos: 5 }).pass, 'and that candidate cannot pass the quality gate');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
