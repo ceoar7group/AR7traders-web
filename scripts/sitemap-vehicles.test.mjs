@@ -4,6 +4,8 @@
 // dispatched on GET ?sitemap=vehicles, publicly reachable at
 // /api/sitemap-vehicles.xml via a vercel.json rewrite:
 //   • only published rows, sold/private/delisted stock excluded;
+//   • imported dealer cars (japan_dealer_stock) are listed too, because they
+//     open the same live /inventory/<ref> detail page;
 //   • URLs follow carRef (stock_no, else row id) and are XML-safe;
 //   • <lastmod> only for real timestamps;
 //   • empty result is still a valid urlset;
@@ -19,11 +21,18 @@ const bad = s => process.stderr.write(s + '\n');
 const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fail++; bad('  ✗ ' + msg); } };
 
 // ---- in-memory Supabase-shaped client ---------------------------------------
+// `dealerRows` stands in for japan_dealer_stock. Passing `dealerError` makes
+// that table read fail, which is how the graceful-degradation path is tested.
 function memDb(seedRows, opts = {}) {
   const rows = seedRows.map(r => ({ ...r }));
+  const dealer = (opts.dealerRows || []).map(r => ({ ...r }));
   return {
     from(name) {
-      if (name !== 'site_listings') throw new Error(`unexpected table ${name}`);
+      if (name !== 'site_listings' && name !== 'japan_dealer_stock') {
+        throw new Error(`unexpected table ${name}`);
+      }
+      const isDealer = name === 'japan_dealer_stock';
+      const table = isDealer ? dealer : rows;
       const ctx = { filters: [] };
       const api = {
         select: () => api,
@@ -31,8 +40,11 @@ function memDb(seedRows, opts = {}) {
         order: () => api,
         limit: () => api,
         then(resolve) {
+          if (isDealer && opts.dealerError) {
+            return resolve({ data: null, error: { message: opts.dealerError } });
+          }
           if (opts.error) return resolve({ data: null, error: { message: opts.error } });
-          return resolve({ data: rows.filter(r => ctx.filters.every(f => f(r))), error: null });
+          return resolve({ data: table.filter(r => ctx.filters.every(f => f(r))), error: null });
         }
       };
       return api;
@@ -48,7 +60,7 @@ function fakeRes() {
   };
 }
 
-const { sitemapVehicles: handler, buildXml, esc, lastmodOf } =
+const { sitemapVehicles: handler, buildXml, buildDealerXml, buildVehicleXml, esc, lastmodOf } =
   await import('../api/site-content.js');
 
 async function run(req, db) {
@@ -170,6 +182,96 @@ const SEED = [
   ok(xml1 === xml2, 'buildXml is deterministic for the same rows');
   ok(lastmodOf('') === null && lastmodOf(undefined) === null && lastmodOf('nope') === null,
     'lastmodOf rejects empty and invalid timestamps');
+}
+
+// ---- imported dealer cars are listed too ------------------------------------
+// An imported car is not a second catalogue: mapDealerRows puts it in the same
+// `cars` array and it opens the same /inventory/<ref> detail page (asserted by
+// scripts/imported-stock-render.test.jsx, which navigates to
+// /inventory/1001974A30260726W001). So it belongs in the sitemap.
+const DEALER_SEED = [
+  // live, no stock number of its own -> the site serves /inventory/9001
+  { goonet_id: '9001', stock_no: '', make: 'Toyota', model: 'Aqua', available: true, rotation_state: 'live', updated_at: '2026-09-25T08:00:00Z' },
+  // live, with the dealer's own stock number -> /inventory/JDK-777
+  { goonet_id: '9002', stock_no: 'JDK-777', make: 'Honda', model: 'Vezel', available: true, rotation_state: 'live', updated_at: '2026-09-26T08:00:00Z' },
+  // the importer has delisted it
+  { goonet_id: '9003', stock_no: 'JDK-888', make: 'Nissan', model: 'Note', available: false, rotation_state: 'live', updated_at: '2026-09-26T08:00:00Z' },
+  // parked out of the live rotation window
+  { goonet_id: '9004', stock_no: 'JDK-999', make: 'Suzuki', model: 'Swift', available: true, rotation_state: 'parked', updated_at: '2026-09-26T08:00:00Z' },
+  // already promoted into site_listings -- listed from its own listing row instead
+  { goonet_id: '9005', stock_no: 'AR7-26001', make: 'Mazda', model: 'CX-5', available: true, rotation_state: 'live', promoted: 'listings', updated_at: '2026-09-26T08:00:00Z' },
+  // no id at all -- cannot be skipped cleanly otherwise
+  { goonet_id: '', stock_no: '', make: 'Mazda', model: 'CX-9', available: true, rotation_state: 'live', updated_at: '2026-09-26T08:00:00Z' },
+  // a real timestamp is absent -- must not invent one
+  { goonet_id: '9006', stock_no: 'JDK-111', make: 'Daihatsu', model: 'Move', available: true, rotation_state: 'live', updated_at: null }
+];
+
+{
+  const res = await run({ method: 'GET' }, memDb(SEED, { dealerRows: DEALER_SEED }));
+  ok(res.statusCode === 200, 'imported cars still respond 200');
+  const body = String(res.body);
+  const found = locs(body);
+  ok(found.includes('https://ar7traders.com/inventory/9001'),
+    'an imported car with no stock number of its own is listed under its goo-net id');
+  ok(found.includes('https://ar7traders.com/inventory/JDK-777'),
+    "an imported car with the dealer's own stock number is listed under it");
+  ok(!found.some(l => l.endsWith('/JDK-888')), 'a delisted imported car is excluded');
+  ok(!found.some(l => l.endsWith('/JDK-999')), 'a parked imported car is excluded');
+  ok(!found.some(l => l.includes('/jdk-')) && !found.some(l => l.includes('9005')),
+    'a promoted imported car is not listed twice');
+  ok(found.filter(l => l.endsWith('/AR7-26001')).length === 1,
+    'a promoted imported car appears exactly once, from its own site_listings row');
+  ok(found.filter(l => l.endsWith('/9001')).length === 1 &&
+     found.filter(l => l.endsWith('/JDK-777')).length === 1,
+    'no imported car is duplicated');
+  ok(found.length === 6, `the combined sitemap lists both catalogues (found ${found.length})`);
+  ok(found.every(l => l.startsWith('https://ar7traders.com/inventory/')),
+    'every imported loc is an absolute https vehicle URL');
+
+  // lastmod comes from the raw dealer row, never invented
+  const b777 = (body.match(/<url>[\s\S]*?<\/url>/g) || []).find(b => b.includes('JDK-777')) || '';
+  ok(/<lastmod>2026-09-26<\/lastmod>/.test(b777), "an imported car's lastmod is its row's updated_at");
+  const b111 = (body.match(/<url>[\s\S]*?<\/url>/g) || []).find(b => b.includes('JDK-111')) || '';
+  ok(b111 !== '' && !b111.includes('<lastmod>'),
+    'an imported car with no updated_at gets no lastmod');
+}
+
+// ---- buildDealerXml on its own ---------------------------------------------
+{
+  const xml = buildDealerXml(DEALER_SEED);
+  const found = locs(xml);
+  ok(xml.startsWith('<?xml') && xml.includes('</urlset>'), 'buildDealerXml returns a urlset');
+  ok(found.length === 3, `buildDealerXml lists only the live, unpromoted cars (found ${found.length})`);
+  ok(found.includes('https://ar7traders.com/inventory/9001') &&
+     found.includes('https://ar7traders.com/inventory/JDK-777') &&
+     found.includes('https://ar7traders.com/inventory/JDK-111'),
+    'buildDealerXml emits the live imported cars');
+  ok(buildDealerXml([]).includes('</urlset>'), 'buildDealerXml handles an empty table');
+  ok(buildDealerXml(null).includes('</urlset>'), 'buildDealerXml handles null');
+}
+
+// ---- the two catalogues are de-duplicated by <loc> ---------------------------
+{
+  // Same stock number on both sides, but NOT flagged as promoted: the sitemap
+  // must publish that URL once.
+  const dup = [{ id: 'd1', stock_no: 'DUP-1', status: 'In Stock', published: true, updated_at: null }];
+  const xml = buildVehicleXml(dup, [{ goonet_id: 'g1', stock_no: 'DUP-1', available: true, rotation_state: 'live', updated_at: null }]);
+  ok(locs(xml).length === 1, 'a car present in both catalogues is published once');
+}
+
+// ---- a broken dealer table degrades, it does not break the sitemap -----------
+{
+  const res = await run({ method: 'GET' }, memDb(SEED, { dealerError: 'relation "japan_dealer_stock" does not exist' }));
+  ok(res.statusCode === 200, 'an unavailable japan_dealer_stock table still responds 200');
+  ok(locs(res.body).length === 3, 'and the sitemap falls back to site_listings only');
+  ok(!String(res.body).includes('9001'), 'no imported URLs are fabricated on the fallback path');
+}
+
+// ---- buildXml alone is unchanged: still site_listings only -------------------
+{
+  const xml = buildXml(SEED);
+  ok(locs(xml).length === 3, 'buildXml still lists only site_listings rows');
+  ok(!locs(xml).some(l => l.includes('9001')), 'buildXml does not read dealer stock itself');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -54,11 +54,18 @@ async function assertSiteWrite(profile, injected = {}) {
 // ---------------------------------------------------------------------------
 
 import { carRef, hrefFor } from '../src/sitemap-helpers.js';
+// Imported dealer cars are mapped by the SAME pure module the public site
+// uses, so the sitemap can only ever list a car the site actually shows.
+import { mapDealerRows } from '../src/japan-stock-map.js';
 export { carRef, hrefFor };
 
 const SITEMAP_BASE = 'https://ar7traders.com';
 const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
 const SITEMAP_MAX_ROWS = 5000;
+// Imported dealer cars are capped separately: the public /japan-stock page
+// reads at most 300 rows, so the sitemap stays in the same order of magnitude
+// while still covering every imported car a visitor can reach.
+const SITEMAP_MAX_IMPORTED = 1000;
 const SITEMAP_UNAVAILABLE = /sold|delist|private|hidden|archived|removed/i;
 
 /** YYYY-MM-DD for a real timestamp, or null — never a fabricated date. */
@@ -90,11 +97,35 @@ export function esc(value) {
 //   • URL = https://ar7traders.com/inventory/<ref> where <ref> follows
 //     carRef above — the stock number when present, otherwise the row id.
 //
-// `japan_dealer_stock` cars are deliberately NOT listed: those cars have no
-// public AR7 detail page (they render on /japan-stock and link out to the
-// original goo-net listing). A goo-net car promoted into `site_listings`
-// does appear, because promotion creates a published row with a detail page. */
-export function buildXml(rows) {
+// Corrected 2026-10-01: an earlier version of this comment claimed
+// `japan_dealer_stock` cars "have no public AR7 detail page" and were
+// deliberately left out. That was wrong — an imported car maps into the same
+// `cars` array and opens the same /inventory/<ref> page (see
+// src/japan-stock-map.js, and scripts/imported-stock-render.test.jsx which
+// asserts the imported car opens its own detail page). The sitemap now lists
+// them too, via buildVehicleXml, so live imported inventory is not hidden
+// from search engines. */
+/** One <url> block for a vehicle detail page. */
+function urlEntry(ref, updatedAt) {
+  const loc = SITEMAP_BASE + hrefFor('inventory', ref);
+  const lastmod = lastmodOf(updatedAt);
+  return '  <url>\n' +
+    '    <loc>' + esc(loc) + '</loc>' +
+    (lastmod ? '\n    <lastmod>' + lastmod + '</lastmod>' : '') +
+    '\n  </url>';
+}
+
+/** Wrap entry blocks in a complete urlset document. */
+function wrapUrlset(entries) {
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    entries.join('\n') +
+    (entries.length ? '\n' : '') +
+    '</urlset>\n';
+}
+
+/** The <url> blocks for `site_listings` rows — AR7's own published stock. */
+function listingEntries(rows) {
   const entries = [];
   for (const row of rows || []) {
     if (!row || row.published === false) continue;
@@ -103,20 +134,63 @@ export function buildXml(rows) {
     if (!hasRef) continue;
     const ref = carRef(row);
     if (!ref || ref === 'undefined' || ref === 'null') continue;
-    const loc = SITEMAP_BASE + hrefFor('inventory', ref);
-    const lastmod = lastmodOf(row.updated_at);
-    entries.push(
-      '  <url>\n' +
-      '    <loc>' + esc(loc) + '</loc>' +
-      (lastmod ? '\n    <lastmod>' + lastmod + '</lastmod>' : '') +
-      '\n  </url>'
-    );
+    entries.push(urlEntry(ref, row.updated_at));
   }
-  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    entries.join('\n') +
-    (entries.length ? '\n' : '') +
-    '</urlset>\n';
+  return entries;
+}
+
+/** The <url> blocks for `japan_dealer_stock` rows — imported cars.
+ *
+ *  Imported cars are NOT a second catalogue: once mapped they land in the
+ *  same `cars` array and open the same /inventory/<ref> detail page as AR7's
+ *  own stock (see src/japan-stock-map.js). That detail page is real and
+ *  indexable, so it belongs in the sitemap — leaving it out was hiding live
+ *  inventory from search engines.
+ *
+ *  mapDealerRows already applies exactly the visibility rules the public site
+ *  applies (available, not parked, not promoted into site_listings), so this
+ *  can only ever emit URLs the site actually serves. A promoted car is
+ *  skipped here and listed once from its own site_listings row instead.
+ *
+ *  lastmod comes from the raw row's updated_at — mapped cars do not carry it,
+ *  and a timestamp must never be invented. */
+function importedEntries(rows) {
+  const raw = Array.isArray(rows) ? rows : [];
+  const byGoonet = new Map();
+  for (const row of raw) {
+    const key = String(row?.goonet_id ?? '');
+    if (key) byGoonet.set(key, row);
+  }
+  const entries = [];
+  for (const car of mapDealerRows(raw)) {
+    const ref = carRef(car);
+    if (!ref || ref === 'undefined' || ref === 'null') continue;
+    entries.push(urlEntry(ref, byGoonet.get(String(car.goonet_id))?.updated_at));
+  }
+  return entries;
+}
+
+export function buildXml(rows) {
+  return wrapUrlset(listingEntries(rows));
+}
+
+/** The sitemap for imported dealer cars on their own (used by the tests). */
+export function buildDealerXml(rows) {
+  return wrapUrlset(importedEntries(rows));
+}
+
+/** Both catalogues in one urlset, de-duplicated by <loc>.
+ *  A car that somehow appears in both tables is published once. */
+export function buildVehicleXml(listRows, dealerRows) {
+  const seen = new Set();
+  const entries = [];
+  for (const entry of [...listingEntries(listRows), ...importedEntries(dealerRows)]) {
+    const loc = entry.match(/<loc>([\s\S]*?)<\/loc>/)?.[1];
+    if (loc && seen.has(loc)) continue;
+    if (loc) seen.add(loc);
+    entries.push(entry);
+  }
+  return wrapUrlset(entries);
 }
 
 function sendXml(res, status, body, cache) {
@@ -150,7 +224,24 @@ export async function sitemapVehicles(req, res, injected = {}) {
       .order('sort_order', { ascending: true })
       .limit(SITEMAP_MAX_ROWS);
     if (error) throw new Error(error.message || 'database error');
-    return sendXml(res, 200, buildXml(data || []), SITEMAP_CACHE);
+
+    // Imported dealer cars, listed alongside AR7's own stock. This read is
+    // best-effort: an older database without the table must degrade to the
+    // site_listings sitemap rather than fail the whole document.
+    let imported = [];
+    try {
+      const { data: dealerRows, error: dealerError } = await db.from('japan_dealer_stock')
+        .select('goonet_id,stock_no,available,rotation_state,promoted,updated_at')
+        .eq('available', true)
+        .order('imported_at', { ascending: false })
+        .limit(SITEMAP_MAX_IMPORTED);
+      if (dealerError) throw new Error(dealerError.message || 'dealer stock read failed');
+      imported = dealerRows || [];
+    } catch (e) {
+      console.error('sitemap-vehicles: imported dealer stock unavailable:', e);
+    }
+
+    return sendXml(res, 200, buildVehicleXml(data || [], imported), SITEMAP_CACHE);
   } catch (e) {
     // Honest failure: non-200, no XML body — a broken database must never
     // look like a valid (empty) sitemap.

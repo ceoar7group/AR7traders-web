@@ -856,7 +856,7 @@ export default function CrmApp() {
     <div className="crm-shell" data-crm-theme={theme}>
       <aside className={'crm-side ' + (mobile ? 'open' : '')}>
         <div className="crm-brand">
-          <img src="/assets/ar7-mark.png" alt="AR7" />
+          <img width="46" height="29" src="/assets/ar7-mark.png" alt="AR7" />
           <div>
             <b>AR7 CRM</b>
             <small>COMMAND CENTER</small>
@@ -1087,7 +1087,7 @@ function CrmLogin() {
   return (
     <div className="crm-login">
       <div className="crm-login-visual">
-        <img src="/assets/ar7-logo.png" alt="AR7 Traders" />
+        <img width="150" height="150" src="/assets/ar7-logo.png" alt="AR7 Traders" />
         <div>
           <small>AR7 OPERATIONS</small>
           <h1>Every lead.<br />Every vehicle.<br /><em>One command center.</em></h1>
@@ -1282,7 +1282,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               return (
                 <article key={v.id || v.stock_no} className="dash-car-card">
                   <div className="dash-car-img" onClick={() => onOpenPhotos && onOpenPhotos(v)}>
-                    <img src={cover} alt={`${v.make} ${v.model}`} />
+                    <img width="820" height="550" src={cover} alt={`${v.make} ${v.model}${v.year?` ${v.year}`:''}`} />
                     <span className="dash-photo-pill"><Camera size={11} /> {photos.length} photos</span>
                     <em className={'crm-status ' + statusClass(v.status || 'available')}>{pretty(v.status || 'available')}</em>
                   </div>
@@ -1567,7 +1567,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
             return (
               <article key={row.id || row.stock_no} className="vcard">
                 <div className="vcard-hero" onClick={() => onViewGallery && onViewGallery(row)}>
-                  <img src={cover} alt={`${row.make} ${row.model}`} loading="lazy" onError={imgFallback} />
+                  <img width="820" height="550" src={cover} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''}`} loading="lazy" onError={imgFallback} />
                   <span className="vcard-photo-count"><Camera size={12} /> {photos.length} photos</span>
                   {onQuickPatch && statusOptions
                     ? statusPicker(row, row.status || 'available')
@@ -1634,7 +1634,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                     {isVehicleType && (
                       <td className="td-photo">
                         <div className="table-thumb-wrap" onClick={() => onViewGallery && onViewGallery(row)} title="Click to view photo gallery">
-                          <img src={cover} alt="" loading="lazy" onError={imgFallback} />
+                          <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback} />
                           <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                         </div>
                       </td>
@@ -2110,7 +2110,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                   <tr key={row.id || row.stock_no} className={row.available === false ? 'row-muted' : ''}>
                     <td className="td-photo">
                       <div className="table-thumb-wrap" onClick={() => onViewGallery && onViewGallery(row)} title="Click to view photos">
-                        <img src={cover} alt="" loading="lazy" onError={imgFallback} />
+                        <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback} />
                         <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                       </div>
                     </td>
@@ -2326,7 +2326,7 @@ export function VehiclePhotoManager({ entity, row, onClose, onSave }) {
                 {photos.map((src, idx) => (
                   <div key={src + idx} className={`photo-card ${idx === 0 ? 'is-cover' : ''}`}>
                     <div className="photo-thumb-container" onClick={() => setZoomImg(src)}>
-                      <img src={src} alt={`Photo ${idx + 1}`} loading="lazy" onError={imgFallback} />
+                      <img width="164" height="110" src={src} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''} — photo ${idx + 1}`} loading="lazy" onError={imgFallback} />
                       {idx === 0 && <span className="cover-badge"><Star size={11} /> COVER PHOTO</span>}
                       <span className="photo-index">#{idx + 1}</span>
                     </div>
@@ -2371,7 +2371,7 @@ export function VehiclePhotoManager({ entity, row, onClose, onSave }) {
         {zoomImg && (
           <div className="photo-zoom-overlay" onClick={() => setZoomImg(null)}>
             <div className="zoom-content" onClick={e => e.stopPropagation()}>
-              <img src={zoomImg} alt="Preview" />
+              <img width="620" height="400" src={zoomImg} alt="Preview" />
               <button type="button" className="zoom-close" onClick={() => setZoomImg(null)}><X size={18} /></button>
             </div>
           </div>
@@ -2419,7 +2419,7 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
         </header>
 
         <div className="lightbox-main">
-          <img src={current} alt={`${row.make} ${row.model}`} onError={imgFallback} />
+          <img width="620" height="400" src={current} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''}`} onError={imgFallback} />
           {photos.length > 1 && (
             <>
               <button className="lb-arrow prev" onClick={() => setActiveIdx(i => (i - 1 + photos.length) % photos.length)} aria-label="Previous image">
@@ -2436,7 +2436,7 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
           <div className="lightbox-thumbs">
             {photos.map((src, i) => (
               <button key={src + i} className={`lb-thumb ${i === activeIdx ? 'active' : ''}`} onClick={() => setActiveIdx(i)}>
-                <img src={src} alt="" onError={imgFallback} />
+                <img width="164" height="110" src={src} alt="" onError={imgFallback} />
                 {i === 0 && <span className="lb-cover-star">★</span>}
               </button>
             ))}
@@ -2603,7 +2603,7 @@ function Editor({ entity, data, onClose, onSave, onDelete, onDuplicate }) {
             <div className="editor-photo-thumbs">
               {photos.map((src, i) => (
                 <div key={src + i} className={`editor-thumb ${i === 0 ? 'is-cover' : ''}`}>
-                  <img src={src} alt="" onError={imgFallback} />
+                  <img width="164" height="110" src={src} alt="" onError={imgFallback} />
                   {i === 0 ? <span className="badge-cover">Cover</span> : (
                     <button type="button" className="btn-set-cover-mini" onClick={() => handleCoverSet(i)} title="Make cover photo">★</button>
                   )}

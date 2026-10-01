@@ -49,3 +49,17 @@ export function goto(path) {
   loc.hash = '';
   loc.href = 'https://ar7traders.com' + (pathname || '/') + loc.search;
 }
+
+/**
+ * Let React.lazy boundaries resolve.
+ *
+ * The public site splits its heavy routes with React.lazy (the globe, the
+ * customer account area). React resolves a lazy component through a promise,
+ * and renderToString cannot await — but once the promise has settled React
+ * caches the payload and renders the real component synchronously. So a couple
+ * of macrotask turns before the first render is all the SSR suites need to see
+ * the real markup instead of the Suspense fallback.
+ */
+export async function flushLazy(turns = 3) {
+  for (let i = 0; i < turns; i++) await new Promise(r => setTimeout(r, 0));
+}
