@@ -344,6 +344,217 @@ export function detailUrlFor(stock) {
 }
 
 // ---------------------------------------------------------------------------
+// Server-side validation for a staff-pasted Goo-net vehicle URL.
+//
+// Rules are applied to the PARSED URL (protocol, hostname, port, userinfo,
+// path), never to a string prefix: "https://www.goo-net.com.attacker.tld/…"
+// and "https://user:pass@www.goo-net.com/…" must both fail, and an IP literal
+// or an internal name can never pass because the hostname must equal an
+// approved Goo-net host exactly. The fetch is then rebuilt from the stock id
+// we parsed, so a query string or fragment can never ride along.
+// ---------------------------------------------------------------------------
+export const GOONET_CAR_HOSTS = ['www.goo-net.com', 'goo-net.com'];
+
+export function parseGoonetCarUrl(input) {
+  const raw = String(input == null ? '' : input).trim();
+  if (!raw) return { ok: false, reason: 'empty URL' };
+  if (raw.length > 500) return { ok: false, reason: 'URL is longer than 500 characters' };
+  let u;
+  try {
+    const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw.replace(/^\/+/, '');
+    u = new URL(withScheme);
+  } catch {
+    return { ok: false, reason: 'not a parseable URL' };
+  }
+  if (u.protocol !== 'https:') return { ok: false, reason: 'only https:// Goo-net URLs are accepted' };
+  if (u.username || u.password) return { ok: false, reason: 'URLs carrying credentials are rejected' };
+  if (u.port && u.port !== '443') return { ok: false, reason: 'unexpected port ' + u.port };
+  const host = u.hostname.toLowerCase().replace(/\.$/, '');
+  if (!GOONET_CAR_HOSTS.includes(host)) {
+    return { ok: false, reason: 'only Goo-net vehicle pages are accepted (host was ' + (host || 'empty') + ')' };
+  }
+  const m = u.pathname.match(/^\/usedcar\/spread\/goo\/\d+\/([0-9A-Za-z_-]+)\.html\/?$/);
+  if (!m) return { ok: false, reason: 'not a Goo-net vehicle detail page (/usedcar/spread/goo/<n>/<id>.html)' };
+  const stock = m[1];
+  if (stock.length < 8) return { ok: false, reason: 'stock id "' + stock + '" is too short to be a Goo-net vehicle id' };
+  return { ok: true, stock, url: detailUrlFor(stock), input: raw };
+}
+
+// A pasted block (one URL per line, or comma/space separated) becomes a
+// bounded, de-duplicated, validated batch. Anything rejected is reported with
+// its reason; nothing is silently dropped.
+export function parseGoonetCarUrls(text, { max = 5 } = {}) {
+  const items = String(text == null ? '' : text).split(/[\s,;]+/).map(t => t.trim()).filter(Boolean);
+  const urls = [];
+  const errors = [];
+  const seen = new Set();
+  for (const raw of items) {
+    const parsed = parseGoonetCarUrl(raw);
+    if (!parsed.ok) { errors.push({ input: raw, reason: parsed.reason }); continue; }
+    if (seen.has(parsed.stock)) { errors.push({ input: raw, reason: 'duplicate of the same stock id in this batch' }); continue; }
+    if (urls.length >= max) { errors.push({ input: raw, reason: 'batch limit is ' + max + ' URLs per request' }); continue; }
+    seen.add(parsed.stock);
+    urls.push(parsed);
+  }
+  return { urls, errors, limit: max };
+}
+
+// ---------------------------------------------------------------------------
+// Response bytes → text (charset-aware decoding)
+//
+// goo-net serves its listing and detail pages as EUC-JP. The bytes prove it:
+// 0xA5 0xC8 0xA5 0xE8 0xA5 0xBF 0xC0 0xBE 0xC5 0xEC 0xB5 0xFE is
+// "トヨタ西東京" in EUC-JP, and that same byte run decoded as UTF-8 produces
+// "\uFFFD\u0225\u897F\uFFFD..." — exactly the mojibake the CRM parser
+// diagnostic showed ("�ȥ西������…").
+//
+// Response.text() is UTF-8 BY SPECIFICATION: it ignores the charset in
+// Content-Type. So every Japanese name, price label and spec label came back
+// as replacement characters, and no make / price / year could be read from
+// them. The reader below never guesses one encoding for a whole host — the
+// encoding is chosen per response from, in order:
+//
+//   1. a byte-order mark (authoritative),
+//   2. the Content-Type charset parameter,
+//   3. the document's own <meta charset> / <meta http-equiv=Content-Type>,
+//   4. a byte-level sniff (valid UTF-8 wins; otherwise EUC-JP vs Shift_JIS by
+//      decode error count),
+//   5. UTF-8 with replacement as the never-throw fallback.
+//
+// A relay that re-encodes its answer to UTF-8 is therefore read as UTF-8, and
+// a legacy page straight from goo-net is read as the legacy charset it
+// declares. Unsupported or unknown labels fall through to the next signal
+// instead of throwing.
+// ---------------------------------------------------------------------------
+
+// Labels Node's TextDecoder does not accept but Japanese servers still emit.
+// Everything else (x-euc-jp, cseucpkdfmtjapanese, sjis, x-sjis, ms932,
+// windows-31j, shift-jis, iso-2022-jp, …) is already an encoding-standard
+// label that TextDecoder resolves itself.
+const CHARSET_LABEL_FIXES = new Map([
+  ['cp932', 'shift_jis'],
+  ['windows932', 'shift_jis'],
+  ['windows-932', 'shift_jis'],
+  ['sjis', 'shift_jis'],
+  ['eucjp', 'euc-jp'],
+  ['euc_jp', 'euc-jp'],
+  ['x-euc', 'euc-jp'],
+  ['utf8', 'utf-8'],
+  ['utf-8n', 'utf-8']
+]);
+
+// ASCII-only peek at the first `max` BYTES (byte-exact, charset-independent):
+// used to read <meta charset> out of a document we have not decoded yet.
+function asciiPeek(bytes, max) {
+  const end = Math.min(bytes.length, max);
+  let out = '';
+  for (let i = 0; i < end; i++) out += String.fromCharCode(bytes[i]);
+  return out;
+}
+
+export function normalizeCharsetLabel(label) {
+  const raw = String(label || '').trim().replace(/^["']|["']$/g, '').toLowerCase();
+  if (!raw) return null;
+  return CHARSET_LABEL_FIXES.get(raw) || raw;
+}
+
+// A label the current Node runtime can actually decode with, or null.
+export function supportedCharset(label) {
+  const norm = normalizeCharsetLabel(label);
+  if (!norm) return null;
+  try { new TextDecoder(norm); return norm; } catch { return null; }
+}
+
+// The BOM, when present, outranks every declaration in the document.
+export function bomCharset(bytes) {
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) return 'utf-8';
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) return 'utf-16le';
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) return 'utf-16be';
+  return null;
+}
+
+export function charsetFromContentType(contentType) {
+  const m = String(contentType || '').match(/charset\s*=\s*("?)([^;"'\s]+)\1/i);
+  return m ? m[2] : null;
+}
+
+const META_SCAN_BYTES = 4096;
+
+export function charsetFromMeta(bytes) {
+  if (!bytes || !bytes.length) return null;
+  const head = asciiPeek(bytes, META_SCAN_BYTES);
+  const declared = head.match(/<meta[^>]+charset\s*=\s*["']?\s*([A-Za-z0-9_:.+-]+)/i);
+  if (declared) return declared[1];
+  const equiv = head.match(/<meta[^>]*http-equiv\s*=\s*["']?content-type["']?[^>]*content\s*=\s*["'][^"']*charset\s*=\s*([A-Za-z0-9_:.+-]+)/i);
+  return equiv ? equiv[1] : null;
+}
+
+export function isUtf8Bytes(bytes) {
+  try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); return true; }
+  catch { return false; }
+}
+
+function replacementCount(bytes, charset) {
+  const text = new TextDecoder(charset, { fatal: false }).decode(bytes);
+  let n = 0;
+  for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 0xFFFD) n++;
+  return n;
+}
+
+// Byte-level fallback for a response that declares nothing. Valid UTF-8 is
+// read as UTF-8 (the modern default and what every relay returns); otherwise
+// the two Japanese encodings goo-net has used are scored by how much of the
+// body they can actually decode, with the Shift_JIS lead-byte range
+// (0x80–0x9F, which EUC-JP never uses outside the 0x8E/0x8F prefixes) as the
+// tie-break.
+export function sniffCharset(bytes) {
+  if (!bytes || !bytes.length) return 'utf-8';
+  if (isUtf8Bytes(bytes)) return 'utf-8';
+  let sjisRange = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    if (b >= 0x81 && b <= 0x9F) sjisRange++;
+  }
+  let eucErrors = 0, sjisErrors = 0;
+  try { eucErrors = replacementCount(bytes, 'euc-jp'); } catch { eucErrors = Infinity; }
+  try { sjisErrors = replacementCount(bytes, 'shift_jis'); } catch { sjisErrors = Infinity; }
+  if (eucErrors !== sjisErrors) return eucErrors < sjisErrors ? 'euc-jp' : 'shift_jis';
+  return sjisRange > 0 ? 'shift_jis' : 'euc-jp';
+}
+
+// Bytes in → text out, with the charset that was used and where it came from.
+// `maxBytes` caps the BYTES decoded (a byte cap, not a character cap — the old
+// code compared decoded character count against maxBytes, so a multi-byte page
+// could decode far more bytes than the cap allowed).
+export function decodeHtmlBytes(bytes, { contentType = '', maxBytes = 0 } = {}) {
+  const raw = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  const truncated = maxBytes > 0 && raw.length > maxBytes;
+  const body = truncated ? raw.subarray(0, maxBytes) : raw;
+
+  const decode = (charset, charsetSource) => {
+    const text = new TextDecoder(charset, { fatal: false }).decode(body);
+    let replacements = 0;
+    for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 0xFFFD) replacements++;
+    return {
+      text, charset, charsetSource, replacements,
+      byteLength: raw.length, encodedByteLength: body.length, truncated
+    };
+  };
+
+  const bom = bomCharset(body);
+  if (bom) {
+    const supported = supportedCharset(bom);
+    if (supported) return decode(supported, 'bom');
+  }
+  for (const [label, source] of [[charsetFromContentType(contentType), 'content-type'], [charsetFromMeta(body), 'meta']]) {
+    const supported = supportedCharset(label);
+    if (supported) return decode(supported, source);
+  }
+  const sniffed = supportedCharset(sniffCharset(body)) || 'utf-8';
+  return decode(sniffed, isUtf8Bytes(body) ? 'sniff-utf8' : 'sniff');
+}
+
+// ---------------------------------------------------------------------------
 // Fetch helpers (global fetch + timeout + a browser-like UA). goo-net serves
 // different markup to bots, so a UA string matters a lot here.
 // ---------------------------------------------------------------------------
@@ -428,14 +639,248 @@ function browserHeaders(url, cookie) {
   return headers;
 }
 
-// How many distinct car cards a page links to. A real listing page has many;
-// the bot-gate stub has 0 or 1.
-export function countSpreadLinks(html) {
-  const re = /https:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/([A-Za-z0-9]+)\.html/g;
-  const seen = new Set();
+// ---------------------------------------------------------------------------
+// Card discovery: where does a goo-net car link actually live?
+//
+// The live failure was reported as "50 car links, 0 cards". Those 50 links
+// were counted by a regex that scans the WHOLE document — including the
+// application/ld+json ItemList in <head>. So "50 car links" never proved that
+// fifty DOM anchors matched; the parser's anchor regex demands a
+// double-quoted, absolute http(s) www.goo-net.com URL, and goo-net has served
+// relative, protocol-relative and single-quoted hrefs at different times (and
+// puts the same URLs in structured data and inline JS).
+//
+// This scanner finds a spread link in ANY of those shapes and reports where
+// it found it: inside a real <a> tag, inside <script>/<style>, or bare in
+// text. DOM anchors drive card segmentation; structured data is an additional,
+// deterministic source of stock ids for a page whose anchors cannot be used —
+// and every candidate still goes through the same detail fetch and the same
+// quality gate as a DOM card.
+// ---------------------------------------------------------------------------
+
+// `\/` (a backslash-escaped slash, as it appears inside JSON/JS strings) is
+// accepted everywhere a slash is. Written as a regex LITERAL so the escaping
+// belongs to the regex engine and not to the JavaScript string parser: `\\?`
+// is an optional literal backslash, `\/` is a slash, `\d` is a digit.
+const SPREAD_URL_RE =
+  /(?:(?:https?:)?(?:\\?\/){2}(?:www\.)?goo-net\.com)?(?:\\?\/)+usedcar(?:\\?\/)+spread(?:\\?\/)+goo(?:\\?\/)+\d+(?:\\?\/)+([0-9A-Za-z_-]+)\.html/g;
+
+// Canonical, absolute, https URL for a spread link found by the scanner —
+// whatever shape the page printed it in.
+export function normalizeCarUrl(raw, stock) {
+  const s = String(raw || '').replace(/\\\//g, '/').trim();
+  if (s) {
+    try {
+      const u = new URL(s.startsWith('//') ? 'https:' + s : s, 'https://www.goo-net.com/');
+      if (/^\/usedcar\/spread\/goo\/\d+\//.test(u.pathname)) {
+        const id = (u.pathname.match(/([0-9A-Za-z_-]+)\.html$/) || [])[1] || stock;
+        return detailUrlFor(id || stock);
+      }
+    } catch { /* fall through to the stock id */ }
+  }
+  return detailUrlFor(stock);
+}
+
+// Ranges covered by <script>/<style> — a URL in there is data, not a card.
+function scriptRanges(html) {
+  const ranges = [];
+  const re = /<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
   let m;
-  while ((m = re.exec(String(html || '')))) seen.add(m[1]);
-  return seen.size;
+  while ((m = re.exec(html))) ranges.push([m.index, m.index + m[0].length]);
+  return ranges;
+}
+
+// First occurrence of `needle` that is NOT inside <script>/<style> — used to
+// find the markup around a stock id whose card links were structured-data
+// only, so price/year/mileage can still be read from the rendered spec block.
+export function firstIndexOutsideScripts(html, needle, ranges = null, from = 0) {
+  const s = String(html || '');
+  const spans = ranges || scriptRanges(s);
+  const n = String(needle || '');
+  if (!n) return -1;
+  let i = from;
+  while (true) {
+    const at = s.indexOf(n, i);
+    if (at < 0) return -1;
+    if (!inRanges(spans, at)) return at;
+    i = at + 1;
+  }
+}
+
+function inRanges(ranges, index) {
+  for (const [a, b] of ranges) {
+    if (index >= a && index < b) return true;
+    if (a > index) break;
+  }
+  return false;
+}
+
+// The end of a tag, skipping over quoted attribute values (a `>` inside
+// title="a > b" must not end the tag).
+function tagEnd(html, from, cap = 4000) {
+  let quote = null;
+  const stop = Math.min(html.length, from + cap);
+  for (let i = from; i < stop; i++) {
+    const c = html[i];
+    if (quote) { if (c === quote) quote = null; }
+    else if (c === '"' || c === "'") quote = c;
+    else if (c === '>') return i + 1;
+  }
+  return -1;
+}
+
+// href in any quoting style: double, single or unquoted.
+function attrHref(attrs) {
+  const m = attrs.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+))/i);
+  if (!m) return null;
+  return m[1] ?? m[2] ?? m[3] ?? null;
+}
+
+function anchorCandidate(inner) {
+  const text = stripTags(inner).replace(/\s+/g, ' ').trim();
+  if (text.length >= 4) return text;
+  const alt = (inner.match(/<img[^>]*\balt\s*=\s*(?:"([^"]*)"|'([^']*)')/i) || []);
+  const altText = String(alt[1] || alt[2] || '').replace(/\s+/g, ' ').trim();
+  return altText.length >= 4 ? altText : null;
+}
+
+// Every place a spread link appears, classified.
+export function scanCarLinks(html) {
+  const s = String(html || '');
+  const ranges = { text: s, ranges: scriptRanges(s) };
+  const all = new Set();
+  const occurrences = [];
+  let m;
+  SPREAD_URL_RE.lastIndex = 0;
+  while ((m = SPREAD_URL_RE.exec(s))) {
+    const stock = m[1] || m[2];
+    if (!stock) continue;
+    all.add(stock);
+    occurrences.push({
+      stock,
+      raw: m[0],
+      index: m.index,
+      inScript: inRanges(ranges.ranges, m.index),
+      url: normalizeCarUrl(m[0], stock)
+    });
+  }
+
+  // Real markup anchors: <a …> tags (never inside <script>/<style>) whose href
+  // resolves to a spread URL, in any quoting style or host-relative shape.
+  const dom = [];
+  const anchorRe = /<a\b/gi;
+  let a;
+  while ((a = anchorRe.exec(s))) {
+    if (inRanges(ranges.ranges, a.index)) continue;
+    const end = tagEnd(s, a.index);
+    if (end < 0) continue;
+    const attrs = s.slice(a.index + 2, end - 1);
+    const href = attrHref(attrs);
+    if (!href) continue;
+    const link = normalizeCarUrl(href, null);
+    const stock = link ? (link.match(/\/([0-9A-Za-z_-]+)\.html$/) || [])[1] : null;
+    if (!stock) continue;
+    const closeAt = s.toLowerCase().indexOf('</a>', end);
+    const innerEnd = closeAt < 0 ? Math.min(s.length, end + 2000) : closeAt;
+    const tagStart = s.slice(Math.max(0, a.index - 60), a.index);
+    dom.push({
+      stock,
+      url: link,
+      rawHref: href,
+      pos: a.index,
+      tagEnd: end,
+      innerEnd,
+      candidate: anchorCandidate(s.slice(end, innerEnd)),
+      isH3: /<h3[^>]*>\s*$/i.test(tagStart) || /<h3[^>]*>[^<]*$/i.test(tagStart)
+    });
+  }
+
+  return { all, occurrences, dom, scriptRanges: ranges.ranges };
+}
+
+// Structured data: application/ld+json ItemList entries (and any embedded
+// spread URL in a JSON blob). Deterministic, but only a SOURCE OF CANDIDATES —
+// the fields it carries are never trusted as a complete car.
+export function parseJsonLdCarItems(html) {
+  const s = String(html || '');
+  const out = [];
+  const seen = new Set();
+  const push = (url, name, image, position) => {
+    const stock = (String(url || '').match(/\/([0-9A-Za-z_-]+)\.html/) || [])[1];
+    if (!stock || seen.has(stock)) return;
+    seen.add(stock);
+    out.push({
+      stock,
+      url: normalizeCarUrl(url, stock),
+      title: name ? stripTags(String(name)).replace(/\s+/g, ' ').trim() || null : null,
+      image: image || null,
+      position: Number.isFinite(position) ? position : null
+    });
+  };
+
+  const blocks = [];
+  const scriptRe = /<script\b[^>]*type\s*=\s*(?:"application\/ld\+json"|'application\/ld\+json'|application\/ld\+json)[^>]*>([\s\S]*?)<\/script\s*>/gi;
+  let m;
+  while ((m = scriptRe.exec(s))) blocks.push(m[1]);
+
+  const walk = node => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    const image = typeof node.image === 'string' ? node.image
+      : (node.image && typeof node.image === 'object'
+        ? (Array.isArray(node.image) ? node.image[0]?.contentUrl : node.image.contentUrl) : null);
+    const rawImage = typeof image === 'string' ? image : null;
+    if (typeof node.url === 'string' && /\/usedcar\/spread\/goo\//.test(node.url)) {
+      push(node.url, node.name || node.headline, rawImage, node.position);
+    }
+    for (const key of ['itemListElement', 'item', 'mainEntity', 'hasPart', 'offers', 'about']) {
+      if (node[key]) walk(node[key]);
+    }
+  };
+
+  for (const block of blocks) {
+    let data = null;
+    try { data = JSON.parse(block); }
+    catch {
+      // goo-net has wrapped JSON-LD in HTML entities before; a tolerant retry
+      // beats dropping the whole block.
+      try { data = JSON.parse(block.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)))); }
+      catch { data = null; }
+    }
+    if (data) walk(data);
+  }
+
+  // Last resort for a page whose card grid is rendered from a JS data blob:
+  // spread URLs inside any <script> still enumerate real cars, and every one of
+  // them is a CANDIDATE only — the detail fetch and the quality gate decide.
+  // Tagged so the report can say where the candidates came from.
+  if (!out.length) {
+    for (const [start, end] of scriptRanges(s)) {
+      const chunk = s.slice(start, end);
+      let mm;
+      const urlRe = new RegExp(SPREAD_URL_RE.source, 'g');
+      while ((mm = urlRe.exec(chunk))) push(mm[0], null, null, null);
+    }
+    for (const item of out) item.via = 'script';
+  } else {
+    for (const item of out) item.via = 'json-ld';
+  }
+  return out;
+}
+
+// Distinct cars a page links to ANYWHERE (markup, structured data, scripts).
+// This is the "50 car links" number the importer reports — kept because it is
+// the honest measure of "the page is real", never as proof the parser read it.
+export function countSpreadLinks(html) {
+  return scanCarLinks(html).all.size;
+}
+
+// Distinct cars linked from a REAL markup anchor (any host/quote shape). This
+// is the number that says whether card segmentation has anything to work with;
+// when it is 0 while countSpreadLinks is 50, the links are structured-data
+// only.
+export function countDomCarLinks(html) {
+  return new Set(scanCarLinks(html).dom.map(a => a.stock)).size;
 }
 
 // True when the HTML we got back is not a real listing page.
@@ -454,15 +899,77 @@ export function botGateMarkers(html) {
   return BOT_GATE_MARKERS.filter(marker => s.includes(marker));
 }
 
-export function pageDiagnostics(html) {
+// `meta` is a rawFetch result (or anything with byte/charset fields). Passing
+// it through keeps "how many bytes the server sent" and "how many characters
+// we decoded" as two separate, honest numbers next to the charset that was
+// used — the three things the mojibake incident needed and did not have.
+export function pageDiagnostics(html, meta = null) {
   const s = String(html || '');
+  const links = scanCarLinks(s);
+  const structured = parseJsonLdCarItems(s);
   return {
     contentLength: s.length,
     spreadLinks: countSpreadLinks(s),
+    domCarLinks: new Set(links.dom.map(a => a.stock)).size,
+    scriptCarLinks: new Set(links.occurrences.filter(o => o.inScript).map(o => o.stock)).size,
+    jsonLdCars: structured.length,
     markers: STUB_MARKERS.filter(marker => s.includes(marker)),
     gateMarkers: botGateMarkers(s),
-    stub: looksLikeStub(s)
+    stub: looksLikeStub(s),
+    ...(meta ? {
+      bytes: meta.byteLength ?? null,
+      chars: meta.charLength ?? s.length,
+      charset: meta.charset ?? null,
+      charsetSource: meta.charsetSource ?? null,
+      contentType: meta.contentType || '',
+      replacements: meta.replacements ?? 0
+    } : {})
   };
+}
+
+function headerValue(res, name) {
+  try {
+    if (!res.headers || typeof res.headers.get !== 'function') return '';
+    return String(res.headers.get(name) || '');
+  } catch { return ''; }
+}
+
+// Bytes straight off the wire — never a decoded string. Keeping the byte count
+// and the decoded character count separate is what lets the report tell "the
+// page really is 1.18 MB" apart from "we decoded 1.18 M replacement chars".
+async function readResponseBody(res, maxBytes) {
+  const contentType = headerValue(res, 'content-type');
+  if (typeof res.arrayBuffer === 'function') {
+    const buf = await res.arrayBuffer();
+    const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    return { ...decodeHtmlBytes(bytes, { contentType, maxBytes }), contentType };
+  }
+  // A Response-shaped stub with no byte access (older test doubles, exotic
+  // runtimes). Still usable, but the weaker path is named in diagnostics so a
+  // production regression cannot hide behind it.
+  const text = await res.text();
+  const truncated = maxBytes > 0 && text.length > maxBytes;
+  return {
+    text: truncated ? text.slice(0, maxBytes) : text,
+    charset: null, charsetSource: 'text-fallback', replacements: 0, contentType,
+    byteLength: text.length, encodedByteLength: Math.min(text.length, maxBytes), truncated
+  };
+}
+
+// A response that followed a redirect off goo-net (or off the relay host) is
+// not the page we asked for, and goo-net cookies must never ride along to
+// wherever it pointed. The body is dropped and the hop is reported instead of
+// being parsed as if it were stock data.
+function redirectEscaped(url, res) {
+  const finalUrl = res && typeof res.url === 'string' ? res.url : '';
+  if (!finalUrl) return null;
+  try {
+    const from = new URL(url);
+    const to = new URL(finalUrl);
+    const allowed = new Set([from.hostname, GOONET_HOST, 'goo-net.com']);
+    if (from.hostname.includes('jina.ai')) allowed.add(to.hostname);
+    return allowed.has(to.hostname) ? null : to.hostname;
+  } catch { return null; }
 }
 
 async function rawFetch(url, { timeoutMs, maxBytes, headers }) {
@@ -471,20 +978,38 @@ async function rawFetch(url, { timeoutMs, maxBytes, headers }) {
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers, signal: ctrl.signal, redirect: 'follow' });
-    const text = await res.text();
+    const escaped = redirectEscaped(url, res);
+    if (escaped) {
+      if (isGoonetUrl(url)) collectCookies(res);
+      return {
+        ok: false, status: res.status, html: '', truncated: false,
+        byteLength: 0, charLength: 0, charset: null, charsetSource: null,
+        replacements: 0, unsafeRedirectTo: escaped,
+        durationMs: Date.now() - start, headersUsed: Object.keys(headers),
+        error: 'redirected off goo-net to ' + escaped + ' — body discarded'
+      };
+    }
+    const body = await readResponseBody(res, maxBytes);
     if (isGoonetUrl(url)) collectCookies(res);
-    const truncated = text.length > maxBytes;
     return {
       ok: res.ok,
       status: res.status,
-      html: truncated ? text.slice(0, maxBytes) : text,
-      truncated,
+      html: body.text,
+      truncated: body.truncated,
+      byteLength: body.byteLength,
+      charLength: body.text.length,
+      charset: body.charset,
+      charsetSource: body.charsetSource,
+      replacements: body.replacements,
+      contentType: body.contentType || '',
       durationMs: Date.now() - start,
       headersUsed: Object.keys(headers)
     };
   } catch (e) {
     return {
       ok: false, status: 0, html: '', truncated: false,
+      byteLength: 0, charLength: 0, charset: null, charsetSource: null,
+      replacements: 0,
       durationMs: Date.now() - start, error: e.message,
       headersUsed: Object.keys(headers)
     };
@@ -522,7 +1047,22 @@ async function relayFetch(url, { timeoutMs, maxBytes }) {
   const key = relayApiKey();
   if (key) relayHeaders['Authorization'] = 'Bearer ' + key;
   const relayed = await rawFetch(relayBaseUrl() + url, { timeoutMs, maxBytes, headers: relayHeaders });
-  return { relayed, relayPage: pageDiagnostics(relayed.html) };
+  return { relayed, relayPage: pageDiagnostics(relayed.html, relayed) };
+}
+
+// The byte/encoding facts for the response a caller actually parsed. Kept as
+// one object so diagnostics can report bytes, characters, charset and how that
+// charset was chosen without re-deriving anything from the decoded string.
+function fetchMeta(from) {
+  return {
+    byteLength: from.byteLength ?? null,
+    charLength: from.charLength ?? (from.html || '').length,
+    charset: from.charset || null,
+    charsetSource: from.charsetSource || null,
+    contentType: from.contentType || '',
+    replacements: from.replacements || 0,
+    truncated: !!from.truncated
+  };
 }
 
 export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing' } = {}) {
@@ -537,11 +1077,19 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     ok: direct.ok,
     durationMs: direct.durationMs,
     contentLength: (direct.html || '').length,
+    // Bytes received vs characters decoded — never conflate the two again.
+    bytes: direct.byteLength ?? (direct.html || '').length,
+    chars: direct.charLength ?? (direct.html || '').length,
+    charset: direct.charset || null,
+    charsetSource: direct.charsetSource || null,
+    contentType: direct.contentType || '',
+    replacements: direct.replacements || 0,
     headersUsed: direct.headersUsed,
     cookieSent: isGoonetUrl(url),
     warmedUp,
     via: 'direct',
     fallbackUsed: false,
+    ...(direct.unsafeRedirectTo ? { unsafeRedirectTo: direct.unsafeRedirectTo } : {}),
     ...(direct.error ? { error: direct.error } : {})
   };
 
@@ -555,18 +1103,24 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     if (allowRelay && isGoonetUrl(url)) {
       const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
       if (relayed.ok && !looksLikeStub(relayed.html)) {
+        const relayMeta = fetchMeta(relayed);
         return {
           ok: true,
           status: relayed.status,
           html: relayed.html,
           truncated: relayed.truncated,
           via: 'relay',
+          meta: relayMeta,
           directDiagnostics: networkDiag.directDiagnostics,
           diagnostics: {
             ...networkDiag,
             via: 'relay',
             relayUrl: JINA_RELAY + url,
             contentLength: (relayed.html || '').length,
+            bytes: relayMeta.byteLength,
+            chars: relayMeta.charLength,
+            charset: relayMeta.charset,
+            charsetSource: relayMeta.charsetSource,
             relayDurationMs: relayed.durationMs,
             relayDiagnostics: relayPage
           }
@@ -575,10 +1129,10 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
       networkDiag.relayAttempted = true;
       networkDiag.relayDiagnostics = relayPage;
     }
-    return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', diagnostics: networkDiag };
+    return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', meta: fetchMeta(direct), diagnostics: networkDiag };
   }
 
-  const directPage = pageDiagnostics(direct.html);
+  const directPage = pageDiagnostics(direct.html, direct);
   // The stub heuristic counts /spread/ links, which is only meaningful for a
   // LISTING page — a detail page legitimately has few or zero of them. Relaying
   // a detail fetch on that heuristic let whatever larger page the relay
@@ -608,12 +1162,14 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
       ? relayPage.contentLength > directPage.contentLength && relayPage.gateMarkers.length === 0
       : relayPage.spreadLinks > directPage.spreadLinks;
     if (relayed.ok && relayIsBetter) {
+      const relayMeta = fetchMeta(relayed);
       return {
         ok: true,
         status: relayed.status,
         html: relayed.html,
         truncated: relayed.truncated,
         via: 'relay',
+        meta: relayMeta,
         directDiagnostics: directPage,
         diagnostics: {
           ...diagnostics,
@@ -621,6 +1177,10 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
           relayUrl: JINA_RELAY + url,
           fallbackUsed: true,
           contentLength: (relayed.html || '').length,
+          bytes: relayMeta.byteLength,
+          chars: relayMeta.charLength,
+          charset: relayMeta.charset,
+          charsetSource: relayMeta.charsetSource,
           relayDurationMs: relayed.durationMs,
           directDiagnostics: directPage,
           relayDiagnostics: relayPage
@@ -637,6 +1197,7 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     html: direct.html,
     truncated: direct.truncated,
     via: 'direct',
+    meta: fetchMeta(direct),
     directDiagnostics: directPage,
     diagnostics: { ...diagnostics, directDiagnostics: directPage }
   };
@@ -684,27 +1245,12 @@ export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
     };
   }
 
-  // 1) Every spread anchor, with its readable candidate (anchor text, or the
-  // img alt when the caption is a badge like "New"/"UP").
-  const anchors = [];
-  const anchorRe = /<a\b[^>]*href="(https?:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\/([A-Za-z0-9]+)\.html)(?:#[^"]*)?"[^>]*>([\s\S]*?)<\/a>/g;
-  let m;
-  while ((m = anchorRe.exec(s))) {
-    const inner = m[3];
-    const text = stripTags(inner).replace(/\s+/g, ' ').trim();
-    const alt = (inner.match(/<img[^>]*alt="([^"]+)"/) || [])[1];
-    const candidate = (text.length >= 4 ? text : null)
-      || (alt ? stripTags(alt).replace(/\s+/g, ' ').trim() : null);
-    const tagStart = s.slice(Math.max(0, m.index - 300), m.index);
-    anchors.push({
-      stock: m[2],
-      url: m[1],
-      pos: m.index, // the regex starts at the <a> tag
-      aEnd: m.index + m[1].length,
-      candidate: candidate && candidate.length >= 4 ? candidate : null,
-      isH3: /<h3[^>]*>\s*$/.test(tagStart)
-    });
-  }
+  // 1) Every spread anchor a real markup scan can find — any host shape
+  // (absolute / protocol-relative / root-relative), any quote style, with or
+  // without a #photo fragment. A missing DOM anchor is no longer fatal: the
+  // structured-data candidates below still cover the page.
+  const scanned = scanCarLinks(s);
+  const anchors = scanned.dom;
 
   // 2) Per stock: the TITLE anchor. Ranked so the real card's title wins: an
   // <h3> anchor first, then an anchor whose following 2500 chars carry the
@@ -718,7 +1264,7 @@ export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
   // 50 cards parsed as nothing.
   const SPEC_AHEAD = 2500;
   for (const a of anchors) {
-    const ahead = s.slice(a.aEnd, a.aEnd + SPEC_AHEAD);
+    const ahead = s.slice(a.tagEnd, a.tagEnd + SPEC_AHEAD);
     const hasSpec = /(万円|年式|走行距離)/.test(ahead);
     a.rank = (a.isH3 ? 8 : 0) + (hasSpec ? 4 : 0) + (a.candidate ? 2 : 0)
       + Math.min(2, Math.floor((a.candidate ? a.candidate.length : 0) / 50));
@@ -732,17 +1278,101 @@ export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
 
   // 3) Cut segments title-anchor → title-anchor and parse each region.
   const cars = [];
+  const covered = new Set();
   for (let i = 0; i < marks.length; i++) {
     const mark = marks[i];
     const prevPos = i > 0 ? marks[i - 1].pos : 0;
     const nextPos = i + 1 < marks.length ? marks[i + 1].pos : s.length;
     const card = parseCardRegion(s, prevPos, mark, nextPos, baseUrl);
-    if (card) cars.push(card);
+    if (card) { cars.push(card); covered.add(card.goonet_id); }
   }
+
+  // 4) Structured data (application/ld+json ItemList) — a deterministic
+  // candidate list for stocks the markup scan produced no card for. These are
+  // CANDIDATES ONLY: they carry a stock id, a canonical detail URL and often a
+  // title/photo, and nothing else is invented. Price, year, mileage, fuel and
+  // the full gallery still come from the real detail page, and the same
+  // quality gate and required-field checks decide whether a car is imported.
+  const structured = parseJsonLdCarItems(s);
+  const fromStructured = [];
+  for (const item of structured) {
+    if (covered.has(item.stock)) continue;
+    const card = cardFromStructured(item, s, baseUrl, scanned.scriptRanges);
+    if (card) { fromStructured.push(card); covered.add(card.goonet_id); }
+  }
+
+  const all = [...cars, ...fromStructured];
+  const cardSource = fromStructured.length
+    ? (cars.length ? 'dom+structured' : 'structured')
+    : (cars.length ? 'dom' : 'none');
   return {
-    cars,
+    cars: all,
     pagination: parsePagination(s),
-    diagnostics: { parseStatus: cars.length ? 'success' : 'no_cards_matched', cardCount: cars.length, fallbackTemplate: cars.length === 0 }
+    diagnostics: {
+      parseStatus: all.length ? 'success' : 'no_cards_matched',
+      cardCount: all.length,
+      domCards: cars.length,
+      structuredCandidates: structured.length,
+      structuredCards: fromStructured.length,
+      domCarLinks: new Set(anchors.map(a => a.stock)).size,
+      cardSource,
+      fallbackTemplate: all.length === 0
+    }
+  };
+}
+
+// Build a card from a structured-data candidate. Nothing is invented: the
+// stock id, canonical URL, title and cover photo come from the ItemList entry,
+// and any price/year/mileage comes from the page's own markup around that
+// stock id (when the server rendered a spec block the anchor scan could not
+// use). Everything else is filled in from the detail page — and if the detail
+// page cannot supply it, the quality gate rejects the car.
+function cardFromStructured(item, html, baseUrl, scriptRanges) {
+  const stock = item && item.stock;
+  if (!stock) return null;
+  const at = firstIndexOutsideScripts(html, stock, scriptRanges);
+  const window = at >= 0 ? html.slice(Math.max(0, at - 2500), Math.min(html.length, at + 4500)) : '';
+  const title = item.title || null;
+  const make = detectMake(String(title || '') + ' ' + window) || detectMake(window) || null;
+  const priceJpy = manToYen(after(window, '車両本体価格', v => /万円/.test(v)) || after(window, '支払総額', v => /万円/.test(v)))
+    || priceTextToYen(after(window, '車両本体価格') || after(window, '支払総額') || after(window, '価格'))
+    || null;
+  const year = numberAfter(window, '年式');
+  const km = kmToNumber(after(window, '走行距離', v => /km/i.test(v)));
+  const images = extractCarImages(window);
+  const cover = item.image && /^https:\/\/picture1\.goo-net\.com\//.test(item.image) && !item.image.includes('/shop/')
+    ? item.image : null;
+  if (cover && !images.includes(cover)) images.unshift(cover);
+  const gallery = extendGallery([...new Set(images)]);
+  const ext = ratingAfter(window, '外装');
+  const int = ratingAfter(window, '内装');
+  const repair = after(window, '修復歴');
+  const url = item.url || detailUrlFor(stock);
+  const model = make ? detectModel(title || window.slice(0, 200) || make, make) : null;
+  return {
+    goonet_id: stock,
+    stock_no: stock,
+    make: make || 'Unknown',
+    model,
+    title,
+    url,
+    year,
+    km,
+    price_jpy: priceJpy,
+    price_usd: yenToUsd(priceJpy),
+    price: usdText(yenToUsd(priceJpy)),
+    image: gallery[0] || cover || null,
+    images: gallery,
+    photo_count: gallery.length,
+    tr: null,
+    eng: formatEngine(after(window, '排気量')),
+    ext_rating: ext,
+    int_rating: int,
+    repair_history: repair && repair.includes('あり') ? 'Yes' : (repair ? 'No' : null),
+    location: detectPrefecture(window) || null,
+    grade: ext && int ? String(Math.round(((ext + int) / 2) * 2) / 2) : null,
+    from_structured_data: true,
+    base_url: baseUrl
   };
 }
 
@@ -773,7 +1403,8 @@ function parseCardRegion(s, prevPos, mark, nextPos, baseUrl) {
   // thumbnail block (on a live page that is 2 KB+ away). Shop logos are
   // filtered out by extractCarImages itself.
   const belowWin = mark.isH3 ? 0 : 800;
-  const imgRegion = aboveTail + (belowWin ? s.slice(mark.aEnd, Math.min(s.length, mark.aEnd + belowWin)) : '');
+  const anchorEnd = mark.tagEnd ?? mark.aEnd ?? mark.pos;
+  const imgRegion = aboveTail + (belowWin ? s.slice(anchorEnd, Math.min(s.length, anchorEnd + belowWin)) : '');
 
   // Title: the classic <h3><a …spread…> shape first, else the chosen anchor's
   // candidate (its text, or the thumbnail's img alt).
@@ -1064,7 +1695,7 @@ export async function askLlm({ system, messages, json = false, maxTokens = 2048,
         signal: ctrl.signal
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error('gemini HTTP ' + res.status + (data?.error?.message ? ' — ' + data.error.message : ''));
+      if (!res.ok) throw new Error('gemini HTTP ' + res.status + ' for model ' + model + (data?.error?.message ? ' — ' + data.error.message : ''));
       const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
       if (!text) throw new Error('gemini returned no text');
       return { text, via: 'gemini', model, durationMs: Date.now() - start };
@@ -1080,7 +1711,7 @@ export async function askLlm({ system, messages, json = false, maxTokens = 2048,
       signal: ctrl.signal
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error('openai HTTP ' + res.status + (data?.error?.message ? ' — ' + data.error.message : ''));
+    if (!res.ok) throw new Error('openai HTTP ' + res.status + ' for model ' + model + (data?.error?.message ? ' — ' + data.error.message : ''));
     const text = String(data?.choices?.[0]?.message?.content || '').trim();
     if (!text) throw new Error('openai returned no text');
     return { text, via: 'openai', model, durationMs: Date.now() - start };
@@ -1106,17 +1737,85 @@ export function parseJsonArray(text) {
 // A 2 KB slice of the markup goo-net served — the evidence a parser fix is
 // made against (stored in site_settings.goonet_parsemiss_sample on blocked or
 // parse-miss runs, copied out of the CRM with "Copy parser diagnostic").
+// The newline the LLM payload builder joins its windows with (kept as a
+// named constant so the prompt text carries no escape sequences).
+const NL = String.fromCharCode(10);
+
 export const EVIDENCE_SAMPLE_BYTES = 2048;
-// The sample is centred on the FIRST CAR LINK, not the top of the page: a
-// live listing page is ~1 MB and its first 2 KB are header boilerplate, so a
-// head slice would show a parser fix nothing. A page without car links falls
-// back to the head (that is the bot-gate case, where the head IS the story).
+
+// Anything credential-shaped is stripped before markup leaves the server.
+// Diagnostics are admin-only, but a captured page can carry a session token or
+// a relay key in an inline script, and "admin-only" is not a reason to put a
+// secret in a support ticket.
+export function scrubSecrets(text) {
+  return String(text || '')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]{12,}/gi, 'Bearer [redacted]')
+    .replace(/\b(?:sk|rk|pk|ghp|gho)-[A-Za-z0-9_-]{12,}\b/g, '[redacted-key]')
+    .replace(/([?&](?:key|api_key|apikey|access_token|token|jina_api_key)=)[^&\s"']+/gi, '$1[redacted]');
+}
+
+// The sample is centred on the first CAR ANCHOR, not on the first spread URL
+// in the document: a live listing page carries an application/ld+json ItemList
+// in <head> whose URLs come first, and the old sample showed that JSON-LD
+// instead of a card — reading it suggested the page had no DOM cards at all.
+// A page whose anchors cannot be scanned falls back to a structured-data
+// sample, and only a page with neither falls back to the head.
 export function markupSample(html, maxBytes = EVIDENCE_SAMPLE_BYTES) {
   const s = String(html || '');
-  const m = s.match(/https:\/\/www\.goo-net\.com\/usedcar\/spread\/goo\/\d+\//);
-  if (!m || m.index === undefined) return s.length <= maxBytes ? s : s.slice(0, maxBytes);
-  const start = Math.max(0, m.index - 512);
+  const links = scanCarLinks(s);
+  const dom = links.dom.slice().sort((a, b) => (b.candidate ? 1 : 0) - (a.candidate ? 1 : 0) || a.pos - b.pos);
+  const anchor = dom[0];
+  const at = anchor ? anchor.pos : (links.occurrences[0] ? links.occurrences[0].index : -1);
+  if (at < 0) return s.length <= maxBytes ? s : s.slice(0, maxBytes);
+  const start = Math.max(0, at - 512);
   return s.slice(start, start + maxBytes);
+}
+
+// When the page has no usable DOM card the sample is the structured data it
+// DOES have (the ItemList block verbatim), so the next parser fix starts from
+// the real thing rather than from header boilerplate.
+export function structuredDataSample(html, maxBytes = EVIDENCE_SAMPLE_BYTES) {
+  const s = String(html || '');
+  const block = s.match(/<script\b[^>]*type\s*=\s*["']?application\/ld\+json["']?[^>]*>[\s\S]*?<\/script\s*>/i);
+  const raw = block ? block[0] : parseJsonLdCarItems(s).slice(0, 3).map(i => JSON.stringify(i)).join('\n');
+  return raw.length <= maxBytes ? raw : raw.slice(0, maxBytes);
+}
+
+// The complete, bounded parser diagnostic the CRM stores and copies. It says
+// which URL's markup this is, how the page was read (direct / relay / rescue),
+// how many bytes arrived versus how many characters were decoded and under
+// which charset, whether a real DOM card was found, and — when it was not —
+// that plainly, with whatever structured data the page did carry.
+export function buildParserDiagnostic({
+  html, page = null, source = null, via = 'direct', run = 'parseMiss', meta = null, maxBytes = EVIDENCE_SAMPLE_BYTES
+} = {}) {
+  const s = String(html || '');
+  const links = scanCarLinks(s);
+  const structured = parseJsonLdCarItems(s);
+  const domCard = links.dom.find(a => a.candidate) || links.dom[0] || null;
+  const sampleKind = domCard && domCard.candidate ? 'dom-card'
+    : (structured.length ? 'structured-data' : (domCard ? 'dom-link' : 'head'));
+  const rawSample = sampleKind === 'structured-data' ? structuredDataSample(s, maxBytes) : markupSample(s, maxBytes);
+  return {
+    saved_at: new Date().toISOString(),
+    page: page || source || null,
+    source: source || page || null,
+    via: via || 'direct',
+    run,
+    bytes: meta && meta.byteLength != null ? meta.byteLength : null,
+    chars: s.length,
+    charset: (meta && meta.charset) || null,
+    charset_source: (meta && meta.charsetSource) || null,
+    content_type: (meta && meta.contentType) || '',
+    replacements: (meta && meta.replacements) || 0,
+    dom_card_found: !!(domCard && domCard.candidate),
+    dom_car_links: new Set(links.dom.map(a => a.stock)).size,
+    structured_cars: structured.length,
+    structure_source: structured.length ? (structured[0].via || 'json-ld') : null,
+    spread_links: countSpreadLinks(s),
+    sample_kind: sampleKind,
+    sample: scrubSecrets(rawSample)
+  };
 }
 
 const FUEL_VALUES = new Set(Object.values(FUEL_MAP));
@@ -1186,6 +1885,60 @@ export function normalizeLlmCard(item, stock, src, baseUrl) {
   };
 }
 
+// The payload the AI fallback actually sends. The old version sent the first
+// 120,000 characters of the page — on a ~1.2 MB listing that is the <head>,
+// the JSON-LD ItemList and the search form, and it stops before the first real
+// card, so the model was asked to extract cards from markup that contains
+// none. This builds bounded, card-relevant windows instead:
+//
+//   • a small page head (charset/title context),
+//   • the parsed ItemList entries as compact JSON (stock id, canonical URL,
+//     title, cover photo) — real structured data, never invented fields,
+//   • the markup around the first DOM car anchors, merged so overlapping
+//     windows are not sent twice,
+//
+// capped at maxChars. Everything the model returns is still validated against
+// the FULL source page (image URLs must literally occur in it).
+export function buildLlmCardWindows(html, { maxChars = 120_000, maxWindows = 14, before = 1200, after = 2600 } = {}) {
+  const s = String(html || '');
+  if (!s) return '';
+  const links = scanCarLinks(s);
+  const parts = [];
+  parts.push('<!-- PAGE HEAD -->' + NL + s.slice(0, Math.min(1500, s.length)));
+
+  const structured = parseJsonLdCarItems(s);
+  if (structured.length) {
+    const lines = structured.slice(0, 80).map(i => JSON.stringify({
+      stock: i.stock, url: i.url, title: i.title, image: i.image, position: i.position
+    }));
+    parts.push('<!-- structured-data ItemList entries (parsed from the page; a field that is not listed here is not in the page — do not invent it) -->' + NL
+      + lines.join(NL));
+  }
+
+  // One window per distinct stock, strongest anchor per stock first, in
+  // document order, merged when they overlap.
+  const windows = [];
+  const seen = new Set();
+  for (const a of links.dom) {
+    if (seen.has(a.stock)) continue;
+    seen.add(a.stock);
+    windows.push([Math.max(0, a.pos - before), Math.min(s.length, a.innerEnd + after)]);
+    if (windows.length >= maxWindows) break;
+  }
+  windows.sort((x, y) => x[0] - y[0]);
+  const merged = [];
+  for (const w of windows) {
+    const last = merged[merged.length - 1];
+    if (last && w[0] <= last[1]) last[1] = Math.max(last[1], w[1]);
+    else merged.push([...w]);
+  }
+  for (const [a, b] of merged) parts.push('<!-- CARD MARKUP -->' + NL + s.slice(a, b));
+
+  let out = parts.join(NL + NL);
+  if (out.length > maxChars) out = out.slice(0, maxChars) + NL + '<!-- [payload truncated for extraction] -->';
+  return out;
+}
+
 // Ask the LLM to extract car cards from a listing page the regex parser
 // could not read. Returns { cards, via, model, error? } — on any failure
 // (no key, HTTP error, unparseable reply, zero valid cards) the caller keeps
@@ -1194,7 +1947,7 @@ export function normalizeLlmCard(item, stock, src, baseUrl) {
 export async function extractCardsWithLlm(html, { baseUrl = DEFAULT_SEARCH_URL, timeoutMs = 25000, maxChars = 120_000 } = {}) {
   if (!llmConfigured()) return { cards: [], via: null, model: null, skipped: 'no-llm-key' };
   const src = String(html || '');
-  const slice = src.length > maxChars ? src.slice(0, maxChars) + '\n<!-- [page truncated for extraction] -->' : src;
+  const payload = buildLlmCardWindows(src, { maxChars });
   const system = 'You are a data-extraction engine for a Japanese used-car listing page (goo-net). '
     + 'Extract the car cards from the raw HTML you are given and reply with ONLY a JSON array — no markdown fences, no commentary. '
     + 'Each element is an object with exactly these keys: '
@@ -1211,7 +1964,7 @@ export async function extractCardsWithLlm(html, { baseUrl = DEFAULT_SEARCH_URL, 
   try {
     const r = await askLlm({
       system,
-      messages: [{ role: 'user', content: 'Extract the car cards from this listing page HTML:\n\n' + slice }],
+      messages: [{ role: 'user', content: 'Extract the car cards from these bounded excerpts of a goo-net listing page (page head, structured-data entries, then card markup):\n\n' + payload }],
       json: true, maxTokens: 8000, timeoutMs
     });
     via = r.via; model = r.model;

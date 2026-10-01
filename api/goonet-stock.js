@@ -17,6 +17,185 @@ import {
   delistCar as coreDelist,
   promoteToListings, promoteToInventory
 } from './goonet-sync.js';
+// The import assistant runs on the SAME serverless function as the rest of the
+// Japan dealer stock API (Vercel Hobby caps the deployment at 12 functions), and
+// it reads pages through the SAME shared core the scheduled importer uses —
+// charset-aware fetch, detail parser, quality gate, required-field rules.
+import {
+  fetchPage, parseDetailPage, qualityScore, parseGoonetCarUrls,
+  isDelistedPage, detailUrlFor
+} from '../scripts/goonet-core.mjs';
+
+// A staff request may carry at most this many URLs. Each one costs a real
+// goo-net fetch, so the batch is small on purpose: it keeps the request inside
+// the function budget and keeps our request rate to the source polite.
+const ASSISTANT_MAX_URLS = 5;
+const ASSISTANT_FETCH_TIMEOUT_MS = 9000;
+const ASSISTANT_BUDGET_MS = 45000;
+const ASSISTANT_GAP_MS = 250;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const REQUIRED_FIELDS = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
+
+function numSetting(v, dflt) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : dflt;
+}
+
+function gradeOf(ext, int) {
+  return ext && int ? String(Math.round(((ext + int) / 2) * 2) / 2) : null;
+}
+
+// Exactly the reasons the quality gate and the importer's required-field check
+// produce — never a friendlier summary, so a preview cannot promise an import
+// the import would then refuse.
+function missingFieldsFor(car) {
+  return REQUIRED_FIELDS.filter(f => !car[f] || car[f] === 'Unknown' || car[f] === '');
+}
+
+// One Goo-net vehicle URL → a verified preview. Reads the page through the
+// shared core (correct charset), parses the real detail page, applies the
+// configured quality gate, and reports every reason a car would be refused.
+//
+// Scraped markup is DATA here, never instructions: only the parser's typed
+// fields are used, nothing from the page is executed, and no field is invented
+// when the page does not state it.
+async function inspectGoonetUrl(db, parsed, settings, knownIds, budget) {
+  const result = {
+    source_url: parsed.input,
+    url: parsed.url,
+    stock_id: parsed.stock,
+    status: 'unavailable',
+    reason: null
+  };
+  let row = null;
+  try {
+    const fetched = await fetchPage(parsed.url, { timeoutMs: ASSISTANT_FETCH_TIMEOUT_MS, purpose: 'detail' });
+    result.source = fetched.via || 'direct';
+    if (!fetched.ok || isDelistedPage(fetched)) {
+      result.reason = fetched.status === 404
+        ? 'the listing is gone (goo-net returned 404)'
+        : (fetched.error ? 'could not read the page (' + fetched.error + ')' : 'could not read the page (HTTP ' + fetched.status + ')');
+      return { result, row };
+    }
+    const detail = parseDetailPage(fetched.html, parsed.url);
+    if (!detail || !detail.make || !detail.title) {
+      result.reason = 'the page did not parse as a Goo-net vehicle page (markup changed or a gate page was returned)';
+      return { result, row };
+    }
+    const car = { ...detail, grade: gradeOf(detail.ext_rating, detail.int_rating) };
+    const q = qualityScore(car, settings);
+    const missing = missingFieldsFor(car);
+    const photos = (car.images || []).filter(Boolean);
+
+    result.make = car.make;
+    result.model = car.model;
+    result.title = car.title;
+    result.year = car.year || null;
+    result.km = car.km || null;
+    result.price_jpy = car.price_jpy || null;
+    result.price_usd = car.price_usd || null;
+    result.price = car.price || null;
+    result.fuel = car.fuel || null;
+    result.body = car.body || null;
+    result.tr = car.tr || null;
+    result.eng = car.eng || null;
+    result.drv = car.drv || null;
+    result.st = car.st || null;
+    result.seats = car.seats || null;
+    result.col = car.col || null;
+    result.location = car.location || null;
+    result.repair_history = car.repair_history || null;
+    result.grade = car.grade || null;
+    result.photo_count = photos.length;
+    result.photos = photos.slice(0, 8);
+    result.quality = { pass: q.pass && missing.length === 0 && photos.length >= settings.minPhotos, score: q.score, reasons: q.reasons.slice() };
+    result.missing_fields = missing;
+
+    if (knownIds.has(String(parsed.stock))) {
+      result.status = 'already_present';
+      result.reason = 'already in Japan dealer stock';
+      return { result, row };
+    }
+    const { data: blocked } = await db.from('goonet_blocklist')
+      .select('goonet_id').eq('goonet_id', String(parsed.stock)).maybeSingle();
+    if (blocked) {
+      result.status = 'rejected';
+      result.reason = 'this car was deleted from the CRM and is on the blocklist';
+      return { result, row };
+    }
+    if (!q.pass) {
+      result.status = 'rejected';
+      result.reason = 'quality gate: ' + q.reasons.join(', ');
+      return { result, row };
+    }
+    if (photos.length < settings.minPhotos) {
+      result.status = 'rejected';
+      result.reason = 'only ' + photos.length + ' photo(s); the importer needs ' + settings.minPhotos + '+';
+      return { result, row };
+    }
+    if (missing.length) {
+      result.status = 'rejected';
+      result.reason = 'missing required field(s): ' + missing.join(', ');
+      return { result, row };
+    }
+
+    const now = new Date().toISOString();
+    row = {
+      goonet_id: String(parsed.stock),
+      stock_no: parsed.stock,
+      make: car.make, model: car.model,
+      year: car.year, km: car.km, fuel: car.fuel, body: car.body,
+      price_jpy: car.price_jpy, price_usd: car.price_usd, price: car.price,
+      image: car.image, images: car.images,
+      grade: car.grade, status: 'New Arrival', location: car.location || 'Japan',
+      tr: car.tr, drv: car.drv, eng: car.eng, seats: car.seats, col: car.col, st: car.st,
+      vendor: 'Goo-net', goonet_url: parsed.url,
+      photo_count: photos.length, quality_score: q.score,
+      available: true, promoted: 'none',
+      imported_at: now, last_seen_at: now, updated_at: now
+    };
+    result.status = 'ready';
+    return { result, row };
+  } catch (e) {
+    result.status = 'failed';
+    result.reason = e.message || 'unexpected error';
+    return { result, row };
+  } finally {
+    if (budget && Date.now() > budget.deadline) budget.exhausted = true;
+  }
+}
+
+// Shared by both assistant actions: validate the pasted block, read each URL
+// through the shared core, and return per-URL results. Nothing is written here.
+async function runAssistant(db, body) {
+  const batch = parseGoonetCarUrls(body?.urls ?? body?.url ?? '', { max: ASSISTANT_MAX_URLS });
+  const { data: settingRows } = await db.from('site_settings').select('key,value');
+  const s = Object.fromEntries((settingRows || []).map(r => [r.key, r.value]));
+  const settings = {
+    minPhotos: numSetting(s.goonet_min_photos, 5),
+    minYear: numSetting(s.goonet_min_year, 2000)
+  };
+  const { data: knownRows } = await db.from('japan_dealer_stock').select('goonet_id');
+  const knownIds = new Set((knownRows || []).map(r => String(r.goonet_id)));
+
+  const preview = [];
+  const rejectedInputs = batch.errors.map(e => ({ input: e.input, reason: e.reason }));
+  const deadline = Date.now() + ASSISTANT_BUDGET_MS;
+  for (let i = 0; i < batch.urls.length; i++) {
+    if (i > 0) await sleep(ASSISTANT_GAP_MS);
+    if (Date.now() > deadline) {
+      preview.push({
+        source_url: batch.urls[i].input, url: batch.urls[i].url, stock_id: batch.urls[i].stock,
+        status: 'failed', reason: 'the serverless time budget for one request was reached — import the rest in the next batch'
+      });
+      continue;
+    }
+    const { result } = await inspectGoonetUrl(db, batch.urls[i], settings, knownIds, null);
+    preview.push(result);
+  }
+  return { preview, rejectedInputs, settings, batch };
+}
 
 // Writable columns live in api/_columns.js (shared with api/approvals.js).
 const ALLOWED = GOONET_COLUMNS;
@@ -40,6 +219,11 @@ async function admin(req, injected = {}) {
   await requirePerm(auth.profile, 'site.write');
   return auth;
 }
+
+// The assistant reads up to five Goo-net pages in one request; the default
+// Hobby duration is too short for that, and the sync function already runs
+// with the same 60s budget.
+export const config = { maxDuration: 60 };
 
 export default async function handler(req, res, injected = {}) {
   try {
@@ -98,6 +282,74 @@ export default async function handler(req, res, injected = {}) {
         });
         return send(res, 200, { ok: true, message: 'Importer bookmark reset to page 1 — the next run starts from the first page.' });
       }
+      // ---- Import assistant: preview a small batch of Goo-net URLs --------
+      // Nothing is written here. The preview is derived entirely server-side
+      // from the source URLs, and the same inspection runs again on import —
+      // a client-submitted preview is never trusted.
+      if (req.body.action === 'preview_import') {
+        const { preview, rejectedInputs, settings } = await runAssistant(db, req.body);
+        return send(res, 200, {
+          ok: true, preview, rejected: rejectedInputs,
+          limits: { maxUrls: ASSISTANT_MAX_URLS, minPhotos: settings.minPhotos, minYear: settings.minYear },
+          message: preview.length
+            ? `${preview.filter(p => p.status === 'ready').length} of ${preview.length} URL(s) are ready to import.`
+            : 'No Goo-net vehicle URLs in that request.'
+        });
+      }
+
+      // ---- Import assistant: fetch and import the approved batch ----------
+      // Every URL is re-validated and re-read from goo-net here; the preview
+      // the browser holds is only a suggestion. Duplicates, blocklists and the
+      // quality gate are re-applied against live data before anything is
+      // inserted, and the car lands in Japan dealer stock unpromoted — the
+      // explicit Publish/Promote action is what puts it on the website.
+      if (req.body.action === 'import_urls') {
+        const { preview, rejectedInputs } = await runAssistant(db, req.body);
+        const results = [];
+        for (const item of preview) {
+          if (item.status !== 'ready') { results.push(item); continue; }
+          const now = new Date().toISOString();
+          const row = {
+            goonet_id: String(item.stock_id),
+            stock_no: item.stock_id,
+            make: item.make, model: item.model,
+            year: item.year, km: item.km, fuel: item.fuel, body: item.body,
+            price_jpy: item.price_jpy, price_usd: item.price_usd, price: item.price,
+            image: item.photos?.[0] || null, images: item.photos || [],
+            grade: item.grade, status: 'New Arrival', location: item.location || 'Japan',
+            tr: item.tr, drv: item.drv, eng: item.eng, seats: item.seats, col: item.col, st: item.st,
+            vendor: 'Goo-net', goonet_url: item.url,
+            photo_count: item.photo_count, quality_score: item.quality?.score || 0,
+            available: true, promoted: 'none',
+            imported_at: now, last_seen_at: now, updated_at: now
+          };
+          const { data, error } = await db.from('japan_dealer_stock').insert(row).select().single();
+          if (error) {
+            if (/duplicate/i.test(error.message || '')) {
+              results.push({ ...item, status: 'already_present', reason: 'already in Japan dealer stock' });
+            } else {
+              results.push({ ...item, status: 'failed', reason: error.message });
+            }
+            continue;
+          }
+          try {
+            await db.from('activities').insert({
+              action: `Imported ${row.make} ${row.model} (${row.stock_no}) from ${row.goonet_url} with the Goo-net import assistant`,
+              actor, entity_type: 'japan_dealer_stock', entity_id: data?.id || null
+            });
+          } catch (e) { console.error('activity log failed', e.message); }
+          results.push({ ...item, id: data?.id || null, status: 'imported', promoted: 'none' });
+        }
+        const imported = results.filter(r => r.status === 'imported').length;
+        return send(res, 200, {
+          ok: true, results, rejected: rejectedInputs,
+          inserted: imported,
+          message: imported
+            ? `${imported} car(s) imported into Japan dealer stock. Publish each one when you are ready.`
+            : 'Nothing was imported — see each row for the reason.'
+        });
+      }
+
       const id = req.body.id;
       if (!id) return send(res, 400, { error: 'Car id is required' });
       const { data: row, error: readErr } = await db.from('japan_dealer_stock').select('*').eq('id', id).single();

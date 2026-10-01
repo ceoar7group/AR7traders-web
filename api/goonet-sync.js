@@ -24,7 +24,7 @@ import {
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
   GATE_PAGE_BYTES, relayApiKey,
-  llmConfigured, extractCardsWithLlm, markupSample
+  llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
 export const config = { maxDuration: 60 };
@@ -187,6 +187,10 @@ export default async function handler(req, res, injected) {
   const overBudget = () => Date.now() - start > RUN_BUDGET_MS;
   const report = {
     page: null, cardsSeen: 0, inserted: 0, updated: 0,
+    // Honest pipeline counts: candidates discovered on the page, cards that
+    // parsed into real vehicles, cars already in stock, and cars the quality
+    // gate refused (each with its reason in `skipped`).
+    discovered: 0, alreadyKnown: 0, rejected: 0, cardSource: null,
     delisted: 0, delistedWeekly: 0, promoted: 0,
     // blocked: goo-net answered with its bot-gate stub, so this run read
     // nothing. It must never be dressed up as "caught up".
@@ -266,39 +270,62 @@ export default async function handler(req, res, injected) {
     let blocked = false;
     let parseMiss = false;
     let thinRunDiag = null;
+    report.cardSource = page.diagnostics?.cardSource || null;
+    report.discovered = Math.max(
+      (page.diagnostics?.domCards || 0) + (page.diagnostics?.structuredCandidates || 0),
+      page.cars.length
+    );
     if (page.cars.length < 2) {
       const directDiag = fetched.directDiagnostics || pageDiagnostics(fetched.html || '');
       // Diagnostics for the HTML we actually parsed (via relay or rescue
       // search), which is not necessarily what the direct request handed back.
-      const finalDiag = pageDiagnostics(usedFetch.html || '');
+      const finalDiag = pageDiagnostics(usedFetch.html || '', usedFetch.meta || null);
       const rawLinks = Math.max(directDiag.spreadLinks || 0, finalDiag.spreadLinks || 0);
       const gateWords = [...new Set([...(directDiag.gateMarkers || []), ...(finalDiag.gateMarkers || [])])];
-      const thin = (directDiag.contentLength || 0) < GATE_PAGE_BYTES;
+      // Size is judged in BYTES now: the gate interstitial is a small body,
+      // and a legacy-encoded page decodes to fewer characters than it has
+      // bytes, so a character count could under-report a real page.
+      const bodyBytes = usedFetch.meta?.byteLength ?? finalDiag.bytes ?? (directDiag.contentLength || 0);
+      const thin = bodyBytes < GATE_PAGE_BYTES;
       const relayTried = (fetched.diagnostics && fetched.diagnostics.relayAttempted) === true;
+      // A DOM anchor count of 0 with dozens of links is NOT a bot gate: the
+      // page was served in full and every link sits in structured data or a
+      // script. Say so, because it is a different fix.
       blocked = rawLinks < 2 && (gateWords.length > 0 || thin || usedFetch.via === 'relay');
       parseMiss = !blocked;
       thinRunDiag = {
-        pageUrl, bookmarkHeldOn: bookmark, parsedCards: page.cars.length,
-        rawCarLinks: rawLinks, directStatus: fetched.status ?? 0,
-        directBytes: directDiag.contentLength ?? 0, directMarkers: directDiag.markers || [],
+        pageUrl, sourceUrl: usedFetch.diagnostics?.url || pageUrl,
+        bookmarkHeldOn: bookmark, parsedCards: page.cars.length,
+        rawCarLinks: rawLinks,
+        domCarLinks: finalDiag.domCarLinks ?? 0,
+        structuredCars: finalDiag.jsonLdCars ?? 0,
+        cardSource: page.diagnostics?.cardSource || 'none',
+        directStatus: fetched.status ?? 0,
+        directBytes: bodyBytes,
+        directChars: finalDiag.chars ?? (usedFetch.html || '').length,
+        charset: finalDiag.charset || null,
+        charsetSource: finalDiag.charsetSource || null,
+        contentType: finalDiag.contentType || '',
+        replacements: finalDiag.replacements || 0,
+        directMarkers: directDiag.markers || [],
         gateMarkers: gateWords, relayAttempted: relayTried, relayUsed: usedFetch.via === 'relay',
         rescueUsed: usedFetch !== fetched, finalStub: finalDiag.stub === true
       };
 
-      // Evidence pipeline: store a 2 KB slice of the exact markup goo-net
-      // served this run (the HTML we actually parsed) so a parser fix can be
-      // made against what the site really sent. The CRM surfaces it via
-      // "Copy parser diagnostic" (GET /api/goonet-stock?action=diag).
+      // Evidence pipeline: store a bounded slice of the exact markup goo-net
+      // served this run — anchored on a real DOM car card whenever there is
+      // one, with the structured data named explicitly when there is not —
+      // plus the charset/byte facts. The CRM surfaces it via "Copy parser
+      // diagnostic" (GET /api/goonet-stock?action=diag).
       try {
-        await setSetting(db, 'goonet_parsemiss_sample', JSON.stringify({
-          saved_at: new Date().toISOString(),
+        await setSetting(db, 'goonet_parsemiss_sample', JSON.stringify(buildParserDiagnostic({
+          html: usedFetch.html || '',
           page: pageUrl,
-          run: blocked ? 'blocked' : 'parseMiss',
+          source: usedFetch.diagnostics?.url || pageUrl,
           via: usedFetch.via || 'direct',
-          spread_links: rawLinks,
-          bytes: thinRunDiag.directBytes,
-          sample: markupSample(usedFetch.html || '')
-        }));
+          run: blocked ? 'blocked' : 'parseMiss',
+          meta: usedFetch.meta || null
+        })));
       } catch (e) { console.error('goonet evidence save failed', e.message); }
     } else {
       // A clean read (2+ cards by the regex parser) means the last stored
@@ -335,9 +362,10 @@ export default async function handler(req, res, injected) {
     let imported = 0;
     for (const card of page.cars) {
       if (overImportBudget() || imported >= maxNew) break;
-      if (known.has(String(card.goonet_id))) continue;
+      if (known.has(String(card.goonet_id))) { report.alreadyKnown++; continue; }
       const blocked = await isBlocked(db, card.goonet_id);
       if (blocked) {
+        report.rejected++;
         report.skipped.push(`${card.stock_no}: blocked (previously deleted)`);
         continue;
       }
@@ -347,17 +375,19 @@ export default async function handler(req, res, injected) {
       // id is enough to rebuild the canonical detail URL — without this the car
       // was skipped as "detail fetch failed" even though goo-net had it.
       const detailUrl = card.url || detailUrlFor(card.goonet_id);
-      if (!detailUrl) { report.skipped.push(`${card.stock_no}: no usable detail URL`); continue; }
+      if (!detailUrl) { report.rejected++; report.skipped.push(`${card.stock_no}: no usable detail URL`); continue; }
       const detailFetched = await fetchPage(detailUrl, { timeoutMs: 5000, purpose: 'detail' });
       let car = card;
       if (detailFetched.ok) {
         car = mergeCardAndDetail(card, parseDetailPage(detailFetched.html, card.url));
       } else {
+        report.rejected++;
         report.skipped.push(`${card.stock_no}: detail fetch failed`);
         continue;
       }
       const q = qualityScore(car, { minPhotos, minYear });
       if (!q.pass) {
+        report.rejected++;
         report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.reasons.join(', ')})`);
         continue;
       }
@@ -368,6 +398,7 @@ export default async function handler(req, res, injected) {
       // quality gate and reject cars even when the operator lowered
       // goonet_min_photos in the CRM.
       if (!car.images || car.images.length < minPhotos) {
+        report.rejected++;
         report.skipped.push(`${card.stock_no}: only ${car.images?.length || 0} images (need ${minPhotos}+)`);
         continue;
       }
@@ -376,6 +407,7 @@ export default async function handler(req, res, injected) {
       const requiredFields = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
       const missingFields = requiredFields.filter(f => !car[f] || car[f] === 'Unknown' || car[f] === '');
       if (missingFields.length > 0) {
+        report.rejected++;
         report.skipped.push(`${card.stock_no}: missing fields: ${missingFields.join(', ')}`);
         continue;
       }
@@ -399,7 +431,7 @@ export default async function handler(req, res, injected) {
       };
       const { error } = await db.from('japan_dealer_stock').insert(row);
       if (!error) { imported++; known.add(String(card.goonet_id)); }
-      else if (!/duplicate/i.test(error.message)) report.skipped.push(`${card.stock_no}: ${error.message}`);
+      else if (!/duplicate/i.test(error.message)) { report.rejected++; report.skipped.push(`${card.stock_no}: ${error.message}`); }
     }
     report.inserted = imported;
 
@@ -455,13 +487,19 @@ export default async function handler(req, res, injected) {
           + 'to get the saved markup sample for the parser fix.';
       } else {
         const readCount = report.llm ? 0 : page.cars.length;
+        const why = thinRunDiag.domCarLinks < 2
+          ? ' Every car link on the page is inside structured data or a script (' + thinRunDiag.structuredCars
+            + ' ItemList entries, ' + thinRunDiag.domCarLinks + ' markup anchors) — the card markup or the '
+            + 'link shape changed, so this is a parser fix, not a bot block.'
+          : ' The page linked ' + thinRunDiag.domCarLinks + ' cars in markup but no card region parsed'
+            + ' — the card markup changed, so this is a parser fix, not a bot block.';
         report.note = 'Goo-net returned a real listing page (' + thinRunDiag.rawCarLinks
-          + ' car links, ' + thinRunDiag.directBytes + ' bytes) but the importer only read '
-          + readCount + ' card' + (readCount === 1 ? '' : 's')
-          + ' — the card markup has changed, so this is a parser fix, not a bot block.'
-          + (report.llm ? ' The AI fallback was tried but extracted no usable cards (' + report.llm.error + '). ' : '')
+          + ' distinct car links, ' + thinRunDiag.directBytes + ' bytes, charset '
+          + (thinRunDiag.charset || 'unknown') + ' from ' + (thinRunDiag.charsetSource || 'n/a') + ') but the importer only read '
+          + readCount + ' card' + (readCount === 1 ? '' : 's') + '.' + why
+          + (report.llm ? ' The AI fallback was tried but extracted no usable cards (' + report.llm.error + '). ' : ' ')
           + 'The bookmark was held on page ' + bookmark + ' so no pages were skipped; '
-          + 'update parseCard in scripts/goonet-core.mjs (GOONET-SYNC.md → "Parser says no cards").';
+          + 'press "Copy parser diagnostic" for the saved markup sample.';
       }
       report.diagnostics = thinRunDiag;
     }
@@ -516,8 +554,14 @@ export default async function handler(req, res, injected) {
       await setSetting(db, 'goonet_last_weekly_promote', new Date().toISOString());
     }
 
+    if (!report.note && report.cardSource === 'structured') {
+      report.note = 'Read the listing page through its structured data (' + report.cardsSeen
+        + ' ItemList candidate' + (report.cardsSeen === 1 ? '' : 's') + '): no markup car anchors could be '
+        + 'used, so every candidate was verified against its own detail page before the quality gate.';
+    }
     report.note = report.note || (report.inserted === 0 && report.delisted === 0 && report.promoted === 0
-      ? 'Nothing new this run — the importer is caught up or still quality-gating.' : null);
+      ? 'Nothing new this run — the importer is caught up or still quality-gating.'
+        + (report.alreadyKnown ? ' ' + report.alreadyKnown + ' car(s) were already in stock.' : '') : null);
     return send(res, 200, report);
   } catch (e) {
     console.error('goonet-sync failed', e);
