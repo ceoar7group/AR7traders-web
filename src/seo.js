@@ -51,7 +51,7 @@ export const PAGE_SEO = {
   about:       ['About AR7 Traders | Japanese Vehicle Exporters',
                 'Who we are, how we work, and how AR7 Traders sources and ships vehicles from Japan for buyers worldwide.'],
   reviews:     ['Customer Reviews & Buyer Stories | Japanese Car Exporter — AR7 Traders',
-                'Genuine customer reviews of AR7 Traders: Japanese car auction sheet translations, USS Tokyo bidding, Goo-net dealer stock, and RoRo & container shipping to Pakistan, the UK, UAE, Kenya, Tanzania and New Zealand.'],
+                'Genuine customer reviews of AR7 Traders: Japanese car auction sheet translations, USS Tokyo bidding, fresh Japan dealer stock, and RoRo & container shipping to Pakistan, the UK, UAE, Kenya, Tanzania and New Zealand.'],
   faq:         ['Japanese Car Import FAQ | Help — AR7 Traders',
                 'Answers on auctions, grading, shipping times, duty, payment and paperwork for importing a vehicle from Japan.'],
   contact:     ['Contact AR7 Traders | Japan Export Desk',
@@ -62,8 +62,8 @@ export const PAGE_SEO = {
                 'Sign in to see your vehicle orders, payments received and remaining balance.'],
   portal:      ['Client Portal | AR7 Traders',
                 'Track bids, shipments, documents and payments in the AR7 Traders client portal.'],
-  'japan-stock': ['Japan Dealer Stock | Fresh Goo-net Imports — AR7 Traders',
-                'Hand-picked dealer stock straight from Goo-net Japan: fresh arrivals with verified photos, full specs and export pricing, updated regularly.'],
+  'japan-stock': ['Japan Dealer Stock | Fresh Japan Imports — AR7 Traders',
+                'Hand-picked dealer stock from Japan: fresh arrivals with verified photos, full specs and export pricing, updated regularly.'],
   crm:         ['AR7 Traders Staff CRM', 'Internal operations console.'],
   studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.']
 };

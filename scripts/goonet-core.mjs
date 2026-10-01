@@ -180,6 +180,65 @@ export const MODEL_MAP = {
   'Ａ６': ['A6', 'Sedan'], 'ミラ': ['Mira', 'Kei'], 'コペン': ['Copen', 'Coupe']
 };
 
+// Model name → the brand that builds it, used as a cross-check against
+// page-wide make detection.
+//
+// goo-net detail pages carry site navigation that names many brands (日産,
+// トヨタ, BMW …), so matching the make against the WHOLE page text mislabelled
+// imported cars — a Honda N-BOX showed as NISSAN (2026-10). The model name is
+// the reliable signal: where the model is in this table, the brand is not a
+// guess. Longest key wins, exactly like detectModel, so Ｎ－ＢＯＸ can never be
+// shadowed by a shorter key. Unknown models stay absent — nothing is invented.
+export const MODEL_BRAND = {
+  // Toyota
+  'アルファード': 'Toyota', 'ヴェルファイア': 'Toyota', 'ノア': 'Toyota', 'ヴォクシー': 'Toyota',
+  'エスティマ': 'Toyota', 'ランドクルーザープラド': 'Toyota', 'ランドクルーザー': 'Toyota',
+  'プラド': 'Toyota', 'ハリアー': 'Toyota', 'ＲＡＶ４': 'Toyota', 'ヤリスクロス': 'Toyota',
+  'ライズ': 'Toyota', 'シエンタ': 'Toyota', 'カローラフィールダー': 'Toyota',
+  'カローラツーリング': 'Toyota', 'カローラクロス': 'Toyota', 'カローラ': 'Toyota',
+  'プリウス': 'Toyota', 'カムリ': 'Toyota', 'マークＸ': 'Toyota', 'クラウン': 'Toyota',
+  'アクア': 'Toyota', 'ヤリス': 'Toyota',
+  // Nissan
+  'セレナ': 'Nissan', 'エクストレイル': 'Nissan', 'ノート': 'Nissan', 'デイズ': 'Nissan',
+  'ルークス': 'Nissan', 'サクラ': 'Nissan', 'リーフ': 'Nissan', 'マーチ': 'Nissan',
+  'スカイライン': 'Nissan', 'ＧＴ－Ｒ': 'Nissan',
+  // Honda
+  'Ｎ－ＢＯＸ': 'Honda', 'Ｎ－ＯＮＥ': 'Honda', 'フィット': 'Honda', 'フリード': 'Honda',
+  'ヴェゼル': 'Honda', 'ステップワゴン': 'Honda', 'シビック': 'Honda', 'アコード': 'Honda',
+  'オデッセイ': 'Honda',
+  // Mazda
+  'アテンザ': 'Mazda', 'マツダ６': 'Mazda', 'ＣＸ－３０': 'Mazda', 'ＣＸ－５': 'Mazda',
+  'ＣＸ－８': 'Mazda', 'ＣＸ－３': 'Mazda', 'デミオ': 'Mazda', 'ロードスター': 'Mazda',
+  // Suzuki
+  'スペーシア': 'Suzuki', 'ワゴンＲ': 'Suzuki', 'スイフト': 'Suzuki', 'ソリオ': 'Suzuki',
+  'ハスラー': 'Suzuki', 'ジムニー': 'Suzuki', 'アルト': 'Suzuki',
+  // Daihatsu
+  'タント': 'Daihatsu', 'ムーヴ': 'Daihatsu', 'ミラ': 'Daihatsu', 'コペン': 'Daihatsu',
+  'ロッキー': 'Daihatsu',
+  // Subaru
+  'レヴォーグ': 'Subaru', 'インプレッサ': 'Subaru', 'フォレスター': 'Subaru', 'ジャスティ': 'Subaru',
+  // Mitsubishi
+  'アウトランダー': 'Mitsubishi', 'エクリプスクロス': 'Mitsubishi', 'デリカ': 'Mitsubishi',
+  // Europe
+  '１シリーズ': 'BMW', '３シリーズ': 'BMW', '５シリーズ': 'BMW', 'Ｘ３': 'BMW', 'Ｘ５': 'BMW',
+  'Ｚ４': 'BMW', 'Ｃクラス': 'Mercedes-Benz', 'Ｅクラス': 'Mercedes-Benz', 'Ｓクラス': 'Mercedes-Benz',
+  'Ａクラス': 'Mercedes-Benz', 'ＧＬＣ': 'Mercedes-Benz', 'ＧＬＥ': 'Mercedes-Benz',
+  'Ａ１': 'Audi', 'Ａ３': 'Audi', 'Ａ４': 'Audi', 'Ａ６': 'Audi', 'Ｑ５': 'Audi', 'Ｑ７': 'Audi',
+  'ゴルフ': 'Volkswagen', 'ポロ': 'Volkswagen', 'パサート': 'Volkswagen', 'ティグアン': 'Volkswagen',
+  'ＸＣ４０': 'Volvo', 'ＸＣ６０': 'Volvo', 'ＸＣ９０': 'Volvo', 'ボクスター': 'Porsche'
+};
+
+// The brand a model name belongs to, or null when the model is not in the
+// table (never a guess). Longest key wins.
+export function makeFromModel(text) {
+  const s = String(text || '');
+  let best = null;
+  for (const [jp, brand] of Object.entries(MODEL_BRAND)) {
+    if (s.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, brand };
+  }
+  return best ? best.brand : null;
+}
+
 export const BODY_MAP = {
   'セダン': 'Sedan', 'ハードトップ': 'Sedan', 'クーペ': 'Coupe',
   'オープン': 'Convertible', 'ワゴン': 'Wagon', 'ミニバン': 'MPV',
@@ -1333,7 +1392,7 @@ function cardFromStructured(item, html, baseUrl, scriptRanges) {
   const at = firstIndexOutsideScripts(html, stock, scriptRanges);
   const window = at >= 0 ? html.slice(Math.max(0, at - 2500), Math.min(html.length, at + 4500)) : '';
   const title = item.title || null;
-  const make = detectMake(String(title || '') + ' ' + window) || detectMake(window) || null;
+  const make = makeFromModel(title || '') || detectMake(String(title || '') + ' ' + window) || detectMake(window) || null;
   const priceJpy = manToYen(after(window, '車両本体価格', v => /万円/.test(v)) || after(window, '支払総額', v => /万円/.test(v)))
     || priceTextToYen(after(window, '車両本体価格') || after(window, '支払総額') || after(window, '価格'))
     || null;
@@ -1423,8 +1482,7 @@ function parseCardRegion(s, prevPos, mark, nextPos, baseUrl) {
   const priceJpy = manToYen(after(chunk, '車両本体価格', v => /万円/.test(v)) || after(chunk, '支払総額', v => /万円/.test(v)))
     || priceTextToYen(after(chunk, '車両本体価格') || after(chunk, '支払総額') || after(chunk, '価格'));
   const eng = formatEngine(after(chunk, '排気量'));
-  const trRaw = after(chunk, 'ミッション');
-  const tr = trRaw ? trRaw.trim().slice(0, 12) : null;
+  const tr = transmissionAfter(chunk);
   const repair = after(chunk, '修復歴');
   const ext = ratingAfter(chunk, '外装');
   const int = ratingAfter(chunk, '内装');
@@ -1468,7 +1526,15 @@ export function parseDetailPage(html, url) {
   const stock = extractStockFromUrl(url) || detectMake(s) ? extractStockFromUrl(url) : null;
 
   const title = (s.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1];
-  const make = detectMake(text) || (title ? detectMake(title) : null);
+  const titleText = title ? stripTags(title).replace(/\s+/g, ' ').trim() : '';
+  // The <h1> names THIS car. goo-net navigation names other brands, so matching
+  // the make against the whole page text mislabelled imports (a Honda N-BOX
+  // showed as NISSAN, 2026-10). Order: <h1>, then image alt, then the page; and
+  // when the model name has a known brand, that cross-check wins.
+  const altText = (s.match(/<img[^>]+alt="([^"]*)"/i) || [])[1] || '';
+  const modelBrand = makeFromModel(titleText) || makeFromModel(title || '');
+  let make = detectMake(titleText) || modelBrand || detectMake(altText) || detectMake(text) || null;
+  if (modelBrand && make !== modelBrand) make = modelBrand;
   const location = detectPrefecture(text);
   const year = numberAfter(text, '年式(初度登録)') || numberAfter(text, '年式');
   const km = kmToNumber(after(text, '走行距離', v => /km/i.test(v)));
@@ -1480,9 +1546,8 @@ export function parseDetailPage(html, url) {
   const drv = drvRaw ? drvRaw.trim().slice(0, 8) : null;
   const eng = formatEngine(after(text, '排気量'));
   const seats = seatsNumber(after(text, '乗車定員'));
-  const trRaw = after(text, 'ミッション');
-  const tr = trRaw ? trRaw.trim().slice(0, 12) : null;
-  const col = after(text, '車体色') || null;
+  const tr = transmissionAfter(text);
+  const col = colourAfter(text);
   const repairRaw = after(text, '修復歴');
   const repair = repairRaw ? (repairRaw.includes('あり') ? 'Yes' : 'No') : null;
   const ext = ratingAfter(text, '外装');
@@ -1528,6 +1593,8 @@ export function parseDetailPage(html, url) {
 export function mergeCardAndDetail(card, detail) {
   if (!detail || !detail.make || !detail.title) return card;
   const out = { ...card, ...detail };
+  // A detail page that could not name the car must not erase the card's make.
+  if (!out.make || out.make === 'Unknown') out.make = card.make || out.make;
   if (!out.price_jpy && card.price_jpy) out.price_jpy = card.price_jpy;
   if (!out.price_usd) out.price_usd = yenToUsd(out.price_jpy);
   if (!out.price) out.price = usdText(out.price_usd);
@@ -1650,6 +1717,97 @@ export function ratingAfter(text, label) {
   const m = rest.match(/(\d)(?:点)?/);
   return m ? Number(m[1]) : null;
 }
+
+// ---------------------------------------------------------------------------
+// Spec values must LOOK like the field they claim to be.
+//
+// goo-net prints an equipment list with no label of its own right after the
+// spec block (…ミッションATパワーステアリングＨ…). after() only cuts at the next
+// KNOWN label, so the Transmission row was rendered as パワーステアリングＨ
+// (the first equipment word). Each field therefore has a validator, and when
+// the value next to the label does not validate, a BOUNDED region after the
+// label is searched for a token that does. Nothing is invented: the token must
+// match the field's own shape, otherwise the value stays null.
+// ---------------------------------------------------------------------------
+
+// AT / MT / CVT / DCT / EAT / EMT, optionally with a gear count ("6MT",
+// "６ＭＴ", "4速AT") in half- or full-width. The lookarounds stop a latin word
+// that merely contains the letters (SEAT → AT) from matching, while Japanese
+// text glued to the value (ATパワーステアリング) still does.
+export const TR_RE = /(?<![A-Za-z0-9])(?:[0-9０-９]{1,2}\s*速?\s*)?(?:AT|MT|CVT|DCT|AMT|EAT|EMT|ＡＴ|ＭＴ|ＣＶＴ|ＤＣＴ|ＡＭＴ)(?![A-Za-z])/i;
+const TR_WHOLE_RE = /^(?:[0-9]{1,2}速?)?(?:AT|MT|CVT|DCT|AMT|EAT|EMT)$/;
+
+// Full-width latin (ＭＴ, ＡＴ) → ASCII, on top of fullWidthToHalf's digits.
+const fullWidthAscii = s => String(s || '')
+  .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+  .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+
+export function isTransmissionValue(value) {
+  const s = fullWidthAscii(String(value || '')).replace(/\s+/g, '').toUpperCase();
+  return TR_WHOLE_RE.test(s);
+}
+
+// Colour words goo-net actually prints, plus the Japanese basics. A colour
+// value must contain one of these and must not be an equipment word.
+const COLOUR_WORD_RE = /(ブラック|ホワイト|シルバー|グレー|レッド|ブルー|グリーン|イエロー|オレンジ|ブラウン|ベージュ|ゴールド|パープル|ネイビー|ワイン|カーキ|ピンク|アイボリー|シャンパン|ガンメタ|メタリック|マイカ|パール|トーン|ソリッド|黒|白|赤|青|緑|銀|灰|茶|橙|紫|黄|紺)/;
+const FEATURE_WORD_RE = /(パワーステアリング|エアコン|エアバッグ|ＡＢＳ|ABS|ナビ|アルミ|キーレス|カメラ|クルーズコントロール|LED|ヘッドライト|シート|ドア|ミッション|駆動方式|燃料|年式|走行距離|修復歴|保証|整備|禁煙|ワンオーナー|乗車定員|排気量|車検|タイヤ|ホイール|サンルーフ|オプション|純正)/;
+
+function cleanColour(raw) {
+  let v = stripTags(String(raw || '')).replace(/\s+/g, ' ').trim();
+  if (!v) return null;
+  const cut = v.search(FEATURE_WORD_RE);
+  if (cut > 0) v = v.slice(0, cut).trim();
+  if (!v || v.length > 40) return null;
+  if (FEATURE_WORD_RE.test(v)) return null;
+  return COLOUR_WORD_RE.test(v) ? v : null;
+}
+
+export function isColourValue(value) {
+  const v = stripTags(String(value || '')).replace(/\s+/g, ' ').trim();
+  return !!v && cleanColour(v) === v;
+}
+
+// First token matching `match` inside a bounded region after each occurrence of
+// `label`. The bound keeps the search inside the car's own spec block instead of
+// wandering into the next card on a listing page.
+function boundedAfter(text, label, match, { window = 140 } = {}) {
+  const hay = String(text || '');
+  let from = 0;
+  while (true) {
+    const i = hay.indexOf(label, from);
+    if (i < 0) return null;
+    const region = stripTags(hay.slice(i + label.length, i + label.length + window));
+    const m = region.match(match);
+    if (m) return m[0];
+    from = i + label.length;
+  }
+}
+
+export function transmissionAfter(text, label = 'ミッション', opts = {}) {
+  const direct = after(text, label, v => isTransmissionValue(v));
+  if (direct) return fullWidthAscii(direct).replace(/\s+/g, '').toUpperCase();
+  const hit = boundedAfter(text, label, TR_RE, opts);
+  return hit ? fullWidthAscii(hit).replace(/\s+/g, '').toUpperCase() : null;
+}
+
+export function colourAfter(text, label = '車体色', opts = {}) {
+  const direct = after(text, label, v => isColourValue(v));
+  if (direct) return cleanColour(direct);
+  const hay = String(text || '');
+  let from = 0;
+  while (true) {
+    const i = hay.indexOf(label, from);
+    if (i < 0) return null;
+    const region = stripTags(hay.slice(i + label.length, i + label.length + (opts.window ?? 140)));
+    const m = region.match(COLOUR_WORD_RE);
+    if (m) {
+      const c = cleanColour(region.slice(m.index));
+      if (c) return c;
+    }
+    from = i + label.length;
+  }
+}
+
 
 export function listingPageUrlFor(baseUrl, page) {
   const clean = String(baseUrl || DEFAULT_SEARCH_URL).replace(/index-\d+\.html$/, '');
