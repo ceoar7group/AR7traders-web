@@ -29,6 +29,13 @@ const MAX_PUBLIC_BYTES = 2.5 * 1000 * 1000; // the B1 brief: public/ under 2.5 M
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;
+// supabase/MIGRATION-2026-10-image-paths.sql exists to rewrite the stored
+// `.jpg` paths the 2026-10 WebP pass left behind, so its entire content is old
+// names by design. Those URLs keep working through the rewrites in vercel.json
+// and the retry in src/image-fallback.js, both of which
+// scripts/image-fallback.test.mjs pins — the stale-reference scan would
+// otherwise flag the file that fixes them.
+const HOTFIX_SKIP = /MIGRATION-2026-10-image-paths\.sql$/;
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
@@ -54,6 +61,8 @@ for (const file of sourceFiles) {
   const text = readFileSync(file, 'utf8');
   for (const m of text.matchAll(REF_RE)) {
     checked++;
+    // The migration names the old paths on purpose — see HOTFIX_SKIP.
+    if (HOTFIX_SKIP.test(file)) continue;
     const rel = m[1].replace(/^\//, '');
     if (!existsSync(join(PUBLIC, rel))) missing.add(`${relative(ROOT, file)} -> ${m[1]}`);
   }
@@ -73,6 +82,7 @@ const webpStems = new Set(
     .map(f => relative(PUBLIC, f).replace(/\.webp$/i, '').split('/').pop()));
 const stale = new Set();
 for (const file of sourceFiles) {
+  if (HOTFIX_SKIP.test(file)) continue; // the migration's job is to name them
   const text = readFileSync(file, 'utf8');
   for (const m of text.matchAll(/([A-Za-z0-9._-]+)\.jpe?g\b/gi)) {
     if (webpStems.has(m[1])) stale.add(`${relative(ROOT, file)} -> ${m[0]}`);

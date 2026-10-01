@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
+import { imageFallback, hasRetried } from './image-fallback.js';
 import './crm.css';
 
 const DEMO = import.meta.env.VITE_CRM_DEMO === 'true';
@@ -1327,11 +1328,23 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
   );
 }
 
-// Image fallback: if a photo path 404s or fails to load, swap to the AR7
-// mark once instead of leaving a broken-image glyph in the inventory views.
+// Image fallback for the inventory views.
+//
+// A car uploaded before the 2026-10 WebP pass stores a `.jpg` photo path that
+// no longer exists on disk, so the first thing to try is the sibling extension
+// — imageFallback() swaps the src and marks the element. Only once that retry
+// has also failed do we swap to the AR7 mark, instead of leaving a
+// broken-image glyph.
+//
+// This is deliberately the CRM's only wiring for the retry: every <img> in this
+// file already carries this handler, so installing the document-level listener
+// from src/image-fallback.js here as well would make the retry and the mark
+// race (the listener fires first, and this handler would then jump straight to
+// the mark before the sibling had a chance to load).
 function imgFallback(e) {
   const el = e.currentTarget;
   if (el.dataset.fallbackApplied) return;
+  if (!hasRetried(el)) { imageFallback(e); return; }
   el.dataset.fallbackApplied = '1';
   el.src = '/assets/ar7-mark.png';
 }

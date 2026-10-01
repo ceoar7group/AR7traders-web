@@ -10,6 +10,166 @@
       "destination": "/api/site-content?sitemap=vehicles"
     },
     {
+      "source": "/assets/gallery/lexus-lc-500-01.jpg",
+      "destination": "/assets/gallery/lexus-lc-500-01.webp"
+    },
+    {
+      "source": "/assets/gallery/lexus-lc-500-02.jpg",
+      "destination": "/assets/gallery/lexus-lc-500-02.webp"
+    },
+    {
+      "source": "/assets/gallery/lexus-lc-500-03.jpg",
+      "destination": "/assets/gallery/lexus-lc-500-03.webp"
+    },
+    {
+      "source": "/assets/gallery/lexus-lc-500-04.jpg",
+      "destination": "/assets/gallery/lexus-lc-500-04.webp"
+    },
+    {
+      "source": "/assets/gallery/lexus-lc-500-05.jpg",
+      "destination": "/assets/gallery/lexus-lc-500-05.webp"
+    },
+    {
+      "source": "/assets/inventory/700052000730260404001.jpg",
+      "destination": "/assets/inventory/700052000730260404001.webp"
+    },
+    {
+      "source": "/assets/inventory/700054141330260802005.jpg",
+      "destination": "/assets/inventory/700054141330260802005.webp"
+    },
+    {
+      "source": "/assets/inventory/700056103730260717002.jpg",
+      "destination": "/assets/inventory/700056103730260717002.webp"
+    },
+    {
+      "source": "/assets/inventory/700071023230260801001.jpg",
+      "destination": "/assets/inventory/700071023230260801001.webp"
+    },
+    {
+      "source": "/assets/inventory/700100197430260726001.jpg",
+      "destination": "/assets/inventory/700100197430260726001.webp"
+    },
+    {
+      "source": "/assets/inventory/988026080300208264002.jpg",
+      "destination": "/assets/inventory/988026080300208264002.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-inventory-toyota-h-1.jpg",
+      "destination": "/assets/japan-used-car-export-inventory-toyota-h-1.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-inventory-toyota-h-2.jpg",
+      "destination": "/assets/japan-used-car-export-inventory-toyota-h-2.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-inventory-toyota-h-3.jpg",
+      "destination": "/assets/japan-used-car-export-inventory-toyota-h-3.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-inventory-toyota-h-4.jpg",
+      "destination": "/assets/japan-used-car-export-inventory-toyota-h-4.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-inventory-toyota-h-5.jpg",
+      "destination": "/assets/japan-used-car-export-inventory-toyota-h-5.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-stock-honda-vezel--1.jpg",
+      "destination": "/assets/japan-used-car-export-stock-honda-vezel--1.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-stock-honda-vezel--2.jpg",
+      "destination": "/assets/japan-used-car-export-stock-honda-vezel--2.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-stock-honda-vezel--3.jpg",
+      "destination": "/assets/japan-used-car-export-stock-honda-vezel--3.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-stock-honda-vezel--4.jpg",
+      "destination": "/assets/japan-used-car-export-stock-honda-vezel--4.webp"
+    },
+    {
+      "source": "/assets/japan-used-car-export-stock-honda-vezel--5.jpg",
+      "destination": "/assets/japan-used-car-export-stock-honda-vezel--5.webp"
+    },
+    {
+      "source": "/assets/japanese-car-auction-inspection-shipping-1.jpg",
+      "destination": "/assets/japanese-car-auction-inspection-shipping-1.webp"
+    },
+    {
+      "source": "/assets/japanese-car-auction-inspection-shipping-2.jpg",
+      "destination": "/assets/japanese-car-auction-inspection-shipping-2.webp"
+    },
+    {
+      "source": "/assets/japanese-car-auction-inspection-shipping-3.jpg",
+      "destination": "/assets/japanese-car-auction-inspection-shipping-3.webp"
+    },
+    {
+      "source": "/assets/lux/audi-r8.jpg",
+      "destination": "/assets/lux/audi-r8.webp"
+    },
+    {
+      "source": "/assets/lux/bentley-continental-gt.jpg",
+      "destination": "/assets/lux/bentley-continental-gt.webp"
+    },
+    {
+      "source": "/assets/lux/bmw-m8-competition.jpg",
+      "destination": "/assets/lux/bmw-m8-competition.webp"
+    },
+    {
+      "source": "/assets/lux/bugatti-chiron.jpg",
+      "destination": "/assets/lux/bugatti-chiron.webp"
+    },
+    {
+      "source": "/assets/lux/ferrari-f8-tributo.jpg",
+      "destination": "/assets/lux/ferrari-f8-tributo.webp"
+    },
+    {
+      "source": "/assets/lux/lamborghini-huracan.jpg",
+      "destination": "/assets/lux/lamborghini-huracan.webp"
+    },
+    {
+      "source": "/assets/lux/lexus-lc-500.jpg",
+      "destination": "/assets/lux/lexus-lc-500.webp"
+    },
+    {
+      "source": "/assets/lux/mclaren-720s.jpg",
+      "destination": "/assets/lux/mclaren-720s.webp"
+    },
+    {
+      "source": "/assets/lux/mercedes-amg-gt.jpg",
+      "destination": "/assets/lux/mercedes-amg-gt.webp"
+    },
+    {
+      "source": "/assets/lux/porsche-911-turbo-s.jpg",
+      "destination": "/assets/lux/porsche-911-turbo-s.webp"
+    },
+    {
+      "source": "/assets/lux/rolls-royce-cullinan.jpg",
+      "destination": "/assets/lux/rolls-royce-cullinan.webp"
+    },
+    {
+      "source": "/assets/lux/rolls-royce-ghost.jpg",
+      "destination": "/assets/lux/rolls-royce-ghost.webp"
+    },
+    {
+      "source": "/assets/used-japanese-cars-auction-export-toyota-1.jpg",
+      "destination": "/assets/used-japanese-cars-auction-export-toyota-1.webp"
+    },
+    {
+      "source": "/assets/used-japanese-cars-auction-export-toyota-2.jpg",
+      "destination": "/assets/used-japanese-cars-auction-export-toyota-2.webp"
+    },
+    {
+      "source": "/assets/used-japanese-cars-auction-export-toyota-4.jpg",
+      "destination": "/assets/used-japanese-cars-auction-export-toyota-4.webp"
+    },
+    {
+      "source": "/assets/used-japanese-cars-auction-export-toyota-5.jpg",
+      "destination": "/assets/used-japanese-cars-auction-export-toyota-5.webp"
+    },
+    {
       "source": "/(inventory|auction|services|brands|destinations|tools|world|howbuy|news|about|reviews|faq|contact|account|portal|crm|studio|shipping|japan-stock)(/.*)?",
       "destination": "/index.html"
     }
@@ -18,13 +178,19 @@
     {
       "source": "/",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     },
     {
       "source": "/index.html",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     }
   ]
