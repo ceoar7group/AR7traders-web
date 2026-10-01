@@ -80,8 +80,8 @@ const LIVE_IMPORT_2 = {
 const DEALER = [LIVE_IMPORT, LIVE_IMPORT_2, PROMOTED, PARKED];
 const LISTINGS = [{
   id: 1, stock_no: 'AR7-26001', make: 'Rolls-Royce', model: 'Ghost', year: 2023, km: '2,150',
-  fuel: 'Petrol', body: 'Luxury', price: '$189,000', image: '/assets/lux/rolls-royce-ghost.jpg',
-  images: ['/assets/lux/rolls-royce-ghost.jpg'], grade: '5.0', status: 'In Stock',
+  fuel: 'Petrol', body: 'Luxury', price: '$189,000', image: '/assets/lux/rolls-royce-ghost.webp',
+  images: ['/assets/lux/rolls-royce-ghost.webp'], grade: '5.0', status: 'In Stock',
   location: 'Tokyo', tr: 'AT', drv: 'RWD', eng: '6,750cc', seats: 5, col: 'Black', st: 'RHD',
   published: true, sort_order: 1
 }];

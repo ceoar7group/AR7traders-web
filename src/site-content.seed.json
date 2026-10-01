@@ -9,7 +9,7 @@
       "fuel": "Petrol",
       "body": "Luxury",
       "price": "$189,000",
-      "image": "/assets/lux/rolls-royce-ghost.jpg",
+      "image": "/assets/lux/rolls-royce-ghost.webp",
       "grade": "5.0",
       "status": "In Stock",
       "location": "Yokohama",
@@ -21,7 +21,7 @@
       "st": "RHD",
       "stock_no": "AR7-26001",
       "images": [
-        "/assets/lux/rolls-royce-ghost.jpg"
+        "/assets/lux/rolls-royce-ghost.webp"
       ]
     },
     {
@@ -33,7 +33,7 @@
       "fuel": "Petrol",
       "body": "Luxury",
       "price": "$205,000",
-      "image": "/assets/lux/rolls-royce-cullinan.jpg",
+      "image": "/assets/lux/rolls-royce-cullinan.webp",
       "grade": "5.0",
       "status": "In Stock",
       "location": "Tokyo",
@@ -45,7 +45,7 @@
       "st": "RHD",
       "stock_no": "AR7-26002",
       "images": [
-        "/assets/lux/rolls-royce-cullinan.jpg"
+        "/assets/lux/rolls-royce-cullinan.webp"
       ]
     },
     {
@@ -57,7 +57,7 @@
       "fuel": "Petrol",
       "body": "Luxury",
       "price": "$168,000",
-      "image": "/assets/lux/bentley-continental-gt.jpg",
+      "image": "/assets/lux/bentley-continental-gt.webp",
       "grade": "5.0",
       "status": "Auction",
       "location": "USS Tokyo",
@@ -69,7 +69,7 @@
       "st": "RHD",
       "stock_no": "AR7-26003",
       "images": [
-        "/assets/lux/bentley-continental-gt.jpg"
+        "/assets/lux/bentley-continental-gt.webp"
       ]
     },
     {
@@ -81,7 +81,7 @@
       "fuel": "Petrol",
       "body": "Luxury",
       "price": "$142,000",
-      "image": "/assets/lux/mercedes-amg-gt.jpg",
+      "image": "/assets/lux/mercedes-amg-gt.webp",
       "grade": "4.5",
       "status": "In Stock",
       "location": "Osaka",
@@ -93,7 +93,7 @@
       "st": "LHD",
       "stock_no": "AR7-26004",
       "images": [
-        "/assets/lux/mercedes-amg-gt.jpg"
+        "/assets/lux/mercedes-amg-gt.webp"
       ]
     },
     {
@@ -105,7 +105,7 @@
       "fuel": "Petrol",
       "body": "Luxury",
       "price": "$118,000",
-      "image": "/assets/lux/bmw-m8-competition.jpg",
+      "image": "/assets/lux/bmw-m8-competition.webp",
       "grade": "4.5",
       "status": "New Arrival",
       "location": "Nagoya",
@@ -117,7 +117,7 @@
       "st": "RHD",
       "stock_no": "AR7-26005",
       "images": [
-        "/assets/lux/bmw-m8-competition.jpg"
+        "/assets/lux/bmw-m8-competition.webp"
       ]
     },
     {
@@ -129,7 +129,7 @@
       "fuel": "Petrol",
       "body": "Supercar",
       "price": "$245,000",
-      "image": "/assets/lux/lamborghini-huracan.jpg",
+      "image": "/assets/lux/lamborghini-huracan.webp",
       "grade": "5.0",
       "status": "Auction",
       "location": "CAA Chubu",
@@ -141,7 +141,7 @@
       "st": "RHD",
       "stock_no": "AR7-26006",
       "images": [
-        "/assets/lux/lamborghini-huracan.jpg"
+        "/assets/lux/lamborghini-huracan.webp"
       ]
     },
     {
@@ -153,7 +153,7 @@
       "fuel": "Petrol",
       "body": "Supercar",
       "price": "$265,000",
-      "image": "/assets/lux/ferrari-f8-tributo.jpg",
+      "image": "/assets/lux/ferrari-f8-tributo.webp",
       "grade": "5.0",
       "status": "In Stock",
       "location": "Yokohama",
@@ -165,7 +165,7 @@
       "st": "RHD",
       "stock_no": "AR7-26007",
       "images": [
-        "/assets/lux/ferrari-f8-tributo.jpg"
+        "/assets/lux/ferrari-f8-tributo.webp"
       ]
     },
     {
@@ -177,7 +177,7 @@
       "fuel": "Petrol",
       "body": "Hypercar",
       "price": "$2,850,000",
-      "image": "/assets/lux/bugatti-chiron.jpg",
+      "image": "/assets/lux/bugatti-chiron.webp",
       "grade": "5.0",
       "status": "Auction",
       "location": "USS Tokyo",
@@ -189,7 +189,7 @@
       "st": "RHD",
       "stock_no": "AR7-26008",
       "images": [
-        "/assets/lux/bugatti-chiron.jpg"
+        "/assets/lux/bugatti-chiron.webp"
       ]
     },
     {
@@ -201,7 +201,7 @@
       "fuel": "Petrol",
       "body": "Supercar",
       "price": "$205,000",
-      "image": "/assets/lux/porsche-911-turbo-s.jpg",
+      "image": "/assets/lux/porsche-911-turbo-s.webp",
       "grade": "5.0",
       "status": "In Stock",
       "location": "Kobe",
@@ -213,7 +213,7 @@
       "st": "RHD",
       "stock_no": "AR7-26009",
       "images": [
-        "/assets/lux/porsche-911-turbo-s.jpg"
+        "/assets/lux/porsche-911-turbo-s.webp"
       ]
     },
     {
@@ -225,7 +225,7 @@
       "fuel": "Petrol",
       "body": "Supercar",
       "price": "$235,000",
-      "image": "/assets/lux/mclaren-720s.jpg",
+      "image": "/assets/lux/mclaren-720s.webp",
       "grade": "4.5",
       "status": "Auction",
       "location": "JU Aichi",
@@ -237,7 +237,7 @@
       "st": "RHD",
       "stock_no": "AR7-26010",
       "images": [
-        "/assets/lux/mclaren-720s.jpg"
+        "/assets/lux/mclaren-720s.webp"
       ]
     },
     {
@@ -277,7 +277,7 @@
       "fuel": "Petrol",
       "body": "Luxury",
       "price": "$95,000",
-      "image": "/assets/gallery/lexus-lc-500-01.jpg",
+      "image": "/assets/gallery/lexus-lc-500-01.webp",
       "grade": "4.5",
       "status": "In Stock",
       "location": "Yokohama",
@@ -289,11 +289,11 @@
       "st": "LHD",
       "stock_no": "AR7-26012",
       "images": [
-        "/assets/gallery/lexus-lc-500-01.jpg",
-        "/assets/gallery/lexus-lc-500-02.jpg",
-        "/assets/gallery/lexus-lc-500-03.jpg",
-        "/assets/gallery/lexus-lc-500-04.jpg",
-        "/assets/gallery/lexus-lc-500-05.jpg"
+        "/assets/gallery/lexus-lc-500-01.webp",
+        "/assets/gallery/lexus-lc-500-02.webp",
+        "/assets/gallery/lexus-lc-500-03.webp",
+        "/assets/gallery/lexus-lc-500-04.webp",
+        "/assets/gallery/lexus-lc-500-05.webp"
       ]
     },
     {
@@ -305,7 +305,7 @@
       "fuel": "Petrol",
       "body": "SUV",
       "price": "$21,000",
-      "image": "/assets/inventory/700071023230260801001.jpg",
+      "image": "/assets/inventory/700071023230260801001.webp",
       "grade": "4.5",
       "status": "In Stock",
       "location": "Hyogo",
@@ -353,7 +353,7 @@
       "fuel": "Petrol",
       "body": "SUV",
       "price": "$28,100",
-      "image": "/assets/inventory/988026080300208264002.jpg",
+      "image": "/assets/inventory/988026080300208264002.webp",
       "grade": "4.5",
       "status": "In Stock",
       "location": "Gifu",
@@ -401,7 +401,7 @@
       "fuel": "Petrol",
       "body": "MPV",
       "price": "$27,700",
-      "image": "/assets/inventory/700054141330260802005.jpg",
+      "image": "/assets/inventory/700054141330260802005.webp",
       "grade": "4.0",
       "status": "In Stock",
       "location": "Chiba",
@@ -449,7 +449,7 @@
       "fuel": "Hybrid",
       "body": "SUV",
       "price": "$21,100",
-      "image": "/assets/inventory/700056103730260717002.jpg",
+      "image": "/assets/inventory/700056103730260717002.webp",
       "grade": "4.5",
       "status": "In Stock",
       "location": "Chiba",
@@ -497,7 +497,7 @@
       "fuel": "Petrol",
       "body": "SUV",
       "price": "$14,100",
-      "image": "/assets/inventory/700100197430260726001.jpg",
+      "image": "/assets/inventory/700100197430260726001.webp",
       "grade": "4.0",
       "status": "In Stock",
       "location": "Hiroshima",
@@ -545,7 +545,7 @@
       "fuel": "Diesel",
       "body": "SUV",
       "price": "$16,600",
-      "image": "/assets/inventory/700052000730260404001.jpg",
+      "image": "/assets/inventory/700052000730260404001.webp",
       "grade": "4.0",
       "status": "In Stock",
       "location": "Gunma",

@@ -34,11 +34,11 @@ const PHOTO_PRESETS = [
     label: 'Lexus LC 500 Series (5 angles)',
     make: 'Lexus',
     photos: [
-      '/assets/gallery/lexus-lc-500-01.jpg',
-      '/assets/gallery/lexus-lc-500-02.jpg',
-      '/assets/gallery/lexus-lc-500-03.jpg',
-      '/assets/gallery/lexus-lc-500-04.jpg',
-      '/assets/gallery/lexus-lc-500-05.jpg'
+      '/assets/gallery/lexus-lc-500-01.webp',
+      '/assets/gallery/lexus-lc-500-02.webp',
+      '/assets/gallery/lexus-lc-500-03.webp',
+      '/assets/gallery/lexus-lc-500-04.webp',
+      '/assets/gallery/lexus-lc-500-05.webp'
     ]
   },
   {
@@ -47,11 +47,11 @@ const PHOTO_PRESETS = [
     make: 'Toyota',
     photos: [
       '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
-      '/assets/japan-used-car-export-inventory-toyota-h-1.jpg',
-      '/assets/japan-used-car-export-inventory-toyota-h-2.jpg',
-      '/assets/japan-used-car-export-inventory-toyota-h-3.jpg',
-      '/assets/japan-used-car-export-inventory-toyota-h-4.jpg',
-      '/assets/japan-used-car-export-inventory-toyota-h-5.jpg'
+      '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
+      '/assets/japan-used-car-export-inventory-toyota-h-2.webp',
+      '/assets/japan-used-car-export-inventory-toyota-h-3.webp',
+      '/assets/japan-used-car-export-inventory-toyota-h-4.webp',
+      '/assets/japan-used-car-export-inventory-toyota-h-5.webp'
     ]
   },
   {
@@ -59,11 +59,11 @@ const PHOTO_PRESETS = [
     label: 'Honda Vezel Hybrid Stock (5 photos)',
     make: 'Honda',
     photos: [
-      '/assets/japan-used-car-export-stock-honda-vezel--1.jpg',
-      '/assets/japan-used-car-export-stock-honda-vezel--2.jpg',
-      '/assets/japan-used-car-export-stock-honda-vezel--3.jpg',
-      '/assets/japan-used-car-export-stock-honda-vezel--4.jpg',
-      '/assets/japan-used-car-export-stock-honda-vezel--5.jpg'
+      '/assets/japan-used-car-export-stock-honda-vezel--1.webp',
+      '/assets/japan-used-car-export-stock-honda-vezel--2.webp',
+      '/assets/japan-used-car-export-stock-honda-vezel--3.webp',
+      '/assets/japan-used-car-export-stock-honda-vezel--4.webp',
+      '/assets/japan-used-car-export-stock-honda-vezel--5.webp'
     ]
   },
   {
@@ -71,10 +71,10 @@ const PHOTO_PRESETS = [
     label: 'Toyota Alphard / Noah MPV Stock (5 photos)',
     make: 'Toyota',
     photos: [
-      '/assets/used-japanese-cars-auction-export-toyota-1.jpg',
-      '/assets/used-japanese-cars-auction-export-toyota-2.jpg',
-      '/assets/used-japanese-cars-auction-export-toyota-4.jpg',
-      '/assets/used-japanese-cars-auction-export-toyota-5.jpg',
+      '/assets/used-japanese-cars-auction-export-toyota-1.webp',
+      '/assets/used-japanese-cars-auction-export-toyota-2.webp',
+      '/assets/used-japanese-cars-auction-export-toyota-4.webp',
+      '/assets/used-japanese-cars-auction-export-toyota-5.webp',
       '/assets/used-japanese-cars-auction-export-toyota-3.jpg'
     ]
   },
@@ -83,8 +83,8 @@ const PHOTO_PRESETS = [
     label: 'Rolls-Royce Ghost & Cullinan (2 photos)',
     make: 'Rolls-Royce',
     photos: [
-      '/assets/lux/rolls-royce-ghost.jpg',
-      '/assets/lux/rolls-royce-cullinan.jpg'
+      '/assets/lux/rolls-royce-ghost.webp',
+      '/assets/lux/rolls-royce-cullinan.webp'
     ]
   },
   {
@@ -92,10 +92,10 @@ const PHOTO_PRESETS = [
     label: 'Supercar Set (Ferrari, Lambo, Porsche, McLaren)',
     make: 'Supercars',
     photos: [
-      '/assets/lux/ferrari-f8-tributo.jpg',
-      '/assets/lux/lamborghini-huracan.jpg',
-      '/assets/lux/porsche-911-turbo-s.jpg',
-      '/assets/lux/mclaren-720s.jpg'
+      '/assets/lux/ferrari-f8-tributo.webp',
+      '/assets/lux/lamborghini-huracan.webp',
+      '/assets/lux/porsche-911-turbo-s.webp',
+      '/assets/lux/mclaren-720s.webp'
     ]
   },
   {
@@ -103,10 +103,10 @@ const PHOTO_PRESETS = [
     label: 'Luxury GTs (Bentley, AMG GT, BMW M8, Chiron)',
     make: 'Luxury',
     photos: [
-      '/assets/lux/bentley-continental-gt.jpg',
-      '/assets/lux/mercedes-amg-gt.jpg',
-      '/assets/lux/bmw-m8-competition.jpg',
-      '/assets/lux/bugatti-chiron.jpg'
+      '/assets/lux/bentley-continental-gt.webp',
+      '/assets/lux/mercedes-amg-gt.webp',
+      '/assets/lux/bmw-m8-competition.webp',
+      '/assets/lux/bugatti-chiron.webp'
     ]
   },
   {
@@ -114,9 +114,9 @@ const PHOTO_PRESETS = [
     label: 'Japan Yard Inspection & Port Prep (4 photos)',
     make: 'Inspection',
     photos: [
-      '/assets/japanese-car-auction-inspection-shipping-1.jpg',
-      '/assets/japanese-car-auction-inspection-shipping-2.jpg',
-      '/assets/japanese-car-auction-inspection-shipping-3.jpg',
+      '/assets/japanese-car-auction-inspection-shipping-1.webp',
+      '/assets/japanese-car-auction-inspection-shipping-2.webp',
+      '/assets/japanese-car-auction-inspection-shipping-3.webp',
       '/assets/japanese-car-auction-inspection-shipping-5.webp'
     ]
   }
@@ -152,15 +152,15 @@ const seed = {
   ],
   vehicles: [
     { id: 'v1', stock_no: 'AR7-260184', make: 'Audi', model: 'R8 V10', year: 2021, price: 155000, vendor: 'USS Auction', cost_price: 128000, freight_cost: 3200, duty_cost: 0, other_cost: 1800, status: 'available', location: 'Tokyo', steering: 'RHD', image: '/assets/gallery/audi-r8-v10-01.webp', images: ['/assets/gallery/audi-r8-v10-01.webp', '/assets/gallery/audi-r8-v10-02.webp', '/assets/gallery/audi-r8-v10-03.webp', '/assets/gallery/audi-r8-v10-04.webp', '/assets/gallery/audi-r8-v10-05.webp'] },
-    { id: 'v2', stock_no: 'AR7-260185', make: 'Lexus', model: 'LC 500', year: 2021, price: 95000, vendor: 'TAA Auction', cost_price: 74200, freight_cost: 2800, duty_cost: 0, other_cost: 1400, status: 'reserved', location: 'Yokohama', steering: 'LHD', image: '/assets/gallery/lexus-lc-500-01.jpg', images: ['/assets/gallery/lexus-lc-500-01.jpg', '/assets/gallery/lexus-lc-500-02.jpg', '/assets/gallery/lexus-lc-500-03.jpg', '/assets/gallery/lexus-lc-500-04.jpg', '/assets/gallery/lexus-lc-500-05.jpg'] },
-    { id: 'v3', stock_no: 'AR7-260186', make: 'Rolls-Royce', model: 'Ghost', year: 2023, price: 189000, vendor: 'Dealer network', cost_price: 162000, freight_cost: 4100, duty_cost: 0, other_cost: 2200, status: 'available', location: 'Yokohama', steering: 'RHD', image: '/assets/lux/rolls-royce-ghost.jpg', images: ['/assets/lux/rolls-royce-ghost.jpg', '/assets/lux/rolls-royce-cullinan.jpg'] },
-    { id: 'v4', stock_no: 'AR7-260187', make: 'Toyota', model: 'Land Cruiser ZX', year: 2022, price: 58900, vendor: 'Goo-net', cost_price: 46800, freight_cost: 2100, duty_cost: 0, other_cost: 900, status: 'in_transit', location: 'Yokohama', steering: 'RHD', image: '/assets/used-japanese-cars-auction-export-toyota-3.jpg', images: ['/assets/used-japanese-cars-auction-export-toyota-3.jpg', '/assets/japan-used-car-export-inventory-toyota-h-1.jpg', '/assets/japan-used-car-export-inventory-toyota-h-2.jpg', '/assets/japan-used-car-export-inventory-toyota-h-3.jpg', '/assets/japan-used-car-export-inventory-toyota-h-4.jpg', '/assets/japan-used-car-export-inventory-toyota-h-5.jpg'] }
+    { id: 'v2', stock_no: 'AR7-260185', make: 'Lexus', model: 'LC 500', year: 2021, price: 95000, vendor: 'TAA Auction', cost_price: 74200, freight_cost: 2800, duty_cost: 0, other_cost: 1400, status: 'reserved', location: 'Yokohama', steering: 'LHD', image: '/assets/gallery/lexus-lc-500-01.webp', images: ['/assets/gallery/lexus-lc-500-01.webp', '/assets/gallery/lexus-lc-500-02.webp', '/assets/gallery/lexus-lc-500-03.webp', '/assets/gallery/lexus-lc-500-04.webp', '/assets/gallery/lexus-lc-500-05.webp'] },
+    { id: 'v3', stock_no: 'AR7-260186', make: 'Rolls-Royce', model: 'Ghost', year: 2023, price: 189000, vendor: 'Dealer network', cost_price: 162000, freight_cost: 4100, duty_cost: 0, other_cost: 2200, status: 'available', location: 'Yokohama', steering: 'RHD', image: '/assets/lux/rolls-royce-ghost.webp', images: ['/assets/lux/rolls-royce-ghost.webp', '/assets/lux/rolls-royce-cullinan.webp'] },
+    { id: 'v4', stock_no: 'AR7-260187', make: 'Toyota', model: 'Land Cruiser ZX', year: 2022, price: 58900, vendor: 'Goo-net', cost_price: 46800, freight_cost: 2100, duty_cost: 0, other_cost: 900, status: 'in_transit', location: 'Yokohama', steering: 'RHD', image: '/assets/used-japanese-cars-auction-export-toyota-3.jpg', images: ['/assets/used-japanese-cars-auction-export-toyota-3.jpg', '/assets/japan-used-car-export-inventory-toyota-h-1.webp', '/assets/japan-used-car-export-inventory-toyota-h-2.webp', '/assets/japan-used-car-export-inventory-toyota-h-3.webp', '/assets/japan-used-car-export-inventory-toyota-h-4.webp', '/assets/japan-used-car-export-inventory-toyota-h-5.webp'] }
   ],
   goonet: [
     { id: 'g1', goonet_id: '0710232A30260801W001', stock_no: '0710232A30260801W001', make: 'Toyota', model: 'Harrier S', year: 2023, km: '24,204', fuel: 'Petrol', body: 'SUV', price: '$21,000', price_jpy: 3090000, price_usd: 21000, grade: '4.5', status: 'New Arrival', location: 'Hyogo', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Black', st: 'RHD', photo_count: 24, quality_score: 82, available: true, promoted: 'none', vendor: 'Goo-net', imported_at: '2026-08-26T09:00:00Z', image: 'https://picture1.goo-net.com/7000710232/30260801/J/70007102323026080100100.jpg', images: ['https://picture1.goo-net.com/7000710232/30260801/J/70007102323026080100100.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00101.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00102.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00103.jpg','https://picture1.goo-net.com/071/0710232/J/0710232A30260801W00104.jpg'] },
-    { id: 'g2', goonet_id: '0208264A20260802D002', stock_no: '0208264A20260802D002', make: 'Toyota', model: 'Harrier Z Leather Package', year: 2023, km: '14,000', fuel: 'Petrol', body: 'SUV', price: '$28,100', price_jpy: 4130000, price_usd: 28100, grade: '4.5', status: 'New Arrival', location: 'Gifu', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Silver Metallic', st: 'RHD', photo_count: 24, quality_score: 85, available: true, promoted: 'listings', vendor: 'Goo-net', imported_at: '2026-08-24T09:00:00Z', image: '/assets/inventory/988026080300208264002.jpg', images: ['/assets/inventory/988026080300208264002.jpg','https://picture1.goo-net.com/020/0208264/J/0208264A20260802D00201.jpg','https://picture1.goo-net.com/020/0208264/J/0208264A20260802D00202.jpg'] },
-    { id: 'g3', goonet_id: '1001974A30260726W001', stock_no: '1001974A30260726W001', make: 'Mazda', model: 'CX-30 20S L Package', year: 2021, km: '41,000', fuel: 'Petrol', body: 'SUV', price: '$14,100', price_jpy: 2070000, price_usd: 14100, grade: '4.0', status: 'New Arrival', location: 'Hiroshima', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Gray Metallic', st: 'RHD', photo_count: 24, quality_score: 74, available: true, promoted: 'none', vendor: 'Goo-net', imported_at: '2026-08-20T09:00:00Z', image: '/assets/inventory/700100197430260726001.jpg', images: ['/assets/inventory/700100197430260726001.jpg','https://picture1.goo-net.com/100/1001974/J/1001974A30260726W00101.jpg'] },
-    { id: 'g4', goonet_id: '0561037A30260717W002', stock_no: '0561037A30260717W002', make: 'Honda', model: 'Vezel Hybrid Z Honda Sensing', year: 2016, km: '46,353', fuel: 'Hybrid', body: 'SUV', price: '$21,100', price_jpy: 3100000, price_usd: 21100, grade: '4.5', status: 'New Arrival', location: 'Chiba', tr: 'AT', drv: '2WD', eng: '1,500cc', seats: 5, col: 'Pearl White', st: 'RHD', photo_count: 24, quality_score: 78, available: true, promoted: 'vehicles', vendor: 'Goo-net', imported_at: '2026-08-18T09:00:00Z', image: '/assets/inventory/700056103730260717002.jpg', images: ['/assets/inventory/700056103730260717002.jpg','https://picture1.goo-net.com/056/0561037/J/0561037A30260717W00201.jpg'] }
+    { id: 'g2', goonet_id: '0208264A20260802D002', stock_no: '0208264A20260802D002', make: 'Toyota', model: 'Harrier Z Leather Package', year: 2023, km: '14,000', fuel: 'Petrol', body: 'SUV', price: '$28,100', price_jpy: 4130000, price_usd: 28100, grade: '4.5', status: 'New Arrival', location: 'Gifu', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Silver Metallic', st: 'RHD', photo_count: 24, quality_score: 85, available: true, promoted: 'listings', vendor: 'Goo-net', imported_at: '2026-08-24T09:00:00Z', image: '/assets/inventory/988026080300208264002.webp', images: ['/assets/inventory/988026080300208264002.webp','https://picture1.goo-net.com/020/0208264/J/0208264A20260802D00201.webp','https://picture1.goo-net.com/020/0208264/J/0208264A20260802D00202.jpg'] },
+    { id: 'g3', goonet_id: '1001974A30260726W001', stock_no: '1001974A30260726W001', make: 'Mazda', model: 'CX-30 20S L Package', year: 2021, km: '41,000', fuel: 'Petrol', body: 'SUV', price: '$14,100', price_jpy: 2070000, price_usd: 14100, grade: '4.0', status: 'New Arrival', location: 'Hiroshima', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5, col: 'Gray Metallic', st: 'RHD', photo_count: 24, quality_score: 74, available: true, promoted: 'none', vendor: 'Goo-net', imported_at: '2026-08-20T09:00:00Z', image: '/assets/inventory/700100197430260726001.webp', images: ['/assets/inventory/700100197430260726001.webp','https://picture1.goo-net.com/100/1001974/J/1001974A30260726W00101.webp'] },
+    { id: 'g4', goonet_id: '0561037A30260717W002', stock_no: '0561037A30260717W002', make: 'Honda', model: 'Vezel Hybrid Z Honda Sensing', year: 2016, km: '46,353', fuel: 'Hybrid', body: 'SUV', price: '$21,100', price_jpy: 3100000, price_usd: 21100, grade: '4.5', status: 'New Arrival', location: 'Chiba', tr: 'AT', drv: '2WD', eng: '1,500cc', seats: 5, col: 'Pearl White', st: 'RHD', photo_count: 24, quality_score: 78, available: true, promoted: 'vehicles', vendor: 'Goo-net', imported_at: '2026-08-18T09:00:00Z', image: '/assets/inventory/700056103730260717002.webp', images: ['/assets/inventory/700056103730260717002.webp','https://picture1.goo-net.com/056/0561037/J/0561037A30260717W00201.webp'] }
   ],
   quotes: [
     { id: 'q1', quote_no: 'Q-2026-1042', customer_name: 'Ahmed Khan', vehicle: 'Toyota Land Cruiser ZX', amount: 62750, status: 'sent', valid_until: '2026-08-30', created_at: '2026-08-23T10:00:00Z' },
@@ -2284,7 +2284,7 @@ export function VehiclePhotoManager({ entity, row, onClose, onSave }) {
                     rows={3}
                     value={batchText}
                     onChange={e => setBatchText(e.target.value)}
-                    placeholder="/assets/gallery/lexus-lc-500-01.jpg&#10;/assets/gallery/lexus-lc-500-02.jpg&#10;/assets/gallery/lexus-lc-500-03.jpg"
+                    placeholder="/assets/gallery/lexus-lc-500-01.webp&#10;/assets/gallery/lexus-lc-500-02.webp&#10;/assets/gallery/lexus-lc-500-03.webp"
                   />
                 </label>
                 <div className="batch-actions">
