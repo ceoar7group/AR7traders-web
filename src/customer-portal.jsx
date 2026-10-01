@@ -8,52 +8,14 @@ import {MessageCircle, Mail, LockKeyhole, ArrowRight, Check, LogIn, UserPlus,
                 BadgeCheck, CarFront, Wallet, ArrowLeftRight, ShieldCheck, X,
         UserCog, KeyRound} from 'lucide-react';
 import {supabase, hasSupabase} from './supabase-client.js';
+import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
 import {useSettings, waLink} from './site-settings.js';
-import {WhatsAppIcon} from './brand-icons.jsx';
 import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
 import {linkClick} from './routing.js';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
 const nice  = s => s ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(s)) : '—';
 const title = s => (s||'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
-
-/* ------------------------------------------------------------------ */
-/*  Floating WhatsApp button — on every page, gently pulsing           */
-/* ------------------------------------------------------------------ */
-export function WhatsAppButton(){
- const s = useSettings();
- const [nudge,setNudge] = useState(false);
- useEffect(()=>{const t=setTimeout(()=>setNudge(true),2600);return()=>clearTimeout(t)},[]);
- if(!s.whatsapp_number) return null;
- return <a className={'wa-float'+(nudge?' nudge':'')}
-   href={waLink(s.whatsapp_number, s.whatsapp_message)}
-   target="_blank" rel="noopener noreferrer"
-   aria-label="Chat with AR7 Traders on WhatsApp">
-  <span className="wa-ring" aria-hidden="true"/>
-  <span className="wa-ring two" aria-hidden="true"/>
-  <WhatsAppIcon size={26}/>
-  <b>Chat on WhatsApp</b>
- </a>;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Session hook                                                       */
-/* ------------------------------------------------------------------ */
-export function useCustomerSession(){
- const [session,setSession] = useState(null);
- const [ready,setReady] = useState(!hasSupabase);
- const [recovery,setRecovery] = useState(false);
- useEffect(()=>{
-  if(!supabase){setReady(true);return}
-  supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});
-  const {data:{subscription}} = supabase.auth.onAuthStateChange((event,s)=>{
-    setSession(s);
-    if(event==='PASSWORD_RECOVERY') setRecovery(true);
-  });
-  return ()=>subscription.unsubscribe();
- },[]);
- return {session,ready,recovery,clearRecovery:()=>setRecovery(false)};
-}
 
 /* ------------------------------------------------------------------ */
 /*  The page                                                           */

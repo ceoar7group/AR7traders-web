@@ -18,7 +18,7 @@
 // ---------------------------------------------------------------------------
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Globe, Info, RotateCcw, Save, TrendingUp, X } from 'lucide-react';
-import { Flag } from './network.jsx';
+import { Flag } from './flag.jsx';
 import './currency.css';
 
 export const BASE_CURRENCY = 'USD';

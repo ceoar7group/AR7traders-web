@@ -5,10 +5,11 @@
 import './browser-stubs.mjs';           // must come first: main.jsx touches document at module scope
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import { goto } from './browser-stubs.mjs';
+import { goto, flushLazy } from './browser-stubs.mjs';
 import { App, CUSTOMER_REVIEWS } from '../src/main.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
 import { cars as CARS, stockLabel } from '../src/main.jsx';
+import { carRef } from '../src/routing.js';
 
 let pass = 0, fail = 0;
 // Write straight to the streams: console.error is stubbed below to catch React
@@ -23,10 +24,21 @@ const realError = console.error, realWarn = console.warn;
 console.error = (...a) => { warnings.push(String(a[0])); };
 console.warn = (...a) => { warnings.push(String(a[0])); };
 
-function renderPage(path) {
+async function renderPage(path) {
   goto(path);
+  // React.lazy only starts loading a boundary once it has been rendered, and
+  // renderToString cannot await. So: render once to prime every boundary this
+  // route uses, let the promises settle, then render again — the second pass
+  // emits the real page markup rather than the Suspense fallback.
+  renderToString(<CurrencyProvider><App /></CurrencyProvider>);
+  await flushLazy();
   return renderToString(<CurrencyProvider><App /></CurrencyProvider>);
 }
+
+// The route-level React.lazy boundaries are resolved once, up front: after
+// this every renderToString below sees the real page markup, not a fallback.
+(async () => {
+await flushLazy();
 
 // ---- every route renders ----------------------------------------------------
 const ROUTES = {
@@ -56,7 +68,7 @@ const ROUTES = {
 
 for (const [path, markers] of Object.entries(ROUTES)) {
   let html = '';
-  try { html = renderPage(path); }
+  try { html = await renderPage(path); }
   catch (err) { fail++; bad(`  ✗ ${path} threw: ${err.message}`); continue; }
   pass++; say(`  ✓ ${path} renders (${(html.length / 1024).toFixed(0)} KB of markup)`);
   for (const m of markers) ok(html.includes(m), `${path} contains "${m}"`);
@@ -67,24 +79,69 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   // A real stock number from the catalogue — vehicle pages are the SEO surface,
   // so a deep link must render the car, not the list.
   const stock = CARS[0].stock_no;
-  const detail = renderPage('/inventory/' + stock);
+  const detail = await renderPage('/inventory/' + stock);
   ok(detail.includes('detail-grid') && detail.includes('detail-gallery'),
     `a deep vehicle link (/inventory/${stock}) renders the detail view, not the list`);
   ok(!detail.includes('inv-toolbar'), 'the detail view replaces the inventory toolbar');
 }
 {
-  const bad = renderPage('/this-page-does-not-exist');
+  const bad = await renderPage('/this-page-does-not-exist');
   ok(bad.length > 1000, 'an unknown path still renders the shell instead of crashing');
 }
 {
   goto('/inventory?make=Honda');
+  await flushLazy();
   const html = renderToString(<CurrencyProvider><App /></CurrencyProvider>);
   ok(html.includes('Brands'), '?make= inventory renders the header with the Brands dropdown');
 }
 
+// ---- internal links into live stock -----------------------------------------
+// The guide, brand, tool and news pages used to end at a "talk to our team"
+// modal with no route through to an actual car, so whole sections of the site
+// had no link to the inventory detail pages a crawler has to reach. Every one
+// of them now carries a "related stock" block whose links point at cars from
+// the same `cars` array the /inventory grid renders — so the destination
+// always exists, and if there is no stock the block renders nothing.
+{
+  // carRef is what the detail page and the sitemap both use (stock number when
+  // present, otherwise the row id) — stockLabel is a human-facing caption.
+  const liveRefs = new Set(CARS.map(c => '/inventory/' + encodeURIComponent(carRef(c))));
+  const PAGES = [
+    ['/news', 'the news & guides index'],
+    ['/brands', 'the browse-by-brand page'],
+    ['/faq', 'the help centre'],
+    ['/services', 'the services page'],
+    ['/destinations', 'the destinations page'],
+    ['/howbuy', 'the how-it-works guide'],
+    ['/tools', 'the calculators page']
+  ];
+  for (const [route, label] of PAGES) {
+    const html = await renderPage(route);
+    const links = [...html.matchAll(/href="(\/inventory\/[^"]+)"/g)].map(m => m[1]);
+    ok(links.length > 0, `${label} links into live inventory (${links.length} link(s))`);
+    ok(links.some(l => liveRefs.has(l)),
+      `${label} links to a car that is actually in the inventory list`);
+    ok(links.every(l => !/goo-?net/i.test(l)), `${label} links stay on our own domain paths`);
+  }
+  // The links must be real <a href> values, not click-only handlers: a crawler
+  // (and a visitor who opens one in a new tab) needs the URL.
+  const news = await renderPage('/news');
+  ok((news.match(/href="\/inventory\/[^"]+"/g) || []).length >= 3,
+    'the news index carries several distinct stock links');
+
+  // And the pictures on those links must be described, not just "Honda Vezel"
+  // repeated down the page — a screen-reader user has to be able to tell two
+  // cards of the same model apart. See src/car-alt.js.
+  const alts = [...news.matchAll(/<img[^>]*alt="([^"]*)"/g)].map(m => m[1])
+    .filter(a => /\b(19|20)\d{2}\b/.test(a) || a.includes(' in '));
+  ok(alts.length >= 3,
+    `vehicle photos carry a descriptive alt with the year (${alts.length} found)`);
+  ok(alts.every(a => a.length > 10), 'every descriptive alt names more than just the make');
+}
+
 // ---- the header is present and consistent on every page ---------------------
 {
-  const home = renderPage('/');
+  const home = await renderPage('/');
   ok(home.includes('nav-drop-panel more-panel'), 'the More dropdown panel is in the markup');
   ok(home.includes('nav-drop-panel brands-panel'), 'the Brands dropdown panel is in the markup');
   ok(home.includes('nav-drop-panel inventory-panel'), 'the Inventory dropdown panel is in the markup');
@@ -118,7 +175,7 @@ function checkFounderStat(html, variant, where) {
     `${where}: the supporting line carries the owner-approved words with the key phrases highlighted`);
 }
 {
-  const home = renderPage('/');
+  const home = await renderPage('/');
   checkFounderStat(home, 'hero', 'home hero');
   checkFounderStat(home, 'world', 'world section');
   ok(!home.includes('Experience gained through various suppliers') && !home.includes('claim-note'),
@@ -132,18 +189,18 @@ function checkFounderStat(html, variant, where) {
   ok(home.includes('SAMPLE ROUTE'), 'the hero route card is visibly labelled SAMPLE');
 }
 {
-  const about = renderPage('/about');
+  const about = await renderPage('/about');
   checkFounderStat(about, 'about', 'about page');
   ok(!about.includes('Experience gained through various suppliers') && !about.includes('claim-note'),
     'the small-print qualifier line is gone from the about page (owner direction 2026-09-29)');
   ok(!about.includes('98%') && !about.includes('Countries served'), 'about page drops the unsupported 98% / countries-served stats');
 }
 {
-  const world = renderPage('/world');
+  const world = await renderPage('/world');
   ok(!world.includes('Markets served') && !world.includes('Vessels at sea'), 'world page drops invented market/fleet counts');
 }
 {
-  const reviews = renderPage('/reviews');
+  const reviews = await renderPage('/reviews');
   ok(reviews.includes('reviews-slider') && reviews.includes('reviews-slider-track'),
     'reviews page renders the interactive slide-animated review carousel');
   ok((reviews.match(/class="review-slide(\s|")/g) || []).length === CUSTOMER_REVIEWS.length && CUSTOMER_REVIEWS.length >= 10,
@@ -183,11 +240,11 @@ function checkFounderStat(html, variant, where) {
   ok(stockLabel({ id: 7, stock_no: 'AR7-26007' }) === 'Stock AR7-26007', 'stock number is used when present');
   ok(stockLabel({ id: 7, stock_no: 'AR7-26007', lot_no: '38214' }) === 'Lot 38214', 'a real lot number wins when the record has one');
   ok(stockLabel(null) === '', 'a missing car renders no label');
-  const home = renderPage('/');
+  const home = await renderPage('/');
   ok(!home.includes('LOT 51') && !home.includes('LOT 28149'), 'homepage dashboard shows no fabricated LOT numbers');
   ok(home.includes('Stock AR7-26'), 'homepage dashboard labels cars by stock reference');
   ok(home.includes('dash-demo-chip') && home.includes('DEMO'), 'homepage dashboard is visibly labelled as a demo');
-  const auction = renderPage('/auction');
+  const auction = await renderPage('/auction');
   ok(!auction.includes('LOT 3821'), 'auction preview shows no invented lot numbers');
   ok(auction.includes('Stock AR7-26'), 'auction preview labels cars by stock reference');
   ok(auction.includes('AUCTION LOTS \u00b7 SAMPLE'), 'auction preview panel is visibly labelled SAMPLE');
@@ -199,3 +256,4 @@ ok(real.length === 0, `React logged no warnings${real.length ? ': ' + real.slice
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+})();
