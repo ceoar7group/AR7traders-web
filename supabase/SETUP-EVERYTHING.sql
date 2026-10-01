@@ -164,48 +164,48 @@ alter table public.site_blocks   enable row level security;
 
 -- ============ website content: current live site data ============
 insert into public.site_listings (stock_no,make,model,year,km,fuel,body,price,image,grade,status,location,tr,drv,eng,seats,col,st,published,sort_order) values
-  ('AR7-26001','Rolls-Royce','Ghost',2023,'4,200','Petrol','Luxury','$189,000','/assets/lux/rolls-royce-ghost.jpg','5.0','In Stock','Yokohama','AT','AWD','6,750cc',5,'Two-tone','RHD',true,1),
-  ('AR7-26002','Rolls-Royce','Cullinan',2022,'9,800','Petrol','Luxury','$205,000','/assets/lux/rolls-royce-cullinan.jpg','5.0','In Stock','Tokyo','AT','AWD','6,750cc',5,'Purple','RHD',true,2),
-  ('AR7-26003','Bentley','Continental GT',2022,'7,600','Petrol','Luxury','$168,000','/assets/lux/bentley-continental-gt.jpg','5.0','Auction','USS Tokyo','DCT','AWD','6,000cc',4,'White','RHD',true,3),
-  ('AR7-26004','Mercedes-Benz','AMG GT 63',2021,'12,300','Petrol','Luxury','$142,000','/assets/lux/mercedes-amg-gt.jpg','4.5','In Stock','Osaka','DCT','AWD','4,000cc',4,'Silver','LHD',true,4),
-  ('AR7-26005','BMW','M8 Competition',2021,'15,200','Petrol','Luxury','$118,000','/assets/lux/bmw-m8-competition.jpg','4.5','New Arrival','Nagoya','DCT','AWD','4,400cc',4,'Black','RHD',true,5),
-  ('AR7-26006','Lamborghini','Huracan EVO',2020,'8,400','Petrol','Supercar','$245,000','/assets/lux/lamborghini-huracan.jpg','5.0','Auction','CAA Chubu','DCT','AWD','5,200cc',2,'Orange','RHD',true,6),
-  ('AR7-26007','Ferrari','F8 Tributo',2020,'6,900','Petrol','Supercar','$265,000','/assets/lux/ferrari-f8-tributo.jpg','5.0','In Stock','Yokohama','DCT','RWD','3,900cc',2,'Red','RHD',true,7),
-  ('AR7-26008','Bugatti','Chiron',2019,'2,100','Petrol','Hypercar','$2,850,000','/assets/lux/bugatti-chiron.jpg','5.0','Auction','USS Tokyo','DCT','AWD','8,000cc',2,'Blue','RHD',true,8),
-  ('AR7-26009','Porsche','911 Turbo S',2022,'5,300','Petrol','Supercar','$205,000','/assets/lux/porsche-911-turbo-s.jpg','5.0','In Stock','Kobe','DCT','AWD','3,800cc',4,'Silver','RHD',true,9),
-  ('AR7-26010','McLaren','720S',2021,'7,100','Petrol','Supercar','$235,000','/assets/lux/mclaren-720s.jpg','4.5','Auction','JU Aichi','DCT','RWD','4,000cc',2,'Orange','RHD',true,10),
+  ('AR7-26001','Rolls-Royce','Ghost',2023,'4,200','Petrol','Luxury','$189,000','/assets/lux/rolls-royce-ghost.webp','5.0','In Stock','Yokohama','AT','AWD','6,750cc',5,'Two-tone','RHD',true,1),
+  ('AR7-26002','Rolls-Royce','Cullinan',2022,'9,800','Petrol','Luxury','$205,000','/assets/lux/rolls-royce-cullinan.webp','5.0','In Stock','Tokyo','AT','AWD','6,750cc',5,'Purple','RHD',true,2),
+  ('AR7-26003','Bentley','Continental GT',2022,'7,600','Petrol','Luxury','$168,000','/assets/lux/bentley-continental-gt.webp','5.0','Auction','USS Tokyo','DCT','AWD','6,000cc',4,'White','RHD',true,3),
+  ('AR7-26004','Mercedes-Benz','AMG GT 63',2021,'12,300','Petrol','Luxury','$142,000','/assets/lux/mercedes-amg-gt.webp','4.5','In Stock','Osaka','DCT','AWD','4,000cc',4,'Silver','LHD',true,4),
+  ('AR7-26005','BMW','M8 Competition',2021,'15,200','Petrol','Luxury','$118,000','/assets/lux/bmw-m8-competition.webp','4.5','New Arrival','Nagoya','DCT','AWD','4,400cc',4,'Black','RHD',true,5),
+  ('AR7-26006','Lamborghini','Huracan EVO',2020,'8,400','Petrol','Supercar','$245,000','/assets/lux/lamborghini-huracan.webp','5.0','Auction','CAA Chubu','DCT','AWD','5,200cc',2,'Orange','RHD',true,6),
+  ('AR7-26007','Ferrari','F8 Tributo',2020,'6,900','Petrol','Supercar','$265,000','/assets/lux/ferrari-f8-tributo.webp','5.0','In Stock','Yokohama','DCT','RWD','3,900cc',2,'Red','RHD',true,7),
+  ('AR7-26008','Bugatti','Chiron',2019,'2,100','Petrol','Hypercar','$2,850,000','/assets/lux/bugatti-chiron.webp','5.0','Auction','USS Tokyo','DCT','AWD','8,000cc',2,'Blue','RHD',true,8),
+  ('AR7-26009','Porsche','911 Turbo S',2022,'5,300','Petrol','Supercar','$205,000','/assets/lux/porsche-911-turbo-s.webp','5.0','In Stock','Kobe','DCT','AWD','3,800cc',4,'Silver','RHD',true,9),
+  ('AR7-26010','McLaren','720S',2021,'7,100','Petrol','Supercar','$235,000','/assets/lux/mclaren-720s.webp','4.5','Auction','JU Aichi','DCT','RWD','4,000cc',2,'Orange','RHD',true,10),
   ('AR7-26011','Audi','R8 V10',2021,'9,300','Petrol','Supercar','$155,000','/assets/gallery/audi-r8-v10-01.webp','4.5','New Arrival','Tokyo','DCT','AWD','5,200cc',2,'Ascari Blue Metallic','RHD',true,11),
-  ('AR7-26012','Lexus','LC 500',2021,'11,200','Petrol','Luxury','$95,000','/assets/gallery/lexus-lc-500-01.jpg','4.5','In Stock','Yokohama','AT','RWD','5,000cc',4,'Champagne Metallic','LHD',true,12),
+  ('AR7-26012','Lexus','LC 500',2021,'11,200','Petrol','Luxury','$95,000','/assets/gallery/lexus-lc-500-01.webp','4.5','In Stock','Yokohama','AT','RWD','5,000cc',4,'Champagne Metallic','LHD',true,12),
   ('AR7-26013','Toyota','Land Cruiser ZX',2022,'18,400','Petrol','SUV','$58,900','/assets/used-japanese-cars-auction-export-toyota-3.jpg','4.5','In Stock','Yokohama','AT','4WD','3,500cc',7,'White','RHD',true,13),
-  ('AR7-26014','Toyota','Alphard S C Package',2021,'32,100','Hybrid','MPV','$36,800','/assets/used-japanese-cars-auction-export-toyota-2.jpg','4.5','Auction','USS Tokyo','AT','2WD','2,500cc',7,'Black','RHD',true,14),
-  ('AR7-26015','Toyota','Vellfire ZG Edition',2020,'41,700','Petrol','MPV','$29,600','/assets/used-japanese-cars-auction-export-toyota-4.jpg','4.0','In Stock','Nagoya','AT','2WD','2,500cc',7,'Pearl White','RHD',true,15),
-  ('AR7-26016','Toyota','Noah S-Z',2026,'110','Hybrid','MPV','$32,400','/assets/used-japanese-cars-auction-export-toyota-1.jpg','S','New Arrival','Kobe','CVT','2WD','1,800cc',7,'White','RHD',true,16),
-  ('AR7-26017','Nissan','Note e-Power X',2023,'12,800','Hybrid','Hatchback','$14,900','/assets/used-japanese-cars-auction-export-toyota-5.jpg','5.0','Auction','CAA Chubu','AT','2WD','1,200cc',5,'Silver','RHD',true,17),
-  ('AR7-26018','Toyota','Land Cruiser Prado TX',2020,'48,600','Diesel','SUV','$38,200','/assets/japan-used-car-export-inventory-toyota-h-1.jpg','4.0','In Stock','Osaka','AT','4WD','2,800cc',7,'White','RHD',true,18),
-  ('AR7-26019','Toyota','Prado L Package',2017,'67,900','Diesel','SUV','$31,500','/assets/japan-used-car-export-inventory-toyota-h-2.jpg','4.0','Auction','JU Aichi','AT','4WD','2,800cc',7,'Gray','RHD',true,19),
-  ('AR7-26020','Toyota','Harrier Z Leather',2020,'29,300','Hybrid','SUV','$27,800','/assets/japan-used-car-export-inventory-toyota-h-3.jpg','4.5','New Arrival','Tokyo','CVT','2WD','2,500cc',5,'Gray','RHD',true,20),
-  ('AR7-26021','Toyota','Harrier Premium',2019,'36,200','Petrol','SUV','$24,600','/assets/japan-used-car-export-inventory-toyota-h-4.jpg','4.5','In Stock','Kobe','CVT','2WD','2,000cc',5,'Pearl White','RHD',true,21),
-  ('AR7-26022','Lexus','RX 450h F Sport',2021,'22,700','Hybrid','SUV','$43,900','/assets/japan-used-car-export-inventory-toyota-h-5.jpg','5.0','Auction','USS Tokyo','AT','4WD','3,500cc',5,'Black','RHD',true,22),
-  ('AR7-26023','Nissan','Serena Highway Star',2022,'24,800','Hybrid','MPV','$22,800','/assets/japan-used-car-export-stock-honda-vezel--1.jpg','4.5','New Arrival','Nagoya','CVT','2WD','2,000cc',8,'White','RHD',true,23),
-  ('AR7-26024','Toyota','Vitz F Safety Edition',2019,'39,100','Petrol','Hatchback','$9,850','/assets/japan-used-car-export-stock-honda-vezel--2.jpg','4.0','In Stock','Yokohama','CVT','2WD','1,300cc',5,'Red','RHD',true,24),
-  ('AR7-26025','Toyota','Vitz Jewela',2018,'44,300','Petrol','Hatchback','$8,900','/assets/japan-used-car-export-stock-honda-vezel--3.jpg','4.0','Auction','CAA Chubu','CVT','2WD','1,300cc',5,'Blue','RHD',true,25),
-  ('AR7-26026','Honda','Vezel e:HEV Z',2023,'11,600','Hybrid','SUV','$25,700','/assets/japan-used-car-export-stock-honda-vezel--4.jpg','5.0','In Stock','Kobe','CVT','2WD','1,500cc',5,'White','RHD',true,26),
-  ('AR7-26027','Honda','Vezel RS Sensing',2021,'26,900','Hybrid','SUV','$21,400','/assets/japan-used-car-export-stock-honda-vezel--5.jpg','4.5','Auction','USS Tokyo','CVT','2WD','1,500cc',5,'Blue','RHD',true,27),
-  ('AR7-26028','Toyota','Aqua S',2021,'15,800','Hybrid','Hatchback','$12,400','/assets/used-japanese-cars-auction-export-toyota-5.jpg','5.0','In Stock','Yokohama','CVT','2WD','1,500cc',5,'Green','RHD',true,28),
-  ('AR7-26029','Nissan','X-Trail 20X',2020,'33,500','Hybrid','SUV','$18,900','/assets/japan-used-car-export-stock-honda-vezel--1.jpg','4.5','In Stock','Nagoya','CVT','4WD','2,000cc',5,'Silver','RHD',true,29),
-  ('AR7-26030','Honda','Fit e:HEV NESS',2022,'9,800','Hybrid','Hatchback','$13,700','/assets/japan-used-car-export-stock-honda-vezel--2.jpg','5.0','New Arrival','Tokyo','CVT','2WD','1,500cc',5,'Yellow','RHD',true,30),
-  ('AR7-26031','Suzuki','Swift Sport',2019,'28,700','Petrol','Hatchback','$11,900','/assets/japan-used-car-export-stock-honda-vezel--3.jpg','4.0','Auction','JU Aichi','MT','2WD','1,400cc',5,'Red','RHD',true,31),
-  ('AR7-26032','Mazda','CX-5 XD L Package',2021,'21,400','Diesel','SUV','$22,900','/assets/japan-used-car-export-stock-honda-vezel--4.jpg','4.5','In Stock','Kobe','AT','4WD','2,200cc',5,'Gray','RHD',true,32),
-  ('AR7-26033','Mitsubishi','Outlander PHEV',2021,'19,200','Hybrid','SUV','$26,900','/assets/japan-used-car-export-stock-honda-vezel--5.jpg','4.5','Auction','USS Tokyo','AT','4WD','2,400cc',5,'White','RHD',true,33),
-  ('AR7-26034','Subaru','Forester X-EDITION',2020,'31,900','Petrol','SUV','$17,900','/assets/japan-used-car-export-inventory-toyota-h-1.jpg','4.5','In Stock','Osaka','CVT','4WD','2,000cc',5,'Blue','RHD',true,34),
-  ('AR7-26035','Daihatsu','Move Canbus X',2021,'12,400','Petrol','Kei','$7,200','/assets/japan-used-car-export-stock-honda-vezel--2.jpg','5.0','New Arrival','Kobe','CVT','2WD','660cc',4,'Pink','RHD',true,35),
-  ('AR7-26036','Toyota','Hiace Van 2.7 DX',2019,'52,300','Petrol','Van','$18,900','/assets/japan-used-car-export-inventory-toyota-h-3.jpg','4.0','In Stock','Yokohama','AT','2WD','2,700cc',3,'White','RHD',true,36),
-  ('AR7-26037','Honda','Stepwgn Air EX',2021,'24,700','Hybrid','MPV','$25,900','/assets/used-japanese-cars-auction-export-toyota-1.jpg','4.5','Auction','CAA Chubu','CVT','2WD','2,000cc',8,'White','RHD',true,37),
-  ('AR7-26038','Mercedes-Benz','C200 Avantgarde',2019,'36,100','Petrol','Sedan','$26,200','/assets/japan-used-car-export-inventory-toyota-h-4.jpg','4.5','In Stock','Tokyo','AT','2WD','1,500cc',5,'Black','LHD',true,38),
-  ('AR7-26039','BMW','320i M Sport',2018,'41,800','Petrol','Sedan','$19,800','/assets/japan-used-car-export-inventory-toyota-h-5.jpg','4.0','Auction','USS Tokyo','AT','2WD','2,000cc',5,'Blue','LHD',true,39),
-  ('AR7-26040','Audi','A4 2.0 TFSI S line',2019,'33,200','Petrol','Sedan','$21,800','/assets/japan-used-car-export-inventory-toyota-h-2.jpg','4.5','In Stock','Osaka','AT','4WD','2,000cc',5,'White','LHD',true,40),
-  ('AR7-26041','Toyota','Voxy Hybrid ZS',2021,'21,900','Hybrid','MPV','$24,400','/assets/used-japanese-cars-auction-export-toyota-4.jpg','4.5','New Arrival','Nagoya','CVT','2WD','1,800cc',7,'White','RHD',true,41),
-  ('AR7-26042','Nissan','Juke 15RX',2020,'26,800','Petrol','SUV','$12,900','/assets/japan-used-car-export-stock-honda-vezel--5.jpg','4.5','In Stock','Yokohama','CVT','2WD','1,500cc',5,'Silver','RHD',true,42)
+  ('AR7-26014','Toyota','Alphard S C Package',2021,'32,100','Hybrid','MPV','$36,800','/assets/used-japanese-cars-auction-export-toyota-2.webp','4.5','Auction','USS Tokyo','AT','2WD','2,500cc',7,'Black','RHD',true,14),
+  ('AR7-26015','Toyota','Vellfire ZG Edition',2020,'41,700','Petrol','MPV','$29,600','/assets/used-japanese-cars-auction-export-toyota-4.webp','4.0','In Stock','Nagoya','AT','2WD','2,500cc',7,'Pearl White','RHD',true,15),
+  ('AR7-26016','Toyota','Noah S-Z',2026,'110','Hybrid','MPV','$32,400','/assets/used-japanese-cars-auction-export-toyota-1.webp','S','New Arrival','Kobe','CVT','2WD','1,800cc',7,'White','RHD',true,16),
+  ('AR7-26017','Nissan','Note e-Power X',2023,'12,800','Hybrid','Hatchback','$14,900','/assets/used-japanese-cars-auction-export-toyota-5.webp','5.0','Auction','CAA Chubu','AT','2WD','1,200cc',5,'Silver','RHD',true,17),
+  ('AR7-26018','Toyota','Land Cruiser Prado TX',2020,'48,600','Diesel','SUV','$38,200','/assets/japan-used-car-export-inventory-toyota-h-1.webp','4.0','In Stock','Osaka','AT','4WD','2,800cc',7,'White','RHD',true,18),
+  ('AR7-26019','Toyota','Prado L Package',2017,'67,900','Diesel','SUV','$31,500','/assets/japan-used-car-export-inventory-toyota-h-2.webp','4.0','Auction','JU Aichi','AT','4WD','2,800cc',7,'Gray','RHD',true,19),
+  ('AR7-26020','Toyota','Harrier Z Leather',2020,'29,300','Hybrid','SUV','$27,800','/assets/japan-used-car-export-inventory-toyota-h-3.webp','4.5','New Arrival','Tokyo','CVT','2WD','2,500cc',5,'Gray','RHD',true,20),
+  ('AR7-26021','Toyota','Harrier Premium',2019,'36,200','Petrol','SUV','$24,600','/assets/japan-used-car-export-inventory-toyota-h-4.webp','4.5','In Stock','Kobe','CVT','2WD','2,000cc',5,'Pearl White','RHD',true,21),
+  ('AR7-26022','Lexus','RX 450h F Sport',2021,'22,700','Hybrid','SUV','$43,900','/assets/japan-used-car-export-inventory-toyota-h-5.webp','5.0','Auction','USS Tokyo','AT','4WD','3,500cc',5,'Black','RHD',true,22),
+  ('AR7-26023','Nissan','Serena Highway Star',2022,'24,800','Hybrid','MPV','$22,800','/assets/japan-used-car-export-stock-honda-vezel--1.webp','4.5','New Arrival','Nagoya','CVT','2WD','2,000cc',8,'White','RHD',true,23),
+  ('AR7-26024','Toyota','Vitz F Safety Edition',2019,'39,100','Petrol','Hatchback','$9,850','/assets/japan-used-car-export-stock-honda-vezel--2.webp','4.0','In Stock','Yokohama','CVT','2WD','1,300cc',5,'Red','RHD',true,24),
+  ('AR7-26025','Toyota','Vitz Jewela',2018,'44,300','Petrol','Hatchback','$8,900','/assets/japan-used-car-export-stock-honda-vezel--3.webp','4.0','Auction','CAA Chubu','CVT','2WD','1,300cc',5,'Blue','RHD',true,25),
+  ('AR7-26026','Honda','Vezel e:HEV Z',2023,'11,600','Hybrid','SUV','$25,700','/assets/japan-used-car-export-stock-honda-vezel--4.webp','5.0','In Stock','Kobe','CVT','2WD','1,500cc',5,'White','RHD',true,26),
+  ('AR7-26027','Honda','Vezel RS Sensing',2021,'26,900','Hybrid','SUV','$21,400','/assets/japan-used-car-export-stock-honda-vezel--5.webp','4.5','Auction','USS Tokyo','CVT','2WD','1,500cc',5,'Blue','RHD',true,27),
+  ('AR7-26028','Toyota','Aqua S',2021,'15,800','Hybrid','Hatchback','$12,400','/assets/used-japanese-cars-auction-export-toyota-5.webp','5.0','In Stock','Yokohama','CVT','2WD','1,500cc',5,'Green','RHD',true,28),
+  ('AR7-26029','Nissan','X-Trail 20X',2020,'33,500','Hybrid','SUV','$18,900','/assets/japan-used-car-export-stock-honda-vezel--1.webp','4.5','In Stock','Nagoya','CVT','4WD','2,000cc',5,'Silver','RHD',true,29),
+  ('AR7-26030','Honda','Fit e:HEV NESS',2022,'9,800','Hybrid','Hatchback','$13,700','/assets/japan-used-car-export-stock-honda-vezel--2.webp','5.0','New Arrival','Tokyo','CVT','2WD','1,500cc',5,'Yellow','RHD',true,30),
+  ('AR7-26031','Suzuki','Swift Sport',2019,'28,700','Petrol','Hatchback','$11,900','/assets/japan-used-car-export-stock-honda-vezel--3.webp','4.0','Auction','JU Aichi','MT','2WD','1,400cc',5,'Red','RHD',true,31),
+  ('AR7-26032','Mazda','CX-5 XD L Package',2021,'21,400','Diesel','SUV','$22,900','/assets/japan-used-car-export-stock-honda-vezel--4.webp','4.5','In Stock','Kobe','AT','4WD','2,200cc',5,'Gray','RHD',true,32),
+  ('AR7-26033','Mitsubishi','Outlander PHEV',2021,'19,200','Hybrid','SUV','$26,900','/assets/japan-used-car-export-stock-honda-vezel--5.webp','4.5','Auction','USS Tokyo','AT','4WD','2,400cc',5,'White','RHD',true,33),
+  ('AR7-26034','Subaru','Forester X-EDITION',2020,'31,900','Petrol','SUV','$17,900','/assets/japan-used-car-export-inventory-toyota-h-1.webp','4.5','In Stock','Osaka','CVT','4WD','2,000cc',5,'Blue','RHD',true,34),
+  ('AR7-26035','Daihatsu','Move Canbus X',2021,'12,400','Petrol','Kei','$7,200','/assets/japan-used-car-export-stock-honda-vezel--2.webp','5.0','New Arrival','Kobe','CVT','2WD','660cc',4,'Pink','RHD',true,35),
+  ('AR7-26036','Toyota','Hiace Van 2.7 DX',2019,'52,300','Petrol','Van','$18,900','/assets/japan-used-car-export-inventory-toyota-h-3.webp','4.0','In Stock','Yokohama','AT','2WD','2,700cc',3,'White','RHD',true,36),
+  ('AR7-26037','Honda','Stepwgn Air EX',2021,'24,700','Hybrid','MPV','$25,900','/assets/used-japanese-cars-auction-export-toyota-1.webp','4.5','Auction','CAA Chubu','CVT','2WD','2,000cc',8,'White','RHD',true,37),
+  ('AR7-26038','Mercedes-Benz','C200 Avantgarde',2019,'36,100','Petrol','Sedan','$26,200','/assets/japan-used-car-export-inventory-toyota-h-4.webp','4.5','In Stock','Tokyo','AT','2WD','1,500cc',5,'Black','LHD',true,38),
+  ('AR7-26039','BMW','320i M Sport',2018,'41,800','Petrol','Sedan','$19,800','/assets/japan-used-car-export-inventory-toyota-h-5.webp','4.0','Auction','USS Tokyo','AT','2WD','2,000cc',5,'Blue','LHD',true,39),
+  ('AR7-26040','Audi','A4 2.0 TFSI S line',2019,'33,200','Petrol','Sedan','$21,800','/assets/japan-used-car-export-inventory-toyota-h-2.webp','4.5','In Stock','Osaka','AT','4WD','2,000cc',5,'White','LHD',true,40),
+  ('AR7-26041','Toyota','Voxy Hybrid ZS',2021,'21,900','Hybrid','MPV','$24,400','/assets/used-japanese-cars-auction-export-toyota-4.webp','4.5','New Arrival','Nagoya','CVT','2WD','1,800cc',7,'White','RHD',true,41),
+  ('AR7-26042','Nissan','Juke 15RX',2020,'26,800','Petrol','SUV','$12,900','/assets/japan-used-car-export-stock-honda-vezel--5.webp','4.5','In Stock','Yokohama','CVT','2WD','1,500cc',5,'Silver','RHD',true,42)
 on conflict (stock_no) do nothing;
 
 insert into public.site_routes (country,port,transit,popular,freight_base,duty_pct,lon,lat,show_on_map,published,sort_order) values
@@ -220,12 +220,12 @@ insert into public.site_routes (country,port,transit,popular,freight_base,duty_p
 on conflict (country) do nothing;
 
 insert into public.site_articles (title,category,date,read_min,image,excerpt,body,published,sort_order) values
-  ('Why Land Cruiser demand keeps climbing in Pakistan','MARKET WATCH','Aug 18, 2026',4,'/assets/japanese-car-auction-inspection-shipping-3.jpg','Auction prices, popular grades and what a realistic budget looks like this quarter.','KARACHI — Demand for the Land Cruiser family continues to outpace supply at Japanese auction houses. Grade 4.5 and above units are being bid out within the first two minutes of USS Tokyo sessions, and clean 2020–2022 examples are holding value exceptionally well.
+  ('Why Land Cruiser demand keeps climbing in Pakistan','MARKET WATCH','Aug 18, 2026',4,'/assets/japanese-car-auction-inspection-shipping-3.webp','Auction prices, popular grades and what a realistic budget looks like this quarter.','KARACHI — Demand for the Land Cruiser family continues to outpace supply at Japanese auction houses. Grade 4.5 and above units are being bid out within the first two minutes of USS Tokyo sessions, and clean 2020–2022 examples are holding value exceptionally well.
 
 For buyers, our advice: set your maximum bid before the session, avoid pre-bid locking on high-demand lots, and ask our team to pull the auction sheet translation before you commit.
 
 AR7 clients in Pakistan imported over 60 Land Cruisers and Prados in the last 12 months, with 92% arriving within the quoted vessel window.',true,1),
-  ('Auction sheet decoded: what R, A and 4.5 really mean','BUYING GUIDE','Aug 11, 2026',5,'/assets/japanese-car-auction-inspection-shipping-1.jpg','Every mark on a Japanese auction sheet explained simply — so you bid with confidence.','A Japanese auction sheet is a condition report written in a shorthand of its own. Grades run from S (near-new) down through 4.5, 4.0, 3.5. Subjective marks like A (minor wear), B (scratches) and the dreaded R (repair history) appear next to each panel.
+  ('Auction sheet decoded: what R, A and 4.5 really mean','BUYING GUIDE','Aug 11, 2026',5,'/assets/japanese-car-auction-inspection-shipping-1.webp','Every mark on a Japanese auction sheet explained simply — so you bid with confidence.','A Japanese auction sheet is a condition report written in a shorthand of its own. Grades run from S (near-new) down through 4.5, 4.0, 3.5. Subjective marks like A (minor wear), B (scratches) and the dreaded R (repair history) appear next to each panel.
 
 AR7 translates every sheet into plain English and flags anything our inspection team wants verified by photo before you bid.
 
@@ -235,7 +235,7 @@ Rule of thumb: for export, aim for grade 4.0+, no R marks on structure, and alwa
 We recommend RoRo for standard stock under $45,000 and containers for premium, low-mileage or modified vehicles.
 
 Every AR7 shipment includes marine insurance at 1.6% of vehicle value, whether RoRo or container.',true,3),
-  ('How online bidding works with AR7','AUCTION','Jul 28, 2026',4,'/assets/japanese-car-auction-inspection-shipping-2.jpg','Deposits, bid limits, translations and the exact flow from your screen to the auction floor.','1) Fund a returnable bidding deposit (demo: $500). 2) Browse lots with our team, pick your target and set a hard maximum. 3) We bid live at the auction house on your behalf — you watch status in the portal. 4) Win or lose, you see the result within minutes.
+  ('How online bidding works with AR7','AUCTION','Jul 28, 2026',4,'/assets/japanese-car-auction-inspection-shipping-2.webp','Deposits, bid limits, translations and the exact flow from your screen to the auction floor.','1) Fund a returnable bidding deposit (demo: $500). 2) Browse lots with our team, pick your target and set a hard maximum. 3) We bid live at the auction house on your behalf — you watch status in the portal. 4) Win or lose, you see the result within minutes.
 
 After a win, we issue an invoice, arrange payment, inspect and photograph the vehicle, then book your vessel.
 

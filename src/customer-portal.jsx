@@ -72,7 +72,7 @@ function AccountGate({navigate}){
  const s=useSettings();
  return <section className="account-page">
   <div className="account-visual">
-   <img loading="lazy" decoding="async" src="/assets/japanese-car-auction-inspection-shipping-1.jpg" alt="AR7 vehicle inspection in Japan"/>
+   <img loading="lazy" decoding="async" src="/assets/japanese-car-auction-inspection-shipping-1.webp" alt="AR7 vehicle inspection in Japan"/>
    <div className="account-overlay">
     <img src="/assets/ar7-mark.png" alt="AR7 Traders"/>
     <div>

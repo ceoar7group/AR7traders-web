@@ -96,7 +96,7 @@ ok(jsonld('faq-jsonld') === null, 'FAQPage JSON-LD is removed when leaving /faq'
 const car43 = {
   id: 43, make: 'Toyota', model: 'Harrier S', year: 2023,
   km: '24,204', fuel: 'Petrol', tr: 'AT', eng: '2,000cc', seats: 5,
-  price: '$21,000', image: '/assets/inventory/700071023230260801001.jpg'
+  price: '$21,000', image: '/assets/inventory/700071023230260801001.webp'
 };
 applySeo('inventory', '43', car43);
 ok(document.title.includes('2023 Toyota Harrier S'), 'vehicle title names the car');
@@ -120,7 +120,7 @@ ok(v?.vehicleEngine?.engineDisplacement?.value === 2000, 'engine displacement is
 ok(v?.offers?.price === '21000' && v.offers.priceCurrency === 'USD', 'offer price is numeric USD for a $ string');
 ok(v?.offers?.availability === 'https://schema.org/InStock', 'in-stock status maps to InStock');
 ok(v?.offers?.url === 'https://ar7traders.com/inventory/43', 'offer points at the vehicle URL');
-ok(v?.image === 'https://ar7traders.com/assets/inventory/700071023230260801001.jpg', 'image is made absolute');
+ok(v?.image === 'https://ar7traders.com/assets/inventory/700071023230260801001.webp', 'image is made absolute');
 bc = jsonld('breadcrumb-jsonld');
 ok(bc?.itemListElement[1]?.name === '2023 Toyota Harrier S', 'breadcrumb names the car on the detail page');
 
@@ -244,7 +244,7 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
 // ---- vehicle pages: og:image = the car's own photo --------------------------
 {
   applySeo('inventory', '43', car43);
-  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/inventory/700071023230260801001.jpg',
+  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/inventory/700071023230260801001.webp',
     'vehicle og:image is the car photo (absolute URL)');
   ok(meta('meta[name="twitter:image"]') === meta('meta[property="og:image"]'),
     'vehicle twitter:image is synced with the car photo');

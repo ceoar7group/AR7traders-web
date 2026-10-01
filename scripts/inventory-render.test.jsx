@@ -22,9 +22,9 @@ const ok = (cond, msg) => { if (!cond) { failed++; console.error('FAIL:', msg); 
 const STATUS = ['available', 'reserved', 'sold', 'in_preparation', 'in_transit', 'auction_watch'];
 const vehicles = [
   { id: 'v1', stock_no: 'AR7-1', make: 'Audi', model: 'R8 V10', year: 2021, price: 155000, status: 'available', image: '/assets/gallery/audi-r8-v10-01.webp', images: ['/assets/gallery/audi-r8-v10-01.webp', '/assets/gallery/audi-r8-v10-02.webp'] },
-  { id: 'v2', stock_no: 'AR7-2', make: 'Lexus', model: 'LC 500', year: 2021, price: 95000, status: 'reserved', image: '/assets/gallery/lexus-lc-500-01.jpg' },
+  { id: 'v2', stock_no: 'AR7-2', make: 'Lexus', model: 'LC 500', year: 2021, price: 95000, status: 'reserved', image: '/assets/gallery/lexus-lc-500-01.webp' },
   { id: 'v3', stock_no: 'AR7-3', make: 'Toyota', model: 'Land Cruiser ZX', year: 2022, price: 58900, status: 'in_transit' }, // no photos at all
-  { id: 'v4', stock_no: 'AR7-4', make: 'Rolls-Royce', model: 'Ghost', year: 2023, price: 189000, status: 'available', images: ['/assets/lux/rolls-royce-ghost.jpg'] }
+  { id: 'v4', stock_no: 'AR7-4', make: 'Rolls-Royce', model: 'Ghost', year: 2023, price: 189000, status: 'available', images: ['/assets/lux/rolls-royce-ghost.webp'] }
 ];
 const noop = () => {};
 const props = {
