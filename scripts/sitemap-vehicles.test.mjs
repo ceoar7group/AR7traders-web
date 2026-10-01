@@ -272,6 +272,9 @@ const DEALER_SEED = [
   const xml = buildXml(SEED);
   ok(locs(xml).length === 3, 'buildXml still lists only site_listings rows');
   ok(!locs(xml).some(l => l.includes('9001')), 'buildXml does not read dealer stock itself');
+  const { hrefFor } = await import('../src/sitemap-helpers.js');
+  ok(hrefFor('news', 'how-online-bidding-works-with-ar7') === '/news/how-online-bidding-works-with-ar7',
+    'sitemap-helpers hrefFor builds /news/<slug> paths');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

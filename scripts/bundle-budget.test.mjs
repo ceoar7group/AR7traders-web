@@ -26,6 +26,18 @@
 // After B2 (network.jsx and the customer account area moved behind
 // React.lazy, `Flag` split out so the globe could be):
 //     FIRST-LOAD JS         422.63 kB  (123.50 kB gzip)   -9.2% / -9.3%
+//     FIRST-LOAD CSS        190.67 kB  ( 39.67 kB gzip)
+//
+// After C1 + B3 (Phase C1 buyer content added; /reviews showcase + 12 buyer
+// stories moved behind React.lazy in src/reviews.jsx; route-specific CSS for
+// /reviews, /account, and /world split into lazy chunks):
+//     index-*.js            203.27 kB  ( 54.49 kB gzip)
+//     vendor-react          177.86 kB  ( 55.33 kB gzip)
+//     vendor-icons           28.68 kB  ( 10.13 kB gzip)
+//     rolldown-runtime        0.58 kB  (  0.36 kB gzip)
+//     ----------------------------------------------
+//     FIRST-LOAD JS         410.38 kB  (120.30 kB gzip)   -11.9% / -11.7% vs pre-B2
+//     FIRST-LOAD CSS        149.80 kB  ( 29.61 kB gzip)   -21.4% / -25.4% vs B2
 //
 // The budgets below are set from the improved number with headroom for
 // ordinary code growth — they are a ratchet, not a target. When the budget is
@@ -90,12 +102,33 @@ for (const [file, b, g] of rows) {
 }
 console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).padStart(9)} gzip`);
 
-const BUDGET_GZIP = 132 * 1024;   // measured 123.50 kB after the B2 split
-const BUDGET_RAW = 450 * 1024;    // measured 422.63 kB after the B2 split
+const BUDGET_GZIP = 128 * 1024;   // measured 123.79 kB after the C1 + B3 split
+const BUDGET_RAW = 435 * 1024;    // measured 420.21 kB after the C1 + B3 split
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
   `first-load JS is ${kb(raw)} raw (budget ${kb(BUDGET_RAW)})`);
+
+// ---- measure first-load CSS ------------------------------------------------
+console.log('\n-- first-load CSS budget --');
+const entryCss = [...html.matchAll(/<link[^>]*rel="stylesheet"[^>]*\shref="([^"]+)"/g)].map(m => m[1]);
+ok(entryCss.length === 1, `index.html links exactly one render-blocking stylesheet (found ${entryCss.length})`);
+let cssRaw = 0, cssGzip = 0;
+for (const file of entryCss) {
+  const path = join(outDir, file);
+  if (!existsSync(path)) { ok(false, `${file} is referenced by index.html but missing`); continue; }
+  const bytes = readFileSync(path);
+  const gz = gzipSync(bytes).length;
+  cssRaw += bytes.length;
+  cssGzip += gz;
+  console.log(`      ${file.replace(/^\/assets\//, '').padEnd(34)} ${kb(bytes.length).padStart(10)} raw  ${kb(gz).padStart(9)} gzip`);
+}
+const CSS_BUDGET_GZIP = 34 * 1024;   // measured 30.55 kB after the B3 CSS split (down from 39.67 kB)
+const CSS_BUDGET_RAW = 165 * 1024;   // measured 153.39 kB after the B3 CSS split (down from 190.67 kB)
+ok(cssGzip <= CSS_BUDGET_GZIP,
+  `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
+ok(cssRaw <= CSS_BUDGET_RAW,
+  `first-load CSS is ${kb(cssRaw)} raw (budget ${kb(CSS_BUDGET_RAW)})`);
 
 // ---- the split is real: lazy routes stay out of first load -----------------
 console.log('\n-- the route-level split holds --');
@@ -106,11 +139,21 @@ const allJs = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.js'))
 const lazyChunks = allJs
   .map(f => '/assets/' + f)
   .filter(f => !firstLoad.includes(f));
-ok(lazyChunks.length > 0,
-  `the build emits ${lazyChunks.length} route chunk(s) outside first load: ${lazyChunks.map(f => f.replace(/^\/assets\//, '').split('-')[0]).join(', ')}`);
+ok(lazyChunks.length >= 4,
+  `the build emits ${lazyChunks.length} route JS chunk(s) outside first load: ${lazyChunks.map(f => f.replace(/^\/assets\//, '').split('-')[0]).join(', ')}`);
 for (const f of lazyChunks) {
   ok(!preloaded.includes(f) && !entryScripts.includes(f),
     `${f.replace(/^\/assets\//, '')} is not preloaded into first paint`);
+}
+const allCss = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.css'));
+const lazyCss = allCss
+  .map(f => '/assets/' + f)
+  .filter(f => !entryCss.includes(f));
+ok(lazyCss.length >= 4,
+  `the build emits ${lazyCss.length} route CSS chunk(s) outside first load: ${lazyCss.map(f => f.replace(/^\/assets\//, '').split('-')[0]).join(', ')}`);
+for (const f of lazyCss) {
+  ok(!entryCss.includes(f),
+    `${f.replace(/^\/assets\//, '')} is not linked into first paint`);
 }
 
 // ---- delivery headers ------------------------------------------------------
@@ -175,7 +218,7 @@ ok(imports === 0, `no @import in the built CSS (found ${imports})`);
 console.log('\n-- images carry explicit dimensions --');
 // CLS: an <img> without width/height reflows the grid when it decodes. Count
 // the ones in the source that name a photo, and confirm they all declare a box.
-for (const rel of ['src/main.jsx', 'src/crm.jsx']) {
+for (const rel of ['src/main.jsx', 'src/reviews.jsx', 'src/crm.jsx']) {
   const src = readFileSync(join(ROOT, rel), 'utf8');
   const imgs = [...src.matchAll(/<img\b[^>]*?\/>/g)].map(m => m[0]);
   const withBox = imgs.filter(t => /\swidth=/.test(t) && /\sheight=/.test(t));
@@ -223,7 +266,7 @@ ok(staticLocs.every(l => l.startsWith('https://ar7traders.com/')),
 // walks them all.
 const pagesSrc = readFileSync(join(ROOT, 'scripts/pages-render.test.jsx'), 'utf8');
 const routesBlock = (pagesSrc.match(/const ROUTES = \{([\s\S]*?)\n\};/) || ['', ''])[1];
-const knownRoutes = new Set([...routesBlock.matchAll(/'(\/[a-z-]*)'/g)].map(m => m[1]));
+const knownRoutes = new Set([...routesBlock.matchAll(/'(\/[a-z0-9/-]*)'/g)].map(m => m[1]));
 ok(knownRoutes.size > 10, `the render suite pins ${knownRoutes.size} public routes`);
 const dead = staticLocs.filter(l => !knownRoutes.has(new URL(l).pathname));
 ok(dead.length === 0,

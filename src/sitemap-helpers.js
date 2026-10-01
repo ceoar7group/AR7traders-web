@@ -17,6 +17,8 @@ export function carRef(c) {
 
 export function hrefFor(page, carId) {
   if (!page || page === 'home') return '/';
-  if (page === 'inventory' && carId) return '/inventory/' + encodeURIComponent(String(carId));
+  if ((page === 'inventory' || page === 'news') && carId) {
+    return '/' + page + '/' + encodeURIComponent(String(carId));
+  }
   return '/' + page;
 }

@@ -78,7 +78,7 @@ function parseHash(hash) {
   const hashParams = new URLSearchParams(hashQuery);
   const page = hashParts[0] || null;
   const carId = carFrom(
-    page === 'inventory' ? hashParts[1] : null,
+    (page === 'inventory' || page === 'news') ? hashParts[1] : null,
     hashParams.get('car'),
     hashParams.get('id')
   );
@@ -135,7 +135,11 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
 
   // A brand link is an explicit "show me this list" — never let the
   // last-open-vehicle restore hijack it into a detail page.
-  if (!carId && !make && (restoreOnReload || isReload()) && (page === 'inventory' || page === 'home' || !page)) {
+  // Only restore on an explicit boot-time reload check (`restoreOnReload`),
+  // never during in-app navigation, popstate, or link href generation
+  // (because `performance.getEntriesByType('navigation')[0].type === 'reload'`
+  // stays true for the entire lifetime of a reloaded tab).
+  if (!carId && !make && restoreOnReload && (page === 'inventory' || page === 'home' || !page)) {
     const saved = readLastVehicle();
     if (saved) {
       page = 'inventory';
@@ -167,7 +171,9 @@ export function parseNavTarget(target) {
 /** Hash form that never contains `?`, so a refresh cannot strip the car. */
 export function hashFor(page, carId) {
   if (!page || page === 'home') return '';
-  if (page === 'inventory' && carId) return '#/inventory/' + encodeURIComponent(String(carId));
+  if ((page === 'inventory' || page === 'news') && carId) {
+    return '#/' + page + '/' + encodeURIComponent(String(carId));
+  }
   return '#/' + page;
 }
 

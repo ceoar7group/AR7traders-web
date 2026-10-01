@@ -17,7 +17,8 @@ const dom = new JSDOM(
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 
-const { applySeo, PAGE_SEO, FAQ_ITEMS } = await import('../src/seo.js');
+const { applySeo, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS } = await import('../src/seo.js');
+const { NEWS, articleSlug } = await import('../src/news-data.js');
 
 let failed = 0;
 const ok = (cond, msg) => { if (!cond) { failed++; console.error('FAIL:', msg); } else console.log('ok  :', msg); };
@@ -88,9 +89,33 @@ ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7tr
 applySeo('faq', null);
 let faq = jsonld('faq-jsonld');
 ok(faq?.['@type'] === 'FAQPage', 'FAQPage JSON-LD is injected on /faq');
+ok(FAQ_ITEMS.length === 14 && FAQ_ITEMS.every(x => x.length === 3 && FAQ_TOPICS.includes(x[2])),
+  'FAQ_ITEMS has 14 entries, each with a valid topic in FAQ_TOPICS');
 ok(Array.isArray(faq?.mainEntity) && faq.mainEntity.length === FAQ_ITEMS.length, 'FAQ markup covers the rendered questions');
+ok(faq.mainEntity.every(q => Object.keys(q).length === 3 && Object.keys(q.acceptedAnswer).length === 2 && !('topic' in q)),
+  'FAQPage JSON-LD destructures only [q, a] and never leaks the topic tuple element');
 applySeo('contact', null);
 ok(jsonld('faq-jsonld') === null, 'FAQPage JSON-LD is removed when leaving /faq');
+
+// ---- per-guide SEO at /news/<slug> and noindex on unknown slugs -----------
+for (const a of NEWS) {
+  const slug = articleSlug(a);
+  applySeo('news', slug);
+  ok(document.title === `${a.title} | AR7 Traders`, `/news/${slug} gets its own title`);
+  ok(meta('meta[name="description"]') === a.ex, `/news/${slug} gets its own description`);
+  ok(document.head.querySelector('link[rel="canonical"]')?.href === `https://ar7traders.com/news/${slug}`,
+    `/news/${slug} canonical points at the guide URL`);
+  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com' + a.img,
+    `/news/${slug} og:image uses the guide image`);
+  ok(meta('meta[name="robots"]')?.startsWith('index,follow'), `/news/${slug} is indexable`);
+  bc = jsonld('breadcrumb-jsonld');
+  ok(bc?.itemListElement.length === 3 && bc.itemListElement[2].name === a.title,
+    `/news/${slug} breadcrumb is Home → News & Guides → ${a.title}`);
+}
+applySeo('news', 'unknown-guide-slug');
+ok(meta('meta[name="robots"]') === 'noindex,nofollow', 'unknown /news/<slug> is noindex,nofollow');
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/news',
+  'unknown /news/<slug> canonical falls back to /news');
 
 // ---- vehicle detail page with car data ------------------------------------
 const car43 = {
@@ -188,8 +213,12 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
 {
   const xml = readFileSync(path.join(dir, '..', 'public', 'sitemap.xml'), 'utf8');
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  ok(locs.length === 16, `sitemap lists 16 URLs (found ${locs.length})`);
+  ok(locs.length === 20, `sitemap lists 20 URLs (found ${locs.length})`);
   ok(locs.includes('https://ar7traders.com/shipping'), 'sitemap includes /shipping');
+  for (const a of NEWS) {
+    const u = `https://ar7traders.com/news/${articleSlug(a)}`;
+    ok(locs.includes(u), `sitemap includes guide URL ${u}`);
+  }
   for (const staff of ['/crm', '/account', '/portal', '/studio']) {
     ok(!locs.some(l => l.includes(staff)), `sitemap has no staff route ${staff}`);
   }

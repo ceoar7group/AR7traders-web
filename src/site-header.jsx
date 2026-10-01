@@ -33,22 +33,34 @@ export const logoOnError = (e) => {
 export function NavDropdown({label, panel, className, routeKey, children}) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const close = () => {
+    setOpen(false);
+    if (
+      typeof document !== 'undefined' &&
+      ref.current &&
+      document.activeElement &&
+      ref.current.contains(document.activeElement) &&
+      typeof document.activeElement.blur === 'function'
+    ) {
+      document.activeElement.blur();
+    }
+  };
   useEffect(() => {
     if (!open) return;
     const onDown = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = e => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
     document.addEventListener('pointerdown', onDown);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey); };
   }, [open]);
   // Any navigation closes the panel — including a click on the page we are
   // already on, where the route itself would not change.
-  useEffect(() => { setOpen(false); }, [routeKey]);
+  useEffect(() => { close(); }, [routeKey]);
   return <div className={'nav-drop ' + (className || '') + (open ? ' open' : '')} ref={ref}>
     <button className="nav-drop-btn" type="button" aria-expanded={open} aria-haspopup="true"
       onClick={e => { e.preventDefault(); setOpen(v => !v); }}>{label} <ChevronDown className="more-chev"/></button>
     <div className={'nav-drop-panel ' + (panel || '')} role="menu">
-      {typeof children === 'function' ? children(() => setOpen(false)) : children}
+      {typeof children === 'function' ? children(close) : children}
     </div>
   </div>;
 }
@@ -82,20 +94,21 @@ export function SiteHeader({
   menu = false, setMenu = () => {}, dark = false, setDark = () => {},
   signedIn = false, navigate = () => {}, logoFor = () => '', ribbon = null, orb = null
 }) {
+  const routeKey = [page, vehicleId || '', makeFilter || ''].join('/');
   return <header className="nav-wrap">{ribbon}<nav className="nav shell">
     <div className="brand-group">
       <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div className={'navlinks ' + (menu ? 'open' : '')}>
-      <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={page + '/' + (makeFilter || '')} label="Inventory">
+      <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={routeKey} label="Inventory">
         {close => INVENTORY_LINKS.map(x => {
           const I = x[0];
           return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
         })}
       </NavDropdown>
       <a className={page === 'auction' ? ' current' : ''} href="/auction" onClick={linkClick('auction', navigate)}>Auction access</a>
-      <NavDropdown className="nav-brands" panel="brands-panel" routeKey={page + '/' + (makeFilter || '')} label="Brands">
+      <NavDropdown className="nav-brands" panel="brands-panel" routeKey={routeKey} label="Brands">
         {close => <>
           <div className="brands-panel-head"><b>Brands in inventory</b><span>{brands.length} makes · {vehicleCount} vehicles live</span></div>
           <div className="brands-grid">{brands.map(b => <a key={b.name} className={makeFilter === b.name ? ' current' : ''} href={inventoryHref(b.name)} onClick={e => { close(); linkClick(inventoryHref(b.name), navigate)(e); }}><img loading="lazy" decoding="async" width="30" height="19" src={logoFor(b.name)} alt="" onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></a>)}</div>
@@ -105,7 +118,7 @@ export function SiteHeader({
           </div>
         </>}
       </NavDropdown>
-      <NavDropdown className="nav-more" panel="more-panel" routeKey={page} label="More">
+      <NavDropdown className="nav-more" panel="more-panel" routeKey={routeKey} label="More">
         {close => MORE_LINKS.map(x => {
           const I = x[0];
           return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;

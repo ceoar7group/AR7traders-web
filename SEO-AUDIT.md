@@ -39,13 +39,14 @@ with live network access) to confirm after deploy.
 | C3 | Vehicle JSON-LD honest: availability (sold/auction/reserved), price/currency (¥→JPY etc., offers omitted when no price), image omitted when absent | ✅ Repo | seo-render suite incl. demo units. |
 | C4 | Missing vehicle → `noindex,nofollow` + "no longer listed" metadata | ✅ Repo | seo-render suite. |
 | C5 | Staff routes `/crm /account /portal /studio` + legacy `#crm` → `noindex,nofollow` | ✅ Repo | seo-render suite (kept from #38/#39). |
-| C6 | FAQPage JSON-LD scoped to `/faq` only (removed from static `@graph`) | ✅ Repo | `index.html` + seo-render suite. |
+| C6 | FAQPage JSON-LD scoped to `/faq` only (removed from static `@graph`); `FAQ_ITEMS` expanded 6 → 14 answers with a 3rd topic element (`FAQ_TOPICS`), grouped by topic on `/faq`; FAQPage JSON-LD destructures only `[q, a]` | ✅ Repo | `index.html`, `src/seo.js`, `src/main.jsx` + seo-render & pages suites. |
 | C7 | Breadcrumbs + vehicle OG tags, canonical real-path | ✅ Repo | seo-render suite. |
-| C8 | Sitemap 16 URLs, all routes exist, no staff URLs, `/shipping` priority 0.7 | ✅ Repo | seo-render suite. |
+| C8 | Sitemap 20 URLs (16 landing pages + 4 `/news/<slug>` guides), all routes exist, no staff URLs, `/shipping` priority 0.7 | ✅ Repo | `public/sitemap.xml` + seo-render & bundle-budget suites. |
 | C9 | Static shell (index.html) carries semantic initial HTML + build marker `ar7-2026-09-28-seo` | ✅ Repo | seo-render suite. |
 | C10 | Per-page `og:image` (+ `og:image:width/height`, `og:image:alt`, `twitter:image`) for all 16 public routes — 4-image set under `public/assets/og/` (1200×630 crops of real site photography); static shell keeps the default image with its dimensions corrected to the actual 1240×800 asset | ✅ Repo (owner-approved 2026-09-28) | seo-render suite: per-route mapping, absolute URLs, declared dimensions asserted against the actual JPEG headers. |
 | C11 | Vehicle pages: `og:image`/`twitter:image` = the car's own photo via `imageFor(car.image)` (absolute), default image when absent/loading/missing, no fabricated dimensions on listing photos | ✅ Repo | seo-render suite. |
-| C12 | Dynamic vehicle sitemap `/api/sitemap-vehicles.xml`: published `site_listings` only, sold/private/delisted excluded, `carRef`-based URLs, XML-escaped, `<lastmod>` only for real `updated_at`, `public, max-age=120, s-maxage=600`, honest 503 on failure (never 200 + malformed XML); `robots.txt` gained a second Sitemap line; static 16-URL `sitemap.xml` unchanged and still authoritative for landing pages. `japan_dealer_stock` deliberately excluded — no public AR7 detail pages (decision recorded in `SEO-SUBMIT.md` §4). **Deploy note (2026-09-29):** the logic lives inside `api/site-content.js` (dispatched on `?sitemap=vehicles` via a `vercel.json` rewrite) because Vercel Hobby's 12-Serverless-Functions-per-deployment cap made a standalone 13th function break every deploy — production stayed on the PR #40 build until this was fixed | ✅ Repo (owner-approved 2026-09-28; deploy fixed 2026-09-29, verified serving 25 vehicle URLs on the preview deployment) | `test:sitemap-vehicles`, 28 passed / 0 failed (injected fake-db pattern). |
+| C12 | Dynamic vehicle sitemap `/api/sitemap-vehicles.xml`: published `site_listings` only, sold/private/delisted excluded, `carRef`-based URLs, XML-escaped, `<lastmod>` only for real `updated_at`, `public, max-age=120, s-maxage=600`, honest 503 on failure (never 200 + malformed XML); `robots.txt` gained a second Sitemap line; static `sitemap.xml` still authoritative for landing pages. `japan_dealer_stock` also included where live/unpromoted. **Deploy note (2026-09-29):** the logic lives inside `api/site-content.js` (dispatched on `?sitemap=vehicles` via a `vercel.json` rewrite) because Vercel Hobby's 12-Serverless-Functions-per-deployment cap made a standalone 13th function break every deploy — production stayed on the PR #40 build until this was fixed | ✅ Repo (owner-approved 2026-09-28; deploy fixed 2026-09-29, verified serving 25 vehicle URLs on the preview deployment) | `test:sitemap-vehicles`, 28 passed / 0 failed (injected fake-db pattern). |
+| C13 | Phase C1 buyer content (2026-10-01): `BuyerGuide` on `/inventory/<stock>` (5 steps, FOB/CIF plain-language note, per-vehicle `hasAuctionSheet()` condition wording, explicit customs authority duty note with no rate quoted, links to `/howbuy`, `/faq`, `/shipping`); `src/destinations.js` market guides on `/destinations` switched via `useRef` + `scrollIntoView` (transit labelled planning figure, no duty rates); addressable guides at `/news/<slug>` (`src/news-data.js` `articleSlug()` whole-word ≤90 chars, per-guide SEO + `noindex` on unknown slugs, `<a href>` cards + topic filter); `HOWBUY` exported with 4th element per step and step 05 reworded | ✅ Repo | `test:news`, `test:pages`, `test:seo`, `test:routing`, `test:sitemap-vehicles`. |
 
 ## D. Settings API security — repo (commit `1b1d649`)
 
@@ -74,15 +75,17 @@ with live network access) to confirm after deploy.
 | Suite | Result |
 |-------|--------|
 | `test:routing` | ALL PASS |
+| `test:news` (new Phase C1) | ALL PASS |
 | `test:contacts` | ALL PASS |
 | `test:header` | ALL PASS |
-| `test:pages` | 86 passed, 0 failed (79 before this session's same-block claim assertions) |
+| `test:pages` | 179 passed, 0 failed |
 | `test:currency` | ALL PASS |
 | `test:inventory` | ALL PASS |
-| `test:client` | 63 passed, 0 failed |
-| `test:seo` (= `test:seo-render`, `scripts/seo-render.test.mjs`) | ALL PASS |
+| `test:client` | 87 passed, 0 failed |
+| `test:seo` (= `test:seo-render`, `scripts/seo-render.test.mjs`) | 109 passed, 0 failed |
 | `test:settings` (28) | 28 passed, 0 failed |
 | `test:sitemap-vehicles` (new this session) | 28 passed, 0 failed |
+| `test:bundle` (Phase B2 + B3 first-load JS & CSS budget) | 51 passed, 0 failed (first-load JS 410.38 kB raw / 120.30 kB gzip; first-load CSS 149.80 kB raw / 29.61 kB gzip; `/reviews`, `/account`, `/world`, `/crm` JS + CSS lazy-loaded) |
 | `test:goonet` (core+seed+sync) | 158 + 54 + 41, all passed |
 | `npm run build` / `npm run build:crm` | ✓ both |
 
