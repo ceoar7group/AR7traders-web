@@ -15,7 +15,8 @@ import {requirePerm} from './_perm.js';
 import {GOONET_COLUMNS} from './_columns.js';
 import {
   delistCar as coreDelist,
-  promoteToListings, promoteToInventory
+  promoteToListings, promoteToInventory,
+  promotesToListings, promotesToInventory
 } from './goonet-sync.js';
 // The import assistant runs on the SAME serverless function as the rest of the
 // Japan dealer stock API (Vercel Hobby caps the deployment at 12 functions), and
@@ -266,12 +267,27 @@ export default async function handler(req, res, injected = {}) {
     const auth = await admin(req, injected);
     const actor = auth.profile.full_name || auth.user.email;
 
-    // POST action routes (promote / delist / reset_bookmark) — separate from plain CRUD.
-    if (req.method === 'POST' && req.body?.action) {
+    // POST action routes (promote / delist / reset_bookmark / the import
+    // assistant) — separate from plain CRUD.
+    //
+    // The action may arrive in the QUERY STRING or in the body, and both are
+    // read here on purpose. The CRM calls `POST /api/goonet-stock?action=promote`
+    // with a plain `{id, target}` body, the import assistant calls
+    // `?action=preview_import`, while the scripts and tests post the action in
+    // the body. Reading only `req.body.action` meant every CRM button — the
+    // Inventory and Website buttons, Delist, Reset bookmark and the whole
+    // import assistant — skipped this block and fell through to the CRUD
+    // insert below, which tried to insert an empty row and answered with a raw
+    // "null value in column \"goonet_id\" of relation \"japan_dealer_stock\"
+    // violates not-null constraint". That is the error the owner saw while
+    // adding an imported car to inventory: nothing was ever copied, so the CRM
+    // had no car to show as added either.
+    const action = String(req.body?.action || req.query?.action || '');
+    if (req.method === 'POST' && action) {
       // Reset the crawler bookmark back to page 1 so the next import run
       // re-crawls from the beginning. No car id is involved here, so it is
       // handled before the id check below.
-      if (req.body.action === 'reset_bookmark') {
+      if (action === 'reset_bookmark') {
         await db.from('site_settings').upsert(
           { key: 'goonet_bookmark_page', value: '1', updated_at: new Date().toISOString() },
           { onConflict: 'key' }
@@ -286,7 +302,7 @@ export default async function handler(req, res, injected = {}) {
       // Nothing is written here. The preview is derived entirely server-side
       // from the source URLs, and the same inspection runs again on import —
       // a client-submitted preview is never trusted.
-      if (req.body.action === 'preview_import') {
+      if (action === 'preview_import') {
         const { preview, rejectedInputs, settings } = await runAssistant(db, req.body);
         return send(res, 200, {
           ok: true, preview, rejected: rejectedInputs,
@@ -303,7 +319,7 @@ export default async function handler(req, res, injected = {}) {
       // quality gate are re-applied against live data before anything is
       // inserted, and the car lands in Japan dealer stock unpromoted — the
       // explicit Publish/Promote action is what puts it on the website.
-      if (req.body.action === 'import_urls') {
+      if (action === 'import_urls') {
         const { preview, rejectedInputs } = await runAssistant(db, req.body);
         const results = [];
         for (const item of preview) {
@@ -355,26 +371,61 @@ export default async function handler(req, res, injected = {}) {
       const { data: row, error: readErr } = await db.from('japan_dealer_stock').select('*').eq('id', id).single();
       if (readErr || !row) return send(res, 404, { error: 'Car not found' });
 
-      if (req.body.action === 'promote') {
+      if (action === 'promote') {
         const target = req.body.target; // 'listings' | 'vehicles' | 'both'
         if (!['listings', 'vehicles', 'both'].includes(target)) return send(res, 400, { error: 'target must be listings, vehicles or both' });
-        if (target === 'listings' || target === 'both') await promoteToListings(db, row, actor);
-        if (target === 'vehicles' || target === 'both') await promoteToInventory(db, row, actor);
-        return send(res, 200, { ok: true, message: `Moved ${row.make} ${row.model} to ${target}` });
+        // A promotion copies the dealer row into site_listings and/or the CRM
+        // vehicles table and only then flags the dealer row. The helpers verify
+        // every write and throw a reason, so this route can never answer
+        // "moved" for a copy that did not land — and it tells the CRM when the
+        // car was already in the destination, so the screen can say "already
+        // added" instead of offering to add it again.
+        const results = {};
+        if (target === 'listings' || target === 'both') results.listings = await promoteToListings(db, row, actor);
+        if (target === 'vehicles' || target === 'both') results.vehicles = await promoteToInventory(db, row, actor);
+        const promoted = results.vehicles?.promoted || results.listings?.promoted || row.promoted || 'none';
+        const label = `${row.make || ''} ${row.model || ''}`.trim() || (row.stock_no || row.goonet_id || 'Car');
+        const parts = [];
+        if (results.listings) parts.push(results.listings.already
+          ? 'is already on the website (listing refreshed)'
+          : 'is now published on the website');
+        if (results.vehicles) parts.push(results.vehicles.already
+          ? 'is already in CRM inventory (details refreshed)'
+          : 'is now in CRM inventory');
+        return send(res, 200, {
+          ok: true, promoted, results,
+          state: {
+            // 'both' means both places — read the flag with the shared
+            // helpers, never with includes() ('both'.includes('listings') is
+            // false, which is how a car in both places looked like neither).
+            on_website: promotesToListings({ promoted }),
+            in_inventory: promotesToInventory({ promoted }),
+            already_in_inventory: !!results.vehicles?.already,
+            already_on_website: !!results.listings?.already
+          },
+          message: `${label} ${parts.join(' and ')}`
+        });
       }
-      if (req.body.action === 'delist') {
+      if (action === 'delist') {
+        // `available` is the state the caller wants to END UP in: true = put it
+        // back on the website, false/absent = hide it. The CRM now sends the
+        // right one for the button that was pressed (Re-list used to send
+        // false and so hid a car the user was trying to restore).
         if (req.body.available === true) {
-          await db.from('japan_dealer_stock')
+          const { error } = await db.from('japan_dealer_stock')
             .update({ available: true, delisted_at: null, updated_at: new Date().toISOString() })
             .eq('id', row.id);
-          await db.from('activities').insert({
-            action: `Re-listed ${row.make} ${row.model} (${row.stock_no}) on the website`,
-            actor, entity_type: 'japan_dealer_stock', entity_id: row.id
-          });
-          return send(res, 200, { ok: true, message: 'Car re-listed' });
+          if (error) return send(res, 500, { error: 'Could not re-list the car — ' + error.message });
+          try {
+            await db.from('activities').insert({
+              action: `Re-listed ${row.make} ${row.model} (${row.stock_no}) on the website`,
+              actor, entity_type: 'japan_dealer_stock', entity_id: row.id
+            });
+          } catch (e) { console.error('activity log failed', e.message); }
+          return send(res, 200, { ok: true, available: true, message: 'Car re-listed' });
         }
         await coreDelist(db, row, actor);
-        return send(res, 200, { ok: true, message: 'Car delisted' });
+        return send(res, 200, { ok: true, available: false, message: 'Car delisted' });
       }
       return send(res, 400, { error: 'Unknown action' });
     }
@@ -383,6 +434,11 @@ export default async function handler(req, res, injected = {}) {
       const { data, error } = await db.from('japan_dealer_stock').select('*')
         .order('imported_at', { ascending: false }).limit(1000);
       if (error) return send(res, 500, { error: error.message });
+      // The signed-in CRM view: every row, including delisted ones (that is
+      // what makes Re-list possible), and never cached — the public branch
+      // below is CDN/browser cacheable for minutes, which used to leave the
+      // CRM showing a stale "not promoted yet" state right after an action.
+      res.setHeader('Cache-Control', 'no-store');
       return send(res, 200, data || []);
     }
 

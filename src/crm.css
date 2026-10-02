@@ -40,6 +40,11 @@ html[data-crm-theme="emerald"] .crm-shell,
   --crm-danger: #ff8a8a;
   --crm-danger-bg: #ff6b6b22;
   --crm-danger-border: #ff6b6b88;
+  /* "Already added" (Japan dealer stock → Inventory / Website). Also defined
+     for all three themes, so the confirmation reads the same everywhere. */
+  --crm-ok: #7ee2b0;
+  --crm-ok-bg: #1c7a4a33;
+  --crm-ok-border: #3fae7a88;
 }
 
 /* Obsidian Carbon Dark Theme */
@@ -69,6 +74,9 @@ html[data-crm-theme="dark"] .crm-shell {
   --crm-danger: #ff8a8a;
   --crm-danger-bg: #ff6b6b22;
   --crm-danger-border: #ff6b6b88;
+  --crm-ok: #7ee2b0;
+  --crm-ok-bg: #1c7a4a33;
+  --crm-ok-border: #3fae7a88;
 }
 
 /* Porcelain Executive Light Theme */
@@ -98,6 +106,9 @@ html[data-crm-theme="light"] .crm-shell {
   --crm-danger: #b3261e;
   --crm-danger-bg: #fdecea;
   --crm-danger-border: #e8b4b0;
+  --crm-ok: #10704a;
+  --crm-ok-bg: #e7f6ee;
+  --crm-ok-border: #bfe4cf;
 }
 
 /* --- Shell Layout --- */
@@ -3067,6 +3078,10 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-goonet .goonet-actions button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--crm-border);background:var(--crm-panel-sub);color:var(--crm-ink);border-radius:9px;padding:6px 9px;font-size:10px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
 .crm-goonet .goonet-actions button:hover{background:var(--crm-panel-hover);color:var(--crm-ink)}
 .crm-goonet .goonet-actions .crm-del:hover{background:var(--crm-danger-bg);border-color:var(--crm-danger-border);color:var(--crm-danger)}
+/* "Already added": a car that is on the website / in the inventory keeps its
+   place in the row as a quiet confirmation instead of an action that would
+   copy it a second time. */
+.crm-goonet .goonet-actions button.is-added,.crm-goonet .goonet-actions button.is-added:disabled{background:var(--crm-ok-bg);border-color:var(--crm-ok-border);color:var(--crm-ok);cursor:default;opacity:1}
 .crm-goonet tr.row-muted{opacity:.55}
 .crm-score{position:relative;display:inline-block;min-width:64px;height:16px;border-radius:8px;background:var(--crm-border-subtle);overflow:hidden;vertical-align:middle}
 .crm-score b{position:absolute;inset:0;display:grid;place-items:center;font:800 9px/1 Manrope,sans-serif;color:var(--crm-ink);z-index:1}

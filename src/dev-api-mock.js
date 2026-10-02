@@ -71,13 +71,18 @@ export function devApiMock() {
     configureServer(server) {
       server.middlewares.use('/api/goonet-stock', (req, res, next) => {
         res.setHeader('Content-Type', 'application/json');
-        const action = new URL(req.url, 'http://localhost').searchParams.get('action');
-        if (req.method === 'POST' && (action === 'preview_import' || action === 'import_urls')) {
+        const actionFromQuery = new URL(req.url, 'http://localhost').searchParams.get('action');
+        if (req.method === 'POST' && (actionFromQuery === 'preview_import' || actionFromQuery === 'import_urls')) {
           let raw = '';
           req.on('data', c => { raw += c; });
           req.on('end', () => {
-            try { currentAssistantBody = JSON.parse(raw || '{}'); } catch { currentAssistantBody = {}; }
-            res.end(JSON.stringify(devAssistant(action)));
+            let body = {};
+            try { body = JSON.parse(raw || '{}'); } catch { body = {}; }
+            currentAssistantBody = body;
+            // The real function reads the action from the query string OR the
+            // body — the CRM sends both. Mirror that here so the local preview
+            // cannot drift from production again.
+            res.end(JSON.stringify(devAssistant(body.action || actionFromQuery)));
           });
           return;
         }
