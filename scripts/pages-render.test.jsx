@@ -4,7 +4,8 @@
 // renderToString — this catches render-time crashes and missing markup.
 import './browser-stubs.mjs';           // must come first: main.jsx touches document at module scope
 import React from 'react';
-import { renderToString } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
+import { renderToString, renderToStaticMarkup } from 'react-dom/server';
 import { goto, flushLazy } from './browser-stubs.mjs';
 import { App, HOWBUY, DEST, NEWS } from '../src/main.jsx';
 import { CUSTOMER_REVIEWS } from '../src/reviews.jsx';
@@ -13,6 +14,8 @@ import { cars as CARS, stockLabel } from '../src/main.jsx';
 import { carRef } from '../src/routing.js';
 import { FAQ_ITEMS, FAQ_TOPICS } from '../src/seo.js';
 import { articleSlug } from '../src/news-data.js';
+import { VehicleActions, vehicleName, vehicleWhatsAppMessage, vehicleWhatsAppHref } from '../src/vehicle-actions.jsx';
+import { waLink, waDigits, FALLBACK } from '../src/site-settings.js';
 
 let pass = 0, fail = 0;
 // Write straight to the streams: console.error is stubbed below to catch React
@@ -139,6 +142,114 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const relatedText = related.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
   ok(related.includes('href="/inventory?make=Rolls-Royce"') && relatedText.includes('Browse all Rolls-Royce stock'),
     'related stock links to all Rolls-Royce inventory');
+}
+{
+  // ---- vehicle detail action stack: Enquire now + WhatsApp + Chat Now + Save / Copy link ----
+  // Server markup only. That Chat Now really opens the widget, and that Save,
+  // Copy link and Enquire now still work, is proven in client-mount.test.jsx.
+  const car = CARS[0];
+  const ref = car.stock_no || ('AR7-' + (26000 + car.id));          // same rule as stockNo() in main.jsx
+  const detail = await renderPage('/inventory/' + car.stock_no);
+  const from = detail.indexOf('<div class="detail-actions"');
+  const to = detail.indexOf('<div class="sheet-box"', from);
+  const stackHtml = from >= 0 ? detail.slice(from, to > from ? to : undefined) : '';
+  const unescapeHtml = s => s.replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const textOf = html => unescapeHtml(html.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+  const attrsOf = tag => Object.fromEntries([...tag.replace(/^<\w+/, '').matchAll(/\s([\w:-]+)(?:="([^"]*)")?/g)]
+    .map(m => [m[1], unescapeHtml(m[2] ?? '')]));
+  const controls = [...stackHtml.matchAll(/<(button|a)\b[^>]*>[\s\S]*?<\/\1>/g)].map(m => m[0]);
+  const labels = controls.map(textOf);
+  const tagOf = html => (html.match(/^<[^>]+>/) || [''])[0];
+
+  const group = attrsOf(tagOf(stackHtml));
+  ok(group.role === 'group' && group['aria-label'] === `Actions for the ${vehicleName(car)}`,
+    `the vehicle page renders its actions as a labelled group naming the car ("${group['aria-label']}")`);
+  ok(labels.join(' | ') === 'Enquire now | WhatsApp | Chat Now | Save | Copy link',
+    `the stack reads Enquire now, WhatsApp, Chat Now, Save, Copy link (${labels.join(' | ')})`);
+
+  const enquire = controls[0] || '';
+  ok(enquire.startsWith('<button') && attrsOf(tagOf(enquire)).class === 'primary' && (stackHtml.match(/class="primary"/g) || []).length === 1,
+    'Enquire now is still the single solid .primary button — the dominant action');
+
+  const waHtml = controls.find(c => c.includes('detail-cta--wa')) || '';
+  const wa = attrsOf(tagOf(waHtml));
+  const waText = (() => { try { return new URL(wa.href).searchParams.get('text'); } catch { return null; } })();
+  ok(waHtml.startsWith('<a') && wa.target === '_blank' && wa.rel === 'noopener noreferrer',
+    'WhatsApp is a link that opens a new tab with rel="noopener noreferrer"');
+  ok(wa.href === waLink(FALLBACK.whatsapp_number, vehicleWhatsAppMessage(car, ref)),
+    'the WhatsApp href is built by waLink() from the configured settings — no hardcoded contact');
+  ok(wa.href.startsWith('https://wa.me/' + waDigits(FALLBACK.whatsapp_number) + '?text='),
+    'the WhatsApp link targets wa.me/<configured number> with a prefilled text');
+  ok(waText === vehicleWhatsAppMessage(car, ref) && waText.includes(ref) && waText.includes(`${car.make} ${car.model}`),
+    `the prefilled message names the vehicle and its stock reference ("${waText}")`);
+  ok(waText.length <= 140 && !/%|\$\s?\d|guarantee|best price|cheapest|verified/i.test(waText),
+    'the prefilled message is concise and makes no claims (CLAIMS-POLICY.md)');
+  ok(wa['aria-label'] === `WhatsApp AR7 Traders about the ${vehicleName(car)} (opens in a new tab)`,
+    'the WhatsApp accessible name identifies the car and says it opens in a new tab');
+
+  const chatHtml = controls.find(c => c.includes('detail-cta--chat')) || '';
+  const chat = attrsOf(tagOf(chatHtml));
+  ok(chatHtml.startsWith('<button') && chat.type === 'button' && !('href' in chat),
+    'Chat Now is a real <button type="button">, not a link dressed up as one');
+  ok(chat['aria-label'] === 'Chat Now with the AR7 assistant' && chat['aria-haspopup'] === 'dialog',
+    'Chat Now has a clear accessible name and announces that it opens a dialog');
+
+  ok(controls.slice(3).every(c => attrsOf(tagOf(c)).class === 'ghost-btn') && labels[3] === 'Save' && labels[4] === 'Copy link',
+    'Save and Copy link stay as neutral .ghost-btn utilities in their idle state');
+  ok((stackHtml.match(/<div class="detail-actions-row">/g) || []).length === 2,
+    'the contact pair and the utility pair each sit in their own row, so they wrap independently');
+
+  // The component on its own: other settings / states, and no dead link when no number is configured.
+  const noop = () => {};
+  const props = { car, stockRef: ref, settings: FALLBACK, saved: false, copied: false, onEnquire: noop, onChat: noop, onToggleSave: noop, onCopy: noop };
+  const noWa = renderToStaticMarkup(<VehicleActions {...props} settings={{ ...FALLBACK, whatsapp_number: '' }} />);
+  ok(!noWa.includes('wa.me') && !noWa.includes('detail-cta--wa') && noWa.includes('detail-cta--chat') && noWa.includes('Enquire now'),
+    'with no WhatsApp number configured the link is omitted (never a dead wa.me/) and Chat Now fills its row');
+  ok(vehicleWhatsAppHref({ whatsapp_number: '+81 90 1234 5678' }, car, ref).startsWith('https://wa.me/819012345678?text='),
+    'the WhatsApp link follows whatever number the CRM settings carry');
+  ok(vehicleWhatsAppHref({}, car, ref) === '' && vehicleWhatsAppHref(null, car, ref) === '',
+    'no configured number means no WhatsApp href');
+  const done = renderToStaticMarkup(<VehicleActions {...props} saved copied />);
+  ok(/class="ghost-btn fav-on"[^>]*>[\s\S]*?Saved<\/button>/.test(done) && /class="ghost-btn is-done"[^>]*>[\s\S]*?Link copied<\/button>/.test(done),
+    'the saved and copied states render Saved / Link copied with their state classes');
+  ok(vehicleWhatsAppMessage({ year: 2023, make: 'Toyota', model: 'Harrier S' }, 'AR7-26043')
+      === "Hello AR7 Traders, I'm interested in the 2023 Toyota Harrier S (stock AR7-26043). Is it still available?",
+    'the WhatsApp message wording is exact');
+  ok(vehicleWhatsAppMessage({}, '') === "Hello AR7 Traders, I'm interested in the vehicle. Is it still available?"
+      && vehicleName({ make: 'Honda', model: null, year: ' ' }) === 'Honda',
+    'a sparse record still yields a sensible message and name');
+
+  // The stylesheet half of the same promise: motion is opt-in, hover is for hover devices,
+  // and keyboard focus is always visible. (Tests run from the repo root.)
+  const css = readFileSync('src/expanded.css', 'utf8');
+  const s = css.indexOf('/* ---------- Vehicle detail · action stack');
+  const e = css.indexOf('@keyframes detail-pop', s);
+  const section = s >= 0 && e > s ? css.slice(s, e) : '';
+  const inner = (src, header) => {                       // text inside `header{ … }`, braces matched
+    const i = src.indexOf(header + '{');
+    if (i < 0) return null;
+    const open = i + header.length;
+    for (let k = open, depth = 0; k < src.length; k++) {
+      if (src[k] === '{') depth++;
+      else if (src[k] === '}' && --depth === 0) return src.slice(open + 1, k);
+    }
+    return null;
+  };
+  const without = (src, header) => { let out = src, b; while ((b = inner(out, header)) !== null) out = out.replace(header + '{' + b + '}', ''); return out; };
+  const motion = inner(section, '@media (prefers-reduced-motion:no-preference)') || '';
+  const reduce = inner(section, '@media (prefers-reduced-motion:reduce)') || '';
+  const outside = without(without(without(section, '@media (prefers-reduced-motion:no-preference)'), '@media (prefers-reduced-motion:reduce)'), '@media (hover:hover)');
+  ok(!!section && motion.includes('transition:') && motion.includes('animation:detail-rise') && motion.includes('@supports (animation-timeline:view())'),
+    'CTA motion and the scroll-driven entrance live inside prefers-reduced-motion:no-preference, and the entrance is feature-gated');
+  ok(!/animation\s*:|animation-timeline|transition\s*:(?!\s*none)/.test(outside),
+    'nothing animates or transitions outside the no-preference block');
+  ok(reduce.includes('transition:none') && /transform:none/.test(reduce),
+    'under prefers-reduced-motion:reduce the CTA transitions are off and hover/press transforms are cancelled');
+  ok(!/:hover/.test(outside) && /@media \(hover:hover\)\{[\s\S]*?:hover/.test(section),
+    'hover effects only apply on devices that can hover (no sticky hover after a tap)');
+  ok(/:focus-visible\s*\{[^}]*outline\s*:\s*[3-9]px solid/.test(section),
+    'keyboard focus draws a clear 3px+ outline on every CTA');
+  ok(!/--crm-/.test(section), 'the public action-stack CSS uses --* site tokens, never the CRM --crm-* set');
 }
 {
   // Phase C1 buyer content checks across /faq, /destinations, /howbuy, and /news

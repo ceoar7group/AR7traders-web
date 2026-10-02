@@ -52,6 +52,7 @@ const OBSOLETE = ['info@ar7traders.com', '+81 80 0000 7007', '+81-80-0000-7007',
 const ACTIVE_SURFACES = [
   ['src/site-settings.js', readFileSync(path.join(root, 'src/site-settings.js'), 'utf8')],
   ['src/main.jsx', readFileSync(path.join(root, 'src/main.jsx'), 'utf8')],
+  ['src/vehicle-actions.jsx', readFileSync(path.join(root, 'src/vehicle-actions.jsx'), 'utf8')],
   ['index.html', readFileSync(path.join(root, 'index.html'), 'utf8')],
   ['public/llms.txt', readFileSync(path.join(root, 'public/llms.txt'), 'utf8')],
   ['public/404.html', readFileSync(path.join(root, 'public/404.html'), 'utf8')]

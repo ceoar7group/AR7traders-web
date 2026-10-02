@@ -288,6 +288,88 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   }
 }
 
+// ---- the vehicle page's action stack, driven through the real <App/> --------
+// Chat Now must open the existing ChatWidget through its ref (no DOM queries, no
+// second chat system); WhatsApp must name the car on screen; and Save, Copy link
+// and Enquire now must keep working beside them.
+{
+  const { cars } = await import('../src/main.jsx');
+  const { carRef } = await import('../src/routing.js');
+  const written = [];
+  Object.defineProperty(dom.window.navigator, 'clipboard', { value: { writeText: async t => { written.push(t); } }, configurable: true });
+  const pathFor = c => '/inventory/' + encodeURIComponent(carRef(c));
+  const stockRef = c => c.stock_no || ('AR7-' + (26000 + c.id));      // the reference the page itself prints
+  const label = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+  const control = text => [...document.querySelectorAll('.detail-actions button, .detail-actions a')].find(el => label(el) === text);
+  const click = async el => { await act(async () => { el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); }); };
+  const panel = () => document.querySelector('.aw-panel');
+  const chatInput = () => panel()?.querySelector('input');
+  const waLink = () => control('WhatsApp');
+  const waText = () => { try { return new URL(waLink()?.getAttribute('href') || '').searchParams.get('text') || ''; } catch { return ''; } };
+
+  await goto(pathFor(cars[0]));
+  ok(['Enquire now', 'WhatsApp', 'Chat Now', 'Save', 'Copy link'].every(t => !!control(t)),
+    'the vehicle page shows Enquire now, WhatsApp, Chat Now, Save and Copy link');
+
+  // WhatsApp: a new-tab link whose message follows the car on screen (no stale state between vehicles)
+  ok(waLink()?.tagName === 'A' && waLink().getAttribute('href').startsWith('https://wa.me/') && waLink().getAttribute('target') === '_blank'
+      && /\bnoopener\b/.test(waLink().getAttribute('rel')) && /\bnoreferrer\b/.test(waLink().getAttribute('rel')),
+    'WhatsApp is a link to wa.me that opens a new tab with rel="noopener noreferrer"');
+  ok(waText().includes(`${cars[0].make} ${cars[0].model}`) && waText().includes(stockRef(cars[0])),
+    `its prefilled message names the vehicle on screen and its stock reference (${stockRef(cars[0])})`);
+  await goto(pathFor(cars[1]));
+  ok(waText().includes(`${cars[1].make} ${cars[1].model}`) && waText().includes(stockRef(cars[1])) && !waText().includes(stockRef(cars[0])),
+    `opening another vehicle re-points WhatsApp at it (${stockRef(cars[1])})`);
+  await goto(pathFor(cars[0]));
+
+  // Chat Now: opens the real assistant through its ref
+  ok(!panel(), 'the chat assistant starts closed');
+  const chat = control('Chat Now');
+  ok(chat?.tagName === 'BUTTON' && chat.getAttribute('type') === 'button' && !chat.hasAttribute('href'),
+    'Chat Now is a real <button type="button">');
+  chat.focus();                                   // a mouse click would do this in a browser
+  await click(chat);
+  ok(!!panel() && panel().getAttribute('role') === 'dialog' && panel().getAttribute('aria-label') === 'AR7 Traders assistant',
+    'Chat Now opens the existing ChatWidget panel (role=dialog)');
+  ok(!!chatInput() && document.activeElement === chatInput(), 'opening the chat moves focus to its message box');
+  ok(document.querySelector('.aw-float')?.getAttribute('aria-expanded') === 'true', 'the floating chat toggle reflects that it is open');
+  chat.focus();                                   // pressing the button moves focus onto it, away from the message box
+  ok(document.activeElement === chat, 'focus is on the Chat Now button before it is pressed a second time');
+  await click(chat);
+  ok(document.querySelectorAll('.aw-panel').length === 1 && document.activeElement === chatInput(),
+    'pressing Chat Now again keeps a single panel open and refocuses its message box');
+  let leaked = false;
+  const spy = () => { leaked = true; };
+  document.addEventListener('keydown', spy);
+  await act(async () => { chatInput().dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
+  document.removeEventListener('keydown', spy);
+  ok(!panel(), 'Escape closes the chat');
+  ok(document.activeElement === chat, 'and hands focus back to the Chat Now button that opened it');
+  ok(!leaked, 'Escape inside the chat does not also close whatever sits beneath it');
+  await click(document.querySelector('.aw-float'));
+  ok(!!panel(), 'the floating chat toggle still opens the same panel');
+  await click(document.querySelector('.aw-float'));
+  ok(!panel(), 'and still closes it');
+
+  // Save / Copy link / Enquire now keep working
+  await click(control('Save'));
+  ok(!!control('Saved') && control('Saved').classList.contains('fav-on') && control('Saved').querySelector('svg')?.getAttribute('fill') === 'currentColor',
+    'Save still saves the vehicle (Saved, filled heart)');
+  await click(control('Saved'));
+  ok(!!control('Save') && !control('Saved'), 'and un-saves it again');
+  await click(control('Copy link'));
+  ok(written.length === 1 && written[0].startsWith(location.origin + '/inventory/') && written[0].includes(encodeURIComponent(carRef(cars[0]))),
+    'Copy link still copies this vehicle\'s URL');
+  ok(!!control('Link copied') && control('Link copied').classList.contains('is-done'), 'and confirms with "Link copied"');
+  await act(async () => { await new Promise(r => setTimeout(r, 1900)); });
+  ok(!!control('Copy link') && !control('Link copied'), 'the confirmation resets after a moment');
+  await click(control('Enquire now'));
+  ok(!!document.querySelector('.modal-backdrop .modal'), 'Enquire now still opens the access modal');
+  await click(document.querySelector('.modal .modal-x'));
+  ok(!document.querySelector('.modal-backdrop'), 'and the modal closes again');
+  ok(!crash(), 'the app survives the whole vehicle-actions walkthrough');
+}
+
 // ---- a vehicle deep link survives a reload ---------------------------------
 {
   const { cars } = await import('../src/main.jsx');
