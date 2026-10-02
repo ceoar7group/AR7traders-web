@@ -76,16 +76,19 @@ async function isBlocked(db, goonetId) {
 // A goo-net car that no longer exists → remove it from the site too.
 export async function delistCar(db, row, actor = 'Goo-net sync') {
   const now = new Date().toISOString();
-  await db.from('japan_dealer_stock')
+  const { error: hideErr } = await db.from('japan_dealer_stock')
     .update({ available: false, delisted_at: now, updated_at: now })
     .eq('id', row.id);
+  if (hideErr) throw promotionError('Could not delist the car', hideErr);
 
   // If the same car was promoted to the website, hide that listing as well
   // (reversible — re-publish from CRM → Website cars any time).
-  if (String(row.promoted || '').includes('listings') && row.stock_no) {
-    const { data: listing } = await db.from('site_listings').select('id,published').eq('stock_no', row.stock_no).maybeSingle();
+  if (promotesToListings(row) && row.stock_no) {
+    const { data: listing, error: listErr } = await db.from('site_listings').select('id,published').eq('stock_no', row.stock_no).maybeSingle();
+    if (listErr) throw promotionError('Could not check the website listing to hide', listErr);
     if (listing && listing.published !== false) {
-      await db.from('site_listings').update({ published: false, updated_at: now }).eq('id', listing.id);
+      const { error } = await db.from('site_listings').update({ published: false, updated_at: now }).eq('id', listing.id);
+      if (error) throw promotionError('Could not hide the website listing', error);
     }
   }
   try {
@@ -96,10 +99,55 @@ export async function delistCar(db, row, actor = 'Goo-net sync') {
   } catch (e) { console.error('activity log failed', e.message); }
 }
 
+// ---- Promotion: dealer stock → website listing / CRM inventory -------------
+//
+// A promotion is a COPY plus a flag on the dealer row. Two rules keep it
+// honest, both learned from a live failure the owner reported ("I added an
+// imported car to inventory and got an error, and the CRM never showed it as
+// added"):
+//
+//   1. Every write is checked. Supabase resolves `{error}` instead of throwing,
+//      so the old code happily answered "Moved Toyota Prius to vehicles" when
+//      the insert had in fact failed — the notice said added, the Inventory tab
+//      said nothing, and the next press behaved like the first one.
+//   2. The `promoted` flag is written LAST, only after the copy really landed.
+//      Flipping it first (or regardless) made the CRM believe a car was in the
+//      inventory when it was not, which is exactly what the owner saw.
+//
+// Both helpers return what actually happened — `already` tells the caller the
+// car was in the destination before this call, so the CRM can say so instead of
+// reporting a fresh add every time.
+function promotionError(step, error) {
+  const detail = error?.message || 'unknown database error';
+  return Object.assign(new Error(`${step} — ${detail}`), { status: 500 });
+}
+
+/** The stock number a promotion is keyed on; '' when the row has none. */
+export function stockRef(row) {
+  return String(row?.stock_no || row?.goonet_id || '').trim();
+}
+
+// `promoted` is 'none' | 'listings' | 'vehicles' | 'both'. Reading it with
+// `String(promoted).includes('listings')` looks right and is wrong for 'both':
+// "both".includes('listings') is false, so a car that was on the website AND in
+// the inventory was treated as if it were in neither — delisting it left the
+// website copy published, and re-promoting it downgraded 'both' back to a
+// single destination.
+export function promotesToListings(row) {
+  const v = String(row?.promoted || '').trim().toLowerCase();
+  return v === 'both' || v.includes('listings');
+}
+export function promotesToInventory(row) {
+  const v = String(row?.promoted || '').trim().toLowerCase();
+  return v === 'both' || v.includes('vehicles');
+}
+
 export async function promoteToListings(db, row, actor = 'Goo-net sync') {
   const now = new Date().toISOString();
+  const stockNo = stockRef(row);
+  if (!stockNo) throw Object.assign(new Error('This car has no stock number, so it cannot be published'), { status: 400 });
   const listing = {
-    stock_no: row.stock_no || row.goonet_id,
+    stock_no: stockNo,
     make: row.make, model: row.model, year: row.year, km: row.km,
     fuel: row.fuel || 'Petrol', body: row.body || 'SUV',
     price: row.price || (row.price_usd ? '$' + Math.round(row.price_usd).toLocaleString('en-US') : '$15,000'),
@@ -108,30 +156,45 @@ export async function promoteToListings(db, row, actor = 'Goo-net sync') {
     tr: row.tr, drv: row.drv, eng: row.eng, seats: row.seats, col: row.col, st: row.st,
     published: true, updated_at: now
   };
-  const { data: existing } = await db.from('site_listings').select('id,sort_order').eq('stock_no', listing.stock_no).maybeSingle();
+  const { data: existing, error: readErr } = await db.from('site_listings')
+    .select('id,sort_order').eq('stock_no', stockNo).maybeSingle();
+  if (readErr) throw promotionError('Could not check the website listing', readErr);
+
   if (existing) {
     listing.sort_order = existing.sort_order;
-    await db.from('site_listings').update(listing).eq('id', existing.id);
+    const { error } = await db.from('site_listings').update(listing).eq('id', existing.id);
+    if (error) throw promotionError('Could not update the website listing', error);
   } else {
-    const { data: maxRow } = await db.from('site_listings').select('sort_order').order('sort_order', { ascending: false }).limit(1).maybeSingle();
+    const { data: maxRow, error: maxErr } = await db.from('site_listings')
+      .select('sort_order').order('sort_order', { ascending: false }).limit(1).maybeSingle();
+    if (maxErr) throw promotionError('Could not read the website listing order', maxErr);
     listing.sort_order = (maxRow?.sort_order || 12) + 1; // keep positions 1–12 as the showroom
-    await db.from('site_listings').insert(listing);
+    const { error } = await db.from('site_listings').insert(listing);
+    if (error) throw promotionError('Could not publish the car on the website', error);
   }
-  await db.from('japan_dealer_stock')
-    .update({ promoted: String(row.promoted || '').includes('vehicles') ? 'both' : 'listings', updated_at: now })
-    .eq('id', row.id);
+
+  // The copy is on the website — only now is it safe to mark the dealer row.
+  const promoted = promotesToInventory(row) ? 'both' : 'listings';
+  const { error: flagErr } = await db.from('japan_dealer_stock')
+    .update({ promoted, updated_at: now }).eq('id', row.id);
+  if (flagErr) throw promotionError('The car reached the website but its dealer row could not be marked as promoted', flagErr);
+
   try {
     await db.from('activities').insert({
       action: `Promoted ${row.make} ${row.model} (${row.stock_no}) to the public website`,
       actor, entity_type: 'japan_dealer_stock', entity_id: row.id
     });
   } catch (e) { console.error('activity log failed', e.message); }
+
+  return { target: 'listings', stock_no: stockNo, already: !!existing, created: !existing, promoted };
 }
 
 export async function promoteToInventory(db, row, actor = 'Goo-net sync') {
   const now = new Date().toISOString();
+  const stockNo = stockRef(row);
+  if (!stockNo) throw Object.assign(new Error('This car has no stock number, so it cannot be added to inventory'), { status: 400 });
   const vehicle = {
-    stock_no: row.stock_no || row.goonet_id,
+    stock_no: stockNo,
     make: row.make, model: row.model, year: row.year,
     price: row.price_usd || 0,
     status: 'available', location: row.location || 'Japan',
@@ -142,21 +205,59 @@ export async function promoteToInventory(db, row, actor = 'Goo-net sync') {
     notes: `Imported from Goo-net (${row.goonet_url || ''}). Quality score ${row.quality_score || 0}, ${row.photo_count || 0} photos.`,
     updated_at: now
   };
-  const { data: existing } = await db.from('vehicles').select('id').eq('stock_no', vehicle.stock_no).maybeSingle();
+  const { data: existing, error: readErr } = await db.from('vehicles')
+    .select('id').eq('stock_no', stockNo).maybeSingle();
+  if (readErr) throw promotionError('Could not check the CRM inventory', readErr);
+
+  let already = !!existing;
   if (existing) {
-    await db.from('vehicles').update(vehicle).eq('id', existing.id);
+    const { error } = await db.from('vehicles').update(vehicle).eq('id', existing.id);
+    if (error) throw promotionError('Could not update the car in CRM inventory', error);
   } else {
-    await db.from('vehicles').insert(vehicle);
+    const { error } = await db.from('vehicles').insert(vehicle);
+    // Two presses in the same second, or a car added by hand in the Inventory
+    // tab while this ran: the unique stock number wins, and the honest answer
+    // is "it is in the inventory", not a 500.
+    if (error && /duplicate|unique/i.test(error.message || '')) {
+      already = true;
+      const { error: updateErr } = await db.from('vehicles').update(vehicle).eq('stock_no', stockNo);
+      if (updateErr) throw promotionError('Could not update the car in CRM inventory', updateErr);
+    } else if (error) {
+      throw promotionError('Could not add the car to CRM inventory', error);
+    }
   }
-  await db.from('japan_dealer_stock')
-    .update({ promoted: String(row.promoted || '').includes('listings') ? 'both' : 'vehicles', updated_at: now })
-    .eq('id', row.id);
+
+  const promoted = promotesToListings(row) ? 'both' : 'vehicles';
+  const { error: flagErr } = await db.from('japan_dealer_stock')
+    .update({ promoted, updated_at: now }).eq('id', row.id);
+  if (flagErr) throw promotionError('The car reached the inventory but its dealer row could not be marked as promoted', flagErr);
+
   try {
     await db.from('activities').insert({
       action: `Promoted ${row.make} ${row.model} (${row.stock_no}) to CRM inventory`,
       actor, entity_type: 'japan_dealer_stock', entity_id: row.id
     });
   } catch (e) { console.error('activity log failed', e.message); }
+
+  return { target: 'vehicles', stock_no: stockNo, already, created: !already, promoted };
+}
+
+// The scheduled importer must never die because one car's copy failed. A
+// promotion error on a cron run is recorded in the run report (so the CRM's
+// "Run import now" notice shows it) and the run carries on with the next car.
+// The CRM's own Publish/Inventory buttons get the same error thrown back at
+// them instead, because there a person can act on it.
+async function carryOn(report, stepPromise, row) {
+  try {
+    await stepPromise;
+    return true;
+  } catch (e) {
+    const label = `${row?.stock_no || row?.goonet_id || 'car'} ${row?.make || ''} ${row?.model || ''}`.trim();
+    report.skipped.push(`${label}: ${e.message}`);
+    report.failed = (report.failed || 0) + 1;
+    console.error('goonet-sync promotion failed:', e.message);
+    return false;
+  }
 }
 
 export default async function handler(req, res, injected) {
@@ -192,6 +293,9 @@ export default async function handler(req, res, injected) {
     // gate refused (each with its reason in `skipped`).
     discovered: 0, alreadyKnown: 0, rejected: 0, cardSource: null,
     delisted: 0, delistedWeekly: 0, promoted: 0,
+    // A copy that could not be written (a promotion/delist failure) — its
+    // reason is in `skipped`, and the run continued rather than aborting.
+    failed: 0,
     // blocked: goo-net answered with its bot-gate stub, so this run read
     // nothing. It must never be dressed up as "caught up".
     blocked: false, bookmarkAdvanced: false, parseMiss: false, diagnostics: null,
@@ -515,8 +619,7 @@ export default async function handler(req, res, injected) {
         if (!url) continue;
         const d = await fetchPage(url, { timeoutMs: 4000, allowRelay: false });
         if (isDelistedPage(d)) {
-          await delistCar(db, row, actor);
-          report.delisted++;
+          if (await carryOn(report, delistCar(db, row, actor), row)) report.delisted++;
         } else if (d.ok) {
           await db.from('japan_dealer_stock').update({ last_seen_at: new Date().toISOString() }).eq('id', row.id);
         }
@@ -532,8 +635,7 @@ export default async function handler(req, res, injected) {
         .order('quality_score', { ascending: true }).limit(weeklyDelistLimit);
       for (const row of oldCars || []) {
         if (overBudget()) break;
-        await delistCar(db, row, actor + ' (weekly maintenance)');
-        report.delistedWeekly++;
+        if (await carryOn(report, delistCar(db, row, actor + ' (weekly maintenance)'), row)) report.delistedWeekly++;
       }
       await setSetting(db, 'goonet_last_weekly_delist', new Date().toISOString());
     }
@@ -548,8 +650,7 @@ export default async function handler(req, res, injected) {
         .limit(weeklyPromoteLimit);
       for (const row of fresh || []) {
         if (overBudget()) break;
-        await promoteToListings(db, row, actor + ' (weekly auto-promote)');
-        report.promoted++;
+        if (await carryOn(report, promoteToListings(db, row, actor + ' (weekly auto-promote)'), row)) report.promoted++;
       }
       await setSetting(db, 'goonet_last_weekly_promote', new Date().toISOString());
     }

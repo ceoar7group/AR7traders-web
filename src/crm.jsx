@@ -498,10 +498,14 @@ function demoWrite(entity, rows) {
 }
 
 async function api(entity, token, options = {}) {
-  const { id, ...init } = options;
+  const { id, all, ...init } = options;
   const base = entity === 'goonet' ? '/api/goonet-stock'
     : (SITE_ENTITIES.includes(entity) ? '/api/site-content' : '/api/crm');
-  const url = base + '?entity=' + encodeURIComponent(entity) + (id ? '&id=' + encodeURIComponent(id) : '') + (SITE_ENTITIES.includes(entity) ? '&all=1' : '');
+  // `all=1` asks for the complete set instead of the public one. For dealer
+  // stock it is the signed-in CRM view: delisted cars included (so Re-list is
+  // reachable) and never cached, so a fresh promotion is visible at once.
+  const wantsAll = SITE_ENTITIES.includes(entity) || (entity === 'goonet' && !!all);
+  const url = base + '?entity=' + encodeURIComponent(entity) + (id ? '&id=' + encodeURIComponent(id) : '') + (wantsAll ? '&all=1' : '');
   const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(init.headers || {}) } });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Request failed');
   return res.json();
@@ -577,12 +581,18 @@ export default function CrmApp() {
       } else {
         const me = await api('me', session.access_token);
         setProfile(me);
+        let matrix = perms;
         try {
-          setPerms(await call('/api/team?action=permissions', session.access_token));
+          matrix = await call('/api/team?action=permissions', session.access_token);
+          setPerms(matrix);
         } catch { }
+        // Staff who may edit stock read the full, uncached dealer list (so a
+        // promotion shows immediately and delisted cars stay re-listable).
+        // Everyone else keeps the public read, which is all they may see.
+        const allStock = hasPerm(matrix, me?.role, 'site.write');
         const entries = await Promise.all(keys.map(async k => {
           try {
-            return [k, await api(k, session.access_token)];
+            return [k, await api(k, session.access_token, { all: k === 'goonet' ? allStock : undefined })];
           } catch {
             return [k, []];
           }
@@ -641,8 +651,8 @@ export default function CrmApp() {
   async function goonetAction(row, action, target) {
     if (!row?.id) return;
     const label = `${row.make || ''} ${row.model || ''} (${row.stock_no || row.goonet_id || ''})`.trim();
+    const prettyTarget = target === 'listings' ? 'Website cars' : target === 'vehicles' ? 'Inventory' : 'both';
     if (action === 'promote') {
-      const prettyTarget = target === 'listings' ? 'Website cars' : target === 'vehicles' ? 'Inventory' : 'both';
       if (!window.confirm(`Move ${label} to ${prettyTarget}? The car is copied there and marked as promoted so the importer does not re-import it.`)) return;
     }
     try {
@@ -667,11 +677,22 @@ export default function CrmApp() {
             demoWrite('vehicles', [vehicle, ...(rows.vehicles || [])]);
             setRows(v => ({ ...v, vehicles: [vehicle, ...(v.vehicles || [])] }));
           }
-          promoted.promoted = target === 'both' ? 'both' : target;
+          const before = String(row.promoted || 'none');
+          // Read the flag as a token: 'both'.includes('listings') is false, so
+          // a substring test would downgrade a car that is in both places.
+          const wasOnSite = before === 'both' || before.includes('listings');
+          const wasInInventory = before === 'both' || before.includes('vehicles');
+          promoted.promoted = target === 'both' ? 'both'
+            : target === 'vehicles' ? (wasOnSite ? 'both' : 'vehicles')
+              : (wasInInventory ? 'both' : 'listings');
+          const wasThere = target === 'vehicles' ? wasInInventory
+            : target === 'listings' ? wasOnSite : before === 'both';
           const next = (rows.goonet || []).map(x => x.id === row.id ? promoted : x);
           demoWrite('goonet', next);
           setRows(v => ({ ...v, goonet: next }));
-          setNotice(`Moved ${label} to ${prettyTarget} (demo)`);
+          setNotice(wasThere
+            ? `${row.make} ${row.model} is already in ${prettyTarget} — its details were refreshed (demo)`
+            : `Added ${row.make} ${row.model} to ${prettyTarget} (demo)`);
         } else if (action === 'delist') {
           const next = (rows.goonet || []).map(x => x.id === row.id ? { ...x, available: false, delisted_at: new Date().toISOString() } : x);
           demoWrite('goonet', next);
@@ -680,7 +701,47 @@ export default function CrmApp() {
         }
         return;
       }
-      const r = await call('/api/goonet-stock?action=' + action, session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id, target, available: action === 'delist' ? false : undefined }) });
+      // The action goes in the body AND the query string: the server reads
+      // either, and the dev preview middleware only reads the query string.
+      // `available` is what this press should END UP as — delist sends false,
+      // re-list sends true. It used to always send false, so "Re-list" hid the
+      // car instead of restoring it.
+      const body = { action, id: row.id, target };
+      if (action === 'delist') body.available = row.available === false;
+      const r = await call('/api/goonet-stock?action=' + action, session.access_token, { method: 'POST', body: JSON.stringify(body) });
+      // The server only reports success once the copy really landed, and it
+      // says whether the car was already there. Take its verdict straight into
+      // the row so the screen flips to "In inventory / On website" even before
+      // the refresh comes back — and so a stale list cannot hide it.
+      if (r.promoted) {
+        setRows(v => ({ ...v, goonet: (v.goonet || []).map(x => x.id === row.id ? { ...x, promoted: r.promoted } : x) }));
+      }
+      if (action === 'promote' && r.results?.vehicles) {
+        const addedVehicle = { ...row, stock_no: r.results.vehicles.stock_no || row.stock_no || row.goonet_id, status: 'available' };
+        setRows(v => ({
+          ...v,
+          vehicles: (v.vehicles || []).some(x => String(x.stock_no) === String(addedVehicle.stock_no))
+            ? (v.vehicles || []).map(x => String(x.stock_no) === String(addedVehicle.stock_no) ? { ...x, ...addedVehicle } : x)
+            : [addedVehicle, ...(v.vehicles || [])]
+        }));
+      }
+      if (action === 'promote' && r.results?.listings) {
+        const addedListing = { ...row, stock_no: r.results.listings.stock_no || row.stock_no || row.goonet_id, published: true };
+        setRows(v => ({
+          ...v,
+          listings: (v.listings || []).some(x => String(x.stock_no) === String(addedListing.stock_no))
+            ? (v.listings || []).map(x => String(x.stock_no) === String(addedListing.stock_no) ? { ...x, ...addedListing } : x)
+            : [addedListing, ...(v.listings || [])]
+        }));
+      }
+      if (action === 'delist' && typeof r.available === 'boolean') {
+        setRows(v => ({
+          ...v,
+          goonet: (v.goonet || []).map(x => x.id === row.id
+            ? { ...x, available: r.available, delisted_at: r.available ? null : new Date().toISOString() }
+            : x)
+        }));
+      }
       setNotice(r.message || 'Done');
       await loadAll();
     } catch (e) {
@@ -757,7 +818,7 @@ export default function CrmApp() {
     if (DEMO) { setNotice('The Goo-net bookmark reset needs the live database — disabled in demo mode.'); return; }
     if (!window.confirm('Reset the Goo-net importer bookmark to page 1?\n\nAlready-imported cars are skipped automatically, so no duplicates are created. Use this when the bookmark is stuck on an old page or the search URL changed.')) return;
     try {
-      const r = await call('/api/goonet-stock?action=reset_bookmark', session.access_token, { method: 'POST', body: JSON.stringify({}) });
+      const r = await call('/api/goonet-stock?action=reset_bookmark', session.access_token, { method: 'POST', body: JSON.stringify({ action: 'reset_bookmark' }) });
       setNotice(r.message || 'Bookmark reset to page 1.');
     } catch (e) {
       setNotice(e.message);
@@ -976,6 +1037,8 @@ export default function CrmApp() {
             onCopyDiag={copyGoonetDiag}
             onRefresh={loadAll}
             syncing={syncing}
+            listings={rows.listings || []}
+            vehicles={rows.vehicles || []}
           />
         ) : (
           <>
@@ -1857,7 +1920,7 @@ export function SourcingView({ rows, onOpenInventory }) {
 // ---------------------------------------------------------------------
 //  Japan dealer stock — manage cars imported from Goo-net.
 // ---------------------------------------------------------------------
-export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete, onManagePhotos, onViewGallery, onPromote, onDelist, onRun, onResetBookmark, onCopyDiag, onRefresh, syncing }) {
+export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete, onManagePhotos, onViewGallery, onPromote, onDelist, onRun, onResetBookmark, onCopyDiag, onRefresh, syncing, listings = [], vehicles = [] }) {
   const { fmt } = useCurrency();
   const [chip, setChip] = useState('all');
   const [query, setQuery] = useState('');
@@ -1865,6 +1928,26 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   const [settingsForm, setSettingsForm] = useState(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const isAdmin = profile?.role === 'admin';
+
+  // "Where has this car already been copied to?" is answered from the actual
+  // records — the Website cars and Inventory lists the CRM already holds — not
+  // just from the row's `promoted` flag. A car that reached the inventory is
+  // then shown as added even on a database where the flag was never written,
+  // which is exactly the state that made the owner press the button twice.
+  const stockKey = r => String(r?.stock_no || r?.goonet_id || '').trim().toLowerCase();
+  const listingKeys = useMemo(() => new Set(listings.map(stockKey).filter(Boolean)), [listings]);
+  const vehicleKeys = useMemo(() => new Set(vehicles.map(stockKey).filter(Boolean)), [vehicles]);
+  function promotionState(row) {
+    const key = stockKey(row);
+    // 'both' means both places: "both".includes('listings') is false, so the
+    // flag is read as a token, never as a substring.
+    const flag = String(row?.promoted || '').trim().toLowerCase();
+    const flaggedWebsite = flag === 'both' || flag.includes('listings');
+    const flaggedInventory = flag === 'both' || flag.includes('vehicles');
+    const onWebsite = (key && listingKeys.has(key)) || flaggedWebsite;
+    const inInventory = (key && vehicleKeys.has(key)) || flaggedInventory;
+    return { onWebsite, inInventory, any: onWebsite || inInventory };
+  }
 
   const [settingsError, setSettingsError] = useState(null);
   useEffect(() => { fetch('/api/settings', { headers: token ? { Authorization: 'Bearer ' + token } : {} }).then(r => { if (!r.ok) throw new Error('Could not load importer settings'); return r.json(); }).then(d => { setSettingsForm(d); setSettingsError(null); }).catch(e => { setSettingsForm({}); setSettingsError(e.message); }); }, [token]);
@@ -1876,7 +1959,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
     available: rows.filter(x => x.available !== false).length,
     newweek: rows.filter(x => x.available !== false && String(x.imported_at || '') >= weekAgo).length,
     delisted: rows.filter(x => x.available === false).length,
-    promoted: rows.filter(x => x.promoted && x.promoted !== 'none').length
+    promoted: rows.filter(x => promotionState(x).any).length
   };
   const filtered = rows.filter(x => {
     const hay = (x.make + ' ' + x.model + ' ' + (x.stock_no || '') + ' ' + x.year).toLowerCase();
@@ -1884,7 +1967,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
       : chip === 'available' ? x.available !== false
         : chip === 'newweek' ? (x.available !== false && String(x.imported_at || '') >= weekAgo)
           : chip === 'delisted' ? x.available === false
-            : chip === 'promoted' ? (x.promoted && x.promoted !== 'none') : true;
+            : chip === 'promoted' ? promotionState(x).any : true;
     return okChip && (!query.trim() || hay.includes(query.trim().toLowerCase()));
   });
 
@@ -1917,7 +2000,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
     setImportBusy(true);
     setImportResults(null);
     try {
-      const r = await call('/api/goonet-stock?action=preview_import', token, { method: 'POST', body: JSON.stringify({ urls: importText }) });
+      const r = await call('/api/goonet-stock?action=preview_import', token, { method: 'POST', body: JSON.stringify({ action: 'preview_import', urls: importText }) });
       setImportPreview(r);
       setPreviewedText(importText.trim());
       notify(r.message || 'Preview ready.');
@@ -1928,7 +2011,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
     if (DEMO) { notify('The URL import assistant needs the live database — disabled in demo mode.'); return; }
     setImportBusy(true);
     try {
-      const r = await call('/api/goonet-stock?action=import_urls', token, { method: 'POST', body: JSON.stringify({ urls: importText }) });
+      const r = await call('/api/goonet-stock?action=import_urls', token, { method: 'POST', body: JSON.stringify({ action: 'import_urls', urls: importText }) });
       setImportResults(r);
       setImportPreview(null);
       setPreviewedText('');
@@ -1951,7 +2034,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   return (
     <div className="crm-goonet">
       <div className="crm-page-head">
-        <div><p>Cars the Goo-net importer brought in (quality-gated photos). Delisted cars disappear from the website automatically.</p></div>
+        <div><p>Cars the Goo-net importer brought in (quality-gated photos). Delisted cars disappear from the website automatically. A car that is already on the website or in the inventory is marked as added, so nothing is ever copied twice.</p></div>
         <div className="crm-tools">
           <label><Search /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search dealer stock…" /></label>
           {filtered.length > 0 && <button onClick={() => exportCsv('goonet', filtered)} title="Download these records as CSV">CSV</button>}
@@ -2106,6 +2189,8 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                 const photos = extractPhotos(row);
                 const cover = photos[0] || row.image || '/assets/ar7-mark.png';
                 const importDate = row.imported_at ? new Date(row.imported_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
+                const promo = promotionState(row);
+                const ref = row.stock_no || row.goonet_id || '';
                 return (
                   <tr key={row.id || row.stock_no} className={row.available === false ? 'row-muted' : ''}>
                     <td className="td-photo">
@@ -2126,14 +2211,27 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                         ? <em className="crm-status dormant">Delisted</em>
                         : <em className={'crm-status ' + statusClass(row.status || 'New Arrival')}>{row.status || 'New Arrival'}</em>}
                     </td>
-                    <td>{row.promoted && row.promoted !== 'none' ? <em className="crm-status active">{row.promoted}</em> : <em className="crm-status">—</em>}</td>
+                    <td>
+                      {promo.any
+                        ? <em className="crm-status active" title={[
+                          promo.onWebsite ? 'On the website (Website cars)' : null,
+                          promo.inInventory ? 'In CRM inventory (Inventory)' : null
+                        ].filter(Boolean).join(' · ')}>
+                          {promo.onWebsite && promo.inInventory ? 'Website + inventory' : promo.inInventory ? 'In inventory' : 'On website'}
+                        </em>
+                        : <em className="crm-status">—</em>}
+                    </td>
                     <td>{importDate}</td>
                     <td className="crm-row-actions">
                       <div className="goonet-actions">
                         {row.available !== false && (
                           <>
-                            <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')}><Globe size={13} /> Website</button>
-                            <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')}><CarFront size={13} /> Inventory</button>
+                            {promo.onWebsite
+                              ? <button className="is-added" disabled title={`Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab. Use Edit to change it there.`}><Check size={13} /> On website</button>
+                              : <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')}><Globe size={13} /> Website</button>}
+                            {promo.inInventory
+                              ? <button className="is-added" disabled title={`Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.`}><Check size={13} /> In inventory</button>
+                              : <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')}><CarFront size={13} /> Inventory</button>}
                           </>
                         )}
                         {row.available !== false
@@ -2151,7 +2249,8 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
           </table>
         </div>
       )}
-      {!isAdmin && <p className="crm-hint"><ShieldAlert size={13} /> Moving cars to the website or inventory requires an administrator.</p>}
+      {!isAdmin && <p className="crm-hint"><ShieldAlert size={13} /> Moving cars to the website or inventory needs the “Edit the public website” permission — ask an administrator.</p>}
+      {isAdmin && <p className="crm-hint"><Check size={13} /> “On website” and “In inventory” mean the car is already there; the Inventory tab and the Website cars tab hold the copy, and the Promoted column says which.</p>}
     </div>
   );
 }

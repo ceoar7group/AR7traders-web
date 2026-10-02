@@ -118,6 +118,16 @@ terminal version with `--dry-run`.
   - **Inventory** — copy it into the CRM *Inventory* as a vehicle with
     `vendor = Goo-net` and its estimated cost.
   - **Delist / Re-list** — hide or restore it on the Japan dealer stock page.
+- **Already added?** The *Promoted* column and the row buttons answer that
+  from the actual records: a car that is in *Inventory* shows **In inventory ✓**
+  (the button becomes a disabled confirmation), one that is on the site shows
+  **On website ✓**, and one that is in both says **Website + inventory**. So a
+  car cannot be copied twice by accident, and the CRM never claims an add that
+  did not happen: the copy is verified before the button changes, and if the
+  database refuses the write the notice says why instead of "added".
+  Staff with the *Edit the public website* permission read the complete dealer
+  list (delisted cars included, so **Re-list** is reachable); everyone else
+  reads the public one.
   - Photos / Edit / Delete as usual.
 - **Run import now** (admin) and **Importer rules** settings panel.
 - In demo mode (no Supabase keys) everything works with sample data.
@@ -399,6 +409,96 @@ and real card markup, and the header must name the charset and its source.
 Finally paste one currently available goo-net detail URL into the assistant,
 preview, import, publish, and confirm the car reaches the public site; repeat
 the same URL and expect `already_present` instead of a duplicate.
+
+## 13. Why the Inventory/Website buttons did nothing (fixed, 2026-10-03)
+
+The owner's report: pressing **Inventory** on a Japan dealer stock row showed an
+error, the car never appeared in CRM → Inventory, and the row never said it had
+been added. The message on screen was:
+
+```
+Could not find the 'created_by' column of 'japan_dealer_stock' in the schema
+cache
+```
+
+which is PostgREST refusing a write that names a column the table does not have.
+The CRM's copy-then-flag insert was landing on the endpoint's plain insert
+branch and adding `created_by` — a column **`japan_dealer_stock` does not have**
+(see the table in `supabase/SETUP-EVERYTHING.sql`; the caller belongs in
+`activities`, which does). (Depending on which response the browser had cached,
+the same broken route also surfaced as `null value in column "goonet_id" …
+violates not-null constraint` when the payload carried no identifier at all.)
+Both are gone: the action is dispatched from the right place, the payload is
+filtered against the real column list, an insert with no stock number is refused
+with a sentence, and the test harness now enforces the live column lists so a
+write to a column that does not exist fails the build instead of the owner.
+
+Four separate defects, all on the same short path:
+
+1. **The action was dispatched from the wrong place.** Every CRM button sends
+   its action in the **query string** (`POST /api/goonet-stock?action=promote`
+   with a plain `{id, target}` body — the same shape `/api/team`,
+   `/api/hr` and `/api/customer-admin` use), but `api/goonet-stock.js` only
+   looked at `req.body.action`. So the request skipped the promote route
+   entirely, fell through to the plain CRUD insert below it, and tried to
+   insert an empty row:
+
+   ```
+   null value in column "goonet_id" of relation "japan_dealer_stock"
+   violates not-null constraint
+   ```
+
+   That was the error on screen, and it is why nothing was ever copied — the
+   whole row-action toolbar was affected (*Inventory*, *Website*, *Delist*,
+   *Re-list*, *Reset bookmark*, and the import assistant's Preview/Import).
+   The endpoint now reads the action from the query string **or** the body, and
+   the CRM sends it in both. `scripts/goonet-promote.test.mjs` drives the exact
+   CRM shape so this cannot come back, and the dev preview middleware mirrors
+   the server's dispatch.
+
+2. **The insert this fell through to named a column that does not exist.**
+   `created_by` is not on `japan_dealer_stock`, so even the fall-through branch
+   could only fail — `Could not find the 'created_by' column … in the schema
+   cache`, the message the owner saw. The payload now goes through the column
+   allow-list (`api/_columns.js`), a row with no stock number is answered with
+   "A stock number (or Goo-net id) is required…" instead of a raw Postgres
+   error, and the caller is recorded on the `activities` row, where the column
+   really exists.
+3. **Failed writes were answered with "Moved …".** Supabase resolves
+   `{error}` instead of throwing, and the promotion helpers ignored every
+   result — including the `promoted` flag they wrote. A car whose insert failed
+   was still stamped `promoted = 'vehicles'`, so the CRM (and the importer) both
+   believed it was in the inventory. Every write is now checked, the reason is
+   surfaced to whoever pressed the button, and the flag is written **last**, only
+   after the copy really landed. The scheduled importer still cannot be killed by
+   one bad copy: a failure is reported in the run report (`failed`, with the
+   reason in `skipped`) and the run carries on.
+
+4. **The row could not say "already added".** The button always looked
+   unpressed, so the only way to know was to open *Inventory* and search. The
+   CRM now reads the state from the records — *Website cars* and *Inventory*
+   compare by stock number — as well as the row's flag, and renders **On
+   website ✓** / **In inventory ✓** / **Website + inventory** with the action
+   replaced by a disabled confirmation. Pressing again can no longer copy a
+   second vehicle: the API answers "… is already in CRM inventory (details
+   refreshed)" and updates the existing vehicle.
+
+5. **Two smaller bugs on the same path.** `'both'.includes('listings')` is
+   `false`, so a car that was on the site **and** in the inventory was treated
+   as neither — delisting left the website copy published, and re-promoting
+   downgraded `'both'` to a single destination. The flag is now read as a token
+   (`promotesToListings` / `promotesToInventory`). And *Re-list* always sent
+   `available: false`, i.e. it hid the car the user was trying to restore; the
+   CRM now sends the state the press should end up in.
+
+Related: the CRM's dealer list is fetched with `all=1` for staff who may edit
+stock, so it is uncached (a promotion is visible immediately, instead of up to
+two minutes later from the public response's `Cache-Control`) and includes
+delisted cars, which is what makes **Re-list** reachable at all.
+
+Tests: `npm run test:goonet` (now including `scripts/goonet-promote.test.mjs` —
+70 assertions, its in-memory Supabase enforcing the same schema cache PostgREST
+does) and `npm run test:crm` (74, including the row-state block).
 
 ## FAQ
 
