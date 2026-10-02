@@ -83,8 +83,75 @@
 .cif-rows b{font-size:15px}
 .cif-rows .total{grid-column:1/-1;background:color-mix(in srgb,var(--gold) 16%,transparent);border:1px dashed color-mix(in srgb,var(--gold) 55%,transparent)}
 .cif-rows .total small{color:var(--ink)}
-.detail-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
-.detail-actions .primary{flex:1;min-width:190px}
+/* ---------- Vehicle detail · action stack ----------
+   Enquire now is the one solid, dominant action. WhatsApp and Chat Now sit under
+   it as softer, tinted alternatives (WhatsApp green / AR7 gold); Save + Copy link
+   close the stack as quiet neutral utilities. The hierarchy reads at a glance:
+   54px solid > 48px tinted > 44px neutral. Each pair is its own auto-fit grid row
+   (140px minimum), so it stays side by side at every real width, only drops to a
+   single column when a pair genuinely would not fit, and a lone item fills its
+   row - never clipped, never a horizontal scrollbar. Replaces the older flex-row
+   and one-column-grid rules. Public tokens only (--ink, --gold, --card ...); the
+   green is the WhatsApp brand green the .wa-link / .wa-float buttons already use.
+   Motion is the last block of this section: transform/opacity only, and none of
+   it under reduced motion. The entrance is scroll-linked (a view() timeline, so
+   it runs on the compositor and only where supported): the stack, the
+   documentation note and the buyer-guide cards ease up as they scroll into view.
+   Nothing loops and nothing is hidden from browsers without support.
+   Non-interactive cards get the entrance only - no hover lift, which would
+   suggest they are clickable. */
+.detail-actions{--cta-wa:#25d366;--cta-ring:var(--green-text);display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:18px}
+html[data-theme=dark] .detail-actions{--cta-ring:#f1bd58}
+.detail-actions-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.detail-actions-row>*{min-width:0;justify-content:center;white-space:nowrap;font-size:15px}
+.detail-actions .primary{position:relative;isolation:isolate;overflow:hidden}
+.detail-actions .ghost-btn{height:44px;padding:0 14px}
+.detail-actions .ghost-btn svg{width:16px;height:16px;flex:none}
+.detail-actions .ghost-btn:is(.fav-on,.is-done){border-color:var(--green-text);color:var(--green-text)}
+.detail-actions .ghost-btn.is-done svg{color:var(--green-text)}
+.detail-cta{display:inline-flex;align-items:center;gap:9px;height:48px;padding:0 16px;border-radius:12px;border:1px solid var(--cta-line);background:var(--cta-bg);font-weight:700;line-height:1;text-decoration:none;cursor:pointer}
+.detail-actions .detail-cta{color:var(--ink)}
+.detail-cta svg{width:18px;height:18px;flex:none}
+.detail-cta--wa{--cta-line:color-mix(in srgb,var(--cta-wa) 42%,var(--line));--cta-bg:color-mix(in srgb,var(--cta-wa) 9%,var(--card))}
+.detail-cta--wa svg{color:#168a3d}
+.detail-cta--chat{--cta-line:color-mix(in srgb,var(--gold) 46%,var(--line));--cta-bg:color-mix(in srgb,var(--gold) 10%,var(--card))}
+.detail-cta--chat svg{color:#9a6a12}
+html[data-theme=dark] .detail-cta--wa svg{color:var(--cta-wa)}
+html[data-theme=dark] .detail-cta--chat svg{color:var(--gold2)}
+.detail-actions :is(.primary,.detail-cta,.ghost-btn){-webkit-tap-highlight-color:transparent}
+.detail-actions :is(.primary,.detail-cta,.ghost-btn):focus-visible{outline:3px solid var(--cta-ring);outline-offset:3px}
+@media (hover:hover){
+  .detail-actions .primary:hover{box-shadow:0 16px 32px rgba(4,63,40,.28)}
+  .detail-cta--wa:hover{--cta-line:color-mix(in srgb,var(--cta-wa) 80%,var(--line));--cta-bg:color-mix(in srgb,var(--cta-wa) 16%,var(--card));box-shadow:0 12px 24px color-mix(in srgb,var(--cta-wa) 26%,transparent)}
+  .detail-cta--chat:hover{--cta-line:color-mix(in srgb,var(--gold) 85%,var(--line));--cta-bg:color-mix(in srgb,var(--gold) 17%,var(--card));box-shadow:0 12px 24px color-mix(in srgb,var(--gold) 26%,transparent)}
+  .detail-actions .ghost-btn:hover{border-color:var(--gold);box-shadow:0 10px 22px rgba(2,47,29,.1)}
+  .detail-actions .ghost-btn:is(.fav-on,.is-done):hover{border-color:var(--green-text)}
+}
+.detail-actions :is(.primary,.detail-cta,.ghost-btn):active{box-shadow:0 3px 8px rgba(2,47,29,.14)}
+@media (prefers-reduced-motion:no-preference){
+  .detail-actions :is(.primary,.detail-cta,.ghost-btn){transition:transform .22s cubic-bezier(.2,.8,.3,1),box-shadow .22s ease,background-color .2s ease,border-color .2s ease,color .2s ease}
+  .detail-actions :is(.primary,.detail-cta,.ghost-btn) svg{transition:transform .26s cubic-bezier(.2,.8,.3,1)}
+  .detail-actions .primary::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.16) 46%,rgba(228,173,67,.26) 54%,transparent 70%);translate:-120% 0;transition:translate .75s cubic-bezier(.2,.8,.3,1)}
+  @media (hover:hover){
+    .detail-actions :is(.primary,.detail-cta,.ghost-btn):hover{transform:translateY(-2px)}
+    .detail-actions .primary:hover::before{translate:120% 0}
+    .detail-actions .primary:hover svg{transform:translateX(4px)}
+    .detail-cta--wa:hover svg{transform:rotate(-10deg) scale(1.12)}
+    .detail-cta--chat:hover svg{transform:translateY(-1px) scale(1.12)}
+    .detail-actions .ghost-btn:hover svg{transform:scale(1.14)}
+  }
+  .detail-actions :is(.primary,.detail-cta,.ghost-btn):active{transform:translateY(0) scale(.985);transition-duration:.08s}
+  .detail-actions .ghost-btn.fav-on svg,.detail-actions .ghost-btn.is-done svg{animation:detail-pop .44s cubic-bezier(.2,.8,.3,1)}
+  @supports (animation-timeline:view()){
+    .detail-actions>*,.detail-info .sheet-box,.buyer-guide-step,.buyer-guide-card{animation:detail-rise ease-out backwards;animation-timeline:view();animation-range:entry 0% cover 12%}
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .detail-actions :is(.primary,.detail-cta,.ghost-btn){transition:none}
+  .detail-actions :is(.primary,.detail-cta,.ghost-btn):is(:hover,:active){transform:none}
+}
+@keyframes detail-rise{from{opacity:0;translate:0 16px}to{opacity:1;translate:0 0}}
+@keyframes detail-pop{0%{transform:scale(.6)}55%{transform:scale(1.3)}100%{transform:scale(1)}}
 .ghost-btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;height:54px;padding:0 18px;display:inline-flex;gap:8px;align-items:center;font-weight:700;cursor:pointer}
 .ghost-btn svg{width:16px;color:var(--muted)}
 .ghost-btn.fav-on{border-color:var(--green-text);color:var(--green-text)}
@@ -245,8 +312,6 @@
  .hb-step>span{width:36px;height:36px;font-size:12px}
  .hb-days span{flex:1 1 40%}
  .cmp-modal thead th img{width:60px;height:40px}
- .detail-actions{flex-direction:column}
- .detail-actions .primary{width:100%}
  .news-article h2{font-size:27px}
 }
 
@@ -592,7 +657,6 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
  .detail-specs{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}
  .detail-specs>span{min-width:0;padding:12px 8px}
  .spec-table{grid-template-columns:1fr!important}.spec-table span{min-width:0}
- .detail-actions{display:grid;grid-template-columns:1fr}.detail-actions button{width:100%}
  .cif-rows{grid-template-columns:1fr 1fr}.cif-rows .total{grid-column:1/-1}
  .gallery-lightbox{padding:8px!important}.lightbox-stage{height:calc(100dvh - 16px)!important;border-radius:13px}
  .detail-gallery .lightbox-close{right:8px!important;top:8px!important;width:38px!important;height:38px!important}

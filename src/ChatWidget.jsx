@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useImperativeHandle, useRef, useState} from 'react';
 import {MessageCircle, X, Send} from 'lucide-react';
 import {getSettings} from './site-settings.js';
 
@@ -12,6 +12,12 @@ import {getSettings} from './site-settings.js';
 // and the contact settings; without a key a canned playbook answers. The
 // widget itself is stateless and dependency-free — all intelligence lives in
 // the function, so the bundle stays small and answers can't drift.
+//
+// Opening it from elsewhere (the vehicle page's "Chat Now"): render
+//   <ChatWidget ref={chatRef} />   and call   chatRef.current.open()
+// The widget keeps owning its own state, so opening it never re-renders the
+// page that asked, and calling open() while it is already up just focuses the
+// message box instead of silently doing nothing.
 // ---------------------------------------------------------------------------
 const WIDGET_CSS = `
 .aw-float{position:fixed;right:24px;bottom:92px;z-index:130;width:52px;height:52px;border-radius:50%;
@@ -25,7 +31,9 @@ const WIDGET_CSS = `
   height:min(460px,calc(100vh - 200px));display:flex;flex-direction:column;overflow:hidden;
   background:#fff;color:#14231c;border-radius:18px;
   box-shadow:0 30px 70px rgba(10,25,18,.35),0 4px 14px rgba(0,0,0,.12);
-  font-family:Manrope,system-ui,sans-serif}
+  font-family:Manrope,system-ui,sans-serif;
+  transform-origin:100% 100%;animation:aw-pop .24s cubic-bezier(.2,.8,.3,1) both}
+@keyframes aw-pop{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
 .aw-head{display:flex;align-items:center;gap:10px;padding:14px 14px 12px;color:#fff;
   background:linear-gradient(145deg,#0b5c3d,#043f28)}
 .aw-head>div{flex:1;min-width:0}
@@ -52,14 +60,52 @@ const WIDGET_CSS = `
   background:#0b5c3d;color:#fff;display:grid;place-items:center}
 .aw-foot button:disabled{opacity:.45;cursor:default}
 @media (max-width:480px){.aw-float{right:16px;bottom:88px}.aw-panel{right:16px;bottom:152px}}
+@media (prefers-reduced-motion:reduce){
+  .aw-panel{animation:none}
+  .aw-float{transition:none}.aw-float:hover{transform:none}
+  .aw-typing span{animation:none;opacity:.6}
+}
 `;
 
-export function ChatWidget() {
+export function ChatWidget({ref}) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const bodyRef = useRef(null);
+  const inputRef = useRef(null);
+  const toggleRef = useRef(null);
+  const openerRef = useRef(null); // whatever had focus when the panel opened
+  const openRef = useRef(false);  // `open`, readable from the imperative handle
+
+  useImperativeHandle(ref, () => ({
+    open() {
+      if (openRef.current) inputRef.current?.focus({preventScroll: true});
+      else setOpen(true);
+    }
+  }), []);
+
+  // Dialog focus management (WAI-ARIA authoring practices): move into the panel
+  // when it opens and give focus back to whatever opened it when it closes — the
+  // floating toggle, or the page's own "Chat Now" button.
+  useEffect(() => {
+    const wasOpen = openRef.current;
+    openRef.current = open;
+    if (open && !wasOpen) {
+      const active = document.activeElement;
+      openerRef.current = active && active !== document.body ? active : null;
+      inputRef.current?.focus({preventScroll: true});
+    } else if (!open && wasOpen) {
+      // Focus only needs restoring when it was lost with the panel. If the
+      // visitor closed it by clicking the floating toggle, focus is already there.
+      const active = document.activeElement;
+      if (!active || active === document.body) {
+        const back = openerRef.current;
+        (back && back.isConnected ? back : toggleRef.current)?.focus({preventScroll: true});
+      }
+      openerRef.current = null;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open && bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
@@ -96,7 +142,15 @@ export function ChatWidget() {
   return <>
     <style>{WIDGET_CSS}</style>
     {open && (
-      <div className="aw-panel" role="dialog" aria-label="AR7 Traders assistant">
+      <div
+        className="aw-panel"
+        role="dialog"
+        aria-label="AR7 Traders assistant"
+        onKeyDown={e => {
+          // Escape closes the panel and must not also close a lightbox beneath it.
+          if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); }
+        }}
+      >
         <div className="aw-head">
           <div><b>AR7 Assistant</b><small>Live Japan stock · shipping · pricing</small></div>
           <button onClick={() => setOpen(false)} aria-label="Close chat"><X size={15} /></button>
@@ -111,12 +165,13 @@ export function ChatWidget() {
           {busy && <div className="aw-msg bot aw-typing" aria-label="Assistant is typing"><span /><span /><span /></div>}
         </div>
         <form className="aw-foot" onSubmit={send}>
-          <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type your question…" aria-label="Message the assistant" disabled={busy} maxLength={2000} />
+          <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder="Type your question…" aria-label="Message the assistant" disabled={busy} maxLength={2000} />
           <button type="submit" disabled={busy || !input.trim()} aria-label="Send message"><Send size={15} /></button>
         </form>
       </div>
     )}
     <button
+      ref={toggleRef}
       className={'aw-float' + (open ? ' open' : '')}
       onClick={() => setOpen(v => !v)}
       aria-label={open ? 'Close the AR7 assistant chat' : 'Chat with the AR7 assistant'}
