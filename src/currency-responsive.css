@@ -1,35 +1,51 @@
-/* Compact public header controls at phone widths. Keep the display-currency
-   choice accessible without letting it push across the small brand globe. */
+/*
+ * Public header fit rules.
+ *
+ * The header has two jobs at small widths: keep the complete AR7 TRADERS
+ * label readable and keep every control reachable.  Older rules solved a
+ * squeeze by giving the label a fixed 60–76px width, which made the brand
+ * render as "AR7 TRAD…".  The label now keeps its intrinsic width.  Phones
+ * which cannot fit the brand and all controls in one row use the intentional
+ * two-row layout below 501px instead of clipping either one.
+ */
+
 @media (max-width: 650px) {
   .nav-wrap .nav {
-    gap: 6px;
-    padding-inline: 8px;
+    gap: 8px;
+    padding-inline: 9px;
+    min-width: 0;
   }
 
   .nav-wrap .brand-group {
     flex: 0 1 auto;
     min-width: 0;
-    gap: 6px;
+    gap: 14px;
   }
 
   .nav-wrap .brand {
     flex: 0 1 auto;
     min-width: 0;
-    gap: 6px;
+    gap: 7px;
   }
 
   .nav-wrap .brand img {
-    flex: 0 0 38px;
-    width: 38px;
-    height: 38px;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
   }
 
+  /* Never ellipsize the company name.  It is the primary brand, not a
+     secondary nav label, so it gets its natural width on every phone. */
   .nav-wrap .brand span {
-    width: 76px;
-    max-width: 76px;
-    min-width: 0;
-    font-size: 11px;
-    letter-spacing: .8px;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+    min-width: max-content;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    font-size: 11.5px;
+    letter-spacing: .65px;
   }
 
   .nav-wrap .brand small {
@@ -37,28 +53,29 @@
   }
 
   .nav-wrap .brand-group .nav-orb {
-    flex: 0 0 34px;
-    width: 34px;
-    height: 34px;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
   }
 
   .nav-wrap .brand-group .nav-orb .iglobe {
-    width: 40px;
+    width: 46px;
     margin-top: -2px;
   }
 
   .nav-wrap .nav-actions {
     flex: 0 0 auto;
-    gap: 4px;
+    gap: 5px;
     margin-left: auto;
+    min-width: 0;
   }
 
   .nav-wrap .nav-actions .icon-btn,
   .nav-wrap .nav-actions .menu-btn,
   .nav-wrap .nav-actions .portal-btn {
-    flex: 0 0 36px;
-    width: 36px;
-    height: 36px;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
   }
 
@@ -67,7 +84,8 @@
   }
 
   .nav-wrap .nav-actions .ar7cur-btn {
-    height: 34px;
+    min-width: 60px;
+    height: 36px;
     gap: 4px;
     padding-inline: 7px;
     font-size: 10.5px;
@@ -83,73 +101,207 @@
     width: 11px;
   }
 
+  /* Align the menu to the switcher's right edge.  The old left:50% rule
+     centered it around the small button, pushing the right half off-screen. */
   .nav-wrap .nav-actions .ar7cur-menu {
-    right: auto;
-    left: 50%;
+    right: 0;
+    left: auto;
     width: min(264px, calc(100vw - 16px));
-    transform: translateX(-50%);
+    max-height: min(520px, calc(100vh - 112px));
+    transform: none;
     animation-name: ar7curMobileIn;
   }
 
   @keyframes ar7curMobileIn {
-    from { opacity: 0; transform: translate(-50%, -6px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .nav-wrap .navlinks.open {
+    max-height: calc(100dvh - 112px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 
 @media (max-width: 420px) {
   .nav-wrap .brand-group {
-    gap: 4px;
+    gap: 12px;
   }
 
   .nav-wrap .brand {
-    gap: 4px;
+    gap: 6px;
   }
 
   .nav-wrap .brand img {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-wrap .brand span {
+    font-size: 11.5px;
+    letter-spacing: .5px;
+  }
+
+  .nav-wrap .brand-group .nav-orb {
     flex-basis: 34px;
     width: 34px;
     height: 34px;
   }
 
-  .nav-wrap .brand span {
-    width: 60px;
-    max-width: 60px;
-    font-size: 10px;
-    letter-spacing: .55px;
-  }
-
-  .nav-wrap .brand-group .nav-orb {
-    flex-basis: 30px;
-    width: 30px;
-    height: 30px;
-  }
-
   .nav-wrap .brand-group .nav-orb .iglobe {
-    width: 36px;
+    width: 42px;
+  }
+
+  /* Keep a compact account icon available at every phone width.  The
+     sign-up wordmark remains in the menu at tablet/mobile widths. */
+  .nav-wrap .nav-actions .portal-btn {
+    display: grid;
   }
 
   .nav-wrap .nav-actions {
-    gap: 3px;
+    gap: 4px;
   }
 
   .nav-wrap .nav-actions .icon-btn,
-  .nav-wrap .nav-actions .menu-btn {
-    flex-basis: 32px;
-    width: 32px;
-    height: 32px;
-    padding: 0;
+  .nav-wrap .nav-actions .menu-btn,
+  .nav-wrap .nav-actions .portal-btn {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
   }
 
   .nav-wrap .nav-actions .ar7cur-btn {
-    height: 32px;
+    min-width: 60px;
+    height: 34px;
     gap: 3px;
-    padding-inline: 5px;
-    font-size: 9.5px;
+    padding-inline: 6px;
+    font-size: 10px;
   }
 
   .nav-wrap .nav-actions .ar7cur-btn .ar7cur-flag .wflag {
     width: 14px;
     height: 9px;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-menu {
+    max-height: min(520px, calc(100vh - 118px));
+  }
+}
+
+/* At 500px and below there is not enough honest horizontal room for a full
+   brand, its globe, currency, theme, account and menu buttons at accessible
+   sizes. Use a compact two-row header instead of shrinking the brand into an
+   unreadable ellipsis. */
+@media (max-width: 500px) {
+  .nav-wrap {
+    padding-inline: 8px;
+  }
+
+  .nav-wrap .nav {
+    height: auto;
+    min-height: 96px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 8px;
+    align-content: center;
+    padding: 8px 10px;
+  }
+
+  .nav-wrap .brand-group {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 14px;
+  }
+
+  .nav-wrap .brand {
+    gap: 6px;
+  }
+
+  .nav-wrap .brand img {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-wrap .brand span {
+    font-size: 11.5px;
+    letter-spacing: .5px;
+  }
+
+  .nav-wrap .brand-group .nav-orb {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .nav-wrap .nav-actions {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+
+  .nav-wrap .nav-actions .icon-btn,
+  .nav-wrap .nav-actions .menu-btn,
+  .nav-wrap .nav-actions .portal-btn {
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-btn {
+    min-width: 64px;
+    height: 40px;
+    padding-inline: 8px;
+    font-size: 10.5px;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-menu {
+    max-height: min(520px, calc(100vh - 148px));
+  }
+
+  .nav-wrap .navlinks.open {
+    max-height: calc(100dvh - 148px);
+  }
+
+  /* The fixed header is now two rows; leave enough breathing room before
+     every page hero/detail rather than letting the nav cover its title. */
+  .hero,
+  .page-hero.mini,
+  .page-hero.split {
+    padding-top: 160px !important;
+  }
+
+  .detail-page {
+    padding-top: 160px;
+  }
+}
+
+/* The shared currency stylesheet switches to left:50% at 720px. Keep the
+   tablet-portrait dropdown anchored to the viewport-safe right edge too. */
+@media (min-width: 651px) and (max-width: 720px) {
+  .nav-wrap .nav-actions .ar7cur-menu {
+    right: 0;
+    left: auto;
+    width: min(264px, calc(100vw - 16px));
+    max-height: min(520px, calc(100vh - 112px));
+    transform: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .nav-wrap .navlinks.open {
+    max-height: calc(100dvh - 112px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (max-width: 500px) {
+  .nav-wrap .navlinks.open {
+    max-height: calc(100dvh - 148px);
   }
 }

@@ -39,6 +39,9 @@ const document = new JSDOM(html).window.document;
 
 // ---- the primary row -------------------------------------------------------
 ok(document.querySelector('.navlinks .nav-inventory > button')?.textContent.trim() === 'Inventory', 'Inventory dropdown is in the primary nav (with its chevron)');
+ok(document.querySelector('.brand strong')?.textContent === 'TRADERS', 'the complete AR7 TRADERS brand label renders in the header');
+ok(!document.querySelector('.brand span')?.className?.includes('truncate'), 'the brand label has no truncation marker');
+ok(document.querySelector('.menu-btn')?.getAttribute('aria-controls') === 'ar7-public-menu', 'the mobile menu button controls the public menu');
 ok(html.includes('nav-inventory'), 'the Inventory dropdown renders');
 ok(!html.includes('>Japan dealer stock</a>'), 'Japan dealer stock is NOT in the primary nav (moved to dropdown)');
 ok(html.includes('>Auction access</a>'), 'Auction access is in the primary nav');

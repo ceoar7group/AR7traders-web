@@ -100,7 +100,7 @@ export function SiteHeader({
       <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
-    <div className={'navlinks ' + (menu ? 'open' : '')}>
+    <div id="ar7-public-menu" className={'navlinks ' + (menu ? 'open' : '')}>
       <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={routeKey} label="Inventory">
         {close => INVENTORY_LINKS.map(x => {
           const I = x[0];
@@ -129,10 +129,10 @@ export function SiteHeader({
     <div className="nav-actions">
       <CurrencyDropdown/>
       <a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio', navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a>
-      <button className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun/> : <Moon/>}</button>
+      <button type="button" className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun/> : <Moon/>}</button>
       <a className="icon-btn portal-btn" href="/account" onClick={linkClick('account', navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a>
       <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>My account <UserCog/></> : <>Sign up <UserPlus/></>}</a>
-      <button className="menu-btn" onClick={() => setMenu(!menu)} aria-label="Open menu">{menu ? <X/> : <Menu/>}</button>
+      <button type="button" className="menu-btn" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-controls="ar7-public-menu" aria-label={menu ? 'Close menu' : 'Open menu'}>{menu ? <X/> : <Menu/>}</button>
     </div>
   </nav></header>;
 }

@@ -47,6 +47,7 @@ import { installImageFallback, hasRetried } from './image-fallback.js';
 installImageFallback();
 import './currency.css';
 import './currency-responsive.css';
+import './performance.css';
 
 // ---------------------------------------------------------------------------
 // Owner-directed experience claim (figure revised 1,200+ → 900+ on 2026-09-29;
@@ -334,7 +335,10 @@ function HeroVisual({navigate}){
  const onMove=e=>{const el=wrap.current;if(!el)return;const r=el.getBoundingClientRect();const mx=((e.clientX-r.left)/r.width-.5).toFixed(3),my=((e.clientY-r.top)/r.height-.5).toFixed(3);el.style.setProperty('--mx',mx);el.style.setProperty('--my',my)};
  const onLeave=()=>{const el=wrap.current;if(!el)return;el.style.setProperty('--mx','0');el.style.setProperty('--my','0')};
  const rotatingCars=rotatingCarIds();
- const c=rotatingCars[idx%Math.max(rotatingCars.length,1)]||cars[0];
+ const activeCarIndex=idx%Math.max(rotatingCars.length,1);
+ const c=rotatingCars[activeCarIndex]||cars[0];
+ const heroImages=c ? [c, rotatingCars[(activeCarIndex+1)%Math.max(rotatingCars.length,1)]]
+  .filter((x,i,a)=>x && a.findIndex(y=>y?.id===x.id)===i) : [];
  const auction=heroAuctions[auctionIdx];
  const route=heroRoutes[routeIdx];
  const remaining=(auctionEnds.current[auctionIdx]-now)/1000;
@@ -343,7 +347,7 @@ function HeroVisual({navigate}){
   <i className="spark s1"/><i className="spark s2"/><i className="spark s3"/><i className="spark s4"/><i className="spark s5"/><i className="spark s6"/>
   <div className="hero-orb" title="AR7 360° world"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div>
   <a className="hero-card car-main" href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)} title={`View ${c.make} ${c.model}`}>
-   <div className="hero-stack">{rotatingCars.map((x,n)=><img key={x.id} className={n===idx%rotatingCars.length?'active':''} width="820" height="550" src={x.image} alt={carAlt(x)} fetchPriority={n===0?'high':'auto'} decoding="async"/>)}</div>
+   <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={carAlt(x)} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
    <div className="image-shade"/>
    <div className="car-float-title" key={idx}>
     <span>{c.status.toUpperCase()}</span><h3>{c.make} {c.model}</h3><p>{c.year} · Grade {c.grade} · {price(c)}</p>
@@ -366,34 +370,54 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
  const ref=useRef(null);
  useEffect(()=>{
   const el=ref.current; if(!el)return;
-  const st={x:0,vel:0,drag:false,lx:0,ly:0,tilt:0};
-  let raf=0,prev=performance.now(),visible=true;
-  const io=new IntersectionObserver(en=>{visible=en[0].isIntersecting},{threshold:0});
-  io.observe(el);
-  const loop=t=>{
-   const dt=Math.min(t-prev,40);prev=t;
-   if(visible&&!document.hidden){
-    if(!st.drag){
-     st.x+=0.10*dt/16;
-     st.x+=st.vel*dt/16;st.vel*=Math.pow(0.93,dt/16);
-     st.tilt+=(0-st.tilt)*0.045*dt/16;
-    }
-    const face=el.querySelector('.iglobe-face');const w=(face?face.offsetWidth:el.offsetWidth)||1;
-    while(st.x<=-w)st.x+=w; while(st.x>0)st.x-=w;
-    el.style.setProperty('--rot',st.x.toFixed(2)+'px');
-    el.style.setProperty('--tilt',st.tilt.toFixed(2)+'deg');
-   }
-   raf=requestAnimationFrame(loop);
+  const st={x:0,vel:0,drag:false,lx:0,ly:0,tilt:0,moved:false,sx:0,sy:0};
+  let raf=0,prev=performance.now(),visible=false,destroyed=false;
+  const motionQuery=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  let reduced=!!motionQuery?.matches;
+  const apply=()=>{
+   const face=el.querySelector('.iglobe-face');const w=(face?face.offsetWidth:el.offsetWidth)||1;
+   while(st.x<=-w)st.x+=w; while(st.x>0)st.x-=w;
+   el.style.setProperty('--rot',st.x.toFixed(2)+'px');
+   el.style.setProperty('--tilt',st.tilt.toFixed(2)+'deg');
   };
-  raf=requestAnimationFrame(loop);
-  const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;el.classList.add('dragging');if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){}}
-  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.x+=dx;st.vel=dx*0.82;st.tilt=Math.max(-16,Math.min(16,st.tilt+dy*0.10));if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true}
-  const up=()=>{if(!st.drag)return;st.drag=false;el.classList.remove('dragging');if(!st.moved&&onTap)onTap();}
+  const schedule=()=>{
+   if(!raf&&!destroyed&&visible&&!document.hidden&&(!reduced||st.drag))raf=requestAnimationFrame(loop);
+  };
+  const loop=t=>{
+   raf=0;
+   if(destroyed||!visible||document.hidden)return;
+   const dt=Math.min(t-prev,40);prev=t;
+   if(!st.drag&&!reduced){
+    st.x+=0.10*dt/16;
+    st.x+=st.vel*dt/16;st.vel*=Math.pow(0.93,dt/16);
+    st.tilt+=(0-st.tilt)*0.045*dt/16;
+   }
+   apply();
+   schedule();
+  };
+  const onVisible=en=>{
+   visible=!!en[0]?.isIntersecting;
+   if(visible){prev=performance.now();schedule();}
+   else if(raf){cancelAnimationFrame(raf);raf=0;}
+  };
+  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(onVisible,{threshold:0}):null;
+  if(io)io.observe(el);else{visible=true;schedule();}
+  const onVisibility=()=>{
+   if(document.hidden&&raf){cancelAnimationFrame(raf);raf=0;}
+   else{prev=performance.now();schedule();}
+  };
+  const onMotion=e=>{reduced=!!e.matches;if(!reduced)schedule();};
+  document.addEventListener('visibilitychange',onVisibility);
+  if(motionQuery?.addEventListener)motionQuery.addEventListener('change',onMotion);
+  else motionQuery?.addListener?.(onMotion);
+  const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;el.classList.add('dragging');schedule();if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){} };
+  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.x+=dx;st.vel=dx*0.82;st.tilt=Math.max(-16,Math.min(16,st.tilt+dy*0.10));if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
+  const up=()=>{if(!st.drag)return;st.drag=false;el.classList.remove('dragging');if(!st.moved&&onTap)onTap();schedule();};
   el.addEventListener('pointerdown',dn);
-  window.addEventListener('pointermove',mv);
+  window.addEventListener('pointermove',mv,{passive:true});
   window.addEventListener('pointerup',up);
   window.addEventListener('pointercancel',up);
-  return()=>{cancelAnimationFrame(raf);io.disconnect();el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
+  return()=>{destroyed=true;if(raf)cancelAnimationFrame(raf);io?.disconnect();document.removeEventListener('visibilitychange',onVisibility);if(motionQuery?.removeEventListener)motionQuery.removeEventListener('change',onMotion);else motionQuery?.removeListener?.(onMotion);el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
  },[]);
  return <div className={'iglobe'+(compact?' compact':'')+(lite?' lite':'')+(cls?' '+cls:'')} ref={ref}>
   <div className="iglobe-halo"/><div className="iglobe-sphere">
@@ -745,9 +769,38 @@ const WORLD_CLOCKS=[
  {code:'NZ',country:'New Zealand',city:'Auckland',zone:'Pacific/Auckland'}
 ].map(x=>({...x,formatter:new Intl.DateTimeFormat('en-GB',{timeZone:x.zone,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZoneName:'short'})}));
 
+function DeferredBigGlobe({navigate,compact}){
+ const host=useRef(null);
+ const [ready,setReady]=useState(false);
+ useEffect(()=>{
+  const el=host.current;
+  if(!el)return;
+  if(typeof IntersectionObserver!=='function'){setReady(true);return;}
+  const io=new IntersectionObserver(entries=>{
+   if(entries.some(e=>e.isIntersecting)){
+    setReady(true);
+    io.disconnect();
+   }
+  },{rootMargin:'280px 0px'});
+  io.observe(el);
+  return()=>io.disconnect();
+ },[]);
+ return <div ref={host} className="globe-lazy world-globe-deferred">
+  {ready&&<React.Suspense fallback={<div className="globe-lazy" aria-hidden="true"/>}><BigGlobe navigate={navigate} compact={compact}/></React.Suspense>}
+ </div>;
+}
+
 function WorldTimeRibbon(){
  const [now,setNow]=useState(()=>new Date());
- useEffect(()=>{const tick=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(tick)},[]);
+ useEffect(()=>{
+  let tick=0;
+  const start=()=>{if(!tick&&!document.hidden)tick=setInterval(()=>setNow(new Date()),1000)};
+  const stop=()=>{if(tick){clearInterval(tick);tick=0}};
+  const onVisibility=()=>document.hidden?stop():start();
+  start();
+  document.addEventListener('visibilitychange',onVisibility);
+  return()=>{stop();document.removeEventListener('visibilitychange',onVisibility)};
+ },[]);
  const group=(copy,hidden=false)=><div className="world-time-group" aria-hidden={hidden||undefined} key={copy}>{WORLD_CLOCKS.map(c=>{const parts=c.formatter.formatToParts(now),time=parts.filter(p=>['hour','minute','second','literal'].includes(p.type)).map(p=>p.value).join(''),zone=parts.find(p=>p.type==='timeZoneName')?.value||'';return <span className="world-time-item" key={copy+c.city}><span className="world-time-flag"><Flag c={c.country} w={18} h={12}/></span><i>{c.code}</i><b>{c.city}</b><strong>{time}</strong><small>{zone}</small></span>})}</div>;
  return <div className="world-time-ribbon" aria-label="Live international times"><div className="world-time-label"><Globe2/><span>WORLD TIME</span><i/></div><div className="world-time-viewport"><div className="world-time-track">{group('a')}{group('b',true)}</div></div></div>
 }
@@ -768,7 +821,19 @@ export function App(){
   useSeo(page, vehicleId, page === 'inventory' ? findCar(cars, vehicleId) : undefined,
     { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !findCar(cars, vehicleId) && isContentHydrated(), make: makeFilter });
   useEffect(()=>onContentChange(forceContent),[]);
- useEffect(()=>{let t=0;const fn=()=>{cancelAnimationFrame(t);t=requestAnimationFrame(()=>document.documentElement.style.setProperty('--scroll',window.scrollY+'px'))};window.addEventListener('scroll',fn,{passive:true});return()=>{window.removeEventListener('scroll',fn);cancelAnimationFrame(t)}},[]);
+ useEffect(()=>{
+  let t=0,last=-1;
+  const fn=()=>{
+   if(t)return;
+   t=requestAnimationFrame(()=>{
+    t=0;
+    const y=window.scrollY||0;
+    if(y!==last){last=y;document.documentElement.style.setProperty('--scroll',y+'px');}
+   });
+  };
+  window.addEventListener('scroll',fn,{passive:true});
+  return()=>{window.removeEventListener('scroll',fn);if(t)cancelAnimationFrame(t)};
+ },[]);
  useEffect(()=>{
   const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setMenu(false)};
   const route=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()});
@@ -839,7 +904,7 @@ export function App(){
     </div>
    </section>
 
-   <section className="world section"><div className="world-map"><React.Suspense fallback={<div className="globe-lazy" aria-hidden="true"/>}><BigGlobe navigate={navigate} compact/></React.Suspense></div><div className="world-content shell"><div className="kicker">GLOBAL REACH, LOCAL CARE</div><h2>Japan to <em>everywhere.</em></h2><p>We ship through trusted carriers to ports worldwide. Spin the globe — tap Japan to browse stock, or any country for its market guide.</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>Explore destinations <ArrowRight/></PageLink></div></section>
+   <section className="world section"><div className="world-map"><DeferredBigGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">GLOBAL REACH, LOCAL CARE</div><h2>Japan to <em>everywhere.</em></h2><p>We ship through trusted carriers to ports worldwide. Spin the globe — tap Japan to browse stock, or any country for its market guide.</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>Explore destinations <ArrowRight/></PageLink></div></section>
 
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">READY WHEN YOU ARE</div><h2>Let’s find your<br/>next <em>vehicle.</em></h2><p>Tell us what you’re looking for. Our Japan team will reply with suitable options.</p></div><button className="gold-btn large" onClick={()=>setModal(true)}>Start your search <ArrowUpRight/></button></section>
    </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
