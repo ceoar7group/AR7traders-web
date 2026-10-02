@@ -4,6 +4,38 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <meta name="theme-color" content="#063f29"/>
+<!-- Keep the pre-React first paint intentional while the public app bundle loads. -->
+<style>
+  #ar7-boot { display:none; }
+  html.ar7-js #ar7-boot {
+    position:fixed; inset:0; z-index:99999; display:grid; place-items:center;
+    padding:24px; overflow:hidden; color:#f3f8f4;
+    background:radial-gradient(ellipse at 50% 40%,#0c5638 0%,#063c28 42%,#022719 100%);
+    font-family:Manrope,system-ui,sans-serif;
+  }
+  html.ar7-js #ar7-static-preview { display:none; }
+  #ar7-boot .boot-card { width:min(360px,100%); display:grid; justify-items:center; text-align:center; }
+  #ar7-boot .boot-mark {
+    width:70px; height:70px; object-fit:contain; border-radius:18px; background:#fff;
+    box-shadow:0 16px 42px #00180e66; animation:ar7BootFloat 2.4s ease-in-out infinite;
+  }
+  #ar7-boot .boot-brand { margin:19px 0 5px; font-size:17px; font-weight:800; letter-spacing:.2em; }
+  #ar7-boot .boot-caption { color:#c2d6ca; font-size:10px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; }
+  #ar7-boot .boot-progress { width:124px; height:3px; margin-top:27px; overflow:hidden; border-radius:4px; background:#ffffff25; }
+  #ar7-boot .boot-progress i { display:block; width:42%; height:100%; border-radius:inherit; background:#e4ad43; animation:ar7BootProgress 1.25s ease-in-out infinite; }
+  @keyframes ar7BootFloat { 50% { transform:translateY(-5px); } }
+  @keyframes ar7BootProgress { from { transform:translateX(-110%); } to { transform:translateX(250%); } }
+  @media(prefers-reduced-motion:reduce) {
+    #ar7-boot .boot-mark,#ar7-boot .boot-progress i { animation:none; }
+    #ar7-boot .boot-progress i { width:100%; opacity:.75; }
+  }
+</style>
+<script>
+  document.documentElement.classList.add('ar7-js');
+  window.__ar7BootFallbackTimer = window.setTimeout(function(){
+    document.documentElement.classList.remove('ar7-js');
+  }, 12000);
+</script>
 <!-- Build marker - lets anyone confirm which build of the site they are viewing
      (also printed in the browser console). Update when releasing. -->
 <meta name="build-id" content="ar7-2026-09-28-seo"/>
@@ -194,7 +226,15 @@
      load; crawlers that don't execute JavaScript (including most LLM crawlers)
      read what is here, so keep it accurate, semantic and current. -->
 <div id="root">
-  <div style="max-width:880px;margin:0 auto;padding:64px 24px 96px;background:#f5f6f2;color:#102018;font-family:system-ui,sans-serif">
+  <div id="ar7-boot" role="status" aria-live="polite" aria-label="Preparing the AR7 Traders website">
+    <div class="boot-card">
+      <img class="boot-mark" src="/assets/ar7-mark.png" width="70" height="70" alt=""/>
+      <div class="boot-brand">AR7 TRADERS</div>
+      <div class="boot-caption">Preparing your showroom</div>
+      <div class="boot-progress" aria-hidden="true"><i></i></div>
+    </div>
+  </div>
+  <div id="ar7-static-preview" style="max-width:880px;margin:0 auto;padding:64px 24px 96px;background:#f5f6f2;color:#102018;font-family:system-ui,sans-serif">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px">
       <img src="/assets/ar7-mark.png" alt="AR7 Traders logo" width="44" height="44" style="border-radius:10px"/>
       <span style="letter-spacing:.22em;font-size:12px;font-weight:700">AR7 TRADERS</span>
@@ -205,8 +245,6 @@
       translates auction sheets, and ships worldwide to Pakistan, the UAE, Kenya, Tanzania, the
       United Kingdom and other markets — with one clear price to your port.
     </p>
-    <p style="font-size:13px;color:#7a857e;margin:0 0 32px">Loading the full website…</p>
-
     <h2 style="font-size:19px;margin:0 0 10px">What we do</h2>
     <ul style="line-height:1.8;color:#33413a;font-size:15px;padding-left:20px;margin:0 0 32px">
       <li><a href="/inventory">Live vehicle inventory</a> — verified Japanese cars ready for export, with mileage, grade, photos and price.</li>

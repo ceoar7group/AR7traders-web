@@ -1,0 +1,415 @@
+/* Vehicle detail pages: keep galleries, specs and controls inside their grid. */
+.detail-grid {
+  align-items: start;
+  min-width: 0;
+}
+
+.detail-gallery,
+.detail-info {
+  min-width: 0;
+}
+
+/* The mini globe and auction-sheet badge belong to the gallery, not the site
+   root. Without this positioning context they drift into the fixed header. */
+.detail-gallery {
+  position: relative;
+}
+
+.detail-info > .kicker {
+  flex-wrap: wrap;
+  row-gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.detail-info h1 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.spec-table span {
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.spec-table b {
+  min-width: 0;
+  max-width: 65%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: right;
+}
+
+.detail-specs > span {
+  min-width: 0;
+}
+
+.detail-specs b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-gallery .detail-orb {
+  pointer-events: none;
+}
+
+.detail-gallery .detail-orb .iglobe {
+  pointer-events: auto;
+}
+
+@media (min-width: 651px) and (max-width: 1000px) {
+  .detail-page {
+    padding-top: 136px;
+    padding-bottom: 88px;
+  }
+
+  .detail-page > .shell {
+    width: min(calc(100% - 36px), 900px);
+  }
+
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 30px !important;
+  }
+
+  .detail-gallery,
+  .detail-info {
+    width: min(760px, 100%);
+    margin-inline: auto;
+  }
+
+  .detail-gallery > .detail-main-image > img {
+    aspect-ratio: 16 / 10 !important;
+    max-height: 480px;
+  }
+
+  .detail-gallery > .detail-thumbs {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+
+  .detail-gallery > .detail-thumbs button img {
+    height: clamp(68px, 10vw, 92px);
+  }
+
+  .detail-info > .kicker {
+    font-size: 10px;
+    letter-spacing: 1.7px;
+  }
+
+  .detail-info h1 {
+    font-size: clamp(40px, 6vw, 56px);
+    letter-spacing: -2.5px;
+  }
+
+  .detail-specs {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px;
+  }
+
+  .spec-table {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 22px;
+  }
+
+  .spec-table h4 {
+    grid-column: 1 / -1;
+  }
+
+  .spec-table span {
+    gap: 9px;
+  }
+
+  .spec-table small {
+    flex: 0 0 39%;
+  }
+
+  .buyer-guide {
+    margin-top: 42px;
+    padding: 26px;
+  }
+
+  .buyer-guide-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .detail-page {
+    padding-top: 124px;
+    padding-bottom: 60px;
+  }
+
+  .detail-page > .shell {
+    width: min(calc(100% - 20px), 620px);
+  }
+
+  .detail-page > .shell > .back-btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 42px;
+    margin: 0 0 13px -7px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 22px !important;
+  }
+
+  .detail-gallery .detail-orb {
+    top: 8px;
+    right: 8px;
+  }
+
+  .detail-gallery .detail-orb .iglobe {
+    width: 58px;
+  }
+
+  .detail-gallery > .detail-main-image > img {
+    aspect-ratio: 16 / 10 !important;
+  }
+
+  .detail-gallery .detail-gallery-toolbar {
+    gap: 7px !important;
+    padding: 6px 8px !important;
+  }
+
+  .detail-gallery .detail-gallery-toolbar .gallery-arrow {
+    flex: 0 0 36px;
+  }
+
+  .detail-gallery .detail-gallery-toolbar .gallery-count {
+    min-width: 48px;
+    padding-inline: 7px !important;
+    font-size: 10px !important;
+  }
+
+  .detail-gallery > .detail-thumbs {
+    gap: 7px !important;
+  }
+
+  .detail-gallery > .detail-thumbs button {
+    flex: 0 0 76px;
+    min-width: 0;
+  }
+
+  .detail-gallery > .detail-thumbs button img {
+    height: 54px;
+  }
+
+  .detail-info > .kicker {
+    gap: 5px;
+    font-size: 9px;
+    letter-spacing: 1.3px;
+  }
+
+  .detail-info h1 {
+    margin: 14px 0 18px;
+    font-size: clamp(34px, 10vw, 48px);
+    line-height: 1.04;
+    letter-spacing: -2px;
+  }
+
+  .detail-price {
+    padding: 14px 0;
+  }
+
+  .detail-price b {
+    font-size: clamp(24px, 7.4vw, 32px);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .detail-specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px;
+    margin: 16px 0;
+  }
+
+  .detail-specs > span {
+    grid-template-columns: 20px minmax(0, 1fr);
+    column-gap: 6px;
+    min-height: 60px;
+    padding: 10px 8px;
+  }
+
+  .detail-specs svg {
+    width: 16px;
+  }
+
+  .detail-specs b {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .spec-table {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 13px 14px;
+  }
+
+  .spec-table h4 {
+    font-size: 10px;
+  }
+
+  .spec-table span {
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .spec-table small {
+    flex: 0 0 39%;
+    font-size: 8px;
+    letter-spacing: .6px;
+  }
+
+  .spec-table b {
+    max-width: 61%;
+    font-size: 11px;
+  }
+
+  .feat-box,
+  .cif-box {
+    padding: 14px;
+  }
+
+  .feat-chips {
+    gap: 6px;
+  }
+
+  .feat-chips span {
+    padding: 6px 9px;
+    font-size: 10px;
+  }
+
+  .cif-box select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cif-rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-actions {
+    gap: 9px;
+    margin-top: 14px;
+  }
+
+  .detail-actions-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .detail-actions-row > * {
+    min-width: 0;
+    gap: 5px;
+    padding-inline: 8px;
+    font-size: clamp(12px, 3.5vw, 14px);
+    white-space: normal;
+    text-align: center;
+  }
+
+  .detail-actions-row svg {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .brand-brandlogo {
+    min-width: 0;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+  }
+
+  .brand-brandlogo span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 9px;
+  }
+
+  .sheet-box {
+    align-items: flex-start;
+    padding: 13px;
+  }
+
+  .buyer-guide {
+    margin-top: 34px;
+    padding: 18px;
+    gap: 17px;
+  }
+
+  .buyer-guide-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .buyer-guide-notes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .related-stock {
+    margin-top: 40px;
+    padding-top: 28px;
+  }
+
+  .related-stock h2 {
+    font-size: clamp(24px, 7vw, 32px);
+  }
+
+  .related-stock-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .related-stock-card img {
+    height: 118px;
+  }
+
+  .related-stock-card b {
+    padding: 10px 10px 2px;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .related-stock-card small {
+    padding: 0 10px 12px;
+    font-size: 9px;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 380px) {
+  .detail-page > .shell {
+    width: calc(100% - 16px);
+  }
+
+  .detail-info h1 {
+    font-size: clamp(32px, 10.5vw, 40px);
+  }
+
+  .detail-specs > span {
+    grid-template-columns: 18px minmax(0, 1fr);
+    column-gap: 5px;
+    padding-inline: 7px;
+  }
+
+  .spec-table {
+    padding-inline: 11px;
+  }
+
+  .spec-table small {
+    flex-basis: 37%;
+  }
+
+  .detail-actions-row > * {
+    gap: 4px;
+    padding-inline: 6px;
+  }
+
+  .related-stock-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

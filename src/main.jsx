@@ -8,6 +8,7 @@ import './extra-pages.css';
 import './motion-account.css';
 import './landing-v2.css';
 import './expanded.css';
+import './detail-responsive.css';
 // The globe is the single heaviest thing on the public site and it is never
 // above the fold — the hero has its own lightweight visual and the header has
 // the world-time ribbon. Loading network.jsx on demand keeps it out of the
@@ -45,6 +46,7 @@ import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
 import { installImageFallback, hasRetried } from './image-fallback.js';
 installImageFallback();
 import './currency.css';
+import './currency-responsive.css';
 
 // ---------------------------------------------------------------------------
 // Owner-directed experience claim (figure revised 1,200+ → 900+ on 2026-09-29;
@@ -893,4 +895,7 @@ class BootErrorBoundary extends React.Component{
 }
 
 const rootEl=document.getElementById('root');
-if(rootEl) createRoot(rootEl).render(<BootErrorBoundary><CurrencyProvider><App/></CurrencyProvider></BootErrorBoundary>);
+if(rootEl){
+ if(window.__ar7BootFallbackTimer)window.clearTimeout(window.__ar7BootFallbackTimer);
+ createRoot(rootEl).render(<BootErrorBoundary><CurrencyProvider><App/></CurrencyProvider></BootErrorBoundary>);
+}
