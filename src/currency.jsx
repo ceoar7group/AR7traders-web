@@ -264,7 +264,7 @@ export function CurrencyDropdown({ label = 'Currency' }) {
 
   return (
     <div className="ar7cur-switch" ref={box}>
-      <button className="ar7cur-btn" onClick={() => setOpen(o => !o)}
+      <button type="button" className="ar7cur-btn" onClick={() => setOpen(o => !o)}
         aria-haspopup="listbox" aria-expanded={open} title={`${label}: ${cur.name} — prices convert instantly`}>
         <CurrencyFlag code={cur.code} />
         <b>{cur.code}</b>
@@ -277,7 +277,7 @@ export function CurrencyDropdown({ label = 'Currency' }) {
             <span>Display prices in</span>
           </div>
           {CURRENCIES.map(c => (
-            <button key={c.code} role="option" aria-selected={c.code === display}
+            <button type="button" key={c.code} role="option" aria-selected={c.code === display}
               className={'ar7cur-opt' + (c.code === display ? ' on' : '')}
               onClick={() => { setDisplay(c.code); setOpen(false); }}>
               <CurrencyFlag code={c.code} />

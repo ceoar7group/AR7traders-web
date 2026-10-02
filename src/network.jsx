@@ -135,29 +135,49 @@ export function BigNetworkGlobe({navigate,compact}){
  const ref=useRef(null);
  useEffect(()=>{
   const el=ref.current; if(!el)return;
-  const st={rot:0,vel:0,drag:false,lx:0,ly:0,moved:false,sx:0,sy:0};
-  let raf=0,prev=performance.now(),visible=true;
-  const io=new IntersectionObserver(en=>{visible=en[0].isIntersecting},{threshold:0});
-  io.observe(el);
-  const loop=t=>{
-   const dt=Math.min(t-prev,40);prev=t;
-   if(visible&&!document.hidden){
-    if(!st.drag){st.rot+=0.13*dt/16;st.rot+=st.vel*dt/16;st.vel*=Math.pow(0.92,dt/16);}
-    const w=el.offsetWidth||1;
-    while(st.rot<=-w)st.rot+=w;while(st.rot>0)st.rot-=w;
-    el.style.setProperty('--rot',st.rot.toFixed(2)+'px');
-   }
-   raf=requestAnimationFrame(loop);
+  const st={rot:0,vel:0,drag:false,lx:0,ly:0,moved:false,sx:0,sy:0,upx:null,upy:null};
+  let raf=0,prev=performance.now(),visible=false,destroyed=false;
+  const motionQuery=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  let reduced=!!motionQuery?.matches;
+  const schedule=()=>{
+   if(!raf&&!destroyed&&visible&&!document.hidden&&(!reduced||st.drag))raf=requestAnimationFrame(loop);
   };
-  raf=requestAnimationFrame(loop);
-  const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;el.classList.add('dragging');if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){}}
-  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;st.rot+=dx;st.vel=dx*0.8;if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;}
-  const up=()=>{st.drag=false;el.classList.remove('dragging');if(!st.moved&&st.upx!=null){const t=document.elementFromPoint(st.upx,st.upy);const g=t&&t.closest?t.closest('[data-goto]'):null;if(g&&navigate)navigate(g.getAttribute('data-goto'));}st.upx=st.upy=null}
+  const apply=()=>{
+   const w=el.offsetWidth||1;
+   while(st.rot<=-w)st.rot+=w;while(st.rot>0)st.rot-=w;
+   el.style.setProperty('--rot',st.rot.toFixed(2)+'px');
+  };
+  const loop=t=>{
+   raf=0;
+   if(destroyed||!visible||document.hidden)return;
+   const dt=Math.min(t-prev,40);prev=t;
+   if(!st.drag&&!reduced){st.rot+=0.13*dt/16;st.rot+=st.vel*dt/16;st.vel*=Math.pow(0.92,dt/16);}
+   apply();
+   schedule();
+  };
+  const onVisible=en=>{
+   visible=!!en[0]?.isIntersecting;
+   if(visible){prev=performance.now();schedule();}
+   else if(raf){cancelAnimationFrame(raf);raf=0;}
+  };
+  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(onVisible,{threshold:0}):null;
+  if(io)io.observe(el);else{visible=true;schedule();}
+  const onVisibility=()=>{
+   if(document.hidden&&raf){cancelAnimationFrame(raf);raf=0;}
+   else{prev=performance.now();schedule();}
+  };
+  const onMotion=e=>{reduced=!!e.matches;if(!reduced)schedule();};
+  document.addEventListener('visibilitychange',onVisibility);
+  if(motionQuery?.addEventListener)motionQuery.addEventListener('change',onMotion);
+  else motionQuery?.addListener?.(onMotion);
+  const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;el.classList.add('dragging');schedule();if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){} };
+  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;st.rot+=dx;st.vel=dx*0.82;if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
+  const up=()=>{if(!st.drag)return;st.drag=false;el.classList.remove('dragging');if(!st.moved&&st.upx!=null){const target=document.elementFromPoint(st.upx,st.upy);const g=target&&target.closest?target.closest('[data-goto]'):null;if(g&&navigate)navigate(g.getAttribute('data-goto'));}st.upx=st.upy=null;schedule();};
   el.addEventListener('pointerdown',dn);
-  window.addEventListener('pointermove',mv);
+  window.addEventListener('pointermove',mv,{passive:true});
   window.addEventListener('pointerup',up);
   window.addEventListener('pointercancel',up);
-  return()=>{cancelAnimationFrame(raf);io.disconnect();el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
+  return()=>{destroyed=true;if(raf)cancelAnimationFrame(raf);io?.disconnect();document.removeEventListener('visibilitychange',onVisibility);if(motionQuery?.removeEventListener)motionQuery.removeEventListener('change',onMotion);else motionQuery?.removeListener?.(onMotion);el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
  },[navigate]);
  return <div className={'wglobe'+(compact?' compact':'')} ref={ref}>
   <div className="wglobe-glow"/>

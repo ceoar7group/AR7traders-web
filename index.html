@@ -14,6 +14,11 @@
     font-family:Manrope,system-ui,sans-serif;
   }
   html.ar7-js #ar7-static-preview { display:none; }
+  #ar7-boot[data-failed] .boot-progress { display:none; }
+  #ar7-boot .boot-error { display:none; max-width:330px; margin:18px 0 0; color:#d7e7dc; font-size:12px; line-height:1.6; }
+  #ar7-boot[data-failed] .boot-error { display:block; }
+  #ar7-boot .boot-retry { display:none; margin-top:18px; min-height:44px; padding:0 18px; border:1px solid #e4ad43; border-radius:10px; background:#e4ad43; color:#153323; font:700 12px Manrope,system-ui,sans-serif; cursor:pointer; }
+  #ar7-boot[data-failed] .boot-retry { display:inline-flex; align-items:center; justify-content:center; }
   #ar7-boot .boot-card { width:min(360px,100%); display:grid; justify-items:center; text-align:center; }
   #ar7-boot .boot-mark {
     width:70px; height:70px; object-fit:contain; border-radius:18px; background:#fff;
@@ -32,8 +37,16 @@
 </style>
 <script>
   document.documentElement.classList.add('ar7-js');
+  /* Keep the semantic preview for no-JS visitors, but never reveal its raw
+     paragraphs to a JS-enabled visitor while a slow bundle is still loading.
+     A failed JS load gets an actionable branded fallback instead. */
   window.__ar7BootFallbackTimer = window.setTimeout(function(){
-    document.documentElement.classList.remove('ar7-js');
+    var boot = document.getElementById('ar7-boot');
+    if (!boot) return;
+    boot.setAttribute('data-failed', 'true');
+    boot.setAttribute('aria-label', 'AR7 Traders is taking longer than expected to load');
+    var caption = boot.querySelector('.boot-caption');
+    if (caption) caption.textContent = 'The showroom is taking longer than expected';
   }, 12000);
 </script>
 <!-- Build marker - lets anyone confirm which build of the site they are viewing
@@ -91,8 +104,8 @@
 <link rel="icon" href="/assets/ar7-mark.png"/>
 <link rel="apple-touch-icon" href="/assets/ar7-mark.png"/>
 
-<link rel="preload" as="image" href="/assets/used-japanese-cars-auction-export-toyota-3.jpg" fetchpriority="high"/>
-<link rel="preload" as="image" href="/assets/used-japanese-cars-auction-export-toyota-2.webp"/>
+<link rel="preload" as="image" href="/assets/lux/rolls-royce-ghost.webp" fetchpriority="high"/>
+<link rel="preload" as="image" href="/assets/lux/bentley-continental-gt.webp"/>
 <link rel="preload" as="image" href="/assets/ar7-mark.png"/>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-400.woff2" crossorigin/>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-700.woff2" crossorigin/>
@@ -232,6 +245,8 @@
       <div class="boot-brand">AR7 TRADERS</div>
       <div class="boot-caption">Preparing your showroom</div>
       <div class="boot-progress" aria-hidden="true"><i></i></div>
+      <p class="boot-error">Please check your connection and try again. The accessible AR7 Traders preview is available when JavaScript is disabled.</p>
+      <button class="boot-retry" type="button" onclick="location.reload()">Try again</button>
     </div>
   </div>
   <div id="ar7-static-preview" style="max-width:880px;margin:0 auto;padding:64px 24px 96px;background:#f5f6f2;color:#102018;font-family:system-ui,sans-serif">

@@ -1,0 +1,21 @@
+/* Small-device paint and detail-page safety rules. */
+@media(max-width:650px){
+ .nav-wrap .nav,.floating-card,.detail-gallery .detail-gallery-toolbar,.ar7cur-menu{-webkit-backdrop-filter:none;backdrop-filter:none}
+ .grain{opacity:.018;background-image:radial-gradient(rgba(4,63,40,.24) .55px,transparent .7px);background-size:7px 7px}
+ .hero-visual,.hero-orb,.page-orb-wrap,.detail-gallery,.world-map{max-width:100%}
+}
+
+/* Reserve the home network globe's square while its route chunk is deferred. */
+.globe-lazy.world-globe-deferred{width:min(470px,86vw);aspect-ratio:1;min-height:240px;margin:auto;display:grid;place-items:center}
+.globe-lazy.world-globe-deferred>.wglobe{width:100%}
+@media(max-width:650px){.globe-lazy.world-globe-deferred{width:min(360px,94vw)}}
+
+.detail-gallery .detail-gallery-toolbar{flex-wrap:wrap}
+.detail-gallery .detail-gallery-toolbar .gallery-arrow,.detail-gallery .detail-gallery-toolbar .gallery-expand{min-width:40px;min-height:40px}
+
+/* Decorative motion stops when the user asks for reduced motion; controls stay usable. */
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto}
+ .grain,.nav-wrap .nav,.floating-card,.wa-float,.detail-actions,.car-card,.contact-grid,.ticker>div,.world-time-track{transition:none!important;animation:none!important}
+ .car-card:hover,.primary:hover,.icon-btn:hover,.menu-btn:hover,.navlinks a:hover,.navlinks button:hover{transform:none!important}
+}
