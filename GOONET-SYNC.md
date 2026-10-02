@@ -414,7 +414,26 @@ the same URL and expect `already_present` instead of a duplicate.
 
 The owner's report: pressing **Inventory** on a Japan dealer stock row showed an
 error, the car never appeared in CRM → Inventory, and the row never said it had
-been added. Four separate defects, all on the same short path:
+been added. The message on screen was:
+
+```
+Could not find the 'created_by' column of 'japan_dealer_stock' in the schema
+cache
+```
+
+which is PostgREST refusing a write that names a column the table does not have.
+The CRM's copy-then-flag insert was landing on the endpoint's plain insert
+branch and adding `created_by` — a column **`japan_dealer_stock` does not have**
+(see the table in `supabase/SETUP-EVERYTHING.sql`; the caller belongs in
+`activities`, which does). (Depending on which response the browser had cached,
+the same broken route also surfaced as `null value in column "goonet_id" …
+violates not-null constraint` when the payload carried no identifier at all.)
+Both are gone: the action is dispatched from the right place, the payload is
+filtered against the real column list, an insert with no stock number is refused
+with a sentence, and the test harness now enforces the live column lists so a
+write to a column that does not exist fails the build instead of the owner.
+
+Four separate defects, all on the same short path:
 
 1. **The action was dispatched from the wrong place.** Every CRM button sends
    its action in the **query string** (`POST /api/goonet-stock?action=promote`
@@ -437,7 +456,15 @@ been added. Four separate defects, all on the same short path:
    CRM shape so this cannot come back, and the dev preview middleware mirrors
    the server's dispatch.
 
-2. **Failed writes were answered with "Moved …".** Supabase resolves
+2. **The insert this fell through to named a column that does not exist.**
+   `created_by` is not on `japan_dealer_stock`, so even the fall-through branch
+   could only fail — `Could not find the 'created_by' column … in the schema
+   cache`, the message the owner saw. The payload now goes through the column
+   allow-list (`api/_columns.js`), a row with no stock number is answered with
+   "A stock number (or Goo-net id) is required…" instead of a raw Postgres
+   error, and the caller is recorded on the `activities` row, where the column
+   really exists.
+3. **Failed writes were answered with "Moved …".** Supabase resolves
    `{error}` instead of throwing, and the promotion helpers ignored every
    result — including the `promoted` flag they wrote. A car whose insert failed
    was still stamped `promoted = 'vehicles'`, so the CRM (and the importer) both
@@ -447,7 +474,7 @@ been added. Four separate defects, all on the same short path:
    one bad copy: a failure is reported in the run report (`failed`, with the
    reason in `skipped`) and the run carries on.
 
-3. **The row could not say "already added".** The button always looked
+4. **The row could not say "already added".** The button always looked
    unpressed, so the only way to know was to open *Inventory* and search. The
    CRM now reads the state from the records — *Website cars* and *Inventory*
    compare by stock number — as well as the row's flag, and renders **On
@@ -456,7 +483,7 @@ been added. Four separate defects, all on the same short path:
    second vehicle: the API answers "… is already in CRM inventory (details
    refreshed)" and updates the existing vehicle.
 
-4. **Two smaller bugs on the same path.** `'both'.includes('listings')` is
+5. **Two smaller bugs on the same path.** `'both'.includes('listings')` is
    `false`, so a car that was on the site **and** in the inventory was treated
    as neither — delisting left the website copy published, and re-promoting
    downgraded `'both'` to a single destination. The flag is now read as a token
@@ -470,7 +497,8 @@ two minutes later from the public response's `Cache-Control`) and includes
 delisted cars, which is what makes **Re-list** reachable at all.
 
 Tests: `npm run test:goonet` (now including `scripts/goonet-promote.test.mjs` —
-61 assertions) and `npm run test:crm` (74, including the row-state block).
+70 assertions, its in-memory Supabase enforcing the same schema cache PostgREST
+does) and `npm run test:crm` (74, including the row-state block).
 
 ## FAQ
 

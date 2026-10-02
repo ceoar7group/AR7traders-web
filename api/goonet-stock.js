@@ -443,12 +443,33 @@ export default async function handler(req, res, injected = {}) {
     }
 
     if (req.method === 'POST') {
-      const payload = { ...clean(req.body), created_by: auth.user.id };
+      // `japan_dealer_stock` has no `created_by` column — see the table in
+      // supabase/SETUP-EVERYTHING.sql. The payload used to add one, so this
+      // insert could only ever be rejected by PostgREST with
+      //   Could not find the 'created_by' column of 'japan_dealer_stock' in the
+      //   schema cache
+      // and that is the second half of the owner's report: whichever way the
+      // row actions reached this branch, the insert failed. The caller is
+      // recorded in `activities` below instead, and `clean()` keeps the payload
+      // to the columns the table really has so an unknown key can never leak
+      // into it.
+      const payload = clean(req.body);
+      // A row with no identifier is refused with a sentence rather than the
+      // raw `null value in column "goonet_id" … violates not-null constraint`
+      // the database would answer with. This branch is what the CRM's dealer
+      // editor posts to, and a bare Postgres message is what made the original
+      // report hard to read.
+      if (!payload.goonet_id && !payload.stock_no) {
+        return send(res, 400, { error: 'A stock number (or Goo-net id) is required to add a car to Japan dealer stock' });
+      }
       const { data, error } = await db.from('japan_dealer_stock').insert(payload).select().single();
       if (error) return send(res, 500, { error: error.message });
       await db.from('activities').insert({
         action: `Added imported car ${data.make} ${data.model} (${data.stock_no || data.goonet_id})`,
-        actor, entity_type: 'japan_dealer_stock', entity_id: data.id
+        actor, entity_type: 'japan_dealer_stock', entity_id: data.id,
+        // `activities` DOES have created_by — record the caller here, where the
+        // column exists, instead of on the dealer row.
+        created_by: auth.user.id
       });
       return send(res, 201, data);
     }

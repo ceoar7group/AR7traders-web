@@ -108,6 +108,13 @@ function memDb(seed = {}, fail = {}) {
         if (err) {
           return { data: null, error: err, select: () => ({ single: async () => ({ data: null, error: err }) }), then: r => r({ data: null, error: err }) };
         }
+        for (const r of (Array.isArray(rec) ? rec : [rec])) {
+          const bad = unknownColumn(name, r);
+          if (bad) {
+            const schemaErr = schemaCacheError(name, bad);
+            return { data: null, error: schemaErr, select: () => ({ single: async () => ({ data: null, error: schemaErr }) }), then: x => x({ data: null, error: schemaErr }) };
+          }
+        }
         const list = (Array.isArray(rec) ? rec : [rec]).map(r => ({ ...r, id: r.id || 'id-' + (++seq) }));
         for (const r of list) {
           const dupKey = r.goonet_id !== undefined ? 'goonet_id' : (r.key !== undefined ? 'key' : (r.stock_no !== undefined ? 'stock_no' : null));
@@ -123,7 +130,17 @@ function memDb(seed = {}, fail = {}) {
           then: r => r({ data: list, error: null })
         };
       },
-      update(patch) { const api = query(); api.patch = patch; return api; },
+      update(patch) {
+        const bad = unknownColumn(name, patch);
+        if (bad) {
+          const schemaErr = schemaCacheError(name, bad);
+          const api = query();
+          api.patch = null;
+          api.then = res => res({ data: null, error: schemaErr });
+          return api;
+        }
+        const api = query(); api.patch = patch; return api;
+      },
       delete() { const api = query(); api.remove = true; return api; },
       upsert(rec) {
         for (const item of (Array.isArray(rec) ? rec : [rec])) {
@@ -137,6 +154,42 @@ function memDb(seed = {}, fail = {}) {
     };
   }
   return { db: { from }, tables };
+}
+
+// ---- PostgREST's schema cache ----------------------------------------------
+// Supabase answers a write that names a column the table does not have with
+//    Could not find the 'created_by' column of 'japan_dealer_stock' in the
+//    schema cache
+// and that is EXACTLY the error the owner reported while adding an imported car
+// to inventory. The memDb used to accept any key, so it happily stored
+// `created_by` on a dealer row and no test could see the difference between an
+// insert that would work and one the live schema rejects. The column lists
+// below mirror supabase/SETUP-EVERYTHING.sql (plus the MIGRATION-2026-10
+// note that image paths stay text), so the harness now refuses what PostgREST
+// refuses. Keep them in step with the schema.
+const COLUMNS = {
+  japan_dealer_stock: ['id', 'goonet_id', 'stock_no', 'make', 'model', 'year', 'km', 'fuel',
+    'body', 'price_jpy', 'price_usd', 'price', 'image', 'images', 'grade', 'status', 'location',
+    'tr', 'drv', 'eng', 'seats', 'col', 'st', 'vendor', 'goonet_url', 'photo_count',
+    'quality_score', 'available', 'promoted', 'imported_at', 'last_seen_at', 'delisted_at',
+    'updated_at', 'rotation_state'],
+  vehicles: ['id', 'stock_no', 'make', 'model', 'year', 'price', 'status', 'location', 'steering',
+    'colour', 'interior', 'notes', 'created_by', 'created_at', 'updated_at', 'image', 'images',
+    'gallery', 'vendor', 'cost_price', 'freight_cost', 'duty_cost', 'other_cost',
+    'sourcing_currency'],
+  site_listings: ['id', 'stock_no', 'make', 'model', 'year', 'km', 'fuel', 'body', 'price',
+    'image', 'images', 'gallery', 'grade', 'status', 'location', 'tr', 'drv', 'eng', 'seats',
+    'col', 'st', 'published', 'sort_order', 'created_at', 'updated_at'],
+  activities: ['id', 'action', 'actor', 'entity_type', 'entity_id', 'created_by', 'created_at'],
+  site_settings: ['key', 'value', 'label', 'updated_at']
+};
+function schemaCacheError(table, key) {
+  return { message: `Could not find the '${key}' column of '${table}' in the schema cache` };
+}
+function unknownColumn(table, rec) {
+  const allowed = COLUMNS[table];
+  if (!allowed) return null;
+  return Object.keys(rec || {}).find(k => !allowed.includes(k)) || null;
 }
 
 function fakeRes() {
@@ -421,6 +474,52 @@ console.log('\n9) The importer survives a failed promotion (weekly auto-promote)
   const waiting = tables.japan_dealer_stock.find(r => r.id === 'row-1');
   eq(waiting.promoted, 'none', 'the car is left unpromoted so a later run can try again');
   ok(tables.japan_dealer_stock.length >= 1 && Array.isArray(tables.activities), 'the importer went on to do its other work');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n10) The plain insert path, and the schema cache that broke it');
+
+{
+  // The owner's error, verbatim:
+  //   Could not find the 'created_by' column of 'japan_dealer_stock' in the
+  //   schema cache
+  // The endpoint was adding `created_by` to this payload — a column the dealer
+  // table does not have (supabase/SETUP-EVERYTHING.sql) — so PostgREST rejected
+  // every plain insert, whichever way the request reached this branch. The
+  // caller is recorded in `activities`, which does have the column.
+  const { db, tables } = memDb({ site_settings: [], japan_dealer_stock: [dealerRow()], activities: [] });
+  const res = await call({
+    method: 'POST', query: {}, headers: { authorization: 'Bearer ok' },
+    body: { goonet_id: 'NEW-9001', stock_no: 'NEW-9001', make: 'Honda', model: 'Fit', year: 2019, created_by: 'smuggled' }
+  }, injectedFor(db));
+  eq(res.statusCode, 201, 'a plain insert from the CRM editor works');
+  const added = tables.japan_dealer_stock.find(r => r.stock_no === 'NEW-9001');
+  ok(!!added, 'the car is in Japan dealer stock');
+  ok(!('created_by' in (added || {})), "nothing writes 'created_by' to the dealer row — the column does not exist");
+  ok(tables.activities.some(a => /Added imported car Honda Fit/.test(a.action)),
+    'the caller is recorded in the activity log instead');
+}
+
+{
+  // The harness now enforces the same schema PostgREST does, so a future write
+  // that names a column the table lacks fails the build instead of the owner.
+  const { db } = memDb({ japan_dealer_stock: [] });
+  const bad = await db.from('japan_dealer_stock').insert({ goonet_id: 'X', make: 'A', model: 'B', created_by: 'u1' });
+  eq(bad.error?.message,
+    "Could not find the 'created_by' column of 'japan_dealer_stock' in the schema cache",
+    "a write naming a missing column reproduces the owner's error exactly");
+}
+
+{
+  // And a row with no identifier is refused with a sentence, not with a raw
+  // not-null-constraint message.
+  const { db } = memDb({ site_settings: [], japan_dealer_stock: [dealerRow()], activities: [] });
+  const res = await call({
+    method: 'POST', query: {}, headers: { authorization: 'Bearer ok' }, body: { make: 'Honda', model: 'Fit' }
+  }, injectedFor(db));
+  eq(res.statusCode, 400, 'an insert with no stock number is refused');
+  ok(/stock number/i.test(res.body?.error || ''), 'the message says what is missing: ' + res.body?.error);
+  eq(/violates not-null constraint/.test(res.body?.error || ''), false, 'not a raw database error');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
