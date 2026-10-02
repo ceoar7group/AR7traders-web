@@ -7,6 +7,32 @@ const main = read('../src/main.jsx');
 const detailCss = read('../src/detail-responsive.css');
 const currencyCss = read('../src/currency-responsive.css');
 const portalCss = read('../src/portal.css');
+const stylesCss = read('../src/styles.css');
+const expandedCss = read('../src/expanded.css');
+const crmCss = read('../src/crm.css');
+
+// 2026-10-03 header QA: the burger panel must hang off the bar itself (which
+// becomes the positioning parent) so it can neither slide under the two-row
+// phone header nor bleed to the viewport edges.
+assert.match(stylesCss, /@media\(max-width:1100px\)\{\.nav\{position:relative\}/);
+assert.match(expandedCss, /@media\(max-width:1100px\)\{\s*\.nav-drop\{width:100%\}/);
+assert.match(stylesCss, /\.navlinks\{position:absolute;top:calc\(100% \+ 10px\);left:0;right:0/);
+// The header globe is clipped to its circular button — it previously overflowed
+// onto the currency switch and below the bar.
+assert.match(expandedCss, /\.brand-group \.nav-orb\{[^}]*overflow:hidden/);
+assert.match(expandedCss, /\.brand-group \.nav-orb \.iglobe\{width:100%;margin-top:0\}/);
+// The currency menu anchors to the whole actions row; the switch itself must be
+// static on phones or the panel clips off the left screen edge.
+assert.match(currencyCss, /\.nav-wrap \.nav-actions\s*\{[^}]*position:\s*relative/s);
+assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-switch\s*\{[^}]*position:\s*static/s);
+// CRM: the shell's content track can shrink and the row actions stay pinned to
+// the right of the scrollable table so buttons never sit out of frame.
+assert.match(crmCss, /grid-template-columns:\s*260px minmax\(0,\s*1fr\)/);
+assert.match(crmCss, /\.crm-table-wrap th\.th-actions,\s*\.crm-table-wrap td\.crm-row-actions\{position:sticky;right:0/s);
+// Home page: running inventory slide + make/budget explorer exist.
+assert.match(main, /home-carousel-dots/);
+assert.match(main, /brand-budgets shell section/);
+assert.match(main, /homeHover/);
 
 // The pre-React first paint should be a branded loading state, not the SEO
 // fallback article. Keep the semantic fallback available when JS is disabled.

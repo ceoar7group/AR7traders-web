@@ -59,11 +59,14 @@
   }
 
   .nav-wrap .brand-group .nav-orb .iglobe {
-    width: 46px;
-    margin-top: -2px;
+    width: 100%;
+    margin-top: 0;
   }
 
+  /* actions row anchors the currency menu: the switch sits at the row's left
+     on the two-row phone header, so right:0 on it pushed the panel off-screen */
   .nav-wrap .nav-actions {
+    position: relative;
     flex: 0 0 auto;
     gap: 5px;
     margin-left: auto;
@@ -80,6 +83,7 @@
   }
 
   .nav-wrap .nav-actions .ar7cur-switch {
+    position: static;
     flex: 0 0 auto;
   }
 
@@ -151,7 +155,7 @@
   }
 
   .nav-wrap .brand-group .nav-orb .iglobe {
-    width: 42px;
+    width: 100%;
   }
 
   /* Keep a compact account icon available at every phone width.  The

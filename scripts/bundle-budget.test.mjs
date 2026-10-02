@@ -39,6 +39,13 @@
 //     FIRST-LOAD JS         410.38 kB  (120.30 kB gzip)   -11.9% / -11.7% vs pre-B2
 //     FIRST-LOAD CSS        149.80 kB  ( 29.61 kB gzip)   -21.4% / -25.4% vs B2
 //
+// After the responsive/header QA pass + home make-&-budget explorer (2026-10-03):
+// header fixes (bar-anchored burger panel, contained nav globe, anchored
+// currency menu) and the new home running-slide dots + budget section add
+// ~3.2 kB raw (≈0.4 kB gzip) of first-load CSS. Gzip stays well under budget;
+// the raw ratchet moves 165 → 168 kB to absorb the deliberate feature work.
+//     FIRST-LOAD CSS        166.94 kB  ( 32.71 kB gzip)
+//
 // The budgets below are set from the improved number with headroom for
 // ordinary code growth — they are a ratchet, not a target. When the budget is
 // legitimately raised, update the table above in the same change so the next
@@ -124,7 +131,7 @@ for (const file of entryCss) {
   console.log(`      ${file.replace(/^\/assets\//, '').padEnd(34)} ${kb(bytes.length).padStart(10)} raw  ${kb(gz).padStart(9)} gzip`);
 }
 const CSS_BUDGET_GZIP = 34 * 1024;   // measured 30.55 kB after the B3 CSS split (down from 39.67 kB)
-const CSS_BUDGET_RAW = 165 * 1024;   // measured 153.39 kB after the B3 CSS split (down from 190.67 kB)
+const CSS_BUDGET_RAW = 168 * 1024;   // measured 153.39 kB after the B3 CSS split; 166.94 kB after the 2026-10-03 responsive/header + home budget-section pass
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
