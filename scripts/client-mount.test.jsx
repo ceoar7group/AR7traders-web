@@ -122,10 +122,11 @@ ok(document.querySelector('.site'), 'the site shell renders');
 // path -> text that must be on screen once we get there. Without this, a
 // navigation that silently fails would pass the "keeps the app alive" check.
 const ROUTES = [
-  ['/', 'Anywhere'],
+  ['/', 'Cars from Japan'],
   ['/inventory', 'inv-toolbar'],
   ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
   ['/services', 'AR7 SERVICE'],
+  ['/machinery', 'Machines sourced from China'],
   ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
   ['/brands', 'brands'],
   ['/tools', 'Calculator'],

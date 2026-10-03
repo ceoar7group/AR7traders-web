@@ -15,17 +15,19 @@
 //   • the FAQPage markup is scoped to /faq only (it used to sit in the static
 //     shell where every route inherited it).
 import {useEffect} from 'react';
-import { hrefFor } from './routing.js';
+import { hrefFor, slugify } from './routing.js';
 import { articleBySlug, articleSeo } from './news-data.js';
+import { listPriceUSD } from './machinery-data.js';
+import { priceWithOffer } from './offers.js';
 
-const BASE = 'https://ar7traders.com';
+export const BASE = 'https://ar7traders.com';
 
 const PAGE_LABELS = {
   inventory: 'Vehicle Inventory', auction: 'Auction Bidding', services: 'Export Services',
   brands: 'Brands We Export', destinations: 'Shipping Destinations', tools: 'Import Cost Calculator',
   world: 'Global Network', howbuy: 'How to Buy', news: 'News & Guides', about: 'About',
   reviews: 'Reviews', faq: 'FAQ', contact: 'Contact', 'japan-stock': 'Japan Dealer Stock',
-  shipping: 'Shipping'
+  shipping: 'Shipping', machinery: 'Machinery & Equipment'
 };
 
 // Only canonicalize makes we explicitly recognize. Keep the current catalogue
@@ -55,17 +57,17 @@ export function brandSeo(make) {
 }
 
 export const PAGE_SEO = {
-  home:        ['AR7 Traders | Japanese Car Exporter — Auction Vehicles Shipped Worldwide',
+  home:        ['Japanese Car Exporter | Cars & Machinery | AR7 Traders',
                 'Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price.'],
-  inventory:   ['Japanese Cars for Export | Live Stock — AR7 Traders',
+  inventory:   ['Japanese Cars for Export | Live Stock | AR7 Traders',
                 'Browse verified Japanese vehicles ready for export: Toyota, Nissan, Honda, Lexus, Mercedes and more, with mileage, grade and shipping cost to your port.'],
   auction:     ['Japan Car Auction Access | Bid With AR7 Traders',
                 'Bid at Japanese car auctions with translated auction sheets, condition grading advice and an agreed maximum bid placed on your behalf.'],
-  services:    ['Vehicle Export Services | Inspection, Shipping & Documents — AR7 Traders',
+  services:    ['Vehicle Export Services: Inspection & Shipping | AR7 Traders',
                 'Sourcing, inspection, de-registration, export certificates, RoRo and container shipping, and customs paperwork handled end to end.'],
-  brands:      ['Japanese Car Brands We Export | Toyota, Nissan, Honda, Lexus — AR7 Traders',
+  brands:      ['Car Brands We Export | Toyota, Nissan, Lexus | AR7 Traders',
                 'Explore the Japanese and European brands AR7 Traders sources at auction and exports worldwide, with typical pricing and availability.'],
-  destinations:['Where We Ship | Car Export Destinations — AR7 Traders',
+  destinations:['Car Export Destinations & Ports | AR7 Traders',
                 'Shipping routes, transit times, freight costs and import duty guidance for Pakistan, the UAE, Kenya, Tanzania, the UK and more.'],
   tools:       ['Import Cost Calculator | Duty & Shipping Estimates — AR7 Traders',
                 'Estimate landed cost before you buy: freight by destination port, import duty by country and total cost for your vehicle.'],
@@ -77,8 +79,8 @@ export const PAGE_SEO = {
                 'Auction tips, import rule changes, shipping updates and buying guides for importing vehicles from Japan.'],
   about:       ['About AR7 Traders | Japanese Vehicle Exporters',
                 'Who we are, how we work, and how AR7 Traders sources and ships vehicles from Japan for buyers worldwide.'],
-  reviews:     ['Customer Reviews & Buyer Stories | Japanese Car Exporter — AR7 Traders',
-                'Genuine customer reviews of AR7 Traders: Japanese car auction sheet translations, USS Tokyo bidding, fresh Japan dealer stock, and RoRo & container shipping to Pakistan, the UK, UAE, Kenya, Tanzania and New Zealand.'],
+  reviews:     ['Japanese Car Exporter | Customer Reviews & Buyer Stories',
+                'Genuine reviews of AR7 Traders: auction sheet translations, USS Tokyo bidding and RoRo & container shipping to Pakistan, the UK, UAE and Kenya.'],
   faq:         ['Japanese Car Import FAQ | Help — AR7 Traders',
                 'Answers on auctions, grading, shipping times, duty, payment and paperwork for importing a vehicle from Japan.'],
   contact:     ['Contact AR7 Traders | Japan Export Desk',
@@ -89,10 +91,13 @@ export const PAGE_SEO = {
                 'Sign in to see your vehicle orders, payments received and remaining balance.'],
   portal:      ['Client Portal | AR7 Traders',
                 'Track bids, shipments, documents and payments in the AR7 Traders client portal.'],
+  machinery:   ['Construction Machinery for Export | AR7 Traders',
+                'Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers, inspected and shipped to your port. Indicative FOB prices.'],
   'japan-stock': ['Japan Dealer Stock | Fresh Japan Imports — AR7 Traders',
                 'Hand-picked dealer stock from Japan: fresh arrivals with verified photos, full specs and export pricing, updated regularly.'],
-  crm:         ['AR7 Traders Staff CRM', 'Internal operations console.'],
-  studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.']
+  crm:         ['AR7 Traders Staff CRM', 'Internal operations console for AR7 Traders staff: leads, customers, quotes, shipments and approvals.'],
+  studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.'],
+  seo:         ['SEO Desk | AR7 Traders', 'Staff-only SEO audit desk: the same checks the AR7 SEO agent runs, on the live page.']
 };
 
 // The /faq page renders these questions grouped by topic (the 3rd tuple
@@ -116,6 +121,80 @@ export const FAQ_ITEMS = [
 ];
 
 export const FAQ_TOPICS = [...new Set(FAQ_ITEMS.map(x => x[2]))];
+
+/* ---------------------------------------------------------------------------
+   Indexable landing pages
+   ---------------------------------------------------------------------------
+   /cars/<make> and /cars/<make>/<model> carry the searches that actually bring
+   exporter traffic ("toyota land cruiser export", "used excavator for sale"),
+   so each one gets its own title, description, canonical and ItemList — the
+   structure BeForward and the machinery marketplaces rank with. The generic
+   /inventory page keeps its own copy and never competes with them.
+   --------------------------------------------------------------------------- */
+
+const countryList = 'Pakistan, the UAE, Kenya, Tanzania, the UK and worldwide';
+
+export function carsLandingSeo(make, model, count) {
+  const m = canonicalBrand(make);
+  if (!m) return null;
+  const n = Number.isFinite(count) && count > 0 ? count : null;
+  const stock = n ? `${n} ${n === 1 ? 'vehicle' : 'vehicles'} in stock` : 'live stock';
+  if (model) {
+    const label = String(model).replace(/\b\w/g, c => c.toUpperCase());
+    return {
+      title: `${m} ${label} for Export from Japan | AR7 Traders`,
+      description: `Used ${m} ${label} cars from Japanese auctions with a translated auction sheet. ${stock} · export price in USD, shipping to your port.`,
+      h1: `${m} ${label} for export`,
+      canonicalPath: `/cars/${slugify(m)}/${slugify(model)}`,
+      label: `${m} ${label}`
+    };
+  }
+  return {
+    title: `Used ${m} Cars for Export from Japan | AR7 Traders`,
+    description: `Used ${m} cars from Japanese auctions — mileage, grade and auction sheet, ${stock}, export price in USD and shipping to your port.`,
+    h1: `Used ${m} cars for export`,
+    canonicalPath: `/cars/${slugify(m)}`,
+    label: m
+  };
+}
+
+// Machinery catalogue pages. Kept beside the car ones so every indexable
+// landing page in the site is defined in exactly one place.
+export const MACHINERY_SEO = {
+  excavators: ['Used Excavators for Sale & Export | Doosan, Sany | AR7 Traders',
+    'Crawler excavators from 13 to 37 tonnes sourced to order from vetted Chinese suppliers: Doosan, Sany and Komatsu, with indicative FOB prices.'],
+  loaders: ['Wheel Loaders for Sale & Export | SDLG, LiuGong | AR7 Traders',
+    'Five-tonne wheel loaders sourced to order from vetted Chinese suppliers, inspected with photos and video, and shipped to your port with the export documents.'],
+  trucks: ['Tipper Trucks for Export | Shacman, Howo | AR7 Traders',
+    'Heavy tipper trucks and tractor heads from Shacman, Sinotruk and Howo, sourced to order from vetted Chinese suppliers and shipped breakbulk to your port.'],
+  cranes: ['Truck Cranes for Export | Zoomlion, XCMG | AR7 Traders',
+    'Truck-mounted and rough-terrain cranes from Zoomlion and XCMG with lifting certificates, sourced to order from vetted Chinese suppliers.']
+};
+
+/**
+ * One machine's page. The title carries the model people search for, the
+ * description carries the number they care about, and both say the unit is
+ * sourced to order — the honest version of availability, since we do not hold
+ * these machines.
+ */
+export function machineSeo(machine, {percent = 0} = {}) {
+  if (!machine) return null;
+  const list = listPriceUSD(machine);
+  const price = percent > 0 ? priceWithOffer(list, percent).now : list;
+  const priced = price ? `indicative FOB $${Number(price).toLocaleString('en-US')}` : 'FOB price on request';
+  const usage = machine.type === 'Trucks'
+    ? `${Number(machine.hours).toLocaleString('en-US')} km`
+    : `${Number(machine.hours).toLocaleString('en-US')} hours`;
+  const type = String(machine.type || '').toLowerCase().replace(/s$/, '');
+  return {
+    title: `${machine.name} ${type} for export from China | AR7 Traders`,
+    description: `${machine.year} ${machine.name} ${type} (${machine.ref}) sourced to order from a vetted Chinese supplier — ${usage}, inspected with photos and video, ${priced}. Quoted with freight to your port.`,
+    canonicalPath: `/machinery/${machine.type.toLowerCase()}/${machine.ref}`,
+    price,
+    listPrice: list,
+    type
+  };
+}
 
 const MISSING_VEHICLE_SEO = [
   'Vehicle no longer listed | AR7 Traders',
@@ -184,7 +263,8 @@ export const PAGE_OG = {
   auction: OG_SET.auction, services: OG_SET.auction, howbuy: OG_SET.auction,
   shipping: OG_SET.shipping, destinations: OG_SET.shipping, world: OG_SET.shipping,
   faq: OG_SET.help, news: OG_SET.help, reviews: OG_SET.help,
-  contact: OG_SET.help, about: OG_SET.help, tools: OG_SET.help
+  contact: OG_SET.help, about: OG_SET.help, tools: OG_SET.help,
+  machinery: OG_SET.shipping
 };
 export const ogFor = page => PAGE_OG[page] || OG_DEFAULT;
 
@@ -344,6 +424,11 @@ export function applySeo(page, carId, car, opts = {}) {
   const isVehiclePage = page === 'inventory' && carId != null && String(carId) !== '';
   const vehicleMissing = !!(isVehiclePage && !car && opts.vehicleMissing);
   const brand = page === 'inventory' && !isVehiclePage ? brandSeo(opts.make) : null;
+  const landing = page === 'inventory' && !isVehiclePage ? carsLandingSeo(opts.make, opts.model, opts.vehicleCount) : null;
+  const machineTypeSeo = page === 'machinery' && opts.machineType ? MACHINERY_SEO[String(opts.machineType).toLowerCase()] : null;
+  // One machine's own page beats the type page: it is more specific, it is what
+  // the visitor asked for, and it is the page that can rank for the model.
+  const machinePage = page === 'machinery' && opts.machine ? machineSeo(opts.machine, {percent: opts.machineOfferPercent || 0}) : null;
   const isArticlePage = page === 'news' && carId != null && String(carId) !== '';
   const article = isArticlePage ? articleBySlug(carId) : null;
   const articleMissing = isArticlePage && !article;
@@ -357,17 +442,29 @@ export function applySeo(page, carId, car, opts = {}) {
         ? MISSING_ARTICLE_SEO
         : artSeo
           ? [artSeo.title, artSeo.description]
-          : brand
-            ? [brand.title, brand.description]
-            : (PAGE_SEO[page] || PAGE_SEO.home);
+          : landing
+            ? [landing.title, landing.description]
+            : machinePage
+              ? [machinePage.title, machinePage.description]
+              : machineTypeSeo
+                ? machineTypeSeo
+                : brand
+                ? [brand.title, brand.description]
+                : (PAGE_SEO[page] || PAGE_SEO.home);
   const url = articleMissing
     ? BASE + '/news'
     : artSeo
       ? BASE + artSeo.canonicalPath
-      : brand
-        ? BASE + brand.canonicalPath
-        : BASE + hrefFor(page, carId);
-  const noindex = ['crm', 'account', 'portal', 'studio'].includes(page) || vehicleMissing || articleMissing;
+      : landing
+        ? BASE + landing.canonicalPath
+        : machinePage
+          ? BASE + machinePage.canonicalPath
+          : machineTypeSeo
+            ? BASE + '/machinery/' + String(opts.machineType).toLowerCase()
+            : brand
+            ? BASE + brand.canonicalPath
+            : BASE + hrefFor(page, carId);
+  const noindex = ['crm', 'account', 'portal', 'studio', 'seo'].includes(page) || vehicleMissing || articleMissing;
 
   document.title = title;
   setMeta('meta[name="description"]', 'content', description);
@@ -390,7 +487,9 @@ export function applySeo(page, carId, car, opts = {}) {
       : OG_DEFAULT)
     : (artSeo && articlePhoto)
       ? { image: articlePhoto, width: null, height: null, alt: article.title }
-      : ogFor(page);
+      : machinePage
+        ? { image: machineShareImage(opts.machine), width: null, height: null, alt: `${opts.machine.name} for export from China` }
+        : ogFor(page);
   setMeta('meta[property="og:image"]', 'content', og.image);
   setMeta('meta[property="og:image:alt"]', 'content', og.alt);
   setMeta('meta[name="twitter:image"]', 'content', og.image);
@@ -424,6 +523,16 @@ export function applySeo(page, carId, car, opts = {}) {
     } else if (isVehiclePage && car) {
       crumbs.push({'@type': 'ListItem', position: 2, name: 'Inventory', item: BASE + '/inventory'});
       crumbs.push({'@type': 'ListItem', position: 3, name: carName(car), item: url});
+    } else if (landing) {
+      crumbs.push({'@type': 'ListItem', position: 2, name: 'Inventory', item: BASE + '/inventory'});
+      crumbs.push({'@type': 'ListItem', position: 3, name: landing.label, item: url});
+    } else if (machinePage) {
+      crumbs.push({'@type': 'ListItem', position: 2, name: 'Machinery', item: BASE + '/machinery'});
+      crumbs.push({'@type': 'ListItem', position: 3, name: String(opts.machineType), item: BASE + '/machinery/' + String(opts.machineType).toLowerCase()});
+      crumbs.push({'@type': 'ListItem', position: 4, name: opts.machine.name, item: url});
+    } else if (machineTypeSeo) {
+      crumbs.push({'@type': 'ListItem', position: 2, name: 'Machinery', item: BASE + '/machinery'});
+      crumbs.push({'@type': 'ListItem', position: 3, name: String(opts.machineType), item: url});
     } else if (brand) {
       crumbs.push({'@type': 'ListItem', position: 2, name: 'Inventory', item: BASE + '/inventory'});
       crumbs.push({'@type': 'ListItem', position: 3, name: brand.make, item: url});
@@ -438,8 +547,43 @@ export function applySeo(page, carId, car, opts = {}) {
     itemListElement: crumbs
   }));
 
+  // A landing page is a list, so it says so: ItemList of the vehicles (or
+  // machine types) the page actually shows. This is what earns the
+  // list-style rich result and tells crawlers what the page is for.
+  setJsonLd('list-jsonld', landing ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: landing.h1,
+    numberOfItems: Number.isFinite(opts.vehicleCount) ? opts.vehicleCount : undefined,
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    url
+  }) : null);
+
   // Vehicle structured data on the detail page only.
   setJsonLd('vehicle-jsonld', vehicleJsonLd(isVehiclePage ? car : null, carId));
+
+  // A machine is a product, and its page may describe one: name, brand, the
+  // type as category, the price we actually show, and the photos we hold.
+  // Availability is stated as what it is — sourced to order, never InStock.
+  setJsonLd('machine-jsonld', machinePage ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: opts.machine.name,
+    category: String(opts.machine.type),
+    sku: opts.machine.ref,
+    brand: {'@type': 'Brand', name: opts.machine.brand},
+    description: opts.machine.summary,
+    image: machineImagesFor(opts.machine).map(i => BASE + i).slice(0, 6),
+    offers: machinePage.price ? {
+      '@type': 'Offer',
+      price: String(machinePage.price),
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/PreOrder',
+      url,
+      priceValidUntil: opts.machineOfferUntil || undefined,
+      seller: {'@type': 'Organization', name: 'AR7 Traders'}
+    } : undefined
+  }) : null);
 
   // Article structured data exists only for a guide that resolves from NEWS.
   // setJsonLd removes the node on /news, any other route, or an unknown slug.
@@ -461,6 +605,23 @@ export function applySeo(page, carId, car, opts = {}) {
 export function useSeo(page, carId, car, opts = {}) {
   const vehicleMissing = !!opts.vehicleMissing;
   const make = opts.make ?? null;
-  useEffect(() => { applySeo(page, carId, car, { vehicleMissing, make }); },
-    [page, carId, car, vehicleMissing, make]);
+  const model = opts.model ?? null;
+  const machineType = opts.machineType ?? null;
+  const machineRef = opts.machineRef ?? null;
+  const machine = opts.machine ?? null;
+  const machineOfferPercent = opts.machineOfferPercent ?? 0;
+  const machineOfferUntil = opts.machineOfferUntil ?? null;
+  const vehicleCount = opts.vehicleCount ?? null;
+  useEffect(() => {
+    applySeo(page, carId, car, { vehicleMissing, make, model, machineType, machineRef, machine, machineOfferPercent, machineOfferUntil, vehicleCount });
+  }, [page, carId, car, vehicleMissing, make, model, machineType, machineRef, machine,
+      machineOfferPercent, machineOfferUntil, vehicleCount]);
 }
+
+/** The machine's own photograph for a share card, or the site card. */
+function machineShareImage(machine) {
+  const first = (Array.isArray(machine?.images) && machine.images.filter(Boolean)[0]) || machine?.image;
+  return first ? BASE + first : OG_DEFAULT.image;
+}
+
+const machineImagesFor = machine => (Array.isArray(machine?.images) ? machine.images.filter(Boolean) : machine?.image ? [machine.image] : []);

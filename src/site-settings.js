@@ -43,9 +43,14 @@ export function loadSettings() {
     .then(r => (r.ok ? r.json() : {}))
     .catch(() => ({}))
     .then(data => {
+      const answered = data && typeof data === 'object' && Object.keys(data).length > 0;
       cache = {...FALLBACK, ...Object.fromEntries(
         Object.entries(data || {}).filter(([, v]) => v !== null && v !== '')
       )};
+      // Whether the API answered at all, for callers whose second source is a
+      // static file (the price offer). Non-enumerable so it never leaks into a
+      // settings diff, a JSON body or the CSP-report shape.
+      Object.defineProperty(cache, '__source', {value: answered ? 'api' : 'fallback', enumerable: false});
       if (typeof document !== 'undefined') syncBusinessJsonLd(cache);
       listeners.forEach(fn => fn(cache));
       return cache;

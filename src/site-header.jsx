@@ -7,9 +7,10 @@ import React, {useEffect, useRef, useState} from 'react';
 import {
   ArrowUpRight, Sun, Moon, Menu, X, ChevronDown, MessageCircle, Monitor,
   UserPlus, UserCog, LogIn, CarFront, Globe2, Layers, Gavel, Calculator,
-  Wrench, Ship, MapPin, BookOpen, Newspaper, ClipboardCheck, BadgeCheck, Landmark, Mail
+  Wrench, Ship, MapPin, BookOpen, Newspaper, ClipboardCheck, BadgeCheck, Landmark, Mail, Search
 } from 'lucide-react';
 import { CurrencyDropdown } from './currency.jsx';
+import { LanguageSwitcher } from './i18n.jsx';
 import { linkClick, hrefFor, inventoryHref } from './routing.js';
 
 // ---------------------------------------------------------------------------
@@ -68,6 +69,7 @@ export function NavDropdown({label, panel, className, routeKey, children}) {
 // Inventory dropdown items
 const INVENTORY_LINKS = [
   [CarFront, 'All Inventory', 'inventory'],
+  [Wrench, 'Machinery & equipment', 'machinery'],
   [Layers, 'Japan dealer stock', 'japan-stock']
 ];
 
@@ -86,7 +88,8 @@ export const MORE_LINKS = [
   [ClipboardCheck, 'Help & FAQ', 'faq'],
   [BadgeCheck, 'About AR7', 'about'],
   [LogIn, 'Client portal', 'portal'],
-  [Landmark, 'Staff CRM', 'crm']
+  [Landmark, 'Staff CRM', 'crm'],
+  [Search, 'SEO desk', 'seo']
 ];
 
 export function SiteHeader({
@@ -95,9 +98,21 @@ export function SiteHeader({
   signedIn = false, navigate = () => {}, logoFor = () => '', ribbon = null, orb = null
 }) {
   const routeKey = [page, vehicleId || '', makeFilter || ''].join('/');
+  // The bar is one line at every width (see src/site-layout.css). Above 900px
+  // it carries the whole menu; between 640px and 899px only the three quick
+  // links stay out and `.nav-tier-full` items move into the burger panel. If a
+  // visitor opens that panel and then widens the window past the tier, close
+  // it: the burger disappears there and an invisible open panel would be
+  // impossible to shut.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => { if (window.innerWidth > 899 && menu) setMenu(false); };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [menu, setMenu]);
   return <header className="nav-wrap">{ribbon}<nav className="nav shell">
     <div className="brand-group">
-      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
+      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async" width="None" height="None"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div id="ar7-public-menu" className={'navlinks ' + (menu ? 'open' : '')}>
@@ -107,7 +122,7 @@ export function SiteHeader({
           return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
         })}
       </NavDropdown>
-      <a className={page === 'auction' ? ' current' : ''} href="/auction" onClick={linkClick('auction', navigate)}>Auction access</a>
+      <a className={'nav-tier-full' + (page === 'auction' ? ' current' : '')} href="/auction" onClick={linkClick('auction', navigate)}>Auction access</a>
       <NavDropdown className="nav-brands" panel="brands-panel" routeKey={routeKey} label="Brands">
         {close => <>
           <div className="brands-panel-head"><b>Brands in inventory</b><span>{brands.length} makes · {vehicleCount} vehicles live</span></div>
@@ -118,16 +133,24 @@ export function SiteHeader({
           </div>
         </>}
       </NavDropdown>
-      <NavDropdown className="nav-more" panel="more-panel" routeKey={routeKey} label="More">
+      <NavDropdown className="nav-more nav-tier-full" panel="more-panel" routeKey={routeKey} label="More">
         {close => MORE_LINKS.map(x => {
           const I = x[0];
           return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
         })}
       </NavDropdown>
       <a className={'auction-link' + (page === 'contact' ? ' current' : '')} href="/contact" onClick={linkClick('contact', navigate)}><MessageCircle size={15}/> Contact</a>
+      {/* Only rendered inside the burger panel (≤899px, src/site-layout.css):
+          the labelled account button and theme switch stay reachable on phones
+          even when the bar's icon row runs out of room. */}
+      <div className="nav-panel-actions">
+        <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? 'My account' : 'Sign in'}</a>
+        <button type="button" className="panel-theme" onClick={() => setDark(!dark)} aria-pressed={dark}>{dark ? <Sun/> : <Moon/>}{dark ? 'Light mode' : 'Dark mode'}</button>
+      </div>
     </div>
     <div className="nav-actions">
-      <CurrencyDropdown/>
+      <LanguageSwitcher/>
+          <CurrencyDropdown/>
       <a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio', navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a>
       <button type="button" className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun/> : <Moon/>}</button>
       <a className="icon-btn portal-btn" href="/account" onClick={linkClick('account', navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a>

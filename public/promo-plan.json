@@ -1,0 +1,293 @@
+{
+  "generatedAt": "2026-10-03T14:19:37.449Z",
+  "campaigns": [
+    {
+      "id": "machinery-excavators",
+      "kind": "machinery-type",
+      "headline": "Excavators on the China desk",
+      "sub": "From $46,500 FOB — 7 excavators on the desk",
+      "target": "/machinery/excavators",
+      "cta": "See the machines",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook",
+        "email"
+      ],
+      "ran": true
+    },
+    {
+      "id": "machinery-loaders",
+      "kind": "machinery-type",
+      "headline": "Loaders on the China desk",
+      "sub": "From $34,500 FOB — 2 loaders on the desk",
+      "target": "/machinery/loaders",
+      "cta": "See the machines",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "machinery-trucks",
+      "kind": "machinery-type",
+      "headline": "Trucks on the China desk",
+      "sub": "From $39,400 FOB — 2 trucks on the desk",
+      "target": "/machinery/trucks",
+      "cta": "See the machines",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "machinery-cranes",
+      "kind": "machinery-type",
+      "headline": "Cranes on the China desk",
+      "sub": "From $120,000 FOB — 1 cranes on the desk",
+      "target": "/machinery/cranes",
+      "cta": "See the machines",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "destination-kenya",
+      "kind": "destination",
+      "headline": "Shipping to Kenya this month",
+      "sub": "Cars from Japan and machinery from China, quoted to Mombasa with the documents handled",
+      "target": "/destinations",
+      "cta": "Get a Kenya quote",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "destination-pakistan",
+      "kind": "destination",
+      "headline": "Shipping to Pakistan this month",
+      "sub": "Cars from Japan and machinery from China, quoted to Karachi / Port Qasim with the documents handled",
+      "target": "/destinations",
+      "cta": "Get a Pakistan quote",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "destination-uae",
+      "kind": "destination",
+      "headline": "Shipping to the UAE this month",
+      "sub": "Cars from Japan and machinery from China, quoted to Jebel Ali with the documents handled",
+      "target": "/destinations",
+      "cta": "Get a the UAE quote",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "destination-tanzania",
+      "kind": "destination",
+      "headline": "Shipping to Tanzania this month",
+      "sub": "Cars from Japan and machinery from China, quoted to Dar es Salaam with the documents handled",
+      "target": "/destinations",
+      "cta": "Get a Tanzania quote",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "destination-uk",
+      "kind": "destination",
+      "headline": "Shipping to the UK this month",
+      "sub": "Cars from Japan and machinery from China, quoted to Southampton / Felixstowe with the documents handled",
+      "target": "/destinations",
+      "cta": "Get a the UK quote",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "destination-nigeria",
+      "kind": "destination",
+      "headline": "Shipping to Nigeria this month",
+      "sub": "Cars from Japan and machinery from China, quoted to Lagos / Tin Can with the documents handled",
+      "target": "/destinations",
+      "cta": "Get a Nigeria quote",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "email"
+      ],
+      "ran": false
+    },
+    {
+      "id": "brand-toyota",
+      "kind": "brand",
+      "headline": "Fresh Toyota stock at Japanese auctions",
+      "sub": "Auction sheets translated, condition reported honestly, shipped to your port",
+      "target": "/cars/toyota",
+      "cta": "Browse Toyota",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook"
+      ],
+      "ran": false
+    },
+    {
+      "id": "brand-lexus",
+      "kind": "brand",
+      "headline": "Fresh Lexus stock at Japanese auctions",
+      "sub": "Auction sheets translated, condition reported honestly, shipped to your port",
+      "target": "/cars/lexus",
+      "cta": "Browse Lexus",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook"
+      ],
+      "ran": false
+    },
+    {
+      "id": "brand-nissan",
+      "kind": "brand",
+      "headline": "Fresh Nissan stock at Japanese auctions",
+      "sub": "Auction sheets translated, condition reported honestly, shipped to your port",
+      "target": "/cars/nissan",
+      "cta": "Browse Nissan",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook"
+      ],
+      "ran": false
+    },
+    {
+      "id": "brand-honda",
+      "kind": "brand",
+      "headline": "Fresh Honda stock at Japanese auctions",
+      "sub": "Auction sheets translated, condition reported honestly, shipped to your port",
+      "target": "/cars/honda",
+      "cta": "Browse Honda",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook"
+      ],
+      "ran": false
+    },
+    {
+      "id": "brand-mazda",
+      "kind": "brand",
+      "headline": "Fresh Mazda stock at Japanese auctions",
+      "sub": "Auction sheets translated, condition reported honestly, shipped to your port",
+      "target": "/cars/mazda",
+      "cta": "Browse Mazda",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook"
+      ],
+      "ran": false
+    },
+    {
+      "id": "brand-mercedes-benz",
+      "kind": "brand",
+      "headline": "Fresh Mercedes-Benz stock at Japanese auctions",
+      "sub": "Auction sheets translated, condition reported honestly, shipped to your port",
+      "target": "/cars/mercedes-benz",
+      "cta": "Browse Mercedes-Benz",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook"
+      ],
+      "ran": false
+    },
+    {
+      "id": "brand-bmw",
+      "kind": "brand",
+      "headline": "Fresh BMW stock at Japanese auctions",
+      "sub": "Auction sheets translated, condition reported honestly, shipped to your port",
+      "target": "/cars/bmw",
+      "cta": "Browse BMW",
+      "onSite": true,
+      "channels": [
+        "site",
+        "whatsapp",
+        "facebook"
+      ],
+      "ran": false
+    },
+    {
+      "id": "guide-roto-vs-container",
+      "kind": "education",
+      "headline": "RoRo or container? The answer depends on your car",
+      "sub": "A short guide to choosing the cheaper method for your vehicle and port",
+      "target": "/news/roro-vs-container-which-shipping-method-fits-your-car",
+      "cta": "Read the guide",
+      "onSite": false,
+      "channels": [
+        "blog",
+        "facebook",
+        "whatsapp"
+      ],
+      "ran": false
+    },
+    {
+      "id": "guide-auction-sheet",
+      "kind": "education",
+      "headline": "What R, A and 4.5 mean on a Japanese auction sheet",
+      "sub": "Read the grade before you bid — our translation guide",
+      "target": "/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean",
+      "cta": "Read the guide",
+      "onSite": false,
+      "channels": [
+        "blog",
+        "facebook"
+      ],
+      "ran": false
+    }
+  ]
+}

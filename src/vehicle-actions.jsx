@@ -50,7 +50,7 @@ export function VehicleActions({ car, stockRef, settings, saved, copied, onEnqui
   const waHref = vehicleWhatsAppHref(settings, car, stockRef);
   return (
     <div className="detail-actions" role="group" aria-label={`Actions for ${subject}`}>
-      <button className="primary" onClick={onEnquire}>Enquire now <ArrowRight/></button>
+      <button className="primary" onClick={onEnquire} type="button">Enquire now <ArrowRight/></button>
       <div className="detail-actions-row">
         {waHref && (
           <a
@@ -74,7 +74,7 @@ export function VehicleActions({ car, stockRef, settings, saved, copied, onEnqui
         </button>
       </div>
       <div className="detail-actions-row">
-        <button className={saved ? 'ghost-btn fav-on' : 'ghost-btn'} onClick={onToggleSave}>
+        <button className={saved ? 'ghost-btn fav-on' : 'ghost-btn'} onClick={onToggleSave} type="button">
           <Heart fill={saved ? 'currentColor' : 'none'}/> {saved ? 'Saved' : 'Save'}
         </button>
         <button className={copied ? 'ghost-btn is-done' : 'ghost-btn'} type="button" onClick={onCopy}>

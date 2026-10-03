@@ -35,9 +35,9 @@ function AccountGate({navigate}){
  const s=useSettings();
  return <section className="account-page">
   <div className="account-visual">
-   <img loading="lazy" decoding="async" src="/assets/japanese-car-auction-inspection-shipping-1.webp" alt="AR7 vehicle inspection in Japan"/>
+   <img loading="lazy" decoding="async" src="/assets/japanese-car-auction-inspection-shipping-1.webp" alt="AR7 vehicle inspection in Japan" width="None" height="None"/>
    <div className="account-overlay">
-    <img src="/assets/ar7-mark.png" alt="AR7 Traders"/>
+    <img src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async" width="None" height="None"/>
     <div>
      <div className="kicker">AR7 BUYER ACCOUNT</div>
      <h2>Your direct line<br/>to Japan.</h2>
@@ -53,8 +53,8 @@ function AccountGate({navigate}){
   </div>
   <div className="account-form-wrap">
    <div className="account-tabs">
-    <button className={mode==='signup'?'active':''} onClick={()=>setMode('signup')}><UserPlus/> Sign up</button>
-    <button className={mode!=='signup'?'active':''} onClick={()=>setMode('login')}><LogIn/> Log in</button>
+    <button className={mode==='signup'?'active':''} onClick={()=>setMode('signup')} type="button"><UserPlus/> Sign up</button>
+    <button className={mode!=='signup'?'active':''} onClick={()=>setMode('login')} type="button"><LogIn/> Log in</button>
    </div>
    {mode==='login'  && <LoginForm onForgot={()=>setMode('forgot')}/>}
    {mode==='forgot' && <ForgotForm onBack={()=>setMode('login')}/>}
@@ -83,7 +83,7 @@ function LoginForm({onForgot}){
   {err && <div className="account-error">{err}</div>}
   <label>EMAIL<input required type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
   <label>PASSWORD<input required type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label>
-  <button className="primary wide" disabled={busy}>{busy?'Logging in…':'Log in'} <ArrowRight/></button>
+  <button className="primary wide" disabled={busy} type="submit">{busy?'Logging in…':'Log in'} <ArrowRight/></button>
   <button type="button" className="link-btn" onClick={onForgot}>Forgot your password?</button>
   <small className="demo-note"><LockKeyhole/> Your connection is encrypted and your password is never stored in readable form.</small>
  </form>;
@@ -106,7 +106,7 @@ function ForgotForm({onBack}){
   <span><Mail/></span>
   <h1>Check your email.</h1>
   <p>We have sent a reset link to <b>{email}</b>. Open it on this device and you can choose a new password straight away. The link expires in one hour.</p>
-  <button className="outline-btn" onClick={onBack}>Back to login</button>
+  <button className="outline-btn" onClick={onBack} type="button">Back to login</button>
  </div>;
  return <form onSubmit={submit}>
   <div className="kicker">PASSWORD HELP</div>
@@ -114,7 +114,7 @@ function ForgotForm({onBack}){
   <p>Enter the email you use for AR7 and we will send you a link to set a new password.</p>
   {err && <div className="account-error">{err}</div>}
   <label>EMAIL<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
-  <button className="primary wide" disabled={busy}>{busy?'Sending…':'Email me a reset link'} <ArrowRight/></button>
+  <button className="primary wide" disabled={busy} type="submit">{busy?'Sending…':'Email me a reset link'} <ArrowRight/></button>
   <button type="button" className="link-btn" onClick={onBack}>Back to login</button>
  </form>;
 }
@@ -145,7 +145,7 @@ function SignupForm({settings,onDone}){
   <span><BadgeCheck/></span>
   <h1>You’re in.</h1>
   <p>If we asked you to confirm your email, open that message first. Our Japan desk has your details and will be in touch — you can also message us on WhatsApp any time.</p>
-  <button className="primary" onClick={onDone}>Go to login <ArrowRight/></button>
+  <button className="primary" onClick={onDone} type="button">Go to login <ArrowRight/></button>
  </div>;
  return <form onSubmit={submit}>
   <div className="kicker">CREATE ACCOUNT</div>
@@ -160,7 +160,7 @@ function SignupForm({settings,onDone}){
   </div>
   <label>PASSWORD<input name="password" required type="password" minLength={8} placeholder="At least 8 characters"/></label>
   <label>VEHICLE YOU WANT<input name="vehicle" placeholder="e.g. Toyota Land Cruiser 2022"/></label>
-  <button className="primary wide" disabled={busy}>{busy?'Creating…':'Create account'} <ArrowRight/></button>
+  <button className="primary wide" disabled={busy} type="submit">{busy?'Creating…':'Create account'} <ArrowRight/></button>
   <small className="demo-note"><ShieldCheck/> We only use your details to help you buy and ship a vehicle. Questions? <a href={'mailto:'+settings.contact_email}>{settings.contact_email}</a></small>
  </form>;
 }
@@ -184,7 +184,7 @@ function NewPasswordPanel({onDone}){
      <p>Pick something only you know — at least 8 characters.</p>
      {err && <div className="account-error">{err}</div>}
      <label>NEW PASSWORD<input name="password" type="password" required minLength={8} autoComplete="new-password"/></label>
-     <button className="primary wide" disabled={busy}>{busy?'Saving…':'Save new password'} <ArrowRight/></button>
+     <button className="primary wide" disabled={busy} type="submit">{busy?'Saving…':'Save new password'} <ArrowRight/></button>
     </form>}
   </div>
  </section>;
@@ -208,7 +208,7 @@ function MyAccount({session,navigate}){
 
  if(err) return <section className="account-page single"><div className="account-form-wrap">
    <div className="account-sent"><span><X/></span><h1>Something went wrong.</h1><p>{err}</p>
-   <button className="outline-btn" onClick={signOut}>Sign out</button></div></div></section>;
+   <button className="outline-btn" onClick={signOut} type="button">Sign out</button></div></div></section>;
  if(!data) return <section className="account-page"><div className="account-loading"><i/><span>Loading your orders…</span></div></section>;
 
  const name=data.customer?.name||session.user.email;
@@ -224,10 +224,10 @@ function MyAccount({session,navigate}){
     </div>
         <div className="ma-head-actions">
      <CurrencySwitcher label="My account currency"/>
-     <button className="outline-btn" onClick={()=>setPanel(panel==='profile'?null:'profile')}><UserCog/> Profile</button>
-     <button className="outline-btn" onClick={()=>setPanel(panel==='password'?null:'password')}><KeyRound/> Password</button>
+     <button className="outline-btn" onClick={()=>setPanel(panel==='profile'?null:'profile')} type="button"><UserCog/> Profile</button>
+     <button className="outline-btn" onClick={()=>setPanel(panel==='password'?null:'password')} type="button"><KeyRound/> Password</button>
      <a className="outline-btn" href={waLink(s.whatsapp_number,'Hello AR7, I have a question about my order.')} target="_blank" rel="noopener noreferrer"><MessageCircle/> Ask a question</a>
-     <button className="outline-btn" onClick={signOut}>Sign out</button>
+     <button className="outline-btn" onClick={signOut} type="button">Sign out</button>
     </div>
    </div>
 
@@ -324,7 +324,7 @@ function ProfilePanel({session,customer,email,onClose,onSaved}){
      </select>
     </label>
     <footer><button type="button" className="outline-btn" onClick={onClose}>Cancel</button>
-     <button className="primary" disabled={busy}>{busy?'Saving…':'Save changes'} <ArrowRight/></button></footer>
+     <button className="primary" disabled={busy} type="submit">{busy?'Saving…':'Save changes'} <ArrowRight/></button></footer>
    </form>}
  </section>;
 }
@@ -354,7 +354,7 @@ function PasswordPanel({onClose}){
     <label>CONFIRM NEW PASSWORD<input name="confirm" type="password" required minLength={8} autoComplete="new-password"/></label>
     <small className="demo-note"><LockKeyhole/> If you no longer know your current password, sign out and use "Forgot your password" on the login screen.</small>
     <footer><button type="button" className="outline-btn" onClick={onClose}>Cancel</button>
-     <button className="primary" disabled={busy}>{busy?'Saving…':'Update password'} <ArrowRight/></button></footer>
+     <button className="primary" disabled={busy} type="submit">{busy?'Saving…':'Update password'} <ArrowRight/></button></footer>
    </form>}
  </section>;
 }

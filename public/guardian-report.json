@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-10-03T14:19:15.937Z",
+  "summary": {
+    "total": 18,
+    "pass": 18,
+    "warn": 0,
+    "fail": 0
+  },
+  "checks": [
+    {
+      "area": "health",
+      "name": "Built site present",
+      "status": "pass",
+      "detail": "dist/index.html exists",
+      "fix": "npm run build"
+    },
+    {
+      "area": "health",
+      "name": "Internal links resolve",
+      "status": "pass",
+      "detail": "2 page(s) checked; every asset link and every route resolves",
+      "fix": "Open the listed file and correct the href"
+    },
+    {
+      "area": "health",
+      "name": "Crawler shell has content",
+      "status": "pass",
+      "detail": "index.html carries an H1 (15.9 KB)",
+      "fix": "Check index.html — the pre-render feeds every crawler"
+    },
+    {
+      "area": "health",
+      "name": "Sitemap has no noindex or staff URLs",
+      "status": "pass",
+      "detail": "37 URL(s) in the sitemap",
+      "fix": "Remove staff and transactional paths from public/sitemap.xml"
+    },
+    {
+      "area": "health",
+      "name": "robots.txt points at the sitemap",
+      "status": "pass",
+      "detail": "declared",
+      "fix": "Add Sitemap: https://ar7traders.com/sitemap.xml"
+    },
+    {
+      "area": "security",
+      "name": "Security headers declared",
+      "status": "pass",
+      "detail": "X-Content-Type-Options, Referrer-Policy, X-Frame-Options, Strict-Transport-Security, Permissions-Policy",
+      "fix": "Add the missing headers to vercel.json"
+    },
+    {
+      "area": "security",
+      "name": "No secrets in the client source",
+      "status": "pass",
+      "detail": "34 source file(s) scanned",
+      "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
+    },
+    {
+      "area": "security",
+      "name": "No untrusted HTML sinks",
+      "status": "pass",
+      "detail": "no dynamic dangerouslySetInnerHTML, no eval",
+      "fix": "Sanitise the input or render it as text"
+    },
+    {
+      "area": "security",
+      "name": "localStorage access guarded",
+      "status": "pass",
+      "detail": "all wrapped",
+      "fix": "Wrap in try/catch — private mode throws on write"
+    },
+    {
+      "area": "security",
+      "name": "API functions check permission",
+      "status": "pass",
+      "detail": "12 function(s) checked",
+      "fix": "Call the shared permission helper before writing"
+    },
+    {
+      "area": "health",
+      "name": "Machinery photo coverage",
+      "status": "pass",
+      "detail": "all 12 machines carry photos",
+      "fix": "Import photos: npm run machinery:sync -- --url <link> --rights <basis>"
+    },
+    {
+      "area": "health",
+      "name": "Price derivation intact",
+      "status": "pass",
+      "detail": "every listed price = supplier price + 25%",
+      "fix": "Fix the listing in src/machinery-data.js — never hand-edit a published price"
+    },
+    {
+      "area": "health",
+      "name": "Pending units borrow no photo",
+      "status": "pass",
+      "detail": "clean",
+      "fix": "machineImages() must return [] while photosPending is true"
+    },
+    {
+      "area": "health",
+      "name": "Every machinery type has stock",
+      "status": "pass",
+      "detail": "4 type page(s) populated",
+      "fix": "Add a machine or remove the landing route"
+    },
+    {
+      "area": "health",
+      "name": "Promotion bar",
+      "status": "pass",
+      "detail": "live: Excavators on the China desk (until 2026-11-30)",
+      "fix": null
+    },
+    {
+      "area": "health",
+      "name": "Sourced prices are recent",
+      "status": "pass",
+      "detail": "all sourced listings re-checked within 30 days",
+      "fix": "npm run machinery:sync -- --daily --write"
+    },
+    {
+      "area": "seo",
+      "name": "One H1 per page",
+      "status": "pass",
+      "detail": "2 page(s) carry exactly one H1",
+      "fix": "The shared page shell renders the H1 — check the route does not add a second"
+    },
+    {
+      "area": "seo",
+      "name": "Canonical on every page",
+      "status": "pass",
+      "detail": "2 page(s) canonical",
+      "fix": "Add the route to PAGE_SEO in src/seo.js"
+    }
+  ]
+}

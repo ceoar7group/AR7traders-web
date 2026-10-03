@@ -46,6 +46,15 @@
 // the raw ratchet moves 165 → 168 kB to absorb the deliberate feature work.
 //     FIRST-LOAD CSS        166.94 kB  ( 32.71 kB gzip)
 //
+// After the 2026-10-03 header/hero rebuild (src/site-layout.css becomes the
+// single owner of the bar at every width: one-line phone header, full nav from
+// 900px, stacked hero visual below 1000px, solid-sphere header globe). Dead
+// per-breakpoint header rules were deleted from styles.css, expanded.css,
+// landing-v2.css and currency-responsive.css in the same pass, so the net cost
+// of the new file is ~3.4 kB raw / 0.6 kB gzip. Gzip stays inside the unchanged
+// budget; the raw ratchet moves 168 → 174 kB to absorb the deliberate work.
+//     FIRST-LOAD CSS        170.33 kB  ( 33.32 kB gzip)
+//
 // The budgets below are set from the improved number with headroom for
 // ordinary code growth — they are a ratchet, not a target. When the budget is
 // legitimately raised, update the table above in the same change so the next
@@ -109,8 +118,40 @@ for (const [file, b, g] of rows) {
 }
 console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).padStart(9)} gzip`);
 
-const BUDGET_GZIP = 128 * 1024;   // measured 123.79 kB after the C1 + B3 split
-const BUDGET_RAW = 435 * 1024;    // measured 420.21 kB after the C1 + B3 split
+// Ratcheted 131 → 134 kB gzip / 442 → 450 kB raw on 2026-10-03: the language
+// switcher and the machine photo galleries. Both are small and both are on the
+// first page a visitor sees — the switcher sits in the header, and the gallery
+// is what makes a machinery listing credible. Measured 131.34 kB gzip /
+// 447.29 kB raw. The thirteen non-English dictionaries were deliberately split
+// into their own lazy chunk (dist/assets/i18n-dicts-*.js, ~12 kB gzip) that
+// only downloads when somebody actually picks a language; do not move them
+// back into the entry, and every further raise needs the same dated comment.
+// Ratcheted 450 → 451 kB raw (gzip unchanged) on 2026-10-03: the home hero
+// rotation now weaves the China machinery slides in with the car slides, so the
+// hero states the real scope of the business instead of looking like a car lot.
+// Measured 450.29 kB raw / 132.40 kB gzip.
+// Ratcheted 451 → 453 kB raw (gzip unchanged) on 2026-10-03: the inventory
+// facets — make/model/body/price/year/mileage/fuel/gearbox/steering/sort, each
+// option annotated with its count, plus the active-filter summary and the
+// match count. A data-driven facet list and the removal of the old KM_MAX
+// table kept it to ~1.7 kB. Measured 452.00 kB raw / 133.13 kB gzip.
+// Ratcheted 453 → 455 kB raw (gzip unchanged) on 2026-10-03: keyboard
+// operability. The photo thumbs, record cards, dismissable notices, compare
+// toggle and dealer-stock cards are clickable surfaces that were invisible to
+// the keyboard; each one now carries role/tabIndex and an accessible name, and
+// the whole-site UI audit (test:ui-audit) fails on any new one that does not.
+// Measured 453.63 kB raw / 133.44 kB gzip.
+// Ratcheted 134 → 137 kB gzip / 455 → 463 kB raw on 2026-10-03: machine pages
+// and price offers. Every machine now has its own URL (/machinery/<type>/<REF>)
+// with a real detail page, and a discount applied in the CRM is priced by
+// src/offers.js everywhere the site shows a number — the card, the detail page,
+// the home teaser, the promo bar and the Product structured data. The offer
+// engine is deliberately in the entry (the promo bar needs it on any page); the
+// sentence parser that reads "20% off machinery until 30 November" is NOT — it
+// lives in src/offers-request.js, inside the CRM's lazy chunk, and that split
+// took ~2 kB raw back off this number. Measured 461.61 kB raw / 136.23 kB gzip.
+const BUDGET_GZIP = 137 * 1024;
+const BUDGET_RAW = 463 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -130,8 +171,20 @@ for (const file of entryCss) {
   cssGzip += gz;
   console.log(`      ${file.replace(/^\/assets\//, '').padEnd(34)} ${kb(bytes.length).padStart(10)} raw  ${kb(gz).padStart(9)} gzip`);
 }
-const CSS_BUDGET_GZIP = 34 * 1024;   // measured 30.55 kB after the B3 CSS split (down from 39.67 kB)
-const CSS_BUDGET_RAW = 168 * 1024;   // measured 153.39 kB after the B3 CSS split; 166.94 kB after the 2026-10-03 responsive/header + home budget-section pass
+// Ratcheted 34 → 35.5 kB gzip / 174 → 181 kB raw on 2026-10-03: the machinery
+// desk is a second product line, and its card + landing teaser styles must be
+// in the first load (the teaser sits on the home page). Measured 34.67 kB /
+// 179.18 kB. The machinery page's own furniture stays in its lazy chunk.
+// Ratcheted 35.5 → 36.5 gzip / 184 → 186 raw on 2026-10-03: the language
+// switcher panel and the RTL rules (src/i18n.css) plus the machine gallery
+// styles (src/machinery.css).
+// Ratcheted 186 → 187 raw on 2026-10-03 (gzip unchanged at 36.5): the promotion
+// bar, which is a first-load element by definition — it sits above the header
+// on every page. The bar was trimmed first (1.85 → 1.76 kB of source) and a
+// dead-CSS scan of landing-v2.css found nothing left to reclaim. Measured
+// 186.25 kB raw / 36.14 kB gzip.
+const CSS_BUDGET_GZIP = 36.5 * 1024;   // measured 30.55 kB after the B3 CSS split (down from 39.67 kB)
+const CSS_BUDGET_RAW = 188 * 1024;   // 2026-10-03: +the inventory facet toolbar (1.5 kB); measured 187.70 kB raw / 36.45 kB gzip. 182.89 kB after the 2026-10-03 SEO landing-link row + SEO desk styles; measured 153.39 kB after the B3 CSS split; 166.94 kB after the 2026-10-03 responsive/header + home budget-section pass; 170.33 kB after the 2026-10-03 header/hero rebuild; 179.18 kB after the 2026-10-03 machinery desk; 186.25 kB after the 2026-10-03 promotion bar
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
@@ -275,7 +328,16 @@ const pagesSrc = readFileSync(join(ROOT, 'scripts/pages-render.test.jsx'), 'utf8
 const routesBlock = (pagesSrc.match(/const ROUTES = \{([\s\S]*?)\n\};/) || ['', ''])[1];
 const knownRoutes = new Set([...routesBlock.matchAll(/'(\/[a-z0-9/-]*)'/g)].map(m => m[1]));
 ok(knownRoutes.size > 10, `the render suite pins ${knownRoutes.size} public routes`);
-const dead = staticLocs.filter(l => !knownRoutes.has(new URL(l).pathname));
+// A machine page is a real route too: /machinery/<type>/<REF>. The render suite
+// pins the shape (/machinery/excavators/AR7-MC-001), so a URL matching that
+// shape with a known catalogue reference is served, not dead.
+const { MACHINES } = await import('../src/machinery-data.js');
+const { machineHref } = await import('../src/machinery-data.js');
+const machinePaths = new Set(MACHINES.map(m => machineHref(m)));
+const dead = staticLocs.filter(l => {
+  const p = new URL(l).pathname;
+  return !knownRoutes.has(p) && !machinePaths.has(p);
+});
 ok(dead.length === 0,
   dead.length === 0 ? 'every URL in the static sitemap is a route the app serves'
     : `dead sitemap URLs: ${dead.join(', ')}`);

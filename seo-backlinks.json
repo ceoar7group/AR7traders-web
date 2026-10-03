@@ -1,0 +1,806 @@
+{
+  "prospects": [
+    {
+      "type": "freight-forwarder",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into Pakistan. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "freight-forwarder",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into United Arab Emirates. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "freight-forwarder",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into Kenya. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "freight-forwarder",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into Tanzania. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "freight-forwarder",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into United Kingdom. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "freight-forwarder",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into Georgia. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "freight-forwarder",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into Mongolia. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "freight-forwarder",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "They publish origin/destination service pages and partner lists. A named exporter on their page is a relevant, editorially-given link.",
+      "ask": "A listing on their China/Japan → your-market service page, with the ports and services you actually use.",
+      "pitch": "We ship consistently from China and Japan into Nigeria. Happy to be listed on your routes page as an exporter client, and we will link back to your service page from our shipping guide.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "port-agent",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Port agents maintain clearing-agent and consignee directories that buyers genuinely use.",
+      "ask": "A line in their clearing-agent directory, or a \"trusted exporters we clear for\" mention.",
+      "pitch": "We clear vehicles and machinery through your port regularly. Would you list us in your agent directory? We will link your details from our destination pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "customs-broker",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Brokers publish import-guide content; being the example exporter in it is a strong local link.",
+      "ask": "Mention in their vehicle-import guide as a recommended exporter.",
+      "pitch": "Your import guide is what our buyers read before collecting. If it helps, we can supply the export-side documentation details for it and be listed as an example exporter.",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "inspection-company",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Inspection firms (JEVIC, QISJ and similar) list the exporters they inspect for — high trust, exact relevance.",
+      "ask": "Include AR7 in the exporters you inspect for.",
+      "pitch": "Our buyers ask for your inspection by name. Would you list AR7 among the exporters you inspect for at Japanese auctions?",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "supplier-factory",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Chinese manufacturers and dealers list their overseas partners and distributors.",
+      "ask": "A distributor/partner listing on their export page.",
+      "pitch": "We quote your machines to buyers in Pakistan, the Gulf and East Africa. If you keep a partner list, we would like to be on it — you can point buyers at our stock pages.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "auction-house",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Auction groups publish member and buyer directories.",
+      "ask": "Buyer/member listing.",
+      "pitch": "We buy through your auctions on behalf of overseas clients. Happy to be listed as a member buyer.",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "insurer",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Marine insurers publish client case studies and partner lists.",
+      "ask": "A partner or client mention.",
+      "pitch": "We place marine cargo cover through you on every shipment. Would you list us as a client, and let us write a short piece on cargo cover for importers?",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "trade-body",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Chambers of commerce and trade associations list member exporters with a link.",
+      "ask": "Member directory entry.",
+      "pitch": "We would like a member listing for AR7 Traders as a Japan/China export trader serving your market.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "marketplace-profile",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Alibaba, Made-in-China, EC21 and similar let a verified seller publish a company profile with a website link. That is the legitimate way to be present on those platforms.",
+      "ask": "A verified seller profile with the site link and your own photos.",
+      "pitch": "Register as a seller, verify the company, and publish your own photos of the units you are offering. Do not lift photographs from other sellers' listings — the platform polices that and suspends accounts.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "Pakistan",
+      "port": "Karachi / Port Qasim",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "United Arab Emirates",
+      "port": "Jebel Ali / Sharjah",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "Kenya",
+      "port": "Mombasa",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "Tanzania",
+      "port": "Dar es Salaam",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "United Kingdom",
+      "port": "Southampton / Felixstowe",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "Georgia",
+      "port": "Poti / Batumi",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "Mongolia",
+      "port": "Ulaanbaatar (rail)",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    },
+    {
+      "type": "press",
+      "market": "Nigeria",
+      "port": "Lagos / Tin Can",
+      "org": "",
+      "why": "Trade press and market reports cite exporters; a data point from AR7 earns a citation.",
+      "ask": "A quotation or data point in a piece about used-vehicle or machinery flows.",
+      "pitch": "We can supply real numbers on what our buyers are importing in 2026 (model mix, ports, freight rates) for your next piece.",
+      "status": "prospect"
+    }
+  ],
+  "sent": [],
+  "verified": []
+}

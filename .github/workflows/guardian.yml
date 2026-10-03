@@ -1,0 +1,51 @@
+# Site guardian — the checks in scripts/guardian.mjs, run where the repository
+# is: on a serverless function there is no repo and no build to inspect.
+#
+# On failure the workflow fails, so a broken link, a missing security header or
+# a shipped secret turns the run red instead of waiting to be noticed.
+#
+# The report is committed back (public/guardian-report.json) so the CRM's Site
+# guardian panel always shows the most recent real run. That commit only ever
+# touches that one file.
+name: Site guardian
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'      # nightly, 03:17 UTC
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build (the guardian audits the built site)
+        run: npm run build
+      - name: Guardian checks
+        run: npm run guard
+      - name: SEO audit
+        run: npm run seo
+      - name: Test suite
+        run: npm test
+      - name: Commit the report
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain public/guardian-report.json)" ]; then
+            git config user.name  "ar7-guardian"
+            git config user.email "guardian@ar7traders.com"
+            git add public/guardian-report.json
+            git commit -m "chore(guardian): nightly report $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "report unchanged"
+          fi

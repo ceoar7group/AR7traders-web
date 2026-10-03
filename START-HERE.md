@@ -68,6 +68,15 @@ key would hand a stranger your entire database.
 Environment variables only take effect on a new build, so this redeploy is
 required.
 
+⚠️ **If the first two are missing at build time, the CRM deploys broken in a way
+that is easy to misread.** The console is compiled with the Supabase client
+present or absent; with no `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` the
+bundler proves the client is `null`, folds that branch and drops the entire
+console from the bundle — `/crm` then shows the "Connect Supabase" setup panel
+and nothing else, because there is nothing else left to show. The marketing site
+is unaffected, which is what makes it confusing. If `/crm` ever greets you with
+the setup screen, check these two variables and redeploy.
+
 ---
 
 ## Step 4 — Create your login (2 min)

@@ -17,7 +17,7 @@ const dom = new JSDOM(
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 
-const { applySeo, brandSeo, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS } = await import('../src/seo.js');
+const { applySeo, brandSeo, carsLandingSeo, MACHINERY_SEO, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS } = await import('../src/seo.js');
 const { NEWS, articleSlug, articleSeo } = await import('../src/news-data.js');
 
 let failed = 0;
@@ -96,21 +96,58 @@ ok(toyotaSeo?.description.includes('FOB or CIF') && toyotaSeo.description.includ
    toyotaSeo.description.includes('auction-sourced vehicles'),
   'brandSeo explains Japan sourcing, quote/shipping options and source-appropriate condition information');
 ok(brandSeo('not-a-known-make') === null, 'brandSeo ignores unknown make filters');
-applySeo('inventory', null, null, { make: 'Toyota' });
-ok(document.title === toyotaSeo.title, 'Toyota inventory page uses the brand title');
-ok(meta('meta[name="description"]') === toyotaSeo.description, 'Toyota inventory page uses the brand description');
-ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/inventory?make=Toyota',
-  'Toyota inventory canonical preserves the encoded make filter');
-ok(meta('meta[property="og:url"]') === 'https://ar7traders.com/inventory?make=Toyota',
-  'Toyota inventory og:url matches the brand canonical');
+applySeo('inventory', null, null, { make: 'Toyota', vehicleCount: 12 });
+const toyotaLanding = carsLandingSeo('Toyota', null, 12);
+ok(toyotaLanding?.title.includes('Used Toyota Cars for Export from Japan'),
+  'the Toyota landing page gets its own indexable title');
+ok(toyotaLanding?.description.includes('12 vehicles in stock'),
+  'the Toyota landing page description carries the live vehicle count');
+ok(document.title === toyotaLanding.title, 'Toyota landing page uses the landing title');
+ok(meta('meta[name="description"]') === toyotaLanding.description,
+  'Toyota landing page uses the landing description');
+// 2026-10-03: a brand-filtered view now canonicalises to the real landing path
+// (/cars/toyota) instead of a query string — query-string canonicals are what
+// kept these pages from ranking. The old ?make= expectations were replaced.
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/cars/toyota',
+  'Toyota inventory canonical is the /cars/toyota landing path');
+ok(meta('meta[property="og:url"]') === 'https://ar7traders.com/cars/toyota',
+  'Toyota inventory og:url matches the landing canonical');
 bc = jsonld('breadcrumb-jsonld');
 ok(bc?.itemListElement.length === 3 && bc.itemListElement.map(x => x.name).join(' → ') === 'Home → Inventory → Toyota',
   'Toyota inventory breadcrumb is Home → Inventory → Toyota');
-ok(bc?.itemListElement[2]?.item === 'https://ar7traders.com/inventory?make=Toyota',
-  'Toyota breadcrumb points to the canonical brand-filtered URL');
+ok(bc?.itemListElement[2]?.item === 'https://ar7traders.com/cars/toyota',
+  'Toyota breadcrumb points to the canonical landing URL');
+ok(jsonld('list-jsonld')?.['@type'] === 'ItemList' &&
+   jsonld('list-jsonld').numberOfItems === 12,
+  'Toyota landing page emits an ItemList with the stock count');
 applySeo('inventory', null, null, { make: 'All' });
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/inventory',
   'All inventory keeps the plain /inventory canonical');
+ok(jsonld('list-jsonld') === null, 'ItemList is removed off the landing pages');
+
+// ---- model landing pages (/cars/toyota/land-cruiser) -----------------------
+applySeo('inventory', null, null, { make: 'Toyota', model: 'land cruiser', vehicleCount: 4 });
+const modelLanding = carsLandingSeo('Toyota', 'land cruiser', 4);
+ok(document.title === modelLanding.title && modelLanding.title.includes('Toyota Land Cruiser for Export'),
+  'model landing page titles name make and model');
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/cars/toyota/land-cruiser',
+  'model landing canonical uses the slugged path');
+ok(jsonld('breadcrumb-jsonld')?.itemListElement[2]?.name === 'Toyota Land Cruiser',
+  'model landing breadcrumb names the model');
+
+// ---- machinery type pages (/machinery/excavators) --------------------------
+applySeo('machinery', null, null, { machineType: 'excavators' });
+ok(document.title === MACHINERY_SEO.excavators[0],
+  '/machinery/excavators uses the excavator title');
+ok(meta('meta[name="description"]') === MACHINERY_SEO.excavators[1],
+  '/machinery/excavators uses the excavator description');
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/machinery/excavators',
+  '/machinery/excavators canonical is the type path');
+ok(jsonld('breadcrumb-jsonld')?.itemListElement.map(x => x.name).join(' → ') === 'Home → Machinery → excavators',
+  'machinery type breadcrumb is Home → Machinery → type');
+applySeo('machinery', null, null, {});
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/machinery',
+  'the machinery hub keeps its own canonical');
 
 // ---- FAQ markup is scoped to /faq -----------------------------------------
 applySeo('faq', null);
@@ -271,7 +308,16 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
 {
   const xml = readFileSync(path.join(dir, '..', 'public', 'sitemap.xml'), 'utf8');
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  ok(locs.length === 20, `sitemap lists 20 URLs (found ${locs.length})`);
+  // 2026-10-03: +4 machinery type pages (/machinery/<type>), then +12 machine
+  // detail pages (/machinery/<type>/<REF>) — a unit nobody can find in a
+  // search result is a unit nobody quotes.
+  ok(locs.length === 37, `sitemap lists 37 URLs (found ${locs.length})`);
+  {
+    const { MACHINES, machineHref } = await import('../src/machinery-data.js');
+    for (const m of MACHINES) {
+      ok(locs.includes('https://ar7traders.com' + machineHref(m)), `sitemap includes ${machineHref(m)}`);
+    }
+  }
   ok(locs.includes('https://ar7traders.com/shipping'), 'sitemap includes /shipping');
   for (const a of NEWS) {
     const u = `https://ar7traders.com/news/${articleSlug(a)}`;

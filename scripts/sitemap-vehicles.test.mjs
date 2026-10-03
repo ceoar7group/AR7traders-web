@@ -224,9 +224,34 @@ const DEALER_SEED = [
   ok(found.filter(l => l.endsWith('/9001')).length === 1 &&
      found.filter(l => l.endsWith('/JDK-777')).length === 1,
     'no imported car is duplicated');
-  ok(found.length === 6, `the combined sitemap lists both catalogues (found ${found.length})`);
-  ok(found.every(l => l.startsWith('https://ar7traders.com/inventory/')),
+  // 2026-10-03 (SEO): the combined sitemap now opens with derived landing
+  // pages (/cars/<make>, /cars/<make>/<model>), so the vehicle assertions
+  // count vehicle URLs explicitly instead of the whole document.
+  const vehicleLocs = found.filter(l => l.startsWith('https://ar7traders.com/inventory/'));
+  ok(vehicleLocs.length === 6, `the combined sitemap lists both catalogues (found ${vehicleLocs.length} vehicle URLs)`);
+  ok(vehicleLocs.every(l => l.startsWith('https://ar7traders.com/inventory/')),
     'every imported loc is an absolute https vehicle URL');
+
+  // ---- derived landing pages ------------------------------------------------
+  ok(found.includes('https://ar7traders.com/cars/toyota'),
+    'a live brand gets its own /cars/<make> landing page');
+  ok(found.includes('https://ar7traders.com/cars/toyota/aqua'),
+    'a live model gets its own /cars/<make>/<model> landing page');
+  ok(found.includes('https://ar7traders.com/cars/honda/vezel'),
+    "an imported car's model is a crawl target too");
+  ok(!found.some(l => l.includes('/cars/nissan')), 'a delisted car creates no landing page');
+  ok(!found.some(l => l.includes('/cars/suzuki')), 'a parked car creates no landing page');
+  ok(!found.some(l => l.includes('/cars/mazda')), 'a promoted imported car is not a second landing page');
+  ok(found.filter(l => l === 'https://ar7traders.com/cars/toyota').length === 1,
+    'a brand landing page appears exactly once');
+  // Landing entries are emitted before detail pages: they are the pages that
+  // are supposed to rank.
+  ok(body.indexOf('https://ar7traders.com/cars/toyota') < body.indexOf('https://ar7traders.com/inventory/9001'),
+    'landing pages lead the sitemap');
+  const toyotaLanding = (body.match(/<url>[\s\S]*?<\/url>/g) || [])
+    .find(b => b.includes('https://ar7traders.com/cars/toyota<')) || '';
+  ok(/<lastmod>2026-09-25<\/lastmod>/.test(toyotaLanding),
+    "a landing page's lastmod is the newest updated_at in its group");
 
   // lastmod comes from the raw dealer row, never invented
   const b777 = (body.match(/<url>[\s\S]*?<\/url>/g) || []).find(b => b.includes('JDK-777')) || '';

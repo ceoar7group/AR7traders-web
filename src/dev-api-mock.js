@@ -89,6 +89,31 @@ export function devApiMock() {
         if (next && req.method !== 'GET' && req.method !== 'POST') return next();
         res.end(JSON.stringify(STOCK));
       });
+
+      // Dev-only crash reporter. The error boundary in src/main.jsx posts here
+      // when the app fails to render, so a report from a preview pane that the
+      // developer cannot open a console in still lands in the dev server log.
+      // Never part of the production build (this plugin is dev-only).
+      server.middlewares.use('/api/__client-error', (req, res) => {
+        let raw = '';
+        req.on('data', c => { raw += c; });
+        req.on('end', () => {
+          let body = {};
+          try { body = JSON.parse(raw || '{}'); } catch { body = { raw: raw.slice(0, 500) }; }
+          const lines = [
+            '──────────── AR7 CLIENT RENDER ERROR ────────────',
+            `time      : ${body.time || new Date().toISOString()}`,
+            `page      : ${body.url || '?'}  viewport ${body.w || '?'}x${body.h || '?'}`,
+            `message   : ${body.message || '(none)'}`,
+            `component : ${String(body.componentStack || '').split('\n').filter(Boolean).slice(0, 6).join(' <- ') || '(no component stack)'}`
+          ];
+          if (body.stack) lines.push('stack     :\n' + String(body.stack).split('\n').slice(0, 8).join('\n'));
+          lines.push('─────────────────────────────────────────────────');
+          console.warn(lines.join('\n'));
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true }));
+        });
+      });
     }
   };
 }
