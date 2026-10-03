@@ -385,8 +385,9 @@ html[data-theme=dark] .detail-cta--chat svg{color:var(--gold2)}
 .nav-orb .iglobe{transition:transform .3s}
 .nav-orb:hover .iglobe{transform:scale(1.12) rotate(6deg)}
 
-/* mobile: dropdown becomes flat list in the overlay menu */
-@media(max-width:1000px){
+/* mobile: dropdown becomes flat list in the overlay menu (same 1100px burger
+   breakpoint as styles.css) */
+@media(max-width:1100px){
  .nav-drop{width:100%}
  .nav-drop .nav-drop-btn{display:none}
  .nav-drop:before{display:none}
@@ -396,6 +397,12 @@ html[data-theme=dark] .detail-cta--chat svg{color:var(--gold2)}
  .navlinks.open .inventory-panel{display:block}
  .navlinks a:after,.navlinks button:after{display:none}
 }
+/* single/2-col panels inside the burger menu on narrow phones */
+@media(max-width:520px){
+ .navlinks .more-panel{grid-template-columns:1fr}
+ .navlinks .brands-grid{grid-template-columns:1fr 1fr}
+ .navlinks .brands-panel-foot{flex-direction:column}
+}
 
 /* ============================================================
    V5 — HEADER ORB BESIDE BRAND + BRAND LOGOS + FLAGS
@@ -404,14 +411,15 @@ html[data-theme=dark] .detail-cta--chat svg{color:var(--gold2)}
 
 /* ---------- header: globe next to company name ---------- */
 .brand-group{display:flex;align-items:center;gap:16px;flex:none}
-.brand-group .nav-orb{width:46px;height:46px;border:1px solid var(--line);border-radius:50%;background:color-mix(in srgb,var(--card) 72%,transparent);display:grid;place-items:center;flex:none;cursor:pointer;transition:transform .3s,box-shadow .3s,border-color .2s}
+.brand-group .nav-orb{width:46px;height:46px;border:1px solid var(--line);border-radius:50%;background:color-mix(in srgb,var(--card) 72%,transparent);display:grid;place-items:center;flex:none;cursor:pointer;transition:transform .3s,box-shadow .3s,border-color .2s;overflow:hidden}
 .brand-group .nav-orb:hover{transform:translateY(-2px) scale(1.06);border-color:var(--gold);box-shadow:0 10px 22px -6px #0a3a2755}
-.brand-group .nav-orb .iglobe{width:58px;margin-top:-2px}
+/* globe sized+clipped to its button so it can't bleed over the currency switch */
+.brand-group .nav-orb .iglobe{width:100%;margin-top:0}
 .brand-group .nav-orb .orbit-ring,.brand-group .nav-orb .drag-hint,.brand-group .nav-orb .iglobe-halo{display:none}
 .nav{height:64px}
 .navlinks{margin:0 auto}
 @media(max-width:1240px){.brand-group{gap:12px}}
-@media(max-width:650px){.brand-group{gap:9px}.brand-group .nav-orb{width:38px;height:38px}.brand-group .nav-orb .iglobe{width:46px;margin-top:-3px}}
+@media(max-width:650px){.brand-group{gap:9px}.brand-group .nav-orb{width:38px;height:38px}.brand-group .nav-orb .iglobe{width:100%;margin-top:0}}
 
 /* ---------- brand logos ---------- */
 .brand-tile{background:#fff!important;box-shadow:inset 0 0 0 1px var(--line),0 8px 20px #072c1b12}
@@ -481,7 +489,7 @@ section[id]{scroll-margin-top:120px}
  .shell{width:calc(100% - 20px)}
  .brand span{font-size:12px}
  .brand-group .nav-orb{width:34px;height:34px}
- .brand-group .nav-orb .iglobe{width:42px}
+ .brand-group .nav-orb .iglobe{width:100%}
  .icon-btn,.menu-btn{width:38px;height:38px}
  .hero-visual{height:310px}
 }
