@@ -27,7 +27,7 @@ export function decodeRef(ref) {
   return raw;
 }
 
-import { carRef as _carRef, hrefFor as _hrefFor, brandFromSlug, slugify, carLandingPath } from './sitemap-helpers.js';
+import { carRef as _carRef, hrefFor as _hrefFor, machineHrefFor, brandFromSlug, slugify, carLandingPath } from './sitemap-helpers.js';
 export const carRef = _carRef;
 export const hrefFor = _hrefFor;
 
@@ -224,6 +224,10 @@ export function hashFor(page, carId) {
 
 export function hrefFromTarget(target) {
   const r = typeof target === 'string' ? parseNavTarget(target) : (target || {});
+  // A machine's own page has its own URL shape, like a car's. Without this the
+  // href of every machinery <a> collapsed to /machinery, so the detail page was
+  // unreachable by link — the bug the client-mount test now pins.
+  if (r.page === 'machinery' && r.machineType) return machineHrefFor(r.machineType, r.machineRef);
   const href = hrefFor(r.page, r.carId);
   // Brand filters live in the query string, never in the hash (a `?` in the
   // hash is dropped by browsers on reload — see the note at the top).
@@ -282,14 +286,18 @@ export function rememberVehicle(carId) {
   } catch { /* private mode */ }
 }
 
-export function writeLocation(page, carId, { replace = false, make = null } = {}) {
+export function writeLocation(page, carId, { replace = false, make = null, machineType = null, machineRef = null } = {}) {
   const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
   params.delete('car');
   const m = makeFrom(make);
   params.delete('make');
   // A brand view lives at its landing path now, so the address bar, the
-  // canonical and the sitemap all agree on one URL per brand.
-  const path = (m && page === 'inventory' && !carId) ? carLandingHref(m) : hrefFor(page, carId);
+  // canonical and the sitemap all agree on one URL per brand. A machine page
+  // keeps its own path for the same reason: refresh, share and Back must all
+  // land on the machine, never on the catalogue.
+  const path = (page === 'machinery' && machineType)
+    ? machineHrefFor(machineType, machineRef)
+    : (m && page === 'inventory' && !carId) ? carLandingHref(m) : hrefFor(page, carId);
   const url = withSearch(path, params) + hashFor(page, carId);
   rememberVehicle(page === 'inventory' ? carId : null);
   const now = (typeof location === 'undefined')
@@ -298,7 +306,7 @@ export function writeLocation(page, carId, { replace = false, make = null } = {}
   if (now === url) return url;
   try {
     const fn = replace ? history.replaceState : history.pushState;
-    fn.call(history, { page, carId }, '', url);
+    fn.call(history, page === 'machinery' ? { page, carId, machineType, machineRef } : { page, carId }, '', url);
   } catch {
     try { location.hash = hashFor(page, carId).replace(/^#/, '') || ''; }
     catch { /* ignore */ }

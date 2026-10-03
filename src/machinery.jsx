@@ -16,7 +16,7 @@
 // instruction typed into that panel) is applied here from src/offers.js: the
 // card and the detail page show the list price struck through, the reduced
 // price, and what the buyer saves — from one function, never two.
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Camera, Check, ClipboardCheck, Container, Gauge,
   Images, MapPin, MessageCircle, PackageCheck, Search, Settings2, Ship, ShieldCheck, Sparkles,
@@ -78,7 +78,11 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   const back = `/machinery/${machine.type.toLowerCase()}`;
   return <section className="inner-page machinery-page mch-detail-page">
     <div className="shell page-content">
-      <a className="back-btn" href={back} onClick={e => { e.preventDefault(); navigate(`/machinery/${machine.type.toLowerCase()}`); }}>
+      <a className="back-btn" href={back} onClick={e => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        navigate(back);
+      }}>
         <ArrowLeft size={14}/> Back to {machine.type}
       </a>
 
@@ -159,7 +163,11 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
               const pct = percentFor(offer, 'machine', {ref: m.ref, type: m.type});
               const p = priceWithOffer(listPriceUSD(m), pct);
               return <a key={m.id} className="mch-related-card" href={machineHref(m)}
-                onClick={e => { e.preventDefault(); navigate(machineHref(m)); }}>
+                onClick={e => {
+                  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  navigate(machineHref(m));
+                }}>
                 {machineImages(m)[0] && <img loading="lazy" decoding="async" width="420" height="290" src={machineImages(m)[0]} alt={`${m.name} for export — ${m.ref}`}/>}
                 <b>{m.name}</b>
                 <small>{m.year} · {usageOf(m)} · {m.location}</small>
@@ -191,13 +199,20 @@ function MachineCard({machine, onQuote, onChat, navigate, offer}) {
   const price = priceWithOffer(listPriceUSD(machine), percent);
   const href = machineHref(machine);
   const open = () => navigate(href);
+  // Leave modified clicks to the browser: Ctrl/Cmd/middle-click opens the
+  // machine in a new tab, exactly like a car card. A plain click is ours.
+  const openClick = e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    open();
+  };
   return <article className="mch-card">
     <div className="mch-photo">
       {/* A unit we have no photograph of yet says so. Pointing the card at
           another machine's photo would be a lie the buyer discovers at the
           port, so the gap is shown rather than papered over. */}
       {photos.length
-        ? <a className="mch-photo-link" href={href} onClick={e => { e.preventDefault(); open(); }}
+        ? <a className="mch-photo-link" href={href} onClick={openClick}
             aria-label={`Open the ${machine.name} page — ${machine.ref}`}>
             <img loading="lazy" decoding="async" width="820" height="560" src={photos[shot]}
               alt={`${machine.name} ${label.toLowerCase()} ${shot ? `photo ${shot + 1} of ${photos.length}` : 'available for export'} — ${machine.ref}`}/>
@@ -239,7 +254,7 @@ function MachineCard({machine, onQuote, onChat, navigate, offer}) {
             : <b>{fmt(price.now)}</b>}
         </div>
         <div className="mch-actions">
-          <a className="mch-view" href={href} onClick={e => { e.preventDefault(); open(); }}>View machine <ArrowRight/></a>
+          <a className="mch-view" href={href} onClick={openClick}>View machine <ArrowRight/></a>
           <button className="mch-chat" type="button" onClick={onChat} aria-label={`Ask about the ${machine.name} on WhatsApp`}><MessageCircle/></button>
         </div>
       </div>
@@ -265,6 +280,11 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
   // and any unknown slug fall back to the full catalogue.
   const start = MACHINE_TYPES.find(t => t.toLowerCase() === String(initialType || '').toLowerCase()) || 'All';
   const [type, setType] = useState(start);
+  // /machinery/<type> can be reached by an in-app link while the page is
+  // already mounted (a related card, a footer link, Back). The prop changes —
+  // so the filter has to follow it, or the URL says Loaders while the list
+  // still shows Excavators.
+  useEffect(() => { setType(start); }, [start]);
   // /machinery/excavators/AR7-MC-001 is one machine's own page. An unknown
   // reference is handled below: it says so and offers the desk, never renders
   // a machine that does not exist.
@@ -305,7 +325,11 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
     return <section className="inner-page machinery-page mch-detail-page">
       <div className="shell page-content">
         <a className="back-btn" href={typeHref(initialType)}
-          onClick={e => { e.preventDefault(); navigate(typeHref(initialType)); }}>
+          onClick={e => {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            navigate(typeHref(initialType));
+          }}>
           <ArrowLeft size={14}/> Back to {start}
         </a>
         <div className="mch-empty">

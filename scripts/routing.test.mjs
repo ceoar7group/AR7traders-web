@@ -104,6 +104,31 @@ location.search = ''; location.hash = '';
 ok(writeLocation('inventory', '43', { make: 'Toyota' }) === '/inventory/43#/inventory/43', 'opening a car drops the brand filter from the URL');
 ok(parseRoute({ pathname: '/inventory', hash: '', search: '?make=Toyota' }, { restoreOnReload: true }).carId === null, 'a brand link is never hijacked by the last-open vehicle');
 
+// ---- a machine's own page is a real URL, not just renderable --------------
+// Regression: clicking a machine used to write /machinery to the address bar
+// and show the catalogue, because hrefFromTarget/writeLocation only knew car
+// paths. The click-through itself is pinned in client-mount.test.jsx; these
+// are the URL-shape guarantees underneath it.
+ok(hrefFromTarget('/machinery/excavators/AR7-MC-001') === '/machinery/excavators/AR7-MC-001',
+  'hrefFromTarget keeps a machine page path (so the <a href> a crawler follows is the machine)');
+ok(hrefFromTarget('/machinery/excavators/AR7-MC-001?x=1#y') === '/machinery/excavators/AR7-MC-001',
+  'a machine path survives query/hash noise');
+ok(hrefFromTarget('/machinery/loaders/AR7-MC-007') === '/machinery/loaders/AR7-MC-007',
+  'a specific machine in another type keeps its own path');
+ok(hrefFromTarget('/machinery') === '/machinery' && hrefFromTarget('/machinery/loaders') === '/machinery/loaders',
+  'the machinery hub and type pages keep their list paths');
+location.pathname = '/machinery'; location.search = ''; location.hash = '';
+ok(writeLocation('machinery', null, { machineType: 'excavators', machineRef: 'AR7-MC-001' }) === '/machinery/excavators/AR7-MC-001#/machinery',
+  'writeLocation writes the machine path, so refresh and share land on the machine');
+ok(pushed === '/machinery/excavators/AR7-MC-001#/machinery', 'the machine path reaches history.pushState');
+ok(writeLocation('machinery', null, { machineType: 'excavators' }) === '/machinery/excavators#/machinery',
+  'a type link still writes the type page');
+ok(writeLocation('machinery', null) === '/machinery#/machinery',
+  'leaving a machine clears the type from the address bar');
+ok(parseNavTarget('/machinery/excavators/AR7-MC-001').machineRef === 'AR7-MC-001',
+  'navigate("/machinery/excavators/AR7-MC-001") carries the ref into the router');
+
+
 store[LAST_VEHICLE_KEY] = '51'; // the writeLocation calls above clear it
 const restored = parseRoute({ pathname: '/', hash: '', search: '' }, { restoreOnReload: true });
 ok(restored.page === 'inventory' && restored.carId === '51', 'reload of / restores the last open vehicle');

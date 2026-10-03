@@ -237,6 +237,87 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   }
 }
 
+// ---- clicking a machine opens its own page (not the catalogue) -------------
+// Regression, 2026-10-03: the machinery cards rendered hrefs and were clickable,
+// but the router only knew car paths — so a click rewrote the address bar to
+// /machinery and the machine's page never appeared. The owner reported exactly
+// that symptom. This test clicks a real card and follows a real related-machines
+// link, and asserts the URL and the detail markup both change.
+{
+  const { MACHINES } = await import('../src/machinery-data.js');
+  const first = MACHINES.find(m => m.photosPending !== true && MACHINES.some(o => o.ref === m.ref));
+  const path = '/machinery/excavators/' + encodeURIComponent('AR7-MC-001');
+
+  await goto('/machinery');
+  ok(!!document.querySelector('.mch-card'), 'the machinery catalogue renders machine cards');
+  const card = document.querySelector('.mch-view') || document.querySelector('.mch-photo-link');
+  ok(!!card, 'a machine card exposes a "View machine" link with a real href');
+  ok((card?.getAttribute('href') || '') === path,
+    `the card's href is the machine's own page (${card?.getAttribute('href')})`);
+
+  if (card) {
+    await act(async () => { card.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+  }
+  ok(dom.window.location.pathname === path,
+    `clicking a machine navigates to its page (${dom.window.location.pathname})`);
+  ok(!!document.querySelector('.mch-detail-page'),
+    'the machine detail page renders after the click');
+  ok(document.body.textContent.includes('AR7-MC-001'),
+    'the detail page shows the machine reference, not the catalogue');
+
+  // Related machines on that page are links to other machines, and they work
+  // in-app without a reload.
+  const related = document.querySelector('.mch-related-card');
+  ok(!!related, 'the detail page offers related machines');
+  const relatedHref = related?.getAttribute('href') || '';
+  if (related) {
+    await act(async () => { related.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    ok(dom.window.location.pathname === relatedHref && relatedHref !== path,
+      `a related-machine link opens that machine (${dom.window.location.pathname})`);
+    ok(!!document.querySelector('.mch-detail-page'), 'and still renders a machine detail page');
+  }
+
+  // Ctrl/Cmd-click must NOT be hijacked: that is how a buyer opens a machine
+  // in a new tab. The handler leaves the event alone.
+  await goto('/machinery');
+  const modCard = document.querySelector('.mch-view') || document.querySelector('.mch-photo-link');
+  let prevented = false;
+  if (modCard) {
+    const ev = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ctrlKey: true });
+    await act(async () => { modCard.dispatchEvent(ev); });
+    prevented = ev.defaultPrevented;
+  }
+  ok(!prevented, 'Ctrl/Cmd-click on a machine card is left to the browser (open in new tab)');
+  ok(dom.window.location.pathname === '/machinery',
+    'Ctrl/Cmd-click does not navigate the current tab');
+
+  // Back to the catalogue keeps working.
+  await goto('/machinery');
+  ok(!!document.querySelector('.mch-card') && !document.querySelector('.mch-detail-page'),
+    'returning to /machinery shows the catalogue again, never a stale machine page');
+
+  // Browser Back/Forward (popstate), the way a visitor actually uses it.
+  await goto('/machinery');
+  await goto(path);
+  ok(!!document.querySelector('.mch-detail-page'), 'forward navigation to a machine page renders it');
+  await goto('/machinery');
+  ok(!!document.querySelector('.mch-card') && !document.querySelector('.mch-detail-page'),
+    'browser Back from a machine page returns to the catalogue');
+  await goto(path);
+  ok(!!document.querySelector('.mch-detail-page') && dom.window.location.pathname === path,
+    'browser Forward returns to the same machine, not to the catalogue');
+
+  // A type link followed in-app must move the filter, not just the address bar.
+  await goto('/machinery');
+  await goto('/machinery/loaders');
+  const typeHero = document.querySelector('.mch-hero, .machinery-hero');
+  ok(dom.window.location.pathname === '/machinery/loaders' && !!typeHero,
+    'in-app navigation to a machinery type page keeps its path');
+  const typeNames = [...document.querySelectorAll('.mch-card .mch-type')].map(e => e.textContent.trim());
+  ok(typeNames.length > 0 && typeNames.every(n => n === 'Loader'),
+    `a type page lists only that type, after navigation too (${[...new Set(typeNames)].join(', ') || 'none'})`);
+}
+
 // ---- the 900+ founder stat counts up once it scrolls into view -------------
 // Server markup carries the finished figure (pages suite). On the client the
 // stat arms at 0 before first paint, waits for its IntersectionObserver, then

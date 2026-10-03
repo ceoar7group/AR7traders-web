@@ -997,16 +997,20 @@ export function App(){
  // this ref (the vehicle page's "Chat Now"), so toggling it never re-renders App.
  const chatRef=useRef(null);
  const [initialRoute]=useState(()=>readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()}));
+ // The machinery part of the route (/machinery/<type>/<REF>) has to be state,
+ // like carId: reading it once at mount meant a click on a machine rewrote the
+ // URL to /machinery and showed the catalogue instead of the machine.
+ const [machineRoute,setMachineRoute]=useState({type:initialRoute.machineType||null,ref:initialRoute.machineRef||null});
  const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
-  const machineOnRoute = page === 'machinery' && initialRoute.machineRef ? machineByRef(initialRoute.machineRef) : null;
+  const machineOnRoute = page === 'machinery' && machineRoute.ref ? machineByRef(machineRoute.ref) : null;
   // The live price offer, read once here so the page title, the structured data
   // and the machinery desk all quote the same discounted figure.
   const liveOffer = useOffer();
   const machineOfferPercent = machineOnRoute ? percentFor(liveOffer, 'machine', {ref: machineOnRoute.ref, type: machineOnRoute.type}) : 0;
   useSeo(page, vehicleId, page === 'inventory' ? findCar(cars, vehicleId) : undefined,
-    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !findCar(cars, vehicleId) && isContentHydrated(), make: makeFilter, model: modelFilter, machineType: initialRoute.machineType, machineRef: initialRoute.machineRef, machine: machineOnRoute, machineOfferPercent, machineOfferUntil: liveOffer?.until || null, vehicleCount: cars.length });
+    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !findCar(cars, vehicleId) && isContentHydrated(), make: makeFilter, model: modelFilter, machineType: machineRoute.type, machineRef: machineRoute.ref, machine: machineOnRoute, machineOfferPercent, machineOfferUntil: liveOffer?.until || null, vehicleCount: cars.length });
   useEffect(()=>onContentChange(forceContent),[]);
  useEffect(()=>{
   let t=0,last=-1;
@@ -1022,12 +1026,13 @@ export function App(){
   return()=>{window.removeEventListener('scroll',fn);if(t)cancelAnimationFrame(t)};
  },[]);
  useEffect(()=>{
-  const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);setMenu(false)};
+  const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setMenu(false)};
   const route=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()});
-  writeLocation(route.page,route.carId,{replace:true,make:route.make});
+  writeLocation(route.page,route.carId,{replace:true,make:route.make,machineType:route.machineType,machineRef:route.machineRef});
   setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
+  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});
   const onPop=()=>apply({restoreOnReload:false});
-  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make});setPage(next.page);setVehicleId(next.carId);setMakeFilter(next.make);setModelFilter(next.model);setMenu(false)};
+  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make,machineType:next.machineType,machineRef:next.machineRef});setPage(next.page);setVehicleId(next.carId);setMachineRoute({type:next.machineType||null,ref:next.machineRef||null});setMakeFilter(next.make);setModelFilter(next.model);setMenu(false)};
   addEventListener('popstate',onPop);
   addEventListener('hashchange',onHash);
   return()=>{removeEventListener('popstate',onPop);removeEventListener('hashchange',onHash)};
@@ -1058,8 +1063,9 @@ export function App(){
  const budgetBands=[['Under $15k','Kei cars, hatchbacks & first imports'],['$15k–$30k','Hybrids, family SUVs & sedans'],['$30k–$60k','Late-model premium & vans'],['$60k+','Luxury & super sport']];
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
-  writeLocation(route.page,route.carId,{replace,make:route.make});
-  setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);setMenu(false);
+  writeLocation(route.page,route.carId,{replace,make:route.make,machineType:route.machineType,machineRef:route.machineRef});
+  setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
+  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setMenu(false);
   if(scroll) scrollTo({top:0,behavior:'smooth'});
  };
  const go=(id)=>{if(page!=='home'){navigate('home');setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'}),100)}else document.getElementById(id)?.scrollIntoView({behavior:'smooth'});setMenu(false)};
@@ -1145,7 +1151,7 @@ export function App(){
    </section>
 
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">READY WHEN YOU ARE</div><h2>Let’s find your<br/>next <em>vehicle.</em></h2><p>Tell us what you’re looking for. Our Japan team will reply with suitable options.</p></div><button className="gold-btn large" onClick={()=>setModal(true)} type="button">Start your search <ArrowUpRight/></button></section>
-   </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='seo'?<React.Suspense fallback={<div className="empty-state"><Search/><h3>Loading the SEO desk…</h3></div>}><SeoDesk navigate={navigate}/></React.Suspense>:page==='machinery'?<React.Suspense fallback={<div className="empty-state"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={initialRoute.machineType} machineRef={initialRoute.machineRef} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()}/></React.Suspense>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} initialModel={modelFilter} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
+   </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='seo'?<React.Suspense fallback={<div className="empty-state"><Search/><h3>Loading the SEO desk…</h3></div>}><SeoDesk navigate={navigate}/></React.Suspense>:page==='machinery'?<React.Suspense fallback={<div className="empty-state"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()}/></React.Suspense>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} initialModel={modelFilter} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
   </main>
 
   <footer className="site-footer">

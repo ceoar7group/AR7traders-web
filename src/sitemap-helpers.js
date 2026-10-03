@@ -15,6 +15,19 @@ export function carRef(c) {
   return stock || String(c.id);
 }
 
+/**
+ * The URL of one machine's own page: /machinery/<type-slug>/<REF>.
+ *
+ * Mirrors `hrefFor` for cars: the client router (src/routing.js), the
+ * catalogue (src/machinery-data.js) and the sitemap must agree on one URL
+ * shape, so all three call this rather than each building the string.
+ */
+export function machineHrefFor(type, ref) {
+  if (!type) return '/machinery';
+  const base = '/machinery/' + String(type).toLowerCase();
+  return ref ? base + '/' + encodeURIComponent(String(ref)) : base;
+}
+
 export function hrefFor(page, carId) {
   if (!page || page === 'home') return '/';
   if ((page === 'inventory' || page === 'news') && carId) {

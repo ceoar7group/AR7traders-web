@@ -48,6 +48,8 @@
 //     fill the gap — showing a wheel loader for a tipper truck is the kind of
 //     thing that loses a buyer at the port, and it is not fixable later.
 
+import { machineHrefFor } from './sitemap-helpers.js';
+
 export const MACHINE_TYPES = ['Excavators', 'Loaders', 'Trucks', 'Cranes'];
 
 /**
@@ -95,8 +97,7 @@ export const machineTypeSlug = machine => String(machine?.type || '').toLowerCas
  */
 export const machineHref = machine => {
   if (!machine) return '/machinery';
-  const ref = machine.ref || machine.id;
-  return `/machinery/${machineTypeSlug(machine)}/${encodeURIComponent(ref)}`;
+  return machineHrefFor(machineTypeSlug(machine), machine.ref || machine.id);
 };
 
 /** Look a machine up from the reference (or id) in a URL. Case-insensitive. */
