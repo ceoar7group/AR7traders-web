@@ -13,7 +13,7 @@
 export const PAGES = new Set([
   'home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
   'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'account',
-  'portal', 'crm', 'studio', 'shipping', 'japan-stock'
+  'portal', 'crm', 'studio', 'shipping', 'japan-stock', 'machinery', 'seo'
 ]);
 
 export const LAST_VEHICLE_KEY = 'ar7-open-vehicle';
@@ -27,9 +27,24 @@ export function decodeRef(ref) {
   return raw;
 }
 
-import { carRef as _carRef, hrefFor as _hrefFor } from './sitemap-helpers.js';
+import { carRef as _carRef, hrefFor as _hrefFor, machineHrefFor, brandFromSlug, slugify, carLandingPath } from './sitemap-helpers.js';
 export const carRef = _carRef;
 export const hrefFor = _hrefFor;
+
+export { slugify };
+
+/** Inverse of slugify for matching against inventory rows. */
+export const unslug = value => String(value || '').trim().toLowerCase().replace(/[-_]+/g, ' ');
+
+/**
+ * Indexable brand/model landing pages — the structure that carries search
+ * traffic for every car exporter (/cars/toyota, /cars/toyota/land-cruiser).
+ * Returning a real path (not a query string) is what lets these rank: the
+ * query-string filter view stays canonical to the path.
+ */
+export function carLandingHref(make, model) {
+  return carLandingPath(make, model);
+}
 
 export function carSlug(c) {
   return [c?.year, c?.make, c?.model, c?.id]
@@ -93,10 +108,20 @@ export function makeFrom(value) {
   return raw.slice(0, 40);
 }
 
-/** Real, shareable href for "show me this brand's stock". */
-export function inventoryHref(make) {
+/**
+ * Real, shareable href for "show me this brand's stock".
+ *
+ * 2026-10-03 (SEO): this used to return `/inventory?make=Toyota`. Filtered
+ * query-string views have no independent ranking value and cannot be linked
+ * from a sitemap, so brand links now point at the crawlable landing path
+ * `/cars/toyota` (optionally `/cars/toyota/land-cruiser`). Old
+ * `?make=` URLs still resolve — `parseRoute` reads them — and every page
+ * canonicalises to the path form.
+ */
+export function inventoryHref(make, model) {
   const m = makeFrom(make);
-  return m ? '/inventory?make=' + encodeURIComponent(m) : '/inventory';
+  if (!m) return '/inventory';
+  return carLandingHref(m, model);
 }
 
 export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
@@ -109,10 +134,29 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
 
   let page = null;
   let carId = null;
+  let makeSlug = null;
+  let modelSlug = null;
+  let machineType = null;
+  let machineRef = null;
 
   if (parts[0] === 'inventory') {
     page = 'inventory';
     carId = carFrom(parts[1], params.get('car'), hashed.carId);
+  } else if (parts[0] === 'cars' && parts[1]) {
+    // /cars/toyota and /cars/toyota/land-cruiser — indexable landing pages.
+    // They render the inventory list with its filters pre-applied; the model
+    // stays in `carModel` so the page can title itself correctly.
+    page = 'inventory';
+    makeSlug = parts[1];
+    modelSlug = parts[2] || null;
+  } else if (parts[0] === 'machinery' && parts[1]) {
+    // /machinery/excavators, /machinery/loaders … — one indexable page per
+    // equipment type, the way machinery marketplaces organise their catalogues.
+    // /machinery/excavators/AR7-MC-001 is one machine: its own URL, its own
+    // title, the same shape as /inventory/<ref> on the car side.
+    page = 'machinery';
+    machineType = unslug(parts[1]);
+    machineRef = parts[2] ? decodeRef(parts[2]) : null;
   } else if (parts[0] && PAGES.has(parts[0])) {
     page = parts[0];
     carId = carFrom(parts[1], params.get('car'), hashed.carId);
@@ -130,8 +174,9 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
   // The brand filter only means something on the inventory list. A deep link to
   // one car (`/inventory/43?make=Toyota`) must not filter the list behind it.
   const make = (page === 'inventory' && !carId)
-    ? (makeFrom(params.get('make')) || hashed.make)
+    ? (brandFromSlug(decodeRef(makeSlug)) || makeFrom(params.get('make')) || hashed.make)
     : null;
+  const model = (page === 'inventory' && !carId && modelSlug) ? unslug(modelSlug) : null;
 
   // A brand link is an explicit "show me this list" — never let the
   // last-open-vehicle restore hijack it into a detail page.
@@ -147,7 +192,7 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
     }
   }
 
-  return { page: page || 'home', carId: carId || null, make };
+  return { page: page || 'home', carId: carId || null, make, model, machineType, machineRef: machineRef || null };
 }
 
 /** Accepts navigate() strings: 'inventory', 'inventory?car=43', '/inventory/43', '#contact'. */
@@ -179,6 +224,10 @@ export function hashFor(page, carId) {
 
 export function hrefFromTarget(target) {
   const r = typeof target === 'string' ? parseNavTarget(target) : (target || {});
+  // A machine's own page has its own URL shape, like a car's. Without this the
+  // href of every machinery <a> collapsed to /machinery, so the detail page was
+  // unreachable by link — the bug the client-mount test now pins.
+  if (r.page === 'machinery' && r.machineType) return machineHrefFor(r.machineType, r.machineRef);
   const href = hrefFor(r.page, r.carId);
   // Brand filters live in the query string, never in the hash (a `?` in the
   // hash is dropped by browsers on reload — see the note at the top).
@@ -237,13 +286,19 @@ export function rememberVehicle(carId) {
   } catch { /* private mode */ }
 }
 
-export function writeLocation(page, carId, { replace = false, make = null } = {}) {
+export function writeLocation(page, carId, { replace = false, make = null, machineType = null, machineRef = null } = {}) {
   const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
   params.delete('car');
   const m = makeFrom(make);
-  if (m && page === 'inventory' && !carId) params.set('make', m);
-  else params.delete('make');
-  const url = withSearch(hrefFor(page, carId), params) + hashFor(page, carId);
+  params.delete('make');
+  // A brand view lives at its landing path now, so the address bar, the
+  // canonical and the sitemap all agree on one URL per brand. A machine page
+  // keeps its own path for the same reason: refresh, share and Back must all
+  // land on the machine, never on the catalogue.
+  const path = (page === 'machinery' && machineType)
+    ? machineHrefFor(machineType, machineRef)
+    : (m && page === 'inventory' && !carId) ? carLandingHref(m) : hrefFor(page, carId);
+  const url = withSearch(path, params) + hashFor(page, carId);
   rememberVehicle(page === 'inventory' ? carId : null);
   const now = (typeof location === 'undefined')
     ? ''
@@ -251,7 +306,7 @@ export function writeLocation(page, carId, { replace = false, make = null } = {}
   if (now === url) return url;
   try {
     const fn = replace ? history.replaceState : history.pushState;
-    fn.call(history, { page, carId }, '', url);
+    fn.call(history, page === 'machinery' ? { page, carId, machineType, machineRef } : { page, carId }, '', url);
   } catch {
     try { location.hash = hashFor(page, carId).replace(/^#/, '') || ''; }
     catch { /* ignore */ }

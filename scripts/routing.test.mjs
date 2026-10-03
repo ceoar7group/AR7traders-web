@@ -43,14 +43,35 @@ ok(hrefFromTarget('inventory?car=43') === '/inventory/43', 'old navigate target 
 ok(canonicalHref({ pathname: '/', hash: '#inventory?car=43', search: '' }) === '/inventory/43#/inventory/43', 'canonical upgrade writes path and safe hash');
 ok(canonicalHref({ pathname: '/inventory/43', hash: '', search: '?embed=1' }) === '/inventory/43?embed=1#/inventory/43', 'embed query is preserved next to the hash');
 
-// ---- Brand filter: /inventory?make=Toyota ---------------------------------
+// ---- Brand filter: /cars/toyota (was /inventory?make=Toyota) --------------
 // The header's Brands dropdown must produce a real link that survives a
 // refresh, a new tab and a copy/paste — not an in-memory "pending" variable.
+//
+// 2026-10-03 (SEO): brand links became crawlable landing paths, because a
+// query-string view can never rank on its own or be listed in the sitemap.
+// Old ?make= URLs still parse (see brandQuery below) and canonicalise to
+// the path, so no inbound link breaks.
 ok(makeFrom('Toyota') === 'Toyota', 'makeFrom keeps a real brand');
 ok(makeFrom('All') === null && makeFrom('') === null && makeFrom(null) === null, 'makeFrom drops the "All" placeholder');
-ok(inventoryHref('Toyota') === '/inventory?make=Toyota', 'brand link is a real inventory URL');
+ok(inventoryHref('Toyota') === '/cars/toyota', 'brand link is an indexable landing path');
 ok(inventoryHref('All') === '/inventory', '"All brands" links to the plain list');
-ok(inventoryHref('Mercedes-Benz') === '/inventory?make=Mercedes-Benz', 'hyphenated brands stay intact');
+ok(inventoryHref('Mercedes-Benz') === '/cars/mercedes-benz', 'hyphenated brands slug cleanly');
+ok(inventoryHref('Toyota', 'Land Cruiser') === '/cars/toyota/land-cruiser', 'model links get their own landing path');
+
+// The landing path round-trips: URL → make → same landing path.
+const landing = parseRoute({ pathname: '/cars/toyota/land-cruiser', hash: '', search: '' });
+ok(landing.page === 'inventory' && landing.make === 'Toyota' && landing.model === 'land cruiser',
+  '/cars/toyota/land-cruiser parses make and model');
+ok(parseRoute({ pathname: '/cars/mercedes-benz', hash: '', search: '' }).make === 'Mercedes-Benz',
+  'a hyphenated brand slug survives the round trip');
+ok(parseRoute({ pathname: '/cars', hash: '', search: '' }).page !== 'inventory',
+  '/cars without a brand is not a landing page');
+
+// Machinery type pages.
+const mExc = parseRoute({ pathname: '/machinery/excavators', hash: '', search: '' });
+ok(mExc.page === 'machinery' && mExc.machineType === 'excavators', '/machinery/excavators carries the type');
+ok(parseRoute({ pathname: '/machinery', hash: '', search: '' }).machineType === null,
+  'the machinery hub carries no type');
 
 const brandQuery = parseRoute({ pathname: '/inventory', hash: '', search: '?make=Toyota' });
 ok(brandQuery.page === 'inventory' && brandQuery.make === 'Toyota' && !brandQuery.carId, '/inventory?make=Toyota carries the brand filter');
@@ -63,7 +84,7 @@ ok(!hrefFromTarget('inventory?make=Nissan').includes('#'), 'brand href keeps the
 const brandAndCar = parseRoute({ pathname: '/inventory/43', hash: '', search: '?make=Toyota' });
 ok(!brandAndCar.make && brandAndCar.carId === '43', 'a car deep link ignores the brand filter behind it');
 
-ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?make=Toyota&embed=1' }) === '/inventory?make=Toyota&embed=1#/inventory', 'canonical keeps the brand filter with other query params');
+ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?make=Toyota&embed=1' }) === '/inventory?make=Toyota&embed=1#/inventory', 'canonical keeps a legacy brand query with other params');
 
 // writeLocation must persist the filter (and clear it when we leave the list).
 const store = { [LAST_VEHICLE_KEY]: '51' };
@@ -75,13 +96,38 @@ globalThis.sessionStorage = {
 let pushed = '';
 globalThis.location = { pathname: '/', search: '', hash: '', origin: 'https://ar7traders.com' };
 globalThis.history = { pushState: (s, t, url) => { pushed = url; }, replaceState: (s, t, url) => { pushed = url; } };
-ok(writeLocation('inventory', null, { make: 'Toyota' }) === '/inventory?make=Toyota#/inventory', 'writeLocation writes the brand filter into the URL');
-ok(pushed === '/inventory?make=Toyota#/inventory', 'the brand filter reaches history.pushState');
+ok(writeLocation('inventory', null, { make: 'Toyota' }) === '/cars/toyota#/inventory', 'writeLocation writes the landing path for a brand');
+ok(pushed === '/cars/toyota#/inventory', 'the landing path reaches history.pushState');
 location.pathname = '/inventory'; location.search = '?make=Toyota'; location.hash = '#/inventory';
 ok(writeLocation('inventory', null) === '/inventory#/inventory', 'leaving a brand clears ?make from the URL');
 location.search = ''; location.hash = '';
 ok(writeLocation('inventory', '43', { make: 'Toyota' }) === '/inventory/43#/inventory/43', 'opening a car drops the brand filter from the URL');
 ok(parseRoute({ pathname: '/inventory', hash: '', search: '?make=Toyota' }, { restoreOnReload: true }).carId === null, 'a brand link is never hijacked by the last-open vehicle');
+
+// ---- a machine's own page is a real URL, not just renderable --------------
+// Regression: clicking a machine used to write /machinery to the address bar
+// and show the catalogue, because hrefFromTarget/writeLocation only knew car
+// paths. The click-through itself is pinned in client-mount.test.jsx; these
+// are the URL-shape guarantees underneath it.
+ok(hrefFromTarget('/machinery/excavators/AR7-MC-001') === '/machinery/excavators/AR7-MC-001',
+  'hrefFromTarget keeps a machine page path (so the <a href> a crawler follows is the machine)');
+ok(hrefFromTarget('/machinery/excavators/AR7-MC-001?x=1#y') === '/machinery/excavators/AR7-MC-001',
+  'a machine path survives query/hash noise');
+ok(hrefFromTarget('/machinery/loaders/AR7-MC-007') === '/machinery/loaders/AR7-MC-007',
+  'a specific machine in another type keeps its own path');
+ok(hrefFromTarget('/machinery') === '/machinery' && hrefFromTarget('/machinery/loaders') === '/machinery/loaders',
+  'the machinery hub and type pages keep their list paths');
+location.pathname = '/machinery'; location.search = ''; location.hash = '';
+ok(writeLocation('machinery', null, { machineType: 'excavators', machineRef: 'AR7-MC-001' }) === '/machinery/excavators/AR7-MC-001#/machinery',
+  'writeLocation writes the machine path, so refresh and share land on the machine');
+ok(pushed === '/machinery/excavators/AR7-MC-001#/machinery', 'the machine path reaches history.pushState');
+ok(writeLocation('machinery', null, { machineType: 'excavators' }) === '/machinery/excavators#/machinery',
+  'a type link still writes the type page');
+ok(writeLocation('machinery', null) === '/machinery#/machinery',
+  'leaving a machine clears the type from the address bar');
+ok(parseNavTarget('/machinery/excavators/AR7-MC-001').machineRef === 'AR7-MC-001',
+  'navigate("/machinery/excavators/AR7-MC-001") carries the ref into the router');
+
 
 store[LAST_VEHICLE_KEY] = '51'; // the writeLocation calls above clear it
 const restored = parseRoute({ pathname: '/', hash: '', search: '' }, { restoreOnReload: true });

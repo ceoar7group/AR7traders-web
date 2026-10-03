@@ -69,11 +69,24 @@ const ROUTES = {
   '/faq': ['inner-page'],
   '/contact': ['inner-page'],
   '/shipping': ['inner-page'],
+  '/machinery': ['machinery-page', 'Machines sourced from China', 'Doosan DX300LC-9C', 'mch-grid'],
+  // Machinery type pages: one indexable URL per equipment type, each with its
+  // own H1 and intro (2026-10-03 SEO pass).
+  '/machinery/excavators': ['machinery-page', 'Excavators', 'for export'],
+  '/machinery/loaders': ['machinery-page', 'Loaders', 'for export'],
+  '/machinery/trucks': ['machinery-page', 'Tipper trucks', 'for export'],
+  '/machinery/cranes': ['machinery-page', 'Cranes', 'for export'],
+  // Brand landing pages (the shape every /cars/... URL uses).
+  '/cars/toyota': ['inner-page', 'Toyota', 'for export', 'landing-links'],
+  '/cars/toyota/land-cruiser': ['inner-page', 'Land Cruiser', 'for export'],
   '/account': ['AR7'],
   '/studio': ['AR7'],
   // /portal is in PAGES and in the vercel.json rewrites, so it is a real
   // public route — it was the only one neither route suite visited.
-  '/portal': ['portal-demo', 'CLIENT PORTAL DEMO']
+  '/portal': ['portal-demo', 'CLIENT PORTAL DEMO'],
+  // Staff-only SEO desk: the same audit engine the CLI agent runs, in the
+  // browser. It must render for the owner, and stay out of the index.
+  '/seo': ['SEO', 'desk', 'audit']
 };
 
 for (const [path, markers] of Object.entries(ROUTES)) {
@@ -402,8 +415,20 @@ function checkFounderStat(html, variant, where) {
   ok(!home.includes('4.9/5') && !home.includes('Trusted by 1,200+ buyers') && !home.includes('Trusted by 900+ buyers'),
     'no unsupported rating or buyer-count in the home hero');
   ok(!home.includes('98%') && !home.includes('On-time delivery'), 'no unsupported on-time delivery stat on the home page');
-  ok(home.includes('SAMPLE AUCTION'), 'the hero auction countdown card is visibly labelled SAMPLE');
-  ok(home.includes('SAMPLE ROUTE'), 'the hero route card is visibly labelled SAMPLE');
+  // The two hero cards specifically: the word SAMPLE is gone from them (owner
+  // direction 2026-10-03) and each carries a small visible "demo" tag plus a
+  // rotation dot rail. Other page sections keep their own labels.
+  const heroCards = home.slice(home.indexOf('floating-card auction-card'), home.indexOf('floating-badge'));
+  ok(home.includes('Cars from Japan') && home.includes('machines from China'), 'the hero headline states the scope of work: cars from Japan, machines from China');
+  ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
+  ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
+  ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');
+  ok(home.includes('card-demo') && home.includes('>demo<'), 'both hero cards carry a visible demo tag');
+  ok(heroCards.includes('Auction \u00b7 ') && !heroCards.includes('SAMPLE'),
+    'the hero auction card describes the auction, without the word SAMPLE');
+  ok(heroCards.includes('Shipping lane \u00b7 ') && /Lane|from|Yokohama|Kobe|Nagoya|Tokyo|Osaka/.test(heroCards),
+    'the hero route card labels the shipping lane');
+  ok((home.match(/class="card-rotation-dots/g) || []).length === 2, 'both hero cards still show their rotation dots');
 }
 {
   const about = await renderPage('/about');
@@ -465,6 +490,27 @@ function checkFounderStat(html, variant, where) {
   ok(!auction.includes('LOT 3821'), 'auction preview shows no invented lot numbers');
   ok(auction.includes('Stock AR7-26'), 'auction preview labels cars by stock reference');
   ok(auction.includes('AUCTION LOTS \u00b7 SAMPLE'), 'auction preview panel is visibly labelled SAMPLE');
+}
+
+{
+  const machinery = await renderPage('/machinery');
+  ok(machinery.includes('Doosan DX300LC-9C') && machinery.includes('Sany SY215C'), 'the machinery page lists the Doosan and Sany machines');
+  ok(machinery.includes('INDICATIVE FOB') && !/mch-demo/.test(machinery),
+    'every machine price is marked indicative FOB, and the DEMO badge is gone');
+  ok(machinery.includes('Sourced to order'), 'machines say they are sourced to order, not in stock');
+  ok(/href="\/machinery\/excavators\/AR7-MC-001"/.test(machinery),
+    'each card links to that machine\'s own page');
+  ok(machinery.includes('Tell us the machine') && /anywhere in China/.test(machinery),
+    'the page invites any machine from China, not just the listed ones');
+  ok(/customis|customiz/i.test(machinery), 'the page offers to customise a machine to the buyer\'s requirement');
+  ok(!/\bwe (own|stock) (these|the) machines?\b/i.test(machinery), 'the machinery page never claims to own the machines');
+  ok(machinery.includes('China'), 'the machinery page states the China sourcing desk');
+  const machineDetail = await renderPage('/machinery/excavators/AR7-MC-001');
+  ok(machineDetail.includes('Doosan DX300LC-9C'), 'a machine URL renders that machine');
+  ok(/mch-detail/.test(machineDetail), 'it renders as a page, not a modal');
+  ok(machineDetail.includes('Request a quotation'), 'the machine page keeps the quotation call to action');
+  const missingMachine = await renderPage('/machinery/excavators/AR7-MC-999');
+  ok(/not on the site any more/.test(missingMachine), 'an unknown machine reference says so instead of rendering a blank page');
 }
 
 console.error = realError; console.warn = realWarn;

@@ -1,0 +1,1534 @@
+/* ============================================================
+   AR7 TRADERS — SITE LAYOUT: the header bar + the space under it
+   ============================================================
+   Loaded LAST (see src/main.jsx) on purpose: this file is the single owner of
+   the public header at every width, plus the hero-visual stacking that depends
+   on how tall that header is. Everything here replaces older per-file rules
+   that used to fight each other (styles.css, expanded.css, landing-v2.css and
+   currency-responsive.css still style other things, but no longer the shape of
+   the bar).
+
+   THE TIERS — one line, always. Nothing wraps, nothing gets clipped.
+
+     ≥1367px   full nav, roomy type, Sign-up + studio buttons
+     1024–1366 full nav, compact type, Sign-up button
+     900–1023  full nav, compact type, no Sign-up (lives in the menu panel)
+     640–899   three quick links (Inventory · Brands · Contact) + burger panel
+     640–699   quick links, brand · globe · currency · theme · burger
+     421–639   brand · globe · currency · theme · burger
+     ≤420      brand · globe · currency · theme · burger
+     ≤380      tighter brand + 32px controls
+     ≤340      globe button drops out (still one line)
+
+   WHY: below 500px the bar used to become a two-row grid (brand on top,
+   controls underneath), which read as a broken header on a phone. The single
+   row above is sized so the widest label — "AR7 TRADERS" — is never truncated;
+   the brand keeps its natural width and the *controls* get compact instead.
+   ============================================================ */
+
+/* ---------------------------------------------------------------------------
+   1. THE BAR
+   --------------------------------------------------------------------------- */
+.nav-wrap .nav {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  height: 64px;
+  gap: 10px;
+  padding: 0 14px 0 18px;
+  border-radius: 16px;
+}
+
+.nav-wrap .brand-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nav-wrap .brand {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.nav-wrap .brand img {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+}
+
+/* The company name is the primary brand: natural width, never an ellipsis. */
+.nav-wrap .brand span {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  min-width: max-content;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: 14px;
+  letter-spacing: 1.3px;
+}
+
+.nav-wrap .brand small {
+  margin-top: 4px;
+  font-size: 6px;
+  letter-spacing: 1px;
+}
+
+/* Inline links. margin-inline:auto centres them between the brand and the
+   controls, so neither side of the bar is empty — the complaint that the menu
+   "had everything on one side". */
+.nav-wrap .navlinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.nav-wrap .navlinks a,
+.nav-wrap .navlinks button {
+  padding: 6px 2px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.nav-wrap .nav-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  margin-left: 0;
+  min-width: 0;
+}
+
+.nav-wrap .icon-btn,
+.nav-wrap .menu-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+}
+
+/* The burger only exists below 900px — the bar carries the whole menu above
+   that. Declared here so no earlier file can leave it on a wide screen. */
+.nav-wrap .menu-btn {
+  display: none;
+}
+
+.nav-wrap .primary.compact {
+  height: 40px;
+  padding: 0 15px;
+  font-size: 12.5px;
+}
+
+/* ---------------------------------------------------------------------------
+   2. THE HEADER GLOBE — a solid planet button, never a pale ring
+   ---------------------------------------------------------------------------
+   The button paints the sphere itself (dark green, lit from the upper left)
+   and the rotating map face fills it edge to edge, so no card-coloured gap can
+   ever show around a smaller globe. Inside this button the globe is flat-out
+   simpler than the big one: no float animation, no ground shadow, no orbit
+   rings — those are page decorations, not header chrome. */
+.nav-wrap .brand-group .nav-orb {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--gold) 46%, var(--line));
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 26%, #1e9c68, #0a5133 52%, #03291a);
+  box-shadow: inset 0 1px 0 #ffffff2e, 0 6px 16px -6px #04291b80;
+  transition: transform .28s cubic-bezier(.2, .7, .3, 1.5), box-shadow .25s, border-color .2s;
+}
+
+.nav-wrap .brand-group .nav-orb:hover,
+.nav-wrap .brand-group .nav-orb:focus-visible {
+  transform: translateY(-2px) scale(1.05);
+  border-color: var(--gold2);
+  box-shadow: inset 0 1px 0 #ffffff2e, 0 10px 22px -6px #0a3a2755;
+}
+
+.nav-wrap .brand-group .nav-orb .iglobe {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  perspective: none;
+}
+
+.nav-wrap .brand-group .nav-orb .iglobe-sphere {
+  animation: none;
+  background: none;
+  box-shadow: none;
+}
+
+.nav-wrap .brand-group .nav-orb .iglobe-sphere:after,
+.nav-wrap .brand-group .nav-orb .iglobe-plane,
+.nav-wrap .brand-group .nav-orb .orbit-ring,
+.nav-wrap .brand-group .nav-orb .drag-hint,
+.nav-wrap .brand-group .nav-orb .iglobe-halo {
+  display: none;
+}
+
+.nav-wrap .brand-group .nav-orb .iglobe-face {
+  inset: 0;
+  background: radial-gradient(circle at 34% 30%, #12784f, #04311f 60%, #02200f);
+}
+
+.nav-wrap .brand-group .nav-orb .graticule {
+  inset: 0;
+  border-color: #ffffff24;
+}
+
+/* ---------------------------------------------------------------------------
+   3. TIER: 1024–1366px — compact but still the full nav
+   --------------------------------------------------------------------------- */
+@media (max-width: 1366px) {
+  .nav-wrap .nav {
+    gap: 8px;
+    padding: 0 12px 0 14px;
+  }
+
+  .nav-wrap .brand img {
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .nav-wrap .brand span {
+    font-size: 13px;
+    letter-spacing: 1.1px;
+  }
+
+  .nav-wrap .brand-group {
+    gap: 10px;
+  }
+
+  .nav-wrap .brand-group .nav-orb {
+    width: 40px;
+    height: 40px;
+  }
+
+  .nav-wrap .navlinks {
+    gap: 12px;
+  }
+
+  .nav-wrap .navlinks a,
+  .nav-wrap .navlinks button {
+    font-size: 12px;
+  }
+
+  .nav-wrap .icon-btn,
+  .nav-wrap .menu-btn {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   4. TIER: 900–1023px — full nav, no Sign-up button in the bar
+   --------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  .nav-wrap .nav-actions .studio-btn {
+    display: none;
+  }
+
+  .nav-wrap .primary.compact {
+    display: none;
+  }
+
+  .nav-wrap .brand small {
+    display: none;
+  }
+
+  .nav-wrap .brand-group {
+    gap: 9px;
+  }
+
+  .nav-wrap .brand-group .nav-orb {
+    width: 38px;
+    height: 38px;
+  }
+
+  .nav-wrap .navlinks {
+    gap: 10px;
+  }
+
+  .nav-wrap .navlinks a,
+  .nav-wrap .navlinks button {
+    font-size: 11.5px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   5. TIER: 640–899px — three quick links, the rest in the burger panel
+   --------------------------------------------------------------------------- */
+@media (max-width: 899px) {
+  .nav-wrap .nav {
+    gap: 8px;
+  }
+
+  .nav-wrap .menu-btn {
+    display: grid;
+  }
+
+  /* Items tagged .nav-tier-full (Auction access · More) sit in the panel
+     instead of the bar until there is room for the full row at 840px. */
+  .nav-wrap .navlinks:not(.open) .nav-tier-full {
+    display: none;
+  }
+
+  .nav-wrap .navlinks a,
+  .nav-wrap .navlinks button {
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 840px) and (max-width: 899px) {
+  .nav-wrap .navlinks:not(.open) .nav-tier-full {
+    display: flex;
+  }
+}
+
+/* One account entry point is enough while the bar is tight: below 700px the
+   icon steps out and the panel's labelled Sign-in button takes over. */
+@media (max-width: 699px) {
+  .nav-wrap .nav-actions .portal-btn {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   6. THE BURGER PANEL (≤899px) — one column, tappable rows, its own scroll
+   --------------------------------------------------------------------------- */
+@media (max-width: 899px) {
+  .nav-wrap .navlinks.open {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin: 0;
+    padding: 12px;
+    max-height: calc(100dvh - 148px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 30px 60px rgba(3, 43, 27, .18);
+  }
+
+  .nav-wrap .navlinks.open > a,
+  .nav-wrap .navlinks.open .nav-drop > a {
+    padding: 12px 11px;
+    border-radius: 11px;
+    font-size: 13px;
+    justify-content: flex-start;
+  }
+
+  .nav-wrap .navlinks.open > a:hover,
+  .nav-wrap .navlinks.open .nav-drop > a:hover {
+    background: color-mix(in srgb, var(--green) 8%, transparent);
+  }
+
+  .nav-wrap .navlinks.open > a,
+  .nav-wrap .navlinks.open .nav-drop {
+    width: 100%;
+  }
+
+  /* Section rows. .nav-drop-btn is normally hidden here (the dropdowns are
+     flattened into captioned groups, see expanded.css); if a cascade surprise
+     ever leaves it visible it still has to read as a deliberate row, so it is
+     styled as one — full width, label left, caret right. */
+  .nav-wrap .navlinks.open .nav-drop-btn {
+    width: 100%;
+    min-height: 44px;
+    padding: 12px 11px;
+    justify-content: space-between;
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    text-align: left;
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-btn .more-chev {
+    width: 14px;
+  }
+
+  /* Flattened dropdown contents: a caption naming the section, then one row
+     per link, each with its icon chip. */
+  .nav-wrap .navlinks.open .nav-drop-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 0;
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-panel:before {
+    display: block;
+    padding: 14px 11px 3px;
+    font: 700 8.5px Manrope, sans-serif;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    content: attr(data-caption);
+  }
+
+  .nav-wrap .navlinks.open .inventory-panel:before {
+    content: 'Inventory';
+  }
+
+  .nav-wrap .navlinks.open .brands-panel:before {
+    content: 'Brands';
+  }
+
+  .nav-wrap .navlinks.open .more-panel:before {
+    content: 'More';
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-panel > a {
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 11px;
+    border-radius: 10px;
+    gap: 10px;
+    justify-content: flex-start;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: left;
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-panel > a:hover {
+    background: color-mix(in srgb, var(--green) 8%, transparent);
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-panel > a > i {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--green) 9%, transparent);
+    color: var(--green-text);
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-panel > a > i svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* One-line panel rows: the 3D lift/dash animation is a pointer affordance
+     and reads as jitter under a thumb. */
+  .nav-wrap .navlinks.open a,
+  .nav-wrap .navlinks.open button {
+    transform: none;
+  }
+
+  /* Panel-only actions: the labelled account button and the theme switch are
+     reachable on every phone here, even when the bar has to drop its icons. */
+  .nav-wrap .navlinks.open .nav-panel-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  .nav-wrap .navlinks.open .nav-panel-actions > * {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .nav-wrap .navlinks.open .nav-panel-actions .primary.compact {
+    display: inline-flex;
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    font-size: 12.5px;
+  }
+
+  .nav-wrap .navlinks.open .nav-panel-actions .panel-theme {
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .nav-wrap .navlinks.open .nav-panel-actions .panel-theme svg {
+    width: 16px;
+  }
+}
+
+.nav-wrap .nav-panel-actions {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   7. TIER: ≤639px — one-row phone bar
+   --------------------------------------------------------------------------- */
+@media (max-width: 639px) {
+  .nav-wrap {
+    padding: 8px 0;
+  }
+
+  .nav-wrap .nav {
+    height: 58px;
+    gap: 7px;
+    padding: 0 8px 0 10px;
+    border-radius: 15px;
+  }
+
+  /* Closed on phones the link row is simply not there; open, it is the panel. */
+  .nav-wrap .navlinks {
+    display: none;
+  }
+
+  .nav-wrap .navlinks.open {
+    display: flex;
+    /* The phone bar is 110px tall including the world-time ribbon, so the
+       panel can use almost the whole viewport before it has to scroll. */
+    max-height: calc(100dvh - 132px);
+  }
+
+  .nav-wrap .brand-group {
+    gap: 8px;
+  }
+
+  .nav-wrap .brand {
+    gap: 7px;
+  }
+
+  .nav-wrap .brand img {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .nav-wrap .brand span {
+    font-size: 12px;
+    letter-spacing: .6px;
+  }
+
+  .nav-wrap .brand-group .nav-orb {
+    width: 34px;
+    height: 34px;
+  }
+
+  .nav-wrap .nav-actions {
+    gap: 5px;
+    margin-left: auto;
+  }
+
+  .nav-wrap .icon-btn,
+  .nav-wrap .menu-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .nav-wrap .icon-btn svg,
+  .nav-wrap .menu-btn svg {
+    width: 16px;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-btn {
+    min-width: 54px;
+    height: 34px;
+    gap: 4px;
+    padding-inline: 7px;
+    font-size: 10.5px;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-btn .ar7cur-flag .wflag {
+    width: 15px;
+    height: 10px;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-chev {
+    width: 11px;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav-wrap .nav {
+    padding: 0 7px 0 9px;
+    gap: 6px;
+  }
+
+  .nav-wrap .brand span {
+    font-size: 11.5px;
+    letter-spacing: .5px;
+  }
+}
+
+@media (max-width: 380px) {
+  .nav-wrap .brand img {
+    flex-basis: 33px;
+    width: 33px;
+    height: 33px;
+  }
+
+  .nav-wrap .brand span {
+    font-size: 11px;
+    letter-spacing: .3px;
+  }
+
+  .nav-wrap .brand-group .nav-orb {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nav-wrap .icon-btn,
+  .nav-wrap .menu-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-btn {
+    min-width: 50px;
+    font-size: 10px;
+    padding-inline: 6px;
+  }
+}
+
+@media (max-width: 340px) {
+  .nav-wrap .brand-group .nav-orb {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   8. THE SPACE UNDER THE BAR
+   ---------------------------------------------------------------------------
+   The bar is position:fixed, so every page has to reserve its height. On a
+   phone that is now 110px (ribbon 36 + bar 58 + 16 of padding). The old 88px
+   value let the bar sit on top of the hero heading. */
+@media (max-width: 639px) {
+  .hero {
+    padding-top: 122px !important;
+  }
+
+  .page-hero,
+  .page-hero.mini {
+    padding-top: 122px !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   9. HERO VISUAL — stacked on phones and tablets, plus the sample cards
+   ---------------------------------------------------------------------------
+   The car photo, the auction card, the route card and the translated-sheets
+   badge used to be layered on top of each other in a fixed height box. On a
+   phone that buried a third of the car and collided with the globe. Below
+   1000px the same markup flows as a grid instead: the photo first and
+   unobstructed, then the two cards side by side, then the badge and the globe.
+   Every child keeps its order via `order`, so no markup change was needed.
+
+   Both cards share one skeleton at every width — kicker, title, meta, then a
+   footer row holding the rotation dots on the left and the "demo" tag on the
+   right — so their internal lines line up when they sit side by side. */
+
+/* --- card skeleton, all widths --- */
+.hero-visual .rotating-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hero-visual .card-kicker {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-visual .card-title {
+  font: 700 15px/1.2 Manrope, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-visual .card-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-visual .card-meta svg {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  color: var(--gold);
+}
+
+/* The countdown is the live-feeling line of the auction card; the route's
+   status line stays muted so the lane bar carries the colour. */
+.hero-visual .auction-card .card-meta {
+  color: var(--gold);
+}
+
+.hero-visual .card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.hero-visual .card-rotation-dots {
+  margin: 0;
+}
+
+.hero-visual .card-demo {
+  flex: 0 0 auto;
+  font: 700 7px/1 Manrope, sans-serif;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 6px;
+}
+
+.hero-visual .route-card .route-lane {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 12.5px/1.2 Manrope, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The countdown is a live number: fixed-width digits stop it jittering as the
+   seconds change, and a small pulsing dot marks it as the card's live line. */
+.hero-visual .card-live {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent);
+  animation: cardLivePulse 2.4s ease-in-out infinite;
+}
+
+@keyframes cardLivePulse {
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 8%, transparent); }
+}
+
+.hero-visual .card-countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* Lane row: origin → destination on the left, transit time as a chip on the
+   right, so the card answers "where" and "how long" on one line. */
+.hero-visual .route-lane-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hero-visual .route-lane-row .card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hero-visual .lane-eta {
+  flex: 0 0 auto;
+  font: 700 9px/1 Manrope, sans-serif;
+  letter-spacing: .6px;
+  color: var(--green-text);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  border-radius: 999px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.hero-visual .route-status svg {
+  color: var(--gold);
+}
+
+.hero-visual .route-card .lane-arrow {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  color: var(--gold);
+}
+
+@media (max-width: 1000px) {
+  /* Free the box to grow: with the old 940px cap the last grid rows
+     (badge + globe) spilled over the marquee below the hero. */
+  .hero {
+    max-height: none;
+  }
+
+  .hero .hero-visual {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: min(680px, 100%);
+    height: auto;
+    margin: 26px auto 0;
+    perspective: none;
+  }
+
+  .hero .hero-visual:before {
+    display: none;
+  }
+
+  .hero .hero-visual .spark {
+    display: none;
+  }
+
+  .hero .hero-visual .car-main {
+    position: relative;
+    inset: auto;
+    z-index: 4;
+    grid-column: 1 / -1;
+    order: 1;
+    height: min(58vw, 300px);
+    border-width: 5px;
+    border-radius: 20px;
+    transform: none;
+  }
+
+  .hero .hero-visual .hero-stack {
+    border-radius: 15px;
+  }
+
+  .hero .hero-visual .car-float-title {
+    left: 14px;
+    bottom: 40px;
+    max-width: 74%;
+  }
+
+  .hero .hero-visual .car-float-title h3 {
+    font: 700 15px/1.15 Manrope;
+    margin: 8px 0 2px;
+  }
+
+  .hero .hero-visual .car-float-title p {
+    font-size: 9.5px;
+  }
+
+  .hero .hero-visual .car-dots {
+    top: 12px;
+    right: 12px;
+  }
+
+  .hero .hero-visual .car-counter {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  /* The two cards keep their live rotation but stop floating and stop
+     scaling: as grid cells they must line up, not bob. */
+  .hero .hero-visual .floating-card {
+    position: relative;
+    inset: auto;
+    order: 2;
+    animation: none;
+    transform: none;
+    scale: 1;
+    translate: none;
+    height: 100%;
+    min-height: 132px;
+  }
+
+  .hero .hero-visual .floating-card .rotating-card-copy {
+    width: 100%;
+    height: 100%;
+  }
+
+  .hero .hero-visual .floating-card.auction-card {
+    padding: 13px;
+    border-radius: 14px;
+    gap: 11px;
+    align-items: flex-start;
+  }
+
+  .hero .hero-visual .auction-card > svg {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .hero .hero-visual .card-kicker {
+    font-size: 8px;
+  }
+
+  .hero .hero-visual .card-title {
+    font-size: 15.5px;
+  }
+
+  .hero .hero-visual .card-meta {
+    font-size: 10px;
+  }
+
+  .hero .hero-visual .floating-card.route-card {
+    order: 3;
+    width: auto;
+    padding: 13px;
+    border-radius: 14px;
+  }
+
+  .hero .hero-visual .route-card .route-head {
+    margin-bottom: 7px;
+  }
+
+  .hero .hero-visual .route-card .progress {
+    margin: 12px 0 4px;
+  }
+
+  .hero .hero-visual .floating-badge {
+    position: relative;
+    inset: auto;
+    order: 4;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 11px;
+    width: auto;
+    height: auto;
+    padding: 12px 14px;
+    border-radius: 14px;
+    text-align: left;
+    animation: none;
+    transform: none;
+  }
+
+  .hero .hero-visual .floating-badge svg {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+  }
+
+  .hero .hero-visual .floating-badge span {
+    display: grid;
+    gap: 2px;
+    font-size: 9.5px;
+  }
+
+  .hero .hero-visual .floating-badge b {
+    font-size: 12px;
+    letter-spacing: .2px;
+  }
+
+  .hero .hero-visual .floating-badge small {
+    font-size: 9.5px;
+    font-weight: 500;
+    opacity: .9;
+    line-height: 1.35;
+  }
+
+  /* The header globe's bigger sibling, parked beside the badge instead of on
+     top of the car. */
+  .hero .hero-visual > .hero-orb {
+    position: relative;
+    inset: auto;
+    order: 5;
+    display: grid;
+    place-items: center;
+    filter: none;
+  }
+
+  .hero .hero-visual > .hero-orb .iglobe {
+    width: 74px;
+  }
+}
+
+/* Phones: one card per row — side by side each was only ~170px wide, which
+   squeezed the auction icon flat and left the route bar nowhere to breathe. */
+@media (max-width: 560px) {
+  .hero .hero-visual {
+    gap: 9px;
+    margin-top: 20px;
+  }
+
+  .hero .hero-visual .car-main {
+    height: min(60vw, 250px);
+    border-radius: 18px;
+  }
+
+  .hero .hero-visual .car-float-title h3 {
+    font-size: 14px;
+  }
+
+  .hero .hero-visual .floating-card {
+    grid-column: 1 / -1;
+    min-height: 0;
+  }
+
+  .hero .hero-visual .floating-card.auction-card {
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+  }
+
+  .hero .hero-visual .auction-card > svg {
+    width: 38px;
+    height: 38px;
+    padding: 9px;
+    border-radius: 11px;
+  }
+
+  .hero .hero-visual .floating-card.route-card {
+    padding: 13px 14px;
+  }
+
+  .hero .hero-visual .card-kicker {
+    font-size: 8.5px;
+    letter-spacing: 1.3px;
+  }
+
+  .hero .hero-visual .card-title {
+    font-size: 16px;
+  }
+
+  .hero .hero-visual .route-card .route-lane {
+    font-size: 14.5px;
+  }
+
+  .hero .hero-visual .card-meta {
+    font-size: 10px;
+  }
+
+  .hero .hero-visual .route-card .progress {
+    margin: 12px 0 4px;
+  }
+
+  .hero .hero-visual .floating-badge {
+    grid-column: 1 / -1;
+  }
+
+  .hero .hero-visual .floating-badge b {
+    font-size: 12.5px;
+  }
+
+  .hero .hero-visual .floating-badge small {
+    font-size: 10px;
+  }
+
+  .hero .hero-visual > .hero-orb {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+  }
+
+  .hero .hero-visual > .hero-orb .iglobe {
+    width: 68px;
+  }
+}
+
+/* --- the same cards above 1000px, where they float over the collage --- */
+@media (min-width: 1001px) {
+  /* The badge is a trust card now, not a 118px disc: give it the right rail
+     between the auction card (top) and the route card (bottom). */
+  .hero .hero-visual .floating-badge {
+    right: 0;
+    top: 118px;
+    width: 212px;
+    height: auto;
+    padding: 12px 14px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 11px;
+    text-align: left;
+  }
+
+  .hero .hero-visual .floating-badge svg {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+  }
+
+  .hero .hero-visual .floating-badge span {
+    display: grid;
+    gap: 2px;
+    font-size: 9px;
+  }
+
+  .hero .hero-visual .floating-badge b {
+    font-size: 12px;
+  }
+
+  .hero .hero-visual .floating-badge small {
+    font-size: 9.5px;
+    font-weight: 500;
+    opacity: .92;
+    line-height: 1.35;
+  }
+
+  .hero .hero-visual .floating-card {
+    padding: 14px 16px;
+    border-radius: 16px;
+  }
+
+  .hero .hero-visual .floating-card.auction-card {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .hero .hero-visual .auction-card .rotating-card-copy {
+    min-width: 168px;
+  }
+
+  .hero .hero-visual .route-card .rotating-card-copy {
+    min-width: 196px;
+  }
+
+  .hero .hero-visual .card-foot {
+    padding-top: 9px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   10. MOTION PREFERENCES
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .nav-wrap .brand-group .nav-orb,
+  .nav-wrap .brand-group .nav-orb:hover {
+    transform: none;
+  }
+
+  .hero-visual .card-live {
+    animation: none;
+  }
+
+  /* The mobile currency menu slides up from the switch; the machinery cards
+     and hero cards do not animate themselves, only their hover lift does. */
+  .ar7cur-menu {
+    animation: none;
+  }
+
+  .mch-card:hover,
+  .hero .hero-cta .ghost-btn:hover {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   11. HERO CTA PAIR
+   ---------------------------------------------------------------------------
+   "Explore vehicles" is the primary action; machinery is the second shelf of
+   the business and gets a matching secondary button (and its own page). The
+   bidding explainer moves to its own line so the pair stays legible on phones.
+   */
+.hero .hero-cta {
+  flex-wrap: wrap;
+}
+
+.hero .hero-cta .ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: .25s;
+}
+
+.hero .hero-cta .ghost-btn:hover {
+  border-color: var(--gold);
+  color: var(--green-text);
+  transform: translateY(-2px);
+}
+
+.hero .hero-cta .ghost-btn svg {
+  width: 17px;
+}
+
+.hero .hero-quick {
+  margin-top: 16px;
+}
+
+@media (max-width: 650px) {
+  .hero .hero-cta .ghost-btn {
+    width: 100%;
+    height: 50px;
+    padding: 0 16px;
+    font-size: 13px;
+  }
+
+  .hero .hero-quick {
+    margin-top: 13px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   12. MACHINERY CARDS (shared)
+   ---------------------------------------------------------------------------
+   The same machine card renders on the home teaser and on the machinery page.
+   The teaser is on the landing page, so the card skeleton lives here (always
+   loaded) while the machinery page's own furniture — hero, trust strip, bands,
+   step grid — stays in the lazy src/machinery.css chunk. */
+
+.mch-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+  transition: transform .3s, box-shadow .3s;
+}
+
+.mch-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow);
+}
+
+.mch-photo {
+  position: relative;
+  aspect-ratio: 16 / 11;
+  overflow: hidden;
+}
+
+.mch-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mch-type {
+  position: absolute;
+  left: 13px;
+  top: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(4, 35, 23, .82);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+
+.mch-info {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 18px;
+  flex: 1;
+}
+
+.mch-head {
+  display: grid;
+  gap: 4px;
+}
+
+.mch-head b {
+  font: 700 19px Manrope, sans-serif;
+  letter-spacing: -.4px;
+}
+
+.mch-head small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mch-head small svg {
+  width: 13px;
+}
+
+.mch-info > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.mch-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mch-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--green) 7%, transparent);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.mch-meta svg {
+  width: 13px;
+  color: var(--green-text);
+}
+
+.mch-meta b {
+  color: var(--ink);
+}
+
+.mch-specs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+  padding: 12px 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.mch-specs li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mch-specs small {
+  font-size: 9.5px;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mch-specs b {
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.mch-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.mch-foot > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.mch-foot small {
+  font-size: 8px;
+  letter-spacing: 1.1px;
+  color: var(--muted);
+}
+
+.mch-foot b {
+  font: 700 20px Manrope, sans-serif;
+  color: var(--green-text);
+  white-space: nowrap;
+}
+
+.mch-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mch-chat {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--green-text);
+  cursor: pointer;
+  transition: .25s;
+}
+
+.mch-chat:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.mch-chat svg {
+  width: 18px;
+}
+
+
+/* ---- home teaser ---- */
+/* Price offers on the machinery cards.
+   Defined HERE rather than in src/machinery.css because the home page's
+   machinery teaser renders the same badge and the same struck-through price,
+   and machinery.css only loads on /machinery. The machinery page gets these
+   rules from this file, which is always present. */
+.mch-offer-flag{
+  position:absolute;right:13px;top:13px;z-index:3;display:inline-flex;align-items:center;gap:4px;
+  padding:5px 9px;border-radius:999px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1204;
+  font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+  box-shadow:0 6px 18px rgba(0,0,0,.28);
+}
+.mch-offer-flag svg{width:11px}.mch-price-row{display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.mch-price-row s{color:var(--muted);font-size:12px;font-weight:600}
+.mch-price-row b{color:var(--green-text)}
+.mch-save-chip{
+  display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;
+  background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green-text);
+}
+html[data-theme=dark] .mch-offer-flag{color:#14100a}
+
+.mch-teaser .mch-teaser-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 34px;
+}
+
+.mch-teaser .mch-teaser-head h2 {
+  font: 700 clamp(34px, 4.2vw, 58px)/1.05 Manrope, sans-serif;
+  letter-spacing: -2.6px;
+  margin: 14px 0 0;
+}
+
+.mch-teaser .mch-teaser-head h2 em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.mch-teaser .mch-teaser-head > p {
+  max-width: 380px;
+  margin: 0 0 6px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.mch-teaser-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.mch-teaser-grid .mch-card .mch-info {
+  padding: 16px;
+}
+
+.mch-teaser-grid .mch-specs {
+  display: none;
+}
+
+.mch-teaser-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.mch-teaser-foot .mch-teaser-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+
+.mch-teaser-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--green-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mch-teaser-link svg {
+  width: 14px;
+}
+
+.hero .hero-cta .ghost-btn svg,
+.mch-hero-actions .ghost-btn svg {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1000px) {
+  .mch-teaser-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .mch-teaser-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .mch-teaser .mch-teaser-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .mch-teaser .mch-teaser-head > p {
+    max-width: 100%;
+  }
+
+  .mch-teaser-foot .primary {
+    width: 100%;
+    justify-content: center;
+  }
+}

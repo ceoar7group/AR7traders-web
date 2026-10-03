@@ -51,8 +51,10 @@ ok(!/>Calculators</.test(html.split('nav-drop-panel more-panel')[0]), 'Calculato
 // ---- Brands dropdown ------------------------------------------------------
 ok(html.includes('nav-brands'), 'the Brands dropdown renders');
 ok(html.includes('Brands in inventory'), 'the Brands panel says what it lists');
-ok(html.includes('href="/inventory?make=Toyota"'), 'brand links carry ?make= so they are shareable');
-ok(html.includes('href="/inventory?make=Mercedes-Benz"'), 'hyphenated brands survive into the href');
+// 2026-10-03 (SEO): brand links are crawlable landing paths, not query
+// strings — a ?make= view can never be listed in the sitemap or rank.
+ok(html.includes('href="/cars/toyota"'), 'brand links point at the indexable landing path');
+ok(html.includes('href="/cars/mercedes-benz"'), 'hyphenated brands slug into the href');
 ok(/3<!-- --> makes · <!-- -->23<!-- --> vehicles live/.test(html), 'the Brands panel reports makes and live vehicle count');
 ok(html.includes('src="/assets/logos/mercedes-benz.png"'), 'brand logos come from the brand name');
 ok(html.includes('href="/brands"'), 'the Brands panel links to the full brands page');
@@ -61,7 +63,8 @@ ok(html.includes('href="/brands"'), 'the Brands panel links to the full brands p
 // Everything between the More panel opening and the next top-level link.
 const morePanel = (html.split('nav-drop-panel more-panel')[1] || '').split('auction-link')[0];
 const moreItems = (morePanel.match(/<i>/g) || []).length;
-const expectedMoreRoutes = ['world', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal', 'crm'];
+// 2026-10-03: the SEO desk joined the staff entries in More.
+const expectedMoreRoutes = ['world', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal', 'crm', 'seo'];
 ok(JSON.stringify(MORE_LINKS.map(x => x[2])) === JSON.stringify(expectedMoreRoutes), 'More contains the 13 intended routes; an unpaired final grid item is allowed');
 const renderedMoreRoutes = [...document.querySelectorAll('.more-panel a')].map(a => a.getAttribute('href'));
 ok(JSON.stringify(renderedMoreRoutes) === JSON.stringify(expectedMoreRoutes.map(route => '/' + route)), 'More renders every intended real-path link in order');
@@ -88,7 +91,7 @@ ok(invPanel.includes('href="/japan-stock"'), 'Japan dealer stock points at /japa
 // ---- active-page highlight ----------------------------------------------
 ok(render({ page: 'inventory' }).includes('nav-inventory'), 'the Inventory dropdown is present');
 ok(render({ page: 'japan-stock' }).includes('nav-inventory'), 'the Inventory dropdown is present on japan-stock page');
-ok(render({ page: 'inventory', makeFilter: 'Toyota' }).includes('class=" current" href="/inventory?make=Toyota"'), 'the filtered brand is marked current');
+ok(render({ page: 'inventory', makeFilter: 'Toyota' }).includes('class=" current" href="/cars/toyota"'), 'the filtered brand is marked current');
 ok(!render({ page: 'inventory', vehicleId: '43' }).includes('class=" current" href="/inventory"'), 'a vehicle deep link does not highlight the inventory tab');
 ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reaches the nav');
 

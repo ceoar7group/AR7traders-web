@@ -347,6 +347,324 @@ problems.
 
 ---
 
+## 21. The machinery desk (cars *and* machines)
+
+**New page: `/machinery` — linked from the Inventory menu, the footer and a
+teaser block on the home page.**
+
+AR7 Traders now offers two product lines on one site: cars sourced at Japanese
+auctions, and construction machinery sourced to order from vetted Chinese
+suppliers. The new page ships with twelve demo machines — Doosan DX300LC-9C and
+DX250LCA, Sany SY215C and SY335H, XCMG XE215C and XE370D, Komatsu PC200-8, SDLG
+LG956L, LiuGong CLG856H, Shacman F3000, Sinotruk HOWO 371 and Zoomlion ZTC250V
+— grouped as excavators, loaders, trucks and cranes, with filters, specs and an
+indicative FOB price on every card.
+
+**What is honest about it.** No machine is presented as stock we own. Every card
+carries a small `demo` tag, prices are labelled *indicative FOB*, and the page
+says quotes are confirmed in writing. `CLAIMS-POLICY.md` §1b records the rules
+for this desk — in short: never publish unit counts, never claim factories or
+suppliers by name without written approval, and keep the car claim (900+ cars
+sold) away from machinery.
+
+**Editing it.** The catalogue lives in `src/machinery-data.js` — one object per
+machine (name, brand, type, year, hours or km, price in USD, location, specs).
+Photos belong in `public/assets/machinery/` as compressed `.webp` under 200 KB
+each (`npm run test:assets` fails if a reference is missing or the folder grows
+past its budget). When you have real supplier photos and confirmed prices,
+replace the entries and drop the `demo` tag in `src/machinery.jsx`.
+
+**The tagline changed with it:** the home hero now reads *"Your next car **or
+machine**."* with "Japan auctions · China machinery" above it, and a second hero
+button — *Browse machinery* — beside *Explore vehicles*.
+
+---
+
+## 22. Search traffic: landing pages, an SEO agent, and a desk you can check
+
+**The problem was structural, not cosmetic.** Brand and model views lived behind
+`/inventory?make=Toyota` — a query string has no independent ranking value and
+can never be listed in a sitemap, so those pages could not bring in traffic.
+
+**What changed.**
+
+- **Crawlable landing pages.** `/cars/toyota`, `/cars/toyota/land-cruiser` and
+  `/machinery/excavators` (plus loaders, trucks, cranes) are real URLs with their
+  own title, description, canonical, breadcrumb and `ItemList` structured data.
+  Every brand link in the header, footer, reviews page and vehicle pages now
+  points at them. Old `?make=` links still work and canonicalise to the path.
+- **A sitemap that follows stock.** `/api/sitemap-vehicles.xml` now opens with
+  the `/cars/<make>` and `/cars/<make>/<model>` pages derived from live rows —
+  a brand or model page is only advertised when there is stock behind it. The
+  static `public/sitemap.xml` lists the 25 fixed pages including the machinery
+  types.
+- **The SEO agent.** `npm run seo` audits every route, the built static shell,
+  the sitemap and robots.txt, and writes `seo-report.md` + `seo-report.json`.
+  `npm run seo:fix` applies the safe crawl fixes, `npm run seo:brief` prints a
+  prioritised work list, `npm run seo:indexnow` pushes changed URLs to Bing and
+  Yandex, and `npm run seo:live` audits the deployed site over HTTP.
+- **The SEO desk.** Open `/seo` on the site (staff route, noindex). It runs the
+  same engine (`src/seo-audit.js`) against the page you are on, shows the real
+  `/sitemap.xml` and `/robots.txt`, and lists the agent commands. Both the CLI
+  and the desk import one audit engine, so they can never disagree.
+- **Connectors.** Search Console, Bing Webmaster and GA4 need the owner's
+  credentials — run `npm run seo:connect` to see exactly which environment
+  variables to set. IndexNow needs no account: `npm run seo:fix` publishes the
+  key file and `npm run seo:indexnow` submits.
+
+**Where it stands:** the agent audits 31 routes plus the shipped static shell
+and reports **100/100 with no failures and no warnings**; `SEO.md` in the
+project root explains the whole system and what to do next.
+
+---
+
+## 23. Real machine photos, a language switcher, and an SEO agent team
+
+**Every machine now carries several photographs, branded with the AR7 mark and
+its own stock reference** (AR7-MC-001 … 012). The card has a thumbnail strip and
+the listing opens a full gallery with a spec table. Prices come from the
+supplier quote plus a trading margin — `MACHINERY_MARKUP` in
+`src/machinery-data.js`, currently 25%, one number that reprices the catalogue.
+
+**Units we have no photograph of say so.** Four listings (the LiuGong loader,
+the two tippers and the Zoomlion crane) carry a "photos on request" panel rather
+than a picture of a different machine. That is deliberate — see
+`MACHINERY-SOURCES.md` — and they get real photos the moment a supplier sends
+them, via `npm run machinery:import`.
+
+**Importing a supplier package** works exactly like Goo-net does for cars: drop
+the folder in `machinery-suppliers/<supplier>/`, run
+`npm run machinery:import -- --write`, and the photos are branded, the margin
+applied and the listings merged. Format: `machinery-suppliers/README.md`.
+
+**Fourteen languages**, with Arabic, Pashto, Urdu, Persian, French, German,
+Russian, Spanish, Portuguese, Turkish, Chinese, Swahili and Hausa dictionaries,
+switched from the header. Arabic, Pashto and Urdu flip the layout to
+right-to-left. The dictionaries load only when somebody picks a language.
+
+**The SEO work is now three agents** — `npm run seo` audits, `npm run seo:fix`
+repairs, `npm run seo:backlinks` builds the link-building plan. The backlink
+agent is honest about its limit: no script can create a backlink, so it builds
+the prospect list from the forwarders, port agents, brokers, inspection firms
+and suppliers AR7 actually trades with, writes the outreach, and verifies links
+once they go live.
+
+---
+
+## 24. A promotions agent, a link-paste importer, and a guardian for the site
+
+Three new agents, all with a face in the CRM.
+
+### Import a machine by pasting a link
+The car side has imported from a pasted Goo-net link for months. Machinery now
+does the same:
+
+```bash
+npm run machinery:sync -- --url <product link>                       # price + specs
+npm run machinery:sync -- --url <link> --rights dropship-authorized   # + photos
+npm run machinery:sync -- --daily --write                             # re-price everything
+```
+
+It reads the product data, works out make/type/price/specifications, applies
+the +25% margin, and merges the listing as **Imported — review before
+quoting**. Photographs need a recorded basis (`dropship-authorized`,
+`supplier-permission` or `own-photo`) because facts are facts and photographs
+belong to whoever took them — the same rule the catalogue has always run on,
+now applied automatically instead of by hand. With an approved Alibaba Open
+Platform application, `ALIBABA_APP_KEY` + `ALIBABA_APP_SECRET` switch it to
+Alibaba's own API. Full detail: `MACHINERY-SOURCES.md`.
+
+### The promotions agent
+`npm run promo:plan` builds campaigns from real stock — the machinery on the
+desk, the markets AR7 ships to, the brands with stock, the guides that bring
+search traffic — and writes copy for six channels at once (site bar, WhatsApp,
+Facebook, Instagram, email, blog) with tagged links. `npm run promo:publish`
+puts one live on the site; the CRM's **Site guardian → Promotions** panel does
+the same thing with buttons.
+
+It will not invent a discount, a stock count or a deadline. A promotion without
+an end date is just the price, and an expired one removes itself. Full detail:
+`PROMOTIONS.md`.
+
+### The guardian
+`npm run guard` checks health (every link, every route, sitemap, crawler shell),
+security (headers, no secrets in the bundle, permission checks on every API
+function, guarded storage), freshness (photo coverage, price derivation, the
+promotion bar) and SEO (one H1, canonicals). It runs in `npm test`, nightly in
+GitHub Actions, and its report is on the CRM's **Site guardian** tab with the
+fix for every warning — with a **Run checks now** button. Full detail:
+`SITE-HEALTH.md`.
+
+It found four real things on its first run: no security headers on the
+deployed site, four unguarded `localStorage` calls in the CRM, an API endpoint
+whose permission check needed the public-intake exemption declared, and a
+broken internal link in the crawler shell. All four are fixed.
+
+### Also
+- **All twelve machines now carry two or three branded photographs each.** No
+  listing shows a "photos on request" placeholder any more, and the photo set
+  was re-sized to 900 px (1.87 MB → 1.40 MB) so the public folder stays inside
+  its weight budget.
+- **Beforward-style facets on the machinery page**: make, FOB price band, year
+  and sort, with a live match count and a clear-filters button.
+
+---
+
+## 25. Car filters, a machinery hero, and a headline that says what we do
+
+### The inventory page now filters like beforward's stock list
+The machinery desk had facets; cars did not. The inventory page now carries a
+full facet bar — **Make, Model, Body, Price band, Year from, Mileage, Fuel,
+Gearbox, Steering and Sort** — with the number of matching cars printed beside
+every option, the live match count ("18 of 42 vehicles match"), removable chips
+for the filters that are on, and a **Clear all filters** button. Picking a make
+still writes the URL (`/inventory?make=Toyota`) so brand and model landing
+pages keep working and keep their SEO value; everything else filters in the
+browser, instantly, without adding filter URLs to the index.
+
+### The machinery page has a real hero, and a headline about the work
+The hero was an empty green panel; it is now a dry yard of clean machines behind
+a dark scrim, so the four statistic chips are glass panels that stay readable.
+The headline changed from the slogan *"Heavy iron, ready to work"* to the
+scope of work: **"Machines sourced from China, quoted to your port."** Ready to
+work claimed machines standing in a yard we do not own.
+
+### The home hero shows machines too
+The rotating hero was a car wall. It now weaves one photograph-ready machine
+in after every second car, with a green **MACHINERY · CHINA** badge, the unit's
+year, hours and FOB price, a click straight into `/machinery`, and a wrench
+icon in the counter where it says *China machinery desk*. The headline states
+the scope in a line: **"Cars from Japan, machines from China."**
+
+### Photo standards: nothing rusty, nothing worked to death
+A machine photo has to clear a written standard — recent, clean paint, whole
+unit in frame, at least two photographs, no rust, dents, cracks, repairs,
+welding, leaks or accident repair, and nothing older than eight years without
+photographs of its current condition. The importer screens every candidate
+gallery (`reviewPhotos()`), never publishes a flagged set, and carries
+`photoFlags` onto the listing for whoever reviews it. The full standard, the
+supplier photo request to copy, and the rules for generated imagery are in
+`MACHINERY-SOURCES.md` → **Photo standards**.
+
+## 26. Every clickable works from the keyboard, and keyword research
+
+### The whole-site UI audit now passes with zero findings
+`npm run test:ui-audit` renders all 29 routes twice through the real app and
+runs fourteen checks over the markup, then walks the source for clickable things
+that a keyboard cannot reach. It started at 463 findings. It is now **0**, and
+it is part of `npm test`.
+
+What that took, beyond the earlier button/scan repairs:
+
+- **Keyboard operability** — the photo thumbs, record cards, dismissable
+  notices, the compare toggle and the dealer-stock cards in the CRM were
+  `<div>`/`<span>` click targets. Each one now has `role="button"`, a tab stop,
+  an accessible name and an Enter/Space handler, and the audit fails any new
+  one that appears without them. Dialog backdrops are exempt by design: the
+  dialog inside them has its own close button.
+- **Heading order** — every page reads h1 → h2 → h3. Pull-quotes stopped being
+  headings, tool cards and news cards became `h2` sections, and the home hero's
+  rotating card got a screen-reader-only section heading.
+- **Landmarks and labels** — the embedded portal demo is a labelled `<section>`
+  instead of a second `<main>`, the `/japan-stock` body filter has an
+  `aria-label`, and the two decorative SVGs on `/world` are `aria-hidden`.
+- **Motion** — one global `prefers-reduced-motion` guard in `src/styles.css`
+  covers every stylesheet in the bundle, including any animation added later.
+- **`transition: all`** — the 24 occurrences in `src/crm.css` now name the
+  properties they actually animate (colour, shadow, transform, opacity).
+
+### Caching, spelled out in `vercel.json`
+Immutable for hashed assets and fonts, revalidate for the shell, and two new
+rules: `/promo.json`, `/promo-plan.json` and `/guardian-report.json` are cached
+for five minutes with a day of stale-while-revalidate, and the sitemaps for an
+hour. Everything still passes through the security headers.
+
+### Keyword research: `npm run seo:keywords`
+The auditor checked that pages covered the words we chose; nothing chose them.
+`scripts/seo-keywords.mjs` builds the plan from the site's own catalogue — every
+make and body we list, every machine type on the China desk, every destination
+lane we quote and every question the FAQ answers — crossed with the modifiers
+buyers type, with origins kept honest (a Japanese car never gets "export from
+china"). Each keyword is routed to the page that can answer it, and the plan
+records whether that page's copy already says the words.
+
+`--live` also asks the free, key-less autocomplete endpoints (Google, Bing,
+DuckDuckGo) for what people really type. It is explicit that those endpoints
+describe the *shape* of demand and not volume: volume comes from Search Console,
+Bing Webmaster Tools or Keyword Planner, and `npm run seo:connect` prints which
+of those the agent can read.
+
+`KEYWORDS.md` is the reviewed plan (committed); `keywords-plan.json` is
+regenerated and gitignored. When it is present the auditor takes two
+already-covered head terms per route from it, and the head terms it has *not*
+covered stay in the plan's gap list as the next writing work.
+
+## 27. A page for every machine, price offers you can apply in seconds
+
+### Every machine now opens on its own page
+A card used to open a modal. It now opens **/machinery/excavators/AR7-MC-001** —
+the same shape as a car opening at /inventory/<ref>: its own URL to send to a
+colleague, its own title and description, its own Product structured data, and a
+line in the sitemap (the sitemap went from 25 to 37 URLs). The page carries the
+full photograph and walkaround strip, the fact table, what is checked before any
+payment, the related machines in that type, and the quotation call to action. An
+unknown reference says so plainly and offers the export desk rather than
+rendering a blank page.
+
+The **DEMO badge is gone** from the cards, the detail page and the home teaser.
+It read as "this shop is a mock-up" on a page whose machines are real and
+quotable; what keeps the listing honest is the wording — *sourced to order from
+vetted Chinese suppliers*, prices *indicative FOB*, *confirmed by written
+quotation* — and that is on every card, every price and every page.
+
+### "Tell us the machine. We'll find it — anywhere in China."
+A new section on /machinery says out loud what the catalogue implies: these are
+the machines we can present today, not the limit of what we can get. Send a make
+and model, a photo of something like it, or the job it has to do. It names the
+things that matter to a buyer — inspection with photos, hour-meter and
+cold-start video before payment, specification and attachments matched to the
+working conditions, customisation to the order, freight and documents, spares
+and manuals after arrival — and it is careful with claims: no invented
+inventory, no counts of units sold.
+
+### Price offers: apply a discount, see it on the site
+A new **Price offers** tab in the CRM. Choose what it applies to (machinery,
+cars, or everything), set the percentage with a slider, optionally narrow it to
+machine types, give it an end date and a badge label, and publish. The panel
+shows the live offer, a preview with real prices, and every machine in a table
+with the list price, the discount, what the buyer pays and what they save.
+
+The same panel has a **request box**: type *"give 20% off machinery until 30
+November"* and it prepares exactly that offer for review. It is a deterministic
+reader, not a language model — it takes the percentage, the scope and the date
+from the sentence, refuses to guess, asks which scope when the sentence does not
+say, and rejects an absurd percentage with the range in the reply. Nothing is
+published until you press publish.
+
+On the website the offer shows up in four places, all from one function
+(`src/offers.js`), so the numbers can never disagree: the machinery cards and
+detail pages (list price struck through, reduced price, what you save), the
+home page's machinery teaser, a promo-style bar on every page when no campaign
+is running, and the Product structured data. An offer with an end date stops by
+itself on that date, per-unit overrides beat the campaign percentage, and
+`npm run offer` does the same job from the command line with a price table
+printed before it writes anything.
+
+### CRM design fixes, from an audit rather than an opinion
+An audit of every class the CRM renders found eleven views whose markup had no
+style rule at all — they fell back to browser defaults, which is why Approvals,
+Activity, People/Performance, Payroll and the permission matrix looked
+unfinished beside the panels that were styled. All of them now use the console's
+own tokens and rhythm: approval cards with a status edge and inline decisions, a
+real activity timeline with connectors, performance cards with their own bars,
+a payroll bar, the permissions matrix, plus the success notice and the small
+leftovers (`.vcard-loc`, `.table-progress`, `.photo-gallery-section`). The audit
+also turned up ~4 kB of genuinely dead CSS in the first-load bundle (selectors
+nothing renders, including the old hero `trust-row`), which was removed — the
+first-load stylesheet is **smaller** than before these changes.
+
+---
+
 ## Suggested first ten minutes
 
 1. Run the SQL in Supabase.

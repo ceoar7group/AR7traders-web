@@ -8,14 +8,34 @@ import {
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy
+  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy,
+  ChevronDown, Percent
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
+import { MACHINES } from './machinery-data.js';
+import {
+  OFFER_SCOPES, MIN_OFFER_PERCENT, MAX_OFFER_PERCENT, validateOffer,
+  describeOffer, percentFor, priceWithOffer, formatDate
+} from './offers.js';
+// The sentence parser lives in its own module so it stays out of the first-load
+// bundle: only the CRM and `npm run offer` need to read a written instruction.
+import { parseOfferRequest } from './offers-request.js';
 import './crm.css';
 
 const DEMO = import.meta.env.VITE_CRM_DEMO === 'true';
+
+// A clickable surface that is not a <button> still has to be operable by
+// keyboard: Enter and Space do what a click does, and the element announces
+// itself as a button. Used by the photo thumbs, record cards and notices.
+// The offer panel formats money the same way everywhere: whole dollars, no
+// currency symbol duplication, and the module's own currency formatter is not
+// available inside the CRM shell (it is a staff view, priced in USD FOB).
+const fmt0 = value => '$' + Number(value || 0).toLocaleString('en-US');
+const machinePhoto = machine => (Array.isArray(machine?.images) && machine.images[0]) || machine?.image || null;
+
+const KEY_ACTIVATE = (run) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(); } };
 
 const PHOTO_PRESETS = [
   {
@@ -205,6 +225,8 @@ const tabs = [
   ['team', 'Team & permissions', UserCog],
   ['people', 'People & payroll', Briefcase],
   ['settings', 'Website settings', Settings],
+  ['offers', 'Price offers', Percent],
+  ['guardian', 'Site guardian', ShieldCheck],
   ['activities', 'Activity log', Activity]
 ];
 
@@ -488,13 +510,21 @@ function exportCsv(entity, rows) {
 function baseData(entity) {
   return SITE_ENTITIES.includes(entity) ? (siteSeed[entity] || []) : (seed[entity] || []);
 }
+// localStorage throws in Safari private mode and when storage is full. The CRM
+// demos must still open, so every read and write goes through these two.
+function lsGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function lsSet(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* private mode: keep going */ }
+}
 function demoRead(entity) {
-  const k = 'ar7-crm-' + entity;
-  const stored = localStorage.getItem(k);
-  return stored ? JSON.parse(stored) : baseData(entity);
+  const stored = lsGet('ar7-crm-' + entity);
+  if (!stored) return baseData(entity);
+  try { return JSON.parse(stored); } catch { return baseData(entity); }
 }
 function demoWrite(entity, rows) {
-  localStorage.setItem('ar7-crm-' + entity, JSON.stringify(rows));
+  lsSet('ar7-crm-' + entity, JSON.stringify(rows));
 }
 
 async function api(entity, token, options = {}) {
@@ -534,11 +564,11 @@ export default function CrmApp() {
   const [perms, setPerms] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [openCustomer, setOpenCustomer] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem('ar7-crm-theme') || 'emerald');
+  const [theme, setTheme] = useState(() => lsGet('ar7-crm-theme') || 'emerald');
 
   const handleThemeChange = newTheme => {
     setTheme(newTheme);
-    localStorage.setItem('ar7-crm-theme', newTheme);
+    lsSet('ar7-crm-theme', newTheme);
     document.documentElement.setAttribute('data-crm-theme', newTheme);
   };
 
@@ -917,16 +947,16 @@ export default function CrmApp() {
     <div className="crm-shell" data-crm-theme={theme}>
       <aside className={'crm-side ' + (mobile ? 'open' : '')}>
         <div className="crm-brand">
-          <img width="46" height="29" src="/assets/ar7-mark.png" alt="AR7" />
+          <img width="46" height="29" src="/assets/ar7-mark.png" alt="AR7"  loading="lazy" decoding="async"/>
           <div>
             <b>AR7 CRM</b>
             <small>COMMAND CENTER</small>
           </div>
-          <button onClick={() => setMobile(false)} aria-label="Close menu"><X /></button>
+          <button onClick={() => setMobile(false)} aria-label="Close menu" type="button"><X /></button>
         </div>
         <nav>
           {tabs.map(([id, label, I]) => (
-            <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); setMobile(false); setQuery(''); }}>
+            <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); setMobile(false); setQuery(''); }} type="button">
               <I />
               <span>{label}</span>
               {id === 'leads' && <em>{(rows.leads || []).filter(x => x.status === 'new').length}</em>}
@@ -937,7 +967,7 @@ export default function CrmApp() {
           ))}
         </nav>
         <div className="crm-user">
-          <button className="crm-user-open" onClick={() => setWho({ self: true })} title="Edit your profile">
+          <button className="crm-user-open" onClick={() => setWho({ self: true })} title="Edit your profile" type="button">
             <span>{(profile?.full_name || session.user?.email || 'AR7').slice(0, 2).toUpperCase()}</span>
             <div>
               <b>{profile?.full_name || session.user?.email}</b>
@@ -945,15 +975,15 @@ export default function CrmApp() {
             </div>
             <UserCog size={15} />
           </button>
-          <button className="crm-user-out" onClick={signOut} title="Sign out" aria-label="Sign out"><LogOut /></button>
+          <button className="crm-user-out" onClick={signOut} title="Sign out" aria-label="Sign out" type="button"><LogOut /></button>
         </div>
       </aside>
 
-      {mobile && <div className="crm-side-shade" onClick={() => setMobile(false)} />}
+      {mobile && <div className="crm-side-shade" aria-hidden="true" onClick={() => setMobile(false)} />}
 
       <main className="crm-main">
         <header className="crm-top">
-          <button className="crm-menu" onClick={() => setMobile(true)} aria-label="Open menu"><Menu /></button>
+          <button className="crm-menu" onClick={() => setMobile(true)} aria-label="Open menu" type="button"><Menu /></button>
           <div className="crm-top-title">
             <small>AR7 TRADERS / {tab.toUpperCase()}</small>
             <h1>{heading}</h1>
@@ -966,7 +996,7 @@ export default function CrmApp() {
                 className={`theme-pill ${theme === 'emerald' ? 'active' : ''}`}
                 onClick={() => handleThemeChange('emerald')}
                 title="Emerald Luxury Dark Theme"
-              >
+               type="button">
                 <Sparkles size={13} />
                 <span>Emerald</span>
               </button>
@@ -974,7 +1004,7 @@ export default function CrmApp() {
                 className={`theme-pill ${theme === 'dark' ? 'active' : ''}`}
                 onClick={() => handleThemeChange('dark')}
                 title="Obsidian Carbon Dark Theme"
-              >
+               type="button">
                 <Moon size={13} />
                 <span>Midnight</span>
               </button>
@@ -982,7 +1012,7 @@ export default function CrmApp() {
                 className={`theme-pill ${theme === 'light' ? 'active' : ''}`}
                 onClick={() => handleThemeChange('light')}
                 title="Porcelain Light Theme"
-              >
+               type="button">
                 <Sun size={13} />
                 <span>Light</span>
               </button>
@@ -994,7 +1024,7 @@ export default function CrmApp() {
         </header>
 
         {notice && (
-          <div className="crm-notice" onClick={() => setNotice('')}>
+          <div className="crm-notice" role="button" tabIndex={0} aria-label="Dismiss this notice" onClick={() => setNotice('')} onKeyDown={KEY_ACTIVATE(() => setNotice(''))}>
             <span>{notice}</span>
             <X size={15} />
           </div>
@@ -1010,6 +1040,10 @@ export default function CrmApp() {
           <ApprovalsView token={session.access_token} profile={profile} perms={perms} notify={setNotice} onChange={loadAll} />
         ) : tab === 'people' ? (
           <PeopleView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
+        ) : tab === 'offers' ? (
+          <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
+        ) : tab === 'guardian' ? (
+          <GuardianView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
         ) : tab === 'settings' ? (
           <SettingsView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
         ) : tab === 'accounts' ? (
@@ -1050,20 +1084,20 @@ export default function CrmApp() {
                   <input value={query} onChange={e => setQuery(e.target.value)} placeholder={'Search ' + tab + '…'} />
                 </label>
                 {filtered.length > 0 && (
-                  <button onClick={() => exportCsv(tab, filtered)} title="Download these records as a CSV file">CSV</button>
+                  <button onClick={() => exportCsv(tab, filtered)} title="Download these records as a CSV file" type="button">CSV</button>
                 )}
-                <button onClick={loadAll} title="Refresh records"><RefreshCw /></button>
+                <button onClick={loadAll} title="Refresh records" type="button"><RefreshCw /></button>
                 {tab === 'listings' && profile?.role === 'admin' && (
                   <button
                     className="crm-sync"
                     onClick={syncWebsiteStock}
                     disabled={syncing}
                     title="Make the public website stock match the latest seed (25 cars: 12 showroom + 13 Goo-net). Cars not in the seed are hidden, not deleted."
-                  >
+                   type="button">
                     <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock to latest'}
                   </button>
                 )}
-                <button className="crm-add" onClick={() => setEditor({ entity: tab, data: {} })}>
+                <button className="crm-add" onClick={() => setEditor({ entity: tab, data: {} })} type="button">
                   <Plus /> Add {tab.slice(0, -1)}
                 </button>
               </div>
@@ -1150,7 +1184,7 @@ function CrmLogin() {
   return (
     <div className="crm-login">
       <div className="crm-login-visual">
-        <img width="150" height="150" src="/assets/ar7-logo.png" alt="AR7 Traders" />
+        <img width="150" height="150" src="/assets/ar7-logo.png" alt="AR7 Traders"  loading="lazy" decoding="async"/>
         <div>
           <small>AR7 OPERATIONS</small>
           <h1>Every lead.<br />Every vehicle.<br /><em>One command center.</em></h1>
@@ -1164,7 +1198,7 @@ function CrmLogin() {
         {error && <div className="crm-error">{error}</div>}
         <label>EMAIL<input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label>
         <label>PASSWORD<input type="password" value={password} onChange={e => setPassword(e.target.value)} required /></label>
-        <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in securely'} <ChevronRight /></button>
+        <button disabled={busy} type="submit">{busy ? 'Signing in…' : 'Sign in securely'} <ChevronRight /></button>
         <small>Protected by Supabase Auth · Admin, Sales, Logistics and Accounts</small>
       </form>
     </div>
@@ -1215,19 +1249,19 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
           </div>
           <div className="crm-alerts-grid">
             {overdueLeads.length > 0 && (
-              <button onClick={() => setTab('leads')}>
+              <button onClick={() => setTab('leads')} type="button">
                 <b>{overdueLeads.length} overdue follow-up{overdueLeads.length > 1 ? 's' : ''}</b>
                 <small>{overdueLeads.slice(0, 2).map(x => x.name).join(', ')}{overdueLeads.length > 2 ? '…' : ''}</small>
               </button>
             )}
             {overdueTasks.length > 0 && (
-              <button onClick={() => setTab('tasks')}>
+              <button onClick={() => setTab('tasks')} type="button">
                 <b>{overdueTasks.length} overdue task{overdueTasks.length > 1 ? 's' : ''}</b>
                 <small>{overdueTasks.slice(0, 2).map(x => x.title).join(', ')}{overdueTasks.length > 2 ? '…' : ''}</small>
               </button>
             )}
             {awaitingQuotes.length > 0 && (
-              <button onClick={() => setTab('quotes')}>
+              <button onClick={() => setTab('quotes')} type="button">
                 <b>{awaitingQuotes.length} quote{awaitingQuotes.length > 1 ? 's' : ''} awaiting reply</b>
                 <small>{fmt(awaitingQuotes.reduce((a, x) => a + (Number(x.amount) || 0), 0))} on the table</small>
               </button>
@@ -1260,7 +1294,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               <small>SALES PIPELINE</small>
               <h3>Lead conversion stages</h3>
             </div>
-            <button onClick={() => setTab('leads')}>View all leads <ChevronRight /></button>
+            <button onClick={() => setTab('leads')} type="button">View all leads <ChevronRight /></button>
           </div>
           <div className="pipeline-bars">
             {['new', 'qualified', 'proposal', 'negotiation'].map(status => {
@@ -1287,7 +1321,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               <small>FOLLOW UPS</small>
               <h3>Today & upcoming tasks</h3>
             </div>
-            <button onClick={() => setTab('tasks')}>
+            <button onClick={() => setTab('tasks')} type="button">
               {tasks.filter(x => x.status !== 'done' && String(x.due_date || '').slice(0, 10) === todayKey()).length} due today <ChevronRight />
             </button>
           </div>
@@ -1314,7 +1348,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               <small>AUDIT TRAIL</small>
               <h3>Latest activity</h3>
             </div>
-            <button onClick={() => setTab('activities')}>Full log <ChevronRight /></button>
+            <button onClick={() => setTab('activities')} type="button">Full log <ChevronRight /></button>
           </div>
           <div className="crm-task-list">
             {(rows.activities || []).slice(0, 5).map(a => (
@@ -1336,7 +1370,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               <small>FEATURED VEHICLE SHOWROOM & PHOTOS</small>
               <h3>Stock photo gallery preview</h3>
             </div>
-            <button onClick={() => setTab('vehicles')}>Inventory <ChevronRight /></button>
+            <button onClick={() => setTab('vehicles')} type="button">Inventory <ChevronRight /></button>
           </div>
           <div className="crm-quick-vehicle-grid">
             {(vehicles.length ? vehicles : listings).slice(0, 4).map(v => {
@@ -1344,8 +1378,8 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               const cover = photos[0] || v.image || '/assets/ar7-mark.png';
               return (
                 <article key={v.id || v.stock_no} className="dash-car-card">
-                  <div className="dash-car-img" onClick={() => onOpenPhotos && onOpenPhotos(v)}>
-                    <img width="820" height="550" src={cover} alt={`${v.make} ${v.model}${v.year?` ${v.year}`:''}`} />
+                  <div className="dash-car-img" role="button" tabIndex={0} aria-label="Open this vehicle's photos" onClick={() => onOpenPhotos && onOpenPhotos(v)} onKeyDown={KEY_ACTIVATE(() => onOpenPhotos && onOpenPhotos(v))}>
+                    <img width="820" height="550" src={cover} alt={`${v.make} ${v.model}${v.year?` ${v.year}`:''}`}  loading="lazy" decoding="async"/>
                     <span className="dash-photo-pill"><Camera size={11} /> {photos.length} photos</span>
                     <em className={'crm-status ' + statusClass(v.status || 'available')}>{pretty(v.status || 'available')}</em>
                   </div>
@@ -1353,8 +1387,8 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
                     <h4>{v.year} {v.make} {v.model}</h4>
                     <p><b>{fmt(v.price)}</b> · {v.location || 'Yokohama'}</p>
                     <div className="dash-car-actions">
-                      <button onClick={() => onOpenPhotos && onOpenPhotos(v)}><Eye size={12} /> View</button>
-                      <button onClick={() => onManagePhotos && onManagePhotos('vehicles', v)}><Camera size={12} /> Photos</button>
+                      <button onClick={() => onOpenPhotos && onOpenPhotos(v)} type="button"><Eye size={12} /> View</button>
+                      <button onClick={() => onManagePhotos && onManagePhotos('vehicles', v)} type="button"><Camera size={12} /> Photos</button>
                     </div>
                   </div>
                 </article>
@@ -1369,7 +1403,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
               <small>LIVE LOGISTICS</small>
               <h3>Vehicles in transit across global ports</h3>
             </div>
-            <button onClick={() => setTab('shipments')}>Operations <ChevronRight /></button>
+            <button onClick={() => setTab('shipments')} type="button">Operations <ChevronRight /></button>
           </div>
           <div className="crm-shipment-grid">
             {shipments.map(x => (
@@ -1399,7 +1433,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
 // has also failed do we swap to the AR7 mark, instead of leaving a
 // broken-image glyph.
 //
-// This is deliberately the CRM's only wiring for the retry: every <img> in this
+// This is deliberately the CRM's only wiring for the retry: every <img loading="lazy" decoding="async"> in this
 // file already carries this handler, so installing the document-level listener
 // from src/image-fallback.js here as well would make the retry and the mark
 // race (the listener fires first, and this handler would then jump straight to
@@ -1489,7 +1523,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
           ? <>Nothing found for “{query}”. Try a different keyword or clear the search.</>
           : <>Add your first record with the <b>Add</b> button above.</>}</p>
         {searching && onClearSearch && (
-          <button className="crm-chip active" onClick={onClearSearch}>Clear search</button>
+          <button className="crm-chip active" onClick={onClearSearch} type="button">Clear search</button>
         )}
       </div>
     );
@@ -1518,7 +1552,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
       <div className="crm-lead-wrap">
         <div className="crm-chips">
           {[['all', 'All'], ['overdue', 'Overdue'], ['new', 'New'], ['open', 'In progress'], ['won', 'Won'], ['lost', 'Lost']].map(([id, label]) => (
-            <button key={id} className={'crm-chip ' + (leadFilter === id ? 'active' : '') + (id === 'overdue' && counts.overdue > 0 ? ' alert' : '')} onClick={() => setChipFilter(id)}>
+            <button key={id} className={'crm-chip ' + (leadFilter === id ? 'active' : '') + (id === 'overdue' && counts.overdue > 0 ? ' alert' : '')} onClick={() => setChipFilter(id)} type="button">
               {label} <em>{counts[id]}</em>
             </button>
           ))}
@@ -1549,16 +1583,16 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                           ? (isOverdue(x.next_follow_up) ? 'Overdue since ' + date(x.next_follow_up) : 'Next follow-up ' + date(x.next_follow_up))
                           : 'No follow-up scheduled'}
                       </span>
-                      <button className="crm-follow-done" title="Mark this follow-up done and clear the warning" onClick={() => followDone(x, null)}>
+                      <button className="crm-follow-done" title="Mark this follow-up done and clear the warning" onClick={() => followDone(x, null)} type="button">
                         <Check size={13} /> Done
                       </button>
                     </div>
                     <div className="crm-follow-next" title="Schedule the next follow-up from today">
                       <span>Schedule next</span>
                       <div className="crm-follow-next-opts">
-                        <button onClick={() => followDone(x, addDays(3))}>+3 days</button>
-                        <button onClick={() => followDone(x, addDays(7))}>+1 week</button>
-                        <button onClick={() => followDone(x, addDays(14))}>+2 weeks</button>
+                        <button onClick={() => followDone(x, addDays(3))} type="button">+3 days</button>
+                        <button onClick={() => followDone(x, addDays(7))} type="button">+1 week</button>
+                        <button onClick={() => followDone(x, addDays(14))} type="button">+2 weeks</button>
                       </div>
                     </div>
                   </div>
@@ -1566,8 +1600,8 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                 <footer>
                   <a href={'mailto:' + x.email} title="Send email"><Mail /></a>
                   <a href={'https://wa.me/' + (x.phone || '').replace(/\D/g, '')} target="_blank" rel="noreferrer" title="Chat on WhatsApp"><MessageCircle /></a>
-                  <button onClick={() => onEdit(x)}>Open lead <ChevronRight /></button>
-                  {onDelete && <button className="crm-del" title="Delete lead" onClick={() => onDelete(x)}><Trash2 /></button>}
+                  <button onClick={() => onEdit(x)} type="button">Open lead <ChevronRight /></button>
+                  {onDelete && <button className="crm-del" title="Delete lead" onClick={() => onDelete(x)} type="button"><Trash2 /></button>}
                 </footer>
               </article>
             ))}
@@ -1586,7 +1620,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
               key={id}
               className={'crm-chip ' + (chipFilter === id ? 'active' : '')}
               onClick={() => setChipFilter(id)}
-            >
+             type="button">
               {label} <em>{chipCounts(id)}</em>
             </button>
           ))}
@@ -1595,7 +1629,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
               className={'crm-chip ' + (chipFilter === 'no_photos' ? 'active alert' : ' alert')}
               onClick={() => setChipFilter(chipFilter === 'no_photos' ? 'all' : 'no_photos')}
               title="Records whose photo gallery is empty"
-            >
+             type="button">
               No photos <em>{noPhotosCount}</em>
             </button>
           )}
@@ -1610,10 +1644,10 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
               : <><b>{chipVisible.length}</b> of {rows.length} shown{chipFilter !== 'all' ? ' · ' + (chipFilter === 'no_photos' ? 'no photos' : pretty(chipFilter)) : ''}</>}
           </div>
           <div className="view-mode-toggle">
-            <button className={viewMode === 'table' ? 'active' : ''} onClick={() => setViewMode('table')} title="Table view">
+            <button className={viewMode === 'table' ? 'active' : ''} onClick={() => setViewMode('table')} title="Table view" type="button">
               <List size={14} /> <span>Table</span>
             </button>
-            <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')} title="Photo card grid view">
+            <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')} title="Photo card grid view" type="button">
               <LayoutGrid size={14} /> <span>Photo Cards</span>
             </button>
           </div>
@@ -1629,13 +1663,13 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
             const cover = photos[0] || row.image || '/assets/ar7-mark.png';
             return (
               <article key={row.id || row.stock_no} className="vcard">
-                <div className="vcard-hero" onClick={() => onViewGallery && onViewGallery(row)}>
-                  <img width="820" height="550" src={cover} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''}`} loading="lazy" onError={imgFallback} />
+                <div className="vcard-hero" role="button" tabIndex={0} aria-label="Open this vehicle's photo gallery" onClick={() => onViewGallery && onViewGallery(row)} onKeyDown={KEY_ACTIVATE(() => onViewGallery && onViewGallery(row))}>
+                  <img width="820" height="550" src={cover} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''}`} loading="lazy" onError={imgFallback}  decoding="async"/>
                   <span className="vcard-photo-count"><Camera size={12} /> {photos.length} photos</span>
                   {onQuickPatch && statusOptions
                     ? statusPicker(row, row.status || 'available')
                     : <em className={'crm-status ' + statusClass(row.status || 'available')}>{pretty(row.status || 'available')}</em>}
-                  <button className="vcard-expand" onClick={e => { e.stopPropagation(); onViewGallery && onViewGallery(row); }} title="Expand photo gallery">
+                  <button className="vcard-expand" onClick={e => { e.stopPropagation(); onViewGallery && onViewGallery(row); }} title="Expand photo gallery" type="button">
                     <Maximize2 size={13} />
                   </button>
                 </div>
@@ -1654,11 +1688,11 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                     {row.grade && <span>Grade {row.grade}</span>}
                   </div>
                   <div className="vcard-actions">
-                    <button className="btn-photos" onClick={() => onManagePhotos && onManagePhotos(row)}>
+                    <button className="btn-photos" onClick={() => onManagePhotos && onManagePhotos(row)} type="button">
                       <Camera size={13} /> Manage Photos ({photos.length})
                     </button>
-                    <button className="btn-edit" onClick={() => onEdit(row)}>Edit</button>
-                    {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)}><Trash2 size={13} /></button>}
+                    <button className="btn-edit" onClick={() => onEdit(row)} type="button">Edit</button>
+                    {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 size={13} /></button>}
                   </div>
                 </div>
               </article>
@@ -1678,7 +1712,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                         className={'th-sort' + (sort && sort.key === x ? ' sorted-' + sort.dir : '')}
                         onClick={() => toggleSort(x)}
                         title={'Sort by ' + pretty(x)}
-                      >
+                       type="button">
                         {pretty(x)}
                         <span className="th-sort-arrow">{sort && sort.key === x ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
                       </button>
@@ -1696,8 +1730,8 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                   <tr key={row.id || row.stock_no}>
                     {isVehicleType && (
                       <td className="td-photo">
-                        <div className="table-thumb-wrap" onClick={() => onViewGallery && onViewGallery(row)} title="Click to view photo gallery">
-                          <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback} />
+                        <div className="table-thumb-wrap" role="button" tabIndex={0} aria-label="View photo gallery" onClick={() => onViewGallery && onViewGallery(row)} onKeyDown={KEY_ACTIVATE(() => onViewGallery && onViewGallery(row))} title="Click to view photo gallery">
+                          <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback}  decoding="async"/>
                           <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                         </div>
                       </td>
@@ -1715,12 +1749,12 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                     ))}
                     <td className="crm-row-actions">
                       {isVehicleType && onManagePhotos && (
-                        <button className="crm-btn-photo" onClick={() => onManagePhotos(row)} title="Manage vehicle gallery photos">
+                        <button className="crm-btn-photo" onClick={() => onManagePhotos(row)} title="Manage vehicle gallery photos" type="button">
                           <Camera size={13} /> Photos ({photos.length})
                         </button>
                       )}
-                      <button onClick={() => onEdit(row)}>Edit</button>
-                      {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)}><Trash2 /></button>}
+                      <button onClick={() => onEdit(row)} type="button">Edit</button>
+                      {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
                     </td>
                   </tr>
                 );
@@ -1840,8 +1874,8 @@ export function SourcingView({ rows, onOpenInventory }) {
       <div className="crm-page-head">
         <div><p>Every vehicle's purchase cost, freight, duty and other costs vs. its selling price — with a per-vendor breakdown.</p></div>
         <div className="crm-tools">
-          <button onClick={() => sourcingCsv(rows)} title="Download per-vehicle profit report as CSV">CSV <Download size={14} /></button>
-          <button onClick={onOpenInventory}>Open inventory <ChevronRight /></button>
+          <button onClick={() => sourcingCsv(rows)} title="Download per-vehicle profit report as CSV" type="button">CSV <Download size={14} /></button>
+          <button onClick={onOpenInventory} type="button">Open inventory <ChevronRight /></button>
         </div>
       </div>
 
@@ -2037,18 +2071,18 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
         <div><p>Cars the Goo-net importer brought in (quality-gated photos). Delisted cars disappear from the website automatically. A car that is already on the website or in the inventory is marked as added, so nothing is ever copied twice.</p></div>
         <div className="crm-tools">
           <label><Search /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search dealer stock…" /></label>
-          {filtered.length > 0 && <button onClick={() => exportCsv('goonet', filtered)} title="Download these records as CSV">CSV</button>}
-          <button onClick={onRefresh} title="Refresh records"><RefreshCw /></button>
-          <button className={showSettings ? 'active' : ''} onClick={() => setShowSettings(v => !v)} title="Importer rules and limits"><Settings /> Importer rules</button>
+          {filtered.length > 0 && <button onClick={() => exportCsv('goonet', filtered)} title="Download these records as CSV" type="button">CSV</button>}
+          <button onClick={onRefresh} title="Refresh records" type="button"><RefreshCw /></button>
+          <button className={showSettings ? 'active' : ''} onClick={() => setShowSettings(v => !v)} title="Importer rules and limits" type="button"><Settings /> Importer rules</button>
           {isAdmin && (
             <>
-              <button className="crm-sync" onClick={onCopyDiag} title="Copy the stored parser diagnostic (the 2 KB markup sample from the last blocked/parse-miss run) — use it to fix the card parser">
+              <button className="crm-sync" onClick={onCopyDiag} title="Copy the stored parser diagnostic (the 2 KB markup sample from the last blocked/parse-miss run) — use it to fix the card parser" type="button">
                 <ClipboardCopy size={13} /> Copy parser diagnostic
               </button>
-              <button className="crm-sync" onClick={onResetBookmark} title="Reset the crawler bookmark to page 1 — the next import run starts from the first listing page">
+              <button className="crm-sync" onClick={onResetBookmark} title="Reset the crawler bookmark to page 1 — the next import run starts from the first listing page" type="button">
                 <RotateCcw size={13} /> Reset bookmark
               </button>
-              <button className="crm-sync" onClick={onRun} disabled={syncing} title="Run one importer cycle now — crawls the next Goo-net page, quality-gates and imports">
+              <button className="crm-sync" onClick={onRun} disabled={syncing} title="Run one importer cycle now — crawls the next Goo-net page, quality-gates and imports" type="button">
                 <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Running…' : 'Run import now'}
               </button>
             </>
@@ -2074,7 +2108,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
           </div>
           <footer>
             {isAdmin
-              ? <button className="save" disabled={settingsBusy}><Save /> {settingsBusy ? 'Saving…' : 'Save importer rules'}</button>
+              ? <button className="save" disabled={settingsBusy} type="submit"><Save /> {settingsBusy ? 'Saving…' : 'Save importer rules'}</button>
               : <p className="crm-hint"><ShieldAlert size={13} /> Only administrators can change importer rules.</p>}
           </footer>
         </form>
@@ -2083,7 +2117,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
       {isAdmin && (
         <div className="crm-goonet-import">
           <button className={'crm-import-toggle' + (showImport ? ' open' : '')} onClick={() => setShowImport(v => !v)}
-            title="Paste Goo-net vehicle URLs, preview the verified data, then import into Japan dealer stock">
+            title="Paste Goo-net vehicle URLs, preview the verified data, then import into Japan dealer stock" type="button">
             <Link2 size={13} /> Import from Goo-net URLs
             <em>{showImport ? 'Hide' : 'Paste a link'}</em>
           </button>
@@ -2098,14 +2132,14 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                 onChange={e => setImportText(e.target.value)}
                 placeholder={'https://www.goo-net.com/usedcar/spread/goo/15/…html\nhttps://www.goo-net.com/usedcar/spread/goo/16/…html'} />
               <div className="crm-import-actions">
-                <button onClick={previewImport} disabled={importBusy || !importText.trim()}>
+                <button onClick={previewImport} disabled={importBusy || !importText.trim()} type="button">
                   <Search size={13} /> {importBusy ? 'Checking…' : 'Preview'}
                 </button>
                 <button className="save" onClick={confirmImport} disabled={importBusy || !readyCount || importStale}
-                  title={importStale ? 'Preview this URL list first — the server re-reads every page on import anyway' : 'Import the cars that passed the preview'}>
+                  title={importStale ? 'Preview this URL list first — the server re-reads every page on import anyway' : 'Import the cars that passed the preview'} type="button">
                   <Download size={13} /> {readyCount ? `Import ${readyCount} car${readyCount > 1 ? 's' : ''}` : 'Import'}
                 </button>
-                <button onClick={() => { setImportText(''); setImportPreview(null); setImportResults(null); setPreviewedText(''); }} disabled={importBusy}>
+                <button onClick={() => { setImportText(''); setImportPreview(null); setImportResults(null); setPreviewedText(''); }} disabled={importBusy} type="button">
                   <X size={13} /> Clear
                 </button>
                 {importStale && importText.trim() && <small className="crm-hint">URL list changed — preview again before importing.</small>}
@@ -2165,7 +2199,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
 
       <div className="crm-chips">
         {[['all', 'All'], ['available', 'Available'], ['newweek', 'New this week'], ['promoted', 'Promoted'], ['delisted', 'Delisted']].map(([id, label]) => (
-          <button key={id} className={'crm-chip ' + (chip === id ? 'active' : '') + (id === 'delisted' && counts.delisted > 0 ? ' alert' : '')} onClick={() => setChip(id)}>
+          <button key={id} type="button" className={'crm-chip ' + (chip === id ? 'active' : '') + (id === 'delisted' && counts.delisted > 0 ? ' alert' : '')} onClick={() => setChip(id)}>
             {label} <em>{counts[id]}</em>
           </button>
         ))}
@@ -2194,8 +2228,8 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                 return (
                   <tr key={row.id || row.stock_no} className={row.available === false ? 'row-muted' : ''}>
                     <td className="td-photo">
-                      <div className="table-thumb-wrap" onClick={() => onViewGallery && onViewGallery(row)} title="Click to view photos">
-                        <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback} />
+                      <div className="table-thumb-wrap" role="button" tabIndex={0} aria-label="View photos" onClick={() => onViewGallery && onViewGallery(row)} onKeyDown={KEY_ACTIVATE(() => onViewGallery && onViewGallery(row))} title="Click to view photos">
+                        <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback}  decoding="async"/>
                         <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                       </div>
                     </td>
@@ -2227,19 +2261,19 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                         {row.available !== false && (
                           <>
                             {promo.onWebsite
-                              ? <button className="is-added" disabled title={`Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab. Use Edit to change it there.`}><Check size={13} /> On website</button>
-                              : <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')}><Globe size={13} /> Website</button>}
+                              ? <button className="is-added" disabled title={`Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab. Use Edit to change it there.`} type="button"><Check size={13} /> On website</button>
+                              : <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')} type="button"><Globe size={13} /> Website</button>}
                             {promo.inInventory
-                              ? <button className="is-added" disabled title={`Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.`}><Check size={13} /> In inventory</button>
-                              : <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')}><CarFront size={13} /> Inventory</button>}
+                              ? <button className="is-added" disabled title={`Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.`} type="button"><Check size={13} /> In inventory</button>
+                              : <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')} type="button"><CarFront size={13} /> Inventory</button>}
                           </>
                         )}
                         {row.available !== false
-                          ? <button className="crm-del" title="Delist (remove from website)" onClick={() => onDelist(row)}><Ban size={13} /> Delist</button>
-                          : <button title="Re-list on the website" onClick={() => onDelist(row)}><Check size={13} /> Re-list</button>}
-                        <button title="Manage photo gallery" onClick={() => onManagePhotos && onManagePhotos(row)}><Camera size={13} /> Photos</button>
-                        <button onClick={() => onEdit(row)}>Edit</button>
-                        {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)}><Trash2 /></button>}
+                          ? <button className="crm-del" title="Delist (remove from website)" onClick={() => onDelist(row)} type="button"><Ban size={13} /> Delist</button>
+                          : <button title="Re-list on the website" onClick={() => onDelist(row)} type="button"><Check size={13} /> Re-list</button>}
+                        <button title="Manage photo gallery" onClick={() => onManagePhotos && onManagePhotos(row)} type="button"><Camera size={13} /> Photos</button>
+                        <button onClick={() => onEdit(row)} type="button">Edit</button>
+                        {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
                       </div>
                     </td>
                   </tr>
@@ -2424,8 +2458,8 @@ export function VehiclePhotoManager({ entity, row, onClose, onSave }) {
               <div className="photo-grid">
                 {photos.map((src, idx) => (
                   <div key={src + idx} className={`photo-card ${idx === 0 ? 'is-cover' : ''}`}>
-                    <div className="photo-thumb-container" onClick={() => setZoomImg(src)}>
-                      <img width="164" height="110" src={src} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''} — photo ${idx + 1}`} loading="lazy" onError={imgFallback} />
+                    <div className="photo-thumb-container" role="button" tabIndex={0} aria-label="Zoom this photo" onClick={() => setZoomImg(src)} onKeyDown={KEY_ACTIVATE(() => setZoomImg(src))}>
+                      <img width="164" height="110" src={src} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''} — photo ${idx + 1}`} loading="lazy" onError={imgFallback}  decoding="async"/>
                       {idx === 0 && <span className="cover-badge"><Star size={11} /> COVER PHOTO</span>}
                       <span className="photo-index">#{idx + 1}</span>
                     </div>
@@ -2468,9 +2502,9 @@ export function VehiclePhotoManager({ entity, row, onClose, onSave }) {
         </footer>
 
         {zoomImg && (
-          <div className="photo-zoom-overlay" onClick={() => setZoomImg(null)}>
+          <div className="photo-zoom-overlay" aria-hidden="true" onClick={() => setZoomImg(null)}>
             <div className="zoom-content" onClick={e => e.stopPropagation()}>
-              <img width="620" height="400" src={zoomImg} alt="Preview" />
+              <img width="620" height="400" src={zoomImg} alt="Preview"  loading="lazy" decoding="async"/>
               <button type="button" className="zoom-close" onClick={() => setZoomImg(null)}><X size={18} /></button>
             </div>
           </div>
@@ -2518,13 +2552,13 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
         </header>
 
         <div className="lightbox-main">
-          <img width="620" height="400" src={current} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''}`} onError={imgFallback} />
+          <img width="620" height="400" src={current} alt={`${row.make} ${row.model}${row.year?` ${row.year}`:''}`} onError={imgFallback}  loading="lazy" decoding="async"/>
           {photos.length > 1 && (
             <>
-              <button className="lb-arrow prev" onClick={() => setActiveIdx(i => (i - 1 + photos.length) % photos.length)} aria-label="Previous image">
+              <button className="lb-arrow prev" onClick={() => setActiveIdx(i => (i - 1 + photos.length) % photos.length)} aria-label="Previous image" type="button">
                 <ChevronLeft size={24} />
               </button>
-              <button className="lb-arrow next" onClick={() => setActiveIdx(i => (i + 1) % photos.length)} aria-label="Next image">
+              <button className="lb-arrow next" onClick={() => setActiveIdx(i => (i + 1) % photos.length)} aria-label="Next image" type="button">
                 <ChevronRight size={24} />
               </button>
             </>
@@ -2534,8 +2568,8 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
         {photos.length > 1 && (
           <div className="lightbox-thumbs">
             {photos.map((src, i) => (
-              <button key={src + i} className={`lb-thumb ${i === activeIdx ? 'active' : ''}`} onClick={() => setActiveIdx(i)}>
-                <img width="164" height="110" src={src} alt="" onError={imgFallback} />
+              <button key={src + i} className={`lb-thumb ${i === activeIdx ? 'active' : ''}`} onClick={() => setActiveIdx(i)} type="button">
+                <img width="164" height="110" src={src} alt="" onError={imgFallback}  loading="lazy" decoding="async"/>
                 {i === 0 && <span className="lb-cover-star">★</span>}
               </button>
             ))}
@@ -2702,7 +2736,7 @@ function Editor({ entity, data, onClose, onSave, onDelete, onDuplicate }) {
             <div className="editor-photo-thumbs">
               {photos.map((src, i) => (
                 <div key={src + i} className={`editor-thumb ${i === 0 ? 'is-cover' : ''}`}>
-                  <img width="164" height="110" src={src} alt="" onError={imgFallback} />
+                  <img width="164" height="110" src={src} alt="" onError={imgFallback}  loading="lazy" decoding="async"/>
                   {i === 0 ? <span className="badge-cover">Cover</span> : (
                     <button type="button" className="btn-set-cover-mini" onClick={() => handleCoverSet(i)} title="Make cover photo">★</button>
                   )}
@@ -2761,7 +2795,7 @@ function Editor({ entity, data, onClose, onSave, onDelete, onDuplicate }) {
             </button>
           )}
           <button type="button" onClick={onClose}>Cancel</button>
-          <button className="save"><Save /> Save record</button>
+          <button className="save" type="submit"><Save /> Save record</button>
         </footer>
       </form>
     </div>
@@ -2894,7 +2928,7 @@ function ProfileModal({ who, token, profile, perms, notify, onClose, onChanged }
           )}
           <footer>
             <button type="button" className="crm-ghost" onClick={onClose}>Cancel</button>
-            <button className="save" disabled={busy}>{busy ? 'Saving…' : <><Save /> Save details</>}</button>
+            <button className="save" disabled={busy} type="submit">{busy ? 'Saving…' : <><Save /> Save details</>}</button>
           </footer>
         </form>
         <form onSubmit={savePassword} className="crm-profile-form crm-profile-pw">
@@ -2906,7 +2940,7 @@ function ProfileModal({ who, token, profile, perms, notify, onClose, onChanged }
             <label>New password<input type="password" minLength={8} autoComplete="new-password" value={pw} onChange={e => setPw(e.target.value)} placeholder="At least 8 characters" /></label>
             <label>Confirm password<input type="password" minLength={8} autoComplete="new-password" value={pw2} onChange={e => setPw2(e.target.value)} /></label>
           </div>
-          <footer><button className="save" disabled={busy}>{busy ? 'Saving…' : 'Update password'}</button></footer>
+          <footer><button className="save" disabled={busy} type="submit">{busy ? 'Saving…' : 'Update password'}</button></footer>
         </form>
       </div>
     </div>
@@ -3004,7 +3038,7 @@ function TeamView({ token, profile, perms, setPerms, notify, onEdit }) {
     <div className="crm-team">
       <div className="crm-page-head">
         <div><p>Add colleagues, configure permission matrix and manage role access.</p></div>
-        <div className="crm-tools"><button className="crm-add" onClick={() => setAdding(true)}><Plus /> Add member</button></div>
+        <div className="crm-tools"><button className="crm-add" onClick={() => setAdding(true)} type="button"><Plus /> Add member</button></div>
       </div>
 
       <div className="crm-table-wrap">
@@ -3022,10 +3056,10 @@ function TeamView({ token, profile, perms, setPerms, notify, onEdit }) {
                 </td>
                 <td><em className={'crm-status ' + (m.active ? 'active' : 'inactive')}>{m.active ? 'Active' : 'Disabled'}</em></td>
                 <td className="crm-row-actions">
-                  <button onClick={() => onEdit(m)}><UserCog size={14} /> Edit</button>
-                  <button onClick={() => setPw(m)}><KeyRound size={14} /> Password</button>
+                  <button onClick={() => onEdit(m)} type="button"><UserCog size={14} /> Edit</button>
+                  <button onClick={() => setPw(m)} type="button"><KeyRound size={14} /> Password</button>
                   {m.id !== profile.id && (
-                    <button className={m.active ? 'crm-del' : ''} onClick={() => update(m.id, { active: !m.active })}>
+                    <button className={m.active ? 'crm-del' : ''} onClick={() => update(m.id, { active: !m.active })} type="button">
                       {m.active ? 'Disable' : 'Enable'}
                     </button>
                   )}
@@ -3081,7 +3115,7 @@ function TeamView({ token, profile, perms, setPerms, notify, onEdit }) {
             <p className="crm-hint">Give this password to them directly. They can change it after signing in.</p>
             <footer>
               <button type="button" onClick={() => setAdding(false)}>Cancel</button>
-              <button className="save" disabled={busy}><Save /> {busy ? 'Adding…' : 'Add member'}</button>
+              <button className="save" disabled={busy} type="submit"><Save /> {busy ? 'Adding…' : 'Add member'}</button>
             </footer>
           </form>
         </div>
@@ -3095,7 +3129,7 @@ function TeamView({ token, profile, perms, setPerms, notify, onEdit }) {
             <p className="crm-hint">Existing passwords cannot be unscrambled. You can only set a new one.</p>
             <footer>
               <button type="button" onClick={() => setPw(null)}>Cancel</button>
-              <button className="save" disabled={busy}><Save /> Set password</button>
+              <button className="save" disabled={busy} type="submit"><Save /> Set password</button>
             </footer>
           </form>
         </div>
@@ -3229,12 +3263,12 @@ function PeopleView({ token, profile, perms, notify }) {
         <div><p>Staff records, measured sales performance and monthly payroll.</p></div>
         <div className="crm-tools">
           <div className="crm-seg">
-            <button className={view === 'people' ? 'on' : ''} onClick={() => setView('people')}>People</button>
-            <button className={view === 'performance' ? 'on' : ''} onClick={() => setView('performance')}>Performance</button>
-            {payView && <button className={view === 'payroll' ? 'on' : ''} onClick={() => setView('payroll')}>Payroll</button>}
+            <button className={view === 'people' ? 'on' : ''} onClick={() => setView('people')} type="button">People</button>
+            <button className={view === 'performance' ? 'on' : ''} onClick={() => setView('performance')} type="button">Performance</button>
+            {payView && <button className={view === 'payroll' ? 'on' : ''} onClick={() => setView('payroll')} type="button">Payroll</button>}
           </div>
-          <button onClick={load} title="Refresh"><RefreshCw /></button>
-          {manage && <button className="crm-add" onClick={() => setEdit({})}><Plus /> Add person</button>}
+          <button onClick={load} title="Refresh" type="button"><RefreshCw /></button>
+          {manage && <button className="crm-add" onClick={() => setEdit({})} type="button"><Plus /> Add person</button>}
         </div>
       </div>
 
@@ -3272,7 +3306,7 @@ function PeopleView({ token, profile, perms, notify }) {
                       {(EMP_STATUS.find(s => s[0] === e.status) || [])[1] || e.status}
                     </em>
                   </td>
-                  <td className="crm-row-actions">{manage && <button onClick={() => setEdit(e)}>Edit</button>}</td>
+                  <td className="crm-row-actions">{manage && <button onClick={() => setEdit(e)} type="button">Edit</button>}</td>
                 </tr>
               ))}
               {!staff.length && <tr><td colSpan={8} className="crm-dim">Nobody added yet. Press “Add person” to start.</td></tr>}
@@ -3317,7 +3351,7 @@ function PeopleView({ token, profile, perms, notify }) {
           <div className="payroll-bar">
             <label>Month<input type="month" value={month.slice(0, 7)} onChange={e => setMonth(monthKey(e.target.value + '-01'))} /></label>
             <div className="payroll-total"><small>Net payable</small><b>{fmt(totals.net)}</b><em>{totals.count} payslip(s)</em></div>
-            {payMan && <button className="crm-add" disabled={busy} onClick={prepare}><Plus /> Prepare {monthName(month).split(' ')[0]}</button>}
+            {payMan && <button className="crm-add" disabled={busy} onClick={prepare} type="button"><Plus /> Prepare {monthName(month).split(' ')[0]}</button>}
           </div>
           <div className="crm-table-wrap">
             <table>
@@ -3336,9 +3370,9 @@ function PeopleView({ token, profile, perms, notify }) {
                       {p.paid_on && <><br /><small className="crm-dim">{date(p.paid_on)}{p.reference ? ' · ' + p.reference : ''}</small></>}
                     </td>
                     <td className="crm-row-actions">
-                      {payMan && p.status !== 'paid' && <button onClick={() => setOpen(p)}>Adjust</button>}
-                      {payMan && p.status === 'draft' && <button onClick={() => setStatus(p.id, 'approved')}><Check size={14} /> Approve</button>}
-                      {payMan && p.status === 'approved' && <button onClick={() => setStatus(p.id, 'paid')}><Wallet size={14} /> Mark paid</button>}
+                      {payMan && p.status !== 'paid' && <button onClick={() => setOpen(p)} type="button">Adjust</button>}
+                      {payMan && p.status === 'draft' && <button onClick={() => setStatus(p.id, 'approved')} type="button"><Check size={14} /> Approve</button>}
+                      {payMan && p.status === 'approved' && <button onClick={() => setStatus(p.id, 'paid')} type="button"><Wallet size={14} /> Mark paid</button>}
                     </td>
                   </tr>
                 ))}
@@ -3372,7 +3406,7 @@ function PeopleView({ token, profile, perms, notify }) {
             </div>
             <footer>
               <button type="button" onClick={() => setEdit(null)}>Cancel</button>
-              <button className="save" disabled={busy}><Save /> {busy ? 'Saving…' : 'Save person'}</button>
+              <button className="save" disabled={busy} type="submit"><Save /> {busy ? 'Saving…' : 'Save person'}</button>
             </footer>
           </form>
         </div>
@@ -3394,7 +3428,7 @@ function PeopleView({ token, profile, perms, notify }) {
             </div>
             <footer>
               <button type="button" onClick={() => setOpen(null)}>Cancel</button>
-              <button className="save"><Save /> Save payslip</button>
+              <button className="save" type="submit"><Save /> Save payslip</button>
             </footer>
           </form>
         </div>
@@ -3451,7 +3485,7 @@ function ApprovalsView({ token, profile, perms, notify, onChange }) {
               <option value="">All</option>
             </select>
           </label>
-          <button onClick={load}><RefreshCw /></button>
+          <button onClick={load} type="button"><RefreshCw /></button>
         </div>
       </div>
       {!list.length ? (
@@ -3469,8 +3503,8 @@ function ApprovalsView({ token, profile, perms, notify, onChange }) {
               </div>
               {a.status === 'pending' && decide && (
                 <div className="approval-actions">
-                  <button className="save" disabled={busy === a.id} onClick={() => act(a.id, 'approved')}><Check /> Approve</button>
-                  <button className="crm-del" disabled={busy === a.id} onClick={() => act(a.id, 'rejected')}><Ban /> Reject</button>
+                  <button className="save" disabled={busy === a.id} onClick={() => act(a.id, 'approved')} type="button"><Check /> Approve</button>
+                  <button className="crm-del" disabled={busy === a.id} onClick={() => act(a.id, 'rejected')} type="button"><Ban /> Reject</button>
                 </div>
               )}
               {a.status === 'pending' && !decide && <span className="approval-wait"><Clock3 /> Waiting for administrator</span>}
@@ -3541,7 +3575,7 @@ function SettingsView({ token, profile, perms, notify }) {
           ))}
         </div>
         {canEdit ? (
-          <footer><button className="save" disabled={busy}><Save /> {busy ? 'Saving…' : 'Save changes'}</button></footer>
+          <footer><button className="save" disabled={busy} type="submit"><Save /> {busy ? 'Saving…' : 'Save changes'}</button></footer>
         ) : (
           <p className="crm-hint"><ShieldAlert size={13} /> Your role cannot edit these settings.</p>
         )}
@@ -3582,9 +3616,9 @@ function AccountsList({ customers, onOpen }) {
       </div>
 
       <div className="crm-chips">
-        <button className={'crm-chip ' + (filter === 'all' ? 'active' : '')} onClick={() => setFilter('all')}>All <em>{searched.length}</em></button>
+        <button className={'crm-chip ' + (filter === 'all' ? 'active' : '')} onClick={() => setFilter('all')} type="button">All <em>{searched.length}</em></button>
         {statuses.map(s => (
-          <button key={s} className={'crm-chip ' + (filter === s ? 'active' : '')} onClick={() => setFilter(s)}>{pretty(s)} <em>{searched.filter(c => statusClass(c.status) === s).length}</em></button>
+          <button key={s} className={'crm-chip ' + (filter === s ? 'active' : '')} onClick={() => setFilter(s)} type="button">{pretty(s)} <em>{searched.filter(c => statusClass(c.status) === s).length}</em></button>
         ))}
       </div>
 
@@ -3593,7 +3627,7 @@ function AccountsList({ customers, onOpen }) {
       ) : (
         <div className="crm-account-grid">
           {list.map(c => (
-            <article key={c.id} className="acc-card" onClick={() => onOpen(c.id)}>
+            <article key={c.id} className="acc-card" role="button" tabIndex={0} aria-label="Open this record" onClick={() => onOpen(c.id)} onKeyDown={KEY_ACTIVATE(() => onOpen(c.id))}>
               <div className="acc-top">
                 <span className="acc-avatar">{(c.name || '?').slice(0, 2).toUpperCase()}</span>
                 <em className={'crm-status ' + statusClass(c.status)}>{pretty(c.status || 'Active')}</em>
@@ -3606,7 +3640,7 @@ function AccountsList({ customers, onOpen }) {
                 <div><dt>Lifetime spend</dt><dd className="spend">{fmt(c.total_spend)}</dd></div>
                 <div><dt>Vehicles</dt><dd>{c.vehicles_bought ?? 0}</dd></div>
               </dl>
-              <button>Open account <ChevronRight /></button>
+              <button type="button">Open account <ChevronRight /></button>
             </article>
           ))}
         </div>
@@ -3670,7 +3704,7 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
 
   return (
     <div className="crm-customer">
-      <button className="back-btn" onClick={onBack}><ArrowLeft size={15} /> All customers</button>
+      <button className="back-btn" onClick={onBack} type="button"><ArrowLeft size={15} /> All customers</button>
       <div className="cust-head">
         <div>
           <span className="acc-avatar big">{(customer.name || '?').slice(0, 2).toUpperCase()}</span>
@@ -3680,9 +3714,9 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
           </div>
         </div>
         <div className="cust-head-actions">
-          {canOrder && <button className="crm-add" onClick={() => setModal({ t: 'order' })}><Plus /> Add order</button>}
-          {canOrder && <button onClick={() => setModal({ t: 'import' })}><Globe size={15} /> Import from website</button>}
-          {canPay && <button onClick={() => setModal({ t: 'payment' })}><Wallet size={15} /> Record payment</button>}
+          {canOrder && <button className="crm-add" onClick={() => setModal({ t: 'order' })} type="button"><Plus /> Add order</button>}
+          {canOrder && <button onClick={() => setModal({ t: 'import' })} type="button"><Globe size={15} /> Import from website</button>}
+          {canPay && <button onClick={() => setModal({ t: 'payment' })} type="button"><Wallet size={15} /> Record payment</button>}
         </div>
       </div>
 
@@ -3707,10 +3741,10 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
             <div><small>LOGIN ID (EMAIL)</small><b>{login.email}</b></div>
             <div><small>LAST SIGNED IN</small><b>{login.last_sign_in_at ? new Date(login.last_sign_in_at).toLocaleString() : 'Never'}</b></div>
             <div className="login-actions">
-              {canLoginAs && <button onClick={loginAs}><LogIn size={14} /> Open portal</button>}
-              {canCust && <button onClick={() => setModal({ t: 'setpw' })}><KeyRound size={14} /> Set new password</button>}
+              {canLoginAs && <button onClick={loginAs} type="button"><LogIn size={14} /> Open portal</button>}
+              {canCust && <button onClick={() => setModal({ t: 'setpw' })} type="button"><KeyRound size={14} /> Set new password</button>}
               {canCust && (
-                <button onClick={() => post('send-reset', { customer_id: customerId }).then(() => notify('Reset email sent to ' + login.email)).catch(() => {})}>
+                <button onClick={() => post('send-reset', { customer_id: customerId }).then(() => notify('Reset email sent to ' + login.email)).catch(() => {})} type="button">
                   <Send size={14} /> Email reset link
                 </button>
               )}
@@ -3719,7 +3753,7 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
         ) : (
           <div className="login-box empty">
             <p>No website login created yet.</p>
-            {canCust && <button className="crm-add" onClick={() => setModal({ t: 'portal' })}><Plus /> Create portal access</button>}
+            {canCust && <button className="crm-add" onClick={() => setModal({ t: 'portal' })} type="button"><Plus /> Create portal access</button>}
           </div>
         )}
       </section>
@@ -3766,13 +3800,13 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
                     return (
                       <div className="alloc-row" key={a.id}>
                         <span><Link2 size={12} /> {fmt(a.amount)} → {ord ? ord.order_no + ' · ' + ord.vehicle : 'order'}</span>
-                        {canPay && <button className="crm-del" title="Return to unapplied funds" onClick={() => post('unallocate&id=' + a.id, {}, 'DELETE')}><X size={12} /></button>}
+                        {canPay && <button className="crm-del" title="Return to unapplied funds" onClick={() => post('unallocate&id=' + a.id, {}, 'DELETE')} type="button"><X size={12} /></button>}
                       </div>
                     );
                   })}
                 </div>
                 {canPay && Number(p.unapplied) > 0 && orders.some(o => Number(o.balance_due) > 0) && (
-                  <button className="save" onClick={() => setModal({ t: 'apply', payment: p })}>Apply funds</button>
+                  <button className="save" onClick={() => setModal({ t: 'apply', payment: p })} type="button">Apply funds</button>
                 )}
               </article>
             ))}
@@ -3805,7 +3839,7 @@ function CustomerModal({ modal, customer, orders, listings, busy, onClose, post,
       <form className="crm-editor" onMouseDown={e => e.stopPropagation()} onSubmit={submit}>
         <header><div><small>{sub}</small><h2>{title}</h2></div><button type="button" onClick={onClose}><X /></button></header>
         {body}
-        <footer><button type="button" onClick={onClose}>Cancel</button><button className="save" disabled={busy}><Save /> {busy ? 'Saving…' : 'Save'}</button></footer>
+        <footer><button type="button" onClick={onClose}>Cancel</button><button className="save" disabled={busy} type="submit"><Save /> {busy ? 'Saving…' : 'Save'}</button></footer>
       </form>
     </div>
   );
@@ -3907,4 +3941,518 @@ function CustomerModal({ modal, customer, orders, listings, busy, onClose, post,
     });
 
   return null;
+}
+
+/* ── Site guardian & promotions ──────────────────────────────────────────────
+   The CRM face of scripts/guardian.mjs and scripts/promo-agent.mjs.
+
+   Health: the report is written by `npm run guard` (locally or by the nightly
+   GitHub Action) into public/guardian-report.json, so what the panel shows is
+   the last real run against the last real build — not a live scan of a
+   serverless function, which could not read the repo anyway.
+
+   Promotions: writing the `promo` setting is genuine control — the promo bar
+   reads it on the next page load, with no deploy. The panel will not offer a
+   discount it cannot honour, so `--discount`-style input is validated the same
+   way api/settings.js validates it.
+
+   Both panels say who can do what: publishing needs the same permission as
+   editing the website, and the button is disabled rather than hidden so a
+   viewer can see that the control exists. */
+/* ── Price offers ────────────────────────────────────────────────────────────
+   The owner's discount, applied to the live site from here.
+
+   Two ways in, because both are real: the form (scope, percentage, machine
+   types, end date) and the request box, which takes a sentence — "20% off
+   machinery until 30 November" — and turns it into exactly the same offer
+   object. The request box is deterministic (src/offers.js parseOfferRequest):
+   it reads a percentage and a scope, refuses to guess, and shows the draft for
+   review before anything is published. It never invents a number.
+
+   Nothing here is a promise the site cannot keep: the percentage is validated
+   the same way api/settings.js validates it, the preview runs the same
+   src/offers.js arithmetic the website runs, and an offer with an end date
+   stops on that date by itself. Publishing needs settings.write — the same
+   permission as editing the website — and the button is disabled rather than
+   hidden so a viewer can see the control exists. */
+
+function OffersView({ token, profile, perms, notify }) {
+  const canPublish = hasPerm(perms, profile?.role, 'settings.write');
+  const [live, setLive] = useState(null);          // the offer visitors see now
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [request, setRequest] = useState('');
+  const [reply, setReply] = useState(null);        // {ok, reply}
+  const [draft, setDraft] = useState(null);        // the offer being edited
+  const [unitsOpen, setUnitsOpen] = useState(false);
+  const types = [...new Set(MACHINES.map(m => m.type))];
+  const brands = [...new Set(MACHINES.map(m => m.brand))].sort();
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const all = await call('/api/settings', token);
+      setLive(parseOffer(all?.offer));
+    } catch (e) { notify(e.message); } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, []);
+
+  const fresh = (patch = {}) => validateOffer({
+    active: true, scope: 'machinery', percent: 10, types: [], machines: {}, label: null,
+    headline: '', until: null, publishedBy: profile?.full_name || profile?.email || 'CRM', ...patch
+  });
+
+  const startBlank = () => {
+    const checked = fresh({ headline: '10% off machinery' });
+    setDraft(checked.ok ? checked.value : null);
+    setReply(null);
+  };
+
+  // The agent path: one sentence in, a reviewed offer object out.
+  const askAgent = () => {
+    const result = parseOfferRequest(request, {machines: MACHINES, existing: live});
+    setReply(result);
+    if (result.ok && result.action === 'publish') setDraft(result.offer);
+    else if (result.ok && result.action === 'clear') setDraft({active: false});
+  };
+
+  const publish = async () => {
+    if (!draft) return;
+    const checked = validateOffer(draft);
+    if (!checked.ok) { notify(checked.error); return; }
+    setBusy(true);
+    try {
+      const payload = checked.value;
+      await call('/api/settings', token, {method: 'PATCH', body: JSON.stringify({offer: JSON.stringify(payload)})});
+      setLive(payload.active ? payload : null);
+      setDraft(null);
+      setRequest('');
+      setReply({ok: true, reply: payload.active
+        ? `Live: ${payload.headline}. The website shows it on the next page load.`
+        : 'Offer cleared. The website is back to list prices.'});
+      notify(payload.active ? `Offer published — ${payload.headline}.` : 'Offer cleared.');
+    } catch (e) { notify(e.message); } finally { setBusy(false); }
+  };
+
+  if (loading) return <div className="crm-boot"><RefreshCw /><span>Reading the live offer…</span></div>;
+
+  const liveText = live ? describeOffer(live) : null;
+  const sample = MACHINES.slice(0, 3);
+  const previewPercent = draft?.active ? draft.percent : 0;
+  const previewTypes = draft?.active ? (draft.types || []) : [];
+
+  return (
+    <div className="offers-view">
+      <div className="crm-page-head">
+        <div>
+          <p>Apply a discount to the live site — a percentage off machinery, cars or everything, with an optional end
+            date. The website shows the list price struck through, the reduced price beside it and what the buyer
+            saves, on the cards and on each machine's own page.</p>
+        </div>
+        <div className="crm-tools">
+          <button onClick={load} title="Reload the live offer" type="button"><RefreshCw /></button>
+          <button className="crm-add" onClick={startBlank} type="button"><Plus /> New offer</button>
+        </div>
+      </div>
+
+      <div className={'offer-live' + (live ? ' on' : '')}>
+        <Sparkles size={15} />
+        {live ? (
+          <span>
+            <b>Live now: {liveText.line}</b>
+            {liveText.untilLabel ? ` — ends ${liveText.untilLabel}` : ' — no end date'}
+            <small>Set by {live.publishedBy || 'the CRM'}{live.publishedAt ? ` on ${date(live.publishedAt)}` : ''} · scope: {live.scope}{live.types?.length ? ` (${live.types.join(', ')})` : ''}</small>
+          </span>
+        ) : <span><b>No offer is live.</b><small>Every page shows the list price. Publish one below and it appears on the next page load.</small></span>}
+      </div>
+
+      <section className="offer-ask">
+        <div className="offer-ask-head">
+          <Sparkles size={14} />
+          <div>
+            <b>Ask the assistant to do it</b>
+            <small>Write it how you would say it. It reads the percentage, the scope and the date — and asks when something is missing instead of guessing.</small>
+          </div>
+        </div>
+        <div className="offer-ask-row">
+          <input value={request} onChange={e => setRequest(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); askAgent(); } }}
+            placeholder='e.g. "give 20% off machinery until 30 November"' aria-label="Describe the offer in a sentence" />
+          <button onClick={askAgent} type="button" disabled={!request.trim()}>Prepare offer</button>
+          <button onClick={() => { setRequest(''); setReply(null); }} type="button" className="crm-ghost">Clear</button>
+        </div>
+        <div className="offer-samples">
+          {['20% off machinery', '15% off excavators until 30 November', '10 percent off all cars this month', 'clear the offer']
+            .map(x => <button key={x} type="button" onClick={() => setRequest(x)}>{x}</button>)}
+        </div>
+        {reply && (
+          <div className={'offer-reply' + (reply.ok ? ' ok' : ' warn')}>
+            {reply.ok ? <Check size={14} /> : <ShieldAlert size={14} />}
+            <span>{reply.reply}{reply.ok && reply.action === 'publish' ? ' Review it below, then publish.' : ''}</span>
+          </div>
+        )}
+      </section>
+
+      {draft && (
+        <section className="offer-editor">
+          <div className="offer-editor-head">
+            <b>{draft.active ? 'Offer to publish' : 'Clearing the offer'}</b>
+            <button className="crm-ghost" onClick={() => setDraft(null)} type="button"><X size={14} /> Discard</button>
+          </div>
+
+          {draft.active && (
+            <>
+              <div className="offer-fields">
+                <label>
+                  <span>Applies to</span>
+                  <select value={draft.scope} onChange={e => setDraft({...draft, scope: e.target.value, types: e.target.value === 'machinery' ? draft.types : []})}>
+                    {OFFER_SCOPES.map(x => <option key={x} value={x}>{x === 'all' ? 'Everything on the site' : x === 'cars' ? 'Cars only' : 'Machinery only'}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Discount</span>
+                  <div className="offer-percent">
+                    <input type="range" min={MIN_OFFER_PERCENT} max={MAX_OFFER_PERCENT} value={draft.percent}
+                      onChange={e => setDraft({...draft, percent: Number(e.target.value)})} aria-label="Discount percentage" />
+                    <b>{draft.percent}%</b>
+                  </div>
+                </label>
+                <label>
+                  <span>End date (optional)</span>
+                  <input type="date" value={draft.until || ''} onChange={e => setDraft({...draft, until: e.target.value || null})} />
+                </label>
+                <label>
+                  <span>Badge label (optional)</span>
+                  <input value={draft.label || ''} maxLength={40} placeholder="Autumn offer"
+                    onChange={e => setDraft({...draft, label: e.target.value || null})} />
+                </label>
+              </div>
+
+              <label className="offer-headline">
+                <span>Line visitors read</span>
+                <input value={draft.headline} maxLength={90} onChange={e => setDraft({...draft, headline: e.target.value})} />
+              </label>
+
+              {draft.scope === 'machinery' && (
+                <div className="offer-types">
+                  <span>Machine types (leave all off for the whole machinery desk)</span>
+                  <div>
+                    {types.map(t => (
+                      <button key={t} type="button" className={(draft.types || []).includes(t) ? 'on' : ''}
+                        onClick={() => setDraft({...draft, types: (draft.types || []).includes(t) ? draft.types.filter(x => x !== t) : [...(draft.types || []), t]})}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {draft.scope === 'machinery' && (
+                <div className="offer-units">
+                  <button type="button" className="crm-ghost" onClick={() => setUnitsOpen(v => !v)}>
+                    {unitsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Per-machine override ({MACHINES.length} units)
+                  </button>
+                  <small>A single unit can carry a different discount — a machine that has been on the yard longer, for example. It beats the campaign percentage above.</small>
+                  {unitsOpen && (
+                    <div className="offer-unit-grid">
+                      {MACHINES.map(m => {
+                        const raw = draft.machines?.[m.ref];
+                        const value = raw != null ? raw : '';
+                        const effective = percentFor({...draft, machines: {}}, 'machine', {ref: m.ref, type: m.type}) || (value === '' ? draft.percent : Number(value));
+                        const p = priceWithOffer(listPriceUSD(m), value === '' ? draft.percent : Number(value));
+                        return (
+                          <div key={m.ref} className={'offer-unit' + (value !== '' ? ' overridden' : '')}>
+                            <span className="offer-unit-id">
+                              <b>{m.name}</b>
+                              <small>{m.ref} · {m.type} · list {fmt0(listPriceUSD(m))}</small>
+                            </span>
+                            <input type="number" min={MIN_OFFER_PERCENT} max={MAX_OFFER_PERCENT} value={value}
+                              placeholder={String(draft.percent)} aria-label={`Discount for ${m.name}`}
+                              onChange={e => {
+                                const next = {...(draft.machines || {})};
+                                if (e.target.value === '') delete next[m.ref];
+                                else next[m.ref] = Number(e.target.value);
+                                setDraft({...draft, machines: next});
+                              }} />
+                            <span className="offer-unit-price">
+                              {p.hasOffer ? <><s>{fmt0(p.was)}</s> <b>{fmt0(p.now)}</b></> : <b>{fmt0(p.now)}</b>}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="offer-preview">
+                <b>What buyers will see</b>
+                <div className="offer-preview-grid">
+                  {sample.filter(m => previewPercent && (!previewTypes.length || previewTypes.includes(m.type))).map(m => {
+                    const pct = percentFor({...draft, machines: draft.machines || {}}, 'machine', {ref: m.ref, type: m.type});
+                    const p = priceWithOffer(listPriceUSD(m), pct);
+                    return (
+                      <div key={m.ref} className={'offer-preview-card' + (p.hasOffer ? ' on' : '')}>
+                        {machinePhoto(m) && <img loading="lazy" decoding="async" width="300" height="200" src={machinePhoto(m)} alt=""/>}
+                        <b>{m.name}</b>
+                        {p.hasOffer
+                          ? <span className="mch-price-row"><s>{fmt0(p.was)}</s> <b>{fmt0(p.now)}</b> <em>{p.percent}% off</em></span>
+                          : <span className="mch-price-row"><b>{fmt0(p.now)}</b></span>}
+                      </div>
+                    );
+                  })}
+                  {(!previewPercent || (previewTypes.length && !sample.some(m => previewTypes.includes(m.type)))) && (
+                    <p className="crm-hint">Nothing in this selection is covered — the offer applies to
+                      {draft.scope === 'cars' ? ' cars' : draft.scope === 'all' ? ' everything' : ` ${(draft.types || []).join(', ') || 'machinery'}`}.</p>
+                  )}
+                </div>
+                <small className="offer-preview-note">
+                  Same arithmetic as the website: src/offers.js rounds to the nearest $50 and keeps the list price visible.
+                  {draft.until ? ` The offer stops by itself on ${formatDate(draft.until)}.` : ' With no end date it stays live until you clear it.'}
+                </small>
+              </div>
+            </>
+          )}
+
+          <div className="offer-publish">
+            <button className="crm-add" onClick={publish} type="button" disabled={!canPublish || busy}>
+              {busy ? <RefreshCw size={14} /> : <Send size={14} />} {draft.active ? 'Publish the offer' : 'Clear the offer'}
+            </button>
+            {!canPublish && <small>Your role cannot change website settings — ask an administrator, or an admin can publish it.</small>}
+            {canPublish && <small>Publishing is immediate: the site reads the setting on its next page load. No deploy, no build.</small>}
+          </div>
+        </section>
+      )}
+
+      <section className="offer-catalogue">
+        <b>Every machine, with the current offer applied</b>
+        <div className="crm-table-wrap">
+          <table className="crm-table">
+            <thead>
+              <tr><th>Machine</th><th>Type</th><th>List (FOB)</th><th>Offer</th><th>Buyer pays</th><th>Saving</th></tr>
+            </thead>
+            <tbody>
+              {MACHINES.map(m => {
+                const pct = percentFor(live, 'machine', {ref: m.ref, type: m.type});
+                const price = priceWithOffer(listPriceUSD(m), pct);
+                return (
+                  <tr key={m.ref}>
+                    <td><b>{m.name}</b><br/><small>{m.ref} · {m.brand}</small></td>
+                    <td>{m.type}</td>
+                    <td>{fmt0(price.was)}</td>
+                    <td>{price.hasOffer ? <em className="crm-status approved">{price.percent}% off</em> : <small>—</small>}</td>
+                    <td><b>{fmt0(price.now)}</b></td>
+                    <td>{price.hasOffer ? fmt0(price.saving) : '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function GuardianView({ token, profile, perms, notify }) {
+  const [report, setReport] = useState(null);
+  const [plan, setPlan] = useState(null);
+  const [live, setLive] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [discount, setDiscount] = useState('');
+  const [until, setUntil] = useState('');
+  const canPublish = hasPerm(perms, profile?.role, 'settings.write');
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const grab = async url => {
+        try {
+          const r = await fetch(url, { cache: 'no-store' });
+          return r.ok ? await r.json() : null;
+        } catch { return null; }
+      };
+      const [rep, pl, set] = await Promise.all([
+        grab('/guardian-report.json'), grab('/promo-plan.json'), grab('/api/settings')
+      ]);
+      if (!alive) return;
+      setReport(rep); setPlan(pl); setLive(set?.promo || null);
+      if (!rep) setError('No guardian report yet — run `npm run guard` (or the nightly action) to produce one.');
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const publish = async (campaign, active) => {
+    setBusy(true);
+    try {
+      const payload = active ? {
+        active: true,
+        id: campaign.id,
+        kind: campaign.kind || 'campaign',
+        headline: campaign.headline,
+        sub: campaign.sub || '',
+        cta: campaign.cta || 'See more',
+        href: campaign.target,
+        discount: discount ? Number(discount) : null,
+        until: until || null,
+        publishedAt: new Date().toISOString(),
+        publishedBy: profile?.full_name || profile?.email || 'CRM'
+      } : { active: false };
+      await call('/api/settings', token, { method: 'PATCH', body: JSON.stringify({ promo: JSON.stringify(payload) }) });
+      setLive(JSON.stringify(payload));
+      notify(active ? `Promotion live: ${campaign.headline} — visitors see it on the next page load.` : 'Promotion cleared. The bar will disappear on the next page load.');
+    } catch (e) { notify(e.message); } finally { setBusy(false); }
+  };
+
+  if (loading) return <div className="crm-boot"><RefreshCw /><span>Loading the guardian report…</span></div>;
+
+  const liveObj = (() => { try { return live ? JSON.parse(live) : null; } catch { return { active: false }; } })();
+  const s = report?.summary;
+
+  return (
+    <div className="guardian-view">
+      <div className="crm-page-head">
+        <div>
+          <p>Health, security and promotions — the two agents that keep the site standing, and the campaigns that bring people to it.</p>
+        </div>
+        <div className="crm-tools">
+          <a className="crm-ghost" href="https://github.com/ceoar7group/AR7traders-web/actions/workflows/guardian.yml" target="_blank" rel="noreferrer">
+            <Play size={14} /> Run checks now
+          </a>
+        </div>
+      </div>
+
+      {error && <p className="crm-hint"><ShieldAlert size={13} /> {error}</p>}
+
+      {s && (
+        <>
+          <div className="guardian-summary">
+            <span className="guardian-stat pass"><b>{s.pass}</b> passing</span>
+            <span className={'guardian-stat ' + (s.warn ? 'warn' : '')}><b>{s.warn}</b> warnings</span>
+            <span className={'guardian-stat ' + (s.fail ? 'fail' : '')}><b>{s.fail}</b> failures</span>
+            <span className="guardian-when">last run {report.generatedAt ? date(report.generatedAt) : '—'}</span>
+          </div>
+
+          {s.fail > 0 && (
+            <div className="crm-notice guardian-alert" role="button" tabIndex={0} aria-label="Show the failing checks" onClick={() => notify('Failures are listed below with the exact fix.')} onKeyDown={KEY_ACTIVATE(() => notify('Failures are listed below with the exact fix.'))}>
+              <span>{s.fail} check{s.fail === 1 ? '' : 's'} failing — each one below names the file to open.</span>
+              <ShieldAlert size={15} />
+            </div>
+          )}
+
+          {['security', 'health', 'seo'].map(area => {
+            const list = (report.checks || []).filter(c => c.area === area);
+            if (!list.length) return null;
+            return (
+              <section className="guardian-block" key={area}>
+                <h3>{area === 'seo' ? 'SEO' : area[0].toUpperCase() + area.slice(1)}</h3>
+                <div className="guardian-checks">
+                  {list.map(c => (
+                    <div className={'guardian-check ' + c.status} key={c.area + c.name}>
+                      <span className="guardian-dot">{c.status === 'pass' ? <Check size={13} /> : c.status === 'warn' ? <ShieldAlert size={13} /> : <Ban size={13} />}</span>
+                      <div>
+                        <b>{c.name}</b>
+                        <small>{c.detail}</small>
+                        {c.fix && c.status !== 'pass' && <code>{c.fix}</code>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </>
+      )}
+
+      <section className="guardian-block">
+        <h3>Promotions</h3>
+        {liveObj?.active ? (
+          <div className="guardian-live">
+            <div>
+              <b>{liveObj.headline}</b>
+              <small>{liveObj.sub}</small>
+              <small>
+                → {liveObj.href}
+                {liveObj.discount ? ` · ${liveObj.discount}% off margin` : ''}
+                {liveObj.until ? ` · until ${liveObj.until}` : ' · no end date'}
+                {liveObj.publishedBy ? ` · by ${liveObj.publishedBy}` : ''}
+              </small>
+              {liveObj.discount && <small className="guardian-warnline">Every quotation until {liveObj.until || 'it is cleared'} must show this discount.</small>}
+            </div>
+            <button className="crm-ghost" disabled={!canPublish || busy} onClick={() => publish(liveObj, false)} title={canPublish ? 'Take the bar down' : 'You need the website-edit permission'} type="button">
+              <X size={14} /> Take it down
+            </button>
+          </div>
+        ) : (
+          <p className="crm-hint">No promotion is live. The bar stays hidden until one is published.</p>
+        )}
+
+        <div className="guardian-promo-controls">
+          <label>
+            <span>Discount off our margin (optional)</span>
+            <input value={discount} onChange={e => setDiscount(e.target.value)} placeholder="e.g. 5" inputMode="numeric" />
+          </label>
+          <label>
+            <span>Ends (optional)</span>
+            <input type="date" value={until} onChange={e => setUntil(e.target.value)} />
+          </label>
+        </div>
+        <p className="crm-hint">
+          Leave the discount blank unless it is real — a promotion that quotes 5% and then charges
+          full margin costs more in trust than the campaign earns. An end date is what stops it
+          outliving the offer.
+        </p>
+
+        {!plan?.campaigns?.length ? (
+          <p className="crm-hint">No campaign plan published. Run <code>npm run promo:plan</code> and deploy, or publish a one-off below.</p>
+        ) : (
+          <div className="guardian-campaigns">
+            {plan.campaigns.map(c => (
+              <div className="guardian-campaign" key={c.id}>
+                <div>
+                  <b>{c.headline}</b>
+                  <small>{c.sub}</small>
+                  <small className="guardian-channels">{c.channels?.join(' · ')} → {c.target}{c.ran ? ' · already run' : ''}</small>
+                </div>
+                <div className="guardian-campaign-actions">
+                  <button className="crm-add" disabled={!canPublish || busy} onClick={() => publish(c, true)} title={canPublish ? 'Show this on the site' : 'You need the website-edit permission'} type="button">
+                    <Send size={13} /> Publish
+                  </button>
+                  <button className="crm-ghost" onClick={() => { navigator.clipboard?.writeText(`https://ar7traders.com${c.target}`); notify('Link copied'); }} title="Copy the campaign link" type="button">
+                    <Copy size={13} /> Link
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="guardian-block">
+        <h3>Running the agents</h3>
+        <p className="crm-hint">
+          These agents run against the repository, not from this browser — a serverless function cannot read the
+          code or the build. <b>Run checks now</b> starts the GitHub Action; locally you have:
+        </p>
+        <div className="guardian-cmds">
+          {[
+            ['npm run guard', 'health, security, freshness and SEO checks'],
+            ['npm test', 'the full test suite (26 suites)'],
+            ['npm run seo', 'the 100-point SEO audit'],
+            ['npm run promo:plan', 'build this week’s campaigns from real stock'],
+            ['npm run machinery:sync -- --url <link> --rights dropship-authorized', 'import a machine from a supplier link']
+          ].map(([cmd, what]) => (
+            <div className="guardian-cmd" key={cmd}>
+              <button onClick={() => { navigator.clipboard?.writeText(cmd); notify('Command copied'); }} title="Copy this command" type="button"><ClipboardCopy size={13} /></button>
+              <code>{cmd}</code>
+              <small>{what}</small>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 }

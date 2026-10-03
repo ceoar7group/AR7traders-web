@@ -34,3 +34,22 @@
 - Phone / WhatsApp: +44 7347 132624 (tel:+447347132624, WhatsApp: https://wa.me/447347132624)
 - Location: Tokyo, Japan
 - Website: https://ar7traders.com
+
+## Used car landing pages (one per brand, one per model)
+- Used Toyota cars for export: https://ar7traders.com/cars/toyota
+- Used Lexus cars for export: https://ar7traders.com/cars/lexus
+- Used Honda cars for export: https://ar7traders.com/cars/honda
+- Used Nissan cars for export: https://ar7traders.com/cars/nissan
+- Used Mazda cars for export: https://ar7traders.com/cars/mazda
+- Used Mercedes-Benz cars for export: https://ar7traders.com/cars/mercedes-benz
+- Used BMW cars for export: https://ar7traders.com/cars/bmw
+- Used Land Rover cars for export: https://ar7traders.com/cars/land-rover
+- Model pages follow the same pattern, e.g. https://ar7traders.com/cars/toyota/land-cruiser
+- Complete, live list: https://ar7traders.com/api/sitemap-vehicles.xml
+
+## Machinery & equipment
+- Construction machinery for export: excavators, wheel loaders, tipper trucks and cranes — https://ar7traders.com/machinery
+- Excavators: https://ar7traders.com/machinery/excavators
+- Wheel loaders: https://ar7traders.com/machinery/loaders
+- Tipper trucks: https://ar7traders.com/machinery/trucks
+- Cranes: https://ar7traders.com/machinery/cranes

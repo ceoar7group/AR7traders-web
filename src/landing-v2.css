@@ -12,7 +12,6 @@
 .hero-copy h1{animation:fadeUp .9s .15s both}
 .hero-copy>p{animation:fadeUp .9s .3s both}
 .hero-copy .hero-cta{animation:fadeUp .9s .45s both}
-.hero-copy .trust-row{animation:fadeUp .9s .6s both}
 
 /* ---------- HERO: glow + parallax ---------- */
 .hero-visual{--mx:0;--my:0}
@@ -98,7 +97,12 @@ html,body{overflow-x:clip}
 
 /* rotating map face (the draggable part) */
 .iglobe-face{position:absolute;inset:6%;border-radius:50%;overflow:hidden;transform:rotateX(var(--tilt,0deg));will-change:transform;background:radial-gradient(circle at 40% 35%,#0d5c3c,#053722 60%,#022b1b)}
-.iglobe-maps{display:flex;width:300%;height:100%;transform:translateX(var(--rot,0px));will-change:transform}
+/* The map strip is deliberately TALLER than the face (134%, half of the
+   overhang hanging above and below). --rot spins it sideways; --lat slides it
+   up/down so the globe can be dragged in any direction. Both are written by
+   InteractiveGlobe (src/main.jsx), which clamps --lat to half the overhang —
+   that is what guarantees the strip never runs out and shows an empty edge. */
+.iglobe-maps{position:absolute;left:0;top:-17%;display:flex;width:300%;height:134%;translate:var(--rot,0px) var(--lat,0px);transform:none;will-change:translate}
 .imap{position:relative;flex:0 0 33.3333%;height:100%}
 
 /* continents (repeat every segment = seamless 360°) */
@@ -245,9 +249,10 @@ html,body{overflow-x:clip}
 .hero h1{font-size:clamp(40px,4.8vw,70px);letter-spacing:-4px;margin:22px 0}
 .hero-copy>p{font-size:16.5px}
 
-/* ---------- nav orb (top of every page) ---------- */
-.nav-orb{width:52px;height:52px;border:1px solid var(--line);border-radius:50%;background:color-mix(in srgb,var(--card) 72%,transparent);display:grid;place-items:center;flex:none}
-.nav-orb .iglobe{width:64px;margin-top:-2px}
+/* ---------- nav orb (top of every page) ----------
+   Sized and painted by src/site-layout.css, which owns the header at every
+   width. It is a solid dark-sphere button there (never a pale ring around a
+   smaller globe). Only the "decorations off" part lives here. */
 .nav-orb .orbit-ring,.nav-orb .drag-hint,.nav-orb .iglobe-halo{display:none}
 
 /* ---------- mini globes: decorative, CSS-driven 360° spin ---------- */
@@ -261,8 +266,6 @@ html,body{overflow-x:clip}
 .hero-visual>.hero-orb{left:-18px;bottom:-10px}
 .hero-orb.in-page{right:18px;top:18px;z-index:3}
 .hero-orb.in-page .iglobe{width:100px}
-.hero-orb.account-orb{right:74px;top:50%;transform:translateY(-50%);z-index:3}
-.hero-orb.account-orb .iglobe{width:100px}
 .detail-orb{right:14px;top:14px;z-index:2}
 .detail-orb .iglobe{width:90px}
 
@@ -277,40 +280,17 @@ html,body{overflow-x:clip}
  .page-orb-wrap{width:130px;right:4%}
  .page-orb-wrap .iglobe{width:130px}
  .hero-orb .iglobe{width:96px}
- .nav-orb{width:46px;height:46px}
- .nav-orb .iglobe{width:56px}
 }
 
 /* ---------- MOBILE: redesigned hero + smaller orbs ---------- */
 @media(max-width:650px){
- .brand img{width:47px;height:47px;border-radius:9px}
- .brand span{font-size:13.5px;letter-spacing:1.7px}
- .brand small{font-size:6.5px;letter-spacing:1px}
- .nav{height:58px}
- .nav-orb{width:38px;height:38px}
- .nav-orb .iglobe{width:46px;margin-top:-3px}
- .hero{padding-top:92px;min-height:0}
+ .hero{padding-top:122px;min-height:0}
  .hero-copy{padding-bottom:4px}
  .hero h1{font-size:clamp(29px,8vw,34px);letter-spacing:-1.6px;margin:15px 0 12px}
  .hero-copy>p{font-size:14px;max-width:440px}
  .hero-cta{margin-top:20px;gap:12px}
- .trust-row{scale:.92;margin-top:16px}
- .hero-visual{height:335px;margin-top:22px}
- .car-main{inset:0 14px 40px 14px;border-radius:18px}
- .car-float-title{left:14px;bottom:22px;max-width:70%}
- .car-float-title h3{font-size:14px;margin:7px 0 2px}
- .car-float-title p{font-size:9px}
- .car-dots{top:10px;right:10px}
- .car-dots i{width:5px;height:5px}
- .floating-card.auction-card{top:2px;left:0}
- .floating-card.route-card{right:0;bottom:-4px}
- .floating-badge{width:64px;height:64px;right:-2px;top:96px;font-size:9px}
- .hero-visual>.hero-orb{left:-8px;bottom:-16px}
- .hero-orb .iglobe{width:80px}
  .hero-orb.in-page{right:10px;top:10px}
  .hero-orb.in-page .iglobe{width:74px}
- .hero-orb.account-orb{right:14px;top:14px}
- .hero-orb.account-orb .iglobe{width:76px}
  .page-orb-wrap,.studio-orb{display:none}
  .detail-orb{right:8px;top:8px}
  .detail-orb .iglobe{width:66px}
@@ -338,3 +318,37 @@ html,body{overflow-x:clip}
 .budget-bands span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
 @media(max-width:1000px){.budget-grid,.budget-bands{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.budget-grid,.budget-bands{grid-template-columns:1fr}}
+
+/* ── Promotion bar ───────────────────────────────────────────────────────────
+   2026-10-03: written by `npm run promo:publish` or the CRM into the `promo`
+   setting, rendered by src/promo-bar.jsx. Dismissible, and it removes itself
+   when the campaign's end date passes. */
+.promo-bar{background:linear-gradient(90deg,var(--green),#075b36 55%,var(--green));color:#eaf4ee;border-bottom:1px solid #ffffff1a;z-index:60}
+.promo-bar-inner{display:flex;align-items:center;gap:12px;min-height:44px;padding:7px 0;font-size:12.5px}
+.promo-tag{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#ffffff1f;color:var(--gold2);flex:none}
+.promo-sub{color:#b9d3c6;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.promo-pill{background:var(--gold);color:#1d1206;border-radius:99px;padding:3px 10px;font:800 10.5px Manrope;white-space:nowrap}
+.promo-cta,.promo-x{display:inline-flex;align-items:center;border:0;flex:none}
+.promo-cta{gap:6px;color:#fff;font-weight:800;text-decoration:none;border-bottom:1px solid #ffffff59;white-space:nowrap}
+.promo-x{background:#ffffff1a;color:#dcebe3;width:26px;height:26px;border-radius:8px;justify-content:center;cursor:pointer}
+/* Reserve the bar's height. The header is fixed, so it moves down by the bar's
+   height, and the page content moves down by the same amount — every hero's own
+   top padding stays as designed. --promo-h is set by src/promo-bar.jsx and is
+   0px whenever no campaign is running. */
+.nav-wrap{top:var(--promo-h,0px)}
+/* Scoped to the page's own main: .portal-demo has a nested <main> that must
+   not inherit the offset. */
+.site > main{padding-top:var(--promo-h,0px)}
+@media(max-width:899px){
+  .promo-bar-inner{flex-wrap:wrap;gap:8px;min-height:0;padding:9px 0}
+  .promo-sub{flex:1 1 100%;white-space:normal;font-size:11.5px}
+  .promo-cta{margin-inline-start:auto}
+}
+
+/* Machine slides in the hero rotation. The badge turns gold so a visitor can
+   tell at a glance that this slide is the China desk, not a car lot. */
+.car-main .car-float-title span{background:var(--gold)}
+.car-main.is-machine .car-float-title span{background:#0d6b45;color:#fff}
+.car-main.is-machine .car-dots i.active{background:var(--gold2)}
+.car-dots i.machine{width:14px;border-radius:3px}
+.car-counter svg{width:13px}

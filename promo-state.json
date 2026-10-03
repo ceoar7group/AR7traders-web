@@ -1,0 +1,44 @@
+{
+  "campaigns": [
+    "machinery-excavators",
+    "machinery-loaders",
+    "machinery-trucks",
+    "machinery-cranes",
+    "destination-kenya",
+    "destination-pakistan",
+    "destination-uae",
+    "destination-tanzania",
+    "destination-uk",
+    "destination-nigeria",
+    "brand-toyota",
+    "brand-lexus",
+    "brand-nissan",
+    "brand-honda",
+    "brand-mazda",
+    "brand-mercedes-benz",
+    "brand-bmw",
+    "guide-roto-vs-container",
+    "guide-auction-sheet"
+  ],
+  "published": {
+    "active": true,
+    "id": "machinery-excavators",
+    "kind": "machinery-type",
+    "headline": "Excavators on the China desk",
+    "sub": "From $46,500 FOB — 7 excavators on the desk",
+    "cta": "See the machines",
+    "href": "/machinery/excavators",
+    "discount": null,
+    "priceFrom": null,
+    "until": "2026-11-30",
+    "publishedAt": "2026-10-03T13:02:24.913Z",
+    "headlineIsCopy": true
+  },
+  "history": [
+    {
+      "id": "machinery-excavators",
+      "firstRun": "2026-10-03T12:25:55.455Z",
+      "runs": 3
+    }
+  ]
+}

@@ -345,7 +345,7 @@ html[data-crm-theme="light"] .crm-shell {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .theme-pill:hover {
   color: var(--crm-ink);
@@ -392,7 +392,7 @@ html[data-crm-theme="light"] .crm-shell {
   font-size: 11px;
   font-weight: 700;
   text-decoration: none;
-  transition: all 0.16s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-site:hover {
   border-color: var(--crm-gold);
@@ -633,7 +633,7 @@ html[data-crm-theme="light"] .crm-shell {
   justify-content: center;
   gap: 5px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .dash-car-actions button:hover {
   border-color: var(--crm-gold);
@@ -769,7 +769,7 @@ html[data-crm-theme="light"] .crm-shell {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.16s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-tools > button:hover { border-color: var(--crm-gold); color: var(--crm-gold); }
 .crm-tools .crm-add {
@@ -983,7 +983,7 @@ html[data-crm-theme="light"] .crm-shell {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  transition: all 0.14s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-row-actions button:hover {
   border-color: var(--crm-gold);
@@ -1011,7 +1011,7 @@ html[data-crm-theme="light"] .crm-shell {
   background: rgba(239, 68, 68, 0.1);
   color: #f87171;
   cursor: pointer;
-  transition: all 0.16s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-del:hover {
   background: rgba(239, 68, 68, 0.25);
@@ -1088,7 +1088,7 @@ html[data-crm-theme="light"] .crm-shell {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .vcard-expand:hover { background: var(--crm-gold); color: #041a12; }
 .vcard-body {
@@ -1151,7 +1151,7 @@ html[data-crm-theme="light"] .crm-shell {
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  transition: all 0.16s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .vcard-actions .btn-photos:hover {
   background: var(--crm-primary);
@@ -1226,7 +1226,7 @@ html[data-crm-theme="light"] .crm-shell {
   display: grid;
   place-items: center;
   color: var(--crm-accent);
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-lead-grid footer a:hover { border-color: var(--crm-gold); color: var(--crm-gold); }
 .crm-lead-grid footer svg { width: 15px; height: 15px; }
@@ -1490,7 +1490,7 @@ html[data-crm-theme="light"] .crm-shell {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: all 0.16s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .photo-card.is-cover {
   border-color: var(--crm-gold);
@@ -1759,7 +1759,7 @@ html[data-crm-theme="light"] .crm-shell {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: all 0.16s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .lb-arrow:hover { background: var(--crm-gold); color: #041a12; }
 .lb-arrow.prev { left: 16px; }
@@ -2378,7 +2378,7 @@ html[data-crm-theme="light"] .crm-shell {
   color: var(--crm-muted);
   font: 700 12px var(--crm-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-chip em {
   font-style: normal;
@@ -2446,7 +2446,7 @@ html[data-crm-theme="light"] .crm-shell {
   color: var(--crm-primary-text);
   font: 800 11.5px var(--crm-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-follow-done:hover { background: var(--crm-primary-hover); border-color: var(--crm-primary-hover); transform: translateY(-1px); }
 .crm-follow-next {
@@ -2473,7 +2473,7 @@ html[data-crm-theme="light"] .crm-shell {
   color: var(--crm-ink);
   font: 700 11px var(--crm-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-follow-next-opts button:hover {
   border-color: var(--crm-gold);
@@ -2590,7 +2590,7 @@ html[data-crm-theme="light"] .crm-shell {
   color: var(--crm-muted);
   font: 700 12px var(--crm-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .back-btn:hover { color: var(--crm-ink); border-color: var(--crm-gold); }
 
@@ -2621,7 +2621,7 @@ html[data-crm-theme="light"] .crm-shell {
   color: var(--crm-ink);
   font: 700 12.5px var(--crm-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .cust-head-actions button:hover { border-color: var(--crm-gold); color: var(--crm-gold); }
 .cust-head-actions button.crm-add {
@@ -2692,7 +2692,7 @@ html[data-crm-theme="light"] .crm-shell {
   color: var(--crm-ink);
   font: 700 12px var(--crm-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .login-actions button:hover { border-color: var(--crm-gold); color: var(--crm-gold); }
 .login-actions button.crm-add {
@@ -2827,7 +2827,7 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-chip {
   backdrop-filter: blur(6px);
   border-radius: 999px;
-  transition: all 0.16s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-chip:hover { transform: translateY(-1px); }
 .crm-chip.active {
@@ -2858,7 +2858,7 @@ html[data-crm-theme="light"] .crm-shell {
   place-items: center;
   color: var(--crm-muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-lead-grid footer a:hover {
   border-color: var(--crm-accent);
@@ -2875,7 +2875,7 @@ html[data-crm-theme="light"] .crm-shell {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-lead-grid footer button:not(.crm-del):hover {
   background: var(--crm-gold);
@@ -2891,7 +2891,7 @@ html[data-crm-theme="light"] .crm-shell {
   border: 1px solid transparent;
   background: transparent;
   color: var(--crm-muted);
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-del:hover {
   color: #ff8f8f;
@@ -2911,7 +2911,7 @@ html[data-crm-theme="light"] .crm-shell {
   border: 1px solid var(--crm-border);
   background: var(--crm-input-bg);
   color: var(--crm-ink);
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .vcard-actions .btn-photos {
   border-color: color-mix(in srgb, var(--crm-gold) 45%, transparent);
@@ -2938,7 +2938,7 @@ html[data-crm-theme="light"] .crm-shell {
   color: var(--crm-ink);
   font: 700 11.5px var(--crm-font);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-row-actions > button:hover {
   border-color: var(--crm-accent);
@@ -2966,7 +2966,7 @@ html[data-crm-theme="light"] .crm-shell {
 }
 .crm-editor footer button {
   border-radius: 999px;
-  transition: all 0.15s ease;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-editor footer button:hover { border-color: var(--crm-accent); color: var(--crm-accent); }
 .crm-editor footer .save,
@@ -3109,3 +3109,281 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-goonet .crm-import-results{margin-top:12px;font-size:12px}
 .crm-goonet .crm-import-results ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
 .crm-goonet .crm-import-results li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* ── Site guardian & promotions ──────────────────────────────────────────────
+   2026-10-03: the CRM face of scripts/guardian.mjs and scripts/promo-agent.mjs.
+   Colour follows the CRM's own token set so it inherits every theme. */
+.guardian-view{display:flex;flex-direction:column;gap:18px}
+.guardian-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.guardian-stat{background:#0f2a1e14;border:1px solid #0000000f;border-radius:12px;padding:8px 14px;font-size:12.5px;color:#4a5b53}
+.guardian-stat b{font-size:16px;color:#123c28;margin-inline-end:4px}
+.guardian-stat.warn{background:#f5a6231a;border-color:#f5a6233d;color:#7a5211}
+.guardian-stat.warn b{color:#8a5c0d}
+.guardian-stat.fail{background:#d645451f;border-color:#d645453d;color:#8f2727}
+.guardian-stat.fail b{color:#a12727}
+.guardian-when{margin-inline-start:auto;font-size:12px;color:#6b7a73}
+.guardian-alert{cursor:pointer}
+
+.guardian-block{background:#fff;border:1px solid #00000012;border-radius:16px;padding:16px 18px}
+.guardian-block h3{margin:0 0 12px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#4d5f57}
+.guardian-checks{display:grid;gap:8px}
+.guardian-check{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:#0f2a1e08;border:1px solid #0000000a}
+.guardian-check.warn{background:#f5a62314;border-color:#f5a62333}
+.guardian-check.fail{background:#d6454514;border-color:#d6454533}
+.guardian-dot{width:22px;height:22px;border-radius:8px;display:grid;place-items:center;background:#0f2a1e14;color:#123c28;flex:none}
+.guardian-check.warn .guardian-dot{background:#f5a6232e;color:#7a5211}
+.guardian-check.fail .guardian-dot{background:#d645452e;color:#8f2727}
+.guardian-check b{display:block;font-size:13px;color:#14261e}
+.guardian-check small{display:block;font-size:12px;color:#5d6d66;line-height:1.5}
+.guardian-check code{display:inline-block;margin-top:6px;background:#0f2a1e0f;border-radius:8px;padding:4px 8px;font-size:11.5px;color:#1c3f2d}
+
+.guardian-live{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;background:#0f2a1e0a;border:1px solid #0000000f;border-radius:14px;padding:14px}
+.guardian-live b{display:block;font-size:14px;color:#123a27}
+.guardian-live small{display:block;font-size:12px;color:#5d6d66;line-height:1.55}
+.guardian-warnline{color:#8a5c0d !important;font-weight:700}
+.guardian-promo-controls{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+.guardian-promo-controls label{display:flex;flex-direction:column;gap:5px;font-size:11.5px;color:#5d6d66}
+.guardian-promo-controls input{border:1px solid #0000001f;border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;min-width:170px}
+
+.guardian-campaigns{display:grid;gap:10px;margin-top:12px}
+.guardian-campaign{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px;border-radius:12px;background:#0f2a1e08}
+.guardian-campaign b{display:block;font-size:13px;color:#14261e}
+.guardian-campaign small{display:block;font-size:12px;color:#5d6d66;line-height:1.5}
+.guardian-channels{color:#7c8a83 !important}
+.guardian-campaign-actions{display:flex;gap:8px;flex:none}
+.guardian-cmds{display:grid;gap:8px}
+.guardian-cmd{display:flex;align-items:center;gap:10px;background:#0f2a1e08;border-radius:12px;padding:9px 12px}
+.guardian-cmd button{border:0;background:#0f2a1e14;color:#123c28;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;cursor:pointer;flex:none}
+.guardian-cmd code{font-size:12px;color:#1c3f2d}
+.guardian-cmd small{margin-inline-start:auto;font-size:11.5px;color:#6b7a73;text-align:end}
+.crm-ghost{display:inline-flex;align-items:center;gap:6px;border:1px solid #0000001f;background:#fff;border-radius:10px;padding:8px 12px;font-size:12.5px;color:#14261e;cursor:pointer;text-decoration:none}
+.crm-ghost:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:820px){
+  .guardian-campaign,.guardian-live{flex-direction:column;align-items:stretch}
+  .guardian-cmd small{margin-inline-start:0;text-align:start}
+  .guardian-when{margin-inline-start:0}
+}
+
+/* ── Price offers panel ──────────────────────────────────────────────────────
+   The discount the owner applies from here. Laid out so the number being
+   changed and the number buyers will pay sit next to each other: the live
+   strip, the request box, the editor, then every machine with the offer
+   already applied. */
+.offers-view { display: grid; gap: 18px; }
+.offer-live {
+  display: flex; align-items: flex-start; gap: 11px; padding: 14px 16px; border-radius: 14px;
+  background: var(--crm-panel); border: 1px solid var(--crm-border);
+}
+.offer-live.on {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--crm-gold) 14%, transparent), transparent);
+  border-color: color-mix(in srgb, var(--crm-gold) 46%, transparent);
+}
+.offer-live > svg { width: 17px; flex: none; margin-top: 2px; color: var(--crm-gold); }
+.offer-live b { font-weight: 750; }
+.offer-live small { display: block; margin-top: 3px; color: var(--crm-muted); font-size: 11.5px; }
+
+.offer-ask { border: 1px solid var(--crm-border); border-radius: 14px; padding: 16px; background: var(--crm-panel); }
+.offer-ask-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+.offer-ask-head svg { width: 16px; margin-top: 2px; color: var(--crm-gold); }
+.offer-ask-head b { display: block; font-weight: 750; }
+.offer-ask-head small { color: var(--crm-muted); font-size: 11.5px; }
+.offer-ask-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.offer-ask-row input { flex: 1; min-width: 240px; }
+.offer-samples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.offer-samples button {
+  font-size: 11px; padding: 5px 10px; border-radius: 999px; border: 1px dashed var(--crm-border);
+  background: none; color: var(--crm-muted); cursor: pointer;
+}
+.offer-samples button:hover { color: var(--crm-ink); border-style: solid; }
+.offer-reply { display: flex; gap: 8px; align-items: flex-start; margin-top: 11px; padding: 11px 13px; border-radius: 11px; font-size: 12.5px; line-height: 1.55; }
+.offer-reply.ok { background: color-mix(in srgb, #1c9959 12%, transparent); color: var(--crm-ink); }
+.offer-reply.warn { background: color-mix(in srgb, #d8a63c 16%, transparent); color: var(--crm-ink); }
+.offer-reply svg { width: 15px; flex: none; margin-top: 2px; }
+
+.offer-editor { border: 1px solid var(--crm-border); border-radius: 14px; padding: 16px; background: var(--crm-panel); display: grid; gap: 14px; }
+.offer-editor-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.offer-editor-head b { font-size: 14px; }
+.offer-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.offer-fields label { display: grid; gap: 6px; font-size: 11px; color: var(--crm-muted); font-weight: 700; letter-spacing: .3px; }
+.offer-fields select, .offer-fields input, .offer-headline input, .offer-unit input { width: 100%; }
+.offer-percent { display: flex; align-items: center; gap: 10px; }
+.offer-percent input[type=range] { flex: 1; accent-color: var(--crm-gold); }
+.offer-percent b { font-size: 15px; min-width: 46px; text-align: right; color: var(--crm-ink); }
+.offer-headline { display: grid; gap: 6px; font-size: 11px; color: var(--crm-muted); font-weight: 700; }
+.offer-types > span { font-size: 11px; color: var(--crm-muted); font-weight: 700; display: block; margin-bottom: 7px; }
+.offer-types > div { display: flex; gap: 7px; flex-wrap: wrap; }
+.offer-types button {
+  padding: 7px 12px; border-radius: 999px; border: 1px solid var(--crm-border); background: none;
+  color: var(--crm-muted); font-size: 11.5px; font-weight: 700; cursor: pointer;
+}
+.offer-types button.on { background: var(--crm-accent); color: #fff; border-color: transparent; }
+.offer-units { display: grid; gap: 8px; }
+.offer-units small { color: var(--crm-muted); font-size: 11px; line-height: 1.55; }
+.offer-unit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; margin-top: 4px; max-height: 340px; overflow: auto; padding-right: 4px; }
+.offer-unit { display: grid; grid-template-columns: 1fr 82px 118px; gap: 10px; align-items: center; padding: 9px 11px; border: 1px solid var(--crm-border); border-radius: 11px; }
+.offer-unit.overridden { border-color: color-mix(in srgb, var(--crm-gold) 55%, transparent); }
+.offer-unit-id b { display: block; font-size: 12.5px; }
+.offer-unit-id small { color: var(--crm-muted); font-size: 10.5px; }
+.offer-unit-price { text-align: right; font-size: 12px; white-space: nowrap; }
+.offer-unit-price s { color: var(--crm-muted); margin-right: 6px; }
+
+.offer-preview { border-top: 1px dashed var(--crm-border); padding-top: 13px; display: grid; gap: 10px; }
+.offer-preview > b { font-size: 12.5px; }
+.offer-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.offer-preview-card { border: 1px solid var(--crm-border); border-radius: 12px; overflow: hidden; display: grid; gap: 5px; padding-bottom: 10px; }
+.offer-preview-card.on { border-color: color-mix(in srgb, var(--crm-gold) 55%, transparent); }
+.offer-preview-card img { width: 100%; height: 108px; object-fit: cover; }
+.offer-preview-card b { padding: 0 11px; font-size: 12.5px; }
+.offer-preview-card .mch-price-row { padding: 0 11px; font-size: 12.5px; }
+.offer-preview-card .mch-price-row em { font-style: normal; font-size: 10.5px; font-weight: 800; color: #147144; }
+.offer-preview-note { color: var(--crm-muted); font-size: 11px; line-height: 1.6; }
+.offer-publish { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.offer-publish small { color: var(--crm-muted); font-size: 11px; }
+.offer-catalogue { display: grid; gap: 10px; }
+.offer-catalogue > b { font-size: 13px; }
+
+/* ── CRM design fixes ────────────────────────────────────────────────────────
+   Classes the panels were already using but that no stylesheet ever defined.
+   Without these the approvals list, the pipeline board, the people switcher and
+   the profile/settings forms fell back to browser defaults, which is what made
+   those screens look unfinished next to the rest of the console. */
+.crm-seg { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--crm-border); border-radius: 11px; background: var(--crm-panel); }
+.crm-seg button { height: 30px; padding: 0 13px; border: 0; border-radius: 8px; background: none; color: var(--crm-muted); font: 700 11.5px var(--crm-font); cursor: pointer; }
+.crm-seg button.on, .crm-seg button.active { background: var(--crm-accent); color: #fff; }
+
+.crm-filter { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--crm-muted); font-weight: 700; }
+.crm-filter select { min-width: 132px; }
+
+.crm-approval-list { display: grid; gap: 10px; }
+
+.crm-perm-block { display: grid; gap: 10px; }
+.crm-perm-block > h3 { font: 750 15px var(--crm-font); margin: 0; }
+.crm-perm-block > p { color: var(--crm-muted); font-size: 12px; margin: 0; }
+
+.crm-pipeline { display: grid; gap: 14px; }
+.crm-pipeline .crm-pipeline-grid, .crm-pipeline > div { min-width: 0; }
+
+.crm-profile-form, .crm-settings-form { display: grid; gap: 14px; max-width: 640px; }
+.crm-profile-form label, .crm-settings-form label { display: grid; gap: 6px; font-size: 11px; font-weight: 700; color: var(--crm-muted); }
+.crm-profile-id, .crm-profile-pw-head { display: flex; align-items: center; gap: 9px; }
+.crm-profile-pw { border-top: 1px dashed var(--crm-border); padding-top: 16px; }
+
+@media (max-width: 720px) {
+  .offer-unit { grid-template-columns: 1fr 70px; }
+  .offer-unit-price { grid-column: 1 / -1; text-align: left; }
+  .crm-seg { width: 100%; overflow-x: auto; }
+}
+
+/* ── Screens that had markup but no styling ──────────────────────────────────
+   An audit of every class the CRM renders found eleven views whose container and
+   children had no rule at all — they fell back to browser defaults, which is why
+   Approvals, Activity, People/Performance, Payroll and the permission matrix
+   looked unfinished next to the panels that were styled. Same tokens, same
+   rhythm, same tables as the rest of the console. */
+
+/* One vertical rhythm for every view container, so no screen drifts. */
+.crm-accounts, .crm-activity, .crm-approvals, .crm-people, .crm-perf,
+.crm-payroll, .crm-team { display: grid; gap: 16px; align-content: start; }
+
+/* Success notice — same footprint as the error notice it sits beside. */
+.crm-ok {
+  display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-radius: 11px;
+  background: var(--crm-ok-bg); border: 1px solid var(--crm-ok-border); color: var(--crm-ok);
+  font-size: 12.5px; font-weight: 700;
+}
+.crm-ok svg { width: 15px; flex: none; }
+
+/* ── Approvals ─────────────────────────────────────────────────────────────── */
+.approval {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  border: 1px solid var(--crm-border); border-left: 3px solid var(--crm-muted);
+  border-radius: 14px; padding: 14px 16px; background: var(--crm-panel); box-shadow: var(--crm-shadow);
+}
+.approval.pending { border-left-color: var(--crm-gold); }
+.approval.approved { border-left-color: var(--crm-accent); }
+.approval.rejected { border-left-color: var(--crm-danger); }
+.approval-main { display: grid; gap: 5px; min-width: 0; }
+.approval-main > b { font-size: 13.5px; }
+.approval-main > small { color: var(--crm-muted); font-size: 11.5px; }
+.approval-main .crm-status { justify-self: start; }
+.approval-reason {
+  margin: 3px 0 0; padding: 9px 11px; border-radius: 9px; background: var(--crm-panel-sub);
+  border: 1px dashed var(--crm-border); font-size: 12px; line-height: 1.6; color: var(--crm-ink);
+}
+.approval-decided { color: var(--crm-accent); font-weight: 700; }
+.approval-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.approval-actions button { white-space: nowrap; }
+.approval-wait { color: var(--crm-muted); font-size: 11.5px; white-space: nowrap; }
+
+/* ── Activity: a timeline, because that is what it is ──────────────────────── */
+.crm-activity article {
+  position: relative; display: grid; grid-template-columns: 34px 1fr auto; gap: 4px 12px;
+  padding: 12px 0; align-items: start;
+}
+.crm-activity article > i {
+  width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center;
+  background: var(--crm-panel-sub); border: 1px solid var(--crm-border); color: var(--crm-accent);
+}
+.crm-activity article > i svg { width: 15px; }
+.crm-activity article > div b { display: block; font-size: 12.5px; font-weight: 650; }
+.crm-activity article > div span { color: var(--crm-muted); font-size: 11px; }
+.crm-activity article > em {
+  font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  color: var(--crm-muted); background: var(--crm-panel-sub); border: 1px solid var(--crm-border);
+  border-radius: 999px; padding: 4px 9px; white-space: nowrap;
+}
+/* The connector: the little <u/> between entries. */
+.crm-activity article > u {
+  position: absolute; left: 16px; top: 46px; bottom: -4px; width: 2px;
+  background: var(--crm-border-subtle); text-decoration: none;
+}
+
+/* ── People / performance ──────────────────────────────────────────────────── */
+.crm-perf { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.perf-card {
+  border: 1px solid var(--crm-border); border-radius: 14px; padding: 15px 16px;
+  background: var(--crm-panel); box-shadow: var(--crm-shadow); display: grid; gap: 11px;
+}
+.perf-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.perf-card header b { font-size: 13.5px; }
+.perf-card header small { display: block; color: var(--crm-muted); font-size: 11px; }
+.perf-card header em { font-style: normal; font-weight: 750; font-size: 14px; color: var(--crm-accent); }
+.perf-bar { height: 7px; border-radius: 999px; background: var(--crm-panel-sub); overflow: hidden; }
+.perf-bar u { display: block; height: 100%; background: linear-gradient(90deg, var(--crm-primary), var(--crm-accent)); border-radius: 999px; }
+.perf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
+.perf-stats span { display: grid; gap: 2px; }
+.perf-stats small { color: var(--crm-muted); font-size: 10px; letter-spacing: .3px; text-transform: uppercase; }
+.perf-stats b { font-size: 13px; }
+
+/* ── Payroll ───────────────────────────────────────────────────────────────── */
+.payroll-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  border: 1px solid var(--crm-border); border-radius: 14px; padding: 13px 16px;
+  background: var(--crm-panel); box-shadow: var(--crm-shadow);
+}
+.payroll-bar label { display: grid; gap: 5px; font-size: 11px; font-weight: 700; color: var(--crm-muted); }
+.payroll-total { display: grid; gap: 2px; margin-right: auto; }
+.payroll-total small { color: var(--crm-muted); font-size: 10px; letter-spacing: .4px; text-transform: uppercase; }
+.payroll-total b { font-size: 19px; font-weight: 800; }
+.payroll-total em { font-style: normal; color: var(--crm-muted); font-size: 11px; }
+
+/* ── Permissions matrix and the profile editor ────────────────────────────── */
+.perm-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+.perm-table th, .perm-table td { padding: 9px 10px; border-bottom: 1px solid var(--crm-border-subtle); text-align: left; font-size: 12px; }
+.perm-table th { font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--crm-muted); font-weight: 800; }
+.perm-cell { text-align: center; }
+.perm-cell input { accent-color: var(--crm-accent); width: 16px; height: 16px; }
+.crm-profile { display: grid; gap: 14px; }
+
+/* ── Smaller leftovers the same audit turned up ───────────────────────────── */
+.vcard-loc { display: inline-flex; align-items: center; gap: 5px; color: var(--crm-muted); font-size: 11px; }
+.table-progress { display: block; height: 5px; border-radius: 999px; background: var(--crm-panel-sub); overflow: hidden; min-width: 70px; }
+.table-progress > * { display: block; height: 100%; background: var(--crm-accent); }
+.photo-gallery-section { display: grid; gap: 10px; }
+
+@media (max-width: 720px) {
+  .approval { flex-direction: column; }
+  .approval-actions { justify-content: flex-start; }
+  .crm-activity article { grid-template-columns: 30px 1fr; }
+  .crm-activity article > em { grid-column: 2; justify-self: start; }
+}

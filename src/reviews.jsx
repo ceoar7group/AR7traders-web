@@ -503,7 +503,7 @@ export function ReviewsShowcase({ navigate, openAuction, founderClaim = { figure
               >
                 <div className="review-slide-media">
                   <img
-                    loading={i === 0 ? 'eager' : 'lazy'}
+                    loading="lazy"
                     decoding="async"
                     width="820" height="550"
                     src={r.image}
@@ -535,7 +535,7 @@ export function ReviewsShowcase({ navigate, openAuction, founderClaim = { figure
                     </PageLink>
                   </div>
 
-                  <h3>&ldquo;{r.headline}&rdquo;</h3>
+                  <p className="review-headline">&ldquo;{r.headline}&rdquo;</p>
                   <blockquote className="review-slide-quote">{r.quote}</blockquote>
 
                   <div className="review-milestone-pill">
@@ -647,7 +647,7 @@ export function ReviewsShowcase({ navigate, openAuction, founderClaim = { figure
               <small>{r.shipping}</small>
             </div>
 
-            <h3>&ldquo;{r.headline}&rdquo;</h3>
+            <p className="review-headline">&ldquo;{r.headline}&rdquo;</p>
             <p>{r.quote}</p>
 
             <div className="review-card-Check">
@@ -707,7 +707,7 @@ export function ReviewsShowcase({ navigate, openAuction, founderClaim = { figure
       </div>
     </section>
 
-    <div className="reviews-trust"><div className="reviews-trust-card"><div className="avatars reviews-avatars" aria-hidden="true"><i>KT</i><i>AH</i><i>MJ</i><i>+</i></div><div className="reviews-trust-copy"><h3>Verified Buyer Feedback</h3><p>We&rsquo;re collecting genuine reviews from AR7 Traders customers right now. Every buyer story above reflects real Japanese auction, dealer-stock and port-shipping workflows &mdash; and when new customers share feedback, we confirm it came from a verified buyer before publishing.</p><small className="reviews-trust-note">The initials above are placeholders, not reviewers. Every review that appears here will be a verified AR7 Traders buyer.</small><PageLink className="primary" to="contact" navigate={navigate}>Bought from us? Share your experience <ArrowRight /></PageLink></div></div></div>
+    <div className="reviews-trust"><div className="reviews-trust-card"><div className="avatars reviews-avatars" aria-hidden="true"><i>KT</i><i>AH</i><i>MJ</i><i>+</i></div><div className="reviews-trust-copy"><h2>Verified Buyer Feedback</h2><p>We&rsquo;re collecting genuine reviews from AR7 Traders customers right now. Every buyer story above reflects real Japanese auction, dealer-stock and port-shipping workflows &mdash; and when new customers share feedback, we confirm it came from a verified buyer before publishing.</p><small className="reviews-trust-note">The initials above are placeholders, not reviewers. Every review that appears here will be a verified AR7 Traders buyer.</small><PageLink className="primary" to="contact" navigate={navigate}>Bought from us? Share your experience <ArrowRight /></PageLink></div></div></div>
     <div className="reviews-global"><div className="kicker">GLOBAL CUSTOMER BASE · PLACEHOLDERS</div><h2>Buyers from many markets, one accountable team.</h2><p className="reviews-global-note">Below are decorative placeholder avatars representing the kinds of markets we serve — Pakistan, UAE, Kenya, UK, Tanzania, New Zealand and beyond. They are <b>not</b> reviewers and carry no quotes or ratings. When a verified buyer shares feedback with consent, their story will appear here with full attribution.</p><div className="reviews-avatar-grid" aria-hidden="true">{[
       ['AK', 'Pakistan'], ['MR', 'UAE'], ['JK', 'Kenya'], ['SL', 'United Kingdom'], ['HM', 'Tanzania'], ['TN', 'New Zealand'],
       ['FA', 'Pakistan'], ['SA', 'UAE'], ['BN', 'Kenya'], ['EW', 'United Kingdom'], ['IM', 'Tanzania'], ['DL', 'Australia'],

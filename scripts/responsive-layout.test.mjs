@@ -7,23 +7,48 @@ const main = read('../src/main.jsx');
 const detailCss = read('../src/detail-responsive.css');
 const currencyCss = read('../src/currency-responsive.css');
 const portalCss = read('../src/portal.css');
+const pagesCss = read('../src/pages.css');
 const stylesCss = read('../src/styles.css');
 const expandedCss = read('../src/expanded.css');
 const crmCss = read('../src/crm.css');
+const layoutCss = read('../src/site-layout.css');
 
-// 2026-10-03 header QA: the burger panel must hang off the bar itself (which
-// becomes the positioning parent) so it can neither slide under the two-row
-// phone header nor bleed to the viewport edges.
-assert.match(stylesCss, /@media\(max-width:1100px\)\{\.nav\{position:relative\}/);
-assert.match(expandedCss, /@media\(max-width:1100px\)\{\s*\.nav-drop\{width:100%\}/);
+// 2026-10-03 header rebuild: the bar is ONE line at every width, owned by
+// src/site-layout.css (imported last, so nothing earlier can re-shape it). The
+// old two-row phone grid is gone and the burger tier drops from 1100px to
+// 899px so laptops and tablets keep their real navigation row.
+assert.match(main, /import '\.\/site-layout\.css';\s*$/m);
+assert.match(layoutCss, /@media \(max-width: 639px\)/);
+assert.doesNotMatch(currencyCss, /grid-template-rows:\s*auto auto/);
+// Below 640px the link row is the panel only: no second bar row, no wrapping.
+assert.match(layoutCss, /\.nav-wrap \.navlinks \{\s*display: none;/);
+assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \{\s*display: flex;/);
+assert.match(stylesCss, /@media\(max-width:899px\)\{\.nav\{position:relative\}/);
 assert.match(stylesCss, /\.navlinks\{position:absolute;top:calc\(100% \+ 10px\);left:0;right:0/);
-// The header globe is clipped to its circular button — it previously overflowed
-// onto the currency switch and below the bar.
-assert.match(expandedCss, /\.brand-group \.nav-orb\{[^}]*overflow:hidden/);
-assert.match(expandedCss, /\.brand-group \.nav-orb \.iglobe\{width:100%;margin-top:0\}/);
-// The currency menu anchors to the whole actions row; the switch itself must be
-// static on phones or the panel clips off the left screen edge.
-assert.match(currencyCss, /\.nav-wrap \.nav-actions\s*\{[^}]*position:\s*relative/s);
+// Between 640px and 899px the bar keeps its quick links and only the
+// `.nav-tier-full` items (Auction access / More) move into the panel — the
+// flattening of the dropdowns must therefore be scoped to the open panel.
+assert.match(expandedCss, /@media\(max-width:899px\)\{\s*\.navlinks\.open \.nav-drop\{width:100%\}/);
+assert.match(layoutCss, /\.navlinks:not\(\.open\) \.nav-tier-full \{\s*display: none;/);
+assert.match(layoutCss, /@media \(min-width: 840px\) and \(max-width: 899px\)/);
+// One line on a phone means the widest label keeps its natural width and the
+// controls shrink instead — no ellipsis, no hidden brand.
+assert.match(layoutCss, /\.nav-wrap \.brand span \{[^}]*min-width: max-content/s);
+assert.match(layoutCss, /\.nav-wrap \.brand span \{[^}]*text-overflow: clip/s);
+assert.doesNotMatch(expandedCss, /brand span\{max-width:112px/);
+// The header globe is a solid planet button that paints its own sphere, with
+// the rotating face filling it edge to edge — the pale ring around a smaller
+// globe is what looked like a white part.
+assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \{[^}]*overflow: hidden/s);
+assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \{[^}]*radial-gradient/s);
+assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \.iglobe \{[^}]*width: 100%;[^}]*height: 100%/s);
+assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \.iglobe-sphere \{[^}]*background: none/s);
+// The globe spins in every direction: the map strip overhangs the face and is
+// translated on both axes, and the script clamps the latitude so the strip can
+// never run out and expose an empty edge.
+assert.match(main, /--lat/);
+assert.match(main, /maxLat/);
+assert.match(layoutCss, /\.nav-panel-actions/);
 assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-switch\s*\{[^}]*position:\s*static/s);
 // CRM: the shell's content track can shrink and the row actions stay pinned to
 // the right of the scrollable table so buttons never sit out of frame.
@@ -59,24 +84,47 @@ assert.match(portalCss, /\.account-form-wrap\{padding:150px/);
 assert.match(portalCss, /@media\(max-width:650px\).*\.account-form-wrap\{padding:160px/s);
 assert.match(portalCss, /\.my-account\{padding:150px/);
 
-// Compact mobile navigation controls keep currency selection separate from
-// the brand globe instead of letting fixed-width actions collide.
-assert.match(currencyCss, /\.nav-wrap \.brand-group\s*\{[^}]*min-width:\s*0/s);
-assert.match(currencyCss, /\.nav-wrap \.nav-actions\s*\{[^}]*flex:\s*0 0 auto/s);
-assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-btn\s*\{[^}]*height:\s*34px/s);
+// The currency menu anchors to the whole actions row; the switch itself must be
+// static on phones or the panel clips off the left screen edge.
+assert.match(currencyCss, /\.nav-wrap \.nav-actions\s*\{[^}]*position:\s*relative/s);
 assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-menu\s*\{[^}]*right:\s*0/s);
 assert.doesNotMatch(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-menu\s*\{[^}]*left:\s*50%/s);
-assert.match(currencyCss, /\.nav-wrap \.brand span\s*\{[^}]*overflow:\s*visible/s);
-assert.match(currencyCss, /\.nav-wrap \.brand span\s*\{[^}]*text-overflow:\s*clip/s);
 assert.match(currencyCss, /@media\s*\(max-width:\s*420px\)/);
-assert.match(currencyCss, /@media\s*\(max-width:\s*500px\)/);
-assert.match(currencyCss, /grid-template-rows:\s*auto auto/);
+assert.match(currencyCss, /@media\s*\(max-width:\s*650px\)/);
 assert.match(currencyCss, /@media\s*\(min-width:\s*651px\)\s*and\s*\(max-width:\s*720px\)/);
-assert.match(currencyCss, /@media\s*\(max-width:\s*1180px\)/);
+// The bar is fixed, so the pages under it must reserve its real height: 110px
+// on a phone. The old 88px value let the bar sit on top of the hero heading.
+assert.match(layoutCss, /\.hero \{\s*padding-top: 122px !important;/);
+assert.match(layoutCss, /@media \(max-width: 639px\)[\s\S]*\.page-hero\.mini \{\s*padding-top: 122px !important;/);
+assert.match(expandedCss, /\.hero\{padding-top:122px!important/);
+assert.match(pagesCss, /@media\(max-width:650px\)\{\.page-hero\{padding-top:122px\}/);
+assert.match(currencyCss, /@media\s*\(max-width:\s*899px\)/);
 assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/lux\/rolls-royce-ghost\.webp\"\s+fetchpriority=\"high\"/);
 assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+used-japanese-cars-auction-export-toyota/);
 assert.match(main, /DeferredBigGlobe/);
 assert.match(main, /loading=\{n===0\?'eager':'lazy'\}/);
 assert.match(main, /prefers-reduced-motion/);
+
+// Hero visual: below 1000px the photo, the sample cards, the badge and the
+// globe stack as grid rows (photo first, nothing overlapping it) instead of
+// layering on top of each other in a fixed-height box.
+assert.match(layoutCss, /@media \(max-width: 1000px\)[\s\S]*\.hero \.hero-visual \{[\s\S]*?display: grid/);
+assert.match(layoutCss, /\.hero \.hero-visual \.car-main \{[^}]*grid-column: 1 \/ -1/s);
+assert.match(layoutCss, /\.hero \.hero-visual \.car-main \{[^}]*order: 1/s);
+assert.match(layoutCss, /\.hero \.hero-visual \.floating-card \{[^}]*position: relative/s);
+assert.match(layoutCss, /\.hero \.hero-visual \.floating-card \{[^}]*animation: none/s);
+assert.match(layoutCss, /\.hero \.hero-visual \.floating-badge \{[^}]*order: 4/s);
+assert.match(layoutCss, /\.hero \.hero-visual > \.hero-orb \{[^}]*order: 5/s);
+// The hero box must be free to grow: the old 940px cap let the badge and the
+// globe spill over the marquee below it.
+assert.match(layoutCss, /@media \(max-width: 1000px\)[\s\S]*?\.hero \{\s*max-height: none/);
+// On phones each sample card takes the full row and the auction icon can no
+// longer be squeezed flat by its nowrap copy.
+assert.match(layoutCss, /@media \(max-width: 560px\)[\s\S]*?\.hero \.hero-visual \.floating-card \{\s*grid-column: 1 \/ -1/s);
+assert.match(layoutCss, /\.auction-card > svg \{[^}]*flex: 0 0 auto/s);
+assert.match(layoutCss, /\.hero-visual \.rotating-card-copy \{[^}]*flex-direction: column/s);
+assert.match(layoutCss, /\.hero-visual \.card-foot \{[^}]*margin-top: auto/s);
+assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.inventory-panel:before \{\s*content: 'Inventory'/);
+assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.nav-drop-panel > a \{[^}]*justify-content: flex-start/s);
 
 console.log('Responsive layout and first-paint checks passed.');

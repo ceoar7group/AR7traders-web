@@ -1,6 +1,7 @@
 import {adminClient,send} from './_supabase.js';
 import {askLlm, llmConfigured} from '../scripts/goonet-core.mjs';
 
+// guardian:public-endpoint — deliberate, and the only one on the site.
 // Public enquiry endpoint — the only unauthenticated write on the site, so
 // every field is length-capped and shape-checked before it reaches the
 // database. Without a cap a single crafted POST could store a megabyte of

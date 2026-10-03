@@ -183,7 +183,7 @@ export function BigNetworkGlobe({navigate,compact}){
   <div className="wglobe-glow"/>
   <div className="wsphere">
    <i className="wshade"/>
-   <svg viewBox="0 0 3000 1000" preserveAspectRatio="none" aria-hidden="false">
+   <svg viewBox="0 0 3000 1000" preserveAspectRatio="none" aria-hidden="true">
     {[0,1,2].map(i=><g key={i} transform={`translate(${i*1000},0)`}><Seed navigate={navigate}/></g>)}
    </svg>
    <i className="wshine"/>
@@ -204,7 +204,7 @@ export function WorldPage({navigate}){
      {[['08','Demo routes'],['6','Market guides'],['24/7','Portal access'],['100%','Cost transparency']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
     </div>
    </div>
-   <div className="hero-orb world-hero-orb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+   <div className="hero-orb world-hero-orb"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
    <BigNetworkGlobe navigate={navigate}/>
   </div>
   <div className="shell">

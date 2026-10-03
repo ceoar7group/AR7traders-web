@@ -53,7 +53,7 @@ async function assertSiteWrite(profile, injected = {}) {
 // The pin in scripts/sitemap-vehicles.test.mjs still guarantees the URLs match.
 // ---------------------------------------------------------------------------
 
-import { carRef, hrefFor } from '../src/sitemap-helpers.js';
+import { carRef, hrefFor, carLandingPath, slugify } from '../src/sitemap-helpers.js';
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
 import { mapDealerRows } from '../src/japan-stock-map.js';
@@ -170,6 +170,62 @@ function importedEntries(rows) {
   return entries;
 }
 
+/**
+ * Landing-page URLs derived from live stock: one `/cars/<make>` per brand and
+ * one `/cars/<make>/<model>` per model actually listed.
+ *
+ * 2026-10-03 (SEO): this is the BeForward model — a crawlable page per make
+ * and per model instead of a filter behind a query string. Building them from
+ * the same rows as the detail pages means the sitemap can never advertise a
+ * brand or model the site has no page for, and each page carries the newest
+ * updated_at in its group as lastmod (never an invented date).
+ */
+function landingEntries(listRows, dealerRows = []) {
+  const groups = new Map();
+  const collect = (make, model, updatedAt) => {
+    const m = slugify(make);
+    if (!m) return;
+    const touch = (key, path) => {
+      const prev = groups.get(key);
+      const stamp = lastmodOf(updatedAt);
+      groups.set(key, {
+        path,
+        lastmod: prev && prev.lastmod && stamp ? (prev.lastmod > stamp ? prev.lastmod : stamp) : (prev?.lastmod || stamp)
+      });
+    };
+    touch('m:' + m, carLandingPath(make));
+    const mo = slugify(model);
+    if (mo) touch('x:' + m + '/' + mo, carLandingPath(make, model));
+  };
+
+  for (const row of listRows || []) {
+    if (!row || row.published === false) continue;
+    if (row.status != null && SITEMAP_UNAVAILABLE.test(String(row.status))) continue;
+    collect(row.make, row.model, row.updated_at);
+  }
+  // Imported cars go through exactly the same visibility rules as their detail
+  // pages (mapDealerRows drops delisted and parked rows), so a landing page can
+  // never be advertised for stock the public page would refuse to show.
+  const raw = Array.isArray(dealerRows) ? dealerRows : [];
+  const byGoonet = new Map();
+  for (const row of raw) {
+    const key = String(row?.goonet_id ?? '');
+    if (key) byGoonet.set(key, row);
+  }
+  for (const car of mapDealerRows(raw)) {
+    collect(car.make, car.model, byGoonet.get(String(car.goonet_id))?.updated_at);
+  }
+
+  const entries = [];
+  for (const { path, lastmod } of groups.values()) {
+    entries.push('  <url>\n' +
+      '    <loc>' + esc(SITEMAP_BASE + path) + '</loc>' +
+      (lastmod ? '\n    <lastmod>' + lastmod + '</lastmod>' : '') +
+      '\n  </url>');
+  }
+  return entries;
+}
+
 export function buildXml(rows) {
   return wrapUrlset(listingEntries(rows));
 }
@@ -184,6 +240,14 @@ export function buildDealerXml(rows) {
 export function buildVehicleXml(listRows, dealerRows) {
   const seen = new Set();
   const entries = [];
+  // Landing pages come first: they are the pages that are supposed to rank,
+  // and a sitemap reader weights early entries higher.
+  for (const entry of landingEntries(listRows, dealerRows)) {
+    const loc = entry.match(/<loc>([\s\S]*?)<\/loc>/)?.[1];
+    if (loc && seen.has(loc)) continue;
+    if (loc) seen.add(loc);
+    entries.push(entry);
+  }
   for (const entry of [...listingEntries(listRows), ...importedEntries(dealerRows)]) {
     const loc = entry.match(/<loc>([\s\S]*?)<\/loc>/)?.[1];
     if (loc && seen.has(loc)) continue;
@@ -219,7 +283,7 @@ export async function sitemapVehicles(req, res, injected = {}) {
   try {
     const db = injected.db || adminClient();
     const { data, error } = await db.from('site_listings')
-      .select('id,stock_no,status,published,updated_at,sort_order')
+      .select('id,stock_no,make,model,status,published,updated_at,sort_order')
       .eq('published', true)
       .order('sort_order', { ascending: true })
       .limit(SITEMAP_MAX_ROWS);
@@ -231,7 +295,7 @@ export async function sitemapVehicles(req, res, injected = {}) {
     let imported = [];
     try {
       const { data: dealerRows, error: dealerError } = await db.from('japan_dealer_stock')
-        .select('goonet_id,stock_no,available,rotation_state,promoted,updated_at')
+        .select('goonet_id,stock_no,make,model,available,rotation_state,promoted,updated_at')
         .eq('available', true)
         .order('imported_at', { ascending: false })
         .limit(SITEMAP_MAX_IMPORTED);

@@ -153,7 +153,7 @@ export function ChatWidget({ref}) {
       >
         <div className="aw-head">
           <div><b>AR7 Assistant</b><small>Live Japan stock · shipping · pricing</small></div>
-          <button onClick={() => setOpen(false)} aria-label="Close chat"><X size={15} /></button>
+          <button onClick={() => setOpen(false)} aria-label="Close chat" type="button"><X size={15} /></button>
         </div>
         <div className="aw-body" ref={bodyRef}>
           {msgs.length === 0 && (
@@ -176,7 +176,7 @@ export function ChatWidget({ref}) {
       onClick={() => setOpen(v => !v)}
       aria-label={open ? 'Close the AR7 assistant chat' : 'Chat with the AR7 assistant'}
       aria-expanded={open}
-    >
+     type="button">
       {open ? <X size={22} /> : <MessageCircle size={22} />}
     </button>
   </>;

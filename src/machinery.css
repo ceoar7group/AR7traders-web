@@ -1,0 +1,552 @@
+/* Machinery & construction equipment page.
+   Loaded only with src/machinery.jsx (lazy route), so none of this reaches the
+   first-load CSS budget. Colours and radii follow the site tokens in
+   src/styles.css; layout follows the same shell/hero rhythm as the car pages. */
+
+.machinery-page .machinery-hero {
+  padding-bottom: 54px;
+  position: relative;   /* the background layer and scrim are absolutely placed */
+  color: #f3f7f4;
+}
+
+.machinery-page .machinery-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 78% 22%, color-mix(in srgb, var(--gold) 16%, transparent), transparent 58%);
+}
+
+.machinery-page .machinery-hero > .shell {
+  position: relative;
+  z-index: 1;
+}
+
+.machinery-page .machinery-hero h1 {
+  font: 700 clamp(40px, 5.4vw, 72px)/1.03 Manrope, sans-serif;
+  letter-spacing: -3px;
+  margin: 16px 0 14px;
+}
+
+.machinery-page .machinery-hero h1 em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.machinery-page .machinery-hero > .shell > p {
+  max-width: 620px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.mch-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0 26px;
+}
+
+.mch-hero-actions .gold-btn,
+.mch-hero-actions .ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13.5px;
+  text-decoration: none;
+}
+
+.mch-hero-actions .ghost-btn {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  color: var(--ink);
+  transition: .25s;
+}
+
+.mch-hero-actions .ghost-btn:hover {
+  border-color: var(--gold);
+  color: var(--green-text);
+}
+
+.mch-hero-actions svg {
+  width: 17px;
+}
+
+.mch-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 780px;
+}
+
+.mch-hero-stats > span {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mch-hero-stats b {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+/* ---- trust strip ---- */
+.mch-trust {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 34px;
+}
+
+.mch-trust > div {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.mch-trust svg {
+  width: 20px;
+  color: var(--gold);
+}
+
+.mch-trust b {
+  font-size: 13.5px;
+}
+
+.mch-trust span {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ---- toolbar ---- */
+.mch-toolbar {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.mch-toolbar .inv-chips button i {
+  font-style: normal;
+  opacity: .65;
+  margin-left: 4px;
+  font-size: 10px;
+}
+
+.mch-note {
+  margin: 0;
+  max-width: 720px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ---- closing band + shipping steps ---- */
+.mch-band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 26px;
+  margin: 46px 0 0;
+  padding: 34px 36px;
+  border-radius: 22px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--green) 92%, #000), color-mix(in srgb, var(--green) 62%, #000));
+  color: #fff;
+}
+
+.mch-band h2 {
+  font: 700 clamp(24px, 2.6vw, 34px)/1.1 Manrope, sans-serif;
+  letter-spacing: -1.4px;
+  margin: 10px 0 8px;
+}
+
+.mch-band p {
+  margin: 0;
+  max-width: 560px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, .82);
+}
+
+.mch-band .kicker {
+  color: var(--gold2);
+}
+
+.mch-band-actions {
+  display: grid;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.mch-band-actions .text-btn {
+  color: #fff;
+  justify-content: center;
+}
+
+.mch-ship {
+  margin-top: 44px;
+}
+
+.mch-ship h3 {
+  font: 700 25px Manrope, sans-serif;
+  letter-spacing: -1px;
+  margin: 0 0 18px;
+}
+
+.mch-ship-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.mch-ship-grid > div {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.mch-ship-grid span {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: var(--gold);
+  font: 700 11px Manrope, sans-serif;
+}
+
+.mch-ship-grid b {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13.5px;
+}
+
+.mch-ship-grid p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ---- machine grid ---- */
+/* ---- machine grid ---- */
+.mch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+
+/* ---- responsive ---- */
+@media (max-width: 1000px) {
+  .mch-hero-stats,
+  .mch-trust,
+  .mch-ship-grid,
+  .mch-teaser-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mch-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  .mch-band {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mch-band-actions {
+    width: 100%;
+  }
+
+  .mch-band-actions .primary,
+  .mch-band-actions .text-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 650px) {
+  .machinery-page .machinery-hero h1 {
+    letter-spacing: -2px;
+  }
+
+  .mch-hero-actions {
+    gap: 9px;
+  }
+
+  .mch-hero-actions .gold-btn,
+  .mch-hero-actions .ghost-btn {
+    flex: 1 1 100%;
+    height: 46px;
+  }
+
+  .mch-hero-stats,
+  .mch-trust,
+  .mch-ship-grid,
+  .mch-teaser-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mch-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .mch-specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mch-band {
+    padding: 24px 20px;
+    border-radius: 18px;
+  }
+
+  .mch-teaser .mch-teaser-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .mch-teaser .mch-teaser-head > p {
+    max-width: 100%;
+  }
+}
+
+/* ── Machine galleries ───────────────────────────────────────────────────────
+   2026-10-03: every machine now carries several branded photos. The card gets
+   a thumbnail strip, and the detail view shows the whole walkaround. */
+
+.mch-photo img{cursor:zoom-in}
+
+.mch-thumbs{position:relative;z-index:2;display:flex;gap:5px;padding:7px 7px 0;margin-top:-46px}
+.mch-thumbs button{flex:none;width:52px;height:36px;padding:0;border:2px solid #ffffff40;border-radius:7px;overflow:hidden;background:#0b1f16;cursor:pointer;transition:.2s}
+.mch-thumbs button img{width:100%;height:100%;object-fit:cover;display:block}
+.mch-thumbs button.active{border-color:var(--gold2)}
+.mch-thumbs button:hover{border-color:var(--gold2);transform:translateY(-2px)}
+
+.mch-expand{position:absolute;z-index:3;right:9px;bottom:9px;display:inline-flex;align-items:center;gap:6px;border:0;border-radius:8px;padding:6px 10px;background:#043f28d9;color:#e9f4ee;font:700 10px Manrope;cursor:pointer;transition:.2s}
+.mch-expand:hover{background:var(--green)}
+
+/* detail view */
+.mch-modal-backdrop{position:fixed;inset:0;z-index:120;background:#01110ad9;backdrop-filter:blur(8px);display:grid;place-items:center;padding:18px;overflow:auto}
+.mch-modal{position:relative;width:min(1080px,100%);max-height:92vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:0 40px 100px #00000059;display:grid;grid-template-columns:1.1fr .9fr;gap:0;animation:mchIn .3s ease}
+@keyframes mchIn{from{opacity:0;transform:translateY(18px) scale(.98)}}
+.mch-modal-x{position:absolute;top:14px;right:14px;z-index:4;width:38px;height:38px;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.mch-modal-x svg{width:17px}
+.mch-modal-gallery{padding:16px;display:grid;gap:10px;align-content:start;background:var(--bg);border-radius:22px 0 0 22px}
+.mch-modal-main{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:14px;display:block;background:#0b1f16}
+.mch-modal-strip{display:flex;gap:8px;flex-wrap:wrap}
+.mch-modal-strip button{width:78px;height:52px;padding:0;border:2px solid var(--line);border-radius:9px;overflow:hidden;background:#0b1f16;cursor:pointer;transition:.2s}
+.mch-modal-strip button img{width:100%;height:100%;object-fit:cover;display:block}
+.mch-modal-strip button.active{border-color:var(--gold)}
+.mch-modal-strip button:hover{border-color:var(--gold2)}
+.mch-modal-info{padding:26px 26px 30px;display:grid;gap:12px;align-content:start}
+.mch-modal-info h2{margin:0;font:700 27px Manrope;letter-spacing:-1.1px}
+.mch-modal-info>p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
+.mch-modal-price{display:grid;gap:2px;border:1px solid var(--line);border-radius:12px;padding:11px 14px;background:var(--bg)}
+.mch-modal-price small{font-size:8.5px;letter-spacing:1.5px;color:var(--muted);font-weight:800}
+.mch-modal-price b{font:800 24px Manrope;color:var(--green-text);font-variant-numeric:tabular-nums}
+.mch-modal-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);font-weight:600}
+.mch-modal-meta span{display:inline-flex;align-items:center;gap:6px}
+.mch-modal-meta svg{width:14px;color:var(--gold)}
+.mch-modal-specs{width:100%;border-collapse:collapse;font-size:12px}
+.mch-modal-specs th,.mch-modal-specs td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line)}
+.mch-modal-specs th{color:var(--muted);font-weight:600;width:44%}
+.mch-modal-specs td{font-weight:700}
+.mch-modal-note{margin:0;font-size:11px;line-height:1.65;color:var(--muted);border-left:3px solid var(--gold);padding-left:11px}
+.mch-modal-actions{display:flex;gap:9px;align-items:center;margin-top:4px}
+.mch-modal-actions .primary{flex:1}
+
+@media(max-width:900px){
+  .mch-modal{grid-template-columns:1fr}
+  .mch-modal-gallery{border-radius:22px 22px 0 0}
+  .mch-modal-info{padding:20px 18px 24px}
+}
+@media(prefers-reduced-motion:reduce){
+  .mch-modal{animation:none}
+  .mch-thumbs button:hover{transform:none}
+}
+
+/* A unit with no photographs yet. Shown as a deliberate "photos on request"
+   panel rather than borrowing another machine's picture (2026-10-03). */
+.mch-nophoto{width:100%;height:100%;min-height:190px;border:0;background:repeating-linear-gradient(135deg,#0b1f16,#0b1f16 12px,#0f2a1e 12px,#0f2a1e 24px);color:#cfe4d8;display:grid;place-content:center;justify-items:center;gap:7px;text-align:center;padding:22px;cursor:pointer}
+.mch-nophoto svg{width:26px;color:var(--gold2)}
+.mch-nophoto b{font:800 13px Manrope}
+.mch-nophoto span{font-size:10.5px;line-height:1.6;color:#9fb5a9;max-width:250px}
+.mch-nophoto.large{min-height:420px;border-radius:14px}
+.mch-nophoto.large span{max-width:340px;font-size:12px}
+
+/* photo-count cue on the home teaser card */
+.mch-shotcount{position:absolute;z-index:3;left:9px;bottom:9px;display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:5px 9px;background:#043f28d9;color:#e9f4ee;font:700 10px Manrope}
+
+/* ── Catalogue facets ────────────────────────────────────────────────────────
+   2026-10-03: Make / FOB price band / Year / Sort, after beforward's Shop By
+   Make · Price · Type. Bands rather than a slider because a band is something
+   a buyer can repeat to a partner, and the count is always visible. */
+.mch-facets{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
+.mch-facets label{display:flex;flex-direction:column;gap:5px;font:700 10.5px Manrope;letter-spacing:.09em;text-transform:uppercase;color:#6d7b73}
+.mch-facets select{border:1px solid #d9e2dc;background:#fff;border-radius:11px;padding:9px 11px;font:600 13px Manrope;color:#16241d;min-width:150px;cursor:pointer}
+.mch-facets select:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.mch-clear{border:1px solid #d9e2dc;background:#fff;border-radius:11px;padding:9px 13px;font:700 12px Manrope;color:#254b38;cursor:pointer}
+.mch-clear:hover{border-color:var(--gold);color:#123c28}
+.mch-count{margin-inline-start:auto;font:600 12.5px Manrope;color:#5d6d66}
+.mch-count b{color:#123c28;font-size:15px;margin-inline-end:3px}
+.mch-empty{text-align:center;padding:40px 20px;border:1px dashed #cfdad4;border-radius:18px;background:#fbfdfc}
+.mch-empty b{display:block;font:800 17px Manrope;color:#16241d}
+.mch-empty p{max-width:52ch;margin:8px auto 16px;color:#5d6d66;font-size:13.5px;line-height:1.6}
+@media(max-width:700px){
+  .mch-facets{gap:9px}
+  .mch-facets label,.mch-facets select{width:100%;min-width:0}
+  .mch-facets label{width:calc(50% - 5px)}
+  .mch-count{margin-inline-start:0;width:100%}
+}
+
+/* ── Hero background ─────────────────────────────────────────────────────────
+   2026-10-03: the yard photograph behind the machinery hero, on the owner's
+   note that the hero read as empty on a wide screen. It is a background on a
+   decorative layer (not an <img>), so it costs no content semantics; the scrim
+   is what keeps the H1 above 4.5:1 contrast in both themes.
+   Asset: public/assets/machinery/hero-yard.webp (63 KB, 1600 px). */
+.machinery-page .machinery-hero{overflow:hidden;background:#0b1a13}
+.machinery-hero-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:url('/assets/machinery/hero-yard.webp');
+  background-size:cover;background-position:50% 42%;
+  opacity:.42;filter:saturate(1.02);
+}
+.machinery-page .machinery-hero::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    linear-gradient(100deg,#0b1a13f2 0%,#0b1a13cc 34%,#0b1a1380 58%,#0b1a1340 100%),
+    radial-gradient(circle at 82% 26%,color-mix(in srgb,var(--gold) 22%,transparent),transparent 62%);
+}
+.machinery-page .machinery-hero > .shell{position:relative;z-index:2}
+.machinery-page .machinery-hero h1,
+.machinery-page .machinery-hero .kicker,
+.machinery-page .machinery-hero > .shell > p{color:#f3f7f4}
+.machinery-page .machinery-hero .kicker{color:var(--gold2)}
+.machinery-page .machinery-hero > .shell > p{color:#c9d8d0}
+.machinery-page .machinery-hero .ghost-btn{color:#eef4f0;border-color:#ffffff3d;background:#ffffff0f}
+.machinery-page .machinery-hero .ghost-btn:hover{border-color:var(--gold2);color:#fff}
+.machinery-page .machinery-hero .mch-hero-stats > span{color:#b9cdc3;background:#ffffff12;border-color:#ffffff2e;backdrop-filter:blur(6px)}
+.machinery-page .machinery-hero .mch-hero-stats b{color:#fff}
+@media(max-width:900px){
+  .machinery-hero-bg{background-position:58% 40%;opacity:.34}
+  .machinery-page .machinery-hero::before{background:linear-gradient(180deg,#0b1a13f7 0%,#0b1a13d9 55%,#0b1a13bf 100%)}
+}
+
+/* ── Price offers ────────────────────────────────────────────────────────────
+   One live offer, applied by src/offers.js. The list price stays visible and
+   struck through — a buyer has to be able to see what they are saving against,
+   and a price that only appears in its reduced form looks invented. */
+.mch-offer-bar{
+  display:flex;align-items:flex-start;gap:11px;margin:0 0 22px;padding:14px 16px;border-radius:14px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 16%,transparent),color-mix(in srgb,var(--gold) 6%,transparent));
+  border:1px solid color-mix(in srgb,var(--gold) 42%,transparent);color:var(--ink);
+}
+.mch-offer-bar > svg{width:17px;flex:none;margin-top:1px;color:var(--gold)}
+.mch-offer-bar b{font-weight:800}
+.mch-offer-bar small{color:var(--muted);font-size:11px}
+
+
+
+/* ── One machine's own page ────────────────────────────────────────────────── */
+.mch-detail-page .page-content{padding-top:26px}
+.mch-detail{display:grid;grid-template-columns:1.08fr .92fr;gap:34px;align-items:start}
+.mch-detail-gallery{position:relative;display:grid;gap:12px}
+.mch-detail-shot{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);cursor:zoom-in}
+.mch-detail-shot img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover}
+.mch-detail-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.mch-detail-strip button{padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:none;cursor:pointer;line-height:0}
+.mch-detail-strip button.active{border-color:var(--gold)}
+.mch-detail-strip img{width:100%;height:60px;object-fit:cover;border-radius:8px}
+.mch-detail-info h1{font:800 clamp(26px,3.4vw,40px)/1.08 Manrope;letter-spacing:-1.4px;margin:10px 0 12px}
+.mch-detail-summary{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 20px}
+.mch-detail-price{border:1px solid var(--line);border-radius:16px;padding:16px 18px;background:var(--card);display:grid;gap:6px}
+.mch-detail-price > small{font-size:8.5px;letter-spacing:1.3px;font-weight:800;color:var(--muted)}
+.mch-detail-price > b{font:800 clamp(24px,2.6vw,32px)/1 Manrope;letter-spacing:-1px;color:var(--green-text)}
+.mch-offer-line{font-style:normal;font-size:11px;color:var(--muted);line-height:1.6}
+.mch-detail-meta{display:flex;flex-wrap:wrap;gap:9px;margin:16px 0 18px}
+.mch-detail-meta span{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 12px;background:var(--card)}
+.mch-detail-meta svg{width:13px;color:var(--gold)}
+.mch-detail-specs{width:100%;border-collapse:collapse;margin-bottom:18px}
+.mch-detail-specs th,.mch-detail-specs td{text-align:left;padding:9px 4px;border-bottom:1px solid var(--line);font-size:12.5px}
+.mch-detail-specs th{color:var(--muted);font-weight:600;width:44%}
+.mch-detail-specs td{font-weight:700;color:var(--ink)}
+.mch-detail-assurance{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:10px}
+.mch-detail-assurance li{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.6;color:var(--muted)}
+.mch-detail-assurance svg{width:15px;flex:none;margin-top:2px;color:var(--green-text)}
+.mch-detail-actions{display:flex;gap:10px;align-items:center}
+.mch-detail-note{margin:16px 0 0;padding-left:11px;border-left:3px solid var(--gold);font-size:11.5px;line-height:1.65;color:var(--muted)}
+.mch-related{margin-top:52px;padding-top:30px;border-top:1px solid var(--line)}
+.mch-related h2{font:800 clamp(22px,2.6vw,30px)/1.1 Manrope;letter-spacing:-.9px;margin:8px 0 20px}
+.mch-related-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.mch-related-card{display:grid;gap:6px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card);text-decoration:none;color:inherit;transition:transform .22s ease,box-shadow .22s ease}
+.mch-related-card:hover{transform:translateY(-4px);box-shadow:0 20px 44px #072c1b1f}
+.mch-related-card img{width:100%;height:150px;object-fit:cover}
+.mch-related-card b{padding:0 14px;font-size:14px}
+.mch-related-card small{padding:0 14px;color:var(--muted);font-size:10.5px}
+.mch-related-price{padding:0 14px 14px;display:inline-flex;gap:7px;align-items:baseline;font-size:13px}
+.mch-related-price s{color:var(--muted);font-size:11px}
+
+.mch-lightbox{position:fixed;inset:0;z-index:130;background:#01110af2;display:grid;place-items:center;padding:22px}
+.mch-lightbox-img{max-width:min(1200px,96vw);max-height:88vh;width:auto;height:auto;border-radius:14px;box-shadow:0 40px 100px #00000080}
+.mch-lightbox-x{position:absolute;top:18px;right:18px;width:42px;height:42px;border:1px solid #ffffff33;border-radius:12px;background:#ffffff14;color:#fff;display:grid;place-items:center;cursor:pointer}
+.mch-lightbox-x svg{width:18px}
+
+/* ── "Tell us the machine" ─────────────────────────────────────────────────── */
+.mch-any{
+  margin:56px 0 0;padding:34px;border-radius:24px;display:grid;grid-template-columns:1.15fr .85fr;gap:34px;
+  background:linear-gradient(140deg,var(--deep),#062a1b);color:#e9f3ec;position:relative;overflow:hidden;
+}
+.mch-any::after{content:'';position:absolute;right:-90px;bottom:-120px;width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--gold) 26%,transparent),transparent 70%);pointer-events:none}
+.mch-any .kicker{color:var(--gold2)}
+.mch-any h2{font:800 clamp(24px,3vw,36px)/1.1 Manrope;letter-spacing:-1.2px;margin:10px 0 14px;color:#fff}
+.mch-any p{color:#c3d5ca;font-size:13.5px;line-height:1.75;margin:0 0 14px;max-width:60ch}
+.mch-any-list{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:14px}
+.mch-any-list li{display:grid;grid-template-columns:22px 1fr;gap:4px 10px;align-items:start}
+.mch-any-list svg{width:17px;margin-top:2px;color:var(--gold2)}
+.mch-any-list b{font-size:13.5px;color:#fff}
+.mch-any-list span{grid-column:2;font-size:12px;line-height:1.6;color:#a9c0b3}
+.mch-any-card{position:relative;z-index:2;background:#ffffff0f;border:1px solid #ffffff2b;border-radius:18px;padding:22px;backdrop-filter:blur(6px);align-self:start}
+.mch-any-card h3{font:800 19px Manrope;margin:0 0 8px;color:#fff}
+.mch-any-card p{font-size:12.5px;margin:0 0 16px;color:#bdd1c6}
+.mch-any-card .primary{width:100%;justify-content:center}
+.mch-any-card .text-btn{margin:10px auto 0;color:#dfeae3;display:flex;gap:6px;align-items:center;background:none;border:0;cursor:pointer;font-size:11.5px;text-decoration:underline}
+.mch-any-samples{display:flex;flex-wrap:wrap;gap:7px;margin:18px 0 12px}
+.mch-any-samples span{font-size:10px;font-weight:700;letter-spacing:.3px;padding:5px 9px;border-radius:999px;background:#ffffff14;border:1px solid #ffffff24;color:#d6e6dc}
+.mch-any-note{display:block;font-size:10.5px;line-height:1.6;color:#94ac9f}
+
+.mch-view{display:inline-flex;align-items:center;gap:6px;height:37px;padding:0 13px;border-radius:10px;
+  border:1px solid var(--line);background:var(--card);color:var(--green-text);font-size:11.5px;font-weight:800;text-decoration:none}
+.mch-view svg{width:14px}
+.mch-photo-link{display:block;line-height:0;cursor:pointer}
+
+@media (max-width:900px){
+  .mch-detail{grid-template-columns:1fr;gap:24px}
+  .mch-any{grid-template-columns:1fr;padding:24px}
+  .mch-related-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:620px){
+  .mch-related-grid{grid-template-columns:1fr}
+  .mch-detail-meta span{font-size:11px}
+}
+
+.mch-detail-page .mch-empty h1{font:800 clamp(22px,2.6vw,30px)/1.15 Manrope;letter-spacing:-.9px;margin:0 0 10px;color:var(--ink)}

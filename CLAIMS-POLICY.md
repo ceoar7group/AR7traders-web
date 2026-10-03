@@ -46,6 +46,32 @@ rendering, reduced-motion visitors, screen readers and crawlers. Presentation
 only: the wording lives in `FOUNDER_CLAIM` (`src/main.jsx`), and nothing wider
 than the claim above may be added (§2).
 
+## 1b. Machinery desk (added 2026-10-03)
+
+The site now also offers construction machinery sourced from China. Rules:
+
+- Machinery listings are **enquiry catalogue entries**, not stock we own. Every
+  card must stay labelled `demo` until the CRM carries real units, and the page
+  must keep saying prices are indicative FOB and confirmed by written quotation.
+- **Photographs must be of the machine being offered**, supplied by the seller
+  quoting it (or taken by AR7 on inspection) and branded with the AR7 mark and
+  stock reference. Never publish a photograph copied from a marketplace
+  listing — watermark or not — and never point a listing at a different
+  machine's photo to fill a grid. A unit with no photograph yet carries
+  `photosPending: true` and shows a "photos on request" panel.
+  Details and the legitimate sourcing routes: `MACHINERY-SOURCES.md`.
+- **Listed prices are the supplier quote plus the trading margin** in
+  `src/machinery-data.js` (`MACHINERY_MARKUP`). Never hand-type a listed price
+  that does not match `listPriceUSD()`.
+- Never state or imply unit counts, ever: no "hundreds of machines delivered",
+  no "X customers" for machinery, no factory-direct pricing guarantees, no
+  supplier names without the owner's written approval.
+- The sourcing claim allowed is exactly: machinery and equipment sourced to
+  order from **vetted Chinese suppliers**, inspected, documented and shipped.
+- Vehicle claims are unchanged: "900+ cars sold, dozens of satisfied customers
+  including car businesses" stays the only sales-experience figure, and it must
+  never be applied to machinery.
+
 ## 2. Prohibited without new, written substantiation
 
 The following were removed from the public site on 2026-09-28 because no

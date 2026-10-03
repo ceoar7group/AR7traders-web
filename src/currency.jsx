@@ -503,7 +503,7 @@ export function RatesModal({ token, canEdit, notify = () => {}, open = true, onC
         {canEdit ? (
           <footer className="ar7cur-rates-foot">
             <small><Info size={12} /> Rates are indicative for display. Invoices are confirmed in USD or JPY by the export desk.</small>
-            <button className="save" disabled={busy || !dirty}><Save size={14} /> {busy ? 'Saving…' : 'Save rates'}</button>
+            <button className="save" disabled={busy || !dirty} type="submit"><Save size={14} /> {busy ? 'Saving…' : 'Save rates'}</button>
           </footer>
         ) : (
           <p className="crm-hint ar7cur-rates-locked">Your role cannot edit exchange rates.</p>

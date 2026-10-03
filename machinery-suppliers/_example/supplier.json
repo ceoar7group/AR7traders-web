@@ -1,0 +1,28 @@
+{
+  "supplier": "EXAMPLE — delete this folder",
+  "country": "China",
+  "receivedAt": "2026-10-03",
+  "_note": "This folder is a template. Copy it to machinery-suppliers/<your-supplier-name>/, replace supplier.json with what your supplier actually sends you, and drop their photos of the specific unit into photos/. Then run: npm run machinery:import",
+  "machines": [
+    {
+      "id": "mch-example-1",
+      "ref": "AR7-MC-100",
+      "name": "Doosan DX300LC-9C",
+      "brand": "Doosan",
+      "type": "Excavators",
+      "year": 2020,
+      "hours": 4200,
+      "supplierPrice": 52000,
+      "location": "Shandong",
+      "brandPhotos": true,
+      "summary": "30-tonne crawler excavator quoted by our Shandong partner, photos of the actual unit.",
+      "specs": [
+        ["Operating weight", "30,200 kg"],
+        ["Engine", "Doosan DE08TIS 147 kW"],
+        ["Bucket", "1.4 m3 heavy duty"],
+        ["Undercarriage", "80% remaining"]
+      ],
+      "photos": ["photos/unit-1.jpg", "photos/unit-2.jpg", "photos/unit-3.jpg"]
+    }
+  ]
+}

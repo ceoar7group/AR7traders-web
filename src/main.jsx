@@ -1,7 +1,7 @@
 import React, {useEffect, useLayoutEffect, useRef, useState, useReducer} from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, CarFront, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Landmark, Share2 } from 'lucide-react';
+import { ArrowUpRight, Sun, Moon, Menu, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, CarFront, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Landmark, Share2, Wrench, Truck, Tractor } from 'lucide-react';
 import './styles.css';
 import './pages.css';
 import './extra-pages.css';
@@ -25,6 +25,12 @@ const CustomerAccount = React.lazy(() =>
   import('./customer-portal.jsx').then(m => ({ default: m.CustomerAccountPage })));
 // The /reviews showcase and its 12 buyer stories are only reached from /reviews.
 const ReviewsShowcase = React.lazy(() => import('./reviews.jsx'));
+// The machinery desk is its own page (and its own CSS chunk), reached from
+// /machinery, the Inventory menu and the home teaser.
+const MachineryPage = React.lazy(() => import('./machinery.jsx').then(m => ({ default: m.MachineryPage })));
+// Staff-only SEO audit desk. Lazy like the machinery page so the public
+// first-load bundle never pays for tooling.
+const SeoDesk = React.lazy(() => import('./seo-desk.jsx'));
 import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
 import { Flag } from './flag.jsx';
 import { ChatWidget } from './ChatWidget.jsx';
@@ -36,10 +42,14 @@ import { DEST } from './destinations.js';
 import { NEWS, NEWS_CATEGORIES, articleSlug, articleBySlug } from './news-data.js';
 export { DEST, NEWS };
 import { CurrencyProvider, CurrencyDropdown, useCurrency } from './currency.jsx';
+import { LanguageProvider } from './i18n.jsx';
+import { PromoBar } from './promo-bar.jsx';
 import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, hashFor, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
+import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref } from './machinery-data.js';
+import { useOffer, percentFor, priceWithOffer } from './offers.js';
 // A car uploaded before the 2026-10 WebP pass stores a `.jpg` photo path that
 // no longer exists on disk. vercel.json rewrites those URLs and this retries
 // them in the app; see src/image-fallback.js for the three layers.
@@ -48,6 +58,10 @@ installImageFallback();
 import './currency.css';
 import './currency-responsive.css';
 import './performance.css';
+// Loaded last: the single owner of the header bar and the hero-visual stacking
+// that depends on the bar's height, at every width. See the file header.
+import './site-layout.css';
+import './i18n.css';
 
 // ---------------------------------------------------------------------------
 // Owner-directed experience claim (figure revised 1,200+ → 900+ on 2026-09-29;
@@ -142,7 +156,6 @@ const kmNum=c=>Number(String(c?.km||'').replace(/[^0-9]/g,''))||0;
 // Export-market style filters (modelled on Japanese exporter search bars):
 // model year and odometer ceilings, on top of make/price/body/fuel.
 const YEAR_MIN={'2023+':2023,'2020+':2020,'2018+':2018,'2015+':2015};
-const KM_MAX={'Under 30k km':30000,'Under 60k km':60000,'Under 100k km':100000};
 const statusSlug=s=>String(s||'in-stock').replace(/\s+/g,'').toLowerCase();
 // Vehicle price in the visitor's chosen currency. Base (USD) keeps the exact
 // string the CRM published; other currencies convert it with the live rate.
@@ -260,7 +273,7 @@ function VehicleCard({c,onOpen,comp,onCmp}){const price=useCarPrice();
  const href=hrefFor('inventory',carRef(c));
  return <a className="car-card page-car" href={href} onClick={onOpen?linkClick(`inventory?car=${carRef(c)}`,()=>onOpen(c)):undefined}>
  <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{c.status||'In Stock'}</span><span className="grade">Grade <b>{c.grade}</b></span></div>
- <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>EXPORT PRICE FROM</small><b>{price(c)}</b></div><span className={"cmp-chip "+(comp?'on':'')} onClick={e=>{e.preventDefault();e.stopPropagation();onCmp&&onCmp(c)}}><ArrowLeftRight/>{comp?'Added':'Compare'}</span><span className="card-open"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
+ <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>EXPORT PRICE FROM</small><b>{price(c)}</b></div><button type="button" className={"cmp-chip "+(comp?'on':'')} aria-pressed={!!comp} aria-label={(comp?'Remove ':'Add ')+(c.make||'')+' '+(c.model||'')+(comp?' from':' to')+' the comparison'} onClick={e=>{e.preventDefault();e.stopPropagation();onCmp&&onCmp(c)}}><ArrowLeftRight/>{comp?'Added':'Compare'}</button><span className="card-open"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
  </a>}
 
 // Internal links into live stock. The guide, brand and news pages used to end
@@ -304,31 +317,70 @@ function stockNamedIn(text,limit=3){
  return out;
 }
 
-// The hero slide rotates a sample of the WHOLE live stock (showroom and Japan
-// inventory alike), evenly spaced so 12 slots cover every part of the list —
-// older builds only spun 7 hand-picked luxury cars.
-const rotatingCarIds=()=>{
+// The hero slide rotates a sample of the WHOLE live stock: cars from the
+// showroom and Japan inventory, and the machines on the China desk. Cars are
+// spaced evenly across the list so the sample covers every part of it rather
+// than the first few rows; one machine per type is woven in after every second
+// car, so the hero shows the full scope of what AR7 sells — a car wall was the
+// reason the machinery desk went unnoticed from the home page.
+const heroSlides=(fmtPrice)=>{
  const pool=cars.filter(Boolean);
- if(!pool.length)return[];
- const want=Math.min(12,pool.length);
- const step=pool.length/want;
- const picks=[];
- for(let i=0;i<want;i++)picks.push(pool[Math.floor(i*step)]);
- return picks.filter(Boolean);
+ const want=Math.min(8,pool.length);
+ const step=pool.length/Math.max(want,1);
+ const carsOut=[];
+ for(let i=0;i<want;i++){
+  const x=pool[Math.floor(i*step)];if(!x)continue;
+  const ref=carRef(x);
+  carsOut.push({kind:'car',id:'c'+ref,image:x.image,alt:carAlt(x),href:hrefFor('inventory',ref),
+   target:`inventory?car=${ref}`,tag:(x.status||'In stock').toUpperCase(),title:x.make+' '+x.model,
+   meta:`${x.year} · Grade ${x.grade} · ${fmtPrice(x)}`});
+ }
+ // One machine per type, and only a machine that actually has a photograph —
+ // the hero must never show the "photos on request" panel.
+ const machinesOut=[];
+ for(const t of MACHINE_TYPES){
+  const m=MACHINES.find(x=>x.type===t&&!x.photosPending&&machineImages(x).length);
+  if(!m)continue;
+  machinesOut.push({kind:'machine',id:'m'+m.id,image:machineImages(m)[0],
+   alt:`${m.name} ${m.type.toLowerCase().replace(/s$/,'')} for export from China`,
+   href:'/machinery',target:'machinery',tag:'MACHINERY · CHINA',title:m.name,
+   meta:`${m.year} · ${m.hours.toLocaleString('en-US')} h · $${listPriceUSD(m).toLocaleString('en-US')} FOB`});
+ }
+ // Weave: two cars, then a machine.
+ const woven=[];
+ for(let ci=0,mi=0;ci<carsOut.length||mi<machinesOut.length;){
+  for(let k=0;k<2&&ci<carsOut.length;k++)woven.push(carsOut[ci++]);
+  if(mi<machinesOut.length)woven.push(machinesOut[mi++]);
+ }
+ return woven;
 };
+// Illustrative calendar of the auction houses AR7 bids at and the shipping
+// lanes it books. The venues, ports and transit times are the real ones; the
+// live-looking countdown and progress are decorative, so both cards carry a
+// visible "demo" tag (see scripts/pages-render.test.jsx).
 const heroAuctions=[
  {name:'USS Tokyo',city:'Tokyo',seconds:2*3600+14*60+38},
  {name:'JU Aichi',city:'Nagoya',seconds:5*3600+48*60+12},
  {name:'TAA Kinki',city:'Osaka',seconds:8*3600+32*60+44},
  {name:'CAA Chubu',city:'Gifu',seconds:12*3600+5*60+27},
- {name:'HAA Kobe',city:'Kobe',seconds:20*3600+18*60+9}
+ {name:'HAA Kobe',city:'Kobe',seconds:20*3600+18*60+9},
+ {name:'USS Nagoya',city:'Nagoya',seconds:26*3600+42*60+51},
+ {name:'TAA Yokohama',city:'Yokohama',seconds:31*3600+9*60+33},
+ {name:'IAA Osaka',city:'Osaka',seconds:38*3600+27*60+16},
+ {name:'ZIP Osaka',city:'Osaka',seconds:45*3600+53*60+2},
+ {name:'NAA Narita',city:'Narita',seconds:52*3600+11*60+45}
 ];
 const heroRoutes=[
  {from:'Yokohama',to:'Karachi',progress:64,eta:'16 days',status:'Vessel departed'},
  {from:'Kobe',to:'Jebel Ali',progress:47,eta:'18 days',status:'Crossing East China Sea'},
  {from:'Nagoya',to:'Mombasa',progress:31,eta:'24 days',status:'Departed Japan'},
  {from:'Tokyo',to:'Southampton',progress:78,eta:'9 days',status:'Entering Mediterranean'},
- {from:'Osaka',to:'Auckland',progress:55,eta:'13 days',status:'Pacific passage'}
+ {from:'Osaka',to:'Auckland',progress:55,eta:'13 days',status:'Pacific passage'},
+ {from:'Yokohama',to:'Port Qasim',progress:22,eta:'19 days',status:'Loading at berth'},
+ {from:'Kobe',to:'Durban',progress:41,eta:'27 days',status:'Indian Ocean crossing'},
+ {from:'Nagoya',to:'Colombo',progress:69,eta:'11 days',status:'Approaching Colombo'},
+ {from:'Tokyo',to:'Dar es Salaam',progress:36,eta:'26 days',status:'East of Singapore'},
+ {from:'Osaka',to:'Felixstowe',progress:52,eta:'21 days',status:'Passing Suez'}
 ];
 const formatCountdown=seconds=>{const s=Math.max(0,Math.floor(seconds));const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),x=s%60;return (d?d+'d ':'')+[h,m,x].map(n=>String(n).padStart(2,'0')).join(':')};
 
@@ -342,7 +394,7 @@ function HeroVisual({navigate}){
  const [now,setNow]=useState(Date.now());
  useEffect(()=>{
   const el=wrap.current;let visible=true,carTimer=null,auctionTimer=null,routeTimer=null,tickTimer=null;
-  const start=()=>{if(carTimer)return;carTimer=setInterval(()=>setIdx(v=>v+1),3200);auctionTimer=setInterval(()=>setAuctionIdx(v=>(v+1)%heroAuctions.length),5200);routeTimer=setInterval(()=>setRouteIdx(v=>(v+1)%heroRoutes.length),6200);tickTimer=setInterval(()=>setNow(Date.now()),1000)};
+  const start=()=>{if(carTimer)return;carTimer=setInterval(()=>setIdx(v=>v+1),3200);auctionTimer=setInterval(()=>setAuctionIdx(v=>(v+1)%heroAuctions.length),4600);routeTimer=setInterval(()=>setRouteIdx(v=>(v+1)%heroRoutes.length),5600);tickTimer=setInterval(()=>setNow(Date.now()),1000)};
   const stop=()=>{[carTimer,auctionTimer,routeTimer,tickTimer].forEach(clearInterval);carTimer=auctionTimer=routeTimer=tickTimer=null};
   const io=new IntersectionObserver(en=>{visible=en[0].isIntersecting;visible?start():stop()},{threshold:.05});
   if(el)io.observe(el);start();
@@ -350,30 +402,48 @@ function HeroVisual({navigate}){
  },[]);
  const onMove=e=>{const el=wrap.current;if(!el)return;const r=el.getBoundingClientRect();const mx=((e.clientX-r.left)/r.width-.5).toFixed(3),my=((e.clientY-r.top)/r.height-.5).toFixed(3);el.style.setProperty('--mx',mx);el.style.setProperty('--my',my)};
  const onLeave=()=>{const el=wrap.current;if(!el)return;el.style.setProperty('--mx','0');el.style.setProperty('--my','0')};
- const rotatingCars=rotatingCarIds();
- const activeCarIndex=idx%Math.max(rotatingCars.length,1);
- const c=rotatingCars[activeCarIndex]||cars[0];
- const heroImages=c ? [c, rotatingCars[(activeCarIndex+1)%Math.max(rotatingCars.length,1)]]
+ const slides=heroSlides(price);
+ const activeIndex=idx%Math.max(slides.length,1);
+ const c=slides[activeIndex]||slides[0];
+ const heroImages=c ? [c, slides[(activeIndex+1)%Math.max(slides.length,1)]]
   .filter((x,i,a)=>x && a.findIndex(y=>y?.id===x.id)===i) : [];
  const auction=heroAuctions[auctionIdx];
  const route=heroRoutes[routeIdx];
  const remaining=(auctionEnds.current[auctionIdx]-now)/1000;
  if(!c)return null;
  return <div className="hero-visual" ref={wrap} onMouseMove={onMove} onMouseLeave={onLeave}>
+   {/* The rotating card is a link preview, not a document section, but it does show
+       real headings for each vehicle — so the hero gets its own screen-reader heading
+       and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
+   <h2 className="sr-only">Featured stock — cars from Japan and machines from China</h2>
   <i className="spark s1"/><i className="spark s2"/><i className="spark s3"/><i className="spark s4"/><i className="spark s5"/><i className="spark s6"/>
   <div className="hero-orb" title="AR7 360° world"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div>
-  <a className="hero-card car-main" href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)} title={`View ${c.make} ${c.model}`}>
-   <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={carAlt(x)} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
+  <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.target,navigate)} title={`View ${c.title}`}>
+   <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
    <div className="image-shade"/>
    <div className="car-float-title" key={idx}>
-    <span>{c.status.toUpperCase()}</span><h3>{c.make} {c.model}</h3><p>{c.year} · Grade {c.grade} · {price(c)}</p>
+    <span>{c.tag}</span><h3>{c.title}</h3><p>{c.meta}</p>
    </div>
-   <div className="car-dots">{rotatingCars.map((x,n)=><i key={x.id} className={n===idx%rotatingCars.length?'active':''}/>)}</div>
-   <div className="car-counter"><CarFront/> {(idx%rotatingCars.length)+1}/{rotatingCars.length} · rotating stock</div>
+   <div className="car-dots">{slides.map((x,n)=><i key={x.id} className={(x.kind==='machine'?'machine ':'')+(n===idx%slides.length?'active':'')}/>)}</div>
+   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {(idx%slides.length)+1}/{slides.length} · {c.kind==='machine'?'China machinery desk':'rotating stock'}</div>
   </a>
-  <div className="floating-card auction-card" aria-hidden="true"><Gavel/><div className="rotating-card-copy" key={auctionIdx}><span>SAMPLE AUCTION · {auction.city}</span><b>{auction.name}</b><small><Clock3/> Starts in {formatCountdown(remaining)}</small><div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div></div></div>
-  <div className="floating-card route-card" aria-hidden="true"><div className="rotating-card-copy" key={routeIdx}><div className="route-head"><Globe2/><span>SAMPLE ROUTE · {routeIdx+1}/{heroRoutes.length}</span></div><b>{route.from} - {route.to}</b><div className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></div><small>{route.status} · ETA {route.eta}</small><div className="card-rotation-dots route-dots">{heroRoutes.map((_,n)=><i key={n} className={n===routeIdx?'active':''}/>)}</div></div></div>
-  <div className="floating-badge" aria-hidden="true"><BadgeCheck/><span>Auction<br/><b>sheets translated</b></span></div>
+  <div className="floating-card auction-card" aria-hidden="true"><Gavel/><div className="rotating-card-copy" key={auctionIdx}>
+   <span className="card-kicker"><i className="card-live"/>Auction · {auction.city}</span>
+   <b className="card-title">{auction.name}</b>
+   <small className="card-meta card-countdown"><Clock3/> Starts in {formatCountdown(remaining)}</small>
+   <div className="card-foot"><div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div><i className="card-demo">demo</i></div>
+  </div></div>
+  <div className="floating-card route-card" aria-hidden="true"><div className="rotating-card-copy" key={routeIdx}>
+   <div className="route-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></div>
+   <div className="route-lane-row">
+    <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
+    <i className="lane-eta">{route.eta}</i>
+   </div>
+   <div className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></div>
+   <small className="card-meta route-status"><Ship/> {route.status}</small>
+   <div className="card-foot"><div className="card-rotation-dots route-dots">{heroRoutes.map((_,n)=><i key={n} className={n===routeIdx?'active':''}/>)}</div><i className="card-demo">demo</i></div>
+  </div></div>
+  <div className="floating-badge" aria-hidden="true"><BadgeCheck/><span><b>Auction sheets translated</b><small>Grade, marks and repair history in plain English.</small></span></div>
  </div>}
 
 const globeSeg=(s)=><div className="imap" key={s}>
@@ -386,14 +456,33 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
  const ref=useRef(null);
  useEffect(()=>{
   const el=ref.current; if(!el)return;
-  const st={x:0,vel:0,drag:false,lx:0,ly:0,tilt:0,moved:false,sx:0,sy:0};
+  // Drag state. `x` spins the map strip horizontally (seamless, so the visitor
+  // can keep spinning forever); `lat` slides the same strip up and down so the
+  // globe can be dragged in ANY direction like a real one. `lat` is clamped to
+  // half the strip's overhang, which is what stops the strip from running out
+  // and exposing an empty edge — the sliver that used to look like a "white
+  // part" on the header globe.
+  const st={x:0,lat:0,vel:0,drag:false,lx:0,ly:0,tilt:0,moved:false,sx:0,sy:0,faceW:0,faceH:0,maxLat:0};
   let raf=0,prev=performance.now(),visible=false,destroyed=false;
   const motionQuery=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)');
   let reduced=!!motionQuery?.matches;
+  // Geometry is measured once (and again on resize) instead of reading
+  // offsetWidth inside the animation frame, which forced a layout on every tick.
+  const measure=()=>{
+   const face=el.querySelector('.iglobe-face'),maps=el.querySelector('.iglobe-maps');
+   if(!face)return;
+   st.faceW=face.offsetWidth||el.offsetWidth||1;
+   st.faceH=face.offsetHeight||st.faceW;
+   const mapsH=maps?maps.offsetHeight:st.faceH;
+   st.maxLat=Math.max(0,(mapsH-st.faceH)/2);
+  };
   const apply=()=>{
-   const face=el.querySelector('.iglobe-face');const w=(face?face.offsetWidth:el.offsetWidth)||1;
+   if(!st.faceW)measure();
+   const w=st.faceW||1;
    while(st.x<=-w)st.x+=w; while(st.x>0)st.x-=w;
+   st.lat=Math.max(-st.maxLat,Math.min(st.maxLat,st.lat));
    el.style.setProperty('--rot',st.x.toFixed(2)+'px');
+   el.style.setProperty('--lat',st.lat.toFixed(2)+'px');
    el.style.setProperty('--tilt',st.tilt.toFixed(2)+'deg');
   };
   const schedule=()=>{
@@ -418,6 +507,10 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
   };
   const io=typeof IntersectionObserver==='function'?new IntersectionObserver(onVisible,{threshold:0}):null;
   if(io)io.observe(el);else{visible=true;schedule();}
+  // Re-measure when the button or globe changes size (responsive breakpoints,
+  // iframe previews in the device studio) so the drag limits stay correct.
+  const ro=typeof ResizeObserver==='function'?new ResizeObserver(()=>{measure();apply()}):null;
+  if(ro)ro.observe(el);
   const onVisibility=()=>{
    if(document.hidden&&raf){cancelAnimationFrame(raf);raf=0;}
    else{prev=performance.now();schedule();}
@@ -427,13 +520,13 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
   if(motionQuery?.addEventListener)motionQuery.addEventListener('change',onMotion);
   else motionQuery?.addListener?.(onMotion);
   const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;el.classList.add('dragging');schedule();if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){} };
-  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.x+=dx;st.vel=dx*0.82;st.tilt=Math.max(-16,Math.min(16,st.tilt+dy*0.10));if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
+  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.x+=dx;st.lat+=dy*0.62;st.vel=dx*0.82;st.tilt=Math.max(-14,Math.min(14,st.tilt-dy*0.12));if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
   const up=()=>{if(!st.drag)return;st.drag=false;el.classList.remove('dragging');if(!st.moved&&onTap)onTap();schedule();};
   el.addEventListener('pointerdown',dn);
   window.addEventListener('pointermove',mv,{passive:true});
   window.addEventListener('pointerup',up);
   window.addEventListener('pointercancel',up);
-  return()=>{destroyed=true;if(raf)cancelAnimationFrame(raf);io?.disconnect();document.removeEventListener('visibilitychange',onVisibility);if(motionQuery?.removeEventListener)motionQuery.removeEventListener('change',onMotion);else motionQuery?.removeListener?.(onMotion);el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
+  return()=>{destroyed=true;if(raf)cancelAnimationFrame(raf);io?.disconnect();ro?.disconnect();document.removeEventListener('visibilitychange',onVisibility);if(motionQuery?.removeEventListener)motionQuery.removeEventListener('change',onMotion);else motionQuery?.removeListener?.(onMotion);el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
  },[]);
  return <div className={'iglobe'+(compact?' compact':'')+(lite?' lite':'')+(cls?' '+cls:'')} ref={ref}>
   <div className="iglobe-halo"/><div className="iglobe-sphere">
@@ -457,7 +550,7 @@ function MotionShowcase({navigate}){return <section className="motion-showcase">
 function DeviceStudio({navigate}){
  const [device,setDevice]=useState('laptop');
  const sizes={phone:[390,720],tablet:[768,720],laptop:[1100,700],desktop:[1360,720]}; const [w,h]=sizes[device];
- return <section className="device-page"><div className="page-orb-wrap studio-orb"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="device-head"><div><div className="kicker">RESPONSIVE VIEW STUDIO</div><h1>Test every <em>screen.</em></h1><p>Switch devices to preview the AR7 website at realistic viewport sizes.</p></div><div className="device-tabs"><button className={device==='phone'?'active':''} onClick={()=>setDevice('phone')}><Smartphone/>Phone</button><button className={device==='tablet'?'active':''} onClick={()=>setDevice('tablet')}><Tablet/>Tablet</button><button className={device==='laptop'?'active':''} onClick={()=>setDevice('laptop')}><Laptop/>Laptop</button><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')}><Monitor/>PC</button></div></div><div className={'device-frame '+device} style={{'--frame-w':w+'px','--frame-h':h+'px'}}><div className="camera-dot"/><iframe src={'/?embed=1'} title="AR7 responsive preview"/></div><div className="device-size">{w} × {h} px · interactive demo</div></div></section>
+ return <section className="device-page"><div className="page-orb-wrap studio-orb"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="device-head"><div><div className="kicker">RESPONSIVE VIEW STUDIO</div><h1>Test every <em>screen.</em></h1><p>Switch devices to preview the AR7 website at realistic viewport sizes.</p></div><div className="device-tabs"><button className={device==='phone'?'active':''} onClick={()=>setDevice('phone')} type="button"><Smartphone/>Phone</button><button className={device==='tablet'?'active':''} onClick={()=>setDevice('tablet')} type="button"><Tablet/>Tablet</button><button className={device==='laptop'?'active':''} onClick={()=>setDevice('laptop')} type="button"><Laptop/>Laptop</button><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')} type="button"><Monitor/>PC</button></div></div><div className={'device-frame '+device} style={{'--frame-w':w+'px','--frame-h':h+'px'}}><div className="camera-dot"/><iframe src={'/?embed=1'+BUILD_STAMP} title="AR7 responsive preview"/></div><div className="device-size">{w} × {h} px · interactive demo</div></div></section>
 }
 
 function ExtraPage({type,navigate,openAuction}){
@@ -479,13 +572,13 @@ function ExtraPage({type,navigate,openAuction}){
   portal:['CLIENT PORTAL DEMO',<>Every update.<br/><em>One dashboard.</em></>,'Explore a working demo of the AR7 customer portal for bids, payments, documents and shipments.']};
  const h=headers[type];
  const services=[['Auction sourcing','Live access to USS, TAA, JU, CAA and more.','100,000+ weekly listings'],['Dealer stock','Curated off-auction vehicles from trusted networks.','Fast purchase decisions'],['Inspection','Independent condition checks, photos and road tests.','Clear condition report'],['Export logistics','Booking, customs, insurance and documentation.','Destination markets worldwide'],['Parts sourcing','Optional OEM parts and accessories before shipment.','Consolidated shipping'],['Dealer programs','Volume sourcing and dedicated account support.','Wholesale pricing']];
- return <section className="inner-page extra-page"><div className="page-hero mini extra-head"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">{h[0]}</div><h1>{h[1]}</h1><p>{h[2]}</p>{type==='portal'?<PageLink className="gold-btn" to="account" navigate={navigate}>Open my real account <ArrowRight/></PageLink>:<button className="gold-btn" onClick={openAuction}>Talk to our team <ArrowRight/></button>}</div></div><div className="shell page-content">
- {type==='services'&&<><div className="service-layout"><div className="service-tabs">{services.map((x,i)=><button key={x[0]} className={service===i?'active':''} onClick={()=>setService(i)}><span>0{i+1}</span>{x[0]}<ArrowRight/></button>)}</div><div className="service-panel"><Gavel/><div className="kicker">AR7 SERVICE 0{service+1}</div><h2>{services[service][0]}</h2><p>{services[service][1]}</p><strong>{services[service][2]}</strong><ul><li><Check/> Dedicated Japan-based specialist</li><li><Check/> Transparent itemized quotation</li><li><Check/> Photo and status updates</li></ul><button className="primary" onClick={openAuction}>Request this service</button></div></div><RelatedStock navigate={navigate} kicker="AVAILABLE FOR THIS SERVICE" note="Stock currently listed in our Japan inventory."/><div className="demo-strip">{[['Japan-wide','Auction sourcing'],['Personal','One point of contact'],['100%','Cost transparency'],['1 team','End-to-end support']].map(x=><div key={x[1]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div></>}
- {type==='destinations'&&<><RelatedStock navigate={navigate} limit={6} kicker="POPULAR IN THIS MARKET" note="Stock already in Japan and ready to quote for your route."/><div className="destination-picker"><div><div className="kicker">DEMO ROUTE CALCULATOR</div><h2>Where are we shipping?</h2></div><select value={activeDest[0]} onChange={e=>setPort(e.target.value)} aria-label="Select destination market">{DEST.map(x=><option key={x[0]} value={x[0]}>{FLAG[x[0]]} {x[0]} — {x[1].split(' / ')[0]}</option>)}</select><button className="primary" onClick={openAuction}>Get shipping quote</button></div><section className="destination-guide" ref={destGuideRef} aria-label={`${activeDest[0]} market guide`}><div className="destination-guide-head"><div><div className="kicker">{FLAG[activeDest[0]]} DESTINATION GUIDE · {activeDest[0].toUpperCase()}</div><h2>{activeDest[0]} — <em>{activeDest[1]}</em></h2><p className="destination-guide-meta"><Ship/> Planning transit estimate: <b>{activeDest[2]}</b> (vessel schedules and transshipment vary) · Popular models: <b>{activeDest[3]}</b></p></div><button type="button" className="primary" onClick={openAuction}>Quote for {activeDest[1].split(' / ')[0]} <ArrowRight/></button></div><div className="destination-guide-cols"><article className="destination-guide-card"><div className="kicker">BEFORE DEPARTURE</div><h3>What to expect in Japan</h3><p>{activeDest[5]}</p></article><article className="destination-guide-card"><div className="kicker">PORT CLEARANCE</div><h3>On arrival at {activeDest[1]}</h3><p>{activeDest[6]}</p></article></div><p className="destination-guide-note"><ShieldCheck/> <span><b>Customs &amp; import duty:</b> Import duty, local taxes and registration charges are always determined by your own country’s customs authority at the port of entry — we prepare the full export document pack your clearing agent needs.</span></p></section><div className="destination-grid">{DEST.map(x=><article key={x[0]} className={activeDest[0]===x[0]?'active':''}><Globe2/><div className="kicker">{FLAG[x[0]]} {x[0]}</div><h3>{x[1]}</h3><p><Ship/> Estimated transit (planning figure): <b>{x[2]}</b></p><small>POPULAR: {x[3]}</small><button type="button" onClick={()=>selectDest(x[0])}>{activeDest[0]===x[0]?'Viewing market guide':'View market guide'} <ArrowRight/></button></article>)}</div></>}
+ return <section className="inner-page extra-page"><div className="page-hero mini extra-head"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">{h[0]}</div><h1>{h[1]}</h1><p>{h[2]}</p>{type==='portal'?<PageLink className="gold-btn" to="account" navigate={navigate}>Open my real account <ArrowRight/></PageLink>:<button className="gold-btn" onClick={openAuction} type="button">Talk to our team <ArrowRight/></button>}</div></div><div className="shell page-content">
+ {type==='services'&&<><div className="service-layout"><div className="service-tabs">{services.map((x,i)=><button key={x[0]} className={service===i?'active':''} onClick={()=>setService(i)} type="button"><span>0{i+1}</span>{x[0]}<ArrowRight/></button>)}</div><div className="service-panel"><Gavel/><div className="kicker">AR7 SERVICE 0{service+1}</div><h2>{services[service][0]}</h2><p>{services[service][1]}</p><strong>{services[service][2]}</strong><ul><li><Check/> Dedicated Japan-based specialist</li><li><Check/> Transparent itemized quotation</li><li><Check/> Photo and status updates</li></ul><button className="primary" onClick={openAuction} type="button">Request this service</button></div></div><RelatedStock navigate={navigate} kicker="AVAILABLE FOR THIS SERVICE" note="Stock currently listed in our Japan inventory."/><div className="demo-strip">{[['Japan-wide','Auction sourcing'],['Personal','One point of contact'],['100%','Cost transparency'],['1 team','End-to-end support']].map(x=><div key={x[1]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div></>}
+ {type==='destinations'&&<><RelatedStock navigate={navigate} limit={6} kicker="POPULAR IN THIS MARKET" note="Stock already in Japan and ready to quote for your route."/><div className="destination-picker"><div><div className="kicker">DEMO ROUTE CALCULATOR</div><h2>Where are we shipping?</h2></div><select value={activeDest[0]} onChange={e=>setPort(e.target.value)} aria-label="Select destination market">{DEST.map(x=><option key={x[0]} value={x[0]}>{FLAG[x[0]]} {x[0]} — {x[1].split(' / ')[0]}</option>)}</select><button className="primary" onClick={openAuction} type="button">Get shipping quote</button></div><section className="destination-guide" ref={destGuideRef} aria-label={`${activeDest[0]} market guide`}><div className="destination-guide-head"><div><div className="kicker">{FLAG[activeDest[0]]} DESTINATION GUIDE · {activeDest[0].toUpperCase()}</div><h2>{activeDest[0]} — <em>{activeDest[1]}</em></h2><p className="destination-guide-meta"><Ship/> Planning transit estimate: <b>{activeDest[2]}</b> (vessel schedules and transshipment vary) · Popular models: <b>{activeDest[3]}</b></p></div><button type="button" className="primary" onClick={openAuction}>Quote for {activeDest[1].split(' / ')[0]} <ArrowRight/></button></div><div className="destination-guide-cols"><article className="destination-guide-card"><div className="kicker">BEFORE DEPARTURE</div><h3>What to expect in Japan</h3><p>{activeDest[5]}</p></article><article className="destination-guide-card"><div className="kicker">PORT CLEARANCE</div><h3>On arrival at {activeDest[1]}</h3><p>{activeDest[6]}</p></article></div><p className="destination-guide-note"><ShieldCheck/> <span><b>Customs &amp; import duty:</b> Import duty, local taxes and registration charges are always determined by your own country’s customs authority at the port of entry — we prepare the full export document pack your clearing agent needs.</span></p></section><div className="destination-grid">{DEST.map(x=><article key={x[0]} className={activeDest[0]===x[0]?'active':''}><Globe2/><div className="kicker">{FLAG[x[0]]} {x[0]}</div><h3>{x[1]}</h3><p><Ship/> Estimated transit (planning figure): <b>{x[2]}</b></p><small>POPULAR: {x[3]}</small><button type="button" onClick={()=>selectDest(x[0])}>{activeDest[0]===x[0]?'Viewing market guide':'View market guide'} <ArrowRight/></button></article>)}</div></>}
  {type==='reviews'&&<React.Suspense fallback={<div className="empty-state"><h3>Loading customer reviews…</h3></div>}><ReviewsShowcase navigate={navigate} openAuction={openAuction} founderClaim={FOUNDER_CLAIM}/></React.Suspense>}
  {type==='faq'&&<div className="faq-layout"><div><div className="kicker">POPULAR QUESTIONS</div><h2>Buying from Japan, explained.</h2><p>Practical answers on Japanese auctions, dealer stock, pricing, shipping and port clearance — grouped by topic.</p><PageLink className="primary" to="contact" navigate={navigate}>Ask another question</PageLink><RelatedStock navigate={navigate} limit={4} kicker="ANSWERING YOUR QUESTION WITH REAL STOCK" note="Cars already in Japan that match what buyers ask us most."/></div><div className="accordions">{FAQ_TOPICS.map(topic=><div className="faq-topic-group" key={topic}><h3 className="faq-topic-title">{topic}</h3>{FAQ_ITEMS.map((x,i)=>x[2]===topic?<article key={x[0]} className={open===i?'open':''}><button type="button" onClick={()=>setOpen(open===i?-1:i)}><span>{x[0]}</span><b>{open===i?'−':'+'}</b></button>{open===i&&<p>{x[1]}</p>}</article>:null)}</div>)}</div></div>}
  {type==='portal'&&<div className="portal-live-note"><ShieldCheck/><div><b>This is a preview of the dashboard.</b><span>Your own vehicles, every payment received and the balance remaining are waiting in your account.</span></div><PageLink className="primary" to="account" navigate={navigate}>Sign in <ArrowRight/></PageLink></div>}
- {type==='portal'&&<div className="portal-demo"><aside><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders"/>{['Shipments','Auctions','Documents','Payments'].map(x=><button key={x} className={portalTab===x?'active':''} onClick={()=>setPortalTab(x)}>{x}</button>)}<small>DEMO ACCOUNT<br/><b>Imran Khan</b></small></aside><main><header><div><small>CLIENT PORTAL / {portalTab.toUpperCase()}</small><h2>{portalTab}</h2></div><button onClick={openAuction}>Contact agent</button></header>{portalTab==='Shipments'?<div className="portal-shipment"><div className="portal-car"><img loading="lazy" decoding="async" width="820" height="550" src={cars[0].image} alt={carAlt(cars[0])}/><span><small>AR7-260184</small><b>Toyota Land Cruiser ZX</b><em>Yokohama → Karachi</em></span><strong>IN TRANSIT</strong></div><div className="track-line">{['Purchased','Inspected','Loaded','At sea','Arrived'].map((x,i)=><span key={x} className={i<4?'done':''}><i/>{x}<small>{i<4?'Complete':'Sep 08'}</small></span>)}</div></div>:portalTab==='Auctions'?<div className="portal-list">{cars.slice(1,5).map(c=><VehicleCard key={c.id} c={c}/>)}</div>:portalTab==='Documents'?<div className="doc-list">{['Commercial invoice.pdf','Export certificate.pdf','Bill of lading.pdf','Inspection report.pdf'].map((x,i)=><button key={x} onClick={openAuction}><ClipboardCheck/><span><b>{x}</b><small>Updated Aug {12+i}, 2026 · PDF</small></span><ArrowUpRight/></button>)}</div>:<div className="payment-card"><BadgeCheck/><h3>Account up to date</h3><p>All demo invoices have been paid.</p><div><span>Vehicle payment<b>{fmt(58900)}</b></span><span>Freight & insurance<b>{fmt(2480)}</b></span><span>Balance due<b>{fmt(0)}</b></span></div></div>}</main></div>}
+ {type==='portal'&&<div className="portal-demo"><aside><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async"/>{['Shipments','Auctions','Documents','Payments'].map(x=><button key={x} className={portalTab===x?'active':''} onClick={()=>setPortalTab(x)} type="button">{x}</button>)}<small>DEMO ACCOUNT<br/><b>Imran Khan</b></small></aside><section className="portal-main" aria-label="Client portal demo"><header><div><small>CLIENT PORTAL / {portalTab.toUpperCase()}</small><h2>{portalTab}</h2></div><button onClick={openAuction} type="button">Contact agent</button></header>{portalTab==='Shipments'?<div className="portal-shipment"><div className="portal-car"><img loading="lazy" decoding="async" width="820" height="550" src={cars[0].image} alt={carAlt(cars[0])}/><span><small>AR7-260184</small><b>Toyota Land Cruiser ZX</b><em>Yokohama → Karachi</em></span><strong>IN TRANSIT</strong></div><div className="track-line">{['Purchased','Inspected','Loaded','At sea','Arrived'].map((x,i)=><span key={x} className={i<4?'done':''}><i/>{x}<small>{i<4?'Complete':'Sep 08'}</small></span>)}</div></div>:portalTab==='Auctions'?<div className="portal-list">{cars.slice(1,5).map(c=><VehicleCard key={c.id} c={c}/>)}</div>:portalTab==='Documents'?<div className="doc-list">{['Commercial invoice.pdf','Export certificate.pdf','Bill of lading.pdf','Inspection report.pdf'].map((x,i)=><button key={x} onClick={openAuction} type="button"><ClipboardCheck/><span><b>{x}</b><small>Updated Aug {12+i}, 2026 · PDF</small></span><ArrowUpRight/></button>)}</div>:<div className="payment-card"><BadgeCheck/><h3>Account up to date</h3><p>All demo invoices have been paid.</p><div><span>Vehicle payment<b>{fmt(58900)}</b></span><span>Freight & insurance<b>{fmt(2480)}</b></span><span>Balance due<b>{fmt(0)}</b></span></div></div>}</section></div>}
  </div></section>
 }
 
@@ -504,13 +597,13 @@ function ExtraPages2({type,navigate,openAuction,articleSlug:activeSlug}){
  const [newsCat,setNewsCat]=useState('All');
  const article=type==='news'&&activeSlug?articleBySlug(activeSlug):null;
  const filteredNews=newsCat==='All'?NEWS:NEWS.filter(x=>x.cat===newsCat);
- return <section className="inner-page extra-page"><div className="page-hero mini extra-head"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">{h[0]}</div><h1>{h[1]}</h1><p>{h[2]}</p>{type!=='news'&&<button className="gold-btn" onClick={openAuction}>Talk to our team <ArrowRight/></button>}</div></div><div className="shell page-content">
+ return <section className="inner-page extra-page"><div className="page-hero mini extra-head"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">{h[0]}</div><h1>{h[1]}</h1><p>{h[2]}</p>{type!=='news'&&<button className="gold-btn" onClick={openAuction} type="button">Talk to our team <ArrowRight/></button>}</div></div><div className="shell page-content">
  {type==='brands'&&<><div className="brand-grid">{BRANDS().map(b=><article className="brand-card" key={b.name}><span className="brand-tile"><img loading="lazy" decoding="async" width="56" height="34" src={LOGO(b.name)} alt={b.name+" logo"} onError={logoOnError}/><small>{b.name}</small></span><div className="brand-body"><div><b>{b.count} vehicles</b><span>now in stock</span></div><div className="brand-models">{b.models.map(m=><a href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)} key={m}>{m}</a>)}</div><PageLink className="outline-btn" to={inventoryHref(b.name)} navigate={navigate}>View {b.name} stock <ArrowRight/></PageLink></div></article>)}</div><RelatedStock navigate={navigate} limit={6} kicker="IN STOCK BY BRAND" note="One live car from each make we currently have in Japan." pick={BRANDS().flatMap(b=>cars.filter(c=>c.make===b.name).slice(0,1))}/><div className="demo-strip">{BRANDS().length===0?null:[['12','Brands catalogued'],['30','Vehicles in stock'],['100%','Auction-sourced'],['24h','New stock update']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div></>}
  {type==='howbuy'&&<><div className="howbuy-flow">{HOWBUY.map((x,i)=><div className="hb-step" key={x[2]}><span>{x[2]}</span><div><b>{x[0]}</b><p>{x[1]}</p>{x[3]&&<p className="hb-what">{x[3]}</p>}</div>{i<HOWBUY.length-1&&<ArrowRight className="hb-arrow"/>}</div>)}</div><div className="hb-timeline"><div className="kicker">DEMO TIMELINE</div><h2>Typical days from bid to delivery.</h2><div className="hb-days">{[['Day 1','Deposit & bid'],['Day 2','Auction result'],['Day 3–6','Inspection & payment'],['Day 7','Vessel booking'],['Day 18–42','Transit to your port'],['Arrival','Customs & collection']].map(x=><span key={x[0]}><b>{x[0]}</b><small>{x[1]}</small></span>)}</div></div><div className="hb-pay"><div className="kicker">PAYMENT OPTIONS</div><h2>Pay the way your market prefers.</h2><div className="pay-grid">{PAYMENTS.map(x=>{const PI=x[2];return <article key={x[0]}><PI/><b>{x[0]}</b><p>{x[1]}</p></article>})}</div></div><div className="hb-docs"><div className="kicker">WITH EVERY SHIPMENT</div><h2>Documents we prepare for you.</h2><div className="doc-pills">{['Commercial invoice','Export certificate','Certificate of origin','Bill of lading','Insurance certificate','Sales contract'].map(x=><span key={x}><FileCheck/> {x}</span>)}</div></div><RelatedStock navigate={navigate} limit={3} kicker="READY FOR THE NEXT STEP" note="Cars our desk can start bidding on as soon as you set a limit."/></>}
- {type==='tools'&&<><div className="tools-grid"><article className="tool-card"><BookOpen/><div className="kicker">DEMO CIF CALCULATOR</div><h3>Shipping cost to your port</h3><label>DESTINATION PORT<select value={shipDest} onChange={e=>setShipDest(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select></label><label>VEHICLE VALUE (FOB {display})<input type="number" value={shipPrice} onChange={e=>setShipPrice(Math.max(500,+e.target.value||0))}/></label><label>SHIPPING METHOD<select value={shipMethod} onChange={e=>setShipMethod(e.target.value)}><option>RoRo</option><option>Container (+$2,000)</option></select></label><div className="calc-out">{(()=>{const v=toUsd(shipPrice);const freight=Math.round(v*0.016+(DEST.find(x=>x[1]===shipDest)||DEST[0])[4]+(shipMethod==='Container (+$2,000)'?2000:0));const docs=350+Math.round(v*0.016);return <><span><small>FREIGHT</small><b>{fmt(freight)}</b></span><span><small>DOCS &amp; INSURANCE</small><b>{fmt(docs)}</b></span><span className="total"><small>EST. CIF TOTAL</small><b>{fmt(v+freight+docs)}</b></span></>})()}</div><small className="demo-note"><LockKeyhole/> Demo estimate in {display} — final quote issued by our export desk.</small></article><article className="tool-card"><Calculator/><div className="kicker">DEMO DUTY CALCULATOR</div><h3>Import duty &amp; taxes</h3><label>DESTINATION COUNTRY<select value={dutyCountry} onChange={e=>setDutyCountry(e.target.value)}>{Object.keys(DUTY).map(x=><option key={x}>{FLAG[x]} {x}</option>)}</select></label><label>VEHICLE VALUE ({display})<input type="number" value={dutyPrice} onChange={e=>setDutyPrice(Math.max(500,+e.target.value||0))}/></label><div className="calc-out"><span><small>EST. DUTY + TAX</small><b>{fmt(toUsd(dutyPrice)*DUTY[dutyCountry]/100)}</b></span><span className="total"><small>LANDED ESTIMATE (CIF + DUTY)</small><b>{fmt(toUsd(dutyPrice)*(1+DUTY[dutyCountry]/100))}</b></span></div><p className="tool-note">Percentages are demo approximations of common applied rates. Local registration fees and port charges vary — our team prepares the exact landed costing for your port.</p></article></div><RelatedStock navigate={navigate} limit={3} kicker="PRICED WITH REAL STOCK" note="Use these numbers against a car currently listed in Japan."/></>}
+ {type==='tools'&&<><div className="tools-grid"><article className="tool-card"><BookOpen/><div className="kicker">DEMO CIF CALCULATOR</div><h2>Shipping cost to your port</h2><label>DESTINATION PORT<select value={shipDest} onChange={e=>setShipDest(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select></label><label>VEHICLE VALUE (FOB {display})<input type="number" value={shipPrice} onChange={e=>setShipPrice(Math.max(500,+e.target.value||0))}/></label><label>SHIPPING METHOD<select value={shipMethod} onChange={e=>setShipMethod(e.target.value)}><option>RoRo</option><option>Container (+$2,000)</option></select></label><div className="calc-out">{(()=>{const v=toUsd(shipPrice);const freight=Math.round(v*0.016+(DEST.find(x=>x[1]===shipDest)||DEST[0])[4]+(shipMethod==='Container (+$2,000)'?2000:0));const docs=350+Math.round(v*0.016);return <><span><small>FREIGHT</small><b>{fmt(freight)}</b></span><span><small>DOCS &amp; INSURANCE</small><b>{fmt(docs)}</b></span><span className="total"><small>EST. CIF TOTAL</small><b>{fmt(v+freight+docs)}</b></span></>})()}</div><small className="demo-note"><LockKeyhole/> Demo estimate in {display} — final quote issued by our export desk.</small></article><article className="tool-card"><Calculator/><div className="kicker">DEMO DUTY CALCULATOR</div><h2>Import duty &amp; taxes</h2><label>DESTINATION COUNTRY<select value={dutyCountry} onChange={e=>setDutyCountry(e.target.value)}>{Object.keys(DUTY).map(x=><option key={x}>{FLAG[x]} {x}</option>)}</select></label><label>VEHICLE VALUE ({display})<input type="number" value={dutyPrice} onChange={e=>setDutyPrice(Math.max(500,+e.target.value||0))}/></label><div className="calc-out"><span><small>EST. DUTY + TAX</small><b>{fmt(toUsd(dutyPrice)*DUTY[dutyCountry]/100)}</b></span><span className="total"><small>LANDED ESTIMATE (CIF + DUTY)</small><b>{fmt(toUsd(dutyPrice)*(1+DUTY[dutyCountry]/100))}</b></span></div><p className="tool-note">Percentages are demo approximations of common applied rates. Local registration fees and port charges vary — our team prepares the exact landed costing for your port.</p></article></div><RelatedStock navigate={navigate} limit={3} kicker="PRICED WITH REAL STOCK" note="Use these numbers against a car currently listed in Japan."/></>}
  {type==='news'&&<>{activeSlug&&!article&&<div className="empty-state article-missing"><Newspaper/><h3>Guide not found</h3><p>This buying guide link is out of date or does not exist. Browse our current Japan import guides instead.</p><PageLink className="primary" to="news" navigate={navigate}>All guides <ArrowRight/></PageLink></div>}
- {article&&<article className="news-article"><PageLink className="back-btn" to="news" navigate={navigate}>← All guides</PageLink><div className="kicker">{article.cat} · {article.date} · {article.min} min read</div><h2>{article.title}</h2><img loading="lazy" decoding="async" width="820" height="550" src={article.img} alt={article.title}/>{article.body.split('\n\n').map((x,i)=><p key={i}>{x}</p>)}<RelatedStock navigate={navigate} limit={3} kicker="STOCK RELATED TO THIS GUIDE" note="Cars in our Japan inventory that match what this article covers." pick={stockNamedIn(article.title+' '+article.body)}/><button className="primary" onClick={openAuction}>Ask our team about this <ArrowRight/></button><footer className="news-article-footer"><div className="kicker">KEEP PLANNING YOUR IMPORT</div><nav className="news-article-links" aria-label="Related import resources"><PageLink className="outline-btn" to="destinations" navigate={navigate}>Shipping destinations <ArrowRight/></PageLink><PageLink className="outline-btn" to="shipping" navigate={navigate}>RoRo &amp; container shipping <ArrowRight/></PageLink><PageLink className="outline-btn" to="tools" navigate={navigate}>Estimate import costs <ArrowRight/></PageLink><PageLink className="outline-btn" to="howbuy" navigate={navigate}>How to buy from Japan <ArrowRight/></PageLink><PageLink className="outline-btn" to="faq" navigate={navigate}>Import questions <ArrowRight/></PageLink></nav></footer></article>}
- {!activeSlug&&<><div className="news-filter-bar" role="tablist" aria-label="Filter guides by topic"><button type="button" className={newsCat==='All'?'active':''} onClick={()=>setNewsCat('All')}>All guides</button>{NEWS_CATEGORIES.map(cat=><button type="button" key={cat} className={newsCat===cat?'active':''} onClick={()=>setNewsCat(cat)}>{cat}</button>)}</div><div className="news-grid">{filteredNews.map(x=>{const slug=x.slug||articleSlug(x.title);return <PageLink className="news-card" key={slug} to={'/news/'+slug} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={x.img} alt={x.title||"AR7 Traders vehicle export"}/><div className="news-meta"><span>{x.cat}</span><small>{x.date} · {x.min} min</small></div><h3>{x.title}</h3><p>{x.excerpt||x.ex}</p><b>Read article <ArrowRight/></b></PageLink>;})}</div><RelatedStock navigate={navigate} limit={4} kicker="IN STOCK NOW" note="Cars already in Japan — the stock our guides are written about."/></>}
+ {article&&<article className="news-article"><PageLink className="back-btn" to="news" navigate={navigate}>← All guides</PageLink><div className="kicker">{article.cat} · {article.date} · {article.min} min read</div><h2>{article.title}</h2><img loading="lazy" decoding="async" width="820" height="550" src={article.img} alt={article.title}/>{article.body.split('\n\n').map((x,i)=><p key={i}>{x}</p>)}<RelatedStock navigate={navigate} limit={3} kicker="STOCK RELATED TO THIS GUIDE" note="Cars in our Japan inventory that match what this article covers." pick={stockNamedIn(article.title+' '+article.body)}/><button className="primary" onClick={openAuction} type="button">Ask our team about this <ArrowRight/></button><footer className="news-article-footer"><div className="kicker">KEEP PLANNING YOUR IMPORT</div><nav className="news-article-links" aria-label="Related import resources"><PageLink className="outline-btn" to="destinations" navigate={navigate}>Shipping destinations <ArrowRight/></PageLink><PageLink className="outline-btn" to="shipping" navigate={navigate}>RoRo &amp; container shipping <ArrowRight/></PageLink><PageLink className="outline-btn" to="tools" navigate={navigate}>Estimate import costs <ArrowRight/></PageLink><PageLink className="outline-btn" to="howbuy" navigate={navigate}>How to buy from Japan <ArrowRight/></PageLink><PageLink className="outline-btn" to="faq" navigate={navigate}>Import questions <ArrowRight/></PageLink></nav></footer></article>}
+ {!activeSlug&&<><div className="news-filter-bar" role="tablist" aria-label="Filter guides by topic"><button type="button" className={newsCat==='All'?'active':''} onClick={()=>setNewsCat('All')}>All guides</button>{NEWS_CATEGORIES.map(cat=><button type="button" key={cat} className={newsCat===cat?'active':''} onClick={()=>setNewsCat(cat)}>{cat}</button>)}</div><div className="news-grid">{filteredNews.map(x=>{const slug=x.slug||articleSlug(x.title);return <PageLink className="news-card" key={slug} to={'/news/'+slug} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={x.img} alt={x.title||"AR7 Traders vehicle export"}/><div className="news-meta"><span>{x.cat}</span><small>{x.date} · {x.min} min</small></div><h2>{x.title}</h2><p>{x.excerpt||x.ex}</p><b>Read article <ArrowRight/></b></PageLink>;})}</div><RelatedStock navigate={navigate} limit={4} kicker="IN STOCK NOW" note="Cars already in Japan — the stock our guides are written about."/></>}
  </>}</div></section>}
 
 function readRoute(loc=typeof location==='undefined'?{}:location,opts){
@@ -571,21 +664,21 @@ function VehicleLightbox({selected,detailImage,detailGallery,zoomLevel,setZoomLe
   <div className="lightbox-stage" onClick={e=>e.stopPropagation()}>
    <div className="lightbox-topbar">
     <span className="lightbox-title"><b>{selected.make} {selected.model}</b><small>{detailGallery.length>1?`${idx} / ${detailGallery.length}`:''}</small></span>
-    <button className="lightbox-close" onClick={()=>setZoomOpen(false)} aria-label="Close enlarged image" title="Close (Esc)"><X/></button>
+    <button className="lightbox-close" onClick={()=>setZoomOpen(false)} aria-label="Close enlarged image" title="Close (Esc)" type="button"><X/></button>
    </div>
    <div className="lightbox-img-wrap">
-    <img className={'lightbox-image '+(isZoomed?'is-zoomed':'')} width="620" height="400" src={detailImage} alt={`${selected.make} ${selected.model} enlarged`} style={{transform:`scale(${zoomLevel})`}} onClick={e=>{e.stopPropagation();setZoomLevel(v=>v>1?1:1.5)}}/>
+    <img role="button" tabIndex={0} aria-label="Toggle zoom on this photo" onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setZoomLevel(z=>z>1?1:2)}}} className={'lightbox-image '+(isZoomed?'is-zoomed':'')} width="620" height="400" src={detailImage} alt={`${selected.make} ${selected.model} enlarged`} style={{transform:`scale(${zoomLevel})`}} onClick={e=>{e.stopPropagation();setZoomLevel(v=>v>1?1:1.5)}} loading="lazy" decoding="async"/>
    </div>
    <div className="lightbox-bottom">
     <div className="lightbox-nav" role="group" aria-label="Image navigation">
-     <button className="lightbox-arrow prev" onClick={()=>stepGallery(-1)} disabled={detailGallery.length<=1} aria-label="Previous image" title="Previous"><ChevronLeft/><span>Prev</span></button>
+     <button className="lightbox-arrow prev" onClick={()=>stepGallery(-1)} disabled={detailGallery.length<=1} aria-label="Previous image" title="Previous" type="button"><ChevronLeft/><span>Prev</span></button>
      <span className="lightbox-count">{detailGallery.length>1?`${idx} / ${detailGallery.length}`:''}</span>
-     <button className="lightbox-arrow next" onClick={()=>stepGallery(1)} disabled={detailGallery.length<=1} aria-label="Next image" title="Next"><span>Next</span><ChevronRight/></button>
+     <button className="lightbox-arrow next" onClick={()=>stepGallery(1)} disabled={detailGallery.length<=1} aria-label="Next image" title="Next" type="button"><span>Next</span><ChevronRight/></button>
     </div>
     <div className="zoom-controls" role="group" aria-label="Image zoom controls">
-     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.max(1,v-.25))} disabled={zoomLevel<=1} aria-label="Zoom out" title="Zoom out"><ZoomOut/><span>Out</span></button>
-     <button className="zoom-level" onClick={()=>setZoomLevel(1)} disabled={zoomLevel===1} aria-label="Reset zoom" title="Reset zoom"><strong>{Math.round(zoomLevel*100)}%</strong><small>Reset</small></button>
-     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.min(3.5,v+.25))} disabled={zoomLevel>=3.5} aria-label="Zoom in" title="Zoom in"><ZoomIn/><span>In</span></button>
+     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.max(1,v-.25))} disabled={zoomLevel<=1} aria-label="Zoom out" title="Zoom out" type="button"><ZoomOut/><span>Out</span></button>
+     <button className="zoom-level" onClick={()=>setZoomLevel(1)} disabled={zoomLevel===1} aria-label="Reset zoom" title="Reset zoom" type="button"><strong>{Math.round(zoomLevel*100)}%</strong><small>Reset</small></button>
+     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.min(3.5,v+.25))} disabled={zoomLevel>=3.5} aria-label="Zoom in" title="Zoom in" type="button"><ZoomIn/><span>In</span></button>
     </div>
    </div>
   </div>
@@ -629,16 +722,16 @@ function JapanStockPage({navigate, openAuction}){
     <div className="inv-toolbar">
      <label className="inv-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search make, model or stock no."/></label>
      <select value={make} onChange={e=>setMake(e.target.value)} aria-label="Filter by brand"><option>All</option>{makes.map(m=><option key={m}>{m}</option>)}</select>
-     <select value={body} onChange={e=>setBody(e.target.value)}><option>All</option>{bodies.map(b=><option key={b}>{b}</option>)}</select>
+     <select value={body} onChange={e=>setBody(e.target.value)} aria-label="Filter dealer stock by body type"><option>All</option>{bodies.map(b=><option key={b}>{b}</option>)}</select>
     </div>
     <div className="results-line"><b>{list.length} vehicles</b><span>verified photos · auction-sheet quality · updated by the AR7 importer</span></div>
-    {loading?<div className="empty-state"><CarFront/><h3>Loading dealer stock…</h3><p>Fetching the latest dealer listings from Japan.</p></div>:
-     list.length===0?<div className="empty-state"><Search/><h3>No dealer cars match</h3><p>New dealer stock arrives all the time — try another filter or ask our team.</p><button className="primary" onClick={openAuction}>Request a search <ArrowRight/></button></div>:
+    {loading?<div className="empty-state"><CarFront/><h2>Loading dealer stock…</h2><p>Fetching the latest dealer listings from Japan.</p></div>:
+     list.length===0?<div className="empty-state"><Search/><h2>No dealer cars match</h2><p>New dealer stock arrives all the time — try another filter or ask our team.</p><button className="primary" onClick={openAuction} type="button">Request a search <ArrowRight/></button></div>:
      <div className="car-grid full-grid jstock-grid">{list.map(r=>{
       const photos=r.images||(r.image?[r.image]:[]);
       const price=r.price||(r.price_usd?'$'+Math.round(r.price_usd).toLocaleString('en-US'):'—');
       return <article className="car-card page-car jstock-card" key={r.id||r.stock_no}>
-       <div className="car-image" onClick={()=>{setGalleryIdx(0);setOpenCar(r)}}>
+       <div className="car-image" role="button" tabIndex={0} aria-label={`Open photos of ${carAlt(r)}`} onClick={()=>{setGalleryIdx(0);setOpenCar(r)}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setGalleryIdx(0);setOpenCar(r)}}}>
         <img loading="lazy" decoding="async" width="820" height="550" src={r.image||photos[0]||'/assets/ar7-mark.png'} alt={carAlt(r)}/>
         <span className="status New Arrival">{r.status||'New Arrival'}</span>
         {r.grade&&<span className="grade">Grade <b>{r.grade}</b></span>}
@@ -647,10 +740,10 @@ function JapanStockPage({navigate, openAuction}){
        <div className="car-info">
         <div className="make">{r.make}</div><h3>{r.model}</h3>
         <div className="specs"><span><CalendarDays/> {r.year||'—'}</span><span><Gauge/> {r.km?r.km+' km':'—'}</span>{r.fuel&&<span><Fuel/> {r.fuel}</span>}{r.tr&&<span><ArrowLeftRight/> {r.tr}</span>}</div>
-        <div className="car-bottom"><div><small>DEALER PRICE</small><b>{price}</b></div><span className="card-open" onClick={()=>{setGalleryIdx(0);setOpenCar(r)}}>Photos <ArrowUpRight/></span></div>
+        <div className="car-bottom"><div><small>DEALER PRICE</small><b>{price}</b></div><button type="button" className="card-open" onClick={()=>{setGalleryIdx(0);setOpenCar(r)}}>Photos <ArrowUpRight/></button></div>
         <div className="loc"><MapPin/> {r.location?r.location+', Japan':'Japan'}</div>
         <div className="jstock-actions">
-         <button className="primary" onClick={openAuction}>Enquire <ArrowRight/></button>
+         <button className="primary" onClick={openAuction} type="button">Enquire <ArrowRight/></button>
         </div>
        </div>
       </article>;
@@ -661,17 +754,17 @@ function JapanStockPage({navigate, openAuction}){
    <div className="lightbox-stage" onClick={e=>e.stopPropagation()}>
     <div className="lightbox-topbar">
      <span className="lightbox-title"><b>{openCar.make} {openCar.model}</b><small>{openCar.stock_no||''}</small></span>
-     <button className="lightbox-close" onClick={closeG} aria-label="Close"><X/></button>
+     <button className="lightbox-close" onClick={closeG} aria-label="Close" type="button"><X/></button>
     </div>
-    <div className="lightbox-img-wrap"><img className="lightbox-image" width="620" height="400" src={cur} alt={`${openCar.make} ${openCar.model}`} onError={e=>{if(hasRetried(e.currentTarget))return;if(e.currentTarget.src!==(openCar.image||''))e.currentTarget.src=openCar.image||'/assets/ar7-mark.png'}}/></div>
+    <div className="lightbox-img-wrap"><img className="lightbox-image" width="620" height="400" src={cur} alt={`${openCar.make} ${openCar.model}`} onError={e=>{if(hasRetried(e.currentTarget))return;if(e.currentTarget.src!==(openCar.image||''))e.currentTarget.src=openCar.image||'/assets/ar7-mark.png'}} loading="lazy" decoding="async"/></div>
     <div className="lightbox-bottom">
      <div className="lightbox-nav">
-      <button className="lightbox-arrow prev" onClick={()=>stepG(-1)} disabled={gallery.length<=1} aria-label="Previous photo"><ChevronLeft/><span>Prev</span></button>
+      <button className="lightbox-arrow prev" onClick={()=>stepG(-1)} disabled={gallery.length<=1} aria-label="Previous photo" type="button"><ChevronLeft/><span>Prev</span></button>
       <span className="lightbox-count">{gallery.length>1?`${galleryIdx+1} / ${gallery.length}`:''}</span>
-      <button className="lightbox-arrow next" onClick={()=>stepG(1)} disabled={gallery.length<=1} aria-label="Next photo"><span>Next</span><ChevronRight/></button>
+      <button className="lightbox-arrow next" onClick={()=>stepG(1)} disabled={gallery.length<=1} aria-label="Next photo" type="button"><span>Next</span><ChevronRight/></button>
      </div>
      <div className="jstock-actions lightbox-cta">
-      <button className="primary" onClick={()=>{closeG();openAuction()}}>Enquire now <ArrowRight/></button>
+      <button className="primary" onClick={()=>{closeG();openAuction()}} type="button">Enquire now <ArrowRight/></button>
      </div>
     </div>
    </div>
@@ -683,7 +776,7 @@ function JapanStockPage({navigate, openAuction}){
 // pages, so returning before the hook list runs changes the hook count between
 // renders and React flags it ("Expected static flag was missing"). Page
 // selection happens in App's ternary, which swaps component types instead.
-function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,initialMake}){
+function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,initialMake,initialModel}){
  const settings=useSettings();
  const price=useCarPrice();
  const {fmt}=useCurrency();
@@ -691,23 +784,26 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  const signedIn=!!cust.session;
  const [,contentTick]=useReducer(x=>x+1,0);
  useEffect(()=>onContentChange(()=>contentTick()),[]);
- const [query,setQuery]=useState(''),[body,setBody]=useState('All'),[make,setMake]=useState(initialMake||'All'),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(DEST[0][1]),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false);
+ const [query,setQuery]=useState(''),[body,setBody]=useState('All'),[make,setMake]=useState(initialMake||'All'),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState('All'),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(DEST[0][1]),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false);
  // The header's Brands dropdown drives this filter through the URL, so the
  // select must follow the route (and stay put when changed by hand or while
  // inspecting a vehicle from a filtered list).
  useEffect(()=>{ if(!vehicleId) setMake(initialMake||'All'); },[initialMake,vehicleId]);
+ // A model landing page (/cars/toyota/land-cruiser) always starts from "All"
+ // makes so the make dropdown never reads "All" while the grid is filtered.
+ useEffect(()=>{ if(initialModel) setMake('All'); },[initialModel]);
  const selected=page==='inventory'&&vehicleId?findCar(cars,vehicleId):null;
  const detailGallery=selected?galleryFor(selected):[];
  const detailImage=galleryImage||detailGallery[0];
  useEffect(()=>{ setGalleryImage(null); setZoomOpen(false); setZoomLevel(1); },[vehicleId]);
  const openVehicle=car=>{
-  sessionStorage.setItem(INVENTORY_SCROLL_KEY,String(window.scrollY||window.pageYOffset||0));
+  try{sessionStorage.setItem(INVENTORY_SCROLL_KEY,String(window.scrollY||window.pageYOffset||0));}catch{ }
   navigate(`inventory?car=${carRef(car)}`,{scroll:false});
  };
  const backTarget=make&&make!=='All'?inventoryHref(make):'inventory';
  const backToInventory=()=>{
-  const saved=Number(sessionStorage.getItem(INVENTORY_SCROLL_KEY)||0);
-  sessionStorage.removeItem(INVENTORY_SCROLL_KEY);
+  let saved=0;
+  try{ saved=Number(sessionStorage.getItem(INVENTORY_SCROLL_KEY)||0); sessionStorage.removeItem(INVENTORY_SCROLL_KEY); }catch{ saved=0; }
   rememberVehicle(null);
   navigate(backTarget,{scroll:false});
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,saved)));
@@ -748,17 +844,69 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  const stepGallery=dir=>{if(detailGallery.length<2)return;const at=Math.max(0,detailGallery.indexOf(detailImage));setGalleryImage(detailGallery[(at+dir+detailGallery.length)%detailGallery.length])};
  stepGalleryRef.current=stepGallery;
  if(page==='inventory'&&vehicleId&&!selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="empty-state vehicle-missing">{isContentHydrated()?<><Search/><h3>This vehicle is no longer listed</h3><p>It may have sold or the link is out of date. Browse current Japan stock instead.</p><PageLink className="primary" to={backTarget} navigate={backToInventory}>View inventory <ArrowRight/></PageLink></>:<><CarFront/><h3>Loading vehicle…</h3><p>Fetching the latest stock so we can open this car.</p></>}</div></div></section>;
- if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" fetchPriority="high" width="620" height="400" src={detailImage} onError={e=>{if(hasRetried(e.currentTarget))return;if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}}/></div><div className="detail-gallery-toolbar">{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image"><ChevronLeft/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image"><ChevronRight/></button></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image"><Maximize2/> Enlarge</button></div><div className="hero-orb in-page detail-orb"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i}><img loading="lazy" decoding="async" width="164" height="110" src={img} onError={e=>{if(hasRetried(e.currentTarget)||e.currentTarget.dataset.f)return;e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div>{hasAuctionSheet(selected)&&<span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>}{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><b>{price(selected)}</b></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span><span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span><span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].filter(x=>x[1]!=null&&x[1]!=='').map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div>{(selected.feats||[]).length>0&&<div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div>}<div className="cif-box"><div className="kicker">DEMO CIF ESTIMATE</div><select value={destSel} onChange={e=>setDestSel(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" width="120" height="46" src={LOGO(selected.make)} alt={selected.make+" logo"} onError={logoOnError}/><span>{selected.make} · sourced in Japan</span></div><VehicleActions car={selected} stockRef={stockNo(selected)} settings={settings} saved={favs.includes(selected.id)} copied={copied} onEnquire={openAuction} onChat={openChat} onToggleSave={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])} onCopy={copyVehicleLink}/><div className="sheet-box"><ClipboardCheck/><div>{hasAuctionSheet(selected)?<><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></>:<><b>Condition &amp; documentation</b><p>Ask our Japan team for this vehicle&rsquo;s condition report and documentation before you commit.</p></>}</div></div></div></div><BuyerGuide car={selected} navigate={navigate}/>{(()=>{const related=cars.filter(c=>c&&c.published!==false&&carRef(c)!==carRef(selected)&&(c.make===selected.make||c.body===selected.body)).sort((a,b)=>Number(b.make===selected.make)-Number(a.make===selected.make)).slice(0,3);return related.length?<section className="related-stock" aria-label="Related vehicles"><div className="kicker">SIMILAR STOCK</div><h2>More vehicles to explore</h2><p className="related-stock-note">Other published vehicles from the same make or body type, currently listed in Japan.</p><div className="related-stock-grid">{related.map(c=><PageLink key={carRef(c)} className="related-stock-card" to={'/inventory/'+carRef(c)} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark.png'} alt={carAlt(c)}/><b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b><small>{carRef(c)}{c.status?' · '+c.status:''}</small></PageLink>)}</div><PageLink className="outline-btn" to={inventoryHref(selected.make)} navigate={navigate}>Browse all {selected.make} stock <ArrowRight/></PageLink></section>:null})()}</div></section>;
+ if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" fetchPriority="high" width="620" height="400" src={detailImage} onError={e=>{if(hasRetried(e.currentTarget))return;if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} loading="eager"/></div><div className="detail-gallery-toolbar">{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image" type="button"><ChevronLeft/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image" type="button"><ChevronRight/></button></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image" type="button"><Maximize2/> Enlarge</button></div><div className="hero-orb in-page detail-orb"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i} type="button"><img loading="lazy" decoding="async" width="164" height="110" src={img} onError={e=>{if(hasRetried(e.currentTarget)||e.currentTarget.dataset.f)return;e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div>{hasAuctionSheet(selected)&&<span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>}{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><b>{price(selected)}</b></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span><span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span><span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].filter(x=>x[1]!=null&&x[1]!=='').map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div>{(selected.feats||[]).length>0&&<div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div>}<div className="cif-box"><div className="kicker">DEMO CIF ESTIMATE</div><select value={destSel} onChange={e=>setDestSel(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" width="120" height="46" src={LOGO(selected.make)} alt={selected.make+" logo"} onError={logoOnError}/><span>{selected.make} · sourced in Japan</span></div><VehicleActions car={selected} stockRef={stockNo(selected)} settings={settings} saved={favs.includes(selected.id)} copied={copied} onEnquire={openAuction} onChat={openChat} onToggleSave={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])} onCopy={copyVehicleLink}/><div className="sheet-box"><ClipboardCheck/><div>{hasAuctionSheet(selected)?<><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></>:<><b>Condition &amp; documentation</b><p>Ask our Japan team for this vehicle&rsquo;s condition report and documentation before you commit.</p></>}</div></div></div></div><BuyerGuide car={selected} navigate={navigate}/>{(()=>{const related=cars.filter(c=>c&&c.published!==false&&carRef(c)!==carRef(selected)&&(c.make===selected.make||c.body===selected.body)).sort((a,b)=>Number(b.make===selected.make)-Number(a.make===selected.make)).slice(0,3);return related.length?<section className="related-stock" aria-label="Related vehicles"><div className="kicker">SIMILAR STOCK</div><h2>More vehicles to explore</h2><p className="related-stock-note">Other published vehicles from the same make or body type, currently listed in Japan.</p><div className="related-stock-grid">{related.map(c=><PageLink key={carRef(c)} className="related-stock-card" to={'/inventory/'+carRef(c)} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark.png'} alt={carAlt(c)}/><b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b><small>{carRef(c)}{c.status?' · '+c.status:''}</small></PageLink>)}</div><PageLink className="outline-btn" to={inventoryHref(selected.make)} navigate={navigate}>Browse all {selected.make} stock <ArrowRight/></PageLink></section>:null})()}</div></section>;
 if(['services','destinations','reviews','faq','portal'].includes(page))return <ExtraPage type={page} navigate={navigate} openAuction={openAuction}/>;
  if(['brands','howbuy','tools','news'].includes(page))return <ExtraPages2 type={page} navigate={navigate} openAuction={openAuction} articleSlug={page==='news'?vehicleId:null}/>;
  const makes=[...new Set(cars.map(c=>c.make))].sort();
+ // ── Facets, in the shape beforward's stock list offers ─────────────────────
+ // Every option is derived from the live list, so a filter can never offer a
+ // value that returns nothing. Counts sit beside each option for the same
+ // reason they sit beside beforward's makes: a buyer should see the size of a
+ // result before committing to it. Client-side by design (SEO.md §3d) — the
+ // catalogue is small and twenty filter URLs should not enter the index.
+ const facetPool = cars.filter(c => make==='All' || c.make===make);
+ const facetCount = (field,value) => facetPool.filter(c=>c[field]===value).length;
+ const modelsForMake = [...new Set(facetPool.map(c=>c.model))].sort();
+ const transmissions = [...new Set(cars.map(c=>c.tr).filter(Boolean))].sort();
+ const steerings = [...new Set(cars.map(c=>c.st).filter(Boolean))].sort();
+ const PRICE_BANDS = [
+   ['Any', null, null],
+   ['Under $10k', null, 10000],
+   ['$10k – $20k', 10000, 20000],
+   ['$20k – $35k', 20000, 35000],
+   ['$35k – $60k', 35000, 60000],
+   ['$60k+', 60000, null]
+ ];
+ const KM_BANDS = [['Any', null], ['Under 30,000 km', 30000], ['Under 60,000 km', 60000], ['Under 100,000 km', 100000], ['Under 150,000 km', 150000]];
+ const priceBand = PRICE_BANDS.find(b=>b[0]===priceF) || PRICE_BANDS[0];
+ const kmBand = KM_BANDS.find(b=>b[0]===kmF) || KM_BANDS[0];
+ const facetActive = [body!=='All'&&body, make!=='All'&&make, modelF!=='All'&&modelF, fuel!=='All'&&fuel, priceF!=='Any'&&priceF, yearF!=='Any'&&'From '+yearF, kmF!=='Any'&&kmF, trF!=='All'&&trF, steerF!=='All'&&steerF+' hand drive'].filter(Boolean);
+ const fuelOptions = [...new Set(cars.map(c=>c.fuel).filter(Boolean))];
+ const countBy = (field,value) => cars.filter(c=>c[field]===value).length;
+ // beforward annotates every option with its count; so do we, so a shopper can
+ // see the size of a result before clicking into it.
+ const facets = [
+  {k:'Make',v:make,set:v=>{setMake(v);setModelF('All');navigate(inventoryHref(v),{scroll:false,replace:true})},o:[['All','All makes ('+cars.length+')'],...makes.map(m=>[m,m+' ('+countBy('make',m)+')'])]},
+  {k:'Model',v:modelF,set:setModelF,dis:modelsForMake.length<2,o:[['All',make==='All'?'Any model':'All '+make+' models'],...modelsForMake.map(md=>[md,md+' ('+facetCount('model',md)+')'])]},
+  {k:'Body',v:['Showroom','Japan Stock'].includes(body)?'All':body,set:setBody,o:[['All','Any body'],...['SUV','MPV','Sedan','Hatchback','Kei','Van','Luxury','Supercar','Hypercar'].filter(b=>cars.some(c=>c.body===b)).map(b=>[b,b+' ('+countBy('body',b)+')'])]},
+  {k:'Price',v:priceF,set:setPriceF,o:PRICE_BANDS.map(([l])=>[l,l])},
+  {k:'Year from',v:yearF,set:setYearF,o:[['Any','Any year'],...Object.keys(YEAR_MIN).map(y=>[y,y])]},
+  {k:'Mileage',v:kmF,set:setKmF,o:KM_BANDS.map(([l])=>[l,l])},
+  {k:'Fuel',v:fuel,set:setFuel,o:[['All','Any fuel'],...fuelOptions.map(f=>[f,f+' ('+countBy('fuel',f)+')'])]},
+  {k:'Gearbox',v:trF,set:setTrF,o:[['All','Any gearbox'],...transmissions.map(t=>[t,t+' ('+countBy('tr',t)+')'])]},
+  {k:'Steering',v:steerF,set:setSteerF,o:[['All','Any steering'],...steerings.map(t=>[t,t+' hand ('+countBy('st',t)+')'])]},
+  {k:'Sort',v:sortF,set:setSortF,o:[['Featured','Featured'],['Price: low to high','Price: low to high'],['Price: high to low','Price: high to low'],['Mileage: low to high','Mileage: low to high'],['Mileage: high to low','Mileage: high to low'],['Year: newest first','Year: newest first'],['Year: oldest first','Year: oldest first']]}
+ ];
+ const clearFacets = () => { setBody('All'); setModelF('All'); setFuel('All'); setPriceF('Any'); setYearF('Any'); setKmF('Any'); setTrF('All'); setSteerF('All'); setQuery(''); };
  // Imported dealer cars are Japanese stock, never showroom cars — even a
  // Lamborghini from the importer belongs in the Japan inventory group.
  const isShowroom=c=>!isImportedCar(c)&&(['Luxury','Supercar','Hypercar'].includes(c.body)||Number(c.id)<=12);
- const list=cars.filter(c=>(c.make+' '+c.model+' '+c.location+' '+(c.stock_no||'')+' '+c.year).toLowerCase().includes(query.toLowerCase())&&(body==='All'||(body==='Showroom'&&isShowroom(c))||(body==='Japan Stock'&&!isShowroom(c))||c.body===body)&&(make==='All'||c.make===make)&&(fuel==='All'||c.fuel===fuel)&&(priceF==='Any'||(priceF==='Under $15k'&&priceOf(c)<15000)||(priceF==='$15k–$30k'&&priceOf(c)>=15000&&priceOf(c)<30000)||(priceF==='$30k+'&&priceOf(c)>=30000))&&(yearF==='Any'||Number(c.year)>=YEAR_MIN[yearF])&&(kmF==='Any'||kmNum(c)<=KM_MAX[kmF])).sort((a,b)=>{const p=x=>priceOf(x);switch(sortF){case 'Price: low to high':return p(a)-p(b);case 'Price: high to low':return p(b)-p(a);case 'Mileage: low to high':return Number(String(a.km||'').replace(/,/g,''))-Number(String(b.km||'').replace(/,/g,''));case 'Newest first':return b.year-a.year;default:{const as=isShowroom(a),bs=isShowroom(b);if(as!==bs)return as?-1:1;return as?a.id-b.id:b.id-a.id}}});
+ const list=cars.filter(c=>(c.make+' '+c.model+' '+c.location+' '+(c.stock_no||'')+' '+c.year).toLowerCase().includes(query.toLowerCase())&&(body==='All'||(body==='Showroom'&&isShowroom(c))||(body==='Japan Stock'&&!isShowroom(c))||c.body===body)&&(make==='All'||c.make===make)&&(!initialModel||(c.make+' '+c.model+' '+(c.body||'')).toLowerCase().includes(initialModel))&&(modelF==='All'||c.model===modelF)&&(fuel==='All'||c.fuel===fuel)&&(trF==='All'||c.tr===trF)&&(steerF==='All'||c.st===steerF)&&(priceBand[1]==null||priceOf(c)>=priceBand[1])&&(priceBand[2]==null||priceOf(c)<priceBand[2])&&(yearF==='Any'||Number(c.year)>=YEAR_MIN[yearF])&&(kmBand[1]==null||kmNum(c)<=kmBand[1])).sort((a,b)=>{const p=x=>priceOf(x);switch(sortF){case 'Price: low to high':return p(a)-p(b);case 'Price: high to low':return p(b)-p(a);case 'Mileage: low to high':return kmNum(a)-kmNum(b);case 'Mileage: high to low':return kmNum(b)-kmNum(a);case 'Year: newest first':case 'Newest first':return b.year-a.year;case 'Year: oldest first':return a.year-b.year;default:{const as=isShowroom(a),bs=isShowroom(b);if(as!==bs)return as?-1:1;return as?a.id-b.id:b.id-a.id}}});
  const showroomList=list.filter(isShowroom),japanList=list.filter(c=>!isShowroom(c));
  const cardsFor=items=>items.map(c=><VehicleCard key={c.id} c={c} onOpen={openVehicle} comp={comp.includes(c.id)} onCmp={x=>{setComp(v=>v.includes(x.id)?v.filter(y=>y!==x.id):(v.length>=3?v:v.concat(x.id)))}}/>);
-if(page==='inventory')return <section className="inner-page"><div className="page-hero mini"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">LIVE JAPAN STOCK</div><h1>Find your next <em>vehicle.</em></h1><p>{list.length} verified vehicles · real dealer stock in Japan, updated daily.</p></div></div><div className="shell page-content"><div className="inv-toolbar"><label className="inv-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search make, model or stock no."/></label><select value={make} onChange={e=>{const v=e.target.value;setMake(v);navigate(inventoryHref(v),{scroll:false,replace:true})}} aria-label="Filter by brand"><option>All</option>{makes.map(m=><option key={m}>{m}</option>)}</select><select value={fuel} onChange={e=>setFuel(e.target.value)}><option>All</option><option>Petrol</option><option>Hybrid</option><option>Diesel</option></select><select value={priceF} onChange={e=>setPriceF(e.target.value)} aria-label="Filter by price"><option>Any</option><option>Under $15k</option><option>$15k–$30k</option><option>$30k+</option></select><select value={yearF} onChange={e=>setYearF(e.target.value)} aria-label="Filter by model year"><option value="Any">Any year</option>{Object.keys(YEAR_MIN).map(y=><option key={y} value={y}>{y}</option>)}</select><select value={kmF} onChange={e=>setKmF(e.target.value)} aria-label="Filter by mileage"><option value="Any">Any mileage</option>{Object.keys(KM_MAX).map(k=><option key={k} value={k}>{k}</option>)}</select><select value={sortF} onChange={e=>setSortF(e.target.value)}><option>Featured</option><option>Price: low to high</option><option>Price: high to low</option><option>Mileage: low to high</option><option>Newest first</option></select></div>{make!=='All'&&<div className="brand-context-card" aria-label={`${make} inventory context`}><img className="brand-context-logo" loading="lazy" decoding="async" width="88" height="54" src={LOGO(make)} alt={make+" logo"} onError={logoOnError}/><div className="brand-context-copy"><div className="kicker">BROWSE {make.toUpperCase()} STOCK</div><h2>{make} vehicles from Japan</h2><p className="brand-context-count"><b>{list.length}</b> matching {make} {list.length===1?'vehicle':'vehicles'} currently listed.</p><p>We source {make} vehicles through Japanese auction and dealer/showroom listings. Auction-sourced vehicles may include translated auction sheets; dealer and showroom vehicles are described with the available yard inspection notes and photographs.</p><div className="brand-context-links"><PageLink className="outline-btn" to="inventory" navigate={navigate}>All inventory <ArrowRight/></PageLink><PageLink className="outline-btn" to="brands" navigate={navigate}>Explore brands <ArrowRight/></PageLink><PageLink className="outline-btn" to="howbuy" navigate={navigate}>How buying works <ArrowRight/></PageLink></div></div></div>}<div className="logo-strip">{BRANDS().map(b=><a key={b.name} className={make===b.name?' current':''} href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)} title={'Show '+b.name+' stock'}><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt={b.name+" logo"} onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></a>)}</div><div className="inv-chips"><div>{['All','Showroom','Japan Stock','Luxury','Supercar','Hypercar','SUV','MPV','Sedan','Hatchback','Kei','Van'].map(x=><button key={x} onClick={()=>setBody(x)} className={body===x?'active':''}>{x}</button>)}</div>{comp.length>0&&<button className="cmp-open" onClick={()=>setShowCmp(true)}><ArrowLeftRight/> Compare {comp.length}<small onClick={e=>{e.stopPropagation();setComp([]);setShowCmp(false)}}>clear</small></button>}</div><div className="results-line"><b>{list.length} vehicles</b><span>{showroomList.length} showroom · {japanList.length} Japan stock · updated daily</span></div>{body==='All'&&sortF==='Featured'?<div className="inventory-groups">{showroomList.length>0&&<section className="inventory-group showroom-group"><div className="inventory-group-head"><div><span>AR7 CURATED COLLECTION</span><h2>Showroom cars</h2></div><b>{showroomList.length} vehicles</b></div><div className="car-grid full-grid">{cardsFor(showroomList)}</div></section>}{japanList.length>0&&<section className="inventory-group japan-group"><div className="inventory-group-head"><div><span>VERIFIED AUCTION & STOCK</span><h2>Japan inventory</h2></div><b>{japanList.length} vehicles</b></div><div className="car-grid full-grid">{cardsFor(japanList)}</div></section>}</div>:<div className="car-grid full-grid">{cardsFor(list)}</div>}{list.length===0&&<div className="empty-state"><Search/><h3>No matches</h3><p>Try clearing the filters or ask our team to source it.</p><button className="primary" onClick={openAuction}>Request a search <ArrowRight/></button></div>}</div>{showCmp&&<div className="cmp-backdrop" onClick={()=>setShowCmp(false)}><div className="cmp-modal" onClick={e=>e.stopPropagation()}><div className="cmp-head"><div><div className="kicker">COMPARE</div><h2>{comp.length} vehicles side by side</h2></div><button onClick={()=>setShowCmp(false)}><X/></button></div><table><thead><tr><th></th>{comp.map(id=>{const c=cars.find(x=>x.id===id);return <th key={id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><button onClick={()=>setComp(v=>v.filter(y=>y!==id))}>Remove</button></th>})}</tr></thead><tbody>{[['Price',price],['Year',c=>c.year],['Mileage',c=>c.km+' km'],['Fuel',c=>c.fuel],['Body',c=>c.body],['Transmission',c=>c.tr],['Drive',c=>c.drv],['Engine',c=>c.eng],['Seats',c=>c.seats],['Grade',c=>c.grade],['Steering',c=>c.st],['Status',c=>c.status]].map(r=><tr key={r[0]}><th>{r[0]}</th>{comp.map(id=>{const c=cars.find(x=>x.id===id);return <td key={id}>{c?r[1](c):'—'}</td>})}</tr>)}</tbody></table><div className="cmp-cta"><button className="primary" onClick={openAuction}>Request quote for best match <ArrowRight/></button></div></div></div>}</section>;
+// /cars/toyota/land-cruiser renders the same list view, but titles and
+// filters itself as a make/model landing page.
+const landingMake = (initialMake&&initialMake!=='All')?initialMake:null;
+const landingModel = (landingMake&&initialModel)?initialModel.replace(/\b\w/g,c=>c.toUpperCase()):null;
+if(page==='inventory')return <section className="inner-page"><div className="page-hero mini"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">{landingMake?'JAPAN AUCTION & DEALER STOCK':'LIVE JAPAN STOCK'}</div><h1>{landingMake?<>{landingMake}{landingModel?' '+landingModel:''}<br/><em>for export.</em></>:<>Find your next <em>vehicle.</em></>}</h1><p>{landingMake?`${list.length} ${landingModel?landingModel:landingMake} ${list.length===1?'vehicle':'vehicles'} sourced through Japanese auctions and dealer listings — price in USD, shipping quoted to your port.`:`${list.length} verified vehicles · real dealer stock in Japan, updated daily.`}</p></div></div><div className="shell page-content"><div className="inv-toolbar inv-toolbar-facets" role="search">
+ <label className="inv-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search make, model or stock no."/></label>
+ <div className="inv-facets">{facets.map(f=><label className="facet" key={f.k}><span>{f.k}</span><select value={f.v} onChange={e=>f.set(e.target.value)} aria-label={f.k+' filter'} disabled={f.dis}>{f.o.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>)}</div>
+ <div className="inv-facet-foot">
+  <span className="facet-count"><b>{list.length}</b> of {cars.length} vehicles match</span>
+  {facetActive.length>0&&<div className="facet-active">{facetActive.map(f=><span key={f}>{f}</span>)}<button type="button" onClick={clearFacets}>Clear all filters</button></div>}
+ </div>
+</div>
+{make!=='All'&&<div className="brand-context-card" aria-label={`${make} inventory context`}><img className="brand-context-logo" loading="lazy" decoding="async" width="88" height="54" src={LOGO(make)} alt={make+" logo"} onError={logoOnError}/><div className="brand-context-copy"><div className="kicker">BROWSE {make.toUpperCase()} STOCK</div><h2>{make} vehicles from Japan</h2><p className="brand-context-count"><b>{list.length}</b> matching {make} {list.length===1?'vehicle':'vehicles'} currently listed.</p><p>We source {make} vehicles through Japanese auction and dealer/showroom listings. Auction-sourced vehicles may include translated auction sheets; dealer and showroom vehicles are described with the available yard inspection notes and photographs.</p><div className="brand-context-links"><PageLink className="outline-btn" to="inventory" navigate={navigate}>All inventory <ArrowRight/></PageLink><PageLink className="outline-btn" to="brands" navigate={navigate}>Explore brands <ArrowRight/></PageLink><PageLink className="outline-btn" to="howbuy" navigate={navigate}>How buying works <ArrowRight/></PageLink></div></div></div>}{landingMake&&<nav className="landing-links" aria-label={'More '+landingMake+' export pages'}>{[...new Set(cars.filter(c=>c.make===landingMake).map(c=>c.model))].slice(0,10).map(m=><PageLink key={m} to={inventoryHref(landingMake,m)} navigate={navigate}>{landingMake} {m}</PageLink>)}<PageLink to="inventory" navigate={navigate}>All inventory</PageLink></nav>}<div className="logo-strip">{BRANDS().map(b=><a key={b.name} className={make===b.name?' current':''} href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)} title={'Show '+b.name+' stock'}><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt={b.name+" logo"} onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></a>)}</div><div className="inv-chips"><div>{['All','Showroom','Japan Stock','Luxury','Supercar','Hypercar','SUV','MPV','Sedan','Hatchback','Kei','Van'].map(x=>{const n=x==='All'?cars.length:(x==='Showroom'?cars.filter(isShowroom).length:(x==='Japan Stock'?cars.filter(c=>!isShowroom(c)).length:cars.filter(c=>c.body===x).length));return <button key={x} onClick={()=>setBody(x)} className={body===x?'active':''} type="button">{x} <i>{n}</i></button>})}</div>{comp.length>0&&<button className="cmp-open" onClick={()=>setShowCmp(true)} type="button"><ArrowLeftRight/> Compare {comp.length}<small onClick={e=>{e.stopPropagation();setComp([]);setShowCmp(false)}}>clear</small></button>}</div><div className="results-line"><b>{list.length} vehicles</b><span>{showroomList.length} showroom · {japanList.length} Japan stock · prices FOB Japan · shipping quoted to your port</span></div>{body==='All'&&sortF==='Featured'?<div className="inventory-groups">{showroomList.length>0&&<section className="inventory-group showroom-group"><div className="inventory-group-head"><div><span>AR7 CURATED COLLECTION</span><h2>Showroom cars</h2></div><b>{showroomList.length} vehicles</b></div><div className="car-grid full-grid">{cardsFor(showroomList)}</div></section>}{japanList.length>0&&<section className="inventory-group japan-group"><div className="inventory-group-head"><div><span>VERIFIED AUCTION & STOCK</span><h2>Japan inventory</h2></div><b>{japanList.length} vehicles</b></div><div className="car-grid full-grid">{cardsFor(japanList)}</div></section>}</div>:<div className="car-grid full-grid">{cardsFor(list)}</div>}{list.length===0&&<div className="empty-state"><Search/><h3>No matches</h3><p>Try clearing the filters or ask our team to source it.</p><button className="primary" onClick={openAuction} type="button">Request a search <ArrowRight/></button></div>}</div>{showCmp&&<div className="cmp-backdrop" onClick={()=>setShowCmp(false)}><div className="cmp-modal" onClick={e=>e.stopPropagation()}><div className="cmp-head"><div><div className="kicker">COMPARE</div><h2>{comp.length} vehicles side by side</h2></div><button onClick={()=>setShowCmp(false)} type="button"><X/></button></div><table><thead><tr><th></th>{comp.map(id=>{const c=cars.find(x=>x.id===id);return <th key={id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><button onClick={()=>setComp(v=>v.filter(y=>y!==id))} type="button">Remove</button></th>})}</tr></thead><tbody>{[['Price',price],['Year',c=>c.year],['Mileage',c=>c.km+' km'],['Fuel',c=>c.fuel],['Body',c=>c.body],['Transmission',c=>c.tr],['Drive',c=>c.drv],['Engine',c=>c.eng],['Seats',c=>c.seats],['Grade',c=>c.grade],['Steering',c=>c.st],['Status',c=>c.status]].map(r=><tr key={r[0]}><th>{r[0]}</th>{comp.map(id=>{const c=cars.find(x=>x.id===id);return <td key={id}>{c?r[1](c):'—'}</td>})}</tr>)}</tbody></table><div className="cmp-cta"><button className="primary" onClick={openAuction} type="button">Request quote for best match <ArrowRight/></button></div></div></div>}</section>;
  const pages={
  auction:{tag:'LIVE AUCTION ACCESS',title:<>Bid in Japan.<br/><em>From anywhere.</em></>,desc:'Your direct window into 100,000+ vehicles every week, with translated sheets and an expert beside you.',image:'/assets/japanese-car-auction-inspection-shipping-3.webp'},
  shipping:{tag:'GLOBAL LOGISTICS',title:<>From Japan<br/>to your <em>port.</em></>,desc:'Reliable RoRo and container shipping with documentation, insurance and live milestone updates.',image:'/assets/japanese-car-auction-inspection-shipping-1.webp'},
@@ -766,11 +914,11 @@ if(page==='inventory')return <section className="inner-page"><div className="pag
  contact:{tag:'TALK TO OUR TEAM',title:<>Start your<br/><em>car journey.</em></>,desc:'Tell us your market, budget and preferred vehicle. Our Japan export desk will reply with suitable options.',image:'/assets/japanese-car-auction-inspection-shipping-2.webp'}
  };
  const p=pages[page]||pages.about;
- return <section className="inner-page"><div className="page-hero split"><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p><button className="gold-btn" onClick={openAuction}>{page==='contact'?'Send an enquiry':'Get started'} <ArrowRight/></button></div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/><div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders"/></div></div></div></div>
+ return <section className="inner-page"><div className="page-hero split"><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p><button className="gold-btn" onClick={openAuction} type="button">{page==='contact'?'Send an enquiry':'Get started'} <ArrowRight/></button></div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/><div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async"/></div></div></div></div>
  <div className="shell page-content">{page==='auction'?<><div className="feature-intro"><h2>Auction access without the guesswork.</h2><p>Every listing comes with translation support, market guidance and complete cost visibility before you bid.</p></div><div className="feature-cards">{[['01','Browse live listings','Filter by make, year, mileage, grade and auction venue.'],['02','Review with an expert','We translate the auction sheet and flag every detail.'],['03','Set your bid limit','Know your landed estimate before bidding begins.'],['04','Win & track','See results instantly and follow your car to port.']].map(x=><article key={x[1]}><span>{x[0]}</span><Gavel/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div><div className="auction-demo"><div><span className="live-dot"/> AUCTION LOTS · SAMPLE</div>{cars.slice(0,4).map(c=><section key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><small>{stockLabel(c)} · Grade {c.grade}</small><strong>{price(c)}</strong><PageLink className="lot-link" to={`inventory?car=${carRef(c)}`} navigate={navigate}>View vehicle</PageLink></section>)}</div></>:
  page==='shipping'?<><div className="feature-intro"><h2>One clear route. Complete support.</h2><p>From export certificate to customs-ready documents, our logistics desk handles the complexity.</p></div><div className="shipping-flow">{[['Japan yard','Inspection & preparation'],['Export port','Customs & loading'],['At sea','Live milestone tracking'],['Your port','Documents & collection']].map((x,i)=><div key={x[0]}><span>0{i+1}</span><Ship/><b>{x[0]}</b><small>{x[1]}</small></div>)}</div></>:
  page==='about'?<><div className="feature-intro"><h2>Built to be your trusted partner.</h2><p>AR7 Traders connects buyers worldwide to the depth and quality of the Japanese vehicle market.</p></div><div className="story-grid"><img loading="lazy" decoding="async" width="88" height="88" src="/assets/ar7-logo-circle.png" alt="AR7 Traders emblem"/><div><FounderStat variant="about"/><p>Our team sources through major Japanese auction houses and trusted dealer networks. Every vehicle is selected with careful inspection, clear communication and full cost transparency.</p></div></div></>:
- <div className="contact-grid"><div><h2>Let’s source your car.</h2><p>Use the access form or contact our Japan export desk directly.</p><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={17}/> WhatsApp us</a><a href="/contact" onClick={linkClick('contact',navigate)}><MapPin/> {settings.contact_address}</a></div><form onSubmit={e=>{e.preventDefault();openAuction()}}><input placeholder="Your name" required/><input placeholder="Email address" type="email" required/><input placeholder="Destination country"/><textarea placeholder="Which vehicle are you looking for?"/><button className="primary">Send request <ArrowRight/></button></form></div>}</div></section>
+ <div className="contact-grid"><div><h2>Let’s source your car.</h2><p>Use the access form or contact our Japan export desk directly.</p><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={17}/> WhatsApp us</a><a href="/contact" onClick={linkClick('contact',navigate)}><MapPin/> {settings.contact_address}</a></div><form onSubmit={e=>{e.preventDefault();openAuction()}}><input placeholder="Your name" required/><input placeholder="Email address" type="email" required/><input placeholder="Destination country"/><textarea placeholder="Which vehicle are you looking for?"/><button className="primary" type="submit">Send request <ArrowRight/></button></form></div>}</div></section>
 }
 
 const WORLD_CLOCKS=[
@@ -784,6 +932,24 @@ const WORLD_CLOCKS=[
  {code:'AU',country:'Australia',city:'Sydney',zone:'Australia/Sydney'},
  {code:'NZ',country:'New Zealand',city:'Auckland',zone:'Pacific/Auckland'}
 ].map(x=>({...x,formatter:new Intl.DateTimeFormat('en-GB',{timeZone:x.zone,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZoneName:'short'})}));
+
+// The device studio embeds the site in an iframe. Browsers happily reuse a
+// cached copy of that document, which is how the studio once showed a header
+// three edits old. In dev every load gets a fresh stamp; in a build the build
+// id does the job, and vite.preview serves HTML with no-store.
+const BUILD_STAMP=(()=>{
+ try{ if(import.meta.env?.DEV) return '&b='+Date.now(); }catch{ }
+ // In a build the entry bundle name carries a content hash that changes on
+ // every build — use it. (The meta build-id is a fixed release label, so a
+ // cached iframe document survived builds and the studio showed an old page.)
+ try{
+  const srcs=[...document.querySelectorAll('script[src]')].map(s=>s.getAttribute('src')||'');
+  const hit=srcs.map(s=>s.match(/(?:^|\/)assets\/index-([\w-]+)\.js/)).find(Boolean);
+  if(hit) return '&b='+hit[1];
+ }catch{ }
+ try{ const id=document.querySelector('meta[name="build-id"]')?.content||''; return id?'&b='+encodeURIComponent(id):''; }catch{ }
+ return '';
+})();
 
 function DeferredBigGlobe({navigate,compact}){
  const host=useRef(null);
@@ -831,11 +997,20 @@ export function App(){
  // this ref (the vehicle page's "Chat Now"), so toggling it never re-renders App.
  const chatRef=useRef(null);
  const [initialRoute]=useState(()=>readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()}));
- const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make);
+ // The machinery part of the route (/machinery/<type>/<REF>) has to be state,
+ // like carId: reading it once at mount meant a click on a machine rewrote the
+ // URL to /machinery and showed the catalogue instead of the machine.
+ const [machineRoute,setMachineRoute]=useState({type:initialRoute.machineType||null,ref:initialRoute.machineRef||null});
+ const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
+  const machineOnRoute = page === 'machinery' && machineRoute.ref ? machineByRef(machineRoute.ref) : null;
+  // The live price offer, read once here so the page title, the structured data
+  // and the machinery desk all quote the same discounted figure.
+  const liveOffer = useOffer();
+  const machineOfferPercent = machineOnRoute ? percentFor(liveOffer, 'machine', {ref: machineOnRoute.ref, type: machineOnRoute.type}) : 0;
   useSeo(page, vehicleId, page === 'inventory' ? findCar(cars, vehicleId) : undefined,
-    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !findCar(cars, vehicleId) && isContentHydrated(), make: makeFilter });
+    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !findCar(cars, vehicleId) && isContentHydrated(), make: makeFilter, model: modelFilter, machineType: machineRoute.type, machineRef: machineRoute.ref, machine: machineOnRoute, machineOfferPercent, machineOfferUntil: liveOffer?.until || null, vehicleCount: cars.length });
   useEffect(()=>onContentChange(forceContent),[]);
  useEffect(()=>{
   let t=0,last=-1;
@@ -851,12 +1026,13 @@ export function App(){
   return()=>{window.removeEventListener('scroll',fn);if(t)cancelAnimationFrame(t)};
  },[]);
  useEffect(()=>{
-  const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setMenu(false)};
+  const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setMenu(false)};
   const route=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()});
-  writeLocation(route.page,route.carId,{replace:true,make:route.make});
-  setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);
+  writeLocation(route.page,route.carId,{replace:true,make:route.make,machineType:route.machineType,machineRef:route.machineRef});
+  setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
+  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});
   const onPop=()=>apply({restoreOnReload:false});
-  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make});setPage(next.page);setVehicleId(next.carId);setMakeFilter(next.make);setMenu(false)};
+  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make,machineType:next.machineType,machineRef:next.machineRef});setPage(next.page);setVehicleId(next.carId);setMachineRoute({type:next.machineType||null,ref:next.machineRef||null});setMakeFilter(next.make);setModelFilter(next.model);setMenu(false)};
   addEventListener('popstate',onPop);
   addEventListener('hashchange',onHash);
   return()=>{removeEventListener('popstate',onPop);removeEventListener('hashchange',onHash)};
@@ -887,14 +1063,15 @@ export function App(){
  const budgetBands=[['Under $15k','Kei cars, hatchbacks & first imports'],['$15k–$30k','Hybrids, family SUVs & sedans'],['$30k–$60k','Late-model premium & vans'],['$60k+','Luxury & super sport']];
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
-  writeLocation(route.page,route.carId,{replace,make:route.make});
-  setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setMenu(false);
+  writeLocation(route.page,route.carId,{replace,make:route.make,machineType:route.machineType,machineRef:route.machineRef});
+  setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
+  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setMenu(false);
   if(scroll) scrollTo({top:0,behavior:'smooth'});
  };
  const go=(id)=>{if(page!=='home'){navigate('home');setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'}),100)}else document.getElementById(id)?.scrollIntoView({behavior:'smooth'});setMenu(false)};
  const submitLead=async e=>{e.preventDefault();setLeadSending(true);setLeadError('');const f=new FormData(e.currentTarget),payload=Object.fromEntries(f.entries());try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Unable to send request');setSent(true);e.currentTarget.reset()}catch(err){setLeadError(err.message)}finally{setLeadSending(false)}};
  if(page==='crm')return <React.Suspense fallback={<div className="empty-state"><Monitor/><h3>Loading the CRM…</h3><p>Fetching your workspace.</p></div>}><CrmApp/></React.Suspense>;
- return <div className="site">
+ return <div className="site"><PromoBar navigate={navigate}/>
   <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={BRANDS()} vehicleCount={cars.length}
     menu={menu} setMenu={setMenu} dark={dark} setDark={setDark} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
     ribbon={<WorldTimeRibbon/>} orb={<InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/>}/>
@@ -903,10 +1080,11 @@ export function App(){
    {page==='home'?<>
    <section className="hero shell" id="home">
     <div className="hero-copy reveal">
-      <div className="eyebrow"><span className="live-dot"/> Direct from Japanese auctions</div>
-      <h1>Your next car.<br/><em>Anywhere</em> in the world.</h1>
-      <p>We source verified vehicles from Japan's leading auctions, handle every detail, and deliver to your nearest port.</p>
-      <div className="hero-cta"><button className="primary" onClick={()=>go('inventory')}>Explore vehicles <ArrowRight/></button><button className="text-btn" onClick={()=>setModal(true)}><span><Play fill="currentColor"/></span> See how bidding works</button></div>
+      <div className="eyebrow"><span className="live-dot"/> Japan auctions · China machinery</div>
+      <h1>Cars from Japan,<br/><em>machines from China.</em></h1>
+      <p>Verified cars from Japan's leading auctions, and excavators, loaders and trucks sourced from trusted Chinese factories — inspected, priced to your port, and delivered <b>anywhere in the world</b>.</p>
+      <div className="hero-cta"><button className="primary" onClick={()=>go('inventory')} type="button">Explore vehicles <ArrowRight/></button><PageLink className="ghost-btn" to="machinery" navigate={navigate}>Browse machinery <Wrench/></PageLink></div>
+      <div className="hero-quick"><button className="text-btn" onClick={()=>setModal(true)} type="button"><span><Play fill="currentColor"/></span> See how bidding works</button></div>
       <FounderStat variant="hero" delay={900}/>
     </div>
     <HeroVisual navigate={navigate}/>
@@ -919,13 +1097,33 @@ export function App(){
 
    <section className="inventory shell section" id="inventory" onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
     <div className="section-head"><div><div className="kicker">LUXURY & SUPER SPORT</div><h2>Treasures in the<br/><em>showroom.</em></h2></div><p>Rolls-Royce to Bugatti — plus verified Japan stock for every market. The slide keeps running through live stock.</p></div>
-    <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> Search vehicles <SlidersHorizontal/></PageLink></div>
+    <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> Search vehicles <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
       <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{c.status||'In Stock'}</span><span role="button" tabIndex={0} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span><span className="grade">Grade <b>{c.grade}</b></span></div>
       <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>EXPORT PRICE FROM</small><b>{price(c)}</b></div><span className="card-open" aria-hidden="true"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
     </a>)}</div>
     <div className="home-carousel-dots" aria-label="Inventory slide pages">{Array.from({length:homePages},(_,i)=><button key={i} type="button" className={i===homePage?'active':''} aria-label={'Show stock page '+(i+1)} onClick={()=>setHomeOff(i*HOME_N)}/>)}</div>
     <PageLink className="outline-btn" to="inventory" navigate={navigate}>View complete inventory <ArrowRight/></PageLink>
+   </section>
+
+   <section className="mch-teaser shell section" id="machinery">
+    <div className="mch-teaser-head">
+     <div><div className="kicker">CHINA MACHINERY · NEW DESK</div><h2>Excavators, loaders<br/><em>&amp; trucks.</em></h2></div>
+     <p>Heavy equipment sourced to order from vetted Chinese suppliers — the same inspection, documentation and shipping desk that moves our cars.</p>
+    </div>
+    {/* One machine per type, and only ones we actually have a photograph of —
+        the teaser is the first thing a visitor sees, so it never opens with a
+        placeholder. Prices come from listPriceUSD() so the home page and the
+        machinery page can never disagree. */}
+    <div className="mch-teaser-grid">{MACHINES.filter(m=>!m.photosPending).filter((m,i,a)=>a.findIndex(x=>x.type===m.type)===i).slice(0,3).map(m=><article className="mch-card" key={m.id}>
+      <div className="mch-photo"><img loading="lazy" decoding="async" width="820" height="560" src={machineImages(m)[0]} alt={`${m.name} for export — ${m.ref}`}/><span className="mch-type">{m.type.replace(/s$/,'')}</span>{machineImages(m).length>1&&<span className="mch-shotcount">{machineImages(m).length} photos</span>}{(()=>{const pct=percentFor(liveOffer,'machine',{ref:m.ref,type:m.type});return pct?<span className="mch-offer-flag"><Sparkles size={12}/> {pct}% off</span>:null})()}</div>
+      <div className="mch-info">
+        <div className="mch-head"><b>{m.name}</b><small><MapPin/> {m.location}, {m.origin}</small></div>
+        <p>{m.summary}</p>
+        <div className="mch-foot"><div><small>INDICATIVE FOB</small>{(()=>{const pct=percentFor(liveOffer,'machine',{ref:m.ref,type:m.type});const p=priceWithOffer(listPriceUSD(m),pct);return p.hasOffer?<span className="mch-price-row"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span>:<b>{fmt(p.now)}</b>})()}</div><PageLink className="mch-teaser-link" to={machineHref(m)} navigate={navigate}>Details <ArrowRight/></PageLink></div>
+      </div>
+    </article>)}</div>
+    <div className="mch-teaser-foot"><PageLink className="primary" to="machinery" navigate={navigate}>Browse all machinery <ArrowRight/></PageLink><p className="mch-teaser-note">{MACHINERY_NOTE}</p></div>
    </section>
 
    <section className="world section"><div className="world-map"><DeferredBigGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">GLOBAL REACH, LOCAL CARE</div><h2>Japan to <em>everywhere.</em></h2><p>We ship through trusted carriers to ports worldwide. Spin the globe — tap Japan to browse stock, or any country for its market guide.</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>Explore destinations <ArrowRight/></PageLink></div></section>
@@ -942,23 +1140,23 @@ export function App(){
     <div className="steps">
      {[{n:'01',icon:<Search/>,t:'Tell us what you want',p:'Share your make, model, budget and destination. We shortlist the best matches.'},{n:'02',icon:<Gavel/>,t:'Bid with confidence',p:'Get live auction access, translated sheets, expert advice and a clear bidding limit.'},{n:'03',icon:<ClipboardCheck/>,t:'Inspect & prepare',p:'We verify, photograph, service and prepare your vehicle for international shipment.'},{n:'04',icon:<Ship/>,t:'Track to your port',p:'Follow your car with live shipment updates until it safely reaches your destination.'}].map((s,i)=><div className="step" key={s.n}><div className="step-top"><span>{s.n}</span><i>{s.icon}</i></div><h3>{s.t}</h3><p>{s.p}</p>{i<3&&<ArrowRight className="step-arrow"/>}</div>)}
     </div>
-    <div className="process-cta"><span><LockKeyhole/> Secure client portal included</span><button className="gold-btn" onClick={()=>setModal(true)}>Start sourcing <ArrowUpRight/></button></div>
+    <div className="process-cta"><span><LockKeyhole/> Secure client portal included</span><button className="gold-btn" onClick={()=>setModal(true)} type="button">Start sourcing <ArrowUpRight/></button></div>
    </div></section>
 
    <section className="auction-preview section shell" id="about">
     <div className="dash-wrap">
-      <div className="dash-copy"><div className="kicker">AUCTION ACCESS</div><h2>The auction room,<br/>in your <em>pocket.</em></h2><p>Browse 100,000+ weekly listings from Japan's top auction houses. View translated inspection sheets, place bids, and track results—all in one place.</p><ul><li><Check/> Real-time vehicle listings</li><li><Check/> Translated auction sheets</li><li><Check/> Expert bid recommendations</li></ul><button className="primary" onClick={()=>setModal(true)}>Request free access <ArrowRight/></button></div>
-      <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open client portal demo"><span className="dash-demo-chip">DEMO</span><div className="dash-nav"><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>Grade {c.grade}</em></span><strong>{price(c)}</strong></div>)}</div></a>
+      <div className="dash-copy"><div className="kicker">AUCTION ACCESS</div><h2>The auction room,<br/>in your <em>pocket.</em></h2><p>Browse 100,000+ weekly listings from Japan's top auction houses. View translated inspection sheets, place bids, and track results—all in one place.</p><ul><li><Check/> Real-time vehicle listings</li><li><Check/> Translated auction sheets</li><li><Check/> Expert bid recommendations</li></ul><button className="primary" onClick={()=>setModal(true)} type="button">Request free access <ArrowRight/></button></div>
+      <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open client portal demo"><span className="dash-demo-chip">DEMO</span><div className="dash-nav"><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>Grade {c.grade}</em></span><strong>{price(c)}</strong></div>)}</div></a>
     </div>
    </section>
 
-   <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">READY WHEN YOU ARE</div><h2>Let’s find your<br/>next <em>vehicle.</em></h2><p>Tell us what you’re looking for. Our Japan team will reply with suitable options.</p></div><button className="gold-btn large" onClick={()=>setModal(true)}>Start your search <ArrowUpRight/></button></section>
-   </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
+   <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">READY WHEN YOU ARE</div><h2>Let’s find your<br/>next <em>vehicle.</em></h2><p>Tell us what you’re looking for. Our Japan team will reply with suitable options.</p></div><button className="gold-btn large" onClick={()=>setModal(true)} type="button">Start your search <ArrowUpRight/></button></section>
+   </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='seo'?<React.Suspense fallback={<div className="empty-state"><Search/><h3>Loading the SEO desk…</h3></div>}><SeoDesk navigate={navigate}/></React.Suspense>:page==='machinery'?<React.Suspense fallback={<div className="empty-state"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()}/></React.Suspense>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} initialModel={modelFilter} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
   </main>
 
   <footer className="site-footer">
    <div className="shell footer-news">
-    <div className="footer-news-copy"><div className="kicker">STOCK ALERTS · NO SPAM</div><h3>Fresh Japan stock,<br/><em>before it hits the market.</em></h3><p>Get new arrivals, price drops and auction highlights in your inbox — matched to what you're looking for.</p></div>
+    <div className="footer-news-copy"><div className="kicker">STOCK ALERTS · NO SPAM</div><h2>Fresh Japan stock,<br/><em>before it hits the market.</em></h2><p>Get new arrivals, price drops and auction highlights in your inbox — matched to what you're looking for.</p></div>
     <form className="footer-news-form" onSubmit={e=>{e.preventDefault();const v=e.currentTarget.email.value.trim();if(v)location.href='mailto:'+settings.contact_email+'?subject='+encodeURIComponent('Stock alerts signup')+'&body='+encodeURIComponent('Please add '+v+' to your stock alerts list.');}}>
      <label className="footer-news-field"><Mail/><input name="email" type="email" required placeholder="you@email.com"/></label>
      <button className="footer-news-btn" type="submit"><Send/> Subscribe</button>
@@ -966,16 +1164,16 @@ export function App(){
    </div>
    <div className="shell footer-grid">
     <div className="footer-brand">
-     <div className="footer-logo"><img width="150" height="150" src="/assets/ar7-logo.png" alt="AR7 Traders"/></div>
+     <div className="footer-logo"><img width="150" height="150" src="/assets/ar7-logo.png" alt="AR7 Traders" loading="lazy" decoding="async"/></div>
      <p>Reliable vehicles. Transparent process.<br/>Worldwide delivery from Japan.</p>
      <div className="footer-trust"><span><ShieldCheck/> Secure payments</span><span><FileCheck/> Auction sheet translations</span><span><Ship/> Worldwide delivery</span></div>
      <div className="socials"><a href="/inventory" onClick={linkClick('inventory',navigate)} title="Vehicle gallery"><Camera/></a><a href="/reviews" onClick={linkClick('reviews',navigate)} title="Customer stories"><MessageCircle/></a><a href="/contact" onClick={linkClick('contact',navigate)} title="Contact AR7"><Send/></a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer" title="WhatsApp AR7"><WhatsAppIcon size={15}/></a></div>
     </div>
-    <div><b>EXPLORE</b><a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory<ArrowUpRight/></a><a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan dealer stock<ArrowUpRight/></a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access<ArrowUpRight/></a><a href="/services" onClick={linkClick('services',navigate)}>Services<ArrowUpRight/></a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands<ArrowUpRight/></a><a href="/destinations" onClick={linkClick('destinations',navigate)}>Destinations<ArrowUpRight/></a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators<ArrowUpRight/></a><a href="/world" onClick={linkClick('world',navigate)}>World network<ArrowUpRight/></a></div>
+    <div><b>EXPLORE</b><a href="/inventory" onClick={linkClick('inventory',navigate)}>Inventory<ArrowUpRight/></a><a href="/japan-stock" onClick={linkClick('japan-stock',navigate)}>Japan dealer stock<ArrowUpRight/></a><a href="/auction" onClick={linkClick('auction',navigate)}>Auction access<ArrowUpRight/></a><a href="/machinery" onClick={linkClick('machinery',navigate)}>Machinery &amp; equipment<ArrowUpRight/></a><a href="/services" onClick={linkClick('services',navigate)}>Services<ArrowUpRight/></a><a href="/brands" onClick={linkClick('brands',navigate)}>Brands<ArrowUpRight/></a><a href="/destinations" onClick={linkClick('destinations',navigate)}>Destinations<ArrowUpRight/></a><a href="/tools" onClick={linkClick('tools',navigate)}>Calculators<ArrowUpRight/></a><a href="/world" onClick={linkClick('world',navigate)}>World network<ArrowUpRight/></a></div>
     <div><b>COMPANY</b><a href="/howbuy" onClick={linkClick('howbuy',navigate)}>How to buy<ArrowUpRight/></a><a href="/news" onClick={linkClick('news',navigate)}>News & guides<ArrowUpRight/></a><a href="/about" onClick={linkClick('about',navigate)}>About us<ArrowUpRight/></a><a href="/reviews" onClick={linkClick('reviews',navigate)}>Customer stories<ArrowUpRight/></a><a href="/faq" onClick={linkClick('faq',navigate)}>Help & FAQ<ArrowUpRight/></a>{signedIn&&<a href="/account" onClick={linkClick('account',navigate)}>My account<ArrowUpRight/></a>}<a href="/portal" onClick={linkClick('portal',navigate)}>Portal tour<ArrowUpRight/></a><a href="/crm" onClick={linkClick('crm',navigate)}>Staff CRM<ArrowUpRight/></a>{!signedIn&&<a href="/account" onClick={linkClick('account',navigate)}>Customer sign up<ArrowUpRight/></a>}</div>
     <div><b>GET IN TOUCH</b><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={15}/> WhatsApp</a><a href="/contact" onClick={linkClick('contact',navigate)}><MapPin/> {settings.contact_address}</a>
      <div className="footer-hours"><Clock3/><span><b>Mon–Sat</b><small>09:00–19:00 JST · live chat on WhatsApp</small></span></div>
-     <button className="footer-top-btn" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>Back to top <ArrowUpRight/></button>
+     <button className="footer-top-btn" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} type="button">Back to top <ArrowUpRight/></button>
     </div>
    </div>
    <div className="shell footer-bottom"><span>© 2026 AR7 Traders. All rights reserved.</span><span><a href="/faq" onClick={linkClick('faq',navigate)}>Privacy</a> · <a href="/faq" onClick={linkClick('faq',navigate)}>Terms</a> · <a href="/faq" onClick={linkClick('faq',navigate)}>Export policy</a></span><div className="footer-badges"><span><BadgeCheck/> Verified stock</span><span><LockKeyhole/> Secure payments</span></div><b>AR7TRADERS.COM</b></div>
@@ -985,21 +1183,79 @@ export function App(){
 
   <ChatWidget ref={chatRef}/>
 
-  {modal&&<div className="modal-backdrop" onMouseDown={()=>setModal(false)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-x" onClick={()=>setModal(false)}><X/></button>{sent?<div className="success"><span><Check/></span><h2>Request received.</h2><p>Our auction specialist will contact you with your access details.</p><button className="primary" onClick={()=>{setSent(false);setModal(false)}}>Back to site</button></div>:<><div className="kicker">JOIN THE AUCTION</div><h2>Get free auction access.</h2><p>Tell us where you are and what you're looking for.</p><form onSubmit={submitLead}>{leadError&&<div className="form-api-error">{leadError}</div>}<input name="website" tabIndex="-1" autoComplete="off" style={{display:'none'}}/><label>YOUR NAME<input name="name" required placeholder="Full name"/></label><div className="form-row"><label>EMAIL<input name="email" required type="email" placeholder="you@email.com"/></label><label>DESTINATION<select name="country"><option>Pakistan</option><option>UAE</option><option>United Kingdom</option><option>Kenya</option><option>Other</option></select></label></div><label>VEHICLE YOU'RE LOOKING FOR<input name="vehicle_interest" placeholder="e.g. Toyota Land Cruiser, 2022+"/></label><button className="primary" type="submit" disabled={leadSending}>{leadSending?'Sending…':'Request access'} <ArrowRight/></button><small><LockKeyhole/> Your details stay private. No spam, ever.</small></form></>}</div></div>}
+  {modal&&<div className="modal-backdrop" onMouseDown={()=>setModal(false)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-x" onClick={()=>setModal(false)} type="button"><X/></button>{sent?<div className="success"><span><Check/></span><h2>Request received.</h2><p>Our auction specialist will contact you with your access details.</p><button className="primary" onClick={()=>{setSent(false);setModal(false)}} type="button">Back to site</button></div>:<><div className="kicker">JOIN THE AUCTION</div><h2>Get free auction access.</h2><p>Tell us where you are and what you're looking for.</p><form onSubmit={submitLead}>{leadError&&<div className="form-api-error">{leadError}</div>}<input name="website" tabIndex="-1" autoComplete="off" style={{display:'none'}}/><label>YOUR NAME<input name="name" required placeholder="Full name"/></label><div className="form-row"><label>EMAIL<input name="email" required type="email" placeholder="you@email.com"/></label><label>DESTINATION<select name="country"><option>Pakistan</option><option>UAE</option><option>United Kingdom</option><option>Kenya</option><option>Other</option></select></label></div><label>VEHICLE YOU'RE LOOKING FOR<input name="vehicle_interest" placeholder="e.g. Toyota Land Cruiser, 2022+"/></label><button className="primary" type="submit" disabled={leadSending}>{leadSending?'Sending…':'Request access'} <ArrowRight/></button><small><LockKeyhole/> Your details stay private. No spam, ever.</small></form></>}</div></div>}
  </div>
+}
+/* One automatic reload per retryable render failure, ever — recorded in
+   sessionStorage when available and in the URL otherwise, because embedded
+   previews often block storage entirely (and an unrecordable guard would
+   reload forever). */
+const RETRY_FLAG='ar7-retried';
+let retriedThisLoad=false;
+function alreadyRetried(){
+ if(retriedThisLoad)return true;
+ try{ if(sessionStorage.getItem(RETRY_FLAG))return true; }catch{ }
+ try{ if(new URLSearchParams(location.search).has(RETRY_FLAG))return true; }catch{ }
+ return false;
+}
+/* Records the retry. Returns true when storage kept the note (a plain reload
+   then suffices); false means it could not, so the caller navigates to a URL
+   that carries the note instead. */
+function markRetried(){
+ retriedThisLoad=true;
+ try{ sessionStorage.setItem(RETRY_FLAG,'1'); return true; }catch{ return false; }
+}
+function retryHref(){
+ try{ const u=new URL(location.href); u.searchParams.set(RETRY_FLAG,'1'); return u.toString(); }
+ catch{ return location.href; }
+}
+/* True in the dev server (and when a visitor adds ?debug=1), so a white-screen
+   report can name the error instead of only offering a reload. Wrapped in a
+   function because `import.meta.env` is not defined by every bundler used in
+   the test suites. */
+function showErrorDetail(){
+ try{ if(import.meta.env?.DEV) return true; }catch{ }
+ try{ return typeof location!=='undefined'&&/[?&]debug=1/.test(location.search); }catch{ return false; }
 }
 class BootErrorBoundary extends React.Component{
  constructor(props){super(props);this.state={error:null}}
  static getDerivedStateFromError(error){return {error}}
- componentDidCatch(error,info){console.error('AR7 failed to render',error,info)}
+ componentDidCatch(error,info){
+  const message=String(error?.message||error||'');
+  const componentStack=String(info?.componentStack||'');
+  // Leave a breadcrumb that survives the remount, so a reloaded page can be
+  // diagnosed from the console (or by reading window.__ar7LastError).
+  try{ window.__ar7LastError={message,stack:String(error?.stack||''),componentStack,time:new Date().toISOString()}; }catch{ }
+  console.error('AR7 failed to render',error,info);
+  // Dev only: hand the report to the dev server (src/dev-api-mock.js logs it),
+  // so a crash inside a preview pane we cannot open a console in is still
+  // visible in the terminal that serves the page.
+  if(showErrorDetail())try{
+   fetch('/api/__client-error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,stack:String(error?.stack||''),componentStack,url:location.href,w:innerWidth,h:innerHeight,time:new Date().toISOString()})}).catch(()=>{});
+  }catch{ }
+  // Two failures are worth exactly one silent reload: a module that failed to
+  // arrive (flaky network, or a dev server restarted while the tab sat open),
+  // and a hook running with no React dispatcher ("Cannot read properties of
+  // null (reading 'useState')") — the signature of a dev server whose module
+  // graph split React in two, which a fresh load always repairs. The 15s guard
+  // stops any reload loop; if the error is real, the card below says so.
+  const RETRYABLE=/dynamically imported module|Importing a module script|Loading chunk|preload|Invalid hook call|Cannot read properties of (null|undefined) \(reading 'use[A-Z]/i;
+  if(RETRYABLE.test(message)&&!alreadyRetried()){
+   if(markRetried())location.reload();else location.replace(retryHref());
+   return;
+  }
+ }
  render(){
   if(!this.state.error) return this.props.children;
+  const componentStack=showErrorDetail()?String(typeof window!=='undefined'&&window.__ar7LastError?.componentStack||'').split('\n').filter(Boolean).slice(0,5).join('\n'):'';
+  const detail=showErrorDetail()?[String(this.state.error?.message||this.state.error||'unknown error').slice(0,400),componentStack].filter(Boolean).join('\n\n'):'';
   return <div style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:'32px 20px',background:'#f5f6f2',color:'#102018',fontFamily:'Manrope,system-ui,sans-serif',textAlign:'center'}}>
-   <div style={{maxWidth:460}}>
-    <img src="/assets/ar7-mark.png" alt="AR7 Traders" width="56" height="56" style={{borderRadius:12}}/>
+   <div style={{maxWidth:showErrorDetail()?620:460}}>
+    <img src="/assets/ar7-mark.png" alt="AR7 Traders" width="56" height="56" style={{borderRadius:12}} loading="lazy" decoding="async"/>
     <h1 style={{fontSize:28,letterSpacing:'-0.04em',margin:'18px 0 10px'}}>AR7 Traders</h1>
     <p style={{color:'#66736c',lineHeight:1.6,margin:'0 0 22px'}}>The page failed to load. Refresh, or email <a href={'mailto:'+FALLBACK.contact_email} style={{color:'#043f28'}}>{FALLBACK.contact_email}</a>.</p>
     <button type="button" onClick={()=>location.reload()} style={{border:0,background:'#043f28',color:'#fff',borderRadius:12,height:48,padding:'0 20px',fontWeight:700,cursor:'pointer'}}>Refresh the page</button>
+    {detail&&<pre style={{margin:'22px 0 0',padding:'14px 16px',background:'#fff',border:'1px solid #dce2dc',borderRadius:12,color:'#7a2f2f',font:'12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace',textAlign:'left',whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{detail}</pre>}
    </div>
   </div>;
  }
@@ -1008,5 +1264,5 @@ class BootErrorBoundary extends React.Component{
 const rootEl=document.getElementById('root');
 if(rootEl){
  if(window.__ar7BootFallbackTimer)window.clearTimeout(window.__ar7BootFallbackTimer);
- createRoot(rootEl).render(<BootErrorBoundary><CurrencyProvider><App/></CurrencyProvider></BootErrorBoundary>);
+ createRoot(rootEl).render(<BootErrorBoundary><LanguageProvider><CurrencyProvider><App/></CurrencyProvider></LanguageProvider></BootErrorBoundary>);
 }
