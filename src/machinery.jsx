@@ -17,6 +17,7 @@
 // card and the detail page show the list price struck through, the reduced
 // price, and what the buyer saves — from one function, never two.
 import React, {useEffect, useMemo, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Camera, Check, ClipboardCheck, Container, Gauge,
   Images, MapPin, MessageCircle, PackageCheck, Search, Settings2, Ship, ShieldCheck, Sparkles,
@@ -179,12 +180,13 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
       )}
     </div>
 
-    {zoom && photos.length > 0 && (
+    {zoom && photos.length > 0 && createPortal(
       <div className="mch-lightbox" role="dialog" aria-modal="true" aria-label={`${machine.name} photograph`}
         onClick={() => setZoom(false)}>
         <button className="mch-lightbox-x" type="button" onClick={() => setZoom(false)} aria-label="Close the photograph"><X/></button>
         <img className="mch-lightbox-img" width="1200" height="800" src={photos[shot]} alt={`${machine.name} enlarged`} onClick={e => e.stopPropagation()}/>
-      </div>
+      </div>,
+      document.body
     )}
   </section>;
 }

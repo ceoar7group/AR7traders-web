@@ -7,8 +7,8 @@ import React, {useEffect, useState} from 'react';
 import {MessageCircle, Mail, LockKeyhole, ArrowRight, Check, LogIn, UserPlus,
                 BadgeCheck, CarFront, Wallet, ArrowLeftRight, ShieldCheck, X,
         UserCog, KeyRound} from 'lucide-react';
-import {supabase, hasSupabase} from './supabase-client.js';
-import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
+import {supabase} from './supabase-client.js';
+import { useCustomerSession } from './customer-session.jsx';
 import {useSettings, waLink} from './site-settings.js';
 import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
 import {linkClick} from './routing.js';

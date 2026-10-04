@@ -44,12 +44,6 @@ export const MAX_OFFER_PERCENT = 60;
 /** Prices are rounded to $50 so a discounted price never looks invented. */
 export const roundOfferPrice = n => Math.round(Number(n) / 50) * 50;
 
-export const clampPercent = value => {
-  const n = Math.round(Number(value));
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(MAX_OFFER_PERCENT, Math.max(MIN_OFFER_PERCENT, n));
-};
-
 const slug = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 /** ISO date or null. Anything else is dropped rather than guessed at. */
@@ -166,6 +160,31 @@ export function priceWithOffer(listPrice, percent) {
 export const offerBadge = (percent, label) => label ? `${label}` : `${percent}% off`;
 
 /** A full sentence for a banner: "20% off machinery — ends 30 Nov 2026". */
+/**
+ * Is a campaign live right now? The end date is checked here — for the live
+ * setting as well as for /promo.json — because a campaign written into the
+ * database by the CRM used to outlive its `until` date for exactly as long as
+ * nobody edited the record.
+ */
+export function campaignIsLive(promo, now = new Date()) {
+  if (!promo || !promo.active) return false;
+  if (!promo.until) return true;
+  const end = new Date(`${promo.until}T23:59:59`);
+  return Number.isNaN(end.getTime()) || now <= end;
+}
+
+/**
+ * The rows the promotion bar renders. A campaign and a price offer are
+ * independent sources and BOTH show while they are live: the offer row used to
+ * be gated on "no campaign running", which is why a season-long campaign read
+ * as "the discount I published never appeared". Each row is dismissed on its
+ * own, and neither dismissal touches the other.
+ */
+export const barRows = ({promo, campaignDismissed, offer, offerDismissed, now}) => ({
+  campaign: campaignIsLive(promo, now) && !campaignDismissed ? promo : null,
+  offer: offerDismissed ? null : describeOffer(offer, now)
+});
+
 export function describeOffer(offer, now = new Date()) {
   if (!offerIsLive(offer, now)) return null;
   const what = offer.types && offer.types.length
