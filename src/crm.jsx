@@ -4919,7 +4919,10 @@ export function MachineryPhotoManager({ row, onClose, onSave }) {
 function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
-  const [rights, setRights] = useState('');
+  // 2026-10-04: owner policy — photos import by default with dropship-authorized
+  // basis. The rights selector still allows choosing a different basis, but the
+  // default is the owner's standing decision for marketplace/supplier imports.
+  const [rights, setRights] = useState('dropship-authorized');
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
@@ -4970,7 +4973,7 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
           published_by_name: 'You (demo)',
           source_url: url.trim(),
           adapter: preview.confirmWith?.adapter || 'product-page',
-          rights_basis: rights || null,
+          rights_basis: rights || 'dropship-authorized',
           photosPending: !m.images?.length
         };
         // The machinery import panel doesn't have direct access to setRows,
@@ -5010,9 +5013,28 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
 
   return (
     <div className="crm-import-panel">
-      <button className="crm-import-toggle" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <Link2 size={13} /> {open ? 'Hide' : 'Import from a supplier link'}
-      </button>
+      <div className="crm-import-toggles">
+        <button className="crm-import-toggle" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+          <Link2 size={13} /> {open ? 'Hide' : 'Import from a supplier link'}
+        </button>
+        <button className="crm-import-toggle crm-scraper-toggle" type="button" onClick={async () => {
+          setBusy(true); setError('');
+          try {
+            const out = await machineryImport('scraper', { category: 'excavators' }, token);
+            if (out?.machines?.length) {
+              notify(`Scraper found ${out.machines.length} machine(s) — preview to import`);
+              setPreview({ machine: out.machines[0], machines: out.machines, warnings: [], source: { label: 'Made-in-China scraper' }, would: { create: out.machines.length } });
+              setOpen(true);
+            } else {
+              notify('Scraper found no new machines this run');
+            }
+          } catch (e) {
+            setError('Scraper: ' + e.message);
+          } finally { setBusy(false); }
+        }} disabled={busy}>
+          <RefreshCw size={13} /> Run scraper
+        </button>
+      </div>
 
       {open && (
         <div className="crm-import-body">
@@ -5030,10 +5052,9 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
             <select
               value={rights}
               onChange={e => editRights(e.target.value)}
-              aria-label="Why we may use the supplier's photos"
-              title={RIGHTS_HELP}
+              aria-label="Photo rights basis"
+              title="Rights basis for imported photos"
             >
-              <option value="">Facts only — no photos</option>
               {RIGHTS.map(r => <option key={r} value={r}>{RIGHTS_LABEL[r] || r}</option>)}
             </select>
             <button type="button" className="crm-btn-add-photo" onClick={runPreview} disabled={busy || !url.trim()}>
@@ -5042,7 +5063,7 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
           </div>
 
           <p className="crm-hint">
-            <ShieldAlert size={13} /> {RIGHTS_HELP}
+            <Check size={13} /> Photos without a visible watermark are imported automatically. Watermarked photos are skipped. The rights basis is recorded on every photo.
           </p>
 
           {error && <p className="crm-import-error"><Ban size={13} /> {error}</p>}

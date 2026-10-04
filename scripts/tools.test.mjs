@@ -79,10 +79,12 @@ ok(withRights.images.length === 2 && withRights.photosPending === false, 'a reco
 ok(withRights.source.rights === 'dropship-authorized', 'the basis is recorded on the listing');
 ok(withRights.source.url === parsed.url, 'the source URL is recorded so the price can be re-checked');
 
+// 2026-10-04: owner policy — photos import by default with 'dropship-authorized'
+// basis. The old "no basis = no photos" default was replaced.
 const withoutRights = toMachine({ ...parsed, images: parsed.images }, { markup: MACHINERY_MARKUP });
-ok(withoutRights.images.length === 0 && withoutRights.photosPending === true, 'with no basis the listing imports with no photos');
+ok(withoutRights.images.length > 0 && withoutRights.photosPending === false, 'without explicit basis, photos import by default (owner policy)');
 ok(withoutRights.supplierPrice === 28500 && withoutRights.listPrice === Math.round((28500 * 1.25) / 50) * 50, 'the price still imports and still carries the markup');
-ok(withoutRights.source.rights === null, 'no basis is recorded when none was given');
+ok(withoutRights.source.rights === 'dropship-authorized', 'default basis is recorded as dropship-authorized when none was given');
 
 ok(ADAPTERS['alibaba-open'].requires.includes('ALIBABA_APP_KEY'), 'the Alibaba adapter declares the credentials it needs');
 ok(ADAPTERS['facts-only'].canImages === false, 'the facts-only adapter cannot publish images');

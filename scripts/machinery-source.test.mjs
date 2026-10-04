@@ -78,21 +78,35 @@ const { brand, type } = classify(product.title, product.specs);
 eq(brand, 'Caterpillar', 'the brand is classified from the spec sheet ("caterpillar" in the product name row)');
 eq(type, 'Excavators', 'the type is classified from the title');
 
-// ---- the watermark flag reaches the operator --------------------------------
-say('\n-- reviewPhotos flags the marketplace gallery --');
+// ---- 2026-10-04: watermark filtering happens at import time ------------------
+// Owner policy: watermarked images are filtered out during toMachine(). The
+// reviewPhotos check is for non-watermark quality issues on the surviving photos.
+say('\n-- watermarked marketplace photos are filtered at import --');
 const machine = toMachine(product, { markup: 0.25, rights: 'supplier-permission', adapter: 'product-page' });
-ok(machine.images.length > 0, 'with a rights basis the photos reach the candidate machine');
+// The fixture's images are all on image.made-in-china.com (a watermark CDN),
+// so they are filtered out. The machine still imports with its facts.
+ok(machine.images.length === 0, 'watermarked marketplace photos are filtered out at import');
+ok(machine.skippedPhotos > 0, 'the skipped count records how many were filtered');
+ok(machine.source.rights === 'supplier-permission', 'the rights basis is still recorded even when photos were skipped');
+// reviewPhotos checks the quality of existing photos, not whether photos exist.
+// With zero surviving photos, reviewPhotos passes (nothing to review).
+// The machine is still importable — photosPending is set separately.
 const review = reviewPhotos(machine);
-ok(!review.pass, 'the candidate does not pass the photo standard silently');
-ok(review.flags.some(f => /watermark/i.test(f)), `the review names the watermark problem (${review.flags.find(f => /watermark/i.test(f))})`);
+ok(machine.photosPending === true, 'photosPending is set when no photos survived the watermark filter');
+ok(review.pass === true, 'reviewPhotos passes with zero images (nothing to flag)');
 
 const hosted = { name: 'Doosan DX300LC-9C Crawler Excavator', year: 2023,
   images: ['/assets/machinery/doosan-dx300lc-1.webp', '/assets/machinery/doosan-dx300lc-2.webp'] };
 const cleanReview = reviewPhotos(hosted);
 ok(cleanReview.pass && cleanReview.flags.length === 0, 'a self-hosted recent gallery with two photos passes');
 
+// 2026-10-04: owner policy — default basis is dropship-authorized, so even
+// with rights:null the images still get through (subject to watermark filter).
 const factsOnly = toMachine(product, { markup: 0.25, rights: null, adapter: 'product-page' });
-eq(factsOnly.images.length, 0, 'with no rights basis no photo is imported');
+ok(factsOnly.source.rights === 'dropship-authorized', 'with no explicit basis the default is dropship-authorized');
+// The fixture images are all watermarked (image.made-in-china.com), so they
+// are filtered regardless of the rights basis.
+eq(factsOnly.images.length, 0, 'the fixture images are all watermarked so none survive the filter');
 eq(factsOnly.photosPending, true, 'and the machine waits for photos instead');
 ok(factsOnly.supplierPrice === 25000, 'the facts still import — the price survives a facts-only import');
 ok(rightsAreUsable('dropship-authorized') && RIGHTS.includes('dropship-authorized'),

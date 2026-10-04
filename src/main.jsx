@@ -460,7 +460,10 @@ function HeroVisual({navigate}){
        and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
    <h2 className="sr-only">Featured stock — cars from Japan and machines from China</h2>
   <i className="spark s1"/><i className="spark s2"/><i className="spark s3"/><i className="spark s4"/><i className="spark s5"/><i className="spark s6"/>
-  <div className="hero-orb" title="AR7 360° world"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div>
+  <div className="hero-vignettes">
+    <a className="hero-vignette" href="/inventory" onClick={linkClick('inventory',navigate)} title="Browse car inventory"><CarFront/><span>Cars<small>Japan stock →</small></span></a>
+    <a className="hero-vignette" href="/machinery" onClick={linkClick('machinery',navigate)} title="Browse machinery"><Wrench/><span>Machines<small>China desk →</small></span></a>
+  </div>
   <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.target,navigate)} title={`View ${c.title}`}>
    <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
    <div className="image-shade"/>

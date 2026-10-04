@@ -975,7 +975,7 @@ html[data-crm-theme="light"] .crm-shell {
   text-transform: uppercase;
   color: var(--crm-muted);
   background: var(--crm-panel-sub);
-  padding: 14px 16px;
+  padding: 10px 12px;
   position: sticky;
   top: 0;
   z-index: 2;
@@ -983,7 +983,7 @@ html[data-crm-theme="light"] .crm-shell {
 }
 .crm-table-wrap td {
   font-size: 12px;
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-top: 1px solid var(--crm-border-subtle);
   color: var(--crm-ink);
   vertical-align: middle;
@@ -999,13 +999,13 @@ html[data-crm-theme="light"] .crm-shell {
   background: var(--crm-panel-hover);
 }
 
-.th-photo { width: 70px; }
-.td-photo { width: 70px; padding: 8px 16px !important; }
+.th-photo { width: 80px; }
+.td-photo { width: 80px; padding: 6px 14px !important; }
 .table-thumb-wrap {
   position: relative;
-  width: 58px;
-  height: 42px;
-  border-radius: 8px;
+  width: 72px;
+  height: 52px;
+  border-radius: 9px;
   overflow: hidden;
   background: #000;
   cursor: pointer;
@@ -3137,6 +3137,7 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-hint{display:flex;align-items:center;gap:6px;color:var(--crm-muted);font-size:11px;line-height:1.5;margin:12px 0 0}
 
 /* ================= Japan dealer stock ================= */
+.crm-goonet .crm-table-wrap table{min-width:1100px}
 .crm-goonet .crm-chips{margin:14px 0 12px}
 .crm-goonet .crm-sync{display:inline-flex;align-items:center;gap:6px}
 .crm-goonet .crm-tools button.active{background:var(--crm-gold);color:var(--crm-on-gold);border-color:var(--crm-gold)}
@@ -3152,7 +3153,7 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-goonet-settings .crm-check-field{flex-direction:row;align-items:center;gap:10px}
 .crm-goonet-settings footer{margin-top:14px;display:flex;justify-content:flex-end}
 .crm-goonet-settings .save{display:inline-flex;align-items:center;gap:6px;background:var(--crm-gold);color:var(--crm-on-gold);border:0;border-radius:10px;padding:10px 16px;font-weight:800;font-size:11px;cursor:pointer}
-.crm-goonet .goonet-actions{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;min-width:0;max-width:320px}
+.crm-goonet .goonet-actions{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;min-width:0}
 /* The actions column is pinned to the right edge of the scrollable table so
    the row buttons never sit out of frame on narrow CRM viewports. */
 .crm-table-wrap th.th-actions,

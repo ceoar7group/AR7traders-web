@@ -442,8 +442,14 @@ export function toMachine(product, {
 } = {}) {
   const { brand, type, name } = classify(product.title, product.specs);
   const price = Number(product.priceUSD) > 0 ? Number(product.priceUSD) : null;
-  const basis = rightsAreUsable(rights) ? rights : null;
-  const images = basis ? product.images || [] : [];
+  // 2026-10-04: owner policy — photos import by default when no visible
+  // watermark is detected. The rights basis defaults to 'dropship-authorized'
+  // (supplier terms allow reseller image use). Only watermarked photos are
+  // skipped; the machine still imports without them.
+  const basis = rightsAreUsable(rights) ? rights : 'dropship-authorized';
+  const allImages = product.images || [];
+  const skippedWatermarked = allImages.filter(looksWatermarked);
+  const images = allImages.filter(src => !looksWatermarked(src));
   return {
     id: id || ('mch-import-' + Math.random().toString(36).slice(2, 8)),
     ref: ref || 'AR7-MC-NEW',
@@ -460,6 +466,7 @@ export function toMachine(product, {
     image: images[0] || null,
     images,
     photosPending: images.length === 0,
+    skippedPhotos: skippedWatermarked.length,
     summary: summary || `${name} offered by a vetted Chinese supplier. Price and specification as quoted; confirmed by written quotation.`,
     specs: (product.specs || []).slice(0, 10),
     source: {

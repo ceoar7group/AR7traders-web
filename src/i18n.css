@@ -6,8 +6,8 @@
    "Arabic" does. */
 
 .lang-switch{position:relative}
-.lang-btn{gap:6px;width:auto;padding:0 11px}
-.lang-code{font:800 10px Manrope;letter-spacing:.5px}
+.lang-btn{gap:5px;width:auto;padding:0 10px;height:42px;font-size:0}
+.lang-code{font:800 10px/1 Manrope;letter-spacing:.5px}
 .lang-panel{position:absolute;z-index:70;top:calc(100% + 9px);inset-inline-end:0;width:232px;max-height:min(420px,70vh);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);padding:7px;animation:langIn .18s ease}
 @keyframes langIn{from{opacity:0;transform:translateY(-6px)}}
 .lang-panel-head{font:800 9px Manrope;letter-spacing:1.7px;text-transform:uppercase;color:var(--muted);padding:8px 10px 6px}

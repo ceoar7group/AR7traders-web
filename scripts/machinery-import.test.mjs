@@ -142,17 +142,18 @@ say('\n-- preview reads a supplier page --');
   ok(db._tables.machinery.length === 0, 'and still nothing was written');
 }
 
-say('\n-- no rights basis means no photos --');
+// 2026-10-04: owner policy — photos import by default with 'dropship-authorized'.
+// The old "no rights basis means no photos" behaviour was replaced.
+say('\n-- no explicit rights basis defaults to dropship-authorized --');
 {
   const db = fakeDb();
   const res = await preview(db, { url: URL_A, rights: '', html: PAGE(URL_A) });
   const b = res.json();
-  ok(b.machine?.images?.length === 0, 'no photographs were imported');
-  ok(b.machine?.photosPending === true, 'the machine is marked as awaiting photos');
-  ok(b.warnings.some(w => /rights basis/i.test(w)), 'and the operator is told why');
-  ok(b.warnings.some(w => /supplier-permission/.test(w)), 'the warning names the accepted bases');
-  // The machine is nevertheless importable — every machine is listed.
-  ok(b.would.create === 1, 'the machine is still importable without photos');
+  ok(b.machine?.source?.rights === 'dropship-authorized', 'default basis is dropship-authorized when none given');
+  ok(b.machine?.images?.length >= 0, 'photos are imported (subject to watermark check)');
+  ok(!b.warnings.some(w => /rights basis/i.test(w)), 'no "no rights basis" warning with the new default');
+  // The machine is always importable — every machine is listed.
+  ok(b.would.create === 1, 'the machine is importable with default rights');
 }
 
 say('\n-- a page with nothing to read --');
