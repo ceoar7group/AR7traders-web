@@ -1139,6 +1139,12 @@ export default function CrmApp() {
             </button>
           ))}
         </nav>
+        <div className="crm-staff-tools">
+          <small>STAFF TOOLS</small>
+          <a href="/seo" target="_blank" rel="noopener noreferrer" title="SEO desk — staff only, noindex">
+            <Search /> SEO desk
+          </a>
+        </div>
         <div className="crm-user">
           <button className="crm-user-open" onClick={() => setWho({ self: true })} title="Edit your profile" type="button">
             <span>{(profile?.full_name || session.user?.email || 'AR7').slice(0, 2).toUpperCase()}</span>

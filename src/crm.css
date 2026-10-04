@@ -3675,3 +3675,38 @@ html[data-crm-theme="light"] .crm-shell {
   gap: 8px;
   margin-top: 12px;
 }
+
+/* ── Staff tools shortcut (in the CRM sidebar) ─────────────────────────── */
+.crm-staff-tools {
+  padding: 10px 14px;
+  border-top: 1px solid var(--crm-border);
+  margin-top: 8px;
+}
+.crm-staff-tools small {
+  font: 800 9px Manrope;
+  letter-spacing: 1.5px;
+  color: var(--crm-muted);
+  display: block;
+  margin-bottom: 6px;
+}
+.crm-staff-tools a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--crm-ink);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.crm-staff-tools a:hover {
+  background: var(--crm-panel-hover);
+}
+.crm-staff-tools a svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--crm-muted);
+}
