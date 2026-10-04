@@ -326,6 +326,12 @@ ok(robotsSitemaps.includes('https://ar7traders.com/sitemap.xml'),
   'robots.txt points at the static sitemap');
 ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-vehicles.xml'),
   'robots.txt points at the vehicle sitemap');
+// Machinery gets its own sitemap rather than being folded into the car one,
+// so the line is REQUIRED here, not merely tolerated — a robots.txt that
+// stops advertising it would quietly take every machine page out of the
+// crawl while the pages themselves stayed live.
+ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-machinery.xml'),
+  'robots.txt points at the machinery sitemap');
 ok(robotsSitemaps.every(u => u.startsWith('https://ar7traders.com/')),
   'every sitemap URL uses the canonical domain, never www.');
 for (const blocked of ['/crm', '/account', '/portal', '/studio']) {
@@ -372,6 +378,13 @@ ok(!!sitemapRewrite && sitemapRewrite.destination.includes('sitemap=vehicles'),
   '/api/sitemap-vehicles.xml is rewritten onto the site-content function');
 ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-vehicles.xml'),
   'the rewritten vehicle sitemap is the one robots.txt advertises');
+const machineryRewrite = (vercel.rewrites || []).find(r => r.source === '/api/sitemap-machinery.xml');
+ok(!!machineryRewrite && machineryRewrite.destination.includes('sitemap=machinery'),
+  '/api/sitemap-machinery.xml is rewritten onto the site-content function');
+ok(!!machineryRewrite && machineryRewrite.destination.includes('/api/site-content'),
+  'the machinery sitemap adds no Serverless Function (it dispatches on site-content)');
+ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-machinery.xml'),
+  'the rewritten machinery sitemap is the one robots.txt advertises');
 const apiSrc = readFileSync(join(ROOT, 'api/site-content.js'), 'utf8');
 ok(/SITEMAP_BASE\s*=\s*'https:\/\/ar7traders\.com'/.test(apiSrc),
   'the vehicle sitemap emits absolute URLs on the canonical domain');
