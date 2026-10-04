@@ -64,8 +64,13 @@ export { carRef, hrefFor };
 // below is added here.
 import {
   listMachines, createMachine, updateMachine, setPublished, deleteMachine,
-  MACHINERY_TABLE
+  MACHINERY_TABLE, toPublic
 } from './_machinery.js';
+// The import agent: another shared module, so the machinery desk, the paste-a
+// -link box and the nightly job all cost zero extra functions.
+import {
+  MAX_IMPORT_BATCH, previewMachine, toRow, planImport, applyImport, markStale
+} from './_machinery-import.js';
 export { machinePath, machineTypePath };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
@@ -465,6 +470,133 @@ async function machineryDispatch(req, res, action, injected = {}) {
   return send(res, 400, {error: `Unknown machinery action: ${action}`});
 }
 
+/**
+ * The machinery import agent.
+ *
+ * Two steps, and the split is deliberately absolute:
+ *
+ *   step=preview  reads a supplier link and RETURNS a candidate. It writes
+ *                 nothing — not a row, not an activity, not a log line. The
+ *                 operator sees the machine before it exists.
+ *   step=confirm  writes what the operator approved.
+ *
+ * Both need `site.write`. An import is the one action that puts rows on the
+ * website nobody typed, from a source we do not control.
+ */
+async function importDispatch(req, res, injected = {}) {
+  const db = injected.db || adminClient();
+  const step = String(req.query.step || req.body?.step || '').toLowerCase();
+  const sendErr = e => send(res, e.status || 500, {
+    error: e.message || 'Machinery import failed',
+    details: e.details
+  });
+
+  // requireUser() throws with a status on failure — it does NOT return {ok}.
+  let auth;
+  try {
+    auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+  } catch (e) {
+    return send(res, e.status || 401, { error: e.message || 'Unauthorized' });
+  }
+  try {
+    await assertSiteWrite(auth.profile, injected);
+  } catch (e) {
+    return send(res, e.status || 403, { error: e.message || 'Not allowed' });
+  }
+
+  const body = req.body || {};
+
+  try {
+    // ---- PREVIEW: read only -------------------------------------------------
+    if (step === 'preview') {
+      const url = String(body.url || '').trim();
+      if (!url) return send(res, 400, { error: 'Paste a supplier link first' });
+      if (!/^https?:\/\//i.test(url)) return send(res, 400, { error: 'That is not a web address — it should start with http:// or https://' });
+
+      // `html` is forwarded when the caller already has the page — the
+      // scheduled job fetches it once and reuses it. Without it the adapter
+      // fetches the link itself. Forgetting to forward it meant every preview
+      // hit the network even when the page was in hand.
+      const result = await previewMachine({
+        url,
+        html: body.html || null,
+        rights: body.rights || null,
+        adapter: body.adapter || null
+      });
+      if (!result.ok) return send(res, 422, { error: result.error, warnings: result.warnings || [] });
+
+      // Say what it WOULD do, without doing any of it.
+      const { data: existing } = await db.from(MACHINERY_TABLE).select('*');
+      const row = toRow(result.machine, { rights: body.rights || null, adapter: result.source?.adapter });
+      const plan = planImport(Array.isArray(existing) ? existing : [], [row]);
+
+      return send(res, 200, {
+        preview: true,
+        written: false,
+        machine: result.machine,
+        warnings: result.warnings,
+        review: result.review,
+        source: result.source,
+        would: {
+          create: plan.creates.length,
+          update: plan.updates.length,
+          rePrice: plan.rePriced,
+          invalid: plan.errors
+        },
+        // Echoed back so confirm writes exactly what was shown.
+        confirmWith: { url, rights: body.rights || null, adapter: result.source?.adapter }
+      });
+    }
+
+    // ---- CONFIRM: write ----------------------------------------------------
+    if (step === 'confirm') {
+      const candidates = Array.isArray(body.machines) ? body.machines : [];
+      if (!candidates.length) return send(res, 400, { error: 'Nothing to import — preview a link first' });
+      if (candidates.length > MAX_IMPORT_BATCH) {
+        return send(res, 400, { error: `Import at most ${MAX_IMPORT_BATCH} machines at a time` });
+      }
+
+      const { data: existing } = await db.from(MACHINERY_TABLE).select('*');
+      const rows = candidates.map(m => (m && m.row)
+        ? m.row
+        : toRow(m, { rights: m?.source?.rights || body.rights || null, adapter: m?.source?.adapter || body.adapter || 'product-page' }));
+      const plan = planImport(Array.isArray(existing) ? existing : [], rows);
+
+      if (!plan.creates.length && !plan.updates.length) {
+        return send(res, 422, {
+          error: 'Nothing could be imported from that preview',
+          invalid: plan.errors, skipped: plan.skips
+        });
+      }
+
+      const result = await applyImport(db, plan, auth.profile);
+      const { data: fresh } = await db.from(MACHINERY_TABLE)
+        .select('*').eq('published', true).order('sort_order', { ascending: true });
+
+      return send(res, 200, {
+        imported: result.created.length,
+        updated: result.updated.length,
+        rePriced: result.rePriced,
+        skipped: result.skipped,
+        invalid: result.invalid,
+        failed: result.failed,
+        machines: Array.isArray(fresh) ? fresh.map(toPublic) : []
+      });
+    }
+
+    // ---- STALE: flag machines a scheduled run did not see ------------------
+    // Never deletes. A supplier taking a listing down for a weekend is not the
+    // same thing as the machine being gone, and only the owner can tell those
+    // apart — so the row is flagged, not removed.
+    if (step === 'stale') {
+      const out = await markStale(db, { sourceHost: body.sourceHost || null, seenIds: body.seenIds || [] });
+      return send(res, 200, { ...out, note: 'Flagged, never deleted — the owner decides' });
+    }
+
+    return send(res, 400, { error: `Unknown import step: ${step || '(none)'}. Use step=preview or step=confirm.` });
+  } catch (e) { return sendErr(e); }
+}
+
 export default async function handler(req, res, injected = {}) {
   // ---- Vehicle sitemap dispatch: /api/sitemap-vehicles.xml rewrites here
   // with ?sitemap=vehicles. Kept inside this function so the deployment
@@ -482,6 +614,9 @@ export default async function handler(req, res, injected = {}) {
   // deployment stays at 12 Serverless Functions.
   const machineAction = String(req.query.machinery || '');
   if (machineAction) return machineryDispatch(req, res, machineAction, injected);
+
+  // ---- Machinery import agent: ?import=machinery&step=preview|confirm
+  if (String(req.query.import || '') === 'machinery') return importDispatch(req, res, injected);
 
   const entity = String(req.query.entity || '');
   const table = entities[entity];
