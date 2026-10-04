@@ -4900,6 +4900,42 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
     if (!preview) return;
     setBusy(true); setError('');
     try {
+      if (DEMO) {
+        // In demo mode, add the machine to the local state so the user can see
+        // the import flow working without a live database.
+        const m = preview.machine;
+        const demoRow = {
+          id: 'demo-' + Math.random().toString(36).slice(2, 8),
+          ref: m.ref || 'AR7-MC-NEW',
+          name: m.name,
+          brand: m.brand,
+          model: m.model || m.name,
+          type: m.type || 'Excavators',
+          year: m.year || new Date().getFullYear(),
+          hours: m.hours || 0,
+          price_usd: m.listPrice || m.supplierPrice || 0,
+          supplierPrice: m.supplierPrice || 0,
+          summary: m.summary || '',
+          specs: m.specs || [],
+          images: m.images || [],
+          image: m.images?.[0] || '',
+          status: 'Available',
+          origin: m.origin || 'China',
+          location: m.location || 'China',
+          published: true,
+          published_by_name: 'You (demo)',
+          source_url: url.trim(),
+          adapter: preview.confirmWith?.adapter || 'product-page',
+          rights_basis: rights || null,
+          photosPending: !m.images?.length
+        };
+        // The machinery import panel doesn't have direct access to setRows,
+        // so we notify the parent to reload.
+        notify(`Imported ${m.name} — published and on the website (demo mode)`);
+        setPreview(null); setUrl(''); setRights('');
+        onImported && onImported();
+        return;
+      }
       const out = await machineryImport('confirm', {
         machines: [preview.machine],
         rights: preview.confirmWith?.rights || rights || null,

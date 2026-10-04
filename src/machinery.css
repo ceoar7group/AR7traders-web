@@ -493,6 +493,8 @@
 .mch-detail-assurance li{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.6;color:var(--muted)}
 .mch-detail-assurance svg{width:15px;flex:none;margin-top:2px;color:var(--green-text)}
 .mch-detail-actions{display:flex;gap:10px;align-items:center}
+.mch-detail-actions .primary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.mch-detail-actions .mch-chat:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .mch-detail-note{margin:16px 0 0;padding-left:11px;border-left:3px solid var(--gold);font-size:11.5px;line-height:1.65;color:var(--muted)}
 .mch-related{margin-top:52px;padding-top:30px;border-top:1px solid var(--line)}
 .mch-related h2{font:800 clamp(22px,2.6vw,30px)/1.1 Manrope;letter-spacing:-.9px;margin:8px 0 20px}
@@ -537,6 +539,9 @@
 .mch-view{display:inline-flex;align-items:center;gap:6px;height:37px;padding:0 13px;border-radius:10px;
   border:1px solid var(--line);background:var(--card);color:var(--green-text);font-size:11.5px;font-weight:800;text-decoration:none}
 .mch-view svg{width:14px}
+.mch-view:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.mch-related-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.mch-photo-link:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 .mch-photo-link{display:block;line-height:0;cursor:pointer}
 
 @media (max-width:900px){
