@@ -331,6 +331,11 @@ html,body{overflow-x:clip}
 .promo-cta,.promo-x{display:inline-flex;align-items:center;border:0;flex:none}
 .promo-cta{gap:6px;color:#fff;font-weight:800;text-decoration:none;border-bottom:1px solid #ffffff59;white-space:nowrap}
 .promo-x{background:#ffffff1a;color:#dcebe3;width:26px;height:26px;border-radius:8px;justify-content:center;cursor:pointer}
+/* A campaign and a price offer can be live at the same time. They share the
+   bar as two rows, each dismissible on its own. Before this the campaign row
+   replaced the price offer entirely, which is why the owner read a running
+   campaign as "my discount did not publish". */
+.promo-bar-offer:not(:first-child){border-top:1px solid #ffffff1f}
 /* Reserve the bar's height. The header is fixed, so it moves down by the bar's
    height, and the page content moves down by the same amount — every hero's own
    top padding stays as designed. --promo-h is set by src/promo-bar.jsx and is

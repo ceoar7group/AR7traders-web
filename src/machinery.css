@@ -507,7 +507,7 @@
 
 .mch-lightbox{position:fixed;inset:0;z-index:130;background:#01110af2;display:grid;place-items:center;padding:22px}
 .mch-lightbox-img{max-width:min(1200px,96vw);max-height:88vh;width:auto;height:auto;border-radius:14px;box-shadow:0 40px 100px #00000080}
-.mch-lightbox-x{position:absolute;top:18px;right:18px;width:42px;height:42px;border:1px solid #ffffff33;border-radius:12px;background:#ffffff14;color:#fff;display:grid;place-items:center;cursor:pointer}
+.mch-lightbox-x{position:absolute;top:18px;inset-inline-end:18px;width:42px;height:42px;border:1px solid #ffffff33;border-radius:12px;background:#ffffff14;color:#fff;display:grid;place-items:center;cursor:pointer}
 .mch-lightbox-x svg{width:18px}
 
 /* ── "Tell us the machine" ─────────────────────────────────────────────────── */

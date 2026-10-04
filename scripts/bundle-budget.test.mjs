@@ -150,8 +150,19 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // sentence parser that reads "20% off machinery until 30 November" is NOT — it
 // lives in src/offers-request.js, inside the CRM's lazy chunk, and that split
 // took ~2 kB raw back off this number. Measured 461.61 kB raw / 136.23 kB gzip.
+// Ratcheted 463 → 464 kB raw (gzip unchanged) on 2026-10-04: a campaign and a
+// price offer can be live at once. The promotion bar used to render the offer
+// only when no campaign was running, so the owner — with the China-desk
+// campaign live — published a discount and saw nothing at the top of the site.
+// The two now share the bar as two rows with independent dismissals, and the
+// campaign end date is enforced on the live setting as well as on /promo.json.
+// Measured 463.01 kB raw / 136.84 kB gzip. Dead code in currency.jsx, offers.js
+// and main.jsx (three unused market-rate helpers, clampPercent, money) was
+// deleted in the same pass; it was already tree-shaken, so it bought nothing
+// and the raw ratchet carries the change. Gzip, which is what a phone actually
+// downloads, stays inside the unchanged 137 kB budget.
 const BUDGET_GZIP = 137 * 1024;
-const BUDGET_RAW = 463 * 1024;
+const BUDGET_RAW = 464 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

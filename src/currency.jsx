@@ -131,11 +131,6 @@ let currentRates = { ...DEFAULT_RATES };
 let ratesUpdatedAt = null;
 let ratesInflight = null;
 
-// Module-level mirror so non-React code paths (CSV exports, plain helpers)
-// always see the latest rates the providers have loaded.
-export const getLiveRates = () => currentRates;
-export const getRatesUpdatedAt = () => ratesUpdatedAt;
-
 function cacheRates(rates, updatedAt) {
   currentRates = normalizeRates(rates);
   ratesUpdatedAt = updatedAt || null;
@@ -144,11 +139,6 @@ function cacheRates(rates, updatedAt) {
     if (ratesUpdatedAt) localStorage.setItem(RATES_TS_KEY, ratesUpdatedAt);
   } catch { /* private browsing — memory only */ }
   rateListeners.forEach(fn => { try { fn(currentRates); } catch { } });
-}
-
-export function onRatesChange(fn) {
-  rateListeners.add(fn);
-  return () => rateListeners.delete(fn);
 }
 
 export async function refreshRates() {
