@@ -188,8 +188,9 @@ create table if not exists public.machinery (
   adapter               text,
   rights_basis          text,
   imported_at           timestamptz,
-  published             boolean default false,  -- nothing goes live unreviewed
+  published             boolean default true,   -- every machine in the DB is listed
   published_by          text,                   -- 'auto' or the profile id
+  published_by_name     text,
   published_at          timestamptz,
   hold_reason           text,
   price_before_usd      numeric,
@@ -199,7 +200,8 @@ create table if not exists public.machinery (
   sort_order            int default 0,
   created_at            timestamptz default now(),
   updated_at            timestamptz default now(),
-  created_by            uuid
+  created_by            uuid,
+  created_by_name       text
 );
 create index if not exists machinery_type_idx       on public.machinery(type);
 create index if not exists machinery_published_idx  on public.machinery(published) where published;

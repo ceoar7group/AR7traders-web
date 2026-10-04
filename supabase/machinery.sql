@@ -17,14 +17,21 @@
 -- reading site_listings exactly as it does today. Nothing on the car side
 -- moves, is renamed, or is dropped.
 --
--- WHY `published` DEFAULTS TO FALSE
--- site_listings defaults to true because a car listed in the CRM is a car the
--- team has already decided to sell. A machine is different: a photo may not be
--- published at all unless it carries a recorded rights basis (see
--- src/machinery-source.js RIGHTS / rightsAreUsable), so nothing here goes live
--- until a person or a passing gate says it may. Publishing is one click in the
--- CRM, and one more click is a fair price for never shipping an unlicensed
--- photograph.
+-- WHY `published` DEFAULTS TO TRUE, AND WHAT STILL CANNOT GO LIVE
+-- The owner's rule: every machine in this table exists to be listed, whether
+-- it was typed in by hand, imported by the scraper, or added by a developer.
+-- Nobody should have to hunt for a publish toggle to make a machine appear.
+--
+-- That does NOT relax the photo rule. A photograph with no recorded rights
+-- basis still never reaches the site: api/_machinery.js filters `images` down
+-- to the entries whose `rights` passes rightsAreUsable() before any public
+-- row is emitted (toPublic / photosOf), and a machine left with no usable
+-- photo renders in the site's no-photo state rather than borrowing somebody
+-- else's picture. The machine is listed; the unlicensed photo is not.
+--
+-- So `published = false` means "deliberately hidden by a person" (the CRM's
+-- unpublish/archive action) rather than "not yet approved", and the CRM shows
+-- hold_reason when a photo was withheld so the gap is visible and fixable.
 
 -- --------------------------------------------------------------- machinery
 create table if not exists public.machinery (
@@ -61,12 +68,13 @@ create table if not exists public.machinery (
   imported_at        timestamptz,
 
   -- ── Publication ────────────────────────────────────────────────────────
-  published          boolean default false,
+  published          boolean default true,
   -- 'auto' when the import gates passed and the machine published itself, or
   -- the profile id of the person who clicked Publish. Never null once
   -- published, and cleared on unpublish, so the CRM can always answer
   -- "who or what put this live".
-  published_by       text,
+  published_by       text,                  -- 'auto' or the profile id
+  published_by_name  text,                  -- denormalised for the CRM column
   published_at       timestamptz,
   -- Why a machine is sitting in the review queue instead of live:
   -- 'no-rights-basis' | 'too-few-photos' | 'no-price' | 'unresolved-type'.
@@ -87,7 +95,8 @@ create table if not exists public.machinery (
   sort_order         int default 0,
   created_at         timestamptz default now(),
   updated_at         timestamptz default now(),
-  created_by         uuid
+  created_by         uuid,
+  created_by_name    text                   -- denormalised for the CRM column
 );
 
 -- The public catalogue filters on type and scans by publication state; the

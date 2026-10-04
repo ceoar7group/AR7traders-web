@@ -210,7 +210,13 @@ export function validateRow(payload, { partial = false } = {}) {
     else out.rights_basis = basis || null;
   }
 
-  if (has('published')) out.published = !!body.published;
+  // Every machine in the table exists to be listed — hand-added, imported or
+  // scraped. `published` starts true and only a person sets it false (the
+  // CRM's unpublish / archive action); the photo rights rule is enforced at
+  // render time instead, so an unlicensed photo is dropped rather than the
+  // whole machine being hidden.
+  if (has('published')) out.published = body.published === undefined ? true : !!body.published;
+  else if (!partial) out.published = true;
   if (has('imported_at')) out.imported_at = body.imported_at || null;
 
   return { errors, value: out };
@@ -294,12 +300,14 @@ export function publishBlockers(row, settings = {}) {
   const price = Number(row?.price_usd);
   if (!Number.isFinite(price) || price <= 0) blockers.push(HOLD.NO_PRICE);
 
+  // Rights no longer blocks the machine from being listed (the owner wants
+  // every machine in the database published). It is still recorded as a hold
+  // reason so the CRM can show "1 photo withheld — no rights basis" and the
+  // gap gets fixed. The photo itself is dropped at render time, above.
   const rights = photoRights(row);
-  if (!rights.ok) {
-    if (!(allowPlaceholder && rights.photos.length === 0)) blockers.push(HOLD.NO_RIGHTS);
-  } else if (rights.usable.length < minPhotos) {
-    blockers.push(HOLD.FEW_PHOTOS);
-  }
+  if (rights.photos.length === 0 && !allowPlaceholder) blockers.push(HOLD.NO_RIGHTS);
+  else if (rights.missing.length > 0) blockers.push(HOLD.NO_RIGHTS);
+  else if (rights.usable.length < minPhotos) blockers.push(HOLD.FEW_PHOTOS);
 
   // The photo standard the supplier importer already applies.
   const review = reviewPhotos(row, { now: new Date().getFullYear() });
@@ -330,7 +338,12 @@ export function primaryHoldReason(row, settings = {}) {
  */
 export function toPublic(row) {
   if (!row) return null;
-  const photos = photosOf(row).filter(p => rightsAreUsable(p.rights));
+  // THE RIGHTS GATE, applied at the only point that matters — the moment a
+  // row becomes something the site renders. A photo with no usable rights
+  // basis is dropped here, so it cannot reach the site no matter which route
+  // published the machine. `photos_withheld` keeps a count for the CRM.
+  const allPhotos = photosOf(row);
+  const photos = allPhotos.filter(p => rightsAreUsable(p.rights));
   const srcs = photos.map(p => p.src);
   return {
     id: row.id,
@@ -350,6 +363,9 @@ export function toPublic(row) {
     images: srcs,
     image: srcs[0] || '',
     photosPending: srcs.length === 0,
+    photos_withheld: allPhotos.length - srcs.length,
+    created_by: row.created_by || null,
+    created_by_name: row.created_by_name || null,
     status: row.status || 'Available',
     origin: row.origin || 'China',
     location: row.location || '',
@@ -358,7 +374,9 @@ export function toPublic(row) {
     adapter: row.adapter || null,
     rights_basis: row.rights_basis || null,
     imported_at: row.imported_at || null,
+    published: row.published !== false,
     published_by: row.published_by || null,
+    published_by_name: row.published_by_name || null,
     hold_reason: row.hold_reason || null,
     price_before_usd: row.price_before_usd ?? null,
     price_changed_at: row.price_changed_at || null,
@@ -373,4 +391,138 @@ export function toPublic(row) {
 /** The type slug used in /machinery/<type>. Shared with the sitemap. */
 export function typeSlugOf(row) {
   return machineTypeSlug(row) || machineTypeSlug({ type: resolveType(row?.type) });
+}
+
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
+// These run inside api/site-content.js (dispatched on ?machinery=…) and
+// api/goonet-sync.js (dispatched on ?job=machinery). `actor` is the profile
+// from requireUser(), or null for an unattended run.
+
+const now = () => new Date().toISOString();
+
+/** Write an audit-trail entry. Never throws — a failed log must not fail the write. */
+async function audit(db, actor, action, entityId) {
+  try {
+    await db.from('activities').insert({
+      action,
+      actor: actor?.full_name || actor?.email || 'System',
+      entity_type: MACHINERY_TABLE,
+      entity_id: entityId || null,
+      created_by: actor?.id || null
+    });
+  } catch (e) { console.error('machinery activity log failed', e.message); }
+}
+
+const rowLabel = row => [row?.brand, row?.model].filter(Boolean).join(' ') || row?.ref || 'machine';
+
+/**
+ * Read machines.
+ *  - publishedOnly (the public default): only rows a person has not hidden,
+ *    and only ever rows whose photos pass the rights gate (toPublic drops the
+ *    rest), so an unlicensed photo cannot escape through a public read.
+ *  - all=1 from the CRM: every row including hidden ones.
+ */
+export async function listMachines(db, { publishedOnly = true, type = null } = {}) {
+  let q = db.from(MACHINERY_TABLE).select('*').order('sort_order', {ascending: true}).order('created_at', {ascending: false});
+  if (publishedOnly) q = q.eq('published', true);
+  if (type) q = q.eq('type', type);
+  const { data, error } = await q;
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
+  return (data || []).map(toPublic);
+}
+
+export async function createMachine(db, body, actor) {
+  const { errors, value } = validateRow(body);
+  if (errors.length) throw Object.assign(new Error(errors.map(e => e.message).join('; ')), { status: 400, details: errors });
+
+  const settings = await machinerySettings(db);
+  const row = {
+    ...value,
+    created_by: actor?.id || null,
+    created_by_name: actor?.full_name || actor?.email || (actor ? null : 'Importer'),
+    published_by: value.published === false ? null : (actor?.id || 'auto'),
+    published_by_name: value.published === false ? null : (actor?.full_name || actor?.email || 'Automatic'),
+    published_at: value.published === false ? null : now(),
+    imported_at: value.imported_at || null,
+    created_at: now(),
+    updated_at: now()
+  };
+  const blockers = row.published ? [] : publishBlockers(row, settings);
+  row.hold_reason = row.published ? primaryHoldReason(row, settings) : blockers[0] || null;
+
+  const { data, error } = await db.from(MACHINERY_TABLE).insert(row).select().single();
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
+  await audit(db, actor, `Added ${rowLabel(data)} (${data.ref}) to the machinery desk`, data.id);
+  if (data.published) await audit(db, actor, `Published ${data.ref} on the website`, data.id);
+  return toPublic(data);
+}
+
+export async function updateMachine(db, id, body, actor) {
+  if (!id) throw Object.assign(new Error('Missing id'), { status: 400 });
+  const { errors, value } = validateRow(body, { partial: true });
+  if (errors.length) throw Object.assign(new Error(errors.map(e => e.message).join('; ')), { status: 400, details: errors });
+
+  const settings = await machinerySettings(db);
+  const { data: before } = await db.from(MACHINERY_TABLE).select('*').eq('id', id).maybeSingle();
+  if (!before) throw Object.assign(new Error('Machine not found'), { status: 404 });
+
+  const next = { ...value, updated_at: now() };
+  // A price edit keeps the old figure so the CRM can show "was / now".
+  if (next.price_usd !== undefined && Number(next.price_usd) !== Number(before.price_usd)) {
+    next.price_before_usd = before.price_usd ?? null;
+    next.price_changed_at = now();
+  }
+  if (next.published !== undefined && next.published !== before.published) {
+    next.published_by = next.published ? (actor?.id || 'auto') : null;
+    next.published_by_name = next.published ? (actor?.full_name || actor?.email || 'Automatic') : null;
+    next.published_at = next.published ? now() : null;
+  }
+  // Re-evaluate the hold flag against the row as it will be, not as it was.
+  const merged = { ...before, ...next };
+  next.hold_reason = primaryHoldReason(merged, settings);
+
+  const { data, error } = await db.from(MACHINERY_TABLE).update(next).eq('id', id).select().single();
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
+
+  const changes = Object.keys(value).filter(k => JSON.stringify(before[k]) !== JSON.stringify(data[k]));
+  await audit(db, actor, `Updated ${rowLabel(data)} (${data.ref}): ${changes.join(', ') || 'no field change'}`, id);
+  if (next.price_changed_at) {
+    await audit(db, actor,
+      `Re-priced ${data.ref}: ${before.price_usd ?? 'no price'} → ${data.price_usd} USD`, id);
+  }
+  if (before.published !== data.published) {
+    await audit(db, actor, data.published ? `Published ${data.ref} on the website` : `Unpublished ${data.ref}`, id);
+  }
+  return toPublic(data);
+}
+
+/** Publish / unpublish / archive. `manual` marks it as a person's decision. */
+export async function setPublished(db, id, published, actor, { reason = '', archive = false } = {}) {
+  if (!id) throw Object.assign(new Error('Missing id'), { status: 400 });
+  const patch = {
+    published: !!published,
+    published_by: published ? (actor?.id || 'auto') : null,
+    published_by_name: published ? (actor?.full_name || actor?.email || 'Automatic') : null,
+    published_at: published ? now() : null,
+    updated_at: now()
+  };
+  if (archive) patch.status = 'Archived';
+  const { data, error } = await db.from(MACHINERY_TABLE).update(patch).eq('id', id).select().single();
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
+  if (!data) throw Object.assign(new Error('Machine not found'), { status: 404 });
+  await audit(db, actor,
+    (published ? 'Published ' : 'Unpublished ') + data.ref +
+    (archive ? ' (archived)' : '') + (reason ? ' — ' + reason : ''), id);
+  return toPublic(data);
+}
+
+export async function deleteMachine(db, id, actor) {
+  if (!id) throw Object.assign(new Error('Missing id'), { status: 400 });
+  const { data } = await db.from(MACHINERY_TABLE).select('ref,brand,model').eq('id', id).maybeSingle();
+  const { error } = await db.from(MACHINERY_TABLE).delete().eq('id', id);
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
+  await audit(db, actor, `Deleted ${rowLabel(data)} (${data?.ref || id}) from the machinery desk`, id);
+  return { ok: true };
 }

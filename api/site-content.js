@@ -53,11 +53,25 @@ async function assertSiteWrite(profile, injected = {}) {
 // The pin in scripts/sitemap-vehicles.test.mjs still guarantees the URLs match.
 // ---------------------------------------------------------------------------
 
-import { carRef, hrefFor, carLandingPath, slugify } from '../src/sitemap-helpers.js';
+import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath } from '../src/sitemap-helpers.js';
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
 import { mapDealerRows } from '../src/japan-stock-map.js';
 export { carRef, hrefFor };
+
+// Machinery lives in api/_machinery.js — a shared module, so it costs no
+// Serverless Function against the Vercel Hobby cap of 12. Only the dispatch
+// below is added here.
+import {
+  listMachines, createMachine, updateMachine, setPublished, deleteMachine,
+  MACHINERY_TABLE
+} from './_machinery.js';
+export { machinePath, machineTypePath };
+
+// The public read and the vehicle sitemap are quick, but the paste-a-link
+// import shares this function and fetches a supplier page over the network,
+// so it needs the same 60s allowance api/goonet-sync.js already uses.
+export const config = { maxDuration: 60 };
 
 const SITEMAP_BASE = 'https://ar7traders.com';
 const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
@@ -324,10 +338,131 @@ const entities = {
 // Writable columns live in api/_columns.js (shared with api/approvals.js).
 const allowed = SITE_COLUMNS;
 
+// ---------------------------------------------------------------------------
+// Machinery sitemap — GET ?sitemap=machinery, rewritten from the public URL
+// /api/sitemap-machinery.xml (see vercel.json).
+//
+// It lives here, inlined and dispatched on a query param, for exactly the
+// reason the vehicle sitemap does: a standalone api/sitemap-machinery.xml.js
+// would be a 13th Serverless Function and fail every deploy with
+// exceeded_serverless_functions_per_deployment. The owner asked for
+// machinery to have its own sitemap rather than being folded into the car
+// one, and this is how that happens without breaking the cap.
+// ---------------------------------------------------------------------------
+
+/** One <url> block for an already-absolute URL. urlEntry() is car-specific. */
+function urlEntryLoc(loc, updatedAt) {
+  const lastmod = lastmodOf(updatedAt);
+  return '  <url>\n' +
+    '    <loc>' + esc(loc) + '</loc>' +
+    (lastmod ? '\n    <lastmod>' + lastmod + '</lastmod>' : '') +
+    '\n  </url>';
+}
+
+/**
+ * Published machines only: every /machinery/<type> catalogue page plus every
+ * /machinery/<type>/<REF> detail page. An empty list is valid — the site
+ * falls back to src/machinery-data.js until the first machine is published.
+ *
+ * The paths come from machineTypePath()/machinePath() in
+ * src/sitemap-helpers.js, the same helpers src/routing.js uses, so this
+ * sitemap can only ever advertise a path the SPA actually serves.
+ */
+export function buildMachineryXml(machines = []) {
+  const seen = new Set();
+  const entries = [];
+  for (const m of machines || []) {
+    if (!m?.type) continue;
+    const catalogue = SITEMAP_BASE + machineTypePath(m.type);
+    if (!seen.has(catalogue)) { seen.add(catalogue); entries.push(urlEntryLoc(catalogue, m.updated_at)); }
+    const detail = SITEMAP_BASE + machinePath(m.type, m.ref);
+    if (!seen.has(detail)) { seen.add(detail); entries.push(urlEntryLoc(detail, m.updated_at)); }
+  }
+  return wrapUrlset(entries);
+}
+
+export async function sitemapMachinery(req, res, injected = {}) {
+  try {
+    const db = injected.db || adminClient();
+    // Published rows only. listMachines() maps through toPublic(), which has
+    // already dropped every photo without a rights basis, so this never
+    // advertises a page whose imagery we are not entitled to show.
+    const machines = await listMachines(db, { publishedOnly: true });
+    res.status(200);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', SITEMAP_CACHE);
+    res.end(buildMachineryXml(machines));
+  } catch (e) {
+    console.error('sitemap-machinery:', e);
+    return sendPlain(res, 503, 'Machinery sitemap temporarily unavailable');
+  }
+}
+
 function clean(entity, body) {
   const out = {};
   for (const k of allowed[entity] || []) if (k in (body || {})) out[k] = body[k];
   return out;
+}
+
+/**
+ * The machinery desk. Reads are public (the live site asks for published
+ * machines anonymously); every write needs `site.write`, the same permission
+ * that gates listings, routes and articles — machinery is website content, so
+ * the Team & permissions grid stays the single place that decides who may
+ * edit it.
+ */
+async function machineryDispatch(req, res, action, injected = {}) {
+  const db = injected.db || adminClient();
+  const sendErr = e => send(res, e.status || 500, {
+    error: e.message || 'Machinery request failed',
+    details: e.details
+  });
+
+  // ---- Public read. Anonymous visitors only ever see published rows, and
+  // listMachines() has already stripped any photo without a rights basis.
+  if (action === 'list' && req.method === 'GET' && req.query.all !== '1') {
+    try {
+      return send(res, 200, await listMachines(db, {
+        publishedOnly: true,
+        type: req.query.type ? String(req.query.type) : null
+      }));
+    } catch (e) { return sendErr(e); }
+  }
+
+  // ---- Everything below needs the "Edit the public website" permission.
+  // requireUser() throws with a status on failure — it does NOT return {ok}.
+  let auth;
+  try {
+    auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+  } catch (e) {
+    return send(res, e.status || 401, {error: e.message || 'Unauthorized'});
+  }
+  try {
+    await assertSiteWrite(auth.profile, injected);
+  } catch (e) {
+    return send(res, e.status || 403, {error: e.message || 'Not allowed'});
+  }
+
+  const id = req.body?.id || req.query.id;
+  try {
+    if (action === 'list' && req.method === 'GET')
+      return send(res, 200, await listMachines(db, {publishedOnly: false}));
+    if (action === 'create' && req.method === 'POST')
+      return send(res, 201, await createMachine(db, req.body, auth.profile));
+    if (action === 'update' && req.method === 'PATCH')
+      return send(res, 200, await updateMachine(db, id, req.body, auth.profile));
+    if (action === 'delete' && req.method === 'DELETE')
+      return send(res, 200, await deleteMachine(db, id, auth.profile));
+    if (action === 'publish')
+      return send(res, 200, await setPublished(db, id, true, auth.profile, {reason: 'published from the CRM'}));
+    if (action === 'unpublish')
+      return send(res, 200, await setPublished(db, id, false, auth.profile, {reason: 'unpublished from the CRM'}));
+    if (action === 'archive')
+      return send(res, 200, await setPublished(db, id, false, auth.profile,
+        {archive: true, reason: 'archived from the CRM'}));
+  } catch (e) { return sendErr(e); }
+
+  return send(res, 400, {error: `Unknown machinery action: ${action}`});
 }
 
 export default async function handler(req, res, injected = {}) {
@@ -338,6 +473,15 @@ export default async function handler(req, res, injected = {}) {
   if (String(req.query.sitemap || '') === 'vehicles') {
     return sitemapVehicles(req, res, injected);
   }
+  if (String(req.query.sitemap || '') === 'machinery') {
+    return sitemapMachinery(req, res, injected);
+  }
+
+  // ---- Machinery desk: ?machinery=list|create|update|delete|publish|
+  // unpublish|archive. Dispatched here rather than in its own file so the
+  // deployment stays at 12 Serverless Functions.
+  const machineAction = String(req.query.machinery || '');
+  if (machineAction) return machineryDispatch(req, res, machineAction, injected);
 
   const entity = String(req.query.entity || '');
   const table = entities[entity];

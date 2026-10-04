@@ -55,8 +55,9 @@ create table if not exists public.machinery (
   adapter               text,
   rights_basis          text,
   imported_at           timestamptz,
-  published             boolean default false,
+  published             boolean default true,
   published_by          text,
+  published_by_name     text,
   published_at          timestamptz,
   hold_reason           text,
   price_before_usd      numeric,
@@ -66,7 +67,8 @@ create table if not exists public.machinery (
   sort_order            int default 0,
   created_at            timestamptz default now(),
   updated_at            timestamptz default now(),
-  created_by            uuid
+  created_by            uuid,
+  created_by_name       text
 );
 
 -- Columns added after the first cut of this table would land here, one
