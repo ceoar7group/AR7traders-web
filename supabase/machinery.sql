@@ -48,6 +48,8 @@ create table if not exists public.machinery (
   images             jsonb,
 
   status             text default 'Available',
+  location           text,
+  origin             text default 'China',
 
   -- ── Import provenance (Part 3) ──────────────────────────────────────────
   -- Where this machine came from, which adapter read it, and when. A machine

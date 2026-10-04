@@ -49,6 +49,8 @@ create table if not exists public.machinery (
   specs                 jsonb,
   images                jsonb,
   status                text default 'Available',
+  location              text,
+  origin                text default 'China',
   source_url            text,
   adapter               text,
   rights_basis          text,
