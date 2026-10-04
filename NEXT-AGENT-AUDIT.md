@@ -169,3 +169,54 @@ in this codebase are load-bearing.
 
 Do not claim a check passed if you could not run it. Hand me the command
 instead.
+
+---
+
+## Status — 2026-10-04 (remaining audit work, follow-up to PR #71)
+
+All four remaining items are done and gated (`npm test && npm run build &&
+npm run guard && npm run seo && npm run test:bundle && npm run test:i18n-switch`,
+all green; guard 18/18, SEO 100/100 on every page incl. machinery types):
+
+1. **Inventory + Website cars merged into one CRM tab.** Sidebar now has one
+   "Cars" entry (`src/crm.jsx`); a segmented sub-tab toggle inside the panel
+   switches CRM inventory (`/api/crm`) and Website cars (`/api/site-content`).
+   The tab system, entity routing, permission grid and API shape are untouched.
+   Legacy `setTab('listings')` deep links normalize to the merged panel.
+   Pinned by `scripts/crm-render.test.jsx` ("Merged cars panel").
+
+2. **Machinery scraper.** `src/machinery-source.js` now: flags watermarked
+   images (URL stems `watermark|wm_|_wm.|logo_overlay` + CDN list
+   `sc04.alicdn.com`, `image.made-in-china.com`) in `reviewPhotos()` so the
+   CRM preview warns; reads `<dl>/<dt>/<dd>` spec blocks (Made-in-China
+   "Info de Base"); parses French price forms ("25 000,00 $US"); reads the
+   year from a labelled spec row (beats ISO9001:2000 noise); handles
+   apostrophes in meta tags; skips `transparent.png` lazy placeholders.
+   Verified against the owner's Made-in-China Cat 320D URL, reproduced
+   byte-faithfully in `scripts/fixtures/made-in-china-cat320d.html` (sandbox
+   egress is blocked; the page was fetched through the proxy reader), with
+   `scripts/machinery-source.test.mjs` (41 assertions). Rights gating is
+   unchanged: no photo without a recorded basis, `dropship-authorized` still
+   applies to supplier-terms reseller use.
+
+3. **CRM UX polish.** Toolbar buttons wrap and their labels truncate
+   (`.crm-btn-label` ellipsis); some long labels shortened ("Sync website
+   stock"); `.crm-goonet-settings` grid minimum tightened 240→180px (160px at
+   tablet widths); `.crm-import-preview` shows the read spec list in a
+   max-height scrollable `.crm-import-specs`.
+
+4. **SEO.** Every guide and the news index now link to machinery
+   (`RelatedMachines` block + footer link); machinery hub and type pages carry
+   visible FAQ blocks mirrored in FAQPage JSON-LD (`MACHINERY_FAQS`, node
+   `machinery-faq-jsonld`, independent of the /faq-only node); Organization
+   sameAs in `index.html` now lists the confirmed WhatsApp profile, and the
+   CRM "Website settings" panel has a "Social profile URLs" field that
+   `syncBusinessJsonLd()` merges into sameAs at runtime.
+
+Bundle ratchet raised 469→476 kB raw / 139→141 kB gzip with the documented
+entry in `scripts/bundle-budget.test.mjs` (FAQ content + internal links).
+
+Open item for the owner: no Facebook/Instagram/YouTube profile URLs exist
+anywhere in the repo, so sameAs only carries the confirmed site + WhatsApp
+links. Add real profile URLs via CRM → Website settings → "Social profile
+URLs"; never invent them.

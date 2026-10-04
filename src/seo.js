@@ -158,6 +158,41 @@ export function carsLandingSeo(make, model, count) {
   };
 }
 
+// FAQ content for the machinery catalogue pages, one set per type plus the
+// hub. Same discipline as FAQ_ITEMS: the page renders these questions and
+// the FAQPage JSON-LD destructures only [q, a], so markup and visible copy
+// never drift apart. Every answer states only what the machinery desk
+// actually does — sourced to order, indicative FOB, inspection before
+// payment — and the incoterms FOB/CIF/RoRo are kept verbatim, never
+// translated or reworded.
+export const MACHINERY_FAQS = {
+  all: [
+    ['Does AR7 hold stock of construction machinery?', 'No — machines are sourced to order from vetted Chinese suppliers. The catalogue shows what we can present today, not a yard full of stock, and we never invent availability.'],
+    ['What does the FOB price on the machinery pages include?', 'FOB (Free On Board) covers the machine and export preparation up to loading at the China port. Your written quotation adds ocean freight and insurance to your port so you see the full picture before you commit.'],
+    ['How does sourcing a machine work?', 'You send the model or the work it has to do and the port it ships to. We reply with the unit, its price and freight options; hours are verified and inspection photos and video are sent before you pay anything.']
+  ],
+  excavators: [
+    ['Are these used excavators in stock?', 'They are sourced to order from vetted Chinese suppliers — the page shows what we can present this month, not yard stock. Hours are verified against the meter and service record before any payment.'],
+    ['What does the indicative FOB price cover?', 'The machine and export preparation up to loading at the China port. The written quotation adds freight to your port — flat-rack, container or breakbulk depending on the class of excavator.'],
+    ['Can I inspect the excavator before paying?', 'Yes. We visit the machine, check the structure and undercarriage, verify the hour meter, and send a cold-start video with a full walkaround before any payment is made.']
+  ],
+  loaders: [
+    ['Which wheel loaders can AR7 source?', 'The catalogue centres on 5-tonne wheel loaders, and the China desk sources other classes to order — send the model or the job it has to do and we find the unit.'],
+    ['Are the listed loader prices final?', 'They are indicative FOB prices from vetted suppliers. The written quotation carries the current supplier price, the configuration you specify and freight to your port.'],
+    ['Do loaders ship with parts support?', 'Filters, buckets, tyres and other common spares can be sourced and shipped with the machine, along with operator and service manuals.']
+  ],
+  trucks: [
+    ['How are tipper trucks shipped?', 'Tippers and tractor heads ship breakbulk or RoRo to your port, with the export documents and loading photos prepared before departure.'],
+    ['What does a truck quotation include?', 'The itemized quote lists the unit price, inland transport, export documentation and ocean freight (CIF) to your port — FOB is the starting figure shown on the page.'],
+    ['Are the trucks new or used?', 'Both appear in the catalogue: quality-checked used units and new builds from the same vetted suppliers. Each listing says which, and the quotation confirms it.']
+  ],
+  cranes: [
+    ['Which cranes can AR7 export?', 'Truck-mounted and rough-terrain cranes from Zoomlion and XCMG, with comparable units sourced to order. Lifting certificates accompany the units the suppliers certify.'],
+    ['How is a crane shipped?', 'By flat-rack, container or breakbulk depending on the size, with loading photos and the export paperwork prepared before the vessel sails.'],
+    ['Is the crane inspected before shipment?', 'Yes — usage is verified, the structure and boom are inspected, and working video is sent to you before any payment is made.']
+  ]
+};
+
 // Machinery catalogue pages. Kept beside the car ones so every indexable
 // landing page in the site is defined in exactly one place.
 export const MACHINERY_SEO = {
@@ -611,6 +646,23 @@ export function applySeo(page, carId, car, opts = {}) {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     mainEntity: FAQ_ITEMS.map(([q, a]) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: {'@type': 'Answer', text: a}
+    }))
+  }) : null);
+
+  // Machinery catalogue FAQ — /machinery and each type page render these
+  // questions visibly, so the FAQPage markup describes content that is on the
+  // page. Single-machine pages and the "no longer listed" state get none.
+  // Its own node id keeps it independent of the /faq-only block above.
+  const machineryFaq = page === 'machinery' && !machinePage && !machineMissing
+    ? (MACHINERY_FAQS[String(opts.machineType || '').toLowerCase()] || MACHINERY_FAQS.all)
+    : null;
+  setJsonLd('machinery-faq-jsonld', machineryFaq ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: machineryFaq.map(([q, a]) => ({
       '@type': 'Question',
       name: q,
       acceptedAnswer: {'@type': 'Answer', text: a}

@@ -71,8 +71,10 @@ ok(document.querySelector('.crm-side nav button'), 'the sidebar renders its tabs
 
 // ---- every sidebar tab renders ---------------------------------------------
 say('\nEvery sidebar tab renders');
-const TABS = ['Overview', 'Leads', 'Customers', 'Customer accounts', 'Inventory', 'Profit & sourcing',
-  'Japan dealer stock', 'Quotes', 'Shipments', 'Tasks', 'Website cars', 'Shipping routes',
+// Inventory and Website cars merged into one "Cars" tab (2026-10): the two
+// record sets are sub-tabs inside the panel, pinned further down.
+const TABS = ['Overview', 'Leads', 'Customers', 'Customer accounts', 'Cars', 'Profit & sourcing',
+  'Japan dealer stock', 'Quotes', 'Shipments', 'Tasks', 'Shipping routes',
   'News & guides', 'Machinery desk', 'Approvals', 'Team & permissions', 'People & payroll', 'Website settings',
   'Activity log'];
 for (const label of TABS) {
@@ -92,6 +94,47 @@ for (const label of TABS) {
     const revenue = kpis.find(([n]) => /revenue/i.test(n))?.[1] || '';
     ok(/\$[\d,]+/.test(revenue) && revenue !== '$0', `lifetime revenue is summed, not collapsed to zero (${revenue})`);
   }
+}
+
+// ---- the merged cars panel ---------------------------------------------------
+// Inventory and Website cars are one sidebar tab with two sub-tabs. Both
+// record sets stay separate underneath (different API endpoints), so the test
+// pins the view-level merge: the toggle exists, both sides render their own
+// rows, and the switch flips the heading and the table.
+say('\nMerged cars panel');
+await clickText('.crm-side nav button', 'Cars');
+{
+  const subtabs = () => [...document.querySelectorAll('.crm-subtabs button')];
+  ok(subtabs().length === 2, 'the cars panel offers exactly two sub-tabs');
+  const invTab = subtabs().find(b => /CRM inventory/i.test(b.textContent));
+  const webTab = subtabs().find(b => /Website cars/i.test(b.textContent));
+  ok(!!invTab && invTab.getAttribute('aria-selected') === 'true', 'CRM inventory is the default sub-tab');
+  ok(!!webTab && webTab.getAttribute('aria-selected') === 'false', 'Website cars starts unselected');
+  ok(/\d+/.test(invTab?.textContent || '') && /\d+/.test(webTab?.textContent || ''),
+    'both sub-tabs carry their record counts');
+
+  const headingOf = () => document.querySelector('.crm-top-title h1')?.textContent || '';
+  ok(/vehicle inventory/i.test(headingOf()), `the inventory sub-tab shows the inventory heading ("${headingOf()}")`);
+  const invRows = document.querySelectorAll('.crm-table-wrap table tbody tr').length;
+  ok(invRows > 0, `the inventory sub-tab lists vehicles (${invRows} rows)`);
+
+  await act(async () => { webTab.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+  ok(subtabs().find(b => /Website cars/i.test(b.textContent))?.getAttribute('aria-selected') === 'true',
+    'clicking Website cars selects it');
+  ok(/website cars/i.test(headingOf()), `the showroom sub-tab shows its own heading ("${headingOf()}")`);
+  const webRows = document.querySelectorAll('.crm-table-wrap table tbody tr').length;
+  ok(webRows > 0, `the showroom sub-tab lists website cars (${webRows} rows)`);
+  const syncBtn = [...document.querySelectorAll('.crm-tools .crm-sync')].find(b => /sync website stock/i.test(b.textContent));
+  ok(!!syncBtn, 'the showroom sub-tab keeps the website stock sync action');
+
+  await act(async () => { invTab.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+  ok(document.querySelectorAll('.crm-table-wrap table tbody tr').length === invRows,
+    'switching back restores the inventory rows');
+
+  // Nothing in the sidebar still opens the old standalone Website cars tab.
+  ok(![...document.querySelectorAll('.crm-side nav button')].some(b =>
+    (b.querySelector(':scope > span')?.textContent || '').trim() === 'Website cars'),
+    'the old Website cars sidebar entry is gone');
 }
 
 // ---- the Goo-net import assistant -------------------------------------------

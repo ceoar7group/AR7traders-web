@@ -32,7 +32,28 @@ import {
 } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useOffer, percentFor, priceWithOffer, describeOffer} from './offers.js';
+import {MACHINERY_FAQS} from './seo.js';
 import './machinery.css';
+
+// The catalogue's FAQ block — rendered visibly on the hub and every type page,
+// and mirrored in the FAQPage JSON-LD that src/seo.js emits for the same
+// routes. One source of truth, so markup and copy cannot drift.
+function MachineryFaq({start}){
+ const faqs = MACHINERY_FAQS[String(start || '').toLowerCase()] || MACHINERY_FAQS.all;
+ const label = start && start !== 'All' ? start : 'machinery';
+ return <section className="mch-faq" aria-labelledby="mch-faq-title">
+  <div className="kicker">COMMON QUESTIONS</div>
+  <h2 id="mch-faq-title">{start && start !== 'All' ? start : 'Machinery export'}, answered.</h2>
+  <div className="mch-faq-list">
+   {faqs.map(([q, a]) => (
+    <details key={q}>
+     <summary>{q}</summary>
+     <p>{a}</p>
+    </details>
+   ))}
+  </div>
+ </section>;
+}
 
 const TRUST = [
   [ClipboardCheck, 'Supplier vetting', 'Dealer and factory checks before a machine is offered to you.'],
@@ -514,6 +535,8 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
           <div><span>04</span><b>Arrival &amp; support</b><p>We share arrival documents and help with spare parts and manuals after delivery.</p></div>
         </div>
       </div>
+
+      <MachineryFaq start={start}/>
     </div>
   </section>;
 }

@@ -100,11 +100,17 @@ const decode = s => String(s ?? '')
 
 const stripTags = html => decode(String(html || '').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' '));
 
-/** First match of a meta tag by property or name. */
+/**
+ * First match of a meta tag by property or name. The capture is quote-aware:
+ * French product titles carry apostrophes ("Excavatrice d'occasion…"), and a
+ * `[^"']+` capture would cut the value off at the first one.
+ */
 function meta(html, key) {
   const patterns = [
-    new RegExp(`<meta[^>]+(?:property|name)=["']${key}["'][^>]*content=["']([^"']+)["']`, 'i'),
-    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${key}["']`, 'i')
+    new RegExp(`<meta[^>]+(?:property|name)=["']${key}["'][^>]*content="([^"]*)"`, 'i'),
+    new RegExp(`<meta[^>]+(?:property|name)=["']${key}["'][^>]*content='([^']*)'`, 'i'),
+    new RegExp(`<meta[^>]+content="([^"]*)"[^>]*(?:property|name)=["']${key}["']`, 'i'),
+    new RegExp(`<meta[^>]+content='([^']*)'[^>]*(?:property|name)=["']${key}["']`, 'i')
   ];
   for (const re of patterns) {
     const m = html.match(re);
@@ -132,6 +138,59 @@ const money = v => {
   const m = String(v).replace(/[,\s]/g, '').match(/(\d+(?:\.\d+)?)/);
   return m ? Number(m[1]) : null;
 };
+
+/**
+ * Parse a price AMOUNT string found in page text, tolerating the number
+ * formats marketplaces actually print:
+ *   "25,000.00" (en) · "25 000,00" (fr, narrow-space thousands + decimal
+ *   comma) · "1.234,56" · plain "25000".
+ * money() above is kept untouched for JSON-LD/meta values; this runs only on
+ * free text, where a French decimal comma would otherwise read 25 000,00 as
+ * 2 500 000.
+ */
+export function parseAmount(v) {
+  if (v == null) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const t = String(v).replace(/[\s\u00a0\u202f]/g, '');
+  if (!t) return null;
+  // Decimal-comma form: ends in ",dd" — any dots are thousands separators.
+  if (/,\d{1,2}$/.test(t)) {
+    const n = Number(t.replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  const m = t.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+  return m ? Number(m[1]) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Watermark detection — a label on the photograph, surfaced BEFORE anyone is
+// tempted to publish it.
+//
+// Two heuristics, either of which flags the image for a human:
+//   1. The URL itself says so: stems like "watermark", "wm_", "_wm." or
+//      "logo_overlay" are how suppliers and marketplaces name the marked copy.
+//   2. The hosting domain is a marketplace CDN whose served copies always
+//      carry a mark: Alibaba's sc04.alicdn.com and Made-in-China's product
+//      image host (image.made-in-china.com).
+//
+// A flag is a warning, not a verdict — reviewPhotos() reports it and the CRM
+// shows it; the rights basis is still what decides whether ANY photo may be
+// published. Removing a watermark never creates a right; that is why this is
+// detection, not cleaning.
+// ---------------------------------------------------------------------------
+const WATERMARK_STEMS = /watermark|wm_|_wm\.|logo[_-]?overlay/i;
+export const WATERMARK_CDNS = ['sc04.alicdn.com', 'image.made-in-china.com'];
+
+/** True when an image URL looks like a watermarked marketplace copy. */
+export function looksWatermarked(src) {
+  const url = String(src || '').trim();
+  if (!url) return false;
+  if (WATERMARK_STEMS.test(url)) return true;
+  const host = (url.match(/^https?:\/\/([^/?#]+)/i) || [])[1];
+  if (!host) return false;
+  const h = host.toLowerCase();
+  return WATERMARK_CDNS.some(cdn => h === cdn || h.endsWith('.' + cdn));
+}
 
 /** The currency a price string implies, and a rough USD conversion. */
 export function priceToUSD(value, currency) {
@@ -180,8 +239,15 @@ export function extractProduct(html, url = '') {
   }
   if (price == null) {
     const text = stripTags(html).slice(0, 20000);
-    const m = text.match(/US\s?\$\s?([\d,.]+)/i) || text.match(/USD\s?([\d,.]+)/i);
-    if (m) { price = money(m[1]); currency = currency || 'USD'; }
+    // Prefix forms: US $25,000.00 · USD 25000 · US$ 25 000,00 — the amount may
+    // carry thin spaces inside it (French-locale marketplace pages).
+    let m = text.match(/US\s?\$\s?([\d][\d.,]*(?:[\s\u00a0\u202f]\d+)*)/i)
+      || text.match(/USD\s?([\d][\d.,]*(?:[\s\u00a0\u202f]\d+)*)/i);
+    // Suffix form (Made-in-China's French locale prints "25 000,00 $US"): the
+    // amount comes first, the currency marker after.
+    if (!m) m = text.match(/([\d][\d\u00a0\u202f ]{0,15}(?:,\d{1,2})?)\s*\$\s*US\b/i)
+      || text.match(/([\d][\d\u00a0\u202f ]{0,15}(?:,\d{1,2})?)\s*USD\b/i);
+    if (m) { price = parseAmount(m[1]); currency = currency || 'USD'; }
   }
   const priceUSD = priceToUSD(price, currency || 'USD');
 
@@ -198,11 +264,16 @@ export function extractProduct(html, url = '') {
   const og = meta(html, 'og:image');
   if (og) images.add(og);
   for (const m of String(html).matchAll(/<img[^>]+src=["']([^"']+\.(?:jpe?g|png|webp))["']/gi)) {
-    if (/logo|icon|sprite|flag|avatar|qr/i.test(m[1])) continue;
+    // "transparent" catches the lazy-load placeholder pixel that Made-in-China
+    // serves as src while the real photo sits in data-src.
+    if (/logo|icon|sprite|flag|avatar|qr|transparent/i.test(m[1])) continue;
     images.add(m[1]);
   }
 
   // ---- specs --------------------------------------------------------------
+  // Marketplace labels usually carry a presentational colon ("Garantie:",
+  // "Personnalisation:") — dropped so spec keys read clean and de-duplicate.
+  const cleanLabel = s => String(s).replace(/[:：]\s*$/, '').trim();
   const specs = [];
   if (product) {
     const props = product.additionalProperty || product.additionalProperties;
@@ -221,11 +292,26 @@ export function extractProduct(html, url = '') {
     for (const m of String(html).matchAll(/<tr[^>]*>([\s\S]{10,400}?)<\/tr>/gi)) {
       const cells = [...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c => stripTags(c[1]));
       if (cells.length === 2 && cells[0] && cells[1] && cells[0].length < 48 && cells[1].length < 90) {
-        if (/^(price|price range|min\.? order|payment|supply ability|port|packaging)/i.test(cells[0])) continue;
-        specs.push([cells[0], cells[1]]);
+        const label = cleanLabel(cells[0]);
+        if (!label) continue;
+        if (/^(price|price range|min\.? order|payment|supply ability|port|packaging)/i.test(label)) continue;
+        specs.push([label, cells[1]]);
       }
       if (specs.length >= 18) break;
     }
+  }
+  // Definition-list spec blocks: Made-in-China's "Basic Info" section renders
+  // its label/value pairs as <dl><dt>label</dt><dd>value</dd></dl>, which the
+  // table scan above never sees. Same quality gates, same dedup below.
+  for (const m of String(html).matchAll(/<dl[^>]*>([\s\S]*?)<\/dl>/gi)) {
+    for (const p of m[1].matchAll(/<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi)) {
+      const k = cleanLabel(stripTags(p[1]));
+      const v = stripTags(p[2]);
+      if (!k || !v || k.length >= 48 || v.length >= 90) continue;
+      if (/^(price|price range|min\.? order|payment|supply ability|port|packaging)/i.test(k)) continue;
+      specs.push([k, v]);
+    }
+    if (specs.length >= 18) break;
   }
   // De-duplicate by label, keeping the first (usually the headline table).
   const seen = new Set();
@@ -236,6 +322,12 @@ export function extractProduct(html, url = '') {
     return true;
   });
 
+  // Year: a spec row explicitly labelled as the year wins — marketplace pages
+  // are full of year-shaped noise (ISO9001: 2000, "since 2015" badges) that a
+  // bare regex happily mistakes for the machine's age.
+  const yearRow = uniqueSpecs.find(([k]) =>
+    /^(year|année|an[oñ]o|baujahr|model year|production year|manufacture year)$/i.test(String(k).trim()));
+  const yearFromSpecs = yearRow ? (String(yearRow[1]).match(/\b(19[89]\d|20[0-4]\d)\b/) || [])[1] : null;
   const yearMatch = stripTags(title + ' ' + html.slice(0, 60000)).match(/\b(19[89]\d|20[0-4]\d)\b/);
 
   return {
@@ -246,7 +338,7 @@ export function extractProduct(html, url = '') {
     priceUSD,
     images: [...images].slice(0, 12),
     specs: uniqueSpecs.slice(0, 14),
-    year: yearMatch ? Number(yearMatch[1]) : null,
+    year: yearFromSpecs ? Number(yearFromSpecs) : (yearMatch ? Number(yearMatch[1]) : null),
     fields: {
       title: !!title,
       price: priceUSD != null,
@@ -261,7 +353,9 @@ const BRANDS = ['Doosan', 'Sany', 'XCMG', 'Komatsu', 'SDLG', 'LiuGong', 'Shacman
   'LongGong', 'Shantui', 'Yuchai', 'Weichai', 'Bobcat', 'JCB', 'Terex', 'XGMA'];
 
 const TYPE_HINTS = [
-  ['Excavators', /excavator|digger|\bXE\d|SY\d|DX\d|PC\d|EC\d|ZX\d/i],
+  // Supplier pages arrive in many locales: the French and Spanish words for
+  // excavator are as common on Made-in-China as the English one.
+  ['Excavators', /excavator|excavatrice|excavadora|escavadora|pelleteuse|pelle hydraulique|digger|\bXE\d|SY\d|DX\d|PC\d|EC\d|ZX\d/i],
   ['Loaders', /loader|wheel load|backhoe|\bLG\d|CLG\d|ZL\d|LG9/i],
   ['Trucks', /tipper|dump truck|tractor head|dumper|howo|shacman|cargo truck|sinotruk/i],
   ['Cranes', /crane|zoomlion|lifting|\bZTC|QY\d|LTM/i]
@@ -320,6 +414,15 @@ export function reviewPhotos(machine, { now = new Date().getFullYear() } = {}) {
   const images = machine.images || [];
   if (images.length && images.length < PHOTO_STANDARD.minPhotos) {
     flags.push(`only ${images.length} photo — the standard asks for ${PHOTO_STANDARD.minPhotos}+ showing the whole machine`);
+  }
+  // Watermarked copies misrepresent the machine and belong to the marketplace,
+  // so they are flagged for replacement. Detection only — a watermark removed
+  // is still not a right, and the rights basis decides what gets published.
+  const watermarked = images
+    .map(p => (typeof p === 'string' ? p : p?.src))
+    .filter(looksWatermarked);
+  if (watermarked.length) {
+    flags.push(`${watermarked.length} photo(s) look watermarked (watermark stem in the URL or a marketplace CDN that always watermarks) — replace with original photos before publishing`);
   }
   const year = Number(machine.year);
   if (year && now - year > PHOTO_STANDARD.maxAgeYears) {

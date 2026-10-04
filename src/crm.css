@@ -732,7 +732,75 @@ html[data-crm-theme="light"] .crm-shell {
   flex-wrap: wrap;
 }
 .crm-page-head p { margin: 0; color: var(--crm-muted); font-size: 13px; }
-.crm-tools { display: flex; gap: 8px; align-items: center; }
+.crm-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* Long button labels ("Copy parser diagnostic", "Run one importer cycle now"…)
+   truncate instead of pushing the toolbar off-screen on narrow viewports. */
+.crm-tools > button { min-width: 0; }
+.crm-tools > button .crm-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 190px;
+}
+@media (max-width: 900px) {
+  .crm-tools > button .crm-btn-label { max-width: 120px; }
+}
+
+/* Merged cars panel: CRM inventory and Website cars live in one tab, switched
+   by a segmented control above the toolbar. */
+.crm-subtabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--crm-panel-sub);
+  border: 1px solid var(--crm-border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.crm-subtabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--crm-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.crm-subtabs button:hover { color: var(--crm-ink); }
+.crm-subtabs button:focus-visible {
+  outline: 2px solid var(--crm-gold);
+  outline-offset: 1px;
+}
+.crm-subtabs button em {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--crm-panel);
+  border: 1px solid var(--crm-border);
+  color: var(--crm-muted);
+}
+.crm-subtabs button.active {
+  background: var(--crm-primary);
+  color: #fff;
+  box-shadow: 0 2px 10px var(--crm-gold-glow);
+}
+.crm-subtabs button.active em {
+  background: rgba(255, 255, 255, .16);
+  border-color: transparent;
+  color: #fff;
+}
 .crm-tools label {
   height: 40px;
   width: 240px;
@@ -3073,7 +3141,12 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-goonet .crm-sync{display:inline-flex;align-items:center;gap:6px}
 .crm-goonet .crm-tools button.active{background:var(--crm-gold);color:var(--crm-on-gold);border-color:var(--crm-gold)}
 .crm-goonet-settings{background:var(--crm-panel);border:1px solid var(--crm-border);border-radius:16px;padding:16px;margin-bottom:16px}
-.crm-goonet-settings .crm-editor-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+/* 180px minimum (down from 240px): on tablets the old minimum dropped the
+   grid from two columns to one mid-breakpoint and the panel wrapped oddly. */
+.crm-goonet-settings .crm-editor-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:12px}
+@media (min-width:700px) and (max-width:1100px){
+  .crm-goonet-settings .crm-editor-fields{grid-template-columns:repeat(auto-fit,minmax(min(160px,33%),1fr))}
+}
 .crm-goonet-settings label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;color:var(--crm-muted)}
 .crm-goonet-settings input[type=text],.crm-goonet-settings input:not([type=checkbox]){height:36px;border-radius:10px;border:1px solid var(--crm-border);background:var(--crm-input-bg);color:var(--crm-ink);padding:0 10px;font-size:12px}
 .crm-goonet-settings .crm-check-field{flex-direction:row;align-items:center;gap:10px}
@@ -3532,6 +3605,29 @@ html[data-crm-theme="light"] .crm-shell {
   padding: 14px;
   margin-top: 10px;
 }
+/* Supplier pages can carry 20+ spec rows (Made-in-China "Basic Info" blocks).
+   The preview scrolls instead of stretching the whole desk past the fold. */
+.crm-import-specs {
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--crm-border);
+  border-radius: 10px;
+  background: var(--crm-panel);
+}
+.crm-import-specs div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--crm-border);
+  font-size: 12px;
+}
+.crm-import-specs div:last-child { border-bottom: 0; }
+.crm-import-specs dt { color: var(--crm-muted); font-weight: 600; flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-import-specs dd { margin: 0; text-align: right; color: var(--crm-ink); overflow-wrap: anywhere; }
 .crm-import-head {
   display: flex;
   justify-content: space-between;
