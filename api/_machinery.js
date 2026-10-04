@@ -345,10 +345,17 @@ export function toPublic(row) {
   const allPhotos = photosOf(row);
   const photos = allPhotos.filter(p => rightsAreUsable(p.rights));
   const srcs = photos.map(p => p.src);
+  // Imported models already carry their brand (classify() prepends it), so a
+  // naive join would say "Doosan Doosan DX300LC" on the card and the page.
+  const nameModel = String(row.model || '').trim();
+  const nameBrand = String(row.brand || '').trim();
+  const name = nameBrand && nameModel.toLowerCase().startsWith(nameBrand.toLowerCase())
+    ? nameModel
+    : [nameBrand, nameModel].filter(Boolean).join(' ');
   return {
     id: row.id,
     ref: machineRef(row),
-    name: [row.brand, row.model].filter(Boolean).join(' '),
+    name,
     brand: row.brand,
     model: row.model,
     type: row.type,

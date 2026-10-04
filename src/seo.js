@@ -250,19 +250,23 @@ const MISSING_ARTICLE_SEO = [
   'This buying guide could not be found. Browse our Japanese car import guides and market notes on AR7 Traders.'
 ];
 
-function setMeta(selector, attr, value) {
-  let el = document.head.querySelector(selector);
+// `doc` lets a caller aim the SEO module at a scratch document instead of the
+// live one — the SEO desk's guide creator audits a draft article that way
+// (document.implementation.createHTMLDocument) without touching the page it
+// sits on. Default stays the live document, so every existing call is unchanged.
+function setMeta(selector, attr, value, doc = document) {
+  let el = doc.head.querySelector(selector);
   if (!el) {
-    el = document.createElement('meta');
+    el = doc.createElement('meta');
     const [, k, v] = selector.match(/\[(\w+)="([^"]+)"\]/) || [];
     if (k) el.setAttribute(k, v);
-    document.head.appendChild(el);
+    doc.head.appendChild(el);
   }
   el.setAttribute(attr, value);
 }
 
-function removeMeta(selector) {
-  const el = document.head.querySelector(selector);
+function removeMeta(selector, doc = document) {
+  const el = doc.head.querySelector(selector);
   if (el) el.remove();
 }
 
@@ -449,22 +453,27 @@ export function articleJsonLd(article) {
   return JSON.stringify(data, (k, v) => (v === undefined ? undefined : v));
 }
 
-function setJsonLd(id, json) {
-  let el = document.getElementById(id);
+function setJsonLd(id, json, doc = document) {
+  let el = doc.getElementById(id);
   if (!json) {
     if (el) el.remove();
     return;
   }
   if (!el) {
-    el = document.createElement('script');
+    el = doc.createElement('script');
     el.id = id;
     el.type = 'application/ld+json';
-    document.head.appendChild(el);
+    doc.head.appendChild(el);
   }
   el.textContent = json;
 }
 
 export function applySeo(page, carId, car, opts = {}) {
+  // opts.doc: aim at a scratch document instead of the live one (the SEO
+  // desk's guide creator audits draft articles this way).
+  // opts.articleList: resolve the article against a supplied list instead of
+  // NEWS — a draft guide that is not in src/news-data.js yet still audits.
+  const doc = opts.doc || document;
   const isVehiclePage = page === 'inventory' && carId != null && String(carId) !== '';
   const vehicleMissing = !!(isVehiclePage && !car && opts.vehicleMissing);
   // A URL naming a machine that is not in the published list — unpublished,
@@ -478,7 +487,7 @@ export function applySeo(page, carId, car, opts = {}) {
   // the visitor asked for, and it is the page that can rank for the model.
   const machinePage = page === 'machinery' && opts.machine ? machineSeo(opts.machine, {percent: opts.machineOfferPercent || 0}) : null;
   const isArticlePage = page === 'news' && carId != null && String(carId) !== '';
-  const article = isArticlePage ? articleBySlug(carId) : null;
+  const article = isArticlePage ? articleBySlug(carId, opts.articleList) : null;
   const articleMissing = isArticlePage && !article;
   const artSeo = article ? articleSeo(article) : null;
 
@@ -518,13 +527,13 @@ export function applySeo(page, carId, car, opts = {}) {
                 : BASE + hrefFor(page, carId);
   const noindex = ['crm', 'account', 'portal', 'studio', 'seo'].includes(page) || vehicleMissing || machineMissing || articleMissing;
 
-  document.title = title;
-  setMeta('meta[name="description"]', 'content', description);
-  setMeta('meta[property="og:title"]', 'content', title);
-  setMeta('meta[property="og:description"]', 'content', description);
-  setMeta('meta[property="og:url"]', 'content', url);
-  setMeta('meta[name="twitter:title"]', 'content', title);
-  setMeta('meta[name="twitter:description"]', 'content', description);
+  doc.title = title;
+  setMeta('meta[name="description"]', 'content', description, doc);
+  setMeta('meta[property="og:title"]', 'content', title, doc);
+  setMeta('meta[property="og:description"]', 'content', description, doc);
+  setMeta('meta[property="og:url"]', 'content', url, doc);
+  setMeta('meta[name="twitter:title"]', 'content', title, doc);
+  setMeta('meta[name="twitter:description"]', 'content', description, doc);
 
   // Per-page preview image: the vehicle's own photo on detail pages (when it
   // has one), the guide's own photo on /news/<slug>, otherwise the page's
@@ -542,24 +551,24 @@ export function applySeo(page, carId, car, opts = {}) {
       : machinePage
         ? { image: machineShareImage(opts.machine), width: null, height: null, alt: `${opts.machine.name} for export from China` }
         : ogFor(page);
-  setMeta('meta[property="og:image"]', 'content', og.image);
-  setMeta('meta[property="og:image:alt"]', 'content', og.alt);
-  setMeta('meta[name="twitter:image"]', 'content', og.image);
+  setMeta('meta[property="og:image"]', 'content', og.image, doc);
+  setMeta('meta[property="og:image:alt"]', 'content', og.alt, doc);
+  setMeta('meta[name="twitter:image"]', 'content', og.image, doc);
   if (og.width && og.height) {
-    setMeta('meta[property="og:image:width"]', 'content', String(og.width));
-    setMeta('meta[property="og:image:height"]', 'content', String(og.height));
+    setMeta('meta[property="og:image:width"]', 'content', String(og.width), doc);
+    setMeta('meta[property="og:image:height"]', 'content', String(og.height), doc);
   } else {
-    removeMeta('meta[property="og:image:width"]');
-    removeMeta('meta[property="og:image:height"]');
+    removeMeta('meta[property="og:image:width"]', doc);
+    removeMeta('meta[property="og:image:height"]', doc);
   }
   setMeta('meta[name="robots"], meta[name="robots"]', 'content',
-    noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1');
+    noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1', doc);
 
-  let link = document.head.querySelector('link[rel="canonical"]');
+  let link = doc.head.querySelector('link[rel="canonical"]');
   if (!link) {
-    link = document.createElement('link');
+    link = doc.createElement('link');
     link.rel = 'canonical';
-    document.head.appendChild(link);
+    doc.head.appendChild(link);
   }
   link.href = url;
 
@@ -597,7 +606,7 @@ export function applySeo(page, carId, car, opts = {}) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: crumbs
-  }));
+  }), doc);
 
   // A landing page is a list, so it says so: ItemList of the vehicles (or
   // machine types) the page actually shows. This is what earns the
@@ -609,10 +618,10 @@ export function applySeo(page, carId, car, opts = {}) {
     numberOfItems: Number.isFinite(opts.vehicleCount) ? opts.vehicleCount : undefined,
     itemListOrder: 'https://schema.org/ItemListOrderDescending',
     url
-  }) : null);
+  }) : null, doc);
 
   // Vehicle structured data on the detail page only.
-  setJsonLd('vehicle-jsonld', vehicleJsonLd(isVehiclePage ? car : null, carId));
+  setJsonLd('vehicle-jsonld', vehicleJsonLd(isVehiclePage ? car : null, carId), doc);
 
   // A machine is a product, and its page may describe one: name, brand, the
   // type as category, the price we actually show, and the photos we hold.
@@ -635,11 +644,12 @@ export function applySeo(page, carId, car, opts = {}) {
       priceValidUntil: opts.machineOfferUntil || undefined,
       seller: {'@type': 'Organization', name: 'AR7 Traders'}
     } : undefined
-  }) : null);
+  }) : null, doc);
 
-  // Article structured data exists only for a guide that resolves from NEWS.
+  // Article structured data exists only for a guide that resolves (from NEWS,
+  // or from opts.articleList when the SEO desk audits a draft).
   // setJsonLd removes the node on /news, any other route, or an unknown slug.
-  setJsonLd('article-jsonld', articleJsonLd(isArticlePage && article ? article : null));
+  setJsonLd('article-jsonld', articleJsonLd(isArticlePage && article ? article : null), doc);
 
   // FAQ markup scoped to /faq — it must not ride along on every route.
   setJsonLd('faq-jsonld', page === 'faq' ? JSON.stringify({
@@ -650,7 +660,7 @@ export function applySeo(page, carId, car, opts = {}) {
       name: q,
       acceptedAnswer: {'@type': 'Answer', text: a}
     }))
-  }) : null);
+  }) : null, doc);
 
   // Machinery catalogue FAQ — /machinery and each type page render these
   // questions visibly, so the FAQPage markup describes content that is on the
@@ -667,7 +677,7 @@ export function applySeo(page, carId, car, opts = {}) {
       name: q,
       acceptedAnswer: {'@type': 'Answer', text: a}
     }))
-  }) : null);
+  }) : null, doc);
 }
 
 /** Keeps the tab title, share preview and structured data in step with the page. */

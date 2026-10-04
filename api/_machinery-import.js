@@ -196,6 +196,23 @@ export function toRow(machine, { rights = null, adapter = 'product-page', ref = 
 }
 
 /**
+ * The next free stock reference in the AR7-MC-NNN sequence. Imported machines
+ * arrive carrying the placeholder ref toMachine() invents ('AR7-MC-NEW'); a
+ * machine that kept it would share its URL and its stock number with every
+ * other import, so each create is given the next free real reference instead.
+ */
+export function nextAutoRef(existingRows = [], extraRefs = []) {
+  let max = 0;
+  for (const r of [...existingRows, ...extraRefs]) {
+    const m = String(r?.ref || '').match(/^AR7-MC-(\d+)$/i);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return 'AR7-MC-' + String(max + 1).padStart(3, '0');
+}
+
+const PLACEHOLDER_REF = 'AR7-MC-NEW';
+
+/**
  * Work out, without writing, what confirming this batch would do.
  * Returns {creates, updates, skips, rePriced, errors}.
  */
@@ -204,6 +221,7 @@ export function planImport(existingRows, candidates) {
 
   if (!Array.isArray(candidates) || !candidates.length) return { creates, updates, skips, rePriced, errors };
 
+  const assigned = [];
   for (const candidate of candidates.slice(0, MAX_IMPORT_BATCH)) {
     const row = candidate?.row || candidate;
     const checked = validateRow(row);
@@ -231,7 +249,21 @@ export function planImport(existingRows, candidates) {
 
     if (!key) { skips.push({ ref: value.ref, reason: 'not enough detail to tell this machine apart from another' }); continue; }
 
-    if (!match) { creates.push(value); continue; }
+    if (!match) {
+      // Placeholder refs become the next free AR7-MC-NNN: every machine needs
+      // its own stock number and its own URL, and an import is exactly when
+      // nobody is there to type one.
+      if (!value.ref || value.ref === PLACEHOLDER_REF) {
+        value.ref = nextAutoRef(existingRows, assigned);
+        assigned.push(value);
+      }
+      creates.push(value);
+      continue;
+    }
+
+    // Same machine. It keeps the reference it already has — a re-check writes
+    // price and freshness, never a new stock number over the one buyers quote.
+    if (!value.ref || value.ref === PLACEHOLDER_REF) value.ref = normaliseRef(match.ref) || value.ref;
 
     // Same machine. The interesting question is whether the price moved.
     const before = Number.isFinite(Number(match.price_usd)) ? Number(match.price_usd) : null;
