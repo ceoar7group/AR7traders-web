@@ -14,7 +14,8 @@ import {
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
-import { MACHINES } from './machinery-data.js';
+import { MACHINES, MACHINE_TYPES } from './machinery-data.js';
+import { RIGHTS, rightsAreUsable } from './machinery-source.js';
 import {
   OFFER_SCOPES, MIN_OFFER_PERCENT, MAX_OFFER_PERCENT, validateOffer,
   describeOffer, percentFor, priceWithOffer, formatDate
@@ -221,6 +222,7 @@ const tabs = [
   ['listings', 'Website cars', Globe],
   ['routes', 'Shipping routes', Ship],
   ['articles', 'News & guides', Newspaper],
+  ['machinery', 'Machinery desk', Truck],
   ['approvals', 'Approvals', ShieldAlert],
   ['team', 'Team & permissions', UserCog],
   ['people', 'People & payroll', Briefcase],
@@ -259,7 +261,8 @@ const ROLE_LIST = ['admin', 'manager', 'sales', 'accounts', 'viewer'];
 const ENTITY_WRITE_PERM = {
   leads: 'leads.write', customers: 'customers.write', vehicles: 'vehicles.write',
   quotes: 'quotes.write', shipments: 'shipments.write', tasks: 'tasks.write',
-  listings: 'site.write', routes: 'site.write', articles: 'site.write', goonet: 'site.write'
+  listings: 'site.write', routes: 'site.write', articles: 'site.write', goonet: 'site.write',
+  machinery: 'site.write'
 };
 const SITE_ENTITIES = ['listings', 'routes', 'articles'];
 
@@ -464,6 +467,26 @@ const configs = {
       ['body', 'Body text', 'textarea', { rows: 8, placeholder: 'Full article. Blank line = new paragraph.' }]
     ]
   },
+  machinery: {
+    title: 'Machinery desk',
+    subtitle: 'Excavators, loaders, trucks and cranes sourced to order from vetted Chinese suppliers. Every machine here is listed on the website — Unpublish is how you deliberately take one down.',
+    statusOptions: ['Available', 'Reserved', 'Sold', 'Archived'],
+    fields: [
+      ['ref', 'Reference', 'text', { required: true, section: 'Machine', placeholder: 'AR7-MC-001' }],
+      ['type', 'Type', 'select', { options: MACHINE_TYPES, required: true, section: 'Machine' }],
+      ['brand', 'Brand', 'text', { required: true, section: 'Machine', placeholder: 'Doosan' }],
+      ['model', 'Model', 'text', { required: true, section: 'Machine', placeholder: 'DX300LC-9C' }],
+      ['year', 'Year', 'number', { min: 1980, max: 2100, section: 'Machine' }],
+      ['hours', 'Hours', 'number', { min: 0, section: 'Machine' }],
+      ['price_usd', 'Indicative FOB price (USD)', 'number', { min: 0, section: 'Pricing' }],
+      ['status', 'Status', 'select', { options: ['Available', 'Reserved', 'Sold', 'Archived'], section: 'Availability' }],
+      ['origin', 'Origin', 'text', { section: 'Availability', placeholder: 'China' }],
+      ['location', 'Location', 'text', { section: 'Availability', placeholder: 'Hunan' }],
+      ['summary', 'Summary', 'textarea', { rows: 3, section: 'Description', placeholder: 'One paragraph a buyer reads before enquiring.' }],
+      ['published', 'Listed on the website', 'check', { section: 'Visibility' }],
+      ['sort_order', 'Sort order', 'number', { min: 0, section: 'Visibility' }]
+    ]
+  },
   tasks: {
     title: 'Tasks', subtitle: 'Customer follow-ups, inspection sheets and operational workflows.',
     statusOptions: OPT.taskStatus,
@@ -480,6 +503,16 @@ const configs = {
 
 const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(n) || 0);
 const pretty = s => (s || '').replaceAll('_', ' ').replace(/\b\w/g, x => x.toUpperCase());
+// Column headings the database name cannot express well. `created_by_name` is
+// how the row is STORED; "Added by" is what the owner asked to see.
+const COLUMN_LABELS = {
+  price_usd: 'Price (indicative FOB)',
+  created_by_name: 'Added by',
+  published_by_name: 'Published by',
+  photos: 'Photos',
+  ref: 'Ref'
+};
+const columnLabel = k => COLUMN_LABELS[k] || pretty(k);
 const date = s => s ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(s)) : '—';
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const isOverdue = d => !!d && String(d).slice(0, 10) < todayKey();
@@ -507,7 +540,26 @@ function exportCsv(entity, rows) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * The machinery desk's demo data is the same twelve machines the public site
+ * ships with, mapped into the CRM's shape. Demo mode therefore shows a real,
+ * working desk instead of an empty table, and the columns the owner asked for
+ * (added-by, published-by) have something in them from the first render.
+ */
+function machinerySeed() {
+  return MACHINES.map((m, i) => ({
+    ...m,
+    price_usd: m.price || m.supplierPrice || 0,
+    images: (m.images || []).map(src => ({ src, rights: 'own-photo' })),
+    created_by_name: 'AR7 Traders',
+    published_by_name: 'AR7 Traders',
+    published: true,
+    sort_order: i
+  }));
+}
+
 function baseData(entity) {
+  if (entity === 'machinery') return machinerySeed();
   return SITE_ENTITIES.includes(entity) ? (siteSeed[entity] || []) : (seed[entity] || []);
 }
 // localStorage throws in Safari private mode and when storage is full. The CRM
@@ -531,6 +583,25 @@ async function api(entity, token, options = {}) {
   const { id, all, ...init } = options;
   const base = entity === 'goonet' ? '/api/goonet-stock'
     : (SITE_ENTITIES.includes(entity) ? '/api/site-content' : '/api/crm');
+  // Machinery rides the SAME counted function as the other website content but
+  // is dispatched on ?machinery=<action> rather than ?entity=… — see
+  // api/site-content.js. It is not in SITE_ENTITIES because it needs its own
+  // URL shape and its own publish/unpublish actions.
+  if (entity === 'machinery') {
+    const method = String(init.method || 'GET').toUpperCase();
+    const action = method === 'POST' ? 'create' : method === 'PATCH' ? 'update' : method === 'DELETE' ? 'delete' : 'list';
+    // The CRM always wants everything, including unpublished rows, so a
+    // machine can be re-published without a database query.
+    return fetch('/api/site-content?machinery=' + action
+      + (id ? '&id=' + encodeURIComponent(id) : '')
+      + (action === 'list' ? '&all=1' : ''), {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(init.headers || {}) }
+    }).then(async res => {
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Request failed');
+      return res.json();
+    });
+  }
   // `all=1` asks for the complete set instead of the public one. For dealer
   // stock it is the signed-in CRM view: delisted cars included (so Re-list is
   // reachable) and never cached, so a fresh promotion is visible at once.
@@ -539,6 +610,13 @@ async function api(entity, token, options = {}) {
   const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(init.headers || {}) } });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Request failed');
   return res.json();
+}
+
+/** Publish, unpublish or archive one machine (POST ?machinery=<action>). */
+async function machineryAction(action, id, token) {
+  return call('/api/site-content?machinery=' + encodeURIComponent(action), token, {
+    method: 'POST', body: JSON.stringify({ id })
+  });
 }
 
 async function call(path, token, options = {}) {
@@ -602,7 +680,7 @@ export default function CrmApp() {
 
   async function loadAll() {
     setLoading(true);
-    const keys = [...Object.keys(seed), ...SITE_ENTITIES];
+    const keys = [...Object.keys(seed), ...SITE_ENTITIES, 'machinery'];
     try {
       if (DEMO) {
         const out = {};
@@ -855,6 +933,34 @@ export default function CrmApp() {
     }
   }
 
+/**
+ * Publish or unpublish one machine. Every machine is listed by default, so
+ * this is the deliberate act of taking one down (or putting it back) rather
+ * than an approval step — and it is recorded, so the Published by column
+ * always says who did it.
+ */
+  async function publishMachine(row, published) {
+    const action = published ? 'publish' : 'unpublish';
+    const label = row.ref || [row.brand, row.model].filter(Boolean).join(' ') || 'machine';
+    try {
+      if (DEMO) {
+        const next = (rows.machinery || []).map(x => x.id === row.id
+          ? { ...x, published, published_by_name: published ? (profile?.full_name || 'You') : null }
+          : x);
+        demoWrite('machinery', next);
+        setRows(v => ({ ...v, machinery: next }));
+      } else {
+        const updated = await machineryAction(action, row.id, session.access_token);
+        setRows(v => ({ ...v, machinery: (v.machinery || []).map(x => x.id === row.id ? updated : x) }));
+      }
+      setNotice(published
+        ? `${label} is live on the website`
+        : `${label} is off the website and out of the machinery sitemap — the record is kept`);
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
   async function savePhotos(entity, row, photos) {
     const updated = { ...row, images: photos, image: photos[0] || row.image || '' };
     try {
@@ -867,7 +973,9 @@ export default function CrmApp() {
         await api(entity, session.access_token, { method: 'PATCH', body: JSON.stringify(updated) });
         setRows(v => ({ ...v, [entity]: (v[entity] || []).map(x => x.id === row.id ? updated : x) }));
       }
-      setNotice(`Updated photos for ${row.make || ''} ${row.model || row.stock_no || 'vehicle'}`);
+      setNotice(entity === 'machinery'
+        ? `Updated photos for ${row.ref || [row.brand, row.model].filter(Boolean).join(' ') || 'machine'}${photos.some(p => p && !rightsAreUsable(p.rights)) ? ' — photos with no rights basis are held back from the website' : ''}`
+        : `Updated photos for ${row.make || ''} ${row.model || row.stock_no || 'vehicle'}`);
       setPhotoTarget(null);
     } catch (e) {
       setNotice(e.message);
@@ -936,7 +1044,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock' };
+  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk' };
   const current = configs[tab];
   const heading = tab === 'dashboard' ? 'Good day, ' + (profile?.full_name?.split(' ')[0] || 'Team') : (SPECIAL[tab] || current?.title || '');
   const data = rows[tab] || [];
@@ -963,6 +1071,7 @@ export default function CrmApp() {
               {id === 'vehicles' && <span className="crm-nav-count">{(rows.vehicles || []).length}</span>}
               {id === 'listings' && <span className="crm-nav-count">{(rows.listings || []).length}</span>}
               {id === 'goonet' && <span className="crm-nav-count">{(rows.goonet || []).filter(x => x.available !== false).length}</span>}
+              {id === 'machinery' && <span className="crm-nav-count">{(rows.machinery || []).length}</span>}
             </button>
           ))}
         </nav>
@@ -1113,6 +1222,8 @@ export default function CrmApp() {
               statusOptions={configs[tab]?.statusOptions}
               query={query}
               onClearSearch={() => setQuery('')}
+              onPublish={tab === 'machinery' ? row => publishMachine(row, true) : null}
+              onUnpublish={tab === 'machinery' ? row => publishMachine(row, false) : null}
             />
           </>
         )}
@@ -1139,14 +1250,23 @@ export default function CrmApp() {
         />
       )}
 
-      {photoTarget && (
+      {photoTarget && (photoTarget.entity === 'machinery' ? (
+        // Machinery photos carry a RIGHTS BASIS. The generic vehicle editor
+        // saves bare URL strings, which the API would drop at render time for
+        // having no recorded rights — so machinery gets its own editor.
+        <MachineryPhotoManager
+          row={photoTarget.row}
+          onClose={() => setPhotoTarget(null)}
+          onSave={photos => savePhotos('machinery', photoTarget.row, photos)}
+        />
+      ) : (
         <VehiclePhotoManager
           entity={photoTarget.entity}
           row={photoTarget.row}
           onClose={() => setPhotoTarget(null)}
           onSave={photos => savePhotos(photoTarget.entity, photoTarget.row, photos)}
         />
-      )}
+      ))}
 
       {galleryView && (
         <VehicleGalleryModal
@@ -1446,7 +1566,7 @@ function imgFallback(e) {
   el.src = '/assets/ar7-mark.png';
 }
 
-export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table' }) {
+export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish }) {
   const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState(defaultViewMode);
   const [chipFilter, setChipFilter] = useState('all');
@@ -1711,12 +1831,12 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       <button
                         className={'th-sort' + (sort && sort.key === x ? ' sorted-' + sort.dir : '')}
                         onClick={() => toggleSort(x)}
-                        title={'Sort by ' + pretty(x)}
+                        title={'Sort by ' + columnLabel(x)}
                        type="button">
-                        {pretty(x)}
+                        {columnLabel(x)}
                         <span className="th-sort-arrow">{sort && sort.key === x ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
                       </button>
-                    ) : pretty(x)}
+                    ) : columnLabel(x)}
                   </th>
                 ))}
                 <th className="th-actions">Actions</th>
@@ -1748,10 +1868,19 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       </td>
                     ))}
                     <td className="crm-row-actions">
-                      {isVehicleType && onManagePhotos && (
-                        <button className="crm-btn-photo" onClick={() => onManagePhotos(row)} title="Manage vehicle gallery photos" type="button">
+                      {(isVehicleType || entity === 'machinery') && onManagePhotos && (
+                        <button className="crm-btn-photo" onClick={() => onManagePhotos(row)} title={entity === 'machinery' ? 'Manage machine photos and their rights basis' : 'Manage vehicle gallery photos'} type="button">
                           <Camera size={13} /> Photos ({photos.length})
                         </button>
+                      )}
+                      {/* Machinery: taking a machine down is deliberate, so it
+                          gets its own pair of buttons rather than being buried
+                          in the edit form. Every machine is listed by default;
+                          Unpublish is the only thing that hides one. */}
+                      {entity === 'machinery' && onPublish && onUnpublish && (
+                        row.published === false
+                          ? <button className="crm-btn-publish" onClick={() => onPublish(row)} title="Put this machine back on the website" type="button"><Globe size={13} /> Publish</button>
+                          : <button className="crm-del" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time." type="button"><Ban size={13} /> Unpublish</button>
                       )}
                       <button onClick={() => onEdit(row)} type="button">Edit</button>
                       {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
@@ -1777,7 +1906,10 @@ function tableColumns(e) {
     quotes: ['quote_no', 'customer_name', 'vehicle', 'amount', 'status', 'valid_until'],
     shipments: ['tracking_no', 'vehicle', 'destination', 'vessel', 'status', 'eta', 'progress'],
     tasks: ['title', 'owner', 'priority', 'status', 'due_date'],
-    goonet: ['stock_no', 'make', 'model', 'year', 'price', 'photo_count', 'quality_score', 'status', 'location', 'available']
+    goonet: ['stock_no', 'make', 'model', 'year', 'price', 'photo_count', 'quality_score', 'status', 'location', 'available'],
+    // Added-by and published-by answer the owner's question directly: who put
+    // this machine in the database, and who (or what) put it on the website.
+    machinery: ['ref', 'type', 'brand', 'model', 'year', 'price_usd', 'status', 'photos', 'created_by_name', 'published_by_name', 'published']
   }[e] || [];
 }
 
@@ -1796,8 +1928,36 @@ export function vehicleMargin(v) {
 const profitTone = n => n > 0 ? 'crm-profit-pos' : (n < 0 ? 'crm-profit-neg' : '');
 
 function renderCell(k, v, fmt = money) {
-  if (['price', 'amount', 'total_spend', 'budget'].includes(k)) {
+  if (['price', 'amount', 'total_spend', 'budget', 'price_usd'].includes(k)) {
     return typeof v === 'number' ? fmt(v) : (v ?? '—');
+  }
+  // Photos: how many will actually show on the site. A photo with no recorded
+  // rights basis is held back by the API, so the CRM counts it separately
+  // rather than pretending the gallery is full.
+  if (k === 'photos') {
+    const list = Array.isArray(v) ? v : [];
+    const live = list.filter(p => typeof p === 'object' && rightsAreUsable(p?.rights));
+    const held = list.length - live.length;
+    if (!list.length) return <em className="crm-status dormant" title="No photos yet — the machine lists without one">none</em>;
+    return (
+      <span className="crm-photo-cell">
+        <Camera size={11} /> {live.length}
+        {held > 0 && (
+          <em className="crm-status dormant" title={`${held} photo(s) held back: no rights basis recorded, so they cannot go on the website`}>
+            +{held} held
+          </em>
+        )}
+      </span>
+    );
+  }
+  // Attribution. 'auto' means the import gates passed and the machine
+  // published itself — no person clicked Publish.
+  if (k === 'created_by_name') {
+    return v ? <span title="Who added this machine">{v}</span> : <span className="crm-cell-muted">—</span>;
+  }
+  if (k === 'published_by_name') {
+    if (!v) return <span className="crm-cell-muted" title="Not on the website">—</span>;
+    return <span title="Who (or what) put this machine on the website">{v}</span>;
   }
   if (['valid_until', 'eta', 'due_date', 'next_follow_up'].includes(k)) {
     const overdue = isOverdue(v) && k !== 'valid_until';
@@ -4453,6 +4613,141 @@ function GuardianView({ token, profile, perms, notify }) {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------
+//  Machinery Photo Manager — every photo carries a rights basis.
+//
+//  Why this is not VehiclePhotoManager: that editor saves a list of bare URL
+//  strings. A machinery photo with no recorded rights basis is dropped by the
+//  API at render time, so a gallery saved through it would look full in the
+//  CRM and be empty on the website. This editor makes the rights basis a
+//  required part of adding a photo, and shows plainly which photos are being
+//  held back and why.
+// ---------------------------------------------------------------------
+const RIGHTS_LABEL = {
+  'own-photo': 'Our own photograph',
+  'supplier-permission': 'Supplier gave written permission',
+  'dropship-authorized': 'Dropship agreement covers it'
+};
+const RIGHTS_HELP =
+  'A photo may only go on the website with a recorded reason we are allowed to ' +
+  'use it. Never upload a marketplace photo or strip a watermark — ask the ' +
+  'supplier for their own pictures instead.';
+
+/** Accept however the row currently stores its gallery and normalise it. */
+function machineryPhotos(row) {
+  const list = Array.isArray(row?.images) ? row.images : [];
+  return list
+    .map(p => (typeof p === 'string' ? { src: p, rights: '' } : { src: String(p?.src || '').trim(), rights: String(p?.rights || '').trim() }))
+    .filter(p => p.src);
+}
+
+export function MachineryPhotoManager({ row, onClose, onSave }) {
+  const [photos, setPhotos] = useState(() => machineryPhotos(row));
+  const [url, setUrl] = useState('');
+  const [rights, setRights] = useState(RIGHTS[0]);
+
+  const usable = photos.filter(p => rightsAreUsable(p.rights));
+  const held = photos.length - usable.length;
+
+  const add = () => {
+    const src = url.trim();
+    if (!src || photos.some(p => p.src === src)) return;
+    setPhotos([...photos, { src, rights }]);
+    setUrl('');
+  };
+  const drop = i => setPhotos(photos.filter((_, n) => n !== i));
+  const setRight = (i, r) => setPhotos(photos.map((p, n) => (n === i ? { ...p, rights: r } : p)));
+  const promote = i => {
+    if (i === 0) return;
+    const next = [...photos];
+    const [item] = next.splice(i, 1);
+    setPhotos([item, ...next]);
+  };
+
+  return (
+    <div className="crm-photo-modal" onMouseDown={e => e.stopPropagation()}>
+      <header className="photo-modal-head">
+        <div>
+          <small>MACHINE PHOTOS · RIGHTS REQUIRED</small>
+          <h2>{[row?.brand, row?.model].filter(Boolean).join(' ') || row?.ref || 'Machine'}</h2>
+          <p className="photo-modal-subtitle">
+            {row?.ref ? `Ref ${row.ref} · ` : ''}{photos.length} photo{photos.length === 1 ? '' : 's'}
+            {' · '}<b>{usable.length} on the website</b>
+            {held > 0 && <em className="crm-status dormant"> · {held} held back</em>}
+          </p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close"><X /></button>
+      </header>
+
+      <div className="photo-modal-body">
+        <section className="photo-add-panel">
+          <p className="crm-hint"><ShieldAlert size={13} /> {RIGHTS_HELP}</p>
+          <div className="photo-add-row">
+            <label className="photo-url-input">
+              <Camera size={14} />
+              <input
+                type="text"
+                placeholder="Paste image path or URL (e.g. /assets/machinery/doosan-dx300lc-1.webp)"
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+              />
+            </label>
+            <select
+              value={rights}
+              onChange={e => setRights(e.target.value)}
+              aria-label="Why we are allowed to use this photo"
+              title={RIGHTS_HELP}
+            >
+              {RIGHTS.map(r => <option key={r} value={r}>{RIGHTS_LABEL[r] || r}</option>)}
+            </select>
+            <button type="button" className="crm-btn-add-photo" onClick={add} disabled={!url.trim()}>
+              <Plus size={14} /> Add photo
+            </button>
+          </div>
+        </section>
+
+        <div className="photo-grid">
+          {photos.map((p, i) => {
+            const ok = rightsAreUsable(p.rights);
+            return (
+              <figure key={p.src + i} className={ok ? '' : 'is-held'}>
+                <img src={p.src} alt={`Machine photo ${i + 1}${rightsAreUsable(p.rights) ? '' : ' — held back, no rights basis'}`} width={400} height={300} loading="lazy" decoding="async" />
+                <figcaption>
+                  <select
+                    value={p.rights}
+                    onChange={e => setRight(i, e.target.value)}
+                    aria-label={`Rights basis for photo ${i + 1}`}
+                  >
+                    <option value="">No rights recorded — will not be published</option>
+                    {RIGHTS.map(r => <option key={r} value={r}>{RIGHTS_LABEL[r] || r}</option>)}
+                  </select>
+                  <div className="photo-fig-actions">
+                    {i > 0 && <button type="button" onClick={() => promote(i)} title="Make this the main photo">Main</button>}
+                    <button type="button" className="crm-del" onClick={() => drop(i)} title="Remove this photo"><Trash2 size={12} /></button>
+                  </div>
+                </figcaption>
+                {!ok && <span className="photo-held-flag" title="This photo has no rights basis, so the website will not show it">Held back</span>}
+              </figure>
+            );
+          })}
+          {!photos.length && (
+            <p className="crm-hint">No photos yet. The machine will still be listed — it simply renders without a picture.</p>
+          )}
+        </div>
+      </div>
+
+      <footer className="photo-modal-foot">
+        <button type="button" className="crm-ghost-btn" onClick={onClose}>Cancel</button>
+        <button type="button" className="crm-btn-add-photo" onClick={() => onSave(photos)}>
+          <Check size={14} /> Save {photos.length} photo{photos.length === 1 ? '' : 's'}
+          {held > 0 ? ` (${held} held back)` : ''}
+        </button>
+      </footer>
     </div>
   );
 }

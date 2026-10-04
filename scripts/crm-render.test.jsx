@@ -73,7 +73,7 @@ ok(document.querySelector('.crm-side nav button'), 'the sidebar renders its tabs
 say('\nEvery sidebar tab renders');
 const TABS = ['Overview', 'Leads', 'Customers', 'Customer accounts', 'Inventory', 'Profit & sourcing',
   'Japan dealer stock', 'Quotes', 'Shipments', 'Tasks', 'Website cars', 'Shipping routes',
-  'News & guides', 'Approvals', 'Team & permissions', 'People & payroll', 'Website settings',
+  'News & guides', 'Machinery desk', 'Approvals', 'Team & permissions', 'People & payroll', 'Website settings',
   'Activity log'];
 for (const label of TABS) {
   const btn = await clickText('.crm-side nav button', label);
@@ -230,11 +230,94 @@ ok(colsPerRow.every(n => n === 5), 'every permission row has a box for each of t
 const adminBoxes = gridRows.map(r => r.querySelectorAll('.perm-cell input')[0]);
 ok(adminBoxes.every(b => b.checked && b.disabled), 'the admin column is ticked and locked on every row');
 
+// ---- the machinery desk ---------------------------------------------------
+// The owner's acceptance criteria, at the level only a render test can see:
+// every machine is listed, and the table says who added it and who (or what)
+// published it.
+say('\nMachinery desk');
+await clickText('.crm-side nav button', 'Machinery desk');
+{
+  const heads = [...document.querySelectorAll('.crm-table-wrap table thead th')]
+    .map(th => (th.textContent || '').trim());
+  ok(heads.some(h => /added\s*by/i.test(h)), `the table has an "Added by" column (${heads.join(' | ')})`);
+  ok(heads.some(h => /published\s*by/i.test(h)), 'the table has a "Published by" column');
+  ok(heads.some(h => /ref/i.test(h)), 'the table has a Reference column');
+
+  if (!document.querySelector('.crm-table-wrap')) {
+    const main = document.querySelector('.crm-main');
+  }
+  const bodyRows = [...document.querySelectorAll('.crm-table-wrap table tbody tr')];
+  ok(bodyRows.length > 0, `the desk lists machines in demo mode (${bodyRows.length} rows)`);
+
+  // Every row must be able to answer "who added it" and "who published it".
+  const blankAttribution = bodyRows.filter(tr => {
+    const cells = [...tr.querySelectorAll('td')].map(td => (td.textContent || '').trim());
+    return cells.some(c => c === 'undefined' || c === 'null');
+  });
+  ok(blankAttribution.length === 0,
+    `no row prints "undefined" or "null" for who added or published it${blankAttribution.length ? ` (${blankAttribution.length} bad)` : ''}`);
+
+  // Every machine in the database is listed — that is the policy. So a row
+  // must offer Unpublish (the deliberate act) rather than Publish (approval).
+  const unpublish = [...document.querySelectorAll('.crm-row-actions button')]
+    .filter(b => /unpublish/i.test(b.textContent || ''));
+  ok(unpublish.length > 0, `published machines offer Unpublish (${unpublish.length} buttons)`);
+  const publish = [...document.querySelectorAll('.crm-row-actions button')]
+    .filter(b => /^\s*publish\s*$/i.test(b.textContent || ''));
+  ok(publish.length === 0, 'no machine is waiting behind a Publish approval step');
+
+  ok([...document.querySelectorAll('.crm-row-actions button')].some(b => /photos/i.test(b.textContent || '')),
+    'each row can open the photo editor');
+}
+
+// ---- machinery photos need a rights basis ----------------------------------
+// A photograph without a recorded reason we may use it must never reach the
+// website. The editor is where that is enforced in the UI: every photo gets a
+// rights dropdown, and a photo with none chosen is visibly held back rather
+// than silently published.
+say('\nMachinery photo rights');
+{
+  const photosBtn = [...document.querySelectorAll('.crm-row-actions button')]
+    .find(b => /photos/i.test(b.textContent || ''));
+  ok(!!photosBtn, 'the photo editor button is present');
+  if (photosBtn) {
+    await act(async () => { photosBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+    const modal = document.querySelector('.crm-photo-modal');
+    ok(!!modal, 'the photo editor opens');
+
+    const selects = [...(modal?.querySelectorAll('figcaption select') || [])];
+    ok(selects.length > 0, `each photo carries a rights dropdown (${selects.length} photos)`);
+    // The three accepted bases, plus the empty "no rights" option.
+    const emptyOption = selects[0] && [...selects[0].options].some(o => o.value === '');
+    ok(!!emptyOption, 'a photo can be added with no rights recorded');
+    const known = selects[0] ? [...selects[0].options].map(o => o.value).filter(Boolean) : [];
+    for (const basis of ['own-photo', 'supplier-permission', 'dropship-authorized'])
+      ok(known.includes(basis), `the editor offers "${basis}" as a rights basis`);
+
+    // Choose "no rights" on the first photo: it must be flagged as held back.
+    if (selects[0]) {
+      await act(async () => {
+        selects[0].value = '';
+        selects[0].dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+      });
+      const held = document.querySelectorAll('.crm-photo-modal figure.is-held').length;
+      ok(held > 0, `a photo with no rights basis is visibly held back (${held} flagged)`);
+      ok(/held back/i.test(document.querySelector('.crm-photo-modal footer')?.textContent || ''),
+        'the save button says how many photos are held back');
+    }
+
+    const closeBtn = document.querySelector('.crm-photo-modal footer .crm-ghost-btn');
+    if (closeBtn) await act(async () => { closeBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+  }
+}
+
+
 // ---- React logged nothing ---------------------------------------------------
 console.error = realError; console.warn = realWarn;
 const real = errors.filter(e => !/not wrapped in act|Not implemented|jsdom/i.test(e));
 ok(real.length === 0, `nothing was logged as an error${real.length ? ': ' + real.slice(0, 3).join(' || ').slice(0, 900) : ''}`);
 
 await act(async () => { root.unmount(); });
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
