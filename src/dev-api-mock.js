@@ -6,8 +6,17 @@
 // (scripts/fixtures/goonet-capture-2026-08-31.json) through the same
 // goonet-core maths the live importer uses, so the preview shows exactly what
 // `node scripts/goonet-seed.mjs --push` writes to Supabase.
+//
+// Since 2026-10-04 it also mocks /api/site-content?import=machinery (the
+// scraper + confirm steps) so the machinery desk's Run scraper → preview →
+// import walk works in a key-less preview. It runs the REAL scraper module
+// against fixture pages — the sandbox has no egress to made-in-china.com —
+// and keeps imported machines in memory.
 import { readCapture, buildSeedRows } from '../scripts/goonet-seed.mjs';
 import { parseGoonetCarUrls } from '../scripts/goonet-core.mjs';
+import { runScraper, SCRAPER_ORIGIN, SCRAPER_CATEGORIES } from '../api/_machinery-scraper.js';
+import { toRow, planImport, applyImport } from '../api/_machinery-import.js';
+import { toPublic } from '../api/_machinery.js';
 
 let STOCK = [];
 try {
@@ -65,6 +74,79 @@ function devAssistant(action) {
 
 let currentAssistantBody = null;
 
+// ---- machinery scraper fixtures --------------------------------------------
+// The preview sandbox cannot reach made-in-china.com, so the real scraper runs
+// against these fixture pages instead: one category page per machine type and
+// three product pages each, shaped like the live site (JSON-LD + spec table +
+// one watermarked marketplace photo per machine, which the owner's policy
+// filters at import). The real robots.txt → category → product order, the
+// dedupe and the preview shape are all exercised — only the host is fake.
+const DEV_HOST = 'dev-supplier.en.made-in-china.com';
+const DEV_TITLES = {
+  excavators: ['Doosan Dx300lc Crawler Excavator', 'Sany Sy215c Hydraulic Excavator', 'Komatsu Pc200 Used Excavator'],
+  loaders: ['SDLG LG956L Wheel Loader', 'LiuGong CLG856H Wheel Loader', 'XCMG LW500KN Front Loader'],
+  trucks: ['Sinotruk HOWO 6x4 Dump Truck', 'Shacman F3000 Tipper Truck', 'HOWO 371HP Cargo Truck'],
+  cranes: ['XCMG QY25K Truck Crane', 'Zoomlion ZTC250 Truck Crane', 'Sany STC250H Mobile Crane']
+};
+const devProductUrl = (cat, i) => `https://${DEV_HOST}/product/dev-${cat}-${i}/China-${DEV_TITLES[cat][i].replace(/[^A-Za-z0-9]+/g, '-')}.html`;
+const devProductPage = (cat, i) => {
+  const title = DEV_TITLES[cat][i];
+  const price = 12000 + (i + 1) * 7500 + cat.length * 100;
+  return `<!doctype html><html><head><title>${title} for sale</title>
+<script type="application/ld+json">{"@type":"Product","name":"${title}","offers":{"price":${price},"priceCurrency":"USD"},"image":["https://cdn.dev-supplier.example/${cat}-${i}-a.jpg","https://image.made-in-china.com/202f0j00dev/${cat}-${i}-marked.webp"]}</script>
+</head><body><h1>${title}</h1>
+<table><tr><th>Condition</th><td>Used</td></tr><tr><th>Year</th><td>2021</td></tr></table>
+</body></html>`;
+};
+const devCategoryPage = cat => '<!doctype html><html><body>' +
+  DEV_TITLES[cat].map((t, i) => `<a href="${devProductUrl(cat, i)}">${t}</a>`).join('') +
+  '</body></html>';
+
+async function devScraperFetch(url) {
+  const u = String(url);
+  const pages = {
+    'https://www.made-in-china.com/robots.txt': 'User-agent: *\nDisallow: /sendInquiry/\nDisallow: /*html?*',
+    [`https://${DEV_HOST}/robots.txt`]: 'User-agent: *\nDisallow: /print/'
+  };
+  for (const cat of Object.keys(DEV_TITLES)) {
+    pages[SCRAPER_ORIGIN + SCRAPER_CATEGORIES[cat]] = devCategoryPage(cat);
+    DEV_TITLES[cat].forEach((_, i) => { pages[devProductUrl(cat, i)] = devProductPage(cat, i); });
+  }
+  const hit = pages[u];
+  return hit
+    ? { ok: true, status: 200, text: hit, networkError: false }
+    : { ok: false, status: 404, text: '', networkError: false };
+}
+
+// In-memory machinery store + the minimum Supabase query shape the importer
+// uses. Machines imported in the preview survive until the dev server stops.
+const DEV_MACHINES = [];
+function devMachineryDb() {
+  const clone = r => JSON.parse(JSON.stringify(r));
+  let seq = 0;
+  return {
+    from(table) {
+      const api = {
+        _f: [], _m: 'select', _p: null, _single: false,
+        select() { return api; }, order() { return api; }, limit() { return api; },
+        eq(c, v) { api._f.push([c, v]); return api; },
+        insert(p) { api._m = 'insert'; api._p = p; return api; },
+        update(p) { api._m = 'update'; api._p = p; return api; },
+        single() { api._single = true; return api; },
+        then(resolve) {
+          if (table !== 'machinery') return resolve({ data: [], error: null });
+          const hits = DEV_MACHINES.filter(r => api._f.every(([c, v]) => String(r[c]) === String(v)));
+          if (api._m === 'insert') { const row = { id: 'dev-m-' + (++seq), ...clone(api._p) }; DEV_MACHINES.push(row); return resolve({ data: clone(row), error: null }); }
+          if (api._m === 'update') { for (const r of hits) Object.assign(r, clone(api._p)); return resolve({ data: hits[0] ? clone(hits[0]) : null, error: null }); }
+          if (api._single) return resolve({ data: hits[0] ? clone(hits[0]) : null, error: null });
+          return resolve({ data: hits.map(clone), error: null });
+        }
+      };
+      return api;
+    }
+  };
+}
+
 export function devApiMock() {
   return {
     name: 'ar7-dev-api-mock',
@@ -88,6 +170,61 @@ export function devApiMock() {
         }
         if (next && req.method !== 'GET' && req.method !== 'POST') return next();
         res.end(JSON.stringify(STOCK));
+      });
+
+      // Machinery import agent — scraper + confirm, running the REAL modules
+      // against the fixtures above (no egress in a preview sandbox). step=preview
+      // is honest about having no network; step=scraper previews; step=confirm
+      // writes into the in-memory store so the desk can show the machine.
+      server.middlewares.use('/api/site-content', (req, res, next) => {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        if (params.get('import') !== 'machinery') return next();
+        let raw = '';
+        req.on('data', c => { raw += c; });
+        req.on('end', async () => {
+          let body = {};
+          try { body = JSON.parse(raw || '{}'); } catch { body = {}; }
+          res.setHeader('Content-Type', 'application/json');
+          const step = String(params.get('step') || body.step || '');
+          try {
+            if (step === 'scraper') {
+              // The 1-second politeness pause is skipped in the preview: the
+              // pages are local fixtures, and production keeps the real delay.
+              const out = await runScraper(devMachineryDb(), {
+                category: body.category || null,
+                fetch: devScraperFetch,
+                sleep: () => Promise.resolve()
+              });
+              return res.end(JSON.stringify(out));
+            }
+            if (step === 'confirm') {
+              const db = devMachineryDb();
+              const candidates = Array.isArray(body.machines) ? body.machines : [];
+              const rows = candidates.map(m => (m && m.row)
+                ? m.row
+                : toRow(m, { rights: m?.source?.rights || body.rights || null, adapter: m?.source?.adapter || 'product-page' }));
+              const { data: existing } = await db.from('machinery').select('*');
+              const plan = planImport(Array.isArray(existing) ? existing : [], rows);
+              const result = await applyImport(db, plan, { id: 'dev', full_name: 'Dev preview' });
+              const { data: fresh } = await db.from('machinery').select('*');
+              return res.end(JSON.stringify({
+                imported: result.created.length,
+                updated: result.updated.length,
+                rePriced: result.rePriced,
+                skipped: result.skipped,
+                invalid: result.invalid,
+                failed: result.failed,
+                machines: (fresh || []).map(toPublic)
+              }));
+            }
+            return res.end(JSON.stringify({
+              error: 'The dev preview has no network access — paste-a-link preview runs on the deployed site. Use Run scraper here.'
+            }));
+          } catch (e) {
+            res.statusCode = 500;
+            return res.end(JSON.stringify({ error: e.message }));
+          }
+        });
       });
 
       // Dev-only crash reporter. The error boundary in src/main.jsx posts here

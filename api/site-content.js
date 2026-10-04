@@ -71,6 +71,9 @@ import {
 import {
   MAX_IMPORT_BATCH, previewMachine, toRow, planImport, applyImport, markStale
 } from './_machinery-import.js';
+// The category scraper: same pattern — a shared module, dispatched below on
+// step=scraper, previews only (the confirm step does the writing).
+import { runScraper } from './_machinery-scraper.js';
 export { machinePath, machineTypePath };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
@@ -473,15 +476,18 @@ async function machineryDispatch(req, res, action, injected = {}) {
 /**
  * The machinery import agent.
  *
- * Two steps, and the split is deliberately absolute:
+ * Three steps, and the read/write split is deliberately absolute:
  *
  *   step=preview  reads a supplier link and RETURNS a candidate. It writes
  *                 nothing — not a row, not an activity, not a log line. The
  *                 operator sees the machine before it exists.
+ *   step=scraper  crawls the Made-in-China category pages (robots.txt first,
+ *                 1s between fetches, max 20 machines) and returns previews
+ *                 through the same pipeline. It writes nothing either.
  *   step=confirm  writes what the operator approved.
  *
- * Both need `site.write`. An import is the one action that puts rows on the
- * website nobody typed, from a source we do not control.
+ * All three need `site.write`. An import is the one action that puts rows on
+ * the website nobody typed, from a source we do not control.
  */
 async function importDispatch(req, res, injected = {}) {
   const db = injected.db || adminClient();
@@ -584,6 +590,22 @@ async function importDispatch(req, res, injected = {}) {
       });
     }
 
+    // ---- SCRAPER: crawl the Made-in-China category pages, preview only ----
+    // Reads category pages + product pages (robots.txt first, 1s between
+    // fetches, max 20 machines) and returns previews through the same
+    // previewMachine() pipeline as step=preview. Writes nothing — the
+    // operator's confirm click is what imports, exactly as with a pasted link.
+    if (step === 'scraper') {
+      const out = await runScraper(db, {
+        category: body.category || null,
+        limit: body.limit || null,
+        fetch: injected.fetch || null,
+        sleep: injected.sleep || null,
+        markup: Number.isFinite(Number(body.markup)) ? Number(body.markup) : 0.25
+      });
+      return send(res, 200, out);
+    }
+
     // ---- STALE: flag machines a scheduled run did not see ------------------
     // Never deletes. A supplier taking a listing down for a weekend is not the
     // same thing as the machine being gone, and only the owner can tell those
@@ -593,7 +615,7 @@ async function importDispatch(req, res, injected = {}) {
       return send(res, 200, { ...out, note: 'Flagged, never deleted — the owner decides' });
     }
 
-    return send(res, 400, { error: `Unknown import step: ${step || '(none)'}. Use step=preview or step=confirm.` });
+    return send(res, 400, { error: `Unknown import step: ${step || '(none)'}. Use step=preview, step=confirm or step=scraper.` });
   } catch (e) { return sendErr(e); }
 }
 

@@ -224,6 +224,23 @@ say('\n-- the same machine twice updates, and logs the re-price --');
   ok(Number(row.price_usd) < 62500, `the new price is lower (${row.price_usd})`);
   ok(!!row.price_changed_at, 'and the change is timestamped');
   ok(b2.rePriced?.[0]?.before === 62500, 'the response reports was → now');
+  ok(/^AR7-MC-\d{3,}$/.test(row.ref), `the update kept the machine's own reference (${row.ref}) — the placeholder never overwrites it`);
+}
+
+say('\n-- placeholder refs become real stock numbers --');
+{
+  // toMachine() invents 'AR7-MC-NEW' for a machine that has never been
+  // saved. Keeping that would give every import the same URL and the same
+  // stock number, so each create takes the next free AR7-MC-NNN instead.
+  const db = fakeDb({ machinery: [{ id: 'seed', ref: 'AR7-MC-004', source_url: 'https://supplier.example/p/other' }] });
+  const p1 = await preview(db, { url: URL_A, rights: 'own-photo', html: PAGE(URL_A) });
+  await api(req('POST', { import: 'machinery', step: 'confirm' }, { machines: [p1.json().machine], rights: 'own-photo' }), fakeRes(), { db, ...asUser(ADMIN) });
+  const p2 = await preview(db, { url: URL_B, rights: 'own-photo', html: PAGE(URL_B) });
+  await api(req('POST', { import: 'machinery', step: 'confirm' }, { machines: [p2.json().machine], rights: 'own-photo' }), fakeRes(), { db, ...asUser(ADMIN) });
+  const imported = db._tables.machinery.filter(r => r.id !== 'seed').map(r => r.ref);
+  ok(imported[0] === 'AR7-MC-005' && imported[1] === 'AR7-MC-006',
+    `imports continue the existing sequence (${imported.join(', ')})`);
+  ok(!db._tables.machinery.some(r => r.ref === 'AR7-MC-NEW'), 'no machine keeps the placeholder ref');
 }
 
 say('\n-- a different machine is a different machine --');

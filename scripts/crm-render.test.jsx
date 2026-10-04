@@ -421,6 +421,17 @@ await clickText('.crm-side nav button', 'Machinery desk');
       ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === basis),
         `it offers "${basis}" as a rights basis`);
 
+    // The scraper: a category picker plus the Run scraper button, both beside
+    // the paste-a-link toggle (the backend they call is pinned by
+    // scripts/machinery-scraper.test.mjs).
+    const scraperBtn = document.querySelector('.crm-scraper-toggle');
+    ok(!!scraperBtn && /run scraper/i.test(scraperBtn.textContent), 'the desk offers "Run scraper"');
+    const catSelect = document.querySelector('.crm-scraper-cat');
+    ok(!!catSelect, 'the scraper has a category picker');
+    const cats = catSelect ? [...catSelect.options].map(o => o.value) : [];
+    ok(['excavators', 'loaders', 'trucks', 'cranes'].every(c => cats.includes(c)),
+      `it crawls the four machine types (${cats.join(', ')})`);
+
     const buttons = () => [...document.querySelectorAll('.crm-import-body button')].map(b => (b.textContent || '').trim());
     const previewBtn = () => [...document.querySelectorAll('.crm-import-body button')].find(b => /preview/i.test(b.textContent || ''));
     ok(!!previewBtn(), `Preview is offered (${buttons().join(' / ')})`);

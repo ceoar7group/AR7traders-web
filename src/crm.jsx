@@ -4932,6 +4932,8 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
+  // Which Made-in-China category the scraper crawls (one page per run).
+  const [scrapeCat, setScrapeCat] = useState('excavators');
 
   // A new link invalidates the preview immediately — importing after editing
   // the box would write something the operator never read.
@@ -4952,45 +4954,21 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   const runImport = async () => {
     if (!preview) return;
     setBusy(true); setError('');
+    // A scraper run previews a whole batch (preview.machines); a pasted link
+    // previews one machine. Confirm writes exactly what is in the list.
+    const list = preview.machines?.length ? preview.machines : [preview.machine];
     try {
       if (DEMO) {
-        // In demo mode, add the machine to the local state so the user can see
-        // the import flow working without a live database.
-        const m = preview.machine;
-        const demoRow = {
-          id: 'demo-' + Math.random().toString(36).slice(2, 8),
-          ref: m.ref || 'AR7-MC-NEW',
-          name: m.name,
-          brand: m.brand,
-          model: m.model || m.name,
-          type: m.type || 'Excavators',
-          year: m.year || new Date().getFullYear(),
-          hours: m.hours || 0,
-          price_usd: m.listPrice || m.supplierPrice || 0,
-          supplierPrice: m.supplierPrice || 0,
-          summary: m.summary || '',
-          specs: m.specs || [],
-          images: m.images || [],
-          image: m.images?.[0] || '',
-          status: 'Available',
-          origin: m.origin || 'China',
-          location: m.location || 'China',
-          published: true,
-          published_by_name: 'You (demo)',
-          source_url: url.trim(),
-          adapter: preview.confirmWith?.adapter || 'product-page',
-          rights_basis: rights || 'dropship-authorized',
-          photosPending: !m.images?.length
-        };
-        // The machinery import panel doesn't have direct access to setRows,
-        // so we notify the parent to reload.
-        notify(`Imported ${m.name} — published and on the website (demo mode)`);
+        // In demo mode there is no live database: report what a real confirm
+        // would have written and ask the parent to reload its local rows.
+        const names = list.slice(0, 3).map(m => m.name).join(', ');
+        notify(`Imported ${list.length} machine(s) — ${names}${list.length > 3 ? '…' : ''} — published and on the website (demo mode)`);
         setPreview(null); setUrl(''); setRights('');
         onImported && onImported();
         return;
       }
       const out = await machineryImport('confirm', {
-        machines: [preview.machine],
+        machines: list,
         rights: preview.confirmWith?.rights || rights || null,
         adapter: preview.confirmWith?.adapter || null
       }, token);
@@ -5023,16 +5001,37 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         <button className="crm-import-toggle" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}>
           <Link2 size={13} /> {open ? 'Hide' : 'Import from a supplier link'}
         </button>
+        <select
+          className="crm-import-toggle crm-scraper-cat"
+          value={scrapeCat}
+          onChange={e => setScrapeCat(e.target.value)}
+          aria-label="Scraper category"
+          title="Which Made-in-China category the scraper crawls"
+        >
+          <option value="excavators">Excavators</option>
+          <option value="loaders">Loaders</option>
+          <option value="trucks">Trucks</option>
+          <option value="cranes">Cranes</option>
+        </select>
         <button className="crm-import-toggle crm-scraper-toggle" type="button" onClick={async () => {
-          setBusy(true); setError('');
+          setBusy(true); setError(''); setPreview(null);
           try {
-            const out = await machineryImport('scraper', { category: 'excavators' }, token);
+            const out = await machineryImport('scraper', { category: scrapeCat }, token);
             if (out?.machines?.length) {
               notify(`Scraper found ${out.machines.length} machine(s) — preview to import`);
-              setPreview({ machine: out.machines[0], machines: out.machines, warnings: [], source: { label: 'Made-in-China scraper' }, would: { create: out.machines.length } });
+              setPreview({
+                machine: out.machines[0],
+                machines: out.machines,
+                previews: out.previews || [],
+                warnings: out.warnings || [],
+                skipped: out.skipped || [],
+                source: { label: 'Made-in-China scraper' },
+                would: { create: out.machines.length }
+              });
               setOpen(true);
             } else {
-              notify('Scraper found no new machines this run');
+              const why = out?.warnings?.length ? ` — ${out.warnings[0]}` : '';
+              notify(`Scraper found no new machines this run${why}`);
             }
           } catch (e) {
             setError('Scraper: ' + e.message);
@@ -5074,6 +5073,37 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
 
           {error && <p className="crm-import-error"><Ban size={13} /> {error}</p>}
 
+          {/* Scraper batch: the whole preview list the run returned, each row
+              summarised. Import writes the full list through the same confirm
+              step a single pasted link uses. */}
+          {preview?.machines?.length > 1 && (
+            <ul className="crm-scraper-list" aria-label={`Scraper previews (${preview.machines.length})`}>
+              {preview.machines.map((sm, i) => (
+                <li key={sm.source?.url || i}>
+                  <div>
+                    <b>{sm.name}</b>
+                    <span>
+                      {sm.brand} · {sm.type} · {sm.year}
+                      {sm.listPrice ? ` · $${Number(sm.listPrice).toLocaleString()} list` : ' · no price found'}
+                      {sm.photosPending ? ' · photos pending' : ` · ${sm.images?.length || 0} photo(s)`}
+                    </span>
+                  </div>
+                  {sm.images?.length
+                    ? <img src={sm.images[0]} alt="" width={64} height={48} loading="lazy" decoding="async" />
+                    : <span className="crm-status dormant">No photos</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {preview?.skipped?.length > 0 && (
+            <ul className="crm-import-warnings">
+              {preview.skipped.slice(0, 6).map((s, i) => (
+                <li key={i}><Check size={12} /> Skipped {String(s.url).replace(/^https?:\/\/(www\.)?/, '')} — {s.reason}</li>
+              ))}
+            </ul>
+          )}
+
           {m && (
             <div className="crm-import-preview">
               <div className="crm-import-head">
@@ -5109,7 +5139,7 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
 
               <p className="crm-import-would">
                 Importing would{' '}
-                <b>{would.create ? `create ${would.create} new machine` : would.update ? `update ${would.update} existing machine` : 'change nothing'}</b>
+                <b>{would.create ? `create ${would.create} new machine${would.create > 1 ? 's' : ''}` : would.update ? `update ${would.update} existing machine${would.update > 1 ? 's' : ''}` : 'change nothing'}</b>
                 {would.rePrice?.length
                   ? ` and re-price ${would.rePrice.length === 1 ? 'it' : `${would.rePrice.length} machines`} (${would.rePrice.map(r => `$${r.before} → $${r.after}`).join(', ')})`
                   : ''}.
@@ -5119,7 +5149,11 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
               <div className="crm-import-actions">
                 <button type="button" className="crm-ghost-btn" onClick={() => { setPreview(null); setError(''); }}>Discard</button>
                 <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy}>
-                  <Check size={13} /> {busy ? 'Importing…' : 'Import machine'}
+                  <Check size={13} /> {busy
+                    ? 'Importing…'
+                    : preview?.machines?.length > 1
+                      ? `Import ${preview.machines.length} machines`
+                      : 'Import machine'}
                 </button>
               </div>
             </div>
