@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 // AR7 promotions agent.
 //
-//   npm run promo                    what is running, and what to run next
-//   npm run promo:plan               build this week's campaigns from real stock
-//   npm run promo:publish -- --id <id>   put a campaign live on the site
-//   npm run promo:publish -- --none      take the banner down
+//   npm run promo                    inspect the static fallback and run history
+//   npm run promo:plan               build this week's campaign candidates from real stock
 //   npm run promo:social -- --id <id>    ready-to-send copy for WhatsApp/FB/IG/email
-//   npm run promo:report             what the site has actually shown and clicked
+//   CRM → SEO desk → Campaign launchpad    publish or clear the live campaign
+//   npm run promo:publish -- --id <id>     legacy static-file fallback only
+//   npm run promo:report             inspect local fallback/history (not live API settings)
 //
 // WHAT IT IS
 // ----------
 // A promotion is not a banner: it is a reason to buy this week. This agent
 // reads what AR7 actually has (live brands, machinery types, destination
-// markets), proposes campaigns that match, writes the copy for every channel
-// the business actually uses, publishes the chosen one to the site, and
-// records it so the same campaign is not run twice into the ground.
+// markets), proposes campaign candidates and writes channel copy. A staff
+// member reviews and publishes through the SEO desk; this CLI only writes the
+// static fallback when explicitly used for a static-only deployment.
 //
 // WHAT IT REFUSES TO DO
 // ---------------------
@@ -220,21 +220,24 @@ function plan() {
     lines.push(`- ${c.sub}`);
     lines.push('');
   }
-  lines.push('## Publishing');
+  lines.push('## Launching a campaign');
+  lines.push('');
+  lines.push('Review the candidate and publish it from the CRM\'s SEO desk → Campaign launchpad.');
+  lines.push('The desk saves to the authenticated `promo` setting and updates the live PromoBar');
+  lines.push('without a deploy. Only staff with `settings.write` can publish or clear it.');
   lines.push('');
   lines.push('```bash');
-  lines.push('npm run promo:publish -- --id machinery-excavators');
-  lines.push('npm run promo:social  -- --id machinery-excavators');
-  lines.push('npm run promo:publish -- --none        # take the banner down');
+  lines.push('npm run promo:social -- --id machinery-excavators');
   lines.push('```');
   lines.push('');
-  lines.push('Publishing writes `public/promo.json`, which the site\'s promo bar reads on');
-  lines.push('the next deploy. Social copy is printed for you to send from the real');
-  lines.push('accounts — see "Publishing to social" in scripts/promo-agent.mjs for why.');
+  lines.push('Social copy is printed for you to send from the real accounts — see');
+  lines.push('"Publishing to social" in scripts/promo-agent.mjs for why.');
+  lines.push('');
+  lines.push('The legacy `npm run promo:publish` command only edits `public/promo.json`,');
+  lines.push('the static fallback used when the settings API is unavailable.');
   writeFileSync(PLAN_FILE, lines.join('\n'));
-  // The CRM's Promotions panel reads this file, so the campaign list an
-  // operator picks from in the CRM is the same list this agent generated —
-  // not a second, hand-maintained copy that drifts.
+  // The generated JSON and Markdown are planning artifacts, not an interactive
+  // CRM campaign list; staff choose and publish in the SEO desk.
   writeFileSync(path.join(PUBLIC, 'promo-plan.json'), JSON.stringify({
     generatedAt: new Date().toISOString(),
     campaigns: campaigns.map(c => ({ ...c, ran: run.has(c.id) }))
@@ -250,7 +253,7 @@ function publish() {
     write(PROMO_FILE, { active: false });
     s.published = null;
     write(STATE_FILE, s);
-    console.log('Promo bar cleared. Deploy to take it off the live site.');
+    console.log('Static promo fallback cleared. Clear the live campaign in CRM → SEO desk → Campaign launchpad if needed.');
     return 0;
   }
   if (!id) {
@@ -296,12 +299,13 @@ function publish() {
   s.campaigns = campaigns.map(x => x.id);
   write(STATE_FILE, s);
 
-  console.log(`Published: ${c.headline}`);
-  console.log(`  on-site bar → ${c.target}${discount ? ` · ${discount}% off margin` : ''}${until ? ` · until ${until}` : ''}`);
+  console.log(`Static fallback updated: ${c.headline}`);
+  console.log(`  public/promo.json → ${c.target}${discount ? ` · ${discount}% off margin` : ''}${until ? ` · until ${until}` : ''}`);
+  console.log('This does not update an active settings API campaign. Publish live from CRM → SEO desk → Campaign launchpad.');
   console.log('');
   console.log('Next:');
   console.log('  npm run promo:social -- --id ' + c.id + '   (copy for every channel)');
-  console.log('  npm run build && deploy                   (bar goes live)');
+  console.log('  npm run build && deploy                   (static fallback only)');
   return 0;
 }
 
@@ -336,8 +340,8 @@ function social() {
 function report() {
   const s = state();
   const pub = read(PROMO_FILE, { active: false });
-  console.log('Promotions\n');
-  console.log(`  Live on the site: ${pub.active ? pub.headline + '  →  ' + pub.href : '(none)'}`);
+  console.log('Promotions — local fallback and history\n');
+  console.log(`  Static fallback: ${pub.active ? pub.headline + '  →  ' + pub.href : '(none)'}`);
   if (pub.active) {
     console.log(`  Published: ${pub.publishedAt}${pub.until ? ` · runs until ${pub.until}` : ''}`);
     if (pub.discount) console.log(`  Discount shown: ${pub.discount}% off margin — must be honoured in every quotation until it ends.`);
@@ -345,7 +349,8 @@ function report() {
   }
   console.log(`  Campaigns run so far: ${s.history.length}`);
   for (const h of s.history) console.log(`    ${h.id} — first run ${h.firstRun.slice(0, 10)}, ${h.runs} run(s)`);
-  if (!s.history.length) console.log('    (none yet — npm run promo:publish)');
+  if (!s.history.length) console.log('    (none yet — use the fallback-only publish command to record a static run)');
+  console.log('  Live production campaign: CRM → SEO desk → Campaign launchpad (not read by this CLI).');
   console.log('');
   console.log('Traffic attribution: the links carry utm_source/utm_medium/utm_campaign.');
   console.log('Run `npm run seo:connect` and set GA4_PROPERTY_ID to read the results.');

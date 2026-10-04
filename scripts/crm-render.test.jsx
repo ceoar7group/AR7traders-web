@@ -76,7 +76,7 @@ say('\nEvery sidebar tab renders');
 const TABS = ['Overview', 'Leads', 'Customers', 'Customer accounts', 'Cars', 'Profit & sourcing',
   'Japan dealer stock', 'Quotes', 'Shipments', 'Tasks', 'Shipping routes',
   'News & guides', 'Machinery desk', 'Approvals', 'Team & permissions', 'People & payroll', 'Website settings',
-  'Activity log'];
+  'Price offers', 'SEO desk', 'Site guardian', 'Activity log'];
 for (const label of TABS) {
   const btn = await clickText('.crm-side nav button', label);
   if (!btn) { ok(false, `"${label}" tab is missing from the sidebar`); continue; }

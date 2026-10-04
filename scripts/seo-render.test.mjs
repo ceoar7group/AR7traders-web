@@ -172,6 +172,18 @@ for (const key of ['excavators', 'loaders', 'trucks', 'cranes']) {
       && MACHINERY_FAQS[key].every(([q, a]) => q && a),
     `the ${key} FAQ set is complete (${(MACHINERY_FAQS[key] || []).length} questions)`);
 }
+const discountedMachine = {
+  ref: 'MACH-SEO-1', name: 'PC210', type: 'Excavators', year: 2024,
+  brand: 'Komatsu', summary: 'Tracked excavator', hours: 1200, price: 100000, images: []
+};
+applySeo('machinery', null, null, {
+  machine: discountedMachine, machineOfferPercent: 10, machineOfferUntil: '2026-12-31'
+});
+const machineOffer = jsonld('machine-jsonld')?.offers;
+ok(machineOffer?.price === '90000' && machineOffer.priceCurrency === 'USD',
+  'machine structured price uses the same per-stock discount as the public page');
+ok(machineOffer?.priceValidUntil === '2026-12-31',
+  'machine structured offer expires on its per-stock end date');
 
 // ---- FAQ markup is scoped to /faq -----------------------------------------
 applySeo('faq', null);
@@ -252,6 +264,14 @@ ok(v?.vehicleEngine?.engineDisplacement?.value === 2000, 'engine displacement is
 ok(v?.offers?.price === '21000' && v.offers.priceCurrency === 'USD', 'offer price is numeric USD for a $ string');
 ok(v?.offers?.availability === 'https://schema.org/InStock', 'in-stock status maps to InStock');
 ok(v?.offers?.url === 'https://ar7traders.com/inventory/43', 'offer points at the vehicle URL');
+applySeo('inventory', '43', car43, {vehicleOfferPercent: 20, vehicleOfferUntil: '2026-12-31'});
+const discountedVehicle = jsonld('vehicle-jsonld');
+ok(discountedVehicle?.offers?.price === '16800' && discountedVehicle.offers.priceCurrency === 'USD',
+  'vehicle structured price uses the same rounded per-stock discount as its public card');
+ok(discountedVehicle?.offers?.priceValidUntil === '2026-12-31',
+  'vehicle structured offer expires on the published per-stock end date');
+applySeo('inventory', '43', car43);
+ok(jsonld('vehicle-jsonld')?.offers?.price === '21000', 'removing a stock discount restores the vehicle list price in JSON-LD');
 ok(v?.image === 'https://ar7traders.com/assets/inventory/700071023230260801001.webp', 'image is made absolute');
 bc = jsonld('breadcrumb-jsonld');
 ok(bc?.itemListElement.length === 3 && bc.itemListElement.map(x => x.name).join(' → ') ===

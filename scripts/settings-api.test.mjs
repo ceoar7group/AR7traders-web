@@ -62,6 +62,8 @@ const SEED = [
   { key: 'enquiry_inbox', value: 'ar7tradersinfo@gmail.com', label: 'Where website enquiries are sent' },
   { key: 'exchange_rates', value: '{"USD":1,"JPY":155}', label: 'Display currency rates per 1 USD (JSON)' },
   { key: 'exchange_rates_updated', value: '2026-09-28T00:00:00Z', label: 'When rates were last saved' },
+  { key: 'stock_discounts', value: JSON.stringify({version: 1, items: { 'car:AR7-42': {kind: 'car', ref: 'AR7-42', percent: 15, until: null} }}), label: 'Public discounts by stock reference' },
+  { key: 'offer', value: '{"active":true,"scope":"all","percent":20}', label: 'retired global offer' },
   { key: 'base_currency', value: 'USD', label: 'Ledger base currency' },
   { key: 'default_customer_currency', value: 'USD', label: 'Default currency for new customer accounts' },
   { key: 'goonet_search_url', value: 'https://www.goo-net.com/usedcar/price-100-300/', label: 'Goo-net search page' },
@@ -106,8 +108,8 @@ async function run(req, injected) {
   const res = await run({ method: 'GET', headers: {} }, { db });
   ok(res.statusCode === 200, 'anonymous GET responds 200');
   const keys = Object.keys(res.body).sort();
-  ok(keys.join(',') === 'contact_address,contact_email,contact_phone,enquiry_inbox,exchange_rates,exchange_rates_updated,whatsapp_message,whatsapp_number',
-    'anonymous GET returns exactly the public allowlist');
+  ok(keys.join(',') === 'contact_address,contact_email,contact_phone,enquiry_inbox,exchange_rates,exchange_rates_updated,stock_discounts,whatsapp_message,whatsapp_number',
+    'anonymous GET returns exactly the public allowlist, including item-specific public prices');
   ok(!('goonet_bookmark_page' in res.body) && !('goonet_search_url' in res.body) && !('goonet_last_run_at' in res.body),
     'importer/operational settings are not readable anonymously');
   ok(!('default_customer_currency' in res.body) && !('base_currency' in res.body),
@@ -115,6 +117,8 @@ async function run(req, injected) {
   ok(String(res.headers['cache-control']).startsWith('public'), 'public response is publicly cacheable');
   ok(res.body.contact_email === 'ar7tradersinfo@gmail.com', 'public contact values pass through unchanged');
   ok(res.body.exchange_rates === '{"USD":1,"JPY":155}', 'exchange rates stay readable for the currency picker');
+  ok(res.body.stock_discounts.includes('car:AR7-42') && !('offer' in res.body),
+    'public per-stock discounts are readable while the retired global offer is not exposed');
 }
 // A blanked-out public value is omitted so the site falls back to defaults.
 {
@@ -164,11 +168,40 @@ async function run(req, injected) {
   ok(tables.site_settings.find(r => r.key === 'goonet_min_photos')?.value === '4', 'known importer key upserted (CRM importer form)');
   ok(tables.activities.length >= 1, 'activity log written');
 }
+// Campaign margin messaging remains a separate PromoBar feature; it does not
+// replace or edit the item-keyed stock_discounts price map.
+{
+  const {db} = memDb(SEED);
+  const promo = {active: true, headline: 'Excavator desk spotlight', cta: 'See machines',
+    href: '/machinery', discount: 12, until: '2026-12-31'};
+  const res = await run({method: 'PATCH', headers: {authorization: 'Bearer ok'},
+    body: {promo: JSON.stringify(promo)}}, {db, getUser: getUser(adminProfile), permsFor});
+  ok(res.statusCode === 200, 'owner-confirmed campaign margin messaging stays available in PromoBar');
+}
+
+// Per-stock prices are public but only a validated car:REF / machine:REF map is writable.
+{
+  const { db, tables } = memDb(SEED);
+  const discounts = {version: 1, items: {
+    'machine:AR7-MC-004': {kind: 'machine', ref: 'AR7-MC-004', percent: 22, until: '2026-12-31'}
+  }};
+  const res = await run({method: 'PATCH', headers: {authorization: 'Bearer ok'},
+    body: {stock_discounts: JSON.stringify(discounts)}},
+    {db, getUser: getUser(adminProfile), permsFor});
+  ok(res.statusCode === 200, 'PATCH accepts valid stock-specific discounts through the existing settings API');
+  ok(tables.site_settings.find(r => r.key === 'stock_discounts')?.value === JSON.stringify(discounts),
+    'the existing settings entity persists the item-keyed public discount');
+}
+
 // Validation: unknown keys, bad emails, oversized values, objects.
 {
   const { db } = memDb(SEED);
   const cases = [
     [{ not_a_setting: 'x' }, 'unknown key', /Unknown setting key/],
+    [{ offer: '{"active":true,"scope":"all","percent":20}' }, 'retired global offer setting', /Unknown setting key/],
+    [{ stock_discounts: 'not-json' }, 'malformed stock discounts', /stock_discounts must be a JSON object/],
+    [{ promo: JSON.stringify({active: true, headline: 'Sale', cta: 'Browse', href: '/inventory', until: '2026-02-30'}) },
+      'impossible campaign end date', /real YYYY-MM-DD/],
     [{ contact_email: 'not-an-email' }, 'invalid email', /valid email/],
     [{ contact_phone: 'x'.repeat(400) }, 'oversized value', /too long/],
     [{ whatsapp_message: { nested: true } }, 'object value', /must be a string/]

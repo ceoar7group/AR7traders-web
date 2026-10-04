@@ -12,10 +12,9 @@
 // carry. The card's thumbnail strip stays on the card (it is a preview), but
 // the photo and the "N photos" button both go to the page.
 //
-// A live price offer (the CRM's "Price offers" panel, `npm run offer`, or an
-// instruction typed into that panel) is applied here from src/offers.js: the
-// card and the detail page show the list price struck through, the reduced
-// price, and what the buyer saves — from one function, never two.
+// A stock-specific discount (the CRM's "Price offers" panel or `npm run
+// offer`) is applied here from src/offers.js: the card and detail page show
+// the list price, reduced price and saving for this reference alone.
 import React, {useEffect, useMemo, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {
@@ -31,7 +30,7 @@ import {
   machineByRef, machineHref
 } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
-import {useOffer, percentFor, priceWithOffer, describeOffer} from './offers.js';
+import {useStockDiscounts, stockDiscountFor, priceWithOffer, formatDate} from './offers.js';
 import {MACHINERY_FAQS} from './seo.js';
 import './machinery.css';
 
@@ -94,13 +93,14 @@ const usageOf = m => {
 function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   const {fmt} = useCurrency();
   const {t} = useLang();
-  const offer = useOffer();
+  const discounts = useStockDiscounts();
+  const offer = stockDiscountFor(discounts, 'machine', machine.ref);
   useMachineryVersion();
   const photos = machineImages(machine);
   const [shot, setShot] = useState(0);
   const [zoom, setZoom] = useState(false);
   const label = machine.type.endsWith('s') ? machine.type.slice(0, -1) : machine.type;
-  const percent = percentFor(offer, 'machine', {ref: machine.ref, type: machine.type});
+  const percent = offer?.percent || 0;
   const price = priceWithOffer(listPriceUSD(machine), percent);
   const related = MACHINES.filter(m => m.id !== machine.id && m.type === machine.type).slice(0, 3);
   const back = `/machinery/${machine.type.toLowerCase()}`;
@@ -160,7 +160,7 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
                   <span className="mch-save-chip">Save {fmt(price.saving)}</span>
                 </div>
               : <b>{fmt(price.now)}</b>}
-            {price.hasOffer && <em className="mch-offer-line">{describeOffer(offer)?.note}</em>}
+            {price.hasOffer && <em className="mch-offer-line">Individual stock discount{offer?.until ? ` — ends ${formatDate(offer.until)}` : ''}. Indicative FOB price; confirmed with your written quotation.</em>}
           </div>
           <div className="mch-detail-meta">
             <span><Gauge/> {machine.year} · {usageOf(machine)}</span>
@@ -197,7 +197,8 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
           <h2>Other {machine.type.toLowerCase()} we can quote</h2>
           <div className="mch-related-grid">
             {related.map(m => {
-              const pct = percentFor(offer, 'machine', {ref: m.ref, type: m.type});
+              const relatedDiscount = stockDiscountFor(discounts, 'machine', m.ref);
+              const pct = relatedDiscount?.percent || 0;
               const p = priceWithOffer(listPriceUSD(m), pct);
               return <a key={m.id} className="mch-related-card" href={machineHref(m)}
                 onClick={e => {
@@ -238,13 +239,14 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   </section>;
 }
 
-function MachineCard({machine, onQuote, onChat, navigate, offer}) {
+function MachineCard({machine, onQuote, onChat, navigate, discounts}) {
   const {fmt} = useCurrency();
   const {t} = useLang();
   const label = machine.type.endsWith('s') ? machine.type.slice(0, -1) : machine.type;
   const photos = machineImages(machine);
   const [shot, setShot] = useState(0);
-  const percent = percentFor(offer, 'machine', {ref: machine.ref, type: machine.type});
+  const offer = stockDiscountFor(discounts, 'machine', machine.ref);
+  const percent = offer?.percent || 0;
   const price = priceWithOffer(listPriceUSD(machine), percent);
   const href = machineHref(machine);
   const open = () => navigate(href);
@@ -301,6 +303,7 @@ function MachineCard({machine, onQuote, onChat, navigate, offer}) {
           {price.hasOffer
             ? <span className="mch-price-row"><s>{fmt(price.was)}</s> <b>{fmt(price.now)}</b></span>
             : <b>{fmt(price.now)}</b>}
+          {price.hasOffer && <small className="mch-offer-line">{offer?.until ? `Individual discount ends ${formatDate(offer.until)}. ` : 'Individual stock discount. '}Indicative FOB; confirmed in quotation.</small>}
         </div>
         <div className="mch-actions">
           <a className="mch-view" href={href} onClick={openClick}>View machine <ArrowRight/></a>
@@ -324,7 +327,7 @@ const PRICE_BANDS = [
 export function MachineryPage({navigate, openAuction, openChat, initialType, machineRef}) {
   const s = useSettings();
   const {t} = useLang();
-  const offer = useOffer();
+  const discounts = useStockDiscounts();
   // /machinery/excavators pre-selects the filter; "all" (plural, lower case)
   // and any unknown slug fall back to the full catalogue.
   const start = MACHINE_TYPES.find(t => t.toLowerCase() === String(initialType || '').toLowerCase()) || 'All';
@@ -429,16 +432,6 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
         {TRUST.map(([I, title, body]) => <div key={title}><I/><b>{title}</b><span>{body}</span></div>)}
       </div>
 
-      {offer && (
-        <div className="mch-offer-bar" role="status">
-          <Sparkles size={15}/>
-          <span>
-            <b>{describeOffer(offer).line}</b>{describeOffer(offer).untilLabel ? ` — ends ${describeOffer(offer).untilLabel}` : ''}
-            {' '}<small>Applied to the prices below. Indicative FOB, confirmed with your quotation.</small>
-          </span>
-        </div>
-      )}
-
       <div className="mch-toolbar">
         <div className="inv-chips" role="tablist" aria-label="Machine type">
           <div>
@@ -479,7 +472,7 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
       </div>
 
       <div className="mch-grid">
-        {list.map(m => <MachineCard key={m.id} machine={m} onQuote={openAuction} onChat={openChat} navigate={navigate} offer={offer}/>)}
+        {list.map(m => <MachineCard key={m.id} machine={m} onQuote={openAuction} onChat={openChat} navigate={navigate} discounts={discounts}/>)}
       </div>
       {list.length === 0 && (
         <div className="mch-empty">

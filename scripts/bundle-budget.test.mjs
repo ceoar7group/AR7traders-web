@@ -153,11 +153,10 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // and price offers. Every machine now has its own URL (/machinery/<type>/<REF>)
 // with a real detail page, and a discount applied in the CRM is priced by
 // src/offers.js everywhere the site shows a number — the card, the detail page,
-// the home teaser, the promo bar and the Product structured data. The offer
-// engine is deliberately in the entry (the promo bar needs it on any page); the
-// sentence parser that reads "20% off machinery until 30 November" is NOT — it
-// lives in src/offers-request.js, inside the CRM's lazy chunk, and that split
-// took ~2 kB raw back off this number. Measured 461.61 kB raw / 136.23 kB gzip.
+// the home teaser, the promo bar and the Product structured data. The shared
+// stock-discount lookup is in the entry (public cards and PromoBar need it on
+// first paint); the CRM catalogue editor stays in its lazy chunk.
+// Discounts are per-reference, with no catalogue-wide pricing path. Measured 461.61 kB raw / 136.23 kB gzip.
 // Ratcheted 463 → 464 kB raw (gzip unchanged) on 2026-10-04: a campaign and a
 // price offer can be live at once. The promotion bar used to render the offer
 // only when no campaign was running, so the owner — with the China-desk

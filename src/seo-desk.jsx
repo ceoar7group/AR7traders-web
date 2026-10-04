@@ -6,20 +6,22 @@
 // on, pulls the real /sitemap.xml and /robots.txt the crawlers see, and prints
 // the result — plus the commands that fix what it finds.
 //
-// Since 2026-10-04 it also CREATES content: the guide creator takes a title,
-// slug, category, image, description and markdown body, validates them against
-// the same slug rules as src/news-data.js, refuses duplicate slugs, outputs
-// the article JSON (console + clipboard) for pasting into src/news-data.js,
-// and audits the draft at its canonical /news/<slug> path with the same
-// engine — so the operator sees the score before the article ships.
+// Since 2026-10-04 it also publishes guides through the existing site_articles
+// entity and /api/site-content?entity=articles CRUD. The creator validates its
+// title, slug, category, image, description and body, refuses duplicate slugs,
+// publishes without a source edit or redeploy, and audits the canonical
+// /news/<slug> URL with the same engine before reporting success.
 //
 // It is a staff route: noindex, and never linked from the public nav.
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Search, Wrench, X, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2 } from 'lucide-react';
 import { auditDocument, summarise } from './seo-audit.js';
 import { applySeo, BASE } from './seo.js';
-import { NEWS, NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH } from './news-data.js';
+import { NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH, getPublishedNews, getNewsCategories, setPublishedNews } from './news-data.js';
+import { updateSettingsCache } from './site-settings.js';
+import { campaignIsLive } from './offers.js';
+import './seo-desk.css';
 
 const ROUTES = [
   ['/', 'Home'],
@@ -58,34 +60,30 @@ export const GUIDE_ASSETS = [
   '/assets/og/shipping.jpg'
 ];
 
-// The exact slug shape articleSlug() emits: lowercase alphanumerics joined by
-// single hyphens, never starting or ending with a hyphen, max 90 characters.
-const SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
 const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 const readMins = body => Math.max(2, Math.round(String(body).split(/\s+/).filter(Boolean).length / 200));
 
 /** Validate the guide form. Returns {errors, warnings, slug} — errors block,
  *  warnings advise (they mirror what the audit would score down). */
-export function validateGuide(form) {
+export function validateGuide(form, publishedArticles = getPublishedNews()) {
   const errors = {};
   const warnings = [];
   const title = String(form.title || '').trim();
-  let slug = String(form.slug || '').trim();
+  // site_articles has no slug column: keep the canonical path derived from the
+  // stored title so the URL the desk audits is the URL the public site serves.
+  const slug = articleSlug(title);
 
   if (!title) errors.title = 'A title is required.';
   else if (title.length > 65) warnings.push(`Title is ${title.length} characters — the audit warns past 65.`);
 
-  if (!slug) slug = articleSlug(title);
   if (!slug) errors.slug = 'A slug is required — it is derived from the title.';
-  else if (!SLUG_SHAPE.test(slug)) errors.slug = 'Slugs are lowercase letters, numbers and single hyphens — no spaces, capitals, underscores or trailing hyphen.';
-  else if (slug.length > MAX_SLUG_LENGTH) errors.slug = `Slug is ${slug.length} characters — the maximum is ${MAX_SLUG_LENGTH}.`;
   else {
-    const dup = articleBySlug(slug);
-    if (dup) errors.slug = `"${slug}" is already published as “${dup.title}”. Pick a different slug.`;
+    const dup = articleBySlug(slug, publishedArticles);
+    if (dup) errors.slug = `"${slug}" is already published as “${dup.title}”. Pick a different title.`;
   }
 
-  if (!NEWS_CATEGORIES.includes(form.cat)) errors.cat = 'Pick one of the categories the /news page already filters by.';
+  const knownCategories = new Set([...NEWS_CATEGORIES, ...publishedArticles.map(article => article.cat).filter(Boolean)]);
+  if (!knownCategories.has(form.cat)) errors.cat = 'Pick one of the categories already used on the /news page.';
 
   const img = String(form.img || '').trim();
   if (!img) errors.img = 'Pick an og:image.';
@@ -125,37 +123,59 @@ export function sitemapBlock(slug, { today = new Date().toISOString().slice(0, 1
     '  </url>';
 }
 
-export default function SeoDesk({ navigate }) {
+export default function SeoDesk({ navigate, token, canPublish = false, canPromote = false, notify = () => {} }) {
+  const categories = getNewsCategories();
   const [sitemapUrls, setSitemapUrls] = useState([]);
   const [robots, setRobots] = useState('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState('');
+  const [articles, setArticles] = useState(getPublishedNews());
+  const [campaign, setCampaign] = useState(null);
+  const [campaignBusy, setCampaignBusy] = useState(false);
+  const [guideBusy, setGuideBusy] = useState(false);
+  const [campaignForm, setCampaignForm] = useState({headline: '', sub: '', cta: 'Browse stock', href: '/inventory', until: ''});
 
   // ---- guide creator state --------------------------------------------------
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ title: '', slug: '', cat: NEWS_CATEGORIES[0], img: GUIDE_ASSETS[0], desc: '', body: '' });
-  const [slugTouched, setSlugTouched] = useState(false);
+  const [form, setForm] = useState({ title: '', cat: categories[0] || NEWS_CATEGORIES[0], img: GUIDE_ASSETS[0], desc: '', body: '' });
   const [createErrors, setCreateErrors] = useState({});
   const [createWarnings, setCreateWarnings] = useState([]);
-  const [created, setCreated] = useState(null); // { article, json, slug, url, copied }
+  const [created, setCreated] = useState(null); // { article, json, slug, url, published, clip }
   const [draftAudit, setDraftAudit] = useState(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
+      const auth = token ? {headers: {Authorization: `Bearer ${token}`}} : {};
       try {
-        const [sm, rb] = await Promise.all([
-          fetch('/sitemap.xml', { cache: 'no-store' }).then(r => r.ok ? r.text() : ''),
-          fetch('/robots.txt', { cache: 'no-store' }).then(r => r.ok ? r.text() : '')
+        const [sm, rb, newsRes, settingsRes] = await Promise.all([
+          fetch('/sitemap.xml', {cache: 'no-store'}).then(r => r.ok ? r.text() : ''),
+          fetch('/robots.txt', {cache: 'no-store'}).then(r => r.ok ? r.text() : ''),
+          fetch('/api/site-content?entity=articles', {cache: 'no-store'}),
+          fetch('/api/settings', {cache: 'no-store', ...auth})
         ]);
         if (!alive) return;
-        setSitemapUrls([...String(sm).matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1].trim()));
+        const urls = [...String(sm).matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1].trim());
+        setSitemapUrls(urls);
         setRobots(rb);
-      } catch { /* offline preview: the page still audits what it has */ }
+        if (newsRes.ok) {
+          const rows = await newsRes.json();
+          if (Array.isArray(rows)) { setPublishedNews(rows); setArticles(getPublishedNews()); }
+        }
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json();
+          let saved = settings?.promo;
+          if (typeof saved === 'string') { try { saved = JSON.parse(saved); } catch { saved = null; } }
+          if (saved?.active) {
+            setCampaign(saved);
+            setCampaignForm({headline: saved.headline || '', sub: saved.sub || '', cta: saved.cta || 'Browse stock', href: saved.href || '/inventory', until: saved.until || ''});
+          }
+        }
+      } catch { /* offline preview: the audit remains available */ }
       if (alive) setLoading(false);
     })();
     return () => { alive = false; };
-  }, []);
+  }, [token]);
 
   const report = useMemo(() => {
     if (typeof document === 'undefined') return null;
@@ -192,59 +212,120 @@ export default function SeoDesk({ navigate }) {
   };
 
   const editTitle = v => {
-    setForm(f => ({ ...f, title: v, slug: slugTouched ? f.slug : articleSlug(v) }));
+    setForm(f => ({...f, title: v}));
     setCreateErrors({});
     setCreated(null);
     setDraftAudit(null);
   };
 
-  // ---- create guide ----------------------------------------------------------
-  // Validates, generates the NEWS-shaped article, outputs it (console +
-  // clipboard) and audits the draft at /news/<slug> with the same engine.
-  // It writes NOTHING to the database — this is a staff tool, and the paste
-  // into src/news-data.js (or the database) stays a deliberate human act.
+  const refreshArticleList = async () => {
+    const response = await fetch('/api/site-content?entity=articles', {cache: 'no-store'});
+    if (!response.ok) throw new Error('The public guide list could not be refreshed.');
+    const rows = await response.json();
+    if (!Array.isArray(rows)) throw new Error('The public guide list returned an unexpected response.');
+    setPublishedNews(rows);
+    const fresh = getPublishedNews();
+    setArticles(fresh);
+    return fresh;
+  };
+
+  // ---- publish guide ---------------------------------------------------------
+  // Validates and audits a draft first, then writes through the existing
+  // site-content API (site.write permission). The public news page hydrates
+  // published rows from that same table; no source edit or redeploy is needed.
   const createGuide = async e => {
     e.preventDefault();
-    const { errors, warnings, slug } = validateGuide(form);
+    if (!canPublish || !token) { notify('Your role cannot publish website guides. Ask a website editor.'); return; }
+    const { errors, warnings, slug } = validateGuide(form, articles);
     setCreateErrors(errors);
     setCreateWarnings(warnings);
     if (Object.keys(errors).length) { setCreated(null); setDraftAudit(null); return; }
 
     const article = buildArticle(form, slug);
     const json = JSON.stringify(article, null, 2);
-    // eslint-disable-next-line no-console
-    console.log('[seo-desk] new guide — paste this object into RAW_NEWS in src/news-data.js:\n' + json);
-
-    let clip = 'copy-failed';
-    try { await navigator.clipboard.writeText(json); clip = 'copied'; }
-    catch { /* clipboard blocked — the JSON stays visible and selectable below */ }
-
     const url = BASE + '/news/' + encodeURIComponent(slug);
-    setCreated({ article, json, slug, url, clip });
-
-    // Audit the draft at its canonical path: the real applySeo() runs against
-    // a scratch document (never the live page), resolving the article from the
-    // draft list, and the shared engine scores exactly what crawlers would see
-    // once the article ships. The sitemap fact includes the article's own URL
-    // — the score is for the published state, and the sitemap block below is
-    // the one line that makes it true.
+    setGuideBusy(true);
     try {
+      const nextOrder = Math.min(0, ...articles.map(a => Number(a.sort_order) || 0)) - 1;
+      const response = await fetch('/api/site-content?entity=articles', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+        body: JSON.stringify({title: article.title, category: article.cat, date: article.date,
+          read_min: article.min, image: article.img, excerpt: article.ex, body: article.body,
+          published: true, sort_order: nextOrder})
+      });
+      const saved = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(saved.error || `Guide publication failed (${response.status}).`);
+      let clip = 'copy-failed';
+      try { await navigator.clipboard.writeText(json); clip = 'copied'; } catch { /* clipboard may be blocked in the preview */ }
+      const published = await refreshArticleList();
+      const liveArticle = articleBySlug(slug, published) || article;
+      setCreated({article: liveArticle, json, slug, url, clip, published: true, id: saved.id});
+      setSitemapUrls(list => list.includes(url) ? list : [...list, url]);
+      notify(`Guide published: ${article.title}. The public news page can serve it now.`);
+
+      // Audit the just-published canonical URL against the same shared SEO
+      // renderer and include it in the sitemap facts shown to the operator.
       const draftDoc = document.implementation.createHTMLDocument('draft');
-      applySeo('news', slug, null, { articleList: [...NEWS, article], doc: draftDoc });
+      applySeo('news', slug, null, {articleList: published, doc: draftDoc});
       setDraftAudit(auditDocument(draftDoc, {
-        route: 'news/' + slug,
-        url,
-        expectIndexable: true,
-        origin: BASE,
-        facts: { sitemapUrls: [...sitemapUrls, url], robotsTxt: robots },
-        skipBody: true
+        route: 'news/' + slug, url, expectIndexable: true, origin: BASE,
+        facts: {sitemapUrls: [...sitemapUrls, url], robotsTxt: robots}, skipBody: true
       }));
-    } catch { setDraftAudit(null); }
+    } catch (error) {
+      notify(error.message || 'Guide publication failed.');
+      setCreated(null);
+      setDraftAudit(null);
+    } finally { setGuideBusy(false); }
   };
 
+  const saveCampaign = async e => {
+    e?.preventDefault?.();
+    if (!canPromote || !token) { notify('Your role cannot publish campaign banners. Ask a settings administrator.'); return; }
+    const headline = String(campaignForm.headline || '').trim();
+    const cta = String(campaignForm.cta || '').trim();
+    const href = String(campaignForm.href || '').trim();
+    if (!headline || headline.length > 90 || !cta || !href.startsWith('/') || href.startsWith('//')) {
+      notify('Add a headline (up to 90 characters), a CTA and an internal link.'); return;
+    }
+    const payload = {id: campaign?.id || `crm-promo-${Date.now().toString(36)}`, active: true,
+      headline, sub: String(campaignForm.sub || '').trim(), cta, href,
+      until: campaignForm.until || null, publishedAt: new Date().toISOString(),
+      ...(campaign?.discount != null ? {discount: campaign.discount} : {})};
+    setCampaignBusy(true);
+    try {
+      const response = await fetch('/api/settings', {method: 'PATCH',
+        headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+        body: JSON.stringify({promo: JSON.stringify(payload)})});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Campaign publish failed (${response.status}).`);
+      setCampaign(payload);
+      updateSettingsCache({promo: JSON.stringify(payload)});
+      notify('Campaign banner published. It will display alongside, not instead of, stock-specific savings.');
+    } catch (error) { notify(error.message || 'Campaign publish failed.'); }
+    finally { setCampaignBusy(false); }
+  };
+
+  const clearCampaign = async () => {
+    if (!canPromote || !token) { notify('Your role cannot clear campaign banners.'); return; }
+    setCampaignBusy(true);
+    try {
+      const payload = {active: false};
+      const response = await fetch('/api/settings', {method: 'PATCH',
+        headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+        body: JSON.stringify({promo: JSON.stringify(payload)})});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Campaign clear failed (${response.status}).`);
+      setCampaign(null);
+      updateSettingsCache({promo: JSON.stringify(payload)});
+      setCampaignForm({headline: '', sub: '', cta: 'Browse stock', href: '/inventory', until: ''});
+      notify('Campaign banner cleared.');
+    } catch (error) { notify(error.message || 'Campaign clear failed.'); }
+    finally { setCampaignBusy(false); }
+  };
   return (
-    <section className="inner-page extra-page">
-      <div className="page-hero mini extra-head">
+    <section className="inner-page extra-page seo-desk-embedded">
+      <div className="page-hero mini extra-head seo-desk-header">
         <div className="shell">
           <div className="kicker">STAFF TOOL · NOINDEX</div>
           <h1>SEO <em>desk.</em></h1>
@@ -262,16 +343,30 @@ export default function SeoDesk({ navigate }) {
         </div>
       </div>
 
-      <div className="shell page-content">
+      <div className="shell page-content seo-desk-content">
+        <section className="seo-card seo-campaign-hub">
+          <div className="seo-hub-title"><Megaphone size={18}/><div><h2>Campaign launchpad</h2><p>Publish the public PromoBar from this staff-only desk. This is campaign messaging only—real price savings remain attached to individual stock in Price offers.</p></div></div>
+          <div className={'seo-campaign-status' + (campaign && campaignIsLive(campaign) ? ' live' : '')}>
+            <span><i/>{campaign ? (campaignIsLive(campaign) ? 'Campaign live' : 'Saved campaign expired') : 'No campaign is live'}</span>
+            {campaign && <small>{campaign.headline}{campaign.until ? ` · through ${campaign.until}` : ' · no end date'}</small>}
+          </div>
+          <form className="seo-campaign-form" onSubmit={saveCampaign}>
+            <label><span>Headline</span><input value={campaignForm.headline} maxLength={90} onChange={e => setCampaignForm(v => ({...v, headline: e.target.value}))} placeholder="A new shipment has arrived" aria-label="Campaign headline"/></label>
+            <label><span>Button text</span><input value={campaignForm.cta} maxLength={40} onChange={e => setCampaignForm(v => ({...v, cta: e.target.value}))} placeholder="Browse stock" aria-label="Campaign button text"/></label>
+            <label><span>Internal destination</span><select value={campaignForm.href} onChange={e => setCampaignForm(v => ({...v, href: e.target.value}))} aria-label="Campaign destination"><option value="/inventory">Vehicle inventory</option><option value="/machinery">Machinery</option><option value="/news">News &amp; guides</option><option value="/shipping">Shipping</option><option value="/contact">Contact the desk</option></select></label>
+            <label><span>End date (optional)</span><input type="date" value={campaignForm.until} onChange={e => setCampaignForm(v => ({...v, until: e.target.value}))} aria-label="Campaign end date"/></label>
+            <label className="seo-campaign-wide"><span>Supporting line</span><textarea value={campaignForm.sub} maxLength={220} rows={2} onChange={e => setCampaignForm(v => ({...v, sub: e.target.value}))} placeholder="Short, accurate context for this campaign" aria-label="Campaign supporting line"/></label>
+            <div className="seo-campaign-actions"><button className="gold-btn" type="submit" disabled={!canPromote || campaignBusy}>{campaignBusy ? <RefreshCw size={14}/> : <Send size={14}/>} Publish campaign</button>{campaign && <button className="seo-clear-campaign" type="button" onClick={clearCampaign} disabled={!canPromote || campaignBusy}><Trash2 size={14}/> Clear campaign</button>}{!canPromote && <small>Your role can review this desk but cannot publish site settings.</small>}</div>
+          </form>
+        </section>
+
         {creating && (
           <form className="seo-card seo-create" onSubmit={createGuide}>
             <h3><FilePlus2 size={16}/> Create a buyer guide</h3>
             <p className="seo-muted">
-              Fills in the article shape <code>src/news-data.js</code> uses, validates the slug
-              against the same rules as <code>articleSlug()</code>, refuses duplicates, copies the
-              JSON to your clipboard, and audits the draft at its canonical <code>/news/&lt;slug&gt;</code> path.
-              It writes nothing — pasting the JSON into <code>src/news-data.js</code> (or the database)
-              stays a deliberate act.
+              Creates a complete guide, checks its slug and metadata, audits the canonical
+              <code>/news/&lt;slug&gt;</code> page, then publishes through the staff website-content API.
+              The new guide is available on the public news page without a code edit or redeploy.
             </p>
 
             <div className="seo-create-grid">
@@ -287,20 +382,20 @@ export default function SeoDesk({ navigate }) {
               </label>
 
               <label>
-                <span>Slug (auto-derived from the title)</span>
+                <span>Canonical slug (derived from the title)</span>
                 <input
-                  type="text" value={form.slug} maxLength={MAX_SLUG_LENGTH + 10}
-                  onChange={e => { setSlugTouched(true); setField('slug', e.target.value); }}
+                  type="text" value={articleSlug(form.title)} maxLength={MAX_SLUG_LENGTH}
+                  readOnly aria-readonly="true" aria-label="Guide slug, derived from title"
                   placeholder="lowercase-words-joined-by-hyphens"
-                  aria-label="Guide slug"
                 />
+                <small className="seo-muted">The existing site_articles table stores the title, not a separate slug; the public URL is generated from this value.</small>
                 {createErrors.slug && <em className="seo-err">{createErrors.slug}</em>}
               </label>
 
               <label>
                 <span>Category</span>
                 <select value={form.cat} onChange={e => setField('cat', e.target.value)} aria-label="Guide category">
-                  {NEWS_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 {createErrors.cat && <em className="seo-err">{createErrors.cat}</em>}
               </label>
@@ -350,28 +445,28 @@ export default function SeoDesk({ navigate }) {
               </ul>
             )}
 
-            <button className="gold-btn" type="submit">Generate article JSON + audit</button>
+            <button className="gold-btn" type="submit" disabled={!canPublish || guideBusy}>{guideBusy ? <RefreshCw size={14}/> : <Send size={14}/>} Publish guide + audit</button>
+            {!canPublish && <p className="seo-muted">Your role can review SEO but cannot publish website guides.</p>}
 
             {created && (
               <div className="seo-created">
                 <p>
-                  <Check size={14} className="seo-ok"/> Article generated for{' '}
-                  <code>{created.url.replace(BASE, '')}</code> —{' '}
-                  {created.clip === 'copied' ? 'the JSON is on your clipboard' : 'clipboard was blocked; select the JSON below'}.
-                  {' '}Paste it into <code>RAW_NEWS</code> in <code>src/news-data.js</code>, add the
-                  sitemap block, rebuild, and the guide is live.
+                  <Check size={14} className="seo-ok"/> Guide published at{' '}
+                  <a href={created.url.replace(BASE, '')} target="_blank" rel="noreferrer"><code>{created.url.replace(BASE, '')}</code></a>.
+                  {' '}It is available from the public news page and the dynamic news sitemap.
+                  {created.clip === 'copied' ? ' A JSON backup is on your clipboard.' : ' A JSON backup is available below.'}
                 </p>
                 <pre className="seo-json">{created.json}</pre>
                 <details>
-                  <summary>Add this to public/sitemap.xml (inside &lt;urlset&gt;)</summary>
-                  <pre className="seo-json">{sitemapBlock(created.slug)}</pre>
+                  <summary>Canonical URL and published sitemap endpoint</summary>
+                  <pre className="seo-json">{created.url}<br/>{BASE}/api/sitemap-news.xml</pre>
                 </details>
                 <div className="seo-create-actions">
                   <button type="button" className="gold-btn" onClick={() => copy(created.json, 'guide-json')}>
                     {copied === 'guide-json' ? <><Check size={14}/> Copied again</> : <><Copy size={14}/> Copy JSON again</>}
                   </button>
-                  <button type="button" className="gold-btn" onClick={() => copy(sitemapBlock(created.slug), 'guide-sitemap')}>
-                    {copied === 'guide-sitemap' ? <><Check size={14}/> Sitemap block copied</> : <><Copy size={14}/> Copy sitemap block</>}
+                  <button type="button" className="gold-btn" onClick={() => copy(BASE + '/api/sitemap-news.xml', 'guide-sitemap')}>
+                    {copied === 'guide-sitemap' ? <><Check size={14}/> Sitemap URL copied</> : <><Copy size={14}/> Copy sitemap URL</>}
                   </button>
                 </div>
               </div>
@@ -487,7 +582,7 @@ export default function SeoDesk({ navigate }) {
           <h3>Landing pages the site publishes</h3>
           <div className="seo-landing">
             {ROUTES.map(([href, label]) => (
-              <a key={href} href={href} onClick={e => { e.preventDefault(); navigate && navigate(href); }}>
+              <a key={href} href={href} onClick={e => { if (navigate) { e.preventDefault(); navigate(href); } }}>
                 {label} <code>{href}</code> <ArrowRight size={13}/>
               </a>
             ))}

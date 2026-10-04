@@ -141,14 +141,18 @@ header of scripts/promo-agent.mjs.
 - channels: blog, facebook
 - Read the grade before you bid — our translation guide
 
-## Publishing
+## Launching a campaign
+
+Review the candidate and publish it from the CRM's SEO desk → Campaign launchpad.
+The desk saves to the authenticated `promo` setting and updates the live PromoBar
+without a deploy. Only staff with `settings.write` can publish or clear it.
 
 ```bash
-npm run promo:publish -- --id machinery-excavators
-npm run promo:social  -- --id machinery-excavators
-npm run promo:publish -- --none        # take the banner down
+npm run promo:social -- --id machinery-excavators
 ```
 
-Publishing writes `public/promo.json`, which the site's promo bar reads on
-the next deploy. Social copy is printed for you to send from the real
-accounts — see "Publishing to social" in scripts/promo-agent.mjs for why.
+Social copy is printed for you to send from the real accounts — see
+"Publishing to social" in scripts/promo-agent.mjs for why.
+
+The legacy `npm run promo:publish` command only edits `public/promo.json`,
+the static fallback used when the settings API is unavailable.

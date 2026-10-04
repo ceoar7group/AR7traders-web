@@ -451,8 +451,8 @@
   .machinery-page .machinery-hero::before{background:linear-gradient(180deg,#0b1a13f7 0%,#0b1a13d9 55%,#0b1a13bf 100%)}
 }
 
-/* ── Price offers ────────────────────────────────────────────────────────────
-   One live offer, applied by src/offers.js. The list price stays visible and
+/* ── Stock discounts ─────────────────────────────────────────────────────────
+   One reference-specific discount, applied by src/offers.js. The list price stays visible and
    struck through — a buyer has to be able to see what they are saving against,
    and a price that only appears in its reduced form looks invented. */
 .mch-offer-bar{

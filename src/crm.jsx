@@ -14,15 +14,16 @@ import {
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
-import { MACHINES, MACHINE_TYPES } from './machinery-data.js';
+import { updateSettingsCache } from './site-settings.js';
+import SeoDesk from './seo-desk.jsx';
+import { MACHINES, MACHINE_TYPES, listPriceUSD } from './machinery-data.js';
+import { buildDiscountStockRows } from './stock-discount-catalogue.js';
 import { RIGHTS, rightsAreUsable } from './machinery-source.js';
+import {priceWithOffer, formatDate, stockDiscountFor} from './offers.js';
 import {
-  OFFER_SCOPES, MIN_OFFER_PERCENT, MAX_OFFER_PERCENT, validateOffer,
-  describeOffer, percentFor, priceWithOffer, formatDate
-} from './offers.js';
-// The sentence parser lives in its own module so it stays out of the first-load
-// bundle: only the CRM and `npm run offer` need to read a written instruction.
-import { parseOfferRequest } from './offers-request.js';
+  EMPTY_STOCK_DISCOUNTS, STOCK_DISCOUNT_VERSION, STOCK_DISCOUNT_MIN_PERCENT,
+  STOCK_DISCOUNT_MAX_PERCENT, validateStockDiscounts, parseStockDiscounts
+} from './stock-discounts.js';
 import './crm.css';
 
 const DEMO = import.meta.env.VITE_CRM_DEMO === 'true';
@@ -230,6 +231,7 @@ const tabs = [
   ['people', 'People & payroll', Briefcase],
   ['settings', 'Website settings', Settings],
   ['offers', 'Price offers', Percent],
+  ['seo', 'SEO desk', Search],
   ['guardian', 'Site guardian', ShieldCheck],
   ['activities', 'Activity log', Activity]
 ];
@@ -1102,7 +1104,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk' };
+  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'SEO desk' };
   // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
   // activeEntity picks which set the panel, the toolbar and the editor work on.
   const activeEntity = tab === 'vehicles' ? carSub : tab;
@@ -1220,9 +1222,11 @@ export default function CrmApp() {
         ) : tab === 'people' ? (
           <PeopleView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
         ) : tab === 'offers' ? (
-          <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
+          <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} rows={rows} onOpenSeo={() => setTab('seo')} />
+        ) : tab === 'seo' ? (
+          <SeoDesk token={session.access_token} canPublish={hasPerm(perms, profile?.role, 'site.write')} canPromote={hasPerm(perms, profile?.role, 'settings.write')} notify={setNotice} />
         ) : tab === 'guardian' ? (
-          <GuardianView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
+          <GuardianView notify={setNotice} onOpenSeo={() => setTab('seo')} />
         ) : tab === 'settings' ? (
           <SettingsView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
         ) : tab === 'accounts' ? (
@@ -4231,380 +4235,200 @@ function CustomerModal({ modal, customer, orders, listings, busy, onClose, post,
   return null;
 }
 
-/* ── Site guardian & promotions ──────────────────────────────────────────────
-   The CRM face of scripts/guardian.mjs and scripts/promo-agent.mjs.
-
-   Health: the report is written by `npm run guard` (locally or by the nightly
-   GitHub Action) into public/guardian-report.json, so what the panel shows is
-   the last real run against the last real build — not a live scan of a
-   serverless function, which could not read the repo anyway.
-
-   Promotions: writing the `promo` setting is genuine control — the promo bar
-   reads it on the next page load, with no deploy. The panel will not offer a
-   discount it cannot honour, so `--discount`-style input is validated the same
-   way api/settings.js validates it.
-
-   Both panels say who can do what: publishing needs the same permission as
-   editing the website, and the button is disabled rather than hidden so a
-   viewer can see that the control exists. */
+/* ── Site guardian ───────────────────────────────────────────────────────────
+   The CRM reads the last repository-based health run. Campaign publishing is
+   intentionally centralised in the staff-only SEO desk; this panel links there
+   rather than maintaining a second promotion control. */
 /* ── Price offers ────────────────────────────────────────────────────────────
-   The owner's discount, applied to the live site from here.
+   Each editor row targets one identified car or machine. The same validator
+   protects the settings API and the CRM; the preview uses the same rounded
+   arithmetic as the public cards. Publishing needs settings.write. Campaign
+   banners are deliberately handed to the staff-only SEO desk instead. */
 
-   Two ways in, because both are real: the form (scope, percentage, machine
-   types, end date) and the request box, which takes a sentence — "20% off
-   machinery until 30 November" — and turns it into exactly the same offer
-   object. The request box is deterministic (src/offers.js parseOfferRequest):
-   it reads a percentage and a scope, refuses to guess, and shows the draft for
-   review before anything is published. It never invents a number.
-
-   Nothing here is a promise the site cannot keep: the percentage is validated
-   the same way api/settings.js validates it, the preview runs the same
-   src/offers.js arithmetic the website runs, and an offer with an end date
-   stops on that date by itself. Publishing needs settings.write — the same
-   permission as editing the website — and the button is disabled rather than
-   hidden so a viewer can see the control exists. */
-
-function OffersView({ token, profile, perms, notify }) {
+function OffersView({token, profile, perms, notify, rows, onOpenSeo}) {
   const canPublish = hasPerm(perms, profile?.role, 'settings.write');
-  const [live, setLive] = useState(null);          // the offer visitors see now
+  const [live, setLive] = useState(EMPTY_STOCK_DISCOUNTS);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [request, setRequest] = useState('');
-  const [reply, setReply] = useState(null);        // {ok, reply}
-  const [draft, setDraft] = useState(null);        // the offer being edited
-  const [unitsOpen, setUnitsOpen] = useState(false);
-  const types = [...new Set(MACHINES.map(m => m.type))];
-  const brands = [...new Set(MACHINES.map(m => m.brand))].sort();
+  const [search, setSearch] = useState('');
+  const [kind, setKind] = useState('all');
+  const [selectedKey, setSelectedKey] = useState('');
+  const [percent, setPercent] = useState('');
+  const [until, setUntil] = useState('');
+  const [label, setLabel] = useState('');
+
+  const stockRows = useMemo(() => buildDiscountStockRows(rows, siteSeed), [rows]);
+
+  const stockByKey = useMemo(() => new Map(stockRows.map(row => [row.key, row])), [stockRows]);
+  const selectedStock = stockByKey.get(selectedKey) || null;
+  const listPrice = selectedStock?.price || 0;
+  const preview = priceWithOffer(listPrice, Number(percent) || 0);
 
   const load = async () => {
     setLoading(true);
     try {
       const all = await call('/api/settings', token);
-      setLive(parseOffer(all?.offer));
-    } catch (e) { notify(e.message); } finally { setLoading(false); }
+      setLive(parseStockDiscounts(all?.stock_discounts));
+    } catch (e) { notify(e.message); }
+    finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    if (!selectedKey && stockRows.length) setSelectedKey(stockRows[0].key);
+  }, [selectedKey, stockRows]);
+  useEffect(() => {
+    if (!selectedKey) return;
+    const existing = live.items?.[selectedKey];
+    setPercent(existing ? String(existing.percent) : '');
+    setUntil(existing?.until || '');
+    setLabel(existing?.label || '');
+  }, [selectedKey, live]);
 
-  const fresh = (patch = {}) => validateOffer({
-    active: true, scope: 'machinery', percent: 10, types: [], machines: {}, label: null,
-    headline: '', until: null, publishedBy: profile?.full_name || profile?.email || 'CRM', ...patch
-  });
-
-  const startBlank = () => {
-    const checked = fresh({ headline: '10% off machinery' });
-    setDraft(checked.ok ? checked.value : null);
-    setReply(null);
-  };
-
-  // The agent path: one sentence in, a reviewed offer object out.
-  const askAgent = () => {
-    const result = parseOfferRequest(request, {machines: MACHINES, existing: live});
-    setReply(result);
-    if (result.ok && result.action === 'publish') setDraft(result.offer);
-    else if (result.ok && result.action === 'clear') setDraft({active: false});
-  };
-
-  const publish = async () => {
-    if (!draft) return;
-    const checked = validateOffer(draft);
-    if (!checked.ok) { notify(checked.error); return; }
+  const saveAll = async next => {
+    const checked = validateStockDiscounts(next);
+    if (!checked.ok) { notify(checked.error); return false; }
     setBusy(true);
     try {
-      const payload = checked.value;
-      await call('/api/settings', token, {method: 'PATCH', body: JSON.stringify({offer: JSON.stringify(payload)})});
-      setLive(payload.active ? payload : null);
-      setDraft(null);
-      setRequest('');
-      setReply({ok: true, reply: payload.active
-        ? `Live: ${payload.headline}. The website shows it on the next page load.`
-        : 'Offer cleared. The website is back to list prices.'});
-      notify(payload.active ? `Offer published — ${payload.headline}.` : 'Offer cleared.');
-    } catch (e) { notify(e.message); } finally { setBusy(false); }
+      await call('/api/settings', token, {method: 'PATCH', body: JSON.stringify({stock_discounts: JSON.stringify(checked.value)})});
+      setLive(checked.value);
+      updateSettingsCache({stock_discounts: JSON.stringify(checked.value)});
+      notify('Stock discounts published. Updated prices appear on the public site immediately.');
+      return true;
+    } catch (e) { notify(e.message); return false; }
+    finally { setBusy(false); }
   };
 
-  if (loading) return <div className="crm-boot"><RefreshCw /><span>Reading the live offer…</span></div>;
+  const saveSelected = async () => {
+    if (!selectedStock) { notify('Choose a stock item first.'); return; }
+    const amount = Number(percent);
+    if (!Number.isInteger(amount) || amount < STOCK_DISCOUNT_MIN_PERCENT || amount > STOCK_DISCOUNT_MAX_PERCENT) {
+      notify(`Enter a whole-number discount from ${STOCK_DISCOUNT_MIN_PERCENT}% to ${STOCK_DISCOUNT_MAX_PERCENT}%.`);
+      return;
+    }
+    const next = {...live.items, [selectedKey]: {
+      kind: selectedStock.kind, ref: selectedStock.ref, percent: amount,
+      until: until || null, label: label.trim() || null,
+      publishedAt: new Date().toISOString(), publishedBy: profile?.full_name || profile?.email || 'CRM'
+    }};
+    await saveAll({version: STOCK_DISCOUNT_VERSION, items: next});
+  };
 
-  const liveText = live ? describeOffer(live) : null;
-  const sample = MACHINES.slice(0, 3);
-  const previewPercent = draft?.active ? draft.percent : 0;
-  const previewTypes = draft?.active ? (draft.types || []) : [];
+  const removeDiscount = async key => {
+    const next = {...live.items};
+    delete next[key];
+    await saveAll({version: STOCK_DISCOUNT_VERSION, items: next});
+  };
+
+  const query = search.trim().toLowerCase();
+  const matches = stockRows.filter(row => (kind === 'all' || row.kind === kind) &&
+    (!query || `${row.name} ${row.ref} ${row.category} ${row.detail}`.toLowerCase().includes(query)));
+  const current = Object.entries(live.items || {}).map(([key, discount]) => ({
+    key, discount, stock: stockByKey.get(key) || {key, kind: discount.kind, ref: discount.ref, name: discount.ref,
+      category: discount.kind === 'machine' ? 'Machinery' : 'Vehicle', price: 0, detail: 'No longer in current stock'}
+  })).sort((a, b) => a.stock.kind.localeCompare(b.stock.kind) || a.stock.name.localeCompare(b.stock.name));
+  const appliedCount = current.filter(({discount}) => stockDiscountFor({version: 1, items: {[`${discount.kind}:${discount.ref}`]: discount}}, discount.kind, discount.ref)).length;
+
+  if (loading) return <div className="crm-boot"><RefreshCw /><span>Reading per-stock discounts…</span></div>;
 
   return (
-    <div className="offers-view">
+    <div className="stock-discount-view">
       <div className="crm-page-head">
         <div>
-          <p>Apply a discount to the live site — a percentage off machinery, cars or everything, with an optional end
-            date. The website shows the list price struck through, the reduced price beside it and what the buyer
-            saves, on the cards and on each machine's own page.</p>
+          <h2>Price offers</h2>
+          <p>Publish a discount against one identified vehicle or machine. The public card keeps its list price visible beside the reduced FOB price; discounts never apply to unrelated stock.</p>
         </div>
         <div className="crm-tools">
-          <button onClick={load} title="Reload the live offer" type="button"><RefreshCw /></button>
-          <button className="crm-add" onClick={startBlank} type="button"><Plus /> New offer</button>
+          <button onClick={load} title="Reload stock discounts" type="button"><RefreshCw /></button>
+          <button className="crm-add" onClick={onOpenSeo} type="button"><Newspaper /> Open SEO desk</button>
         </div>
       </div>
 
-      <div className={'offer-live' + (live ? ' on' : '')}>
-        <Sparkles size={15} />
-        {live ? (
-          <span>
-            <b>Live now: {liveText.line}</b>
-            {liveText.untilLabel ? ` — ends ${liveText.untilLabel}` : ' — no end date'}
-            <small>Set by {live.publishedBy || 'the CRM'}{live.publishedAt ? ` on ${date(live.publishedAt)}` : ''} · scope: {live.scope}{live.types?.length ? ` (${live.types.join(', ')})` : ''}</small>
-          </span>
-        ) : <span><b>No offer is live.</b><small>Every page shows the list price. Publish one below and it appears on the next page load.</small></span>}
+      <div className="stock-discount-summary">
+        <Sparkles size={18}/>
+        <span><b>{appliedCount} live per-stock {appliedCount === 1 ? 'discount' : 'discounts'}</b>
+          <small>Dates are inclusive through the end of the displayed day. Campaign banners and publishing are managed separately in the SEO desk.</small></span>
       </div>
 
-      <section className="offer-ask">
-        <div className="offer-ask-head">
-          <Sparkles size={14} />
-          <div>
-            <b>Ask the assistant to do it</b>
-            <small>Write it how you would say it. It reads the percentage, the scope and the date — and asks when something is missing instead of guessing.</small>
+      <div className="stock-discount-workbench">
+        <section className="stock-discount-picker">
+          <div className="stock-discount-section-head"><div><b>Choose a stock item</b><small>{matches.length} matching listings and machines</small></div></div>
+          <div className="stock-discount-filters">
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or stock reference" aria-label="Search stock items"/>
+            <select value={kind} onChange={e => setKind(e.target.value)} aria-label="Filter stock type"><option value="all">All stock</option><option value="car">Vehicles</option><option value="machine">Machinery</option></select>
           </div>
-        </div>
-        <div className="offer-ask-row">
-          <input value={request} onChange={e => setRequest(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); askAgent(); } }}
-            placeholder='e.g. "give 20% off machinery until 30 November"' aria-label="Describe the offer in a sentence" />
-          <button onClick={askAgent} type="button" disabled={!request.trim()}>Prepare offer</button>
-          <button onClick={() => { setRequest(''); setReply(null); }} type="button" className="crm-ghost">Clear</button>
-        </div>
-        <div className="offer-samples">
-          {['20% off machinery', '15% off excavators until 30 November', '10 percent off all cars this month', 'clear the offer']
-            .map(x => <button key={x} type="button" onClick={() => setRequest(x)}>{x}</button>)}
-        </div>
-        {reply && (
-          <div className={'offer-reply' + (reply.ok ? ' ok' : ' warn')}>
-            {reply.ok ? <Check size={14} /> : <ShieldAlert size={14} />}
-            <span>{reply.reply}{reply.ok && reply.action === 'publish' ? ' Review it below, then publish.' : ''}</span>
-          </div>
-        )}
-      </section>
-
-      {draft && (
-        <section className="offer-editor">
-          <div className="offer-editor-head">
-            <b>{draft.active ? 'Offer to publish' : 'Clearing the offer'}</b>
-            <button className="crm-ghost" onClick={() => setDraft(null)} type="button"><X size={14} /> Discard</button>
-          </div>
-
-          {draft.active && (
-            <>
-              <div className="offer-fields">
-                <label>
-                  <span>Applies to</span>
-                  <select value={draft.scope} onChange={e => setDraft({...draft, scope: e.target.value, types: e.target.value === 'machinery' ? draft.types : []})}>
-                    {OFFER_SCOPES.map(x => <option key={x} value={x}>{x === 'all' ? 'Everything on the site' : x === 'cars' ? 'Cars only' : 'Machinery only'}</option>)}
-                  </select>
-                </label>
-                <label>
-                  <span>Discount</span>
-                  <div className="offer-percent">
-                    <input type="range" min={MIN_OFFER_PERCENT} max={MAX_OFFER_PERCENT} value={draft.percent}
-                      onChange={e => setDraft({...draft, percent: Number(e.target.value)})} aria-label="Discount percentage" />
-                    <b>{draft.percent}%</b>
-                  </div>
-                </label>
-                <label>
-                  <span>End date (optional)</span>
-                  <input type="date" value={draft.until || ''} onChange={e => setDraft({...draft, until: e.target.value || null})} />
-                </label>
-                <label>
-                  <span>Badge label (optional)</span>
-                  <input value={draft.label || ''} maxLength={40} placeholder="Autumn offer"
-                    onChange={e => setDraft({...draft, label: e.target.value || null})} />
-                </label>
-              </div>
-
-              <label className="offer-headline">
-                <span>Line visitors read</span>
-                <input value={draft.headline} maxLength={90} onChange={e => setDraft({...draft, headline: e.target.value})} />
-              </label>
-
-              {draft.scope === 'machinery' && (
-                <div className="offer-types">
-                  <span>Machine types (leave all off for the whole machinery desk)</span>
-                  <div>
-                    {types.map(t => (
-                      <button key={t} type="button" className={(draft.types || []).includes(t) ? 'on' : ''}
-                        onClick={() => setDraft({...draft, types: (draft.types || []).includes(t) ? draft.types.filter(x => x !== t) : [...(draft.types || []), t]})}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {draft.scope === 'machinery' && (
-                <div className="offer-units">
-                  <button type="button" className="crm-ghost" onClick={() => setUnitsOpen(v => !v)}>
-                    {unitsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Per-machine override ({MACHINES.length} units)
-                  </button>
-                  <small>A single unit can carry a different discount — a machine that has been on the yard longer, for example. It beats the campaign percentage above.</small>
-                  {unitsOpen && (
-                    <div className="offer-unit-grid">
-                      {MACHINES.map(m => {
-                        const raw = draft.machines?.[m.ref];
-                        const value = raw != null ? raw : '';
-                        const effective = percentFor({...draft, machines: {}}, 'machine', {ref: m.ref, type: m.type}) || (value === '' ? draft.percent : Number(value));
-                        const p = priceWithOffer(listPriceUSD(m), value === '' ? draft.percent : Number(value));
-                        return (
-                          <div key={m.ref} className={'offer-unit' + (value !== '' ? ' overridden' : '')}>
-                            <span className="offer-unit-id">
-                              <b>{m.name}</b>
-                              <small>{m.ref} · {m.type} · list {fmt0(listPriceUSD(m))}</small>
-                            </span>
-                            <input type="number" min={MIN_OFFER_PERCENT} max={MAX_OFFER_PERCENT} value={value}
-                              placeholder={String(draft.percent)} aria-label={`Discount for ${m.name}`}
-                              onChange={e => {
-                                const next = {...(draft.machines || {})};
-                                if (e.target.value === '') delete next[m.ref];
-                                else next[m.ref] = Number(e.target.value);
-                                setDraft({...draft, machines: next});
-                              }} />
-                            <span className="offer-unit-price">
-                              {p.hasOffer ? <><s>{fmt0(p.was)}</s> <b>{fmt0(p.now)}</b></> : <b>{fmt0(p.now)}</b>}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="offer-preview">
-                <b>What buyers will see</b>
-                <div className="offer-preview-grid">
-                  {sample.filter(m => previewPercent && (!previewTypes.length || previewTypes.includes(m.type))).map(m => {
-                    const pct = percentFor({...draft, machines: draft.machines || {}}, 'machine', {ref: m.ref, type: m.type});
-                    const p = priceWithOffer(listPriceUSD(m), pct);
-                    return (
-                      <div key={m.ref} className={'offer-preview-card' + (p.hasOffer ? ' on' : '')}>
-                        {machinePhoto(m) && <img loading="lazy" decoding="async" width="300" height="200" src={machinePhoto(m)} alt=""/>}
-                        <b>{m.name}</b>
-                        {p.hasOffer
-                          ? <span className="mch-price-row"><s>{fmt0(p.was)}</s> <b>{fmt0(p.now)}</b> <em>{p.percent}% off</em></span>
-                          : <span className="mch-price-row"><b>{fmt0(p.now)}</b></span>}
-                      </div>
-                    );
-                  })}
-                  {(!previewPercent || (previewTypes.length && !sample.some(m => previewTypes.includes(m.type)))) && (
-                    <p className="crm-hint">Nothing in this selection is covered — the offer applies to
-                      {draft.scope === 'cars' ? ' cars' : draft.scope === 'all' ? ' everything' : ` ${(draft.types || []).join(', ') || 'machinery'}`}.</p>
-                  )}
-                </div>
-                <small className="offer-preview-note">
-                  Same arithmetic as the website: src/offers.js rounds to the nearest $50 and keeps the list price visible.
-                  {draft.until ? ` The offer stops by itself on ${formatDate(draft.until)}.` : ' With no end date it stays live until you clear it.'}
-                </small>
-              </div>
-            </>
-          )}
-
-          <div className="offer-publish">
-            <button className="crm-add" onClick={publish} type="button" disabled={!canPublish || busy}>
-              {busy ? <RefreshCw size={14} /> : <Send size={14} />} {draft.active ? 'Publish the offer' : 'Clear the offer'}
-            </button>
-            {!canPublish && <small>Your role cannot change website settings — ask an administrator, or an admin can publish it.</small>}
-            {canPublish && <small>Publishing is immediate: the site reads the setting on its next page load. No deploy, no build.</small>}
+          <div className="stock-discount-list" role="listbox" aria-label="Stock items">
+            {matches.slice(0, 100).map(stock => {
+              const existing = live.items?.[stock.key];
+              return <button key={stock.key} type="button" role="option" aria-selected={selectedKey === stock.key}
+                className={selectedKey === stock.key ? 'selected' : ''} onClick={() => setSelectedKey(stock.key)}>
+                <span><b>{stock.name}</b><small>{stock.ref} · {stock.category}</small></span>
+                <span className="stock-discount-list-price">{fmt0(stock.price)}{existing && <em>{existing.percent}% off</em>}</span>
+              </button>;
+            })}
+            {!matches.length && <p className="crm-hint">No stock item matches that search.</p>}
+            {matches.length > 100 && <small className="crm-hint">Showing the first 100 results. Refine your search to find a specific vehicle.</small>}
           </div>
         </section>
-      )}
 
-      <section className="offer-catalogue">
-        <b>Every machine, with the current offer applied</b>
-        <div className="crm-table-wrap">
-          <table className="crm-table">
-            <thead>
-              <tr><th>Machine</th><th>Type</th><th>List (FOB)</th><th>Offer</th><th>Buyer pays</th><th>Saving</th></tr>
-            </thead>
-            <tbody>
-              {MACHINES.map(m => {
-                const pct = percentFor(live, 'machine', {ref: m.ref, type: m.type});
-                const price = priceWithOffer(listPriceUSD(m), pct);
-                return (
-                  <tr key={m.ref}>
-                    <td><b>{m.name}</b><br/><small>{m.ref} · {m.brand}</small></td>
-                    <td>{m.type}</td>
-                    <td>{fmt0(price.was)}</td>
-                    <td>{price.hasOffer ? <em className="crm-status approved">{price.percent}% off</em> : <small>—</small>}</td>
-                    <td><b>{fmt0(price.now)}</b></td>
-                    <td>{price.hasOffer ? fmt0(price.saving) : '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <section className="stock-discount-editor">
+          <div className="stock-discount-section-head"><div><b>Discount details</b><small>Only the selected stock reference will change.</small></div></div>
+          {selectedStock ? <>
+            <div className="stock-discount-selected"><span>{selectedStock.kind === 'machine' ? 'MACHINERY' : 'VEHICLE'} · {selectedStock.ref}</span><b>{selectedStock.name}</b><small>List price {fmt0(listPrice)} FOB{selectedStock.detail ? ` · ${selectedStock.detail}` : ''}</small></div>
+            <label><span>Discount percentage</span><div className="stock-discount-percent"><input type="range" min={STOCK_DISCOUNT_MIN_PERCENT} max={STOCK_DISCOUNT_MAX_PERCENT} value={Number(percent) || STOCK_DISCOUNT_MIN_PERCENT} onChange={e => setPercent(e.target.value)} aria-label="Discount percentage"/><input type="number" min={STOCK_DISCOUNT_MIN_PERCENT} max={STOCK_DISCOUNT_MAX_PERCENT} value={percent} onChange={e => setPercent(e.target.value)} placeholder="—" aria-label="Discount percentage number"/><b>%</b></div></label>
+            <label><span>End date (optional)</span><input type="date" value={until} onChange={e => setUntil(e.target.value)}/></label>
+            <label><span>Label (optional)</span><input value={label} onChange={e => setLabel(e.target.value)} maxLength={40} placeholder="Seasonal saving"/></label>
+            <div className="stock-discount-preview"><span>Buyer price</span><s>{fmt0(listPrice)}</s><b>{fmt0(preview.now)}</b>{preview.hasOffer && <em>{preview.percent}% off · save {fmt0(preview.saving)}</em>}{until && <small>Expires {formatDate(until)} (inclusive).</small>}</div>
+            <div className="stock-discount-actions"><button className="crm-add" type="button" onClick={saveSelected} disabled={!canPublish || busy || !percent}>{busy ? <RefreshCw size={14}/> : <Send size={14}/>} {live.items?.[selectedKey] ? 'Update discount' : 'Publish discount'}</button>{live.items?.[selectedKey] && <button className="crm-ghost" type="button" onClick={() => removeDiscount(selectedKey)} disabled={!canPublish || busy}><Trash2 size={14}/> Remove discount</button>}</div>
+            {!canPublish && <small className="crm-hint">Your role can review prices but cannot change public website settings.</small>}
+          </> : <p className="crm-hint">Select a vehicle or machine from the list to prepare its discount.</p>}
+        </section>
+      </div>
+
+      <section className="stock-discount-current">
+        <div className="stock-discount-section-head"><div><b>Published stock discounts</b><small>{current.length} saved · expired entries remain here until removed or renewed</small></div></div>
+        <div className="crm-table-wrap"><table className="crm-table"><thead><tr><th>Stock</th><th>Reference</th><th>List (FOB)</th><th>Discount</th><th>Buyer pays</th><th>Ends</th><th></th></tr></thead><tbody>
+          {current.map(({key, discount, stock}) => {
+            const price = priceWithOffer(stock.price, discount.percent);
+            const liveNow = !!stockDiscountFor({version: 1, items: {[key]: discount}}, discount.kind, discount.ref);
+            return <tr key={key}><td><b>{stock.name}</b><br/><small>{stock.category}</small></td><td>{discount.kind}:{discount.ref}</td><td>{stock.price ? fmt0(stock.price) : '—'}</td><td><em className={'crm-status '+(liveNow ? 'approved' : 'pending')}>{discount.percent}% off{!liveNow ? ' · expired' : ''}</em>{discount.label && <small className="stock-discount-row-label">{discount.label}</small>}</td><td><b>{stock.price ? fmt0(price.now) : '—'}</b></td><td>{discount.until ? formatDate(discount.until) : 'No end date'}</td><td><button className="crm-ghost" type="button" onClick={() => {setSelectedKey(key);setSearch('');setKind('all');}} aria-label={`Edit discount for ${stock.name}`}>Edit</button><button className="crm-ghost danger" type="button" onClick={() => removeDiscount(key)} disabled={!canPublish || busy} aria-label={`Remove discount for ${stock.name}`}><Trash2 size={13}/></button></td></tr>;
+          })}
+          {!current.length && <tr><td colSpan="7"><span className="crm-hint">No stock discounts have been published.</span></td></tr>}
+        </tbody></table></div>
       </section>
+
+      <section className="stock-discount-promo-handoff"><div><Newspaper/><span><b>Need a campaign banner, metadata or an SEO publishing plan?</b><small>Open the staff-only SEO desk to prepare and publish site promotions. It is not linked from the public site.</small></span></div><button type="button" onClick={onOpenSeo}>Open SEO desk <ArrowRight size={14}/></button></section>
     </div>
   );
 }
 
-function GuardianView({ token, profile, perms, notify }) {
+function GuardianView({ notify, onOpenSeo }) {
   const [report, setReport] = useState(null);
-  const [plan, setPlan] = useState(null);
-  const [live, setLive] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [discount, setDiscount] = useState('');
-  const [until, setUntil] = useState('');
-  const canPublish = hasPerm(perms, profile?.role, 'settings.write');
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      const grab = async url => {
-        try {
-          const r = await fetch(url, { cache: 'no-store' });
-          return r.ok ? await r.json() : null;
-        } catch { return null; }
-      };
-      const [rep, pl, set] = await Promise.all([
-        grab('/guardian-report.json'), grab('/promo-plan.json'), grab('/api/settings')
-      ]);
-      if (!alive) return;
-      setReport(rep); setPlan(pl); setLive(set?.promo || null);
-      if (!rep) setError('No guardian report yet — run `npm run guard` (or the nightly action) to produce one.');
-      setLoading(false);
-    })();
+    fetch('/guardian-report.json', {cache: 'no-store'})
+      .then(response => response.ok ? response.json() : null)
+      .then(report => {
+        if (!alive) return;
+        setReport(report);
+        if (!report) setError('No guardian report yet — run `npm run guard` (or the nightly action) to produce one.');
+      })
+      .catch(() => { if (alive) setError('Guardian report could not be loaded.'); })
+      .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, []);
 
-  const publish = async (campaign, active) => {
-    setBusy(true);
-    try {
-      const payload = active ? {
-        active: true,
-        id: campaign.id,
-        kind: campaign.kind || 'campaign',
-        headline: campaign.headline,
-        sub: campaign.sub || '',
-        cta: campaign.cta || 'See more',
-        href: campaign.target,
-        discount: discount ? Number(discount) : null,
-        until: until || null,
-        publishedAt: new Date().toISOString(),
-        publishedBy: profile?.full_name || profile?.email || 'CRM'
-      } : { active: false };
-      await call('/api/settings', token, { method: 'PATCH', body: JSON.stringify({ promo: JSON.stringify(payload) }) });
-      setLive(JSON.stringify(payload));
-      notify(active ? `Promotion live: ${campaign.headline} — visitors see it on the next page load.` : 'Promotion cleared. The bar will disappear on the next page load.');
-    } catch (e) { notify(e.message); } finally { setBusy(false); }
-  };
-
   if (loading) return <div className="crm-boot"><RefreshCw /><span>Loading the guardian report…</span></div>;
 
-  const liveObj = (() => { try { return live ? JSON.parse(live) : null; } catch { return { active: false }; } })();
   const s = report?.summary;
 
   return (
     <div className="guardian-view">
       <div className="crm-page-head">
         <div>
-          <p>Health, security and promotions — the two agents that keep the site standing, and the campaigns that bring people to it.</p>
+          <p>Health, security and SEO checks from the latest real repository run. Campaign publishing lives in the SEO desk so there is one clear hand-off.</p>
         </div>
         <div className="crm-tools">
           <a className="crm-ghost" href="https://github.com/ceoar7group/AR7traders-web/actions/workflows/guardian.yml" target="_blank" rel="noreferrer">
@@ -4656,67 +4480,9 @@ function GuardianView({ token, profile, perms, notify }) {
       )}
 
       <section className="guardian-block">
-        <h3>Promotions</h3>
-        {liveObj?.active ? (
-          <div className="guardian-live">
-            <div>
-              <b>{liveObj.headline}</b>
-              <small>{liveObj.sub}</small>
-              <small>
-                → {liveObj.href}
-                {liveObj.discount ? ` · ${liveObj.discount}% off margin` : ''}
-                {liveObj.until ? ` · until ${liveObj.until}` : ' · no end date'}
-                {liveObj.publishedBy ? ` · by ${liveObj.publishedBy}` : ''}
-              </small>
-              {liveObj.discount && <small className="guardian-warnline">Every quotation until {liveObj.until || 'it is cleared'} must show this discount.</small>}
-            </div>
-            <button className="crm-ghost" disabled={!canPublish || busy} onClick={() => publish(liveObj, false)} title={canPublish ? 'Take the bar down' : 'You need the website-edit permission'} type="button">
-              <X size={14} /> Take it down
-            </button>
-          </div>
-        ) : (
-          <p className="crm-hint">No promotion is live. The bar stays hidden until one is published.</p>
-        )}
-
-        <div className="guardian-promo-controls">
-          <label>
-            <span>Discount off our margin (optional)</span>
-            <input value={discount} onChange={e => setDiscount(e.target.value)} placeholder="e.g. 5" inputMode="numeric" />
-          </label>
-          <label>
-            <span>Ends (optional)</span>
-            <input type="date" value={until} onChange={e => setUntil(e.target.value)} />
-          </label>
-        </div>
-        <p className="crm-hint">
-          Leave the discount blank unless it is real — a promotion that quotes 5% and then charges
-          full margin costs more in trust than the campaign earns. An end date is what stops it
-          outliving the offer.
-        </p>
-
-        {!plan?.campaigns?.length ? (
-          <p className="crm-hint">No campaign plan published. Run <code>npm run promo:plan</code> and deploy, or publish a one-off below.</p>
-        ) : (
-          <div className="guardian-campaigns">
-            {plan.campaigns.map(c => (
-              <div className="guardian-campaign" key={c.id}>
-                <div>
-                  <b>{c.headline}</b>
-                  <small>{c.sub}</small>
-                  <small className="guardian-channels">{c.channels?.join(' · ')} → {c.target}{c.ran ? ' · already run' : ''}</small>
-                </div>
-                <div className="guardian-campaign-actions">
-                  <button className="crm-add" disabled={!canPublish || busy} onClick={() => publish(c, true)} title={canPublish ? 'Show this on the site' : 'You need the website-edit permission'} type="button">
-                    <Send size={13} /> Publish
-                  </button>
-                  <button className="crm-ghost" onClick={() => { navigator.clipboard?.writeText(`https://ar7traders.com${c.target}`); notify('Link copied'); }} title="Copy the campaign link" type="button">
-                    <Copy size={13} /> Link
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <h3>Promotion publishing</h3>
+        <p className="crm-hint">Campaign banners are launched from the SEO desk, where the published message and end date sit beside the SEO and guide-publishing tools. Price offers remain item-specific in their own tab.</p>
+        <button className="crm-add" type="button" onClick={onOpenSeo}><Newspaper size={14}/> Open SEO desk <ArrowRight size={14}/></button>
       </section>
 
       <section className="guardian-block">

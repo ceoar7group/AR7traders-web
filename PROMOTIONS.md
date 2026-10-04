@@ -1,23 +1,30 @@
 # The promotions agent
 
-`scripts/promo-agent.mjs` — one agent that decides what to promote, writes the
-copy for every channel AR7 actually uses, publishes the campaign to the site,
-and keeps a record so the same campaign is not run into the ground.
+`scripts/promo-agent.mjs` builds campaign candidates from verified stock and
+writes channel-ready copy. Staff publish or clear the live campaign from the
+CRM's **SEO desk → Campaign launchpad**; the SEO desk saves to the existing
+`promo` site setting through the authenticated settings API.
 
 ```bash
-npm run promo                      # what is live, and what has been run
-npm run promo:plan                 # build this week's campaigns from real stock
-npm run promo:publish -- --id machinery-excavators --until 2026-11-30
-npm run promo:publish -- --none    # take the bar down
+npm run promo:plan                 # build candidate campaigns from real stock
 npm run promo:social -- --id machinery-excavators   # copy for every channel
-npm run promo:report               # what the site has shown and what has run
+npm run promo:report               # inspect the local fallback and run history
 ```
+
+Use the **SEO desk → Campaign launchpad** to publish or clear the live site
+campaign. Publishing requires the `settings.write` permission and updates the
+public site without a deploy.
+
+`npm run promo:publish` is retained only as a legacy static-file fallback for a
+deployment without a working settings API. It edits `public/promo.json`; the
+live `promo` setting takes precedence whenever it is available. Do not use this
+command for the normal production publishing flow.
 
 ## What a promotion is here
 
 A promotion is a reason to buy this week, not a banner. The agent generates
-campaigns from things that are true right now: the machinery actually on the
-desk (with the make, type and FOB band that stock falls into), destination
+campaign candidates from things that are true right now: the machinery actually
+on the desk (with the make, type and FOB band that stock falls into), destination
 markets AR7 quotes to, brands with stock behind them, and the buying guides that
 bring search traffic. It never generates scarcity.
 
@@ -25,7 +32,8 @@ bring search traffic. It never generates scarcity.
 
 - **It will not invent a discount.** `--discount` must be a real number you
   decide on, because a "5% off" that a quotation then contradicts is a refund
-  waiting to happen — and the site's own guardian checks for exactly this.
+  waiting to happen. Campaign margin messaging is optional and separate from
+  actual per-stock price reductions.
 - **It will not state a stock count, a sold count, or a deadline that is not
   real.** No countdowns. A timer that resets is the fastest way to lose a
   buyer's trust, and `CLAIMS-POLICY.md` forbids the claims that usually go with
@@ -40,7 +48,7 @@ bring search traffic. It never generates scarcity.
 
 | Channel | What is produced |
 | --- | --- |
-| Site | the promotion bar, above the header, on every page — dismissible |
+| Site | a candidate message for the public PromoBar, which staff publish in the SEO desk |
 | WhatsApp | a short message a buyer can reply to, with the link |
 | Facebook | a post with the link at the top |
 | Instagram | caption plus the link for the bio |
@@ -53,49 +61,55 @@ traffic can be attributed per campaign once the GA4 connector is set up
 
 ## Where a campaign lives
 
-Three places, in order of authority:
-
-1. **The `promo` setting** — what the CRM's *Site guardian → Promotions* panel
-   writes (or `npm run promo:publish`, which reads the same key). The site's
-   promotion bar shows it on the next page load, with no deploy.
-2. **`public/promo.json`** — written by the agent into the built site. This is
-   what a visitor sees if the API is unreachable.
-3. **`public/promo-plan.json`** — the campaign list the CRM panel offers, so the
-   list an operator picks from is the list the agent generated, never a second
-   hand-maintained copy.
+1. **The `promo` setting is authoritative.** The SEO desk's **Campaign
+   launchpad** writes it using the authenticated `/api/settings` endpoint. The
+   `PromoBar` reflects the saved campaign without a deploy; clearing it in the
+   desk removes it from the mounted public bar.
+2. **`public/promo.json` is a fallback only.** `PromoBar` reads it when the
+   settings API has not supplied a campaign. The legacy `npm run promo:publish`
+   command edits this file for static-only deployments; it does not update the
+   authoritative live setting.
+3. **`PROMO-PLAN.md` and `public/promo-plan.json` are planning artifacts.**
+   `npm run promo:plan` generates candidate copy from current stock. Staff
+   select and publish the campaign from the SEO desk rather than from a CRM
+   Promotions panel.
 
 `api/settings.js` validates the shape before it will store it: the headline is
 capped, the link must be an internal path (a promotion cannot point off-site),
-the discount must be between 1 and 40, and the end date must be a real date.
+the optional campaign margin message is preserved, and the end date must be a
+real date.
 
 ## End dates are honoured
 
-The bar removes itself when `until` has passed, wherever it is rendered from.
-An expired campaign is not shown to anybody, and the guardian flags a live
-promotion whose end date has gone by — that check exists because the failure
-mode is silent: nobody notices a banner that should have come down.
+The public bar removes a campaign when `until` has passed, wherever it is
+rendered from. An expired campaign is not shown to anybody. The Site Guardian
+checks the static fallback file for stale dates; production campaign status
+and clearing live in the SEO desk.
 
 ## In the CRM
 
-**Site guardian → Promotions** shows what is live, who published it, whether a
-discount is attached, and the campaigns available to publish. Publishing needs
-the same permission as editing the website (`settings.write`); without it the
-button is disabled rather than hidden, so a viewer can see the control exists.
+Open **SEO desk → Campaign launchpad** to review the current campaign, enter its
+headline, supporting line, internal destination and optional end date, then
+publish or clear it. Campaign messaging is separate from per-stock pricing:
+real vehicle and machinery discounts are still entered in **Price offers**.
+The SEO desk is staff-only, noindex and never linked from public navigation.
 
-## Two different things: campaigns and price offers
+## Two different things: campaigns and stock discounts
 
-| | Campaign (`promo`) | Price offer (`offer`) |
+| | Campaign (`promo`) | Stock discount (`stock_discounts`) |
 | --- | --- | --- |
-| What it is | A message: a headline, a call to action, a link | A number: a percentage off the listed price |
-| Where it shows | The promo bar at the top of every page | The machinery cards, machine pages, the home teaser, a bar when no campaign is live, and the Product structured data |
-| Written by | CRM → Site guardian → Promotions, or `npm run promo:publish` | CRM → **Price offers**, or `npm run offer` |
-| Ends | On its `until` date | On its `until` date |
+| What it is | A message: a headline, a call to action, an internal link | A percentage attached to one vehicle or machine reference |
+| Where it shows | The PromoBar campaign row | That item's cards/details and structured data, plus a separate selected-stock savings row in the PromoBar |
+| Written by | CRM → **SEO desk → Campaign launchpad** (`settings.write`) | CRM → **Price offers**, or `npm run offer` |
+| Ends | On its optional `until` date | On that stock entry's `until` date |
 
-Both are public settings, both are validated on write, and both stop by
-themselves when their end date passes. A campaign can say anything; an offer
-changes the price a buyer reads, so it is applied by one function
-(`src/offers.js`) that the website, the CRM preview and `npm run offer` all call
-— the card, the detail page and the structured data cannot drift apart.
+Campaign and stock discounts are validated by the existing settings API. The
+campaign can be live alongside selected-stock savings; dismissing one notice
+does not hide the other. Stock discounts are never catalogue-wide and always
+remain tied to their own stock key. `src/offers.js` is the shared arithmetic the
+website, CRM preview and `npm run offer` use, so public cards, detail prices and
+structured data stay aligned.
 
 `npm run offer -- "20% off machinery until 30 November"` is the command-line
-face of the same panel, and `npm run offer -- --status` prints what is live now.
+face of the same per-stock editor, and `npm run offer -- --status` prints the
+saved stock discounts.

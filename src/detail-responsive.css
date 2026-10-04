@@ -413,3 +413,41 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* W1 — keep the inventory filters as one full-width, horizontal wrapping bar.
+   The generic toolbar becomes a two-column grid on tablet; that squeezed all
+   ten facets into its first cell. Scope the override to this tool only. */
+.inv-toolbar-facets{display:flex!important;flex-direction:column;align-items:stretch!important;gap:12px;width:100%}
+.inv-toolbar-facets>.inv-search{display:flex;flex:0 0 42px;width:100%;max-width:none;grid-column:auto;margin:0}
+.inv-toolbar-facets>.inv-facets{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;width:100%;grid-column:auto;grid-template-columns:none;margin:0}
+.inv-toolbar-facets .facet{flex:1 1 132px;min-width:132px;max-width:220px;margin:0}
+.inv-toolbar-facets .facet select{width:100%;min-width:0;max-width:none}
+.inv-toolbar-facets>.inv-facet-foot{display:flex;flex:0 0 auto;align-items:center;width:100%;grid-column:auto;margin:0;padding-top:10px}
+@media(max-width:520px){
+ .inv-toolbar-facets{gap:10px;padding:10px}
+ .inv-toolbar-facets>.inv-facets{gap:8px}
+ .inv-toolbar-facets .facet{flex:1 1 calc(50% - 4px);min-width:calc(50% - 4px);max-width:none}
+ .inv-toolbar-facets .facet select{height:40px;font-size:11.5px}
+ .inv-toolbar-facets>.inv-facet-foot{align-items:flex-start;flex-direction:column;gap:8px}
+ .inv-toolbar-facets .facet-active{margin-inline-start:0}
+}
+
+/* W2 — make the scroll cue and the 900+ hero proof visible on small screens.
+   The old generic <=1000px rule hid the cue entirely. Reserve its own bottom
+   strip so it cannot cover the founder statistic or the hero controls. */
+@media(max-width:1000px){
+ .hero{padding-bottom:82px!important}
+ .hero .scroll-cue{display:flex!important;left:50%;bottom:18px;transform:translateX(-50%);z-index:8;white-space:nowrap}
+ .hero-copy .founder-stat--hero{display:flex;visibility:visible;opacity:1;margin-top:16px;position:relative;z-index:4}
+}
+@media(max-width:650px){
+ .hero{padding-bottom:94px!important}
+ .hero .scroll-cue{bottom:16px;font-size:7px;letter-spacing:1.2px}
+ .hero-copy{padding-bottom:0}
+ .hero-copy .founder-stat--hero{justify-content:center;gap:11px;margin-top:18px}
+ .hero-copy .founder-stat--hero .founder-stat-figure{font-size:44px;letter-spacing:-1px}
+ .hero-copy .founder-stat--hero .founder-stat-unit{font-size:16px}
+ .hero-copy .founder-stat--hero .founder-stat-label{font-size:11.5px;line-height:1.4}
+ .hero-copy .founder-stat--hero .founder-stat-copy{max-width:205px}
+ .hero-copy .founder-stat--hero .founder-stat-rule{min-height:38px}
+}

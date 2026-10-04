@@ -1,11 +1,10 @@
 // The promotion bar.
 //
 // Two independent sources, BOTH of which can be live at once:
-//   • a campaign — the `promo` setting, which the CRM's Promotions panel (or
-//     `npm run promo:publish`) writes, falling back to /promo.json, the file
-//     the agent writes into public/ for a deployment with no API;
-//   • a price offer — the CRM's Price offers panel (or `npm run offer`), which
-//     is the discount actually applied to every listed price.
+//   • a campaign — the `promo` setting, published in the staff-only SEO desk,
+//     falling back to /promo.json for a deployment without the settings API;
+//   • selected-stock savings — the CRM's Price offers panel (or `npm run offer`),
+//     which applies only to the exact vehicle or machine reference saved.
 // They render as two rows of one bar, each dismissed on its own. The offer row
 // used to be suppressed whenever a campaign was running, so a season-long
 // campaign made the owner's freshly published discount look like it had never
@@ -22,7 +21,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowRight, Tag, X } from 'lucide-react';
 import { hrefFromTarget, linkClick } from './routing.js';
 import { useSettings } from './site-settings.js';
-import { useOffer, barRows, campaignIsLive } from './offers.js';
+import { useStockDiscounts, barRows, campaignIsLive } from './offers.js';
 
 const DISMISS_KEY = 'ar7-promo-dismissed';
 const OFFER_DISMISS_KEY = 'ar7-price-offer-dismissed';
@@ -32,7 +31,7 @@ export function PromoBar({ navigate }) {
   const [hidden, setHidden] = useState(false);
   const [offerHidden, setOfferHidden] = useState(false);
   const settings = useSettings();
-  const offer = useOffer();
+  const stockDiscounts = useStockDiscounts();
 
   // 1. The CRM-controlled setting wins when it parses.
   useEffect(() => {
@@ -40,8 +39,8 @@ export function PromoBar({ navigate }) {
     if (!raw) return;
     try {
       const live = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (live?.active) setPromo(live);
-    } catch { /* a malformed setting falls through to the file */ }
+      setPromo(live?.active ? live : null);
+    } catch { setPromo(null); }
   }, [settings?.promo]);
 
   // 2. The published file is the fallback, and what a static deploy shows.
@@ -66,29 +65,21 @@ export function PromoBar({ navigate }) {
     return () => { alive = false; };
   }, [promo, settings?.promo]);
 
-  // A dismissal is remembered against the campaign's own id, whichever source
-  // published it — the setting and the file are the same campaign, and one
-  // "close" has to mean one close. (The setting path used to ignore the stored
-  // dismissal, so a dismissed campaign reappeared on the next page load.)
+  // Dismissal is remembered by campaign id and by the exact set of stock
+  // discounts. A changed id becomes visible again; either row can be closed alone.
+  const rows = barRows({promo, campaignDismissed: hidden, stockDiscounts});
+  const currentStockRow = rows.offer;
   useEffect(() => {
-    if (!promo?.id) return;
-    try { if (localStorage.getItem(DISMISS_KEY) === promo.id) setHidden(true); } catch { /* ignore */ }
-  }, [promo?.id]);
+    try {
+      setHidden(!!promo?.id && localStorage.getItem(DISMISS_KEY) === promo.id);
+      setOfferHidden(!!currentStockRow && localStorage.getItem(OFFER_DISMISS_KEY) === currentStockRow.id);
+    } catch { setHidden(false); setOfferHidden(false); }
+  }, [promo?.id, currentStockRow?.id]);
 
-  // A dismissed price offer stays dismissed for that offer only — a new
-  // percentage is news again.
-  useEffect(() => {
-    if (!offer) return;
-    try { if (localStorage.getItem(OFFER_DISMISS_KEY) === offer.id) setOfferHidden(true); } catch { /* ignore */ }
-  }, [offer?.id]);
-
-  // Both sources, filtered by liveness and by what the visitor has dismissed.
-  // They render as two rows of ONE bar: a campaign running for a season must
-  // not hide a discount the owner has just published, and dismissing one must
-  // not take the other down with it.
-  const rows = barRows({promo, campaignDismissed: hidden, offer, offerDismissed: offerHidden});
+  // The campaign and stock-savings rows remain independent: launching a
+  // campaign does not hide per-stock prices, and dismissing one leaves the other.
   const campaign = rows.campaign;
-  const offerLine = rows.offer;
+  const offerLine = offerHidden ? null : currentStockRow;
 
   // The header is `position: fixed; top: 0`, so the bar reserves its own height
   // as a CSS variable the header reads. Without this the bar would sit under
@@ -103,7 +94,7 @@ export function PromoBar({ navigate }) {
       root.style.setProperty('--promo-h', '0px');
     }
     return () => root.style.setProperty('--promo-h', '0px');
-  }, [promo, hidden, offer, offerHidden, campaign, offerLine]);
+  }, [promo?.id, hidden, currentStockRow?.id, offerHidden, campaign?.id, offerLine?.id]);
 
   if (!campaign && !offerLine) return null;
 
@@ -114,13 +105,13 @@ export function PromoBar({ navigate }) {
   };
   const closeOffer = () => {
     setOfferHidden(true);
-    try { localStorage.setItem(OFFER_DISMISS_KEY, offer.id); } catch { /* ignore */ }
+    try { localStorage.setItem(OFFER_DISMISS_KEY, offerLine.id); } catch { /* ignore */ }
   };
-  const offerHref = offer?.scope === 'cars' ? '/inventory' : '/machinery';
+  const offerHref = offerLine?.href || '/inventory';
 
   return (
     <div className={'promo-bar' + (offerLine ? ' price-offer-bar' : '')} role="region"
-      aria-label={campaign ? 'Current offer' : 'Price offer'}>
+      aria-label={campaign ? 'Current campaign and stock savings' : 'Selected stock savings'}>
       {campaign && (
         <div className="shell promo-bar-inner">
           <span className="promo-tag"><Tag size={13}/></span>
@@ -136,21 +127,17 @@ export function PromoBar({ navigate }) {
           <button className="promo-x" type="button" onClick={closeCampaign} aria-label="Dismiss this offer"><X size={14}/></button>
         </div>
       )}
-      {/* The price offer is the owner's own pricing decision, it is applied on
-          the cards and the machine pages, and this row is how a visitor who
-          never reaches /machinery hears about it. It shares the bar with a
-          campaign rather than being replaced by it, and it is dismissed on its
-          own — that is the fix for "I published a discount and nothing showed". */}
+      {/* Itemized stock savings never claim that the whole catalogue is discounted. */}
       {offerLine && (
         <div className="shell promo-bar-inner promo-bar-offer">
           <span className="promo-tag"><Tag size={13}/></span>
           <b>{offerLine.line}</b>
-          <span className="promo-sub">{offerLine.untilLabel ? `Ends ${offerLine.untilLabel}. ` : ''}Indicative FOB price, confirmed with your quotation.</span>
-          <span className="promo-pill">{offer.percent}% off</span>
+          <span className="promo-sub">{offerLine.note}</span>
+          <span className="promo-pill">{offerLine.label}</span>
           <a className="promo-cta" href={offerHref} onClick={linkClick(offerHref, navigate)}>
-            See the price <ArrowRight size={14}/>
+            See discounted stock <ArrowRight size={14}/>
           </a>
-          <button className="promo-x" type="button" onClick={closeOffer} aria-label="Dismiss this price offer"><X size={14}/></button>
+          <button className="promo-x" type="button" onClick={closeOffer} aria-label="Dismiss this stock-discount notice"><X size={14}/></button>
         </div>
       )}
     </div>

@@ -388,12 +388,13 @@ function imageFor(src) {
 
 /** Builds schema.org JSON-LD for a single vehicle's detail page. Only fields
  *  with real data are emitted; everything else is omitted, not faked. */
-function vehicleJsonLd(car, carId) {
+function vehicleJsonLd(car, carId, {percent = 0, until = null} = {}) {
   if (!car) return null;
   const name = carName(car);
   const km = Number(String(car.km || '').replace(/[^0-9]/g, '')) || undefined;
-  const price = priceNumber(car.price);
-  const currency = price ? priceCurrency(car.price) : null;
+  const listPrice = priceNumber(car.price);
+  const price = listPrice ? (percent > 0 ? priceWithOffer(listPrice, percent).now : listPrice) : null;
+  const currency = listPrice ? priceCurrency(car.price) : null;
   const image = imageFor(car.image);
   const availability = availabilityFor(car);
   const url = BASE + hrefFor('inventory', carId);
@@ -416,7 +417,8 @@ function vehicleJsonLd(car, carId) {
       price: String(price),
       priceCurrency: currency,
       availability: availability || undefined,
-      url
+      url,
+      priceValidUntil: percent > 0 ? until || undefined : undefined
     } : undefined
   };
   const cc = Number(String(car.eng || '').replace(/[^0-9]/g, ''));
@@ -621,7 +623,8 @@ export function applySeo(page, carId, car, opts = {}) {
   }) : null, doc);
 
   // Vehicle structured data on the detail page only.
-  setJsonLd('vehicle-jsonld', vehicleJsonLd(isVehiclePage ? car : null, carId), doc);
+  setJsonLd('vehicle-jsonld', vehicleJsonLd(isVehiclePage ? car : null, carId,
+    {percent: opts.vehicleOfferPercent || 0, until: opts.vehicleOfferUntil || null}), doc);
 
   // A machine is a product, and its page may describe one: name, brand, the
   // type as category, the price we actually show, and the photos we hold.
@@ -690,11 +693,14 @@ export function useSeo(page, carId, car, opts = {}) {
   const machine = opts.machine ?? null;
   const machineOfferPercent = opts.machineOfferPercent ?? 0;
   const machineOfferUntil = opts.machineOfferUntil ?? null;
+  const vehicleOfferPercent = opts.vehicleOfferPercent ?? 0;
+  const vehicleOfferUntil = opts.vehicleOfferUntil ?? null;
   const vehicleCount = opts.vehicleCount ?? null;
   useEffect(() => {
-    applySeo(page, carId, car, { vehicleMissing, make, model, machineType, machineRef, machine, machineOfferPercent, machineOfferUntil, vehicleCount });
+    applySeo(page, carId, car, { vehicleMissing, make, model, machineType, machineRef, machine,
+      machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount });
   }, [page, carId, car, vehicleMissing, make, model, machineType, machineRef, machine,
-      machineOfferPercent, machineOfferUntil, vehicleCount]);
+      machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount]);
 }
 
 /** The machine's own photograph for a share card, or the site card. */
