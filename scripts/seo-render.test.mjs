@@ -17,7 +17,7 @@ const dom = new JSDOM(
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 
-const { applySeo, brandSeo, carsLandingSeo, MACHINERY_SEO, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS } = await import('../src/seo.js');
+const { applySeo, brandSeo, carsLandingSeo, MACHINERY_SEO, MACHINERY_FAQS, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS } = await import('../src/seo.js');
 const { NEWS, articleSlug, articleSeo } = await import('../src/news-data.js');
 
 let failed = 0;
@@ -145,9 +145,33 @@ ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7tr
   '/machinery/excavators canonical is the type path');
 ok(jsonld('breadcrumb-jsonld')?.itemListElement.map(x => x.name).join(' → ') === 'Home → Machinery → excavators',
   'machinery type breadcrumb is Home → Machinery → type');
+
+// FAQ markup on the type page: the page renders these questions, the schema
+// describes them — and it is the TYPE's own questions, not the site /faq set.
+{
+  const mFaq = jsonld('machinery-faq-jsonld');
+  ok(mFaq?.['@type'] === 'FAQPage' && mFaq.mainEntity.length === MACHINERY_FAQS.excavators.length,
+    '/machinery/excavators carries its own FAQPage markup');
+  ok(mFaq.mainEntity[0].name === MACHINERY_FAQS.excavators[0][0],
+    'the type page FAQ is the excavator question set');
+  ok(mFaq.mainEntity.every(q => Object.keys(q).length === 3 && Object.keys(q.acceptedAnswer).length === 2),
+    'machinery FAQ JSON-LD carries only Question/Answer pairs');
+  ok(mFaq.mainEntity[0].name !== FAQ_ITEMS[0][0], 'it is not the /faq page content riding along');
+}
+
 applySeo('machinery', null, null, {});
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/machinery',
   'the machinery hub keeps its own canonical');
+{
+  const mFaq = jsonld('machinery-faq-jsonld');
+  ok(mFaq?.['@type'] === 'FAQPage' && mFaq.mainEntity.length === MACHINERY_FAQS.all.length,
+    'the machinery hub carries the general FAQ markup');
+}
+for (const key of ['excavators', 'loaders', 'trucks', 'cranes']) {
+  ok(Array.isArray(MACHINERY_FAQS[key]) && MACHINERY_FAQS[key].length >= 3
+      && MACHINERY_FAQS[key].every(([q, a]) => q && a),
+    `the ${key} FAQ set is complete (${(MACHINERY_FAQS[key] || []).length} questions)`);
+}
 
 // ---- FAQ markup is scoped to /faq -----------------------------------------
 applySeo('faq', null);
@@ -160,6 +184,7 @@ ok(faq.mainEntity.every(q => Object.keys(q).length === 3 && Object.keys(q.accept
   'FAQPage JSON-LD destructures only [q, a] and never leaks the topic tuple element');
 applySeo('contact', null);
 ok(jsonld('faq-jsonld') === null, 'FAQPage JSON-LD is removed when leaving /faq');
+ok(jsonld('machinery-faq-jsonld') === null, 'machinery FAQ markup does not ride along to other routes');
 
 // ---- per-guide SEO at /news/<slug> and noindex on unknown slugs -----------
 for (const a of NEWS) {
@@ -301,6 +326,7 @@ ok(document.title.includes('no longer listed'), 'a machine that is not listed ge
 ok(meta('meta[name="robots"]') === 'noindex,nofollow', 'a machine that is not listed is noindex');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/machinery',
   'its canonical points at the catalogue, not at a page for a machine that is gone');
+ok(jsonld('machinery-faq-jsonld') === null, 'the "no longer listed" state carries no FAQ markup');
 applySeo('machinery', null, null, { machineType: 'Excavators', machineRef: 'AR7-MC-001', machine: null, machineOfferPercent: 0 });
 ok(meta('meta[name="robots"]') === 'noindex,nofollow', 'a machine that is merely loading stays out of the index too');
 // A machine that IS published keeps its own page and stays indexable.
@@ -313,6 +339,7 @@ applySeo('machinery', null, null, {
 });
 ok(!/no longer listed/.test(document.title), 'a published machine keeps its own title');
 ok(meta('meta[name="robots"]')?.startsWith('index,follow'), 'a published machine stays indexable');
+ok(jsonld('machinery-faq-jsonld') === null, 'a single machine page carries no catalogue FAQ markup');
 
 // ---- leaving the detail page removes the Car block ------------------------
 applySeo('inventory', null);

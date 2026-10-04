@@ -555,3 +555,24 @@
 }
 
 .mch-detail-page .mch-empty h1{font:800 clamp(22px,2.6vw,30px)/1.15 Manrope;letter-spacing:-.9px;margin:0 0 10px;color:var(--ink)}
+
+/* Catalogue FAQ — visible copy that the FAQPage JSON-LD mirrors. Same
+   question set per type, from MACHINERY_FAQS in src/seo.js. */
+.mch-faq{margin-top:44px;padding-top:34px;border-top:1px solid var(--line)}
+.mch-faq .kicker{margin-bottom:10px}
+.mch-faq h2{font:800 clamp(22px,2.6vw,30px)/1.15 Manrope;letter-spacing:-.9px;margin:0 0 18px;color:var(--ink);text-transform:none}
+.mch-faq h2::first-letter{text-transform:uppercase}
+.mch-faq-list{display:grid;gap:10px;max-width:860px}
+.mch-faq-list details{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:0;overflow:hidden}
+.mch-faq-list summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:14px;
+  padding:14px 16px;font-size:14px;font-weight:700;color:var(--ink)}
+.mch-faq-list summary::-webkit-details-marker{display:none}
+.mch-faq-list summary::after{content:'+';flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);
+  display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:var(--green-text)}
+.mch-faq-list details[open] summary::after{content:'–'}
+.mch-faq-list summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.mch-faq-list details p{margin:0;padding:0 16px 14px;font-size:13.5px;line-height:1.65;color:var(--muted)}
+@media (max-width:620px){
+  .mch-faq{margin-top:30px;padding-top:24px}
+  .mch-faq-list summary{font-size:13px;padding:12px 14px}
+}

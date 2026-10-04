@@ -213,13 +213,15 @@ const tabs = [
   ['leads', 'Leads', Users],
   ['customers', 'Customers', UserRound],
   ['accounts', 'Customer accounts', Wallet],
-  ['vehicles', 'Inventory', CarFront],
+  // Inventory and the website showroom are ONE tab: the same cars, two faces.
+  // A sub-tab toggle inside the panel (see carSub) switches between the CRM
+  // inventory records and the cars published on the website.
+  ['vehicles', 'Cars', CarFront],
   ['sourcing', 'Profit & sourcing', DollarSign],
   ['goonet', 'Japan dealer stock', Globe2],
   ['quotes', 'Quotes', FileText],
   ['shipments', 'Shipments', Ship],
   ['tasks', 'Tasks', CheckSquare],
-  ['listings', 'Website cars', Globe],
   ['routes', 'Shipping routes', Ship],
   ['articles', 'News & guides', Newspaper],
   ['machinery', 'Machinery desk', Truck],
@@ -674,6 +676,9 @@ export default function CrmApp() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('dashboard');
+  // The merged cars panel keeps the two record sets as sub-tabs: CRM inventory
+  // ('vehicles', /api/crm) and the website showroom ('listings', /api/site-content).
+  const [carSub, setCarSub] = useState('vehicles');
   const [rows, setRows] = useState({});
   const [query, setQuery] = useState('');
   const [who, setWho] = useState(null);
@@ -720,6 +725,16 @@ export default function CrmApp() {
     if (!session) return;
     loadAll();
   }, [session]);
+
+  // Legacy deep links and old bookmarks can still ask for the standalone
+  // "Website cars" tab. Route them to the merged cars panel instead, with the
+  // showroom sub-tab open.
+  useEffect(() => {
+    if (tab === 'listings') {
+      setCarSub('listings');
+      setTab('vehicles');
+    }
+  }, [tab]);
 
   async function loadAll() {
     setLoading(true);
@@ -1088,9 +1103,12 @@ export default function CrmApp() {
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
   const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk' };
-  const current = configs[tab];
+  // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
+  // activeEntity picks which set the panel, the toolbar and the editor work on.
+  const activeEntity = tab === 'vehicles' ? carSub : tab;
+  const current = configs[activeEntity];
   const heading = tab === 'dashboard' ? 'Good day, ' + (profile?.full_name?.split(' ')[0] || 'Team') : (SPECIAL[tab] || current?.title || '');
-  const data = rows[tab] || [];
+  const data = rows[activeEntity] || [];
   const filtered = data.filter(x => JSON.stringify(x).toLowerCase().includes(query.toLowerCase()));
 
   return (
@@ -1111,8 +1129,11 @@ export default function CrmApp() {
               <I />
               <span>{label}</span>
               {id === 'leads' && <em>{(rows.leads || []).filter(x => x.status === 'new').length}</em>}
-              {id === 'vehicles' && <span className="crm-nav-count">{(rows.vehicles || []).length}</span>}
-              {id === 'listings' && <span className="crm-nav-count">{(rows.listings || []).length}</span>}
+              {id === 'vehicles' && (
+                <span className="crm-nav-count" title={`${(rows.vehicles || []).length} CRM inventory · ${(rows.listings || []).length} website`}>
+                  {(rows.vehicles || []).length + (rows.listings || []).length}
+                </span>
+              )}
               {id === 'goonet' && <span className="crm-nav-count">{(rows.goonet || []).filter(x => x.available !== false).length}</span>}
               {id === 'machinery' && <span className="crm-nav-count">{(rows.machinery || []).length}</span>}
             </button>
@@ -1233,41 +1254,63 @@ export default function CrmApp() {
             {tab === 'machinery' && (
               <MachineryImportPanel token={session.access_token} canWrite={canWrite('machinery')} notify={setNotice} onImported={loadAll} />
             )}
+            {/* Merged cars panel: CRM inventory and the website showroom are
+                two sub-tabs inside one screen. Both record sets stay separate
+                underneath (/api/crm and /api/site-content) — only the view is
+                merged. */}
+            {tab === 'vehicles' && (
+              <div className="crm-subtabs" role="tablist" aria-label="Choose between CRM inventory and the website showroom">
+                <button
+                  role="tab" type="button" aria-selected={carSub === 'vehicles'}
+                  className={carSub === 'vehicles' ? 'active' : ''}
+                  onClick={() => { setCarSub('vehicles'); setQuery(''); }}
+                >
+                  CRM inventory <em>{(rows.vehicles || []).length}</em>
+                </button>
+                <button
+                  role="tab" type="button" aria-selected={carSub === 'listings'}
+                  className={carSub === 'listings' ? 'active' : ''}
+                  onClick={() => { setCarSub('listings'); setQuery(''); }}
+                >
+                  Website cars <em>{(rows.listings || []).length}</em>
+                </button>
+              </div>
+            )}
             <div className="crm-page-head">
               <div><p>{current.subtitle}</p></div>
               <div className="crm-tools">
                 <label>
                   <Search />
-                  <input value={query} onChange={e => setQuery(e.target.value)} placeholder={'Search ' + tab + '…'} />
+                  <input value={query} onChange={e => setQuery(e.target.value)} placeholder={'Search ' + (activeEntity === 'vehicles' ? 'inventory' : activeEntity === 'listings' ? 'website cars' : activeEntity) + '…'} />
                 </label>
                 {filtered.length > 0 && (
-                  <button onClick={() => exportCsv(tab, filtered)} title="Download these records as a CSV file" type="button">CSV</button>
+                  <button onClick={() => exportCsv(activeEntity, filtered)} title="Download these records as a CSV file" type="button">CSV</button>
                 )}
                 <button onClick={loadAll} title="Refresh records" type="button"><RefreshCw /></button>
-                {tab === 'listings' && profile?.role === 'admin' && (
+                {activeEntity === 'listings' && profile?.role === 'admin' && (
                   <button
                     className="crm-sync"
                     onClick={syncWebsiteStock}
                     disabled={syncing}
                     title="Make the public website stock match the latest seed (25 cars: 12 showroom + 13 Goo-net). Cars not in the seed are hidden, not deleted."
                    type="button">
-                    <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock to latest'}
+                    <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock'}
                   </button>
                 )}
-                <button className="crm-add" onClick={() => setEditor({ entity: tab, data: {} })} type="button">
-                  <Plus /> Add {tab.slice(0, -1)}
+                <button className="crm-add" onClick={() => setEditor({ entity: activeEntity, data: {} })} type="button">
+                  <Plus /> Add {activeEntity.slice(0, -1)}
                 </button>
               </div>
             </div>
             <EntityView
-              entity={tab}
+              entity={activeEntity}
               rows={filtered}
-              onEdit={data => setEditor({ entity: tab, data })}
-              onDelete={canWrite(tab) ? row => remove(tab, row) : null}
-              onManagePhotos={row => setPhotoTarget({ entity: tab, row })}
+              onEdit={data => setEditor({ entity: activeEntity, data })}
+              onDelete={canWrite(activeEntity) ? row => remove(activeEntity, row) : null}
+              onManagePhotos={row => setPhotoTarget({ entity: activeEntity, row })}
               onViewGallery={row => setGalleryView(row)}
-              onQuickPatch={(row, patch) => quickPatch(tab, row, patch)}
-              statusOptions={configs[tab]?.statusOptions}
+              onQuickPatch={(row, patch) => quickPatch(activeEntity, row, patch)}
+              statusOptions={configs[activeEntity]?.statusOptions}
               query={query}
               onClearSearch={() => setQuery('')}
               onPublish={tab === 'machinery' ? row => publishMachine(row, true) : null}
@@ -2315,13 +2358,13 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
           {isAdmin && (
             <>
               <button className="crm-sync" onClick={onCopyDiag} title="Copy the stored parser diagnostic (the 2 KB markup sample from the last blocked/parse-miss run) — use it to fix the card parser" type="button">
-                <ClipboardCopy size={13} /> Copy parser diagnostic
+                <ClipboardCopy size={13} /> <span className="crm-btn-label">Copy diagnostic</span>
               </button>
               <button className="crm-sync" onClick={onResetBookmark} title="Reset the crawler bookmark to page 1 — the next import run starts from the first listing page" type="button">
-                <RotateCcw size={13} /> Reset bookmark
+                <RotateCcw size={13} /> <span className="crm-btn-label">Reset bookmark</span>
               </button>
               <button className="crm-sync" onClick={onRun} disabled={syncing} title="Run one importer cycle now — crawls the next Goo-net page, quality-gates and imports" type="button">
-                <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Running…' : 'Run import now'}
+                <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> <span className="crm-btn-label">{syncing ? 'Running…' : 'Run import now'}</span>
               </button>
             </>
           )}
@@ -3777,7 +3820,8 @@ function SettingsView({ token, profile, perms, notify }) {
     ['whatsapp_number', 'WhatsApp number', 'The phone number for direct chat (digits and + only)'],
     ['whatsapp_message', 'WhatsApp greeting', 'Pre-filled message when someone taps WhatsApp'],
     ['enquiry_inbox', 'Enquiry inbox', 'Where website lead submissions are delivered'],
-    ['default_customer_currency', 'Default customer currency', 'Preselected for new customer accounts, quotes and invoices', 'currency']
+    ['default_customer_currency', 'Default customer currency', 'Preselected for new customer accounts, quotes and invoices', 'currency'],
+    ['social_profiles', 'Social profile URLs', 'Facebook, Instagram, YouTube… one per line or comma-separated — published as sameAs for search engines']
   ];
 
   async function save(e) {
@@ -5024,6 +5068,16 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
                 <ul className="crm-import-warnings">
                   {preview.warnings.map((w, i) => <li key={i}><ShieldAlert size={12} /> {w}</li>)}
                 </ul>
+              )}
+
+              {/* The spec list the importer read — long supplier tables scroll
+                  inside the card instead of stretching it. */}
+              {m.specs?.length > 0 && (
+                <dl className="crm-import-specs" aria-label={`Specification read from ${preview.source?.label || 'the supplier link'} (${m.specs.length} rows)`}>
+                  {m.specs.map(([k, v], i) => (
+                    <div key={i}><dt title={k}>{k}</dt><dd>{v}</dd></div>
+                  ))}
+                </dl>
               )}
 
               <p className="crm-import-would">

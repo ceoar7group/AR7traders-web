@@ -55,6 +55,14 @@
 // budget; the raw ratchet moves 168 → 174 kB to absorb the deliberate work.
 //     FIRST-LOAD CSS        170.33 kB  ( 33.32 kB gzip)
 //
+// After the 2026-10-04 SEO content pass: the machinery catalogue FAQ (three
+// questions per type plus the hub, rendered visibly on /machinery and each
+// type page and mirrored in FAQPage JSON-LD) and the guide → machinery
+// internal links (RelatedMachines block + footer link on every article) add
+// ~4.3 kB raw (≈1.0 kB gzip) of first-load JS. The ratchet moves
+// 469 → 476 kB raw and 139 → 141 kB gzip to absorb the deliberate work.
+//     FIRST-LOAD JS         473.26 kB  ( 140.00 kB gzip)
+//
 // The budgets below are set from the improved number with headroom for
 // ordinary code growth — they are a ratchet, not a target. When the budget is
 // legitimately raised, update the table above in the same change so the next
@@ -173,8 +181,11 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // The dictionaries themselves stay lazy (i18n-dicts-*.js, ~29 kB gzip, asserted
 // below not to be preloaded); the 1.1 kB of headroom is deliberate so ordinary
 // copy edits do not trip this file.
-const BUDGET_GZIP = 139 * 1024;
-const BUDGET_RAW = 469 * 1024;
+// Ratcheted 139 → 141 kB gzip / 469 → 476 kB raw on 2026-10-04 for the SEO
+// content pass (machinery FAQ markup + guide → machinery internal links);
+// see the table entry above. Measured 473.26 kB raw / 140.00 kB gzip.
+const BUDGET_GZIP = 141 * 1024;
+const BUDGET_RAW = 476 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

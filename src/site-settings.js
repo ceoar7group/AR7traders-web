@@ -97,6 +97,22 @@ export function syncBusinessJsonLd(settings) {
         points.forEach(cp => { if (cp && typeof cp.url === 'string' && cp.url.includes('wa.me/')) cp.url = wa; });
         touched = true;
       }
+      // sameAs: the business's own profiles. The static file ships with the
+      // confirmed site + WhatsApp URLs; whatever the CRM has saved under
+      // social_profiles is merged in (de-duplicated, http(s) only) so the
+      // owner can add Facebook/Instagram/YouTube pages without a deploy.
+      const sameAs = new Set(Array.isArray(node.sameAs) ? node.sameAs.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u)) : []);
+      if (settings.whatsapp_number) sameAs.add('https://wa.me/' + waDigits(settings.whatsapp_number));
+      String(settings.social_profiles || '')
+        .split(/[\s,;]+/)
+        .map(s => s.trim())
+        .filter(s => /^https?:\/\/\S+/i.test(s))
+        .forEach(u => sameAs.add(u));
+      const merged = [...sameAs];
+      if (merged.length && JSON.stringify(merged) !== JSON.stringify(node.sameAs)) {
+        node.sameAs = merged;
+        touched = true;
+      }
     }
     if (touched) el.textContent = JSON.stringify(data, null, 2);
   } catch { /* keep the static (already confirmed) values */ }
