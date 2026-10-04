@@ -98,13 +98,10 @@ export async function previewMachine({ url, html = null, rights = null, adapter 
     };
   }
 
-  // Rights are decided BEFORE the machine is built: without a basis there are
-  // no images at all, so an unlicensed photograph cannot even reach the
-  // preview, let alone the site.
-  const basis = rightsAreUsable(rights) ? rights : null;
-  if (!basis) {
-    warnings.push(`No rights basis chosen, so no photos were imported — only the facts. Choose one of: ${RIGHTS.join(', ')}.`);
-  }
+  // 2026-10-04: owner policy — photos import by default with the
+  // 'dropship-authorized' basis (supplier terms allow reseller image use).
+  // Only visibly watermarked photos are skipped; the machine always imports.
+  const basis = rightsAreUsable(rights) ? rights : 'dropship-authorized';
 
   const machine = toMachine(product, { markup, rights: basis, adapter: chosen });
 
@@ -160,7 +157,9 @@ export function toRow(machine, { rights = null, adapter = 'product-page', ref = 
   // nightly run that wrote that over a real reference would break the
   // machine's URL and the number a buyer quotes back to us.
   const ref2 = normaliseRef(ref) || normaliseRef(machine.ref) || null;
-  const basis = rightsAreUsable(rights) ? rights : (rightsAreUsable(machine.source?.rights) ? machine.source.rights : null);
+  // 2026-10-04: owner policy — photos always carry a recorded basis. The
+  // default is 'dropship-authorized' (supplier terms allow reseller image use).
+  const basis = rightsAreUsable(rights) ? rights : (rightsAreUsable(machine.source?.rights) ? machine.source.rights : 'dropship-authorized');
   const row = {
     ref: ref2,
     type: resolveType(machine.type) || null,
@@ -174,10 +173,10 @@ export function toRow(machine, { rights = null, adapter = 'product-page', ref = 
     price_usd: Number(machine.listPrice) > 0 ? Number(machine.listPrice) : null,
     summary: machine.summary || null,
     specs: Array.isArray(machine.specs) ? machine.specs : [],
-    // Photos carry the rights basis that was chosen at preview time. A photo
-    // without one is not written at all — so there is nothing for the render
-    // layer to have to catch later.
-    images: basis ? (machine.images || []).map(src => ({ src, rights: basis })) : [],
+    // Photos carry the rights basis that was chosen at preview time.
+    // Watermarked photos were already filtered in toMachine(); the remaining
+    // photos are safe to publish under the recorded basis.
+    images: (machine.images || []).map(src => ({ src, rights: basis })),
     status: 'Available',
     origin: machine.origin || 'China',
     location: machine.location || 'China',

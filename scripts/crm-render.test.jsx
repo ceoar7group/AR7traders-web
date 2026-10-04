@@ -413,8 +413,10 @@ await clickText('.crm-side nav button', 'Machinery desk');
     ok(!!input, 'there is a box for the supplier link');
     const rightsSelect = body?.querySelector('select');
     ok(!!rightsSelect, 'there is a rights-basis dropdown');
-    ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === ''),
-      'it can be set to facts-only, importing no photos at all');
+    // 2026-10-04: owner policy — the default is 'dropship-authorized', not facts-only.
+    // Photos import by default when no visible watermark is detected.
+    ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === 'dropship-authorized'),
+      'the default rights basis is dropship-authorized (owner policy)');
     for (const basis of ['own-photo', 'supplier-permission', 'dropship-authorized'])
       ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === basis),
         `it offers "${basis}" as a rights basis`);

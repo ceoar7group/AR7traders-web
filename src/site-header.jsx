@@ -87,9 +87,7 @@ export const MORE_LINKS = [
   [MessageCircle, 'Reviews', 'reviews'],
   [ClipboardCheck, 'Help & FAQ', 'faq'],
   [BadgeCheck, 'About AR7', 'about'],
-  [LogIn, 'Client portal', 'portal'],
-  [Landmark, 'Staff CRM', 'crm'],
-  [Search, 'SEO desk', 'seo']
+  [LogIn, 'Client portal', 'portal']
 ];
 
 export function SiteHeader({

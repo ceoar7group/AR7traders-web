@@ -63,8 +63,9 @@ ok(html.includes('href="/brands"'), 'the Brands panel links to the full brands p
 // Everything between the More panel opening and the next top-level link.
 const morePanel = (html.split('nav-drop-panel more-panel')[1] || '').split('auction-link')[0];
 const moreItems = (morePanel.match(/<i>/g) || []).length;
-// 2026-10-03: the SEO desk joined the staff entries in More.
-const expectedMoreRoutes = ['world', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal', 'crm', 'seo'];
+// 2026-10-04: Staff CRM and SEO desk removed from public nav — they live in
+// the CRM only, never in the buyer-facing "More" dropdown.
+const expectedMoreRoutes = ['world', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal'];
 ok(JSON.stringify(MORE_LINKS.map(x => x[2])) === JSON.stringify(expectedMoreRoutes), 'More contains the 13 intended routes; an unpaired final grid item is allowed');
 const renderedMoreRoutes = [...document.querySelectorAll('.more-panel a')].map(a => a.getAttribute('href'));
 ok(JSON.stringify(renderedMoreRoutes) === JSON.stringify(expectedMoreRoutes.map(route => '/' + route)), 'More renders every intended real-path link in order');

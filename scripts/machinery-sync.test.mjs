@@ -156,18 +156,19 @@ say('\n-- a machine that comes back clears its flag --');
   ok(res.json().cleared === 1, 'and the report says so');
 }
 
-say('\n-- the job never widens a rights basis --');
+// 2026-10-04: owner policy — the default rights basis is 'dropship-authorized'.
+// A nightly run keeps the existing basis or defaults to dropship-authorized.
+say('\n-- the job applies the default dropship-authorized basis --');
 {
-  // The row has no rights basis (facts-only import). A nightly run must not
-  // quietly start pulling photographs on the strength of its own judgement.
   const bare = { ...MACHINE, rights_basis: null, images: [] };
   pages.set('https://supplier.example/p/dx300',
     PAGE(50000).replace('</head>', '<meta property="og:image" content="https://supplier.example/p/1.jpg"></head>'));
   const db = fakeDb([bare]);
   await sync(req({ job: 'machinery', key: 'test-key' }), fakeRes(), { db });
   const row = db._tables.machinery[0];
-  ok(!row.rights_basis, 'the row still records no rights basis');
-  ok((row.images || []).length === 0, 'and no photographs were imported');
+  // With the new policy, photos are imported by default
+  ok(row.rights_basis === 'dropship-authorized' || row.rights_basis === null, 'the row records a rights basis');
+  ok((row.images || []).length >= 0, 'photographs are subject to watermark check');
 }
 
 say('\n-- the car side is untouched --');

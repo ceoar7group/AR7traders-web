@@ -104,6 +104,15 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   const price = priceWithOffer(listPriceUSD(machine), percent);
   const related = MACHINES.filter(m => m.id !== machine.id && m.type === machine.type).slice(0, 3);
   const back = `/machinery/${machine.type.toLowerCase()}`;
+  useEffect(() => {
+    if (!zoom || photos.length <= 1) return;
+    const onKey = e => {
+      if (e.key === 'ArrowLeft') { setShot(s => (s - 1 + photos.length) % photos.length); }
+      if (e.key === 'ArrowRight') { setShot(s => (s + 1) % photos.length); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [zoom, photos.length]);
   return <section className="inner-page machinery-page mch-detail-page">
     <div className="shell page-content">
       <a className="back-btn" href={back} onClick={e => {
@@ -208,10 +217,21 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
     </div>
 
     {zoom && photos.length > 0 && createPortal(
-      <div className="mch-lightbox" role="dialog" aria-modal="true" aria-label={`${machine.name} photograph`}
-        onClick={() => setZoom(false)}>
+      <div className="mch-lightbox" role="dialog" aria-modal="true" aria-label={`${machine.name} photograph, photo ${shot + 1} of ${photos.length}`}
+        onClick={() => setZoom(false)}
+        onKeyDown={e => {
+          if (e.key === 'ArrowLeft') { e.stopPropagation(); setShot(s => (s - 1 + photos.length) % photos.length); }
+          if (e.key === 'ArrowRight') { e.stopPropagation(); setShot(s => (s + 1) % photos.length); }
+        }}>
         <button className="mch-lightbox-x" type="button" onClick={() => setZoom(false)} aria-label="Close the photograph"><X/></button>
-        <img className="mch-lightbox-img" width="1200" height="800" src={photos[shot]} alt={`${machine.name} enlarged`} onClick={e => e.stopPropagation()}/>
+        {photos.length > 1 && <>
+          <button className="mch-lightbox-prev" type="button" aria-label={`Previous photo (${(shot - 1 + photos.length) % photos.length + 1} of ${photos.length})`}
+            onClick={e => { e.stopPropagation(); setShot(s => (s - 1 + photos.length) % photos.length); }}><ArrowLeft/></button>
+          <button className="mch-lightbox-next" type="button" aria-label={`Next photo (${(shot + 1) % photos.length + 1} of ${photos.length})`}
+            onClick={e => { e.stopPropagation(); setShot(s => (s + 1) % photos.length); }}><ArrowRight/></button>
+        </>}
+        <img className="mch-lightbox-img" width="1200" height="800" src={photos[shot]} alt={`${machine.name} enlarged — photo ${shot + 1} of ${photos.length}`} onClick={e => e.stopPropagation()}/>
+        {photos.length > 1 && <span className="mch-lightbox-counter">{shot + 1} / {photos.length}</span>}
       </div>,
       document.body
     )}
