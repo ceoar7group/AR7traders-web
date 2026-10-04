@@ -30,6 +30,7 @@ import {
   MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machinesByType,
   machineByRef, machineHref
 } from './machinery-data.js';
+import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useOffer, percentFor, priceWithOffer, describeOffer} from './offers.js';
 import './machinery.css';
 
@@ -69,6 +70,7 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   const {fmt} = useCurrency();
   const {t} = useLang();
   const offer = useOffer();
+  useMachineryVersion();
   const photos = machineImages(machine);
   const [shot, setShot] = useState(0);
   const [zoom, setZoom] = useState(false);
@@ -298,6 +300,8 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
   const [band, setBand] = useState('Any');
   const [yearFrom, setYearFrom] = useState('Any');
   const [sort, setSort] = useState('Featured');
+  // Redraw when the CRM's machines land, so the catalogue shows the live list.
+  useMachineryVersion();
 
   const brands = [...new Set(MACHINES.map(m => m.brand))].sort();
   const years = [...new Set(MACHINES.map(m => m.year))].sort((a, b) => b - a);
@@ -442,9 +446,9 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
 
       <div className="mch-band">
         <div>
-          <div className="kicker">CAN'T SEE THE MACHINE YOU NEED?</div>
-          <h2>Tell us the model — we'll find the unit.</h2>
-          <p>Send the make, model and year you are looking for. We check our Chinese supplier network, confirm availability and send a quotation with photos and shipping cost to your port.</p>
+          <div className="kicker">{t('machinery.cantSee')}</div>
+          <h2>{t('machinery.tellUs')}</h2>
+          <p>{t('machinery.tellUsBody')}</p>
         </div>
         <div className="mch-band-actions">
           <button className="primary" type="button" onClick={openAuction}>Request a machine <ArrowRight/></button>

@@ -16,16 +16,47 @@ export function carRef(c) {
 }
 
 /**
+ * The public reference of a machine: `AR7-MC-001`.
+ *
+ * Mirrors `carRef` for cars. The router, the CRM, the importer and the
+ * sitemap must all agree on what identifies a machine, so they call this
+ * rather than each reaching for `ref` or `id` and disagreeing.
+ */
+export function machineRef(m) {
+  if (!m) return '';
+  return String(m.ref ?? m.id ?? '').trim();
+}
+
+/** The catalogue slug of a machine type: `Excavators` -> `excavators`. */
+export function machineTypeSlug(m) {
+  return String(m?.type || '').trim().toLowerCase();
+}
+
+/** The catalogue page for one type: /machinery/excavators */
+export function machineTypePath(type) {
+  const slug = machineTypeSlug({ type });
+  return slug ? '/machinery/' + slug : '/machinery';
+}
+
+/** One machine's own page: /machinery/excavators/AR7-MC-001 */
+export function machinePath(type, ref) {
+  const base = machineTypePath(type);
+  const r = machineRef({ ref });
+  return r ? base + '/' + encodeURIComponent(r) : base;
+}
+
+/**
  * The URL of one machine's own page: /machinery/<type-slug>/<REF>.
  *
  * Mirrors `hrefFor` for cars: the client router (src/routing.js), the
  * catalogue (src/machinery-data.js) and the sitemap must agree on one URL
  * shape, so all three call this rather than each building the string.
+ *
+ * Kept as the historical name (it predates machinePath) and now simply
+ * forwards to it, so there is exactly one implementation.
  */
 export function machineHrefFor(type, ref) {
-  if (!type) return '/machinery';
-  const base = '/machinery/' + String(type).toLowerCase();
-  return ref ? base + '/' + encodeURIComponent(String(ref)) : base;
+  return machinePath(type, ref);
 }
 
 export function hrefFor(page, carId) {

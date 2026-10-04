@@ -161,6 +161,64 @@ alter table public.site_blocks   enable row level security;
 
 -- No policies granted on purpose: service-role functions only.
 
+-- ============ machinery & construction equipment (China desk) ============
+-- The table behind /machinery and the CRM's machine inventory. Kept separate
+-- from site_listings because a machine is not a car: it is keyed on an
+-- AR7-MC-### reference, carries an hour reading instead of mileage, and every
+-- photo has to hold a rights basis before it may be published. Nothing above
+-- is altered by adding this — the car tables, the Goo-net scraper and the
+-- existing inventory keep their current shape.
+-- Full column notes: supabase/machinery.sql
+create table if not exists public.machinery (
+  id                    uuid primary key default gen_random_uuid(),
+  ref                   text unique not null,
+  type                  text not null,
+  brand                 text not null,
+  model                 text not null,
+  year                  int,
+  hours                 int,
+  price_usd             numeric,
+  summary               text,
+  specs                 jsonb,
+  images                jsonb,
+  status                text default 'Available',
+  location              text,
+  origin                text default 'China',
+  source_url            text,
+  adapter               text,
+  rights_basis          text,
+  imported_at           timestamptz,
+  published             boolean default true,   -- every machine in the DB is listed
+  published_by          text,                   -- 'auto' or the profile id
+  published_by_name     text,
+  published_at          timestamptz,
+  hold_reason           text,
+  price_before_usd      numeric,
+  price_changed_at      timestamptz,
+  source_last_seen_at   timestamptz,
+  source_missing_since  timestamptz,
+  sort_order            int default 0,
+  created_at            timestamptz default now(),
+  updated_at            timestamptz default now(),
+  created_by            uuid,
+  created_by_name       text
+);
+create index if not exists machinery_type_idx       on public.machinery(type);
+create index if not exists machinery_published_idx  on public.machinery(published) where published;
+create index if not exists machinery_source_url_idx on public.machinery(source_url) where source_url is not null;
+create index if not exists machinery_sort_idx       on public.machinery(sort_order, created_at desc);
+alter table public.machinery enable row level security;
+
+-- Tunable rules for the machinery importer, so the owner can retune it from
+-- the CRM without a redeploy (same pattern as goonet_max_new_per_run).
+insert into public.site_settings(key, value, updated_at) values
+  ('machinery_autopublish',             'true',  now()),
+  ('machinery_min_photos',              '1',     now()),
+  ('machinery_max_reprice_per_run',     '10',    now()),
+  ('machinery_stale_after_days',        '14',    now()),
+  ('machinery_allow_placeholder_photo', 'false', now())
+on conflict (key) do nothing;
+
 
 -- ============ website content: current live site data ============
 insert into public.site_listings (stock_no,make,model,year,km,fuel,body,price,image,grade,status,location,tr,drv,eng,seats,col,st,published,sort_order) values

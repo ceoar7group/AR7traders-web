@@ -383,3 +383,68 @@ export const machinesByType = type => (type && type !== 'All' ? MACHINES.filter(
 
 /** Kept for backwards compatibility with the home teaser. */
 export const machinePriceUSD = machine => listPriceUSD(machine);
+
+// ---------------------------------------------------------------------------
+// Live hydration.
+//
+// MACHINES above is the built-in fallback: it ships with the bundle so the
+// machinery pages always render, even before the database is provisioned or
+// when the visitor is offline.
+//
+// hydrateMachines() swaps in the published rows from the CRM, IN PLACE — the
+// array is mutated rather than rebound, so every module that already did
+// `import { MACHINES }` keeps its binding and sees the new rows without a
+// second import path to remember. Same contract as `cars` in main.jsx.
+//
+// Nothing is removed silently: an empty or failed response leaves the
+// fallback in place, so the page can never go blank because the API was slow.
+// ---------------------------------------------------------------------------
+const machineListeners = new Set();
+let machinesHydrated = false;
+
+/** Subscribe to hydration; returns an unsubscribe function. */
+export const onMachineryChange = fn => { machineListeners.add(fn); return () => machineListeners.delete(fn); };
+export const isMachineryHydrated = () => machinesHydrated;
+
+/**
+ * Replace the built-in machines with the CRM's published rows.
+ * @returns {boolean} true if the list was replaced, false if the fallback stands.
+ */
+/**
+ * Can this row be rendered at all? A machine with no `type` has nowhere to
+ * live: the catalogue is grouped by type, the URL is built from it and the
+ * home teaser prints it. One such row in a response used to take the whole
+ * home page down with a white screen.
+ */
+const isRenderableMachine = r =>
+  !!r && typeof r === 'object' &&
+  typeof r.type === 'string' && r.type.trim() !== '' &&
+  (r.id != null || (r.ref != null && String(r.ref).trim() !== ''));
+
+/** Fill in the fields the components reach for unconditionally. */
+const normaliseHydratedMachine = (r, i) => ({
+  ...r,
+  id: r.id != null ? r.id : String(r.ref),
+  name: r.name || [r.brand, r.model].filter(Boolean).join(' ') || String(r.ref || r.id || ''),
+  images: Array.isArray(r.images) ? r.images.filter(Boolean) : (r.image ? [r.image] : []),
+  specs: Array.isArray(r.specs) ? r.specs : [],
+  status: r.status || 'Available',
+  sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : i
+});
+
+export function hydrateMachines(rows) {
+  if (!Array.isArray(rows) || !rows.length) return false;
+
+  // Only rows that can actually be rendered are allowed in. A malformed or
+  // unexpected response — schema drift, a half-finished deploy, a proxy that
+  // answered the wrong endpoint — must not be able to blank the catalogue,
+  // so bad rows are dropped and the built-in fallback stands if NONE survive.
+  const usable = rows.filter(isRenderableMachine).map(normaliseHydratedMachine);
+  if (!usable.length) return false;
+
+  MACHINES.length = 0;
+  MACHINES.push(...usable);
+  machinesHydrated = true;
+  machineListeners.forEach(fn => { try { fn(); } catch { /* a dead listener must not stop the rest */ } });
+  return true;
+}

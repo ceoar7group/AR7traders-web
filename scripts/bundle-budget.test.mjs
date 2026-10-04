@@ -161,8 +161,20 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // deleted in the same pass; it was already tree-shaken, so it bought nothing
 // and the raw ratchet carries the change. Gzip, which is what a phone actually
 // downloads, stays inside the unchanged 137 kB budget.
-const BUDGET_GZIP = 137 * 1024;
-const BUDGET_RAW = 464 * 1024;
+// Ratcheted 137 → 139 kB gzip / 464 → 469 kB raw on 2026-10-04: the six screens
+// a buyer meets first (home hero, inventory toolbar, enquiry form, contact
+// block, footer, machinery "tell us the machine") stop hard-coding English and
+// read their copy through t(). The English dictionary is the source of truth
+// that every other language falls back to — translate() returns en[key] when a
+// key is missing, which is the guarantee that no screen can ever render blank —
+// so it cannot move into the lazy i18n chunk the way the thirteen non-English
+// dictionaries do. Growing it 43 → 125 keys costs ~3.3 kB of English prose in
+// the entry, plus ~60 t() call sites. Measured 466.25 kB raw / 137.92 kB gzip.
+// The dictionaries themselves stay lazy (i18n-dicts-*.js, ~29 kB gzip, asserted
+// below not to be preloaded); the 1.1 kB of headroom is deliberate so ordinary
+// copy edits do not trip this file.
+const BUDGET_GZIP = 139 * 1024;
+const BUDGET_RAW = 469 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -314,6 +326,12 @@ ok(robotsSitemaps.includes('https://ar7traders.com/sitemap.xml'),
   'robots.txt points at the static sitemap');
 ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-vehicles.xml'),
   'robots.txt points at the vehicle sitemap');
+// Machinery gets its own sitemap rather than being folded into the car one,
+// so the line is REQUIRED here, not merely tolerated — a robots.txt that
+// stops advertising it would quietly take every machine page out of the
+// crawl while the pages themselves stayed live.
+ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-machinery.xml'),
+  'robots.txt points at the machinery sitemap');
 ok(robotsSitemaps.every(u => u.startsWith('https://ar7traders.com/')),
   'every sitemap URL uses the canonical domain, never www.');
 for (const blocked of ['/crm', '/account', '/portal', '/studio']) {
@@ -360,6 +378,13 @@ ok(!!sitemapRewrite && sitemapRewrite.destination.includes('sitemap=vehicles'),
   '/api/sitemap-vehicles.xml is rewritten onto the site-content function');
 ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-vehicles.xml'),
   'the rewritten vehicle sitemap is the one robots.txt advertises');
+const machineryRewrite = (vercel.rewrites || []).find(r => r.source === '/api/sitemap-machinery.xml');
+ok(!!machineryRewrite && machineryRewrite.destination.includes('sitemap=machinery'),
+  '/api/sitemap-machinery.xml is rewritten onto the site-content function');
+ok(!!machineryRewrite && machineryRewrite.destination.includes('/api/site-content'),
+  'the machinery sitemap adds no Serverless Function (it dispatches on site-content)');
+ok(robotsSitemaps.includes('https://ar7traders.com/api/sitemap-machinery.xml'),
+  'the rewritten machinery sitemap is the one robots.txt advertises');
 const apiSrc = readFileSync(join(ROOT, 'api/site-content.js'), 'utf8');
 ok(/SITEMAP_BASE\s*=\s*'https:\/\/ar7traders\.com'/.test(apiSrc),
   'the vehicle sitemap emits absolute URLs on the canonical domain');

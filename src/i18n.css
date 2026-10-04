@@ -39,6 +39,55 @@ html[dir="rtl"] .primary svg,
 html[dir="rtl"] .gold-btn svg{transform:scaleX(-1)}
 html[dir="rtl"] .ticker>div{animation-direction:reverse}
 
+/* ── Physical leading edges ────────────────────────────────────────────────
+   Every rule below fixes one place where a physical `left`/`right` was doing
+   the job of a *leading* edge, so the detail pointed the wrong way the moment
+   a buyer picked Arabic, Pashto, Urdu or Persian.
+
+   Note on `transform-origin` and `translateX()`: neither has a logical form,
+   so those two cannot be fixed by switching to `*-inline-*` — they need an
+   explicit html[dir="rtl"] override. Everything else here is overriding a
+   physical property that has a logical equivalent upstream. */
+
+/* 1. WhatsApp button: the gap between the icon and its label, and the button
+      itself, which is pinned to the physical right edge. */
+html[dir="rtl"] .wa-float{right:auto;left:14px}
+html[dir="rtl"] .wa-float:hover b{margin-left:0;margin-inline-start:10px}
+
+/* 2. Nav bar: the padding is deliberately asymmetric (20px leading, 14px
+      trailing) to leave room for the brand mark. */
+html[dir="rtl"] .nav{padding-left:14px;padding-right:20px}
+
+/* 3. Nav dropdown: anchored at the parent's centre so it hangs over the
+      inline-end side rather than off the edge of the viewport. */
+html[dir="rtl"] .nav-drop-panel{left:auto;right:50%}
+
+/* 4. Table rows on the machine detail page (the modal's table is already
+      covered above). */
+html[dir="rtl"] .mch-detail-specs th,
+html[dir="rtl"] .mch-detail-specs td{text-align:right}
+
+/* 5. "Auction access" divider in the nav: a leading rule plus its gap. */
+html[dir="rtl"] .navlinks .auction-link{border-left:0;border-right:1px solid var(--line);padding-left:0;padding-right:27px}
+
+/* 6. FAQ answer indent — a 35px trailing gutter in LTR. */
+html[dir="rtl"] .accordions article>p{padding:0 0 22px 35px}
+
+/* 7. Two "active" markers, both drawn on the leading edge: the services tab
+      and the customer-portal sidebar. */
+html[dir="rtl"] .service-tabs button.active{padding-left:0;padding-right:12px}
+html[dir="rtl"] .portal-demo aside button.active{border-left:0;border-right:2px solid var(--gold)}
+
+/* 8. Stat separators: one rule between cells, cleared on the last one. In RTL
+      the last DOM child is the visually FIRST cell, so it is the leading edge
+      that must stay clean, not the trailing one. */
+html[dir="rtl"] .demo-strip div{border-right:0;border-left:1px solid #ffffff20}
+html[dir="rtl"] .demo-strip div:last-child{border-left:0}
+
+/* 9. The nav hover underline grows out of the leading edge. */
+html[dir="rtl"] .navlinks a:after,
+html[dir="rtl"] .navlinks button:after{transform-origin:right}
+
 @media(max-width:899px){
   .lang-panel{inset-inline-end:auto;inset-inline-start:0;width:min(280px,calc(100vw - 36px))}
 }
