@@ -1,0 +1,46 @@
+name: Machinery importer
+
+# Re-reads every machine that came from a supplier link: records any price
+# change (old → new, never just the new figure) and FLAGS the ones the supplier
+# has taken down. It never deletes a machine and never adds one on its own —
+# a machine only enters the database when a person previews a link and presses
+# Import in the CRM.
+#
+# Offset from the Goo-net run (03:00) so the two never compete for the same
+# Vercel function budget, and set well after it so a slow car run cannot
+# overlap. Same pattern as goonet-sync.yml: a free GitHub Actions schedule
+# calling one small Vercel function, so no Vercel cron add-on is needed.
+on:
+  schedule:
+    - cron: '40 3 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger machinery sync on Vercel
+        env:
+          SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
+          SYNC_KEY: ${{ secrets.GOONET_SYNC_KEY }}
+        run: |
+          if [ -z "$SYNC_KEY" ]; then
+            echo "::error::GOONET_SYNC_KEY secret is not set. Add it in GitHub → Settings → Secrets, matching the GOONET_SYNC_KEY env var in Vercel."
+            exit 1
+          fi
+          URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}&job=machinery"
+          # -L follows the site's canonical-domain redirect (www.ar7traders.com → ar7traders.com;
+          # the apex is canonical — all canonical/og:url/sitemap URLs use https://ar7traders.com)
+          CODE=$(curl -sSL -m 60 -o /tmp/machinery-sync.json -w "%{http_code}" "$URL")
+          echo "HTTP status: $CODE"
+          echo "Response:"
+          cat /tmp/machinery-sync.json
+          echo
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Machinery importer returned HTTP $CODE — see the Response above for the reason"
+            exit 1
+          fi

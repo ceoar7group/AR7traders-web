@@ -619,6 +619,13 @@ async function machineryAction(action, id, token) {
   });
 }
 
+/** Preview or confirm a machinery import. Preview writes nothing at all. */
+async function machineryImport(step, body, token) {
+  return call('/api/site-content?import=machinery&step=' + encodeURIComponent(step), token, {
+    method: 'POST', body: JSON.stringify(body)
+  });
+}
+
 async function call(path, token, options = {}) {
   const res = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(options.headers || {}) } });
   const body = await res.json().catch(() => ({}));
@@ -1185,6 +1192,11 @@ export default function CrmApp() {
           />
         ) : (
           <>
+            {/* Machinery: paste a supplier link. Nothing is written until the
+                operator has read the machine and pressed Import. */}
+            {tab === 'machinery' && (
+              <MachineryImportPanel token={session.access_token} canWrite={canWrite('machinery')} notify={setNotice} onImported={loadAll} />
+            )}
             <div className="crm-page-head">
               <div><p>{current.subtitle}</p></div>
               <div className="crm-tools">
@@ -4748,6 +4760,160 @@ export function MachineryPhotoManager({ row, onClose, onSave }) {
           {held > 0 ? ` (${held} held back)` : ''}
         </button>
       </footer>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------
+//  Machinery import — paste a supplier link.
+//
+//  Two steps, and the second is unavailable until the first has run:
+//  Preview reads the link and shows the machine; Import writes it. The server
+//  enforces the same split (step=preview writes nothing at all), so the
+//  button being disabled is a convenience, not the safety mechanism.
+//
+//  The rights basis is asked for UP FRONT, before any photo exists. Choosing
+//  none imports the facts and no pictures, which is the honest outcome —
+//  better a machine listed without a photo than one carrying a photograph we
+//  have no right to use.
+// ---------------------------------------------------------------------
+function MachineryImportPanel({ token, canWrite, notify, onImported }) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState('');
+  const [rights, setRights] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState('');
+
+  // A new link invalidates the preview immediately — importing after editing
+  // the box would write something the operator never read.
+  const editUrl = v => { setUrl(v); setPreview(null); setError(''); };
+  const editRights = v => { setRights(v); setPreview(null); setError(''); };
+
+  const runPreview = async () => {
+    setBusy(true); setError(''); setPreview(null);
+    try {
+      const out = await machineryImport('preview', { url: url.trim(), rights: rights || null }, token);
+      setPreview(out);
+      notify(`Previewed ${out.machine?.name || 'that link'} — nothing has been written yet`);
+    } catch (e) {
+      setError(e.message);
+    } finally { setBusy(false); }
+  };
+
+  const runImport = async () => {
+    if (!preview) return;
+    setBusy(true); setError('');
+    try {
+      const out = await machineryImport('confirm', {
+        machines: [preview.machine],
+        rights: preview.confirmWith?.rights || rights || null,
+        adapter: preview.confirmWith?.adapter || null
+      }, token);
+      const parts = [];
+      if (out.imported) parts.push(`${out.imported} imported`);
+      if (out.updated) parts.push(`${out.updated} updated`);
+      if (out.rePriced?.length) parts.push(`${out.rePriced.length} re-priced`);
+      notify(parts.join(', ') + ' — every machine is published and on the website');
+      setPreview(null); setUrl(''); setRights('');
+      onImported && onImported();
+    } catch (e) {
+      setError(e.message);
+    } finally { setBusy(false); }
+  };
+
+  if (!canWrite) {
+    return (
+      <p className="crm-hint">
+        <ShieldAlert size={13} /> Importing machinery needs the “Edit the public website” permission — ask an administrator.
+      </p>
+    );
+  }
+
+  const m = preview?.machine;
+  const would = preview?.would || {};
+
+  return (
+    <div className="crm-import-panel">
+      <button className="crm-import-toggle" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <Link2 size={13} /> {open ? 'Hide' : 'Import from a supplier link'}
+      </button>
+
+      {open && (
+        <div className="crm-import-body">
+          <div className="crm-import-row">
+            <label className="crm-import-url">
+              <Link2 size={14} />
+              <input
+                type="url"
+                value={url}
+                onChange={e => editUrl(e.target.value)}
+                placeholder="https://supplier.example/product/doosan-dx300lc"
+                aria-label="Supplier link"
+              />
+            </label>
+            <select
+              value={rights}
+              onChange={e => editRights(e.target.value)}
+              aria-label="Why we may use the supplier's photos"
+              title={RIGHTS_HELP}
+            >
+              <option value="">Facts only — no photos</option>
+              {RIGHTS.map(r => <option key={r} value={r}>{RIGHTS_LABEL[r] || r}</option>)}
+            </select>
+            <button type="button" className="crm-btn-add-photo" onClick={runPreview} disabled={busy || !url.trim()}>
+              <Search size={13} /> {busy ? 'Reading…' : 'Preview'}
+            </button>
+          </div>
+
+          <p className="crm-hint">
+            <ShieldAlert size={13} /> {RIGHTS_HELP}
+          </p>
+
+          {error && <p className="crm-import-error"><Ban size={13} /> {error}</p>}
+
+          {m && (
+            <div className="crm-import-preview">
+              <div className="crm-import-head">
+                <div>
+                  <small>READ FROM {preview.source?.label || 'the link'}</small>
+                  <h3>{m.name}</h3>
+                  <p>
+                    {m.brand} · {m.type} · {m.year}
+                    {m.supplierPrice ? ` · $${Number(m.supplierPrice).toLocaleString()} supplier` : ' · no price found'}
+                    {m.listPrice ? ` → $${Number(m.listPrice).toLocaleString()} list` : ''}
+                  </p>
+                </div>
+                {m.images?.length
+                  ? <img src={m.images[0]} alt="" width={120} height={90} loading="lazy" decoding="async" />
+                  : <span className="crm-status dormant">No photos</span>}
+              </div>
+
+              {preview.warnings?.length > 0 && (
+                <ul className="crm-import-warnings">
+                  {preview.warnings.map((w, i) => <li key={i}><ShieldAlert size={12} /> {w}</li>)}
+                </ul>
+              )}
+
+              <p className="crm-import-would">
+                Importing would{' '}
+                <b>{would.create ? `create ${would.create} new machine` : would.update ? `update ${would.update} existing machine` : 'change nothing'}</b>
+                {would.rePrice?.length
+                  ? ` and re-price ${would.rePrice.length === 1 ? 'it' : `${would.rePrice.length} machines`} (${would.rePrice.map(r => `$${r.before} → $${r.after}`).join(', ')})`
+                  : ''}.
+                {' '}The machine is published as soon as it is imported.
+              </p>
+
+              <div className="crm-import-actions">
+                <button type="button" className="crm-ghost-btn" onClick={() => { setPreview(null); setError(''); }}>Discard</button>
+                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy}>
+                  <Check size={13} /> {busy ? 'Importing…' : 'Import machine'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

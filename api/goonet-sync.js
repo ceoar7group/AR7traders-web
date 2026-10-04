@@ -260,6 +260,102 @@ async function carryOn(report, stepPromise, row) {
   }
 }
 
+/**
+ * The nightly machinery pass.
+ *
+ * It never invents anything: it re-reads links a human already imported, so
+ * the worst a bad run can do is change a price — and every price change is
+ * recorded old → new before it is overwritten.
+ *
+ * A machine the supplier no longer lists is FLAGGED with
+ * `source_missing_since`, not delisted. A supplier hiding a listing over a
+ * weekend is not the same thing as the machine being gone, and only the owner
+ * can tell those apart.
+ */
+async function machineryJob(db, actor, { overBudget, res }) {
+  const { previewMachine, toRow, planImport, applyImport, markStale } = await import('./_machinery-import.js');
+  const { toPublic } = await import('./_machinery.js');
+
+  const report = {
+    job: 'machinery', actor, sources: 0, seen: 0, created: 0, updated: 0,
+    rePriced: [], unchanged: 0, missing: 0, flagged: 0, cleared: 0,
+    failed: [], note: null
+  };
+
+  const { data: rows, error } = await db.from('machinery').select('*');
+  if (error) return send(res, 500, { error: 'Could not read the machinery table', details: error.message });
+  const all = Array.isArray(rows) ? rows : [];
+  const sourced = all.filter(r => r.source_url);
+  report.sources = sourced.length;
+
+  if (!sourced.length) {
+    report.note = 'No imported machines have a source link yet, so there is nothing to re-check.';
+    return send(res, 200, report);
+  }
+
+  const candidates = [];
+  const seenIds = [];
+  // Which machines were ALREADY flagged before this run, so the report can say
+  // how many came back. applyImport() clears the flag as part of its update,
+  // so by the time markStale() looks, the flag is gone and it would report 0.
+  const wasFlagged = new Set(sourced.filter(r => r.source_missing_since).map(r => String(r.id)));
+
+  for (const row of sourced) {
+    if (overBudget()) { report.note = `Stopped early: ${report.seen}/${sourced.length} sources checked before the time limit.`; break; }
+    try {
+      const p = await previewMachine({
+        url: row.source_url,
+        // The rights basis already recorded on the row is reused. The operator
+        // decided it once; a nightly job must not quietly widen it.
+        rights: row.rights_basis || null,
+        adapter: row.adapter || null
+      });
+      if (!p.ok) {
+        // Unreadable (bot gate, expired listing) is not the same as gone, but
+        // it is worth recording rather than swallowing.
+        report.failed.push({ ref: row.ref, reason: p.error });
+        continue;
+      }
+      seenIds.push(row.id);
+      report.seen++;
+      // Keep this machine's own reference — toMachine() would otherwise
+      // invent 'AR7-MC-NEW' and the run would rewrite the reference (and so
+      // the URL) of a machine that is already listed.
+      candidates.push(toRow(p.machine, {
+        rights: row.rights_basis || null, adapter: p.source?.adapter, ref: row.ref
+      }));
+    } catch (e) {
+      report.failed.push({ ref: row.ref, reason: e.message });
+    }
+  }
+
+  if (candidates.length) {
+    const plan = planImport(all, candidates);
+    const out = await applyImport(db, plan, { id: null, full_name: actor, email: null });
+    report.created = out.created.length;
+    report.updated = out.updated.length;
+    report.rePriced = out.rePriced.map(r => ({ ref: r.ref, before: r.before, after: r.after }));
+    report.failed.push(...out.failed.map(f => ({ ref: f.ref, reason: f.error })));
+    report.unchanged = out.updated.length - out.rePriced.length;
+  }
+
+  // Flag, never delete, the ones this run did not see.
+  const hosts = [...new Set(sourced.map(r => { try { return new URL(r.source_url).host; } catch { return null; } }).filter(Boolean))];
+  for (const host of hosts) {
+    const m = await markStale(db, { sourceHost: host, seenIds });
+    report.flagged += m.flagged;
+  }
+  // Count what actually came back: flagged before this run, clean now.
+  if (wasFlagged.size) {
+    const { data: after } = await db.from('machinery').select('*');
+    report.cleared = (Array.isArray(after) ? after : [])
+      .filter(r => wasFlagged.has(String(r.id)) && !r.source_missing_since).length;
+  }
+  report.missing = report.flagged;
+
+  return send(res, 200, report);
+}
+
 export default async function handler(req, res, injected) {
   // injected = { db } — test hook only; Vercel always calls (req, res).
   if (!injected || typeof injected !== 'object') injected = {};
@@ -286,6 +382,15 @@ export default async function handler(req, res, injected) {
   const db = injected.db || adminClient();
   const start = Date.now();
   const overBudget = () => Date.now() - start > RUN_BUDGET_MS;
+
+  // ---- Machinery nightly pass: ?job=machinery ------------------------------
+  // The same function, dispatched on a query param nothing else uses, so the
+  // scheduled machinery run costs no extra Serverless Function. It re-reads
+  // every machine that came from a link, records any price change, and flags
+  // (never deletes) the ones the supplier has taken down.
+  if (String(req.query?.job || '') === 'machinery') {
+    return machineryJob(db, actor, { overBudget, res });
+  }
   const report = {
     page: null, cardsSeen: 0, inserted: 0, updated: 0,
     // Honest pipeline counts: candidates discovered on the page, cards that

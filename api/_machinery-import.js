@@ -154,11 +154,15 @@ async function fetchPage(url) {
 // ---------------------------------------------------------------------------
 
 /** Map the site's machine shape onto database columns. */
-export function toRow(machine, { rights = null, adapter = 'product-page' } = {}) {
-  const ref = normaliseRef(machine.ref) || null;
+export function toRow(machine, { rights = null, adapter = 'product-page', ref = null } = {}) {
+  // `ref` lets a re-check keep the reference it already has. toMachine()
+  // invents 'AR7-MC-NEW' for a machine that has never been saved, and a
+  // nightly run that wrote that over a real reference would break the
+  // machine's URL and the number a buyer quotes back to us.
+  const ref2 = normaliseRef(ref) || normaliseRef(machine.ref) || null;
   const basis = rightsAreUsable(rights) ? rights : (rightsAreUsable(machine.source?.rights) ? machine.source.rights : null);
   const row = {
-    ref,
+    ref: ref2,
     type: resolveType(machine.type) || null,
     brand: machine.brand || null,
     model: machine.model || machine.name || null,

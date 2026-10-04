@@ -312,6 +312,55 @@ say('\nMachinery photo rights');
 }
 
 
+// ---- machinery import: paste a supplier link -------------------------------
+// Nothing is written until the operator has read the machine and pressed
+// Import. That is enforced by the server, but the UI has to make it obvious:
+// Preview is dead until a link is pasted, and Import does not exist until a
+// preview has come back.
+say('\nMachinery import panel');
+await clickText('.crm-side nav button', 'Machinery desk');
+{
+  const panel = document.querySelector('.crm-import-panel');
+  ok(!!panel, 'the machinery desk offers an import panel');
+  const toggle = panel?.querySelector('.crm-import-toggle');
+  ok(!!toggle, 'it has a toggle');
+  ok(!panel?.querySelector('.crm-import-body'), 'it is closed until opened');
+
+  if (toggle) {
+    await act(async () => { toggle.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+    const body = document.querySelector('.crm-import-body');
+    ok(!!body, 'opening it reveals the link box');
+
+    const input = body?.querySelector('input[type="url"]');
+    ok(!!input, 'there is a box for the supplier link');
+    const rightsSelect = body?.querySelector('select');
+    ok(!!rightsSelect, 'there is a rights-basis dropdown');
+    ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === ''),
+      'it can be set to facts-only, importing no photos at all');
+    for (const basis of ['own-photo', 'supplier-permission', 'dropship-authorized'])
+      ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === basis),
+        `it offers "${basis}" as a rights basis`);
+
+    const buttons = () => [...document.querySelectorAll('.crm-import-body button')].map(b => (b.textContent || '').trim());
+    const previewBtn = () => [...document.querySelectorAll('.crm-import-body button')].find(b => /preview/i.test(b.textContent || ''));
+    ok(!!previewBtn(), `Preview is offered (${buttons().join(' / ')})`);
+    ok(previewBtn()?.disabled === true, 'Preview is disabled until a link is pasted');
+    ok(!buttons().some(b => /^import machine$/i.test(b)), 'Import does not exist before a preview');
+
+    // Type a link: Preview wakes up, Import still does not exist.
+    if (input) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, 'https://supplier.example/product/doosan-dx300lc');
+        input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+      });
+      ok(previewBtn()?.disabled === false, 'Preview wakes up once a link is pasted');
+      ok(![...document.querySelectorAll('.crm-import-body button')].some(b => /^import machine$/i.test(b.textContent || '')),
+        'Import still does not exist — the machine has not been read yet');
+    }
+  }
+}
+
 // ---- React logged nothing ---------------------------------------------------
 console.error = realError; console.warn = realWarn;
 const real = errors.filter(e => !/not wrapped in act|Not implemented|jsdom/i.test(e));
