@@ -312,6 +312,41 @@ say('\nMachinery photo rights');
 }
 
 
+// ---- machinery review queue ------------------------------------------------
+// The queue exists so a machine that is listed but not finished cannot hide.
+// Only chips backed by real machines are shown, so a clean desk looks clean.
+say('\nMachinery review queue');
+await clickText('.crm-side nav button', 'Machinery desk');
+{
+  const chips = [...document.querySelectorAll('.crm-chips .crm-chip')].map(c => ({
+    label: (c.textContent || '').replace(/\d+$/, '').trim(),
+    count: Number((c.textContent || '').match(/(\d+)$/)?.[1] || 0)
+  }));
+  ok(chips.length > 0, `the desk offers review chips (${chips.map(c => c.label).join(', ') || 'none'})`);
+  ok(chips[0]?.label === 'All', 'the first chip is "All"');
+  // Only chips with something behind them are rendered.
+  ok(chips.slice(1).every(c => c.count > 0),
+    `no chip is shown for a problem no machine has (${chips.slice(1).map(c => `${c.label}=${c.count}`).join(', ') || 'none shown'})`);
+
+  // Filtering by a chip narrows the table to exactly those machines.
+  const target = chips.slice(1)[0];
+  if (target) {
+    const chipBtn = [...document.querySelectorAll('.crm-chips .crm-chip')]
+      .find(c => (c.textContent || '').startsWith(target.label));
+    await act(async () => { chipBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+    const rows = document.querySelectorAll('.crm-table-wrap table tbody tr').length;
+    ok(rows === target.count, `"${target.label}" filters to its own count (${rows} rows, chip says ${target.count})`);
+    ok(rows > 0, 'and is not an empty table');
+    ok(rows < Number(chips[0].count) || target.count === chips[0].count,
+      'the filter narrowed the list');
+
+    // Back to All restores everything.
+    const all = [...document.querySelectorAll('.crm-chips .crm-chip')].find(c => (c.textContent || '').startsWith('All'));
+    await act(async () => { all.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+    ok(document.querySelectorAll('.crm-table-wrap table tbody tr').length === chips[0].count, '"All" restores the full list');
+  }
+}
+
 // ---- machinery import: paste a supplier link -------------------------------
 // Nothing is written until the operator has read the machine and pressed
 // Import. That is enforced by the server, but the UI has to make it obvious:

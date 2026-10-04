@@ -1,6 +1,6 @@
 # AR7 promotion plan
 
-Generated: 2026-10-04T10:20:58.945Z
+Generated: 2026-10-04T10:25:09.161Z
 
 19 campaigns available, 1 already run.
 

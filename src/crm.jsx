@@ -547,7 +547,7 @@ function exportCsv(entity, rows) {
  * (added-by, published-by) have something in them from the first render.
  */
 function machinerySeed() {
-  return MACHINES.map((m, i) => ({
+  const listed = MACHINES.map((m, i) => ({
     ...m,
     price_usd: m.price || m.supplierPrice || 0,
     images: (m.images || []).map(src => ({ src, rights: 'own-photo' })),
@@ -556,6 +556,42 @@ function machinerySeed() {
     published: true,
     sort_order: i
   }));
+  // One machine that was imported from a link without a rights basis: no
+  // photographs and no price. It is PUBLISHED — every machine is — but it sits
+  // in the review queue, which is exactly the machine the desk has to surface
+  // rather than hide among the finished ones.
+  const needsAttention = {
+    id: 'mch-demo-review',
+    ref: 'AR7-MC-DEMO',
+    type: 'Excavators',
+    brand: 'Sany',
+    model: 'SY215C',
+    name: 'Sany SY215C',
+    year: 2021,
+    hours: 3100,
+    price_usd: null,
+    supplierPrice: null,
+    summary: 'Imported from a supplier link without a rights basis, so it has no photographs yet.',
+    specs: [],
+    images: [],
+    image: '',
+    photosPending: true,
+    status: 'Available',
+    origin: 'China',
+    location: 'Hunan',
+    // Provenance: the importer published it, not a person.
+    source_url: 'https://supplier.example/p/sany-sy215c',
+    adapter: 'product-page',
+    rights_basis: null,
+    imported_at: '2026-10-01T03:40:00Z',
+    source_last_seen_at: '2026-10-01T03:40:00Z',
+    created_by_name: 'Importer (auto)',
+    published_by: 'auto',
+    published_by_name: 'Importer (auto)',
+    published: true,
+    sort_order: listed.length
+  };
+  return [...listed, needsAttention];
 }
 
 function baseData(entity) {
@@ -1597,19 +1633,27 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
   // data — ordered by the configured status options, extras appended — plus a
   // "No photos" chip that surfaces records with an empty gallery.
   const chipStatuses = useMemo(() => {
+    if (entity === 'machinery') return MACHINERY_REVIEW_CHIPS.map(c => c.id);
     if (!isVehicleType) return [];
     const present = [...new Set(rows.map(r => r.status).filter(Boolean))];
     const ordered = (statusOptions || []).filter(s => present.includes(s));
     const extras = present.filter(s => !ordered.includes(s));
     return [...ordered, ...extras];
-  }, [isVehicleType, rows, statusOptions]);
+  }, [isVehicleType, entity, rows, statusOptions]);
   const noPhotosCount = isVehicleType ? rows.filter(r => extractPhotos(r).length === 0).length : 0;
+
+  // The machinery review queue: only show a chip when something actually needs
+  // a person. A machine with photos, a price and a live source needs nothing,
+  // and an empty chip would just be noise in the toolbar.
+  const machineryChipCount = id => rows.filter(r => machineryNeedsReview(r).includes(id)).length;
   const chipCounts = id => id === 'all' ? rows.length
-    : id === 'no_photos' ? noPhotosCount
-      : rows.filter(r => r.status === id).length;
-  const chipVisible = !isVehicleType || chipFilter === 'all' ? rows : rows.filter(r =>
-    chipFilter === 'no_photos' ? extractPhotos(r).length === 0 : r.status === chipFilter
-  );
+    : entity === 'machinery' ? machineryChipCount(id)
+      : id === 'no_photos' ? noPhotosCount
+        : rows.filter(r => r.status === id).length;
+  const chipVisible = entity === 'machinery'
+    ? (chipFilter === 'all' ? rows : rows.filter(r => machineryNeedsReview(r).includes(chipFilter)))
+    : (!isVehicleType || chipFilter === 'all' ? rows : rows.filter(r =>
+        chipFilter === 'no_photos' ? extractPhotos(r).length === 0 : r.status === chipFilter));
 
   // Sorting (vehicles + listings table view): click a header to sort ascending,
   // click again to flip direction. Nulls always sink to the bottom.
@@ -1618,8 +1662,11 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
     if (key === 'photos') return extractPhotos(row).length;
     return row[key];
   };
+  // Machinery: enable header sorting (it is a table, and 'Added by' is worth
+  // sorting by) without changing what the car tabs do.
+  const canSort = isVehicleType || entity === 'machinery';
   const sortedRows = useMemo(() => {
-    if (!isVehicleType || viewMode !== 'table' || !sort) return chipVisible;
+    if (!(isVehicleType || entity === 'machinery') || viewMode !== 'table' || !sort) return chipVisible;
     const dir = sort.dir === 'desc' ? -1 : 1;
     return [...chipVisible].sort((a, b) => {
       const av = sortValue(a, sort.key);
@@ -1745,6 +1792,25 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
 
   return (
     <div className="entity-view-container">
+      {/* Machinery: a REVIEW QUEUE rather than a status filter. Only a chip
+          that has machines behind it is shown, so the toolbar stays quiet
+          when there is nothing for a person to do. */}
+      {entity === 'machinery' && (
+        <div className="crm-chips entity-status-chips">
+          {[['all', 'All'], ...chipStatuses.map(id => [id, (MACHINERY_REVIEW_CHIPS.find(c => c.id === id) || {}).label || pretty(id)])]
+            .filter(([id]) => id === 'all' || chipCounts(id) > 0)
+            .map(([id, label]) => (
+              <button
+                key={id}
+                className={'crm-chip ' + (chipFilter === id ? 'active' : '') + (id === 'all' ? '' : ' alert')}
+                title={(MACHINERY_REVIEW_CHIPS.find(c => c.id === id) || {}).why}
+                onClick={() => setChipFilter(id)}
+               type="button">
+                {label} <em>{chipCounts(id)}</em>
+              </button>
+            ))}
+        </div>
+      )}
       {isVehicleType && (
         <div className="crm-chips entity-status-chips">
           {[['all', 'All'], ...chipStatuses.map(s => [s, pretty(s)])].map(([id, label]) => (
@@ -4650,6 +4716,35 @@ const RIGHTS_HELP =
   'supplier for their own pictures instead.';
 
 /** Accept however the row currently stores its gallery and normalise it. */
+/**
+ * The machinery review queue: what a person has to look at. Deliberately NOT
+ * a status — it is a list of reasons a machine is not finished, and one
+ * machine can appear under several.
+ */
+const MACHINERY_REVIEW_CHIPS = [
+  { id: 'no_photos',   label: 'No photos',        why: 'Listed without a photograph — it will not sell from the catalogue page' },
+  { id: 'held_photos', label: 'Photos held back', why: 'Has photographs with no recorded rights basis, so they cannot go on the website' },
+  { id: 'no_price',    label: 'No price',         why: 'Cannot be quoted until someone sets a price' },
+  { id: 'missing',     label: 'Missing from source', why: 'The supplier no longer lists it — decide whether it is really gone' },
+  { id: 're_priced',   label: 'Re-priced',        why: 'The supplier changed the price — check the new figure before it is quoted' },
+  { id: 'unknown_type', label: 'Type not set',    why: 'Filed under a type the catalogue does not have, so nobody will find it' }
+];
+
+/** Which review reasons apply to this machine. */
+function machineryNeedsReview(r) {
+  if (!r) return [];
+  const out = [];
+  const list = Array.isArray(r.images) ? r.images : [];
+  const live = list.filter(p => typeof p === 'object' && rightsAreUsable(p?.rights));
+  if (!live.length) out.push(list.length ? 'held_photos' : 'no_photos');
+  else if (live.length < list.length) out.push('held_photos');
+  if (!(Number(r.price_usd) > 0)) out.push('no_price');
+  if (r.source_missing_since) out.push('missing');
+  if (r.price_before_usd != null && r.price_changed_at) out.push('re_priced');
+  if (!r.type || !(MACHINE_TYPES || []).includes(r.type)) out.push('unknown_type');
+  return out;
+}
+
 function machineryPhotos(row) {
   const list = Array.isArray(row?.images) ? row.images : [];
   return list
