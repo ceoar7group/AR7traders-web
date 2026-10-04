@@ -161,8 +161,20 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // deleted in the same pass; it was already tree-shaken, so it bought nothing
 // and the raw ratchet carries the change. Gzip, which is what a phone actually
 // downloads, stays inside the unchanged 137 kB budget.
-const BUDGET_GZIP = 137 * 1024;
-const BUDGET_RAW = 464 * 1024;
+// Ratcheted 137 → 139 kB gzip / 464 → 469 kB raw on 2026-10-04: the six screens
+// a buyer meets first (home hero, inventory toolbar, enquiry form, contact
+// block, footer, machinery "tell us the machine") stop hard-coding English and
+// read their copy through t(). The English dictionary is the source of truth
+// that every other language falls back to — translate() returns en[key] when a
+// key is missing, which is the guarantee that no screen can ever render blank —
+// so it cannot move into the lazy i18n chunk the way the thirteen non-English
+// dictionaries do. Growing it 43 → 125 keys costs ~3.3 kB of English prose in
+// the entry, plus ~60 t() call sites. Measured 466.25 kB raw / 137.92 kB gzip.
+// The dictionaries themselves stay lazy (i18n-dicts-*.js, ~29 kB gzip, asserted
+// below not to be preloaded); the 1.1 kB of headroom is deliberate so ordinary
+// copy edits do not trip this file.
+const BUDGET_GZIP = 139 * 1024;
+const BUDGET_RAW = 469 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

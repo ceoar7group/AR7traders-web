@@ -442,9 +442,9 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
 
       <div className="mch-band">
         <div>
-          <div className="kicker">CAN'T SEE THE MACHINE YOU NEED?</div>
-          <h2>Tell us the model — we'll find the unit.</h2>
-          <p>Send the make, model and year you are looking for. We check our Chinese supplier network, confirm availability and send a quotation with photos and shipping cost to your port.</p>
+          <div className="kicker">{t('machinery.cantSee')}</div>
+          <h2>{t('machinery.tellUs')}</h2>
+          <p>{t('machinery.tellUsBody')}</p>
         </div>
         <div className="mch-band-actions">
           <button className="primary" type="button" onClick={openAuction}>Request a machine <ArrowRight/></button>
