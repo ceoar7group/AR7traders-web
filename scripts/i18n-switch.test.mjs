@@ -155,6 +155,44 @@ if (unused.length) {
 ok(unused.length <= 31,
   `no MORE than the 31 known machinery/nav keys are left unwired (currently ${unused.length})`);
 
+// ---- 6. RTL: the nine physical leading edges ------------------------------
+// The site is built on flex/grid, so setting `dir` flips most of it for free.
+// These nine declarations had a physical left/right doing the job of a leading
+// edge and did not flip. Each is pinned twice: the override must exist, and the
+// physical declaration it overrides must still be there — if someone replaces
+// the upstream property with a logical one, the override becomes dead CSS and
+// this tells them to delete it rather than leaving both behind.
+console.log('\n-- RTL: physical leading edges have an override --');
+const rtlCss = fs.readFileSync(path.join(ROOT, 'src/i18n.css'), 'utf8');
+const cssSources = ['styles.css', 'expanded.css', 'site-layout.css', 'machinery.css', 'extra-pages.css', 'pages.css']
+  .map(f => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n');
+
+const RTL_FIXES = [
+  ['WhatsApp button position', '.wa-float{', 'right:14px'],
+  ['WhatsApp label gap', '.wa-float:hover b{', 'margin-left:10px'],
+  ['nav bar asymmetric padding', '.nav{', 'padding:0 14px 0 20px'],
+  ['nav dropdown anchor', '.nav-drop-panel{', 'left:50%'],
+  ['machine detail table rows', '.mch-detail-specs th,', 'text-align:left'],
+  ['"Auction access" nav divider', '.navlinks .auction-link{', 'border-left:1px solid var(--line)'],
+  ['FAQ answer indent', '.accordions article>p{', 'padding:0 35px 22px 0'],
+  ['services tab active marker', '.service-tabs button.active{', 'padding-left:12px'],
+  ['portal sidebar active marker', '.portal-demo aside button.active{', 'border-left:2px solid var(--gold)'],
+  ['stat separators', '.demo-strip div{', 'border-right:1px solid #ffffff20'],
+  ['nav hover underline origin', '.navlinks a:after,', 'transform-origin:left']
+];
+let rtlBad = 0;
+for (const [name, selector, physical] of RTL_FIXES) {
+  // A selector can be declared more than once (base + responsive + theme), so
+  // every occurrence is checked rather than only the first match.
+  const stillPhysical = cssSources.split(selector).slice(1)
+    .some(tail => tail.split('}')[0].includes(physical));
+  const hasOverride = rtlCss.includes(`html[dir="rtl"] ${selector.replace(/\{$/, '')}`) ||
+    rtlCss.includes(`html[dir="rtl"] ${selector.replace(/\{$/, '').split(',').pop().trim()}`);
+  if (!stillPhysical) { console.error(`    ${name}: upstream ${selector} no longer uses ${physical} — delete the override`); rtlBad++; }
+  if (!hasOverride) { console.error(`    ${name}: no html[dir="rtl"] override for ${selector}`); rtlBad++; }
+}
+ok(rtlBad === 0, `all ${RTL_FIXES.length} physical leading edges are overridden for RTL (and none are dead)`);
+
 // ---- coverage report ------------------------------------------------------
 console.log('\n-- per-language coverage --');
 const identicalAllow = new Set(['footer.newsPlaceholder']);   // an e-mail example, same in every script
