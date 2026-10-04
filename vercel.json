@@ -170,7 +170,7 @@
       "destination": "/assets/used-japanese-cars-auction-export-toyota-5.webp"
     },
     {
-      "source": "/(inventory|auction|services|brands|destinations|tools|world|howbuy|news|about|reviews|faq|contact|account|portal|crm|studio|shipping|japan-stock)(/.*)?",
+      "source": "/(home|inventory|auction|services|brands|destinations|tools|world|howbuy|news|about|reviews|faq|contact|account|portal|crm|studio|shipping|japan-stock|machinery|cars|seo)(/.*)?",
       "destination": "/index.html"
     }
   ],
