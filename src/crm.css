@@ -3729,3 +3729,34 @@ html[data-crm-theme="light"] .crm-shell {
   flex: none;
   color: var(--crm-muted);
 }
+
+/* Per-stock pricing desk — no catalogue-wide discount controls. */
+.stock-discount-view .crm-page-head{align-items:flex-start}
+.stock-discount-view .crm-page-head h2{font:800 22px/1.2 Manrope;margin:0 0 6px;color:var(--crm-ink)}
+.stock-discount-view .crm-page-head p{max-width:820px}
+.stock-discount-summary{display:flex;align-items:center;gap:12px;padding:14px 16px;margin:0 0 16px;border:1px solid color-mix(in srgb,#32a879 35%,var(--crm-border));border-radius:14px;background:color-mix(in srgb,#32a879 7%,var(--crm-panel));color:#168257}
+.stock-discount-summary>svg{flex:none}
+.stock-discount-summary span{display:flex;flex-direction:column;gap:3px}
+.stock-discount-summary b{font-size:13px}.stock-discount-summary small{color:var(--crm-muted);font-size:11px;line-height:1.45}
+.stock-discount-workbench{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:14px;align-items:start}
+.stock-discount-picker,.stock-discount-editor,.stock-discount-current,.stock-discount-promo-handoff{min-width:0;border:1px solid var(--crm-border);border-radius:15px;background:var(--crm-panel);padding:15px}
+.stock-discount-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.stock-discount-section-head>div{display:flex;flex-direction:column;gap:3px}.stock-discount-section-head b{font-size:13px}.stock-discount-section-head small{font-size:10.5px;color:var(--crm-muted)}
+.stock-discount-filters{display:grid;grid-template-columns:minmax(0,1fr) 125px;gap:8px;margin-bottom:8px}
+.stock-discount-filters input,.stock-discount-filters select,.stock-discount-editor label>input,.stock-discount-editor label>select,.stock-discount-editor label>textarea{min-width:0;width:100%;border:1px solid var(--crm-border);border-radius:9px;background:var(--crm-bg);color:var(--crm-ink);padding:9px 10px;font:600 11px Manrope}
+.stock-discount-list{max-height:390px;overflow:auto;border:1px solid var(--crm-border);border-radius:10px}
+.stock-discount-list>button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;border:0;border-bottom:1px solid var(--crm-border);background:transparent;color:var(--crm-ink);text-align:left;cursor:pointer}
+.stock-discount-list>button:last-of-type{border-bottom:0}.stock-discount-list>button:hover,.stock-discount-list>button.selected{background:color-mix(in srgb,var(--crm-accent) 8%,var(--crm-panel))}
+.stock-discount-list>button>span:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}.stock-discount-list>button b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stock-discount-list>button small{font-size:9px;color:var(--crm-muted)}
+.stock-discount-list-price{display:flex;flex-direction:column;align-items:flex-end;gap:3px;white-space:nowrap;font-size:10px;font-weight:800}.stock-discount-list-price em{font-style:normal;color:#168257;font-size:9px}
+.stock-discount-editor{display:grid;gap:11px}.stock-discount-editor .stock-discount-section-head{margin-bottom:0}.stock-discount-editor>label{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:700;color:var(--crm-muted)}
+.stock-discount-editor label>span{text-transform:uppercase;letter-spacing:.4px}
+.stock-discount-selected{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:10px;background:var(--crm-bg);border:1px solid var(--crm-border)}
+.stock-discount-selected>span{font-size:9px;letter-spacing:.5px;color:var(--crm-accent);font-weight:800}.stock-discount-selected b{font-size:14px;color:var(--crm-ink)}.stock-discount-selected small{font-size:10px;color:var(--crm-muted)}
+.stock-discount-percent{display:flex;align-items:center;gap:7px}.stock-discount-percent input[type=range]{flex:1;min-width:50px;accent-color:var(--crm-accent)}.stock-discount-percent input[type=number]{width:68px!important;text-align:center}.stock-discount-percent>b{font-size:11px}
+.stock-discount-preview{display:grid;grid-template-columns:1fr auto auto;align-items:baseline;gap:5px 10px;padding:12px;border:1px solid color-mix(in srgb,#32a879 35%,var(--crm-border));border-radius:10px;background:color-mix(in srgb,#32a879 6%,var(--crm-panel))}
+.stock-discount-preview>span{grid-column:1/-1;color:var(--crm-muted);font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:800}.stock-discount-preview>s{font-size:10px;color:var(--crm-muted)}.stock-discount-preview>b{font-size:19px;color:#168257}.stock-discount-preview>em{grid-column:1/-1;font-style:normal;color:#168257;font-size:10px;font-weight:800}.stock-discount-preview>small{grid-column:1/-1;font-size:9px;color:var(--crm-muted)}
+.stock-discount-actions{display:flex;flex-wrap:wrap;gap:8px}.stock-discount-actions button{display:inline-flex;align-items:center;gap:6px;min-height:36px}.stock-discount-actions button:disabled{opacity:.5;cursor:not-allowed}
+.stock-discount-current{margin-top:14px}.stock-discount-current .crm-table-wrap{max-height:430px;overflow:auto}.stock-discount-current .crm-table{min-width:820px}.stock-discount-current .crm-ghost{display:inline-flex;align-items:center;gap:3px;margin:2px;padding:5px 7px;font-size:10px}.stock-discount-row-label{display:block;margin-top:4px;color:var(--crm-muted);font-size:9px}.stock-discount-promo-handoff{margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;border-color:color-mix(in srgb,var(--crm-accent) 25%,var(--crm-border))}.stock-discount-promo-handoff>div{display:flex;align-items:center;gap:10px;min-width:0}.stock-discount-promo-handoff>div>svg{flex:none;color:var(--crm-accent)}.stock-discount-promo-handoff span{display:flex;flex-direction:column;gap:4px}.stock-discount-promo-handoff b{font-size:11px}.stock-discount-promo-handoff small{font-size:10px;color:var(--crm-muted);line-height:1.45}.stock-discount-promo-handoff>button{flex:none;display:flex;align-items:center;gap:6px;border:0;border-radius:8px;background:var(--crm-accent);color:#fff;padding:9px 12px;font:700 10px Manrope;cursor:pointer}
+@media(max-width:1120px){.stock-discount-workbench{grid-template-columns:1fr}.stock-discount-picker .stock-discount-list{max-height:300px}}
+@media(max-width:600px){.stock-discount-view .crm-page-head{flex-direction:column}.stock-discount-view .crm-tools{width:100%;justify-content:flex-end}.stock-discount-filters{grid-template-columns:1fr}.stock-discount-list>button{padding:9px}.stock-discount-promo-handoff{align-items:flex-start;flex-direction:column}.stock-discount-promo-handoff>button{align-self:flex-start}}

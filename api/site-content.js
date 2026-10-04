@@ -11,6 +11,7 @@
 import {adminClient, requireUser, send} from './_supabase.js';
 import {requirePerm} from './_perm.js';
 import {SITE_COLUMNS} from './_columns.js';
+import {NEWS, articleSlug} from '../src/news-data.js';
 
 // Editing the public website is gated by the `site.write` permission, so the
 // Team & permissions grid is the single place that decides who may do it
@@ -336,6 +337,46 @@ export async function sitemapVehicles(req, res, injected = {}) {
   }
 }
 
+/** Published built-in and CRM-authored guides, deduplicated by canonical slug. */
+export function buildNewsXml(rows = []) {
+  const bySlug = new Map();
+  for (const article of NEWS) {
+    const slug = articleSlug(article.title);
+    if (slug) bySlug.set(slug, {slug, updatedAt: null});
+  }
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row || row.published === false) continue;
+    const slug = articleSlug(row.title);
+    if (!slug) continue;
+    bySlug.set(slug, {slug, updatedAt: row.updated_at || row.created_at || null});
+  }
+  const entries = [...bySlug.values()].map(({slug, updatedAt}) =>
+    urlEntryLoc(`${SITEMAP_BASE}/news/${encodeURIComponent(slug)}`, updatedAt));
+  return wrapUrlset(entries);
+}
+
+/** Dynamic news sitemap dispatched through this existing function (no new
+ * Vercel function). */
+export async function sitemapNews(req, res, injected = {}) {
+  if ((req.method || 'GET') !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+  try {
+    const db = injected.db || adminClient();
+    const {data, error} = await db.from('site_articles')
+      .select('title,published,updated_at,sort_order')
+      .eq('published', true).order('sort_order', {ascending: true}).limit(500);
+    if (error) throw new Error(error.message || 'article read failed');
+    return sendXml(res, 200, buildNewsXml(data || []), SITEMAP_CACHE);
+  } catch (error) {
+    // Built-in guides remain routable/indexable if the database is briefly
+    // unavailable; dynamic articles return on the next successful read.
+    console.error('sitemap-news:', error);
+    return sendXml(res, 200, buildNewsXml([]), SITEMAP_CACHE);
+  }
+}
+
 const entities = {
   listings: 'site_listings',
   routes:   'site_routes',
@@ -626,6 +667,9 @@ export default async function handler(req, res, injected = {}) {
   // comment above.
   if (String(req.query.sitemap || '') === 'vehicles') {
     return sitemapVehicles(req, res, injected);
+  }
+  if (String(req.query.sitemap || '') === 'news') {
+    return sitemapNews(req, res, injected);
   }
   if (String(req.query.sitemap || '') === 'machinery') {
     return sitemapMachinery(req, res, injected);

@@ -227,19 +227,20 @@ async function freshness() {
     types.length ? `empty type page(s): ${types.join(', ')}` : `${MACHINE_TYPES.length} type page(s) populated`,
     'Add a machine or remove the landing route');
 
-  // Promo file: live but expired is the classic rot.
+  // The public file is only the static fallback; authenticated CRM settings
+  // are authoritative in production. Never label this file the live campaign.
   const promo = (() => { try { return JSON.parse(read('public/promo.json')); } catch { return null; } })();
   if (!promo || !promo.active) {
-    add('health', 'Promotion bar', 'pass', 'no campaign published', null);
+    add('health', 'Static promo fallback', 'pass', 'no static campaign fallback; production campaigns are managed in the SEO desk', null);
   } else {
     const expired = promo.until && new Date(promo.until + 'T23:59:59') < new Date();
-    add('health', 'Promotion bar', expired ? 'warn' : 'pass',
-      expired ? `"${promo.headline}" ended ${promo.until} and is still published` : `live: ${promo.headline}${promo.until ? ` (until ${promo.until})` : ''}`,
-      expired ? 'npm run promo:publish -- --none' : null);
+    add('health', 'Static promo fallback', expired ? 'warn' : 'pass',
+      expired ? `"${promo.headline}" ended ${promo.until} and remains in public/promo.json` : `fallback: ${promo.headline}${promo.until ? ` (until ${promo.until})` : ''}`,
+      expired ? 'Review or clear the live campaign in CRM → SEO desk → Campaign launchpad; update the static fallback if this deploy needs it.' : null);
     if (promo.discount) {
-      add('health', 'Discount is honoured at quotation', 'warn',
-        `${promo.discount}% off margin is published — every quotation until ${promo.until || 'further notice'} must show it`,
-        'Check the quote template, then clear it: npm run promo:publish -- --none');
+      add('health', 'Campaign margin message is honoured', 'warn',
+        `${promo.discount}% off margin is in the static fallback — every quotation until ${promo.until || 'further notice'} must show it`,
+        'Check the quote template, then review or clear the campaign in CRM → SEO desk → Campaign launchpad.');
     }
   }
 

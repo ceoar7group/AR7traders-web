@@ -1,18 +1,9 @@
 // SEO desk content creation (npm run test:seo-desk-create).
 //
-// The SEO desk used to only audit. This suite pins the "Create guide" half:
-//   • the desk mounts, and the guide creator opens from its own button;
-//   • missing fields, bad slugs (capitals, underscores, trailing hyphen,
-//     too long) and duplicate slugs are refused with a reason;
-//   • a valid form generates the article in the exact shape NEWS uses, logs
-//     it to the console AND copies it to the clipboard — it writes nothing
-//     to the database;
-//   • the draft is then audited at its canonical /news/<slug> path by the
-//     same engine (src/seo-audit.js), and a clean draft scores 100/100;
-//   • every asset the desk offers as an og:image really exists on disk.
-//
-// Runs in jsdom with a stubbed fetch (the desk reads /sitemap.xml and
-// /robots.txt) and a stubbed clipboard.
+// SEO desk guide publishing (npm run test:seo-desk-create).
+// Pins the title-derived canonical slug (the existing site_articles schema has
+// no slug column), validation, staff permission, mocked CRUD write/refresh,
+// sitemap audit, and real image assets. No live HTTP or database access.
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><head></head><body><div id="root"></div></body></html>', {
@@ -42,7 +33,8 @@ setGlobal('dispatchEvent', dom.window.dispatchEvent.bind(dom.window));
 dom.window.scrollTo = () => {};
 dom.window.HTMLElement.prototype.scrollIntoView = function () {};
 
-// The desk fetches the crawl files the audit reasons about.
+// Crawl files and API responses are local fixtures. The article CRUD mock
+// records the POST and then returns the saved row to the desk's refresh call.
 const SITEMAP_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://ar7traders.com/</loc></url>
@@ -51,17 +43,32 @@ const SITEMAP_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </urlset>`;
 const ROBOTS_TXT = `User-agent: *
 Disallow: /crm
+Disallow: /seo
 Sitemap: https://ar7traders.com/sitemap.xml
-Sitemap: https://ar7traders.com/api/sitemap-vehicles.xml`;
-setGlobal('fetch', url => {
+Sitemap: https://ar7traders.com/api/sitemap-news.xml`;
+let siteArticleRows = [];
+let postBody = null;
+const fetchCalls = [];
+setGlobal('fetch', (url, options = {}) => {
   const u = String(url);
-  if (u.includes('sitemap.xml')) return Promise.resolve({ ok: true, status: 200, text: async () => SITEMAP_XML });
-  if (u.includes('robots.txt')) return Promise.resolve({ ok: true, status: 200, text: async () => ROBOTS_TXT });
-  return Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' });
+  fetchCalls.push({url: u, options});
+  if (u.includes('sitemap.xml')) return Promise.resolve({ok: true, status: 200, text: async () => SITEMAP_XML});
+  if (u.includes('robots.txt')) return Promise.resolve({ok: true, status: 200, text: async () => ROBOTS_TXT});
+  if (u.includes('/api/site-content?entity=articles') && options.method === 'POST') {
+    postBody = JSON.parse(options.body);
+    siteArticleRows = [...siteArticleRows, {id: 'article-test-1', ...postBody}];
+    return Promise.resolve({ok: true, status: 201, json: async () => ({id: 'article-test-1'})});
+  }
+  if (u.includes('/api/site-content?entity=articles'))
+    return Promise.resolve({ok: true, status: 200, json: async () => siteArticleRows});
+  if (u.includes('/api/settings'))
+    return Promise.resolve({ok: true, status: 200, json: async () => ({})});
+  return Promise.resolve({ok: false, status: 404, json: async () => ({}), text: async () => ''});
 });
 
 // Clipboard stub — capture what the desk copies.
 let clipboard = [];
+const notifications = [];
 Object.defineProperty(dom.window.navigator, 'clipboard', {
   value: { writeText: async t => { clipboard.push(t); } },
   configurable: true
@@ -76,7 +83,7 @@ const React = (await import('react')).default;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { default: SeoDesk, GUIDE_ASSETS, validateGuide, buildArticle } = await import('../src/seo-desk.jsx');
-const { NEWS } = await import('../src/news-data.js');
+  const { NEWS, getPublishedNews } = await import('../src/news-data.js');
 const { existsSync } = await import('node:fs');
 const { fileURLToPath } = await import('node:url');
 const path = (await import('node:path')).default;
@@ -103,7 +110,10 @@ async function mountDesk() {
   await act(async () => {
     if (root_) root_.unmount();
     root_ = createRoot(container);
-    root_.render(React.createElement(SeoDesk, { navigate: () => {} }));
+    root_.render(React.createElement(SeoDesk, {
+      navigate: () => {}, token: 'test-token', canPublish: true, canPromote: true,
+      notify: message => { if (message) notifications.push(message); }
+    }));
   });
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 }
@@ -153,31 +163,24 @@ say('\nValidation — missing fields');
   ok(!$('.seo-created'), 'nothing was generated from an empty form');
 }
 
-say('\nValidation — slug rules (the same rules as articleSlug)');
+say('\nValidation — canonical slug follows the persisted title');
 {
   const title = labelOf('title').querySelector('input');
-  const slugInput = labelOf('slug').querySelector('input');
+  const slugInput = labelOf('canonical slug').querySelector('input');
+  ok(slugInput.readOnly && slugInput.maxLength === 90,
+    'the slug is read-only because site_articles stores the title, not a separate slug');
 
   await setReactValue(title, 'How to Import a Used Excavator From China');
   ok(slugInput.value === 'how-to-import-a-used-excavator-from-china',
-    `the slug derives from the title (${slugInput.value})`);
+    `the public URL slug derives from the title (${slugInput.value})`);
 
-  await setReactValue(slugInput, 'Bad_Slug With Spaces');
-  await submitForm();
-  ok(/lowercase letters, numbers and single hyphens/i.test(errTexts()), 'capitals, spaces and underscores are refused');
+  await setReactValue(title, 'A '.repeat(100) + 'used excavator');
+  ok(slugInput.value.length <= 90, 'long titles derive a readable slug within the public 90-character cap');
 
-  await setReactValue(slugInput, 'trailing-hyphen-');
+  await setReactValue(title, 'How online bidding works with AR7');
   await submitForm();
-  ok(/hyphen/i.test(errTexts()), 'a trailing hyphen is refused');
-
-  await setReactValue(slugInput, 'a'.repeat(91));
-  await submitForm();
-  ok(/maximum is 90/i.test(errTexts()), 'a slug over 90 characters is refused');
-
-  await setReactValue(slugInput, 'how-online-bidding-works-with-ar7');
-  await submitForm();
-  ok(/already published/i.test(errTexts()), 'a slug that is already in NEWS is refused as a duplicate');
-  ok(!$('.seo-created'), 'and still nothing was generated');
+  ok(/already published/i.test(errTexts()), 'a title deriving an existing NEWS slug is refused as a duplicate');
+  ok(!$('.seo-created'), 'a duplicate title is never submitted');
 }
 
 say('\nGeneration — a valid form produces the NEWS-shaped article');
@@ -193,9 +196,13 @@ say('\nGeneration — a valid form produces the NEWS-shaped article');
   await submitForm();
 
   const created = $('.seo-created');
-  ok(!!created, 'a valid form generates the article');
-  ok(clipboard.length > 0, 'the JSON was copied to the clipboard');
-  ok(logs.some(l => /RAW_NEWS/.test(l)), 'and logged to the console with the paste instructions');
+  ok(!!created, 'a valid form publishes the guide through the existing articles CRUD');
+  ok(clipboard.length > 0, 'a JSON backup was copied to the clipboard');
+  ok(postBody?.published === true && postBody?.title === 'How to Import a Used Excavator From China',
+    'the staff POST marks the guide published and sends its title to site_articles');
+  ok(!('slug' in postBody), 'the canonical slug is derived from the persisted title, not a nonexistent slug column');
+  ok(fetchCalls.some(call => call.options.method === 'POST' && call.options.headers?.Authorization === 'Bearer test-token'),
+    'publication is authenticated with the staff token');
 
   const json = clipboard[clipboard.length - 1];
   let article = null;
@@ -211,7 +218,7 @@ say('\nGeneration — a valid form produces the NEWS-shaped article');
   ok(article?.min >= 2, `reading minutes are estimated (${article?.min})`);
   ok(/\w+ \d{2}, \d{4}/.test(article?.date || ''), `the date matches the NEWS format (${article?.date})`);
   ok($('.seo-json')?.textContent.includes('"slug"'), 'the JSON is shown on the page, selectable');
-  ok(/sitemap\.xml/i.test(created.textContent), 'the sitemap step is spelled out');
+  ok(/sitemap-news\.xml/i.test(created.textContent), 'the dynamic news-sitemap endpoint is spelled out');
 }
 
 say('\nDraft audit — the same engine, at the canonical path');
@@ -229,10 +236,14 @@ say('\nDraft audit — the same engine, at the canonical path');
     'the canonical URL is the article\'s own absolute path');
 }
 
-say('\nStaff-tool guarantees');
+say('\nStaff-tool and public-content guarantees');
 {
-  // The creator only ever OUTPUTS: no fetch to an API happened during the run.
-  ok($('.seo-create'), 'the form is still open after generation — nothing navigated away');
+  ok($('.seo-create'), 'the form stays available after publication — no navigation was forced');
+  ok(siteArticleRows.length === 1 && getPublishedNews().some(a => a.title === 'How to Import a Used Excavator From China'),
+    'the public news module hydrates the newly published row after the mocked CRUD refresh');
+  ok(fetchCalls.every(call => call.url.startsWith('/')),
+    'the browser-facing desk uses same-origin mock routes only and makes no live egress');
+  ok(notifications.some(message => /Guide published/.test(message)), 'the operator receives a publication confirmation');
   const pageChecks = $$('.seo-card .seo-checks li').length;
   ok(pageChecks > 0, 'the desk\'s own page audit still renders beneath the creator');
 }
@@ -246,12 +257,19 @@ say('\nThe og:image list only offers real assets');
 
 say('\nPure helpers agree with the UI');
 {
-  const badCheck = validateGuide({ title: '', slug: '', cat: 'NOPE', img: '', desc: '', body: '' });
+  const badCheck = validateGuide({title: '', cat: 'NOPE', img: '', desc: '', body: ''});
   ok(Object.keys(badCheck.errors).length >= 5, 'validateGuide refuses an empty form');
-  const dup = validateGuide({ title: 'X', slug: 'how-online-bidding-works-with-ar7', cat: NEWS[0].cat, img: '/assets/og/auction.jpg', desc: 'x'.repeat(80), body: 'y' });
-  ok(/already published/i.test(dup.errors.slug || ''), 'validateGuide catches duplicates outside the UI too');
-  const built = buildArticle({ title: 'T', cat: NEWS[0].cat, img: '/assets/og/auction.jpg', desc: 'd', body: 'b' }, 'the-slug', { now: new Date('2026-10-04T12:00:00Z') });
-  ok(built.slug === 'the-slug' && built.date === 'Oct 04, 2026', 'buildArticle stamps the slug and the date');
+  const dup = validateGuide({title: 'How online bidding works with AR7', slug: 'ignored-custom-slug',
+    cat: NEWS[0].cat, img: '/assets/og/auction.jpg', desc: 'x'.repeat(80), body: 'y'});
+  ok(/already published/i.test(dup.errors.slug || ''), 'validateGuide detects duplicates from the stored title');
+  const derived = validateGuide({title: 'A guide title', slug: 'custom-path', cat: NEWS[0].cat,
+    img: '/assets/og/auction.jpg', desc: 'x'.repeat(80), body: 'y'});
+  ok(derived.slug === 'a-guide-title', 'validateGuide ignores an unpersisted override and returns the title-derived slug');
+  const dynamicCategory = validateGuide({title: 'New machinery guide', cat: 'MACHINERY',
+    img: '/assets/og/auction.jpg', desc: 'x'.repeat(80), body: 'y'}, [{title: 'Old machine guide', slug: 'old-machine-guide', cat: 'MACHINERY'}]);
+  ok(!dynamicCategory.errors.cat, 'categories already used by published site_articles rows remain valid');
+  const built = buildArticle({title: 'T', cat: NEWS[0].cat, img: '/assets/og/auction.jpg', desc: 'd', body: 'b'}, 'the-slug', {now: new Date('2026-10-04T12:00:00Z')});
+  ok(built.slug === 'the-slug' && built.date === 'Oct 04, 2026', 'buildArticle stamps the derived slug and date for the SEO audit');
 }
 
 console.log = realLog;

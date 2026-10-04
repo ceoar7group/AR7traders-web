@@ -120,6 +120,9 @@ const root = createRoot(container);
 await act(async () => { root.render(React.createElement(CurrencyProvider, null, React.createElement(App))); });
 // one more tick so the hydration fetches settle inside act()
 await act(async () => { await Promise.resolve(); });
+ok([...document.querySelectorAll('.dash-cars strong')].length === 3 &&
+   [...document.querySelectorAll('.dash-cars strong')].every(node => node.textContent.trim()),
+  'the public home dashboard renders its three vehicle prices');
 
 const goto = async (path) => {
   await act(async () => {

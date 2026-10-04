@@ -87,3 +87,16 @@ footer a.wa-link svg{color:#25d366}
 .facet-active span{background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:11px;color:var(--muted)}
 .facet-active button{border:0;background:none;color:var(--green-text);font-weight:700;font-size:12px;cursor:pointer;padding:0}
 @media(max-width:700px){.inv-facets{grid-template-columns:1fr 1fr}.facet-active{margin-inline-start:0}}
+
+/* Stock-level discounts: the buyer sees both the published list price and the
+   item-specific price, with the quotation caveat kept beside the saving. */
+.stock-price-display{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;line-height:1.15}
+.stock-price-values{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.stock-price-display s{color:var(--muted);font-size:.74em;font-weight:600}
+.stock-price-display b{color:var(--green-text);font:700 20px Manrope,sans-serif}
+.stock-price-display em{font-style:normal;color:var(--green-text);font-size:9px;font-weight:800;letter-spacing:.2px}
+.stock-price-display small{color:var(--muted);font-size:8.5px;font-weight:600;line-height:1.35}
+.detail-price>.stock-price-display{padding-block:2px}
+.detail-price>.stock-price-display .stock-price-display b,
+.detail-price>.stock-price-display>.stock-price-values b{font-size:32px}
+@media(max-width:650px){.stock-price-display small{font-size:8px}.detail-price>.stock-price-display>.stock-price-values b{font-size:28px}}

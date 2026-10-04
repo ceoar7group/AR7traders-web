@@ -130,6 +130,9 @@ ok(plan.campaigns.some(c => c.kind === 'machinery-type'), 'machinery campaigns a
 
 const agent = readFileSync(path.join(root, 'scripts/promo-agent.mjs'), 'utf8');
 ok(/nobody remembered to take it down|must be honoured|honoured in every quotation/i.test(agent), 'the agent states that a published discount has to be honoured');
+const promoDocs = readFileSync(path.join(root, 'PROMOTIONS.md'), 'utf8');
+ok(/SEO desk → Campaign launchpad/.test(promoDocs) && /Do not use this\s+command for the normal production publishing flow/.test(promoDocs),
+  'campaigns publish through the authenticated SEO desk; the CLI only edits the static fallback');
 // It must not manufacture urgency: no timer driving the copy, and no
 // "only N left" / "ends in N hours" strings generated anywhere.
 ok(!/setInterval|Date\.now\(\)\s*\+/.test(agent), 'the agent runs no countdown timer');
@@ -154,6 +157,8 @@ ok(report.checks.some(c => c.name === 'Security headers declared'), 'security he
 
 const guardian = readFileSync(path.join(root, 'scripts/guardian.mjs'), 'utf8');
 ok(/from '\.\.\/src\/routing\.js'/.test(guardian) || /routing\.js/.test(guardian), 'the link check reads the route list from src/routing.js, not a copy');
+ok(/Static promo fallback/.test(guardian) && /CRM → SEO desk → Campaign launchpad/.test(guardian),
+  'the guardian distinguishes the static fallback and routes live campaign fixes to the SEO desk');
 ok(/guardian:public-endpoint/.test(guardian), 'a deliberate public endpoint can declare itself');
 ok(existsSync(path.join(root, '.github/workflows/guardian.yml')), 'the guardian runs nightly in CI');
 
@@ -161,10 +166,12 @@ ok(existsSync(path.join(root, '.github/workflows/guardian.yml')), 'the guardian 
 const crm = readFileSync(path.join(root, 'src/crm.jsx'), 'utf8');
 ok(/\[\s*'guardian',\s*'Site guardian'/.test(crm), 'the CRM has a Site guardian tab');
 ok(/function GuardianView/.test(crm), 'the CRM renders the guardian panel');
-ok(/Promotions<\/h3>/.test(crm), 'the CRM panel controls promotions');
+const seoDesk = readFileSync(path.join(root, 'src/seo-desk.jsx'), 'utf8');
+ok(/Campaign launchpad/.test(seoDesk) && /Publish the public PromoBar/.test(seoDesk),
+  'campaigns are launched from the staff-only SEO desk, not the Price offers panel');
 const needs = ['ShieldCheck', 'Play', 'Send', 'ClipboardCopy', 'Ban', 'Copy'];
 ok(needs.every(icon => new RegExp(`\\b${icon}\\b`).test(crm)), 'every icon the guardian panel uses is imported');
-ok(/settings\.write/.test(crm), 'publishing a promotion is permission-gated');
+ok(/canPromote/.test(seoDesk) && /settings\.write/.test(crm), 'campaign publishing is permission-gated');
 
 // The site must read the live setting, with the file as a fallback.
 const bar = readFileSync(path.join(root, 'src/promo-bar.jsx'), 'utf8');

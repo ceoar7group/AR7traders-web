@@ -44,7 +44,7 @@ const ROUTES = [
   // One machine's own page, and a reference that no longer exists — the second
   // is a real page too (it says the machine is gone and offers the desk).
   '/machinery/excavators/AR7-MC-001', '/machinery/excavators/AR7-MC-999',
-  '/account', '/portal', '/studio', '/seo'
+  '/account', '/portal', '/studio'
 ];
 
 async function renderPage(route) {

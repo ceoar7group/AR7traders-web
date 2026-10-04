@@ -1,212 +1,219 @@
 #!/usr/bin/env node
-// Apply a price offer — the same offer the CRM's "Price offers" panel writes.
+// Manage item-specific vehicle and machinery discounts.
 //
-// The website reads one setting (`offer`) and one file (`public/offer.json`),
-// both in the shape src/offers.js validates. This script is the command-line
-// and agent face of that: it takes a sentence, or explicit flags, turns it into
-// a validated offer, shows what buyers will pay for every machine, and writes
-// it. No deploy, no build: the settings API holds the live one, the file is the
-// fallback for a site with no API.
-//
-// Usage
-//   npm run offer -- "20% off machinery until 30 November"
-//   npm run offer -- --percent 15 --scope machinery --types Excavators
-//   npm run offer -- --percent 10 --scope all --until 2026-12-31 --label "Winter sale"
-//   npm run offer -- --machine AR7-MC-003=25          # one unit only, no campaign
-//   npm run offer -- --clear
+// Examples:
+//   npm run offer -- --set car:STOCK-REF=15 --until 2026-12-31
+//   npm run offer -- --set machine:AR7-MC-003=20 --label "Warehouse clearance"
+//   npm run offer -- --remove car:STOCK-REF
 //   npm run offer -- --status
-//   npm run offer -- --dry-run "10% off mymachinery"  # validate + preview only
+//   npm run offer -- --clear
+//   npm run offer -- --set machine:AR7-MC-003=20 --dry-run
 //
-// Publishing needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (the same two the
-// CRM uses through the API). Without them the script still validates and
-// previews, and writes public/offer.json, which is what a static deployment
-// reads — it says which of the two it did, every time.
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+// Every discount is keyed to one stock reference; catalogue-wide discounts are
+// deliberately unsupported. Campaign messaging is published in the CRM SEO
+// desk. With Supabase service credentials this command updates site_settings
+// immediately and refreshes public/stock-discounts.json; without them, it writes
+// the static fallback, which takes effect on the next deployment.
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import {
+  EMPTY_STOCK_DISCOUNTS, STOCK_DISCOUNT_VERSION, STOCK_DISCOUNT_MIN_PERCENT,
+  STOCK_DISCOUNT_MAX_PERCENT, parseStockDiscounts, stockDiscountKey,
+  validateStockDiscounts, describeStockDiscounts
+} from '../src/stock-discounts.js';
 
-const dir = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(dir, '..');
-const read = p => readFileSync(path.join(root, p), 'utf8');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const STATIC_FILE = 'public/stock-discounts.json';
+const nowDefault = () => new Date();
+const owns = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
-const { MACHINES, listPriceUSD } = await import('../src/machinery-data.js');
-const { validateOffer, parseOffer, priceWithOffer, percentFor, describeOffer } = await import('../src/offers.js');
-const { parseOfferRequest } = await import('../src/offers-request.js');
-
-const argv = process.argv.slice(2);
-const flag = name => {
-  const i = argv.indexOf('--' + name);
-  if (i === -1) return null;
-  const next = argv[i + 1];
-  return next && !next.startsWith('--') ? next : true;
-};
-const sentence = argv.filter(a => !a.startsWith('--') && argv[argv.indexOf(a) - 1] !== '--percent'
-  && argv[argv.indexOf(a) - 1] !== '--scope' && argv[argv.indexOf(a) - 1] !== '--until'
-  && argv[argv.indexOf(a) - 1] !== '--label' && argv[argv.indexOf(a) - 1] !== '--types'
-  && argv[argv.indexOf(a) - 1] !== '--machine').join(' ').trim();
-
-const money = n => '$' + Number(n || 0).toLocaleString('en-US');
-
-// ---------------------------------------------------------------------------
-// Build the offer: from the sentence, from flags, or from --clear
-// ---------------------------------------------------------------------------
-let offer = null;
-let note = '';
-
-if (flag('status')) {
-  const current = currentOffer();
-  if (!current) console.log('No offer is live. Every page shows the list price.');
-  else {
-    const d = describeOffer(current);
-    console.log(`Live offer: ${d.line}${d.untilLabel ? ' — ends ' + d.untilLabel : ' — no end date'}`);
-    console.log(`   scope ${current.scope}${current.types?.length ? ' · ' + current.types.join(', ') : ''} · ${current.percent}% · set by ${current.publishedBy || 'unknown'}`);
-    report(current);
+export function parseArgs(argv = []) {
+  const out = {sets: [], removals: [], label: null, until: null, noEndDate: false,
+    clear: false, status: false, dryRun: false, help: false};
+  const take = (i, flag) => {
+    const arg = argv[i];
+    if (arg === undefined || arg.startsWith('--')) throw new Error(`${flag} needs a value.`);
+    return arg;
+  };
+  for (let i = 0; i < argv.length; i++) {
+    let arg = argv[i];
+    if (arg === '--help' || arg === '-h') out.help = true;
+    else if (arg === '--dry-run') out.dryRun = true;
+    else if (arg === '--clear') out.clear = true;
+    else if (arg === '--status') out.status = true;
+    else if (arg === '--no-end-date') out.noEndDate = true;
+    else if (['--set', '--remove', '--until', '--label'].includes(arg)) {
+      const value = take(++i, arg);
+      if (arg === '--set') out.sets.push(value);
+      else if (arg === '--remove') out.removals.push(value);
+      else if (arg === '--until') out.until = value;
+      else out.label = value;
+    } else if (/^--(?:set|remove|until|label)=/.test(arg)) {
+      const [flag, ...parts] = arg.split('=');
+      const value = parts.join('=');
+      if (!value) throw new Error(`${flag} needs a value.`);
+      if (flag === '--set') out.sets.push(value);
+      else if (flag === '--remove') out.removals.push(value);
+      else if (flag === '--until') out.until = value;
+      else out.label = value;
+    } else throw new Error(`Unknown option: ${arg}`);
   }
-  process.exit(0);
-}
 
-if (flag('clear')) {
-  offer = { active: false };
-  note = 'Clearing the offer — visitors go back to list prices.';
-} else if (sentence) {
-  const parsed = parseOfferRequest(sentence, { machines: MACHINES, existing: currentOffer() });
-  if (!parsed.ok) {
-    console.error('Could not read that: ' + parsed.reply);
-    console.error('Say it as a percentage and a scope, e.g. "20% off machinery until 30 November".');
-    process.exit(1);
+  if (out.help) return out;
+  if (out.clear && (out.status || out.sets.length || out.removals.length)) throw new Error('--clear cannot be combined with --status, --set or --remove.');
+  if (out.status && (out.sets.length || out.removals.length || out.until || out.label || out.noEndDate)) throw new Error('--status cannot be combined with changes.');
+  if (out.clear && (out.until || out.label || out.noEndDate)) throw new Error('--clear cannot be combined with discount fields.');
+  if (out.noEndDate && out.until) throw new Error('Use either --until or --no-end-date, not both.');
+  if (!out.help && !out.status && !out.clear && !out.sets.length && !out.removals.length) {
+    throw new Error('Choose --set kind:REF=PERCENT, --remove kind:REF, --clear or --status.');
   }
-  offer = parsed.offer;
-  note = parsed.reply;
-} else {
-  const percent = Number(flag('percent'));
-  const scope = String(flag('scope') || 'machinery');
-  const types = flag('types') ? String(flag('types')).split(',').map(s => s.trim()).filter(Boolean) : [];
-  const machines = {};
-  const unit = flag('machine');
-  if (unit && unit !== true) {
-    for (const pair of String(unit).split(',')) {
-      const [ref, pct] = pair.split('=');
-      if (!ref || !Number(pct)) { console.error(`--machine expects REF=PERCENT, got "${pair}"`); process.exit(1); }
-      machines[ref.trim().toUpperCase()] = Number(pct);
+  if (out.label && out.label.length > 40) throw new Error('Labels may be at most 40 characters.');
+  if (out.until) {
+    const checked = validateStockDiscounts({version: STOCK_DISCOUNT_VERSION, items: {
+      'car:DATE-CHECK': {kind: 'car', ref: 'DATE-CHECK', percent: 1, until: out.until}
+    }});
+    if (!checked.ok) throw new Error(checked.error);
+  }
+
+  for (const value of out.sets) {
+    const match = value.match(/^(car|machine):(.+?)=(\d+)$/i);
+    if (!match) throw new Error(`--set expects car:REF=PERCENT or machine:REF=PERCENT, got "${value}".`);
+    const key = stockDiscountKey(match[1], match[2]);
+    const percent = Number(match[3]);
+    if (!key) throw new Error(`Invalid stock reference in "${value}".`);
+    if (!Number.isInteger(percent) || percent < STOCK_DISCOUNT_MIN_PERCENT || percent > STOCK_DISCOUNT_MAX_PERCENT) {
+      throw new Error(`${key} must have a whole-number discount between ${STOCK_DISCOUNT_MIN_PERCENT}% and ${STOCK_DISCOUNT_MAX_PERCENT}%.`);
     }
   }
-  if (!Number.isFinite(percent) || percent <= 0) {
-    console.error('Nothing to do. Give a sentence ("20% off machinery") or --percent 20 --scope machinery.');
-    console.error('Other flags: --scope machinery|cars|all, --types Excavators,Loaders, --until YYYY-MM-DD, --label "Autumn offer".');
-    process.exit(1);
+  for (const value of out.removals) {
+    if (!parseDiscountKey(value)) throw new Error(`--remove expects car:REF or machine:REF, got "${value}".`);
   }
-  const draft = {
-    active: true, scope, percent, types, machines,
-    label: flag('label') && flag('label') !== true ? String(flag('label')) : null,
-    headline: `${Math.round(percent)}% off ${types.length ? types.join(', ').toLowerCase() : scope === 'all' ? 'everything' : scope === 'cars' ? 'cars' : 'machinery'}`,
-    until: flag('until') && flag('until') !== true ? String(flag('until')) : null,
-    publishedBy: 'npm run offer'
-  };
-  offer = draft;
-  note = `Offers ${draft.headline}${draft.until ? ' until ' + draft.until : ''}.`;
+  return out;
 }
 
-const checked = validateOffer(offer);
-if (!checked.ok) { console.error('That offer is not valid: ' + checked.error); process.exit(1); }
-const value = checked.value;
-
-// ---------------------------------------------------------------------------
-// Preview — the same arithmetic the website runs
-// ---------------------------------------------------------------------------
-function report(live) {
-  console.log('');
-  console.log('  machine                 type        list      offer    buyer pays');
-  console.log('  ────────────────────────────────────────────────────────────────────');
-  let totalWas = 0, totalNow = 0;
-  for (const m of MACHINES) {
-    const pct = percentFor(live, 'machine', { ref: m.ref, type: m.type });
-    const p = priceWithOffer(listPriceUSD(m), pct);
-    totalWas += p.was; totalNow += p.now;
-    console.log(`  ${m.ref.padEnd(12)} ${m.name.slice(0, 20).padEnd(21)} ${String(m.type).padEnd(11)} ${money(p.was).padStart(8)} ${(p.hasOffer ? p.percent + '%' : '—').padStart(7)} ${money(p.now).padStart(12)}`);
-  }
-  if (totalNow < totalWas) {
-    console.log(`  ${' '.repeat(12)} ${'catalogue total'.padEnd(21)} ${' '.repeat(11)} ${money(totalWas).padStart(8)} ${' '.repeat(7)} ${money(totalNow).padStart(12)}  (${money(totalWas - totalNow)} off)`);
-  }
-  console.log('');
+function parseDiscountKey(value) {
+  const match = String(value || '').match(/^(car|machine):(.+)$/i);
+  return match ? stockDiscountKey(match[1], match[2]) : '';
 }
 
-/** The live offer, from the settings table when this machine can reach it. */
-function currentOffer() {
+export function applyChanges(current, options, {now = nowDefault(), publishedBy = 'npm run offer'} = {}) {
+  const items = {...parseStockDiscounts(current).items};
+  if (options.clear) return EMPTY_STOCK_DISCOUNTS;
+  for (const value of options.removals) delete items[parseDiscountKey(value)];
+  for (const value of options.sets) {
+    const match = value.match(/^(car|machine):(.+?)=(\d+)$/i);
+    const kind = match[1].toLowerCase();
+    const ref = match[2].trim().toUpperCase();
+    const key = stockDiscountKey(kind, ref);
+    const old = items[key];
+    items[key] = {
+      kind, ref, percent: Number(match[3]),
+      label: options.label ?? old?.label ?? null,
+      until: options.noEndDate ? null : options.until ?? old?.until ?? null,
+      publishedAt: now.toISOString(), publishedBy
+    };
+  }
+  const checked = validateStockDiscounts({version: STOCK_DISCOUNT_VERSION, items});
+  if (!checked.ok) throw new Error(checked.error);
+  return checked.value;
+}
+
+function credentials(env) {
+  const url = String(env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const key = String(env.SUPABASE_SERVICE_ROLE_KEY || '');
+  return url && key ? {url, key} : null;
+}
+
+/** Supabase PostgREST reader. Always inject fetch in tests; tests never egress. */
+export async function readLiveSetting({env = process.env, fetchImpl = fetch} = {}) {
+  const auth = credentials(env);
+  if (!auth) return null;
+  const response = await fetchImpl(`${auth.url}/rest/v1/site_settings?key=eq.stock_discounts&select=value`, {
+    headers: {apikey: auth.key, Authorization: `Bearer ${auth.key}`}
+  });
+  if (!response.ok) throw new Error(`Could not read stock_discounts (${response.status}).`);
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows[0]?.value ?? null : null;
+}
+
+/** Supabase PostgREST upsert. Always inject fetch in tests; tests never egress. */
+export async function writeLiveSetting(value, {env = process.env, fetchImpl = fetch} = {}) {
+  const auth = credentials(env);
+  if (!auth) return false;
+  const response = await fetchImpl(`${auth.url}/rest/v1/site_settings?on_conflict=key`, {
+    method: 'POST',
+    headers: {
+      apikey: auth.key, Authorization: `Bearer ${auth.key}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify([{key: 'stock_discounts', value: JSON.stringify(value), updated_at: new Date().toISOString()}])
+  });
+  if (!response.ok) throw new Error(`Could not publish stock_discounts (${response.status}).`);
+  return true;
+}
+
+function readStatic(cwd, readFile = readFileSync, exists = existsSync) {
+  const file = path.join(cwd, STATIC_FILE);
+  if (!exists(file)) return EMPTY_STOCK_DISCOUNTS;
+  try { return parseStockDiscounts(readFile(file, 'utf8')); }
+  catch { return EMPTY_STOCK_DISCOUNTS; }
+}
+
+export function summaryText(discounts, now = new Date()) {
+  const result = describeStockDiscounts(discounts, now);
+  const entries = Object.entries(parseStockDiscounts(discounts).items);
+  if (!entries.length) return 'No stock discounts are configured.';
+  const lines = entries.map(([key, item]) => `  ${key.padEnd(28)} ${String(item.percent).padStart(2)}%${item.until ? ` · through ${item.until}` : ' · no end date'}${item.label ? ` · ${item.label}` : ''}`);
+  return `${result ? `Live summary: ${result.line}${result.untilLabel ? ` · through ${result.untilLabel}` : ''}` : 'No discounts are live today.'}\n${lines.join('\n')}`;
+}
+
+const HELP = `Per-stock discounts only — campaigns are published from the CRM SEO desk.\n\nUsage:\n  npm run offer -- --set car:REF=15 [--until YYYY-MM-DD] [--label TEXT]\n  npm run offer -- --set machine:REF=20 --no-end-date\n  npm run offer -- --remove car:REF\n  npm run offer -- --status\n  npm run offer -- --clear\n  Add --dry-run to preview without reading/writing the live setting or files.`;
+
+export async function main(argv = process.argv.slice(2), deps = {}) {
+  const cwd = deps.cwd || root;
+  const env = deps.env || process.env;
+  const fetchImpl = deps.fetchImpl || fetch;
+  const log = deps.log || (line => console.log(line));
+  const error = deps.error || (line => console.error(line));
+  const readFile = deps.readFile || readFileSync;
+  const writeFile = deps.writeFile || writeFileSync;
+  const exists = deps.exists || existsSync;
+  const now = deps.now || nowDefault();
   try {
-    const env = readEnv();
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return fileOffer();
-    const res = spawnSync('node', ['-e', `
-      const {createClient}=require('@supabase/supabase-js');
-      const c=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);
-      c.from('site_settings').select('value').eq('key','offer').single().then(({data})=>{
-        console.log(data?.value||''); }).catch(()=>{});
-    `], { env: { ...process.env, ...env }, encoding: 'utf8', timeout: 20000 });
-    return parseOffer(String(res.stdout || '').trim()) || fileOffer();
-  } catch { return fileOffer(); }
-}
+    const options = parseArgs(argv);
+    if (options.help) { log(HELP); return 0; }
+    if (options.status) {
+      const live = options.dryRun ? null : await readLiveSetting({env, fetchImpl});
+      log(summaryText(live ?? readStatic(cwd, readFile, exists), now));
+      return 0;
+    }
+    const live = options.dryRun ? null : await readLiveSetting({env, fetchImpl});
+    const current = live ?? readStatic(cwd, readFile, exists);
+    const next = applyChanges(current, options, {now, publishedBy: env.USER || env.USERNAME || 'npm run offer'});
+    log(summaryText(next, now));
+    if (options.dryRun) { log('Dry run — nothing published or written.'); return 0; }
 
-function fileOffer() {
-  try {
-    if (!existsSync(path.join(root, 'public/offer.json'))) return null;
-    return parseOffer(read('public/offer.json'));
-  } catch { return null; }
-}
-
-function readEnv() {
-  const out = {};
-  for (const file of ['.env', '.env.local', '.env.production']) {
-    try {
-      for (const line of read(file).split('\n')) {
-        const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-        if (m) out[m[1]] = m[2].replace(/^["']|["']$/g, '');
-      }
-    } catch { /* the file may not exist */ }
+    const published = await writeLiveSetting(next, {env, fetchImpl});
+    const output = path.join(cwd, STATIC_FILE);
+    const contents = JSON.stringify(next, null, 2) + '\n';
+    if (deps.mkdir) deps.mkdir(path.dirname(output), {recursive: true});
+    else if (cwd === root) {
+      // The tracked fallback file exists in the repository; no directory write
+      // is needed in the normal CLI path.
+    }
+    writeFile(output, contents);
+    log(published
+      ? 'Published to site_settings; the public site reads it on its next settings refresh. Static fallback refreshed.'
+      : `Saved ${STATIC_FILE}; changes take effect after the next deployment. To publish immediately, use CRM → Price offers.`);
+    return 0;
+  } catch (e) {
+    error(`Stock discount command failed: ${e.message}`);
+    return 1;
   }
-  return { ...out, ...process.env };
 }
 
-import { spawnSync } from 'node:child_process';
-
-console.log(note);
-if (value.active) {
-  const d = describeOffer(value);
-  console.log('');
-  console.log(`  ${d.line}${d.untilLabel ? ' — ends ' + d.untilLabel : ' — no end date'}`);
-  console.log('  ' + d.note);
-  report(value);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().then(code => { process.exitCode = code; });
 }
-
-if (flag('dry-run')) {
-  console.log('Dry run — nothing written. Drop --dry-run to publish.');
-  process.exit(0);
-}
-
-// ---------------------------------------------------------------------------
-// Write it: to the settings table (live) and to public/offer.json (fallback)
-// ---------------------------------------------------------------------------
-const json = JSON.stringify(value);
-let published = false;
-try {
-  const env = readEnv();
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
-    const res = spawnSync('node', ['-e', `
-      const {createClient}=require('@supabase/supabase-js');
-      const c=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);
-      c.from('site_settings').upsert({key:'offer',value:process.env.AR7_OFFER,label:'Live price offer'},{onConflict:'key'})
-        .then(({error})=>{ if(error){console.error(error.message);process.exit(1);} console.log('settings ok'); });
-    `], { env: { ...process.env, ...env, AR7_OFFER: json }, encoding: 'utf8', timeout: 30000 });
-    published = /settings ok/.test(res.stdout || '');
-    if (!published) console.error('   settings write failed: ' + String(res.stderr || res.stdout).trim().slice(0, 200));
-  } else {
-    console.log('   No SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY here, so the live setting was not written.');
-  }
-} catch (err) {
-  console.error('   settings write threw: ' + err.message);
-}
-
-writeFileSync(path.join(root, 'public/offer.json'), JSON.stringify(value, null, 2) + '\n');
-console.log(`   wrote public/offer.json (${value.active ? value.percent + '% off ' + value.scope : 'cleared'})`);
-console.log(published
-  ? '   live now: the website reads the setting on its next page load.'
-  : '   the site will pick up public/offer.json on the next deploy; to make it live immediately, publish the same offer from the CRM (Website settings / Price offers).');
-console.log('');

@@ -127,4 +127,16 @@ assert.match(layoutCss, /\.hero-visual \.card-foot \{[^}]*margin-top: auto/s);
 assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.inventory-panel:before \{\s*content: 'Inventory'/);
 assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.nav-drop-panel > a \{[^}]*justify-content: flex-start/s);
 
+// W1/W2: the facets stay as a single full-width wrapping flex toolbar at every
+// viewport, and the mobile hero retains both its owner-approved proof point
+// and the scroll cue that the old <=1000px rule hid.
+assert.match(main, /className="inv-toolbar inv-toolbar-facets"/);
+assert.match(detailCss, /\.inv-toolbar-facets\{display:flex!important/);
+assert.match(detailCss, /\.inv-toolbar-facets>\.inv-facets\{display:flex;flex-wrap:wrap/);
+assert.match(detailCss, /\.inv-toolbar-facets>\.inv-search\{[^}]*width:100%/);
+assert.match(main, /<FounderStat variant="hero" delay=\{900\}\/>/);
+assert.match(detailCss, /\.hero \.scroll-cue\{display:flex!important/);
+assert.match(detailCss, /\.hero-copy \.founder-stat--hero\{display:flex;visibility:visible;opacity:1/);
+assert.match(detailCss, /@media\(max-width:650px\)\{\s*\.hero\{padding-bottom:94px!important\}/);
+
 console.log('Responsive layout and first-paint checks passed.');

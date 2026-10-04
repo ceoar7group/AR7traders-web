@@ -1,0 +1,1282 @@
+[
+  {
+    "build": "before",
+    "target": "hero",
+    "size": "1920x1080",
+    "status": 200,
+    "file": "pr-visuals/hero-before-1920.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 250,
+        "y": 90,
+        "width": 1420,
+        "height": 800,
+        "top": 90,
+        "bottom": 890
+      },
+      "founderText": "900+900900900+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 250,
+        "y": 843,
+        "width": 137,
+        "height": 24,
+        "top": 843,
+        "bottom": 867
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "before",
+    "target": "hero",
+    "size": "1366x900",
+    "status": 200,
+    "file": "pr-visuals/hero-before-1366.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "documentWidth": 1366,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 93,
+        "y": 90,
+        "width": 1180,
+        "height": 896,
+        "top": 90,
+        "bottom": 986
+      },
+      "founderText": "900+900900900+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 93,
+        "y": 939,
+        "width": 137,
+        "height": 24,
+        "top": 939,
+        "bottom": 963
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "before",
+    "target": "hero",
+    "size": "1024x900",
+    "status": 200,
+    "file": "pr-visuals/hero-before-1024.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1024,
+        "height": 900
+      },
+      "documentWidth": 1024,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 20,
+        "y": 90,
+        "width": 984,
+        "height": 799,
+        "top": 90,
+        "bottom": 889
+      },
+      "founderText": "900+900900900+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 20,
+        "y": 842,
+        "width": 137,
+        "height": 24,
+        "top": 842,
+        "bottom": 866
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "before",
+    "target": "hero",
+    "size": "768x900",
+    "status": 200,
+    "file": "pr-visuals/hero-before-768.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "documentWidth": 768,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 18,
+        "y": 204,
+        "width": 732,
+        "height": 1296,
+        "top": 204,
+        "bottom": 1500
+      },
+      "founderText": "900+900899+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "bottom": 0
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "before",
+    "target": "hero",
+    "size": "390x844",
+    "status": 200,
+    "file": "pr-visuals/hero-before-390.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 9,
+        "y": 204,
+        "width": 372,
+        "height": 1253,
+        "top": 204,
+        "bottom": 1457
+      },
+      "founderText": "900+900899+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "bottom": 0
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "before",
+    "target": "inventory",
+    "size": "1920x1080",
+    "status": 200,
+    "file": "pr-visuals/inventory-before-1920.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 250,
+        "y": 163,
+        "width": 1420,
+        "height": 720,
+        "top": 163,
+        "bottom": 883
+      },
+      "facetRows": 10,
+      "facetBoxes": [
+        {
+          "x": 1347,
+          "y": 190,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 259,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 328,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 397,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 466,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 535,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 604,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 673,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 742,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 1347,
+          "y": 811,
+          "width": 160,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "before",
+    "target": "inventory",
+    "size": "1366x900",
+    "status": 200,
+    "file": "pr-visuals/inventory-before-1366.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "documentWidth": 1366,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 93,
+        "y": 233,
+        "width": 1180,
+        "height": 720,
+        "top": 233,
+        "bottom": 953
+      },
+      "facetRows": 10,
+      "facetBoxes": [
+        {
+          "x": 950,
+          "y": 260,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 329,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 398,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 467,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 536,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 605,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 674,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 743,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 812,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 950,
+          "y": 881,
+          "width": 160,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "before",
+    "target": "inventory",
+    "size": "1024x900",
+    "status": 200,
+    "file": "pr-visuals/inventory-before-1024.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1024,
+        "height": 900
+      },
+      "documentWidth": 1024,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 20,
+        "y": 190,
+        "width": 984,
+        "height": 720,
+        "top": 190,
+        "bottom": 910
+      },
+      "facetRows": 10,
+      "facetBoxes": [
+        {
+          "x": 681,
+          "y": 217,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 286,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 355,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 424,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 493,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 562,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 631,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 700,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 769,
+          "width": 160,
+          "height": 59
+        },
+        {
+          "x": 681,
+          "y": 838,
+          "width": 160,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "before",
+    "target": "inventory",
+    "size": "768x900",
+    "status": 200,
+    "file": "pr-visuals/inventory-before-768.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "documentWidth": 768,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 18,
+        "y": 208,
+        "width": 732,
+        "height": 423,
+        "top": 208,
+        "bottom": 631
+      },
+      "facetRows": 5,
+      "facetBoxes": [
+        {
+          "x": 31,
+          "y": 283,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 211,
+          "y": 283,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 31,
+          "y": 352,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 211,
+          "y": 352,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 31,
+          "y": 421,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 211,
+          "y": 421,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 31,
+          "y": 490,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 211,
+          "y": 490,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 31,
+          "y": 559,
+          "width": 170,
+          "height": 59
+        },
+        {
+          "x": 211,
+          "y": 559,
+          "width": 170,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "before",
+    "target": "inventory",
+    "size": "390x844",
+    "status": 200,
+    "file": "pr-visuals/inventory-before-390.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 9,
+        "y": 168,
+        "width": 372,
+        "height": 486,
+        "top": 168,
+        "bottom": 654
+      },
+      "facetRows": 5,
+      "facetBoxes": [
+        {
+          "x": 20,
+          "y": 241,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 200,
+          "y": 241,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 20,
+          "y": 312,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 200,
+          "y": 312,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 20,
+          "y": 383,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 200,
+          "y": 383,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 20,
+          "y": 454,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 200,
+          "y": 454,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 20,
+          "y": 525,
+          "width": 170,
+          "height": 61
+        },
+        {
+          "x": 200,
+          "y": 525,
+          "width": 170,
+          "height": 61
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "after",
+    "target": "hero",
+    "size": "1920x1080",
+    "status": 200,
+    "file": "pr-visuals/hero-after-1920.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 250,
+        "y": 90,
+        "width": 1420,
+        "height": 800,
+        "top": 90,
+        "bottom": 890
+      },
+      "founderText": "900+900900900+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 250,
+        "y": 843,
+        "width": 137,
+        "height": 24,
+        "top": 843,
+        "bottom": 867
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "after",
+    "target": "hero",
+    "size": "1366x900",
+    "status": 200,
+    "file": "pr-visuals/hero-after-1366.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "documentWidth": 1366,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 93,
+        "y": 90,
+        "width": 1180,
+        "height": 896,
+        "top": 90,
+        "bottom": 986
+      },
+      "founderText": "900+900900900+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 93,
+        "y": 939,
+        "width": 137,
+        "height": 24,
+        "top": 939,
+        "bottom": 963
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "after",
+    "target": "hero",
+    "size": "1024x900",
+    "status": 200,
+    "file": "pr-visuals/hero-after-1024.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1024,
+        "height": 900
+      },
+      "documentWidth": 1024,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 20,
+        "y": 90,
+        "width": 984,
+        "height": 799,
+        "top": 90,
+        "bottom": 889
+      },
+      "founderText": "900+900900900+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 20,
+        "y": 842,
+        "width": 137,
+        "height": 24,
+        "top": 842,
+        "bottom": 866
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "after",
+    "target": "hero",
+    "size": "768x900",
+    "status": 200,
+    "file": "pr-visuals/hero-after-768.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "documentWidth": 768,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 18,
+        "y": 204,
+        "width": 732,
+        "height": 1329,
+        "top": 204,
+        "bottom": 1533
+      },
+      "founderText": "900+900900900+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 316,
+        "y": 1491,
+        "width": 137,
+        "height": 24,
+        "top": 1491,
+        "bottom": 1515
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "after",
+    "target": "hero",
+    "size": "390x844",
+    "status": 200,
+    "file": "pr-visuals/hero-after-390.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "hero": {
+        "x": 9,
+        "y": 204,
+        "width": 372,
+        "height": 1285,
+        "top": 204,
+        "bottom": 1489
+      },
+      "founderText": "900+900899+cars soldDozens of satisfied customers, including car businesses.",
+      "scrollCue": {
+        "x": 136,
+        "y": 1449,
+        "width": 117,
+        "height": 24,
+        "top": 1449,
+        "bottom": 1473
+      },
+      "toolbar": null,
+      "facetRows": 0,
+      "facetBoxes": [],
+      "filterCount": 0
+    }
+  },
+  {
+    "build": "after",
+    "target": "inventory",
+    "size": "1920x1080",
+    "status": 200,
+    "file": "pr-visuals/inventory-after-1920.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 250,
+        "y": 233,
+        "width": 1420,
+        "height": 252,
+        "top": 233,
+        "bottom": 485
+      },
+      "facetRows": 2,
+      "facetBoxes": [
+        {
+          "x": 263,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 419,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 575,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 731,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 887,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 1043,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 1199,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 1355,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 1511,
+          "y": 300,
+          "width": 146,
+          "height": 59
+        },
+        {
+          "x": 263,
+          "y": 369,
+          "width": 220,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "after",
+    "target": "inventory",
+    "size": "1366x900",
+    "status": 200,
+    "file": "pr-visuals/inventory-after-1366.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "documentWidth": 1366,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 93,
+        "y": 190,
+        "width": 1180,
+        "height": 252,
+        "top": 190,
+        "bottom": 442
+      },
+      "facetRows": 2,
+      "facetBoxes": [
+        {
+          "x": 106,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 252,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 397,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 543,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 688,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 834,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 979,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 1125,
+          "y": 257,
+          "width": 136,
+          "height": 59
+        },
+        {
+          "x": 106,
+          "y": 326,
+          "width": 220,
+          "height": 59
+        },
+        {
+          "x": 336,
+          "y": 326,
+          "width": 220,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "after",
+    "target": "inventory",
+    "size": "1024x900",
+    "status": 200,
+    "file": "pr-visuals/inventory-after-1024.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 1024,
+        "height": 900
+      },
+      "documentWidth": 1024,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 20,
+        "y": 190,
+        "width": 984,
+        "height": 252,
+        "top": 190,
+        "bottom": 442
+      },
+      "facetRows": 2,
+      "facetBoxes": [
+        {
+          "x": 33,
+          "y": 257,
+          "width": 151,
+          "height": 59
+        },
+        {
+          "x": 194,
+          "y": 257,
+          "width": 151,
+          "height": 59
+        },
+        {
+          "x": 356,
+          "y": 257,
+          "width": 151,
+          "height": 59
+        },
+        {
+          "x": 517,
+          "y": 257,
+          "width": 151,
+          "height": 59
+        },
+        {
+          "x": 678,
+          "y": 257,
+          "width": 151,
+          "height": 59
+        },
+        {
+          "x": 840,
+          "y": 257,
+          "width": 151,
+          "height": 59
+        },
+        {
+          "x": 33,
+          "y": 326,
+          "width": 220,
+          "height": 59
+        },
+        {
+          "x": 263,
+          "y": 326,
+          "width": 220,
+          "height": 59
+        },
+        {
+          "x": 493,
+          "y": 326,
+          "width": 220,
+          "height": 59
+        },
+        {
+          "x": 723,
+          "y": 326,
+          "width": 220,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "after",
+    "target": "inventory",
+    "size": "768x900",
+    "status": 200,
+    "file": "pr-visuals/inventory-after-768.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "documentWidth": 768,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 18,
+        "y": 176,
+        "width": 732,
+        "height": 252,
+        "top": 176,
+        "bottom": 428
+      },
+      "facetRows": 2,
+      "facetBoxes": [
+        {
+          "x": 31,
+          "y": 243,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 174,
+          "y": 243,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 317,
+          "y": 243,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 461,
+          "y": 243,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 604,
+          "y": 243,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 31,
+          "y": 312,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 174,
+          "y": 312,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 317,
+          "y": 312,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 461,
+          "y": 312,
+          "width": 133,
+          "height": 59
+        },
+        {
+          "x": 604,
+          "y": 312,
+          "width": 133,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  },
+  {
+    "build": "after",
+    "target": "inventory",
+    "size": "390x844",
+    "status": 200,
+    "file": "pr-visuals/inventory-after-390.jpg",
+    "errors": [],
+    "metrics": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "hero": null,
+      "founderText": null,
+      "scrollCue": null,
+      "toolbar": {
+        "x": 9,
+        "y": 168,
+        "width": 372,
+        "height": 443,
+        "top": 168,
+        "bottom": 611
+      },
+      "facetRows": 5,
+      "facetBoxes": [
+        {
+          "x": 20,
+          "y": 231,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 199,
+          "y": 231,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 20,
+          "y": 298,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 199,
+          "y": 298,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 20,
+          "y": 365,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 199,
+          "y": 365,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 20,
+          "y": 432,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 199,
+          "y": 432,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 20,
+          "y": 499,
+          "width": 171,
+          "height": 59
+        },
+        {
+          "x": 199,
+          "y": 499,
+          "width": 171,
+          "height": 59
+        }
+      ],
+      "filterCount": 10
+    }
+  }
+]

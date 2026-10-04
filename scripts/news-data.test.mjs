@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import {
   NEWS, NEWS_CATEGORIES, MAX_SLUG_LENGTH,
-  articleSlug, articleBySlug, articleSeo
+  articleSlug, articleBySlug, articleSeo, getPublishedNews,
+  getNewsCategories, setPublishedNews, subscribePublishedNews
 } from '../src/news-data.js';
 import { DEST } from '../src/destinations.js';
 
@@ -43,6 +44,35 @@ for (const a of NEWS) {
 ok(articleBySlug('') === null && articleBySlug(null) === null && articleBySlug('unknown-guide-slug') === null,
   'articleBySlug returns null for empty or unknown slugs');
 ok(articleSeo(null) === null, 'articleSeo returns null for null input');
+
+console.log('published site_articles hydration');
+{
+  let notified = 0;
+  const unsubscribe = subscribePublishedNews(() => notified++);
+  const updatedBuiltIn = {title: NEWS[0].title, category: 'MARKET WATCH', date: 'Oct 04, 2026',
+    read_min: 6, image: NEWS[0].img, excerpt: 'CRM-edited excerpt', body: 'Updated guide body.', published: true, sort_order: 2};
+  const newGuide = {id: 'guide-1', title: 'Importing used excavators in Pakistan', slug: 'stale-editor-slug', category: 'MACHINERY',
+    date: 'Oct 03, 2026', read_min: 4, image: '/assets/machinery/hero-yard.webp',
+    excerpt: 'A new published machinery guide with a buyer checklist.', body: 'First paragraph and second paragraph.',
+    published: true, sort_order: -1};
+  const hiddenGuide = {title: 'Unpublished draft', category: 'MACHINERY', published: false, sort_order: -2};
+  ok(setPublishedNews([updatedBuiltIn, newGuide, hiddenGuide]), 'published rows from the existing site_articles entity are accepted');
+  const live = getPublishedNews();
+  ok(notified === 1, 'published-content subscribers are notified after hydration');
+  ok(live.length === NEWS.length + 1, 'CRM guide is added, unpublished rows stay hidden and static guides do not duplicate');
+  ok(live[0].title === newGuide.title && live[0].slug === articleSlug(newGuide.title),
+    'new published guides sort first and derive their canonical slug from the stored title');
+  ok(articleBySlug(articleSlug(newGuide.title), live) === live[0] && articleBySlug('stale-editor-slug', live) === null,
+    'public route lookup accepts the title-derived URL and rejects a stale stored slug');
+  ok(articleSeo(live[0])?.canonicalPath === `/news/${articleSlug(newGuide.title)}`,
+    'published guide canonical metadata is derived from the stored title');
+  ok(articleBySlug(NEWS[0].slug, live)?.ex === 'CRM-edited excerpt',
+    'a site_articles row can update an existing built-in guide by its title-derived slug');
+  ok(getNewsCategories().includes('MACHINERY'), 'the public filters include categories used by live guides');
+  ok(!live.some(article => article.title === hiddenGuide.title), 'unpublished drafts never enter the public list');
+  unsubscribe();
+  ok(setPublishedNews(null) === false, 'a malformed article response is ignored safely');
+}
 
 // DEST structure (7 fields per row, transit planning figure, no duty % quoted)
 ok(Array.isArray(DEST) && DEST.length === 6, `DEST has 6 destination markets (got ${DEST?.length})`);

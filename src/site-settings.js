@@ -36,6 +36,15 @@ export function getSettings() {
   return cache || FALLBACK;
 }
 
+/** Keep already-mounted public components in step with a successful CRM write. */
+export function updateSettingsCache(patch) {
+  const source = cache?.__source || 'api';
+  cache = {...getSettings(), ...(patch || {})};
+  Object.defineProperty(cache, '__source', {value: source, enumerable: false});
+  listeners.forEach(fn => { try { fn(cache); } catch { /* a view may have unmounted */ } });
+  return cache;
+}
+
 export function loadSettings() {
   if (cache) return Promise.resolve(cache);
   if (inflight) return inflight;
@@ -48,7 +57,7 @@ export function loadSettings() {
         Object.entries(data || {}).filter(([, v]) => v !== null && v !== '')
       )};
       // Whether the API answered at all, for callers whose second source is a
-      // static file (the price offer). Non-enumerable so it never leaks into a
+      // static stock-discount file. Non-enumerable so it never leaks into a
       // settings diff, a JSON body or the CSP-report shape.
       Object.defineProperty(cache, '__source', {value: answered ? 'api' : 'fallback', enumerable: false});
       if (typeof document !== 'undefined') syncBusinessJsonLd(cache);

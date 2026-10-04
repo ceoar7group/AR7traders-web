@@ -83,10 +83,7 @@ const ROUTES = {
   '/studio': ['AR7'],
   // /portal is in PAGES and in the vercel.json rewrites, so it is a real
   // public route — it was the only one neither route suite visited.
-  '/portal': ['portal-demo', 'CLIENT PORTAL DEMO'],
-  // Staff-only SEO desk: the same audit engine the CLI agent runs, in the
-  // browser. It must render for the owner, and stay out of the index.
-  '/seo': ['SEO', 'desk', 'audit']
+  '/portal': ['portal-demo', 'CLIENT PORTAL DEMO']
 };
 
 for (const [path, markers] of Object.entries(ROUTES)) {
@@ -95,6 +92,14 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   catch (err) { fail++; bad(`  ✗ ${path} threw: ${err.message}`); continue; }
   pass++; say(`  ✓ ${path} renders (${(html.length / 1024).toFixed(0)} KB of markup)`);
   for (const m of markers) ok(html.includes(m), `${path} contains "${m}"`);
+}
+
+{
+  const appSource = readFileSync('src/main.jsx', 'utf8');
+  const home = await renderPage('/');
+  ok(/route\.page==='seo'\?\{\.\.\.route,page:'crm'\}:route/.test(appSource),
+    'the former /seo URL passes through the CRM staff login');
+  ok(!/href=["']\/seo(?:["?#/])/.test(home), 'the staff-only SEO desk has no link from public navigation');
 }
 
 {

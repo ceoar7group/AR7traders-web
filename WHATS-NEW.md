@@ -478,9 +478,10 @@ Alibaba's own API. Full detail: `MACHINERY-SOURCES.md`.
 `npm run promo:plan` builds campaigns from real stock — the machinery on the
 desk, the markets AR7 ships to, the brands with stock, the guides that bring
 search traffic — and writes copy for six channels at once (site bar, WhatsApp,
-Facebook, Instagram, email, blog) with tagged links. `npm run promo:publish`
-puts one live on the site; the CRM's **Site guardian → Promotions** panel does
-the same thing with buttons.
+Facebook, Instagram, email, blog) with tagged links. Live campaigns are now
+published by authorized staff from **CRM → SEO desk → Campaign launchpad** to
+the authenticated `promo` setting. The old `npm run promo:publish` command is
+only a static-file fallback for deployments without the settings API.
 
 It will not invent a discount, a stock count or a deadline. A promotion without
 an end date is just the price, and an expired one removes itself. Full detail:

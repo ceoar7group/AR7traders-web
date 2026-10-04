@@ -1,5 +1,6 @@
 import {requireUser,adminClient,send} from './_supabase.js';
 import {requirePerm,log} from './_perm.js';
+import {validateStockDiscounts} from '../src/stock-discounts.js';
 
 // Site settings API.
 //
@@ -20,16 +21,14 @@ const PUBLIC_KEYS = [
   'contact_email', 'contact_phone', 'contact_address',
   'whatsapp_number', 'whatsapp_message', 'enquiry_inbox',
   'exchange_rates', 'exchange_rates_updated',
-  // The live promotion, as a JSON string written by the CRM's Promotions panel
-  // (or `npm run promo:publish`, which reads the same key). Public on purpose:
+  // The live campaign, as a JSON string published from the staff-only SEO desk
+  // (or by the existing campaign automation). Public on purpose:
   // it is the banner every visitor sees. Shape and bounds are validated below,
   // so this key can only ever hold a promotion — never arbitrary content.
   'promo',
-  // The live price offer, as a JSON string written by the CRM's Price offers
-  // panel (or `npm run offer`, which reads the same key). Public for the same
-  // reason as `promo`: it is the price every visitor sees. Shape and bounds
-  // are validated below, so it can only ever hold an offer.
-  'offer'
+  // Individual, public stock prices. Each entry is keyed by car:REF or
+  // machine:REF; there is deliberately no catalogue-wide price discount.
+  'stock_discounts'
 ];
 
 // Every key the CRM or the importer may write. Unknown keys are rejected so
@@ -37,7 +36,7 @@ const PUBLIC_KEYS = [
 const WRITABLE_KEYS = new Set([
   ...PUBLIC_KEYS.filter(k => k !== 'exchange_rates_updated'),
   'base_currency', 'default_customer_currency', 'exchange_rates_updated',
-  'promo', 'offer',
+  'promo', 'stock_discounts',
   'goonet_search_url', 'goonet_min_photos', 'goonet_min_year',
   'goonet_max_new_per_run', 'goonet_max_delist_per_run',
   'goonet_weekly_delist_limit', 'goonet_weekly_promote_limit',
@@ -46,12 +45,11 @@ const WRITABLE_KEYS = new Set([
 ]);
 
 // Per-key value caps. exchange_rates is a JSON blob; everything else is short.
-const MAX_VALUE = { exchange_rates: 8000, goonet_search_url: 500, promo: 1200, offer: 1500 };
+const MAX_VALUE = { exchange_rates: 8000, goonet_search_url: 500, promo: 1200, stock_discounts: 32000 };
 
-// The promotion shape. A promotion is shown to every visitor and its discount
-// is honoured in every quotation until `until`, so it is the one setting whose
-// contents matter commercially — not just its length. Anything that does not
-// fit this shape is rejected rather than stored and rendered.
+// Campaign copy is public, and an optional owner-confirmed margin promotion
+// must be honored in quotations. Itemized reductions shown on stock prices are
+// separately keyed by car:REF or machine:REF in stock_discounts.
 function validPromo(raw) {
   let promo;
   try { promo = JSON.parse(raw); } catch { return 'promo must be valid JSON'; }
@@ -68,25 +66,12 @@ function validPromo(raw) {
     const d = Number(promo.discount);
     if (!Number.isFinite(d) || d <= 0 || d > 40) return 'promo.discount must be between 1 and 40';
   }
-  if (promo.until != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(promo.until))) return 'promo.until must be YYYY-MM-DD';
-  return null;
-}
-
-// The price-offer shape. Bounds live here as well as in src/offers.js on
-// purpose: the browser shows the discount and the API stores it, and the two
-// must never disagree about what a valid offer is.
-function validOffer(raw) {
-  let offer;
-  try { offer = JSON.parse(raw); } catch { return 'offer must be valid JSON'; }
-  if (!offer || typeof offer !== 'object' || Array.isArray(offer)) return 'offer must be an object';
-  if (typeof offer.active !== 'boolean') return 'offer.active must be true or false';
-  if (!offer.active) return null;                        // clearing an offer needs nothing else
-  if (!['machinery', 'cars', 'all'].includes(offer.scope)) return 'offer.scope must be machinery, cars or all';
-  const pct = Number(offer.percent);
-  if (!Number.isFinite(pct) || pct < 1 || pct > 60) return 'offer.percent must be between 1 and 60';
-  if (offer.headline != null && String(offer.headline).length > 90) return 'offer.headline is too long (max 90 characters)';
-  if (offer.label != null && String(offer.label).length > 40) return 'offer.label is too long (max 40 characters)';
-  if (offer.until != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(offer.until))) return 'offer.until must be YYYY-MM-DD';
+  if (promo.until != null) {
+    const until = String(promo.until);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(until) ? new Date(`${until}T00:00:00.000Z`) : null;
+    if (!date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== until)
+      return 'promo.until must be a real YYYY-MM-DD date';
+  }
   return null;
 }
 
@@ -100,7 +85,10 @@ function validate(key, value) {
     return `"${key}" must be a valid email address`;
   }
   if (key === 'promo' && s) return validPromo(s);
-  if (key === 'offer' && s) return validOffer(s);
+  if (key === 'stock_discounts') {
+    const checked = validateStockDiscounts(s);
+    return checked.ok ? null : checked.error;
+  }
   return null; // valid
 }
 

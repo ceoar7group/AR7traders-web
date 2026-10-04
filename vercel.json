@@ -14,6 +14,10 @@
       "destination": "/api/site-content?sitemap=machinery"
     },
     {
+      "source": "/api/sitemap-news.xml",
+      "destination": "/api/site-content?sitemap=news"
+    },
+    {
       "source": "/assets/gallery/lexus-lc-500-01.jpg",
       "destination": "/assets/gallery/lexus-lc-500-01.webp"
     },

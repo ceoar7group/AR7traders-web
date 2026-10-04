@@ -320,9 +320,9 @@ html,body{overflow-x:clip}
 @media(max-width:560px){.budget-grid,.budget-bands{grid-template-columns:1fr}}
 
 /* ── Promotion bar ───────────────────────────────────────────────────────────
-   2026-10-03: written by `npm run promo:publish` or the CRM into the `promo`
-   setting, rendered by src/promo-bar.jsx. Dismissible, and it removes itself
-   when the campaign's end date passes. */
+   Written to the `promo` setting from CRM → SEO desk → Campaign launchpad;
+   public/promo.json remains the static fallback. Dismissible, and removes
+   itself when the campaign's end date passes. */
 .promo-bar{background:linear-gradient(90deg,var(--green),#075b36 55%,var(--green));color:#eaf4ee;border-bottom:1px solid #ffffff1a;z-index:60}
 .promo-bar-inner{display:flex;align-items:center;gap:12px;min-height:44px;padding:7px 0;font-size:12.5px}
 .promo-tag{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#ffffff1f;color:var(--gold2);flex:none}
