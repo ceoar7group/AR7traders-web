@@ -201,6 +201,15 @@ const MISSING_VEHICLE_SEO = [
   'This vehicle is no longer in our current stock. Browse live Japanese vehicles ready for export on AR7 Traders.'
 ];
 
+// An unpublished, sold or delisted machine. Without this the page fell
+// through to the type catalogue's title while the visitor was looking at
+// "That machine is not on the site any more" — and stayed indexable, so a
+// removed machine kept its search result.
+const MISSING_MACHINE_SEO = [
+  'Machine no longer listed | AR7 Traders',
+  'This machine is not on the site any more. Browse current machinery or ask us to source a similar unit.'
+];
+
 const MISSING_ARTICLE_SEO = [
   'Guide not found | AR7 Traders',
   'This buying guide could not be found. Browse our Japanese car import guides and market notes on AR7 Traders.'
@@ -423,6 +432,10 @@ function setJsonLd(id, json) {
 export function applySeo(page, carId, car, opts = {}) {
   const isVehiclePage = page === 'inventory' && carId != null && String(carId) !== '';
   const vehicleMissing = !!(isVehiclePage && !car && opts.vehicleMissing);
+  // A URL naming a machine that is not in the published list — unpublished,
+  // archived or sold. The page renders its own "no longer listed" state; this
+  // keeps the tags honest and takes it out of the index.
+  const machineMissing = !!(page === 'machinery' && opts.machineRef && !opts.machine);
   const brand = page === 'inventory' && !isVehiclePage ? brandSeo(opts.make) : null;
   const landing = page === 'inventory' && !isVehiclePage ? carsLandingSeo(opts.make, opts.model, opts.vehicleCount) : null;
   const machineTypeSeo = page === 'machinery' && opts.machineType ? MACHINERY_SEO[String(opts.machineType).toLowerCase()] : null;
@@ -436,7 +449,9 @@ export function applySeo(page, carId, car, opts = {}) {
 
   const [title, description] = vehicleMissing
     ? MISSING_VEHICLE_SEO
-    : (isVehiclePage && car)
+    : machineMissing
+      ? MISSING_MACHINE_SEO
+      : (isVehiclePage && car)
       ? vehicleSeo(car, carId)
       : articleMissing
         ? MISSING_ARTICLE_SEO
@@ -451,20 +466,22 @@ export function applySeo(page, carId, car, opts = {}) {
                 : brand
                 ? [brand.title, brand.description]
                 : (PAGE_SEO[page] || PAGE_SEO.home);
-  const url = articleMissing
-    ? BASE + '/news'
-    : artSeo
-      ? BASE + artSeo.canonicalPath
-      : landing
-        ? BASE + landing.canonicalPath
-        : machinePage
-          ? BASE + machinePage.canonicalPath
-          : machineTypeSeo
-            ? BASE + '/machinery/' + String(opts.machineType).toLowerCase()
-            : brand
-            ? BASE + brand.canonicalPath
-            : BASE + hrefFor(page, carId);
-  const noindex = ['crm', 'account', 'portal', 'studio', 'seo'].includes(page) || vehicleMissing || articleMissing;
+  const url = machineMissing
+    ? BASE + '/machinery'
+    : articleMissing
+      ? BASE + '/news'
+      : artSeo
+        ? BASE + artSeo.canonicalPath
+        : landing
+          ? BASE + landing.canonicalPath
+          : machinePage
+            ? BASE + machinePage.canonicalPath
+            : machineTypeSeo
+              ? BASE + '/machinery/' + String(opts.machineType).toLowerCase()
+              : brand
+                ? BASE + brand.canonicalPath
+                : BASE + hrefFor(page, carId);
+  const noindex = ['crm', 'account', 'portal', 'studio', 'seo'].includes(page) || vehicleMissing || machineMissing || articleMissing;
 
   document.title = title;
   setMeta('meta[name="description"]', 'content', description);

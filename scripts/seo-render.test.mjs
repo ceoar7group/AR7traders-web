@@ -291,6 +291,29 @@ ok(jsonld('vehicle-jsonld') === null, 'missing vehicle publishes no Car JSON-LD'
 applySeo('inventory', 'gone-ref', null); // still loading (not confirmed missing)
 ok(meta('meta[name="robots"]')?.startsWith('index,follow'), 'a vehicle that is merely loading stays indexable');
 
+// ---- a machine that is no longer listed -----------------------------------
+// Unpublishing a machine must take it out of the index, the same way a
+// delisted car does. Before this the URL fell through to the type catalogue's
+// title and stayed indexable, so a removed machine kept its search result
+// while showing the visitor "That machine is not on the site any more".
+applySeo('machinery', null, null, { machineType: 'Excavators', machineRef: 'AR7-GONE-001', machine: null });
+ok(document.title.includes('no longer listed'), 'a machine that is not listed gets an honest title');
+ok(meta('meta[name="robots"]') === 'noindex,nofollow', 'a machine that is not listed is noindex');
+ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/machinery',
+  'its canonical points at the catalogue, not at a page for a machine that is gone');
+applySeo('machinery', null, null, { machineType: 'Excavators', machineRef: 'AR7-MC-001', machine: null, machineOfferPercent: 0 });
+ok(meta('meta[name="robots"]') === 'noindex,nofollow', 'a machine that is merely loading stays out of the index too');
+// A machine that IS published keeps its own page and stays indexable.
+applySeo('machinery', null, null, {
+  machineType: 'Excavators', machineRef: 'AR7-MC-001',
+  machine: { id: 'm1', ref: 'AR7-MC-001', type: 'Excavators', brand: 'Doosan', model: 'DX300LC-9C',
+             year: 2019, hours: 6800, price: 62500, summary: '30-tonne class crawler excavator.',
+             images: ['/assets/machinery/doosan-dx300lc-1.webp'], specs: [['Operating weight', '30,200 kg']],
+             status: 'Available', origin: 'China', location: 'Hunan' }
+});
+ok(!/no longer listed/.test(document.title), 'a published machine keeps its own title');
+ok(meta('meta[name="robots"]')?.startsWith('index,follow'), 'a published machine stays indexable');
+
 // ---- leaving the detail page removes the Car block ------------------------
 applySeo('inventory', null);
 ok(jsonld('vehicle-jsonld') === null, 'Car JSON-LD is removed when leaving the detail page');
