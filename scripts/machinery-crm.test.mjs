@@ -269,5 +269,52 @@ console.log('\n-- the machinery sitemap --');
   ok(buildMachineryXml([]).includes('<urlset'), 'an empty catalogue is still a valid urlset');
 }
 
+console.log('\n-- live-site hydration --');
+{
+  // The public site replaces its built-in fallback with the CRM's published
+  // rows. The one thing that must never happen is the catalogue going blank —
+  // or worse, the home page crashing — because a response was malformed. This
+  // is the exact failure that took the home page down once already.
+  const { MACHINES, hydrateMachines } = await import('../src/machinery-data.js');
+  const before = MACHINES.length;
+  ok(before > 0, `the built-in fallback is non-empty (${before} machines)`);
+
+  ok(hydrateMachines(null) === false, 'a null response leaves the fallback standing');
+  ok(hydrateMachines([]) === false, 'an empty response leaves the fallback standing');
+  ok(hydrateMachines('not an array') === false, 'a non-array response leaves the fallback standing');
+  ok(MACHINES.length === before, 'and the catalogue is untouched by all three');
+
+  // Rows with no `type` — e.g. car listings from a proxy that answered the
+  // wrong endpoint. Accepting them used to crash the home teaser on
+  // m.type.replace(). They must be dropped, not rendered.
+  const cars = [{ id: 1, make: 'Toyota', model: 'Land Cruiser', price: 41000 }];
+  ok(hydrateMachines(cars) === false, 'rows with no type are rejected outright');
+  ok(MACHINES.length === before, 'the catalogue is unchanged after a wholly bad batch');
+
+  // A mostly-good batch with one bad row: keep the good ones, drop the bad.
+  const mixed = [
+    { id: 'a', ref: 'AR7-X-1', type: 'Excavators', brand: 'Doosan', model: 'DX300', year: 2019, price: 60000 },
+    { id: 'b', make: 'Toyota' }
+  ];
+  ok(hydrateMachines(mixed) === true, 'a mixed batch is accepted for its good rows');
+  ok(MACHINES.length === 1, `only the renderable row survives (got ${MACHINES.length})`);
+  ok(MACHINES[0].type === 'Excavators', 'the surviving row is the renderable one');
+  ok(Array.isArray(MACHINES[0].images), 'a hydrated row always has an images array');
+  ok(Array.isArray(MACHINES[0].specs), 'a hydrated row always has a specs array');
+  ok(!!MACHINES[0].name, 'a hydrated row always has a display name');
+  ok(MACHINES.length === 1 && MACHINES[0].status === 'Available', 'a missing status defaults to Available');
+
+  // Every hydrated row must survive the components that render it.
+  let renderCrash = null;
+  try {
+    for (const m of MACHINES) {
+      if (typeof m.type !== 'string') throw new Error('type is not a string');
+      String(m.type).replace(/s$/, '');            // the home teaser
+      String(m.type).toLowerCase();                // the URL helper
+    }
+  } catch (e) { renderCrash = e.message; }
+  ok(renderCrash === null, `hydrated rows survive what the home teaser does to them${renderCrash ? ` — ${renderCrash}` : ''}`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -48,7 +48,8 @@ import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, hashFor, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
-import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref } from './machinery-data.js';
+import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines } from './machinery-data.js';
+import { useMachineryVersion } from './machinery-hydrate.jsx';
 import { useOffer, percentFor, priceWithOffer } from './offers.js';
 // A car uploaded before the 2026-10 WebP pass stores a `.jpg` photo path that
 // no longer exists on disk. vercel.json rewrites those URLs and this retries
@@ -223,9 +224,15 @@ async function hydrateSiteContent(){
  // (they are in site_listings) and cars the rotation system parked.
  const getJson=url=>fetch(url).then(r=>r.ok?r.json():null).catch(()=>null);
  try{
-  const [rows,dealer]=await Promise.all([
+  // Machinery hydrates in the same parallel batch as the cars, so the
+  // catalogue, the home teaser and the sitemap all agree on one snapshot.
+  // A machine is never hidden behind a permission here: the API has already
+  // filtered to published rows and stripped any photo without a rights basis,
+  // so what lands is exactly what the public may see.
+  const [rows,dealer,machines]=await Promise.all([
    getJson('/api/site-content?entity=listings'),
-   getJson('/api/goonet-stock')
+   getJson('/api/goonet-stock'),
+   getJson('/api/site-content?machinery=list')
   ]);
   const mapped=[];
   if(Array.isArray(rows)&&rows.length){
@@ -235,6 +242,9 @@ async function hydrateSiteContent(){
    mapped.push(...mapDealerRows(dealer).map((c,i)=>enrichCar({...c,image:c.image||'/assets/ar7-mark.png'},i)));
   }
   if(mapped.length){cars.length=0;cars.push(...mapped);}
+  // Empty or failed → the built-in MACHINES fallback stands. The page must
+  // never go blank because an API call was slow or the table is unprovisioned.
+  hydrateMachines(machines);
  }catch{/* offline or not provisioned yet — keep built-in content */}
  contentHydrated=true;
  contentListeners.forEach(fn=>{try{fn()}catch{}});
@@ -993,6 +1003,9 @@ export function App(){
  const [,forceContent]=useReducer(x=>x+1,0);
  const settings=useSettings();
  const price=useCarPrice();
+ // Redraw when the CRM's machines replace the built-in list, so the home
+ // teaser and the machinery page show the live catalogue, not the fallback.
+ useMachineryVersion();
  // `t` is used by the six screens a buyer meets first (hero, inventory toolbar,
  // enquiry form, contact block, footer and the machinery desk) so the page a
  // visitor lands on reads in their language, not only the machinery pages.

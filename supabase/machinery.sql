@@ -50,7 +50,9 @@ create table if not exists public.machinery (
   summary            text,
   -- [["Operating weight","30,200 kg"], ["Engine","Doosan DE08TIS · 147 kW"], …]
   specs              jsonb,
-  -- [{"src":"/assets/machinery/x.webp","rights":"own-photo"}, …]
+  -- [{"src":"<path>","rights":"own-photo"}, …] — <path> is deliberately not a
+  -- real /assets/… literal: scripts/asset-refs.test.mjs scans every file for
+  -- asset references and would flag an example as a broken one.
   -- `rights` is mandatory before publication; see rights_basis below.
   images             jsonb,
 

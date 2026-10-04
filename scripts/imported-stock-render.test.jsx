@@ -88,7 +88,10 @@ const LISTINGS = [{
 
 setGlobal('fetch', url => {
   const u = String(url);
-  const body = u.includes('/api/site-content') ? LISTINGS
+  // Match on the ENTITY, not merely on '/api/site-content'. Machinery now
+  // hydrates through the same function (?machinery=list), and a loose match
+  // here would feed car listings into the machinery catalogue.
+  const body = u.includes('entity=listings') ? LISTINGS
     : u.includes('/api/goonet-stock') ? DEALER
     : null;
   if (body) return Promise.resolve({ ok: true, status: 200, json: async () => body, text: async () => '' });
