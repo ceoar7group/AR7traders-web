@@ -26,6 +26,7 @@ html[dir="rtl"] body{font-family:Manrope,'Noto Naskh Arabic','Segoe UI',system-u
 html[dir="rtl"] .mch-modal-specs th,
 html[dir="rtl"] .mch-modal-specs td{text-align:right}
 html[dir="rtl"] .mch-modal-note{border-left:0;border-right:3px solid var(--gold);padding-left:0;padding-right:11px}
+html[dir="rtl"] .mch-detail-note{border-left:0;border-right:3px solid var(--gold);padding-left:0;padding-right:11px}
 html[dir="rtl"] .mch-modal-gallery{border-radius:0 22px 22px 0}
 html[dir="rtl"] .mch-modal-x{right:auto;inset-inline-end:14px}
 html[dir="rtl"] .page-hero .kicker,
@@ -36,7 +37,9 @@ html[dir="rtl"] .section-head h2,
 html[dir="rtl"] .cta h2{letter-spacing:0}
 html[dir="rtl"] .arrow-flip,
 html[dir="rtl"] .primary svg,
-html[dir="rtl"] .gold-btn svg{transform:scaleX(-1)}
+html[dir="rtl"] .gold-btn svg,
+html[dir="rtl"] .back-btn svg,
+html[dir="rtl"] .mch-view svg{transform:scaleX(-1)}
 html[dir="rtl"] .ticker>div{animation-direction:reverse}
 
 /* ── Physical leading edges ────────────────────────────────────────────────

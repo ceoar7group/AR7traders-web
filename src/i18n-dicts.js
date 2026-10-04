@@ -1651,7 +1651,7 @@ const ha = {
   'footer.trustSecure': 'Biyan kuɗi mai tsaro',
   'footer.trustSheets': 'Fassarar takardun kwanjar kasuwa',
   'footer.trustDelivery': 'Isarwa a duk duniya',
-  'footer.explore': 'BINCΙKA',
+  'footer.explore': 'BINCIKA',
   'footer.company': 'KAMFANI',
   'footer.inventory': 'Motoci',
   'footer.japanStock': "Ajiyar 'yan kasuwa na Japan",

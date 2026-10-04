@@ -51,7 +51,11 @@ const MACHINE_INTRO = {
   All: 'Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers — inspected, photographed and shipped to your port with the paperwork handled.'
 };
 
-const usageOf = m => (m.type === 'Trucks' ? `${Number(m.hours).toLocaleString('en-US')} km` : `${Number(m.hours).toLocaleString('en-US')} h`);
+const usageOf = m => {
+  const h = Number(m.hours);
+  if (!Number.isFinite(h) || h <= 0) return m.type === 'Trucks' ? 'km on request' : 'hours on request';
+  return m.type === 'Trucks' ? `${h.toLocaleString('en-US')} km` : `${h.toLocaleString('en-US')} h`;
+};
 
 /* --------------------------------------------------------------------------
    Machine detail view — the whole walkaround, the full spec table and the
@@ -248,7 +252,7 @@ function MachineCard({machine, onQuote, onChat, navigate, offer}) {
         <small><MapPin/> {machine.location}, {machine.origin} · {t('machinery.ref')} {machine.ref}</small>
       </div>
       <p>{machine.summary}</p>
-      <div className="mch-meta"><span><Gauge/> {machine.year} · {usageOf(machine)}</span><span><Wrench/> {machine.specs[0][0]}: <b>{machine.specs[0][1]}</b></span></div>
+      <div className="mch-meta"><span><Gauge/> {machine.year} · {usageOf(machine)}</span>{machine.specs[0] && <span><Wrench/> {machine.specs[0][0]}: <b>{machine.specs[0][1]}</b></span>}</div>
       <ul className="mch-specs">{machine.specs.slice(1).map(([k, v]) => <li key={k}><small>{k}</small><b>{v}</b></li>)}</ul>
       <div className="mch-foot">
         <div>
