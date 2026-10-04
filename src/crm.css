@@ -898,7 +898,7 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-table-wrap table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 820px;
+  min-width: 720px;
 }
 .crm-table-wrap th {
   text-align: left;
@@ -915,10 +915,14 @@ html[data-crm-theme="light"] .crm-shell {
 }
 .crm-table-wrap td {
   font-size: 12px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-top: 1px solid var(--crm-border-subtle);
   color: var(--crm-ink);
   vertical-align: middle;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .crm-table-wrap tbody tr {
   transition: background 0.14s ease;
@@ -2925,19 +2929,20 @@ html[data-crm-theme="light"] .crm-shell {
 .vcard-actions .btn-edit:hover { border-color: var(--crm-accent); color: var(--crm-accent); }
 
 /* Table row actions: tidy pills */
-.crm-row-actions { white-space: nowrap; }
+.crm-row-actions { white-space: nowrap; display: flex; gap: 4px; align-items: center; }
 .crm-row-actions > button {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  margin-right: 4px;
+  gap: 4px;
+  padding: 5px 10px;
+  margin-right: 0;
   border: 1px solid var(--crm-border);
   border-radius: 999px;
   background: var(--crm-input-bg);
   color: var(--crm-ink);
-  font: 700 11.5px var(--crm-font);
+  font: 700 10.5px var(--crm-font);
   cursor: pointer;
+  white-space: nowrap;
   transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
 .crm-row-actions > button:hover {
@@ -3074,13 +3079,13 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-goonet-settings .crm-check-field{flex-direction:row;align-items:center;gap:10px}
 .crm-goonet-settings footer{margin-top:14px;display:flex;justify-content:flex-end}
 .crm-goonet-settings .save{display:inline-flex;align-items:center;gap:6px;background:var(--crm-gold);color:var(--crm-on-gold);border:0;border-radius:10px;padding:10px 16px;font-weight:800;font-size:11px;cursor:pointer}
-.crm-goonet .goonet-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0;max-width:240px}
+.crm-goonet .goonet-actions{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;min-width:0;max-width:320px}
 /* The actions column is pinned to the right edge of the scrollable table so
    the row buttons never sit out of frame on narrow CRM viewports. */
 .crm-table-wrap th.th-actions,
 .crm-table-wrap td.crm-row-actions{position:sticky;right:0;background:var(--crm-panel);box-shadow:-10px 0 14px -10px rgba(0,0,0,.35);z-index:2}
 .crm-table-wrap tbody tr:hover td.crm-row-actions{background:var(--crm-panel-hover,var(--crm-panel))}
-.crm-goonet .goonet-actions button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--crm-border);background:var(--crm-panel-sub);color:var(--crm-ink);border-radius:9px;padding:6px 9px;font-size:10px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
+.crm-goonet .goonet-actions button{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--crm-border);background:var(--crm-panel-sub);color:var(--crm-ink);border-radius:8px;padding:4px 8px;font-size:9.5px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
 .crm-goonet .goonet-actions button:hover{background:var(--crm-panel-hover);color:var(--crm-ink)}
 .crm-goonet .goonet-actions .crm-del:hover{background:var(--crm-danger-bg);border-color:var(--crm-danger-border);color:var(--crm-danger)}
 /* "Already added": a car that is on the website / in the inventory keeps its
