@@ -285,11 +285,10 @@ function mergeIntoData(machines) {
   if (!fresh.length) return 0;
   const entries = fresh.map(m => '  ' + JSON.stringify({
     id: m.id, ref: m.ref, name: m.name, brand: m.brand, type: m.type, year: m.year,
-    hours: m.hours, supplierPrice: m.supplierPrice, price: m.listPrice, origin: m.origin,
-    location: m.location, status: m.status, photosPending: m.photosPending || undefined,
-    photoFlags: m.photoFlags,
-    image: m.image, images: m.images, summary: m.summary, specs: m.specs, source: m.source,
-    needsReview: true
+    hours: m.hours, supplierPrice: m.supplierPrice, price: m.listPrice || m.price, origin: m.origin,
+    location: m.location, status: m.status || 'Available', photosPending: m.photosPending || undefined,
+    photoFlags: m.photoFlags, published: true, needsReview: false,
+    image: m.image, images: m.images || [], summary: m.summary, specs: m.specs || [], source: m.source,
   }, null, 2).replace(/\n/g, '\n  ')).join(',\n');
   const marker = 'export const MACHINES = [\n';
   const at = current.indexOf(marker);

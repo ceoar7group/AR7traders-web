@@ -1173,10 +1173,6 @@ export function App(){
       <h1>{t('hero.h1a')}<br/><em>{t('hero.h1b')}</em></h1>
       <p>{t('hero.lead')} <b>{t('hero.leadEm')}</b>.</p>
       <div className="hero-cta"><button className="primary" onClick={()=>go('inventory')} type="button">{t('hero.explore')} <ArrowRight/></button><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink></div>
-      <div className="hero-vignettes">
-        <PageLink className="hero-vignette" to="inventory" navigate={navigate}><CarFront/><span>Cars<small>Japan stock</small></span></PageLink>
-        <PageLink className="hero-vignette" to="machinery" navigate={navigate}><Wrench/><span>Machines<small>China desk</small></span></PageLink>
-      </div>
       <div className="hero-quick"><button className="text-btn" onClick={()=>setModal(true)} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
       <FounderStat variant="hero" delay={900}/>
     </div>
