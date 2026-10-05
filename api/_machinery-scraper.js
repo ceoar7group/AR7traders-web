@@ -18,7 +18,7 @@
 //     read (network error or a 5xx), that host is treated as fully
 //     DISALLOWED — a scraper that guesses at rules it could not read is how
 //     sites get their IPs banned. A 4xx means "unrestricted" per RFC 9309.
-//   • Rate limited: at most 20 machines per run and a 1-second pause between
+//   • Rate limited: at most six machines per run and a 1-second pause between
 //     every fetch. Marketplace pages change daily; a polite crawler is the
 //     one that keeps working.
 //   • The honest user agent from the paste-a-link importer. Pretending to be
@@ -54,7 +54,7 @@ export const SCRAPER_CATEGORIES = {
 };
 
 /** The rate limits, pinned by scripts/machinery-scraper.test.mjs. */
-export const MAX_SCRAPER_MACHINES = 20;
+export const MAX_SCRAPER_MACHINES = 6;
 export const SCRAPER_DELAY_MS = 1000;
 
 /** Per-fetch timeout. A hung supplier page must not hang the function. */
@@ -221,6 +221,7 @@ export async function runScraper(db, {
   const skipped = [];
   const machines = [];
   const previews = [];
+  const previewRows = []; // prior previews in this run, for brand/model/year dedupe
   const stats = { categories: 0, linksFound: 0, fetched: 0, deduped: 0, robotsBlocked: 0, capped: 0 };
 
   const maxMachines = Math.max(1, Math.min(MAX_SCRAPER_MACHINES, Number(limit) > 0 ? Math.floor(Number(limit)) : MAX_SCRAPER_MACHINES));
@@ -327,13 +328,14 @@ export async function runScraper(db, {
       rights: preview.machine.source?.rights || null,
       adapter: preview.machine.source?.adapter || 'product-page'
     });
-    const match = findExisting(existing, row);
+    const match = findExisting([...existing, ...previewRows], row);
     if (match || seenUrls.has(normUrl(link))) {
       stats.deduped++;
       skipped.push({ url: link, reason: `already in the catalogue (${match?.ref || 'same machine'})` });
       continue;
     }
     seenUrls.add(normUrl(link));
+    previewRows.push(row);
 
     machines.push(preview.machine);
     previews.push({

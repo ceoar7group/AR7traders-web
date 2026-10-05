@@ -1537,3 +1537,98 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
     justify-content: center;
   }
 }
+
+/* Origin links live with the hero copy, never as floating photo annotations. */
+.hero .hero-copy .hero-vignettes {
+  position: relative;
+  inset: auto;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 14px 0 0;
+}
+.hero .hero-copy .hero-vignette {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 1 184px;
+  min-width: 152px;
+  min-height: 50px;
+  padding: 8px 13px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: color-mix(in srgb,var(--card) 94%,transparent);
+  color: var(--ink);
+  box-shadow: 0 7px 20px rgba(0,0,0,.07);
+  font: 700 11px/1.2 Manrope,sans-serif;
+  text-decoration: none;
+  transition: border-color .2s,box-shadow .2s,transform .2s;
+}
+.hero .hero-copy .hero-vignette:hover {
+  border-color: var(--gold);
+  box-shadow: 0 10px 24px rgba(0,0,0,.1);
+  text-decoration: none;
+}
+.hero .hero-copy .hero-vignette:focus-visible,
+.hero-carousel-controls button:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+.hero .hero-copy .hero-vignette svg {width:19px;height:19px;flex:none;color:var(--gold)}
+.hero .hero-copy .hero-vignette span {display:block;line-height:1.2}
+.hero .hero-copy .hero-vignette small {display:block;margin-top:3px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.25px}
+.hero-carousel-controls {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  left: 5px;
+  right: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.hero-carousel-controls button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb,var(--line) 85%,transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb,var(--card) 91%,transparent);
+  color: var(--ink);
+  box-shadow: 0 5px 18px rgba(0,0,0,.18);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color .2s,background .2s,transform .2s;
+}
+.hero-carousel-controls button:hover {border-color:var(--gold);background:var(--card);transform:scale(1.04)}
+.hero-carousel-controls button svg {width:17px;height:17px}
+@media (max-width:1000px) {
+  .hero-carousel-controls {top:150px}
+}
+@media (max-width:650px) {
+  .hero .hero-copy .hero-vignettes {width:100%;gap:8px;margin-top:12px}
+  .hero .hero-copy .hero-vignette {flex:1 1 142px;min-width:0;min-height:50px;padding-inline:10px}
+  .hero-carousel-controls {top:min(125px,30vw);left:4px;right:4px}
+  .hero-carousel-controls button {width:40px;height:40px}
+}
+@media (prefers-reduced-motion:reduce) {
+  .hero .hero-copy .hero-vignette,
+  .hero-carousel-controls button {transition:none!important}
+  .hero .hero-copy .hero-vignette:hover,
+  .hero-carousel-controls button:hover {transform:none!important}
+  .hero .hero-visual {--mx:0!important;--my:0!important}
+  .hero .hero-visual .car-main {transform:none!important;transition:none!important}
+  .hero .hero-visual .floating-card,
+  .hero .hero-visual .floating-badge,
+  .hero .scroll-cue svg,
+  .hero .hero-visual .hero-stack img,
+  .ticker>div {animation:none!important;transition:none!important}
+}

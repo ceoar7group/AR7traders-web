@@ -34,7 +34,7 @@ dom.window.scrollTo = () => {};
 dom.window.HTMLElement.prototype.scrollIntoView = function () {};
 
 // Crawl files and API responses are local fixtures. The article CRUD mock
-// records the POST and then returns the saved row to the desk's refresh call.
+// records a private draft POST, an explicit publish PATCH and the resulting refresh.
 const SITEMAP_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://ar7traders.com/</loc></url>
@@ -48,19 +48,41 @@ Sitemap: https://ar7traders.com/sitemap.xml
 Sitemap: https://ar7traders.com/api/sitemap-news.xml`;
 let siteArticleRows = [];
 let postBody = null;
+const patchBodies = [];
+const confirmCalls = [];
+let confirmAnswer = true;
 const fetchCalls = [];
+dom.window.confirm = message => { confirmCalls.push(String(message)); return confirmAnswer; };
+setGlobal('confirm', dom.window.confirm.bind(dom.window));
 setGlobal('fetch', (url, options = {}) => {
   const u = String(url);
+  const method = options.method || 'GET';
   fetchCalls.push({url: u, options});
+  if (u.includes('?seo=status')) return Promise.resolve({ok: true, status: 200, json: async () => ({
+    google: {state: 'not_configured', configured: false, ready: false, detail: 'Search Console credentials are not configured.'},
+    indexNow: {state: 'not_configured', configured: false, ready: false, detail: 'Set AR7_INDEXNOW_KEY and publish its key file.'}
+  })});
+  if (u.includes('?seo=audit')) return Promise.resolve({ok: true, status: 200, json: async () => []});
   if (u.includes('sitemap.xml')) return Promise.resolve({ok: true, status: 200, text: async () => SITEMAP_XML});
   if (u.includes('robots.txt')) return Promise.resolve({ok: true, status: 200, text: async () => ROBOTS_TXT});
-  if (u.includes('/api/site-content?entity=articles') && options.method === 'POST') {
+  if (u.includes('/api/site-content?entity=articles') && method === 'POST') {
     postBody = JSON.parse(options.body);
-    siteArticleRows = [...siteArticleRows, {id: 'article-test-1', ...postBody}];
-    return Promise.resolve({ok: true, status: 201, json: async () => ({id: 'article-test-1'})});
+    const row = {id: 'article-test-1', ...postBody};
+    siteArticleRows = [...siteArticleRows.filter(old => old.id !== row.id), row];
+    return Promise.resolve({ok: true, status: 201, json: async () => row});
   }
-  if (u.includes('/api/site-content?entity=articles'))
-    return Promise.resolve({ok: true, status: 200, json: async () => siteArticleRows});
+  if (u.includes('/api/site-content?entity=articles') && method === 'PATCH') {
+    const patch = JSON.parse(options.body);
+    patchBodies.push(patch);
+    const index = siteArticleRows.findIndex(row => row.id === patch.id);
+    if (index < 0) return Promise.resolve({ok: false, status: 404, json: async () => ({error: 'Draft not found'})});
+    siteArticleRows[index] = {...siteArticleRows[index], ...patch};
+    return Promise.resolve({ok: true, status: 200, json: async () => siteArticleRows[index]});
+  }
+  if (u.includes('/api/site-content?entity=articles')) {
+    const rows = u.includes('all=1') ? siteArticleRows : siteArticleRows.filter(row => row.published === true);
+    return Promise.resolve({ok: true, status: 200, json: async () => rows});
+  }
   if (u.includes('/api/settings'))
     return Promise.resolve({ok: true, status: 200, json: async () => ({})});
   return Promise.resolve({ok: false, status: 404, json: async () => ({}), text: async () => ''});
@@ -82,7 +104,7 @@ console.log = (...a) => { logs.push(a.join(' ')); };
 const React = (await import('react')).default;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { default: SeoDesk, GUIDE_ASSETS, validateGuide, buildArticle } = await import('../src/seo-desk.jsx');
+const { default: SeoDesk, GUIDE_ASSETS, validateGuide, buildArticle, buildFactualDraft } = await import('../src/seo-desk.jsx');
   const { NEWS, getPublishedNews } = await import('../src/news-data.js');
 const { existsSync } = await import('node:fs');
 const { fileURLToPath } = await import('node:url');
@@ -145,8 +167,8 @@ const labelOf = txt => $$('label').find(l => new RegExp(txt, 'i').test(l.querySe
 say('\nSEO desk: guide creator');
 await mountDesk();
 ok(!!$('.seo-score'), 'the desk boots and audits the page it sits on');
-const createBtn = $$('button').find(b => /create guide/i.test(b.textContent));
-ok(!!createBtn, 'the desk has a "Create guide" button');
+const createBtn = $$('button').find(b => /create draft/i.test(b.textContent));
+ok(!!createBtn, 'the desk has a "Create draft" button');
 await click(createBtn);
 ok(!!$('.seo-create'), 'clicking it opens the guide form');
 ok($$('.seo-create label').length >= 6, 'the form carries title, slug, category, image, description and body');
@@ -183,10 +205,10 @@ say('\nValidation — canonical slug follows the persisted title');
   ok(!$('.seo-created'), 'a duplicate title is never submitted');
 }
 
-say('\nGeneration — a valid form produces the NEWS-shaped article');
+say('\nGeneration — save an unpublished draft, review it, then publish explicitly');
 {
   await mountDesk(); // fresh form state
-  await click($$('button').find(b => /create guide/i.test(b.textContent)));
+  await click($$('button').find(b => /create draft/i.test(b.textContent)));
 
   const desc = 'What to check in a Chinese supplier listing — hours, undercarriage photos, the nameplate and the FOB quote — before you commit to a used excavator.';
   await setReactValue(labelOf('title').querySelector('input'), 'How to Import a Used Excavator From China');
@@ -196,14 +218,21 @@ say('\nGeneration — a valid form produces the NEWS-shaped article');
   await submitForm();
 
   const created = $('.seo-created');
-  ok(!!created, 'a valid form publishes the guide through the existing articles CRUD');
-  ok(clipboard.length > 0, 'a JSON backup was copied to the clipboard');
-  ok(postBody?.published === true && postBody?.title === 'How to Import a Used Excavator From China',
-    'the staff POST marks the guide published and sends its title to site_articles');
+  ok(!!created, 'a valid form saves the guide through the existing articles CRUD');
+  ok(clipboard.length === 0, 'saving a draft does not copy or publish anything automatically');
+  ok(postBody?.published === false && postBody?.title === 'How to Import a Used Excavator From China',
+    'the authenticated staff POST persists the guide with published=false');
+  ok(siteArticleRows[0]?.published === false && !getPublishedNews().some(a => a.title === postBody.title),
+    'the saved draft stays out of public news before a separate publish action');
+  ok(confirmCalls.length === 0, 'draft save does not trigger the publication confirmation');
   ok(!('slug' in postBody), 'the canonical slug is derived from the persisted title, not a nonexistent slug column');
   ok(fetchCalls.some(call => call.options.method === 'POST' && call.options.headers?.Authorization === 'Bearer test-token'),
-    'publication is authenticated with the staff token');
+    'draft save is authenticated with the staff token');
 
+  const copyButton = $$('.seo-create-actions button').find(button => /copy json backup/i.test(button.textContent));
+  ok(!!copyButton, 'the desk offers a separate JSON backup action');
+  if (copyButton) await click(copyButton);
+  ok(clipboard.length > 0, 'the JSON backup is copied only after its button is clicked');
   const json = clipboard[clipboard.length - 1];
   let article = null;
   try { article = JSON.parse(json); } catch { /* asserted below */ }
@@ -219,8 +248,18 @@ say('\nGeneration — a valid form produces the NEWS-shaped article');
   ok(/\w+ \d{2}, \d{4}/.test(article?.date || ''), `the date matches the NEWS format (${article?.date})`);
   ok($('.seo-json')?.textContent.includes('"slug"'), 'the JSON is shown on the page, selectable');
   ok(/sitemap-news\.xml/i.test(created.textContent), 'the dynamic news-sitemap endpoint is spelled out');
-}
 
+  const publishButton = $$('.seo-create-actions button').find(button => /publish reviewed draft/i.test(button.textContent));
+  const reviewCheckbox = $('.seo-review-check input');
+  ok(!!publishButton && publishButton.disabled, 'publishing is disabled until the reviewer checks the review gate');
+  ok(!!reviewCheckbox, 'the desk requires an explicit human-review checkbox');
+  if (reviewCheckbox) await click(reviewCheckbox);
+  ok(!!publishButton && !publishButton.disabled, 'the publish action unlocks only after review is acknowledged');
+  if (publishButton) await click(publishButton);
+  ok(confirmCalls.length === 1 && /review/i.test(confirmCalls[0]), 'publication requires a second explicit confirmation');
+  ok(patchBodies.length === 1 && patchBodies[0].published === true, 'publication is a separate authenticated PATCH');
+  ok(siteArticleRows[0]?.published === true, 'only the confirmed publish action makes the article public');
+}
 say('\nDraft audit — the same engine, at the canonical path');
 {
   const audit = $('.seo-draft-audit');
@@ -257,6 +296,11 @@ say('\nThe og:image list only offers real assets');
 
 say('\nPure helpers agree with the UI');
 {
+  const factual = buildFactualDraft({title: 'Verified buyer note', cat: NEWS[0].cat, img: '/assets/og/help.jpg',
+    facts: 'Current page lists model X and year 2022.\n- The supplier quote states FOB at the named port.'});
+  ok(factual?.body.includes('Current page lists model X and year 2022.') && factual.body.includes('EDITOR REVIEW'),
+    'the deterministic draft formatter uses only staff-provided facts and adds an explicit review reminder');
+  ok(!buildFactualDraft({title: 'No facts', facts: '   '}), 'the formatter refuses to invent a draft without verified facts');
   const badCheck = validateGuide({title: '', cat: 'NOPE', img: '', desc: '', body: ''});
   ok(Object.keys(badCheck.errors).length >= 5, 'validateGuide refuses an empty form');
   const dup = validateGuide({title: 'How online bidding works with AR7', slug: 'ignored-custom-slug',

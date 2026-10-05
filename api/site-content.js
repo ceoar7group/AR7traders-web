@@ -75,6 +75,9 @@ import {
 // The category scraper: same pattern — a shared module, dispatched below on
 // step=scraper, previews only (the confirm step does the writing).
 import { runScraper } from './_machinery-scraper.js';
+// Search Console and IndexNow share this function, preserving the 12-function
+// Vercel limit. The workflow is staff-only and records submissions in activities.
+import { handleSeoWorkflow } from './_seo-workflows.js';
 export { machinePath, machineTypePath };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
@@ -523,7 +526,7 @@ async function machineryDispatch(req, res, action, injected = {}) {
  *                 nothing — not a row, not an activity, not a log line. The
  *                 operator sees the machine before it exists.
  *   step=scraper  crawls the Made-in-China category pages (robots.txt first,
- *                 1s between fetches, max 20 machines) and returns previews
+ *                 1s between fetches, max six machines) and returns previews
  *                 through the same pipeline. It writes nothing either.
  *   step=confirm  writes what the operator approved.
  *
@@ -633,7 +636,7 @@ async function importDispatch(req, res, injected = {}) {
 
     // ---- SCRAPER: crawl the Made-in-China category pages, preview only ----
     // Reads category pages + product pages (robots.txt first, 1s between
-    // fetches, max 20 machines) and returns previews through the same
+    // fetches, max six machines) and returns previews through the same
     // previewMachine() pipeline as step=preview. Writes nothing — the
     // operator's confirm click is what imports, exactly as with a pasted link.
     if (step === 'scraper') {
@@ -660,6 +663,22 @@ async function importDispatch(req, res, injected = {}) {
   } catch (e) { return sendErr(e); }
 }
 
+async function seoDispatch(req, res, action, injected = {}) {
+  const db = injected.db || adminClient();
+  let auth;
+  try {
+    auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+  } catch (error) {
+    return send(res, error.status || 401, {error: error.message || 'Unauthorized'});
+  }
+  try {
+    await assertSiteWrite(auth.profile, injected);
+  } catch (error) {
+    return send(res, error.status || 403, {error: error.message || 'Not allowed'});
+  }
+  return handleSeoWorkflow(req, res, action, {db, auth, injected});
+}
+
 export default async function handler(req, res, injected = {}) {
   // ---- Vehicle sitemap dispatch: /api/sitemap-vehicles.xml rewrites here
   // with ?sitemap=vehicles. Kept inside this function so the deployment
@@ -674,6 +693,11 @@ export default async function handler(req, res, injected = {}) {
   if (String(req.query.sitemap || '') === 'machinery') {
     return sitemapMachinery(req, res, injected);
   }
+
+  // ---- Staff SEO workflows: local audit stays in the browser; real provider
+  // calls are dispatched through this existing function (no new Vercel route).
+  const seoAction = String(req.query.seo || '');
+  if (seoAction) return seoDispatch(req, res, seoAction, injected);
 
   // ---- Machinery desk: ?machinery=list|create|update|delete|publish|
   // unpublish|archive. Dispatched here rather than in its own file so the
@@ -690,11 +714,26 @@ export default async function handler(req, res, injected = {}) {
 
   const db = injected.db || adminClient();
 
-  // ---- Public read: the live website calls this anonymously.
+  // ---- Public read: the live website calls this anonymously. Complete CRM
+  // reads (all=1) are staff-only so unpublished site_articles cannot leak from
+  // a query-string shortcut.
   if (req.method === 'GET') {
+    let auth = null;
+    if (req.query.all === '1') {
+      try {
+        auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+      } catch (error) {
+        return send(res, error.status || 401, {error: error.message || 'Unauthorized'});
+      }
+      try {
+        await assertSiteWrite(auth.profile, injected);
+      } catch (error) {
+        return send(res, error.status || 403, {error: error.message || 'Not allowed'});
+      }
+    }
     let q = db.from(table).select('*').order('sort_order', {ascending: true});
     // Anonymous visitors only ever see published rows. site_blocks has no
-    // published flag, so it is only reachable with all=1 (admin requests).
+    // published flag, so it is only reachable in the permission-checked CRM view.
     if (req.query.all !== '1' && entity !== 'blocks') q = q.eq('published', true);
     if (entity === 'blocks' && req.query.all !== '1') return send(res, 200, []);
     const {data, error} = await q;

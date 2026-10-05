@@ -400,7 +400,7 @@ const heroSlides=(fmtPrice)=>{
   const x=pool[Math.floor(i*step)];if(!x)continue;
   const ref=carRef(x);
   carsOut.push({kind:'car',id:'c'+ref,image:x.image,alt:carAlt(x),href:hrefFor('inventory',ref),
-   target:`inventory?car=${ref}`,tag:(x.status||'In stock').toUpperCase(),title:x.make+' '+x.model,
+   tag:(x.status||'In stock').toUpperCase(),title:x.make+' '+x.model,
    meta:`${x.year} · Grade ${x.grade} · ${fmtPrice(x)}`});
  }
  // One machine per type, and only a machine that actually has a photograph —
@@ -410,8 +410,8 @@ const heroSlides=(fmtPrice)=>{
   const m=MACHINES.find(x=>x.type===t&&!x.photosPending&&machineImages(x).length);
   if(!m)continue;
   machinesOut.push({kind:'machine',id:'m'+m.id,image:machineImages(m)[0],
-   alt:`${m.name} ${m.type.toLowerCase().replace(/s$/,'')} for export from China`,
-   href:'/machinery',target:'machinery',tag:'MACHINERY · CHINA',title:m.name,
+   alt:`${m.name} machinery from China`,
+   href:'/machinery',tag:'MACHINERY · CHINA',title:m.name,
    meta:`${m.year} · ${m.hours.toLocaleString('en-US')} h · $${listPriceUSD(m).toLocaleString('en-US')} FOB`});
  }
  // Weave: two cars, then a machine.
@@ -456,48 +456,48 @@ function HeroVisual({navigate,discounts}){
  const wrap=useRef(null);
  const price=useCarPrice(discounts);
  const auctionEnds=useRef(heroAuctions.map(a=>Date.now()+a.seconds*1000));
- const [idx,setIdx]=useState(0);
- const [auctionIdx,setAuctionIdx]=useState(0);
- const [routeIdx,setRouteIdx]=useState(0);
- const [now,setNow]=useState(Date.now());
+ const [manualIdx,setManualIdx]=useState(0);
+ const [elapsed,setElapsed]=useState(0);
  useEffect(()=>{
-  const el=wrap.current;let visible=true,carTimer=null,auctionTimer=null,routeTimer=null,tickTimer=null;
-  const start=()=>{if(carTimer)return;carTimer=setInterval(()=>setIdx(v=>v+1),3200);auctionTimer=setInterval(()=>setAuctionIdx(v=>(v+1)%heroAuctions.length),4600);routeTimer=setInterval(()=>setRouteIdx(v=>(v+1)%heroRoutes.length),5600);tickTimer=setInterval(()=>setNow(Date.now()),1000)};
-  const stop=()=>{[carTimer,auctionTimer,routeTimer,tickTimer].forEach(clearInterval);carTimer=auctionTimer=routeTimer=tickTimer=null};
-  const io=new IntersectionObserver(en=>{visible=en[0].isIntersecting;visible?start():stop()},{threshold:.05});
-  if(el)io.observe(el);start();
-  return()=>{stop();io.disconnect()}
+  const el=wrap.current,query=window.matchMedia('(prefers-reduced-motion: reduce)');let timer;
+  const tick=()=>{if(el&&!query.matches&&!document.hidden&&!el.matches(':hover,:focus-within'))setElapsed(v=>v+1)};
+  const io=new IntersectionObserver(([entry])=>entry.isIntersecting?timer=setInterval(tick,1000):clearInterval(timer));
+  io.observe(el);
+  return()=>{clearInterval(timer);io.disconnect()}
  },[]);
  const onMove=e=>{const el=wrap.current;if(!el)return;const r=el.getBoundingClientRect();const mx=((e.clientX-r.left)/r.width-.5).toFixed(3),my=((e.clientY-r.top)/r.height-.5).toFixed(3);el.style.setProperty('--mx',mx);el.style.setProperty('--my',my)};
  const onLeave=()=>{const el=wrap.current;if(!el)return;el.style.setProperty('--mx','0');el.style.setProperty('--my','0')};
  const slides=heroSlides(price);
- const activeIndex=idx%Math.max(slides.length,1);
+ const moveSlide=delta=>setManualIdx(v=>(v+delta+slides.length)%slides.length);
+ const activeIndex=(manualIdx+Math.floor(elapsed/3.2))%slides.length;
+ const auctionIdx=Math.floor(elapsed/4.6)%heroAuctions.length;
+ const routeIdx=Math.floor(elapsed/5.6)%heroRoutes.length;
  const c=slides[activeIndex]||slides[0];
- const heroImages=c ? [c, slides[(activeIndex+1)%Math.max(slides.length,1)]]
+ const heroImages=c ? [c, slides[(activeIndex+1)%slides.length]]
   .filter((x,i,a)=>x && a.findIndex(y=>y?.id===x.id)===i) : [];
  const auction=heroAuctions[auctionIdx];
  const route=heroRoutes[routeIdx];
- const remaining=(auctionEnds.current[auctionIdx]-now)/1000;
+ const remaining=(auctionEnds.current[auctionIdx]-Date.now())/1000;
  if(!c)return null;
  return <div className="hero-visual" ref={wrap} onMouseMove={onMove} onMouseLeave={onLeave}>
    {/* The rotating card is a link preview, not a document section, but it does show
        real headings for each vehicle — so the hero gets its own screen-reader heading
        and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
-   <h2 className="sr-only">Featured stock — cars from Japan and machines from China</h2>
+   <h2 className="sr-only">Japan cars, China machinery</h2>
   <i className="spark s1"/><i className="spark s2"/><i className="spark s3"/><i className="spark s4"/><i className="spark s5"/><i className="spark s6"/>
-  <div className="hero-vignettes">
-    <a className="hero-vignette" href="/inventory" onClick={linkClick('inventory',navigate)} title="Browse car inventory"><CarFront/><span>Cars<small>Japan stock →</small></span></a>
-    <a className="hero-vignette" href="/machinery" onClick={linkClick('machinery',navigate)} title="Browse machinery"><Wrench/><span>Machines<small>China desk →</small></span></a>
-  </div>
-  <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.target,navigate)} title={`View ${c.title}`}>
+  <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.href,navigate)}>
    <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
    <div className="image-shade"/>
-   <div className="car-float-title" key={idx}>
+   <div className="car-float-title" key={activeIndex}>
     <span>{c.tag}</span><h3>{c.title}</h3><p>{c.meta}</p>
    </div>
-   <div className="car-dots">{slides.map((x,n)=><i key={x.id} className={(x.kind==='machine'?'machine ':'')+(n===idx%slides.length?'active':'')}/>)}</div>
-   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {(idx%slides.length)+1}/{slides.length} · {c.kind==='machine'?'China machinery desk':'rotating stock'}</div>
+   <div className="car-dots">{slides.map((x,n)=><i key={x.id} className={(x.kind==='machine'?'machine ':'')+(n===activeIndex?'active':'')}/>)}</div>
+   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {activeIndex+1}/{slides.length} · {c.kind==='machine'?'China machinery desk':'rotating stock'}</div>
   </a>
+  <div className="hero-carousel-controls">
+   <button type="button" onClick={()=>moveSlide(-1)} aria-label="Prev"><ChevronLeft/></button>
+   <button type="button" onClick={()=>moveSlide(1)} aria-label="Next"><ChevronRight/></button>
+  </div>
   <div className="floating-card auction-card" aria-hidden="true"><Gavel/><div className="rotating-card-copy" key={auctionIdx}>
    <span className="card-kicker"><i className="card-live"/>Auction · {auction.city}</span>
    <b className="card-title">{auction.name}</b>
@@ -923,7 +923,7 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  const stepGallery=dir=>{if(detailGallery.length<2)return;const at=Math.max(0,detailGallery.indexOf(detailImage));setGalleryImage(detailGallery[(at+dir+detailGallery.length)%detailGallery.length])};
  stepGalleryRef.current=stepGallery;
  if(page==='inventory'&&vehicleId&&!selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="empty-state vehicle-missing">{isContentHydrated()?<><Search/><h3>This vehicle is no longer listed</h3><p>It may have sold or the link is out of date. Browse current Japan stock instead.</p><PageLink className="primary" to={backTarget} navigate={backToInventory}>View inventory <ArrowRight/></PageLink></>:<><CarFront/><h3>Loading vehicle…</h3><p>Fetching the latest stock so we can open this car.</p></>}</div></div></section>;
- if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" fetchPriority="high" width="620" height="400" src={detailImage} onError={e=>{if(hasRetried(e.currentTarget))return;if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} loading="eager"/></div><div className="detail-gallery-toolbar">{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image" type="button"><ChevronLeft/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image" type="button"><ChevronRight/></button></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image" type="button"><Maximize2/> Enlarge</button></div><div className="hero-orb in-page detail-orb"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i} type="button"><img loading="lazy" decoding="async" width="164" height="110" src={img} onError={e=>{if(hasRetried(e.currentTarget)||e.currentTarget.dataset.f)return;e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div>{hasAuctionSheet(selected)&&<span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>}{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><VehiclePriceDisplay car={selected} discounts={discounts}/></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span><span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span><span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].filter(x=>x[1]!=null&&x[1]!=='').map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div>{(selected.feats||[]).length>0&&<div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div>}<div className="cif-box"><div className="kicker">DEMO CIF ESTIMATE</div><select value={destSel} onChange={e=>setDestSel(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel,discounts);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" width="120" height="46" src={LOGO(selected.make)} alt={selected.make+" logo"} onError={logoOnError}/><span>{selected.make} · sourced in Japan</span></div><VehicleActions car={selected} stockRef={stockNo(selected)} settings={settings} saved={favs.includes(selected.id)} copied={copied} onEnquire={openAuction} onChat={openChat} onToggleSave={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])} onCopy={copyVehicleLink}/><div className="sheet-box"><ClipboardCheck/><div>{hasAuctionSheet(selected)?<><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></>:<><b>Condition &amp; documentation</b><p>Ask our Japan team for this vehicle&rsquo;s condition report and documentation before you commit.</p></>}</div></div></div></div><BuyerGuide car={selected} navigate={navigate}/>{(()=>{const related=cars.filter(c=>c&&c.published!==false&&carRef(c)!==carRef(selected)&&(c.make===selected.make||c.body===selected.body)).sort((a,b)=>Number(b.make===selected.make)-Number(a.make===selected.make)).slice(0,3);return related.length?<section className="related-stock" aria-label="Related vehicles"><div className="kicker">SIMILAR STOCK</div><h2>More vehicles to explore</h2><p className="related-stock-note">Other published vehicles from the same make or body type, currently listed in Japan.</p><div className="related-stock-grid">{related.map(c=><PageLink key={carRef(c)} className="related-stock-card" to={'/inventory/'+carRef(c)} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark.png'} alt={carAlt(c)}/><b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b><small>{carRef(c)}{c.status?' · '+c.status:''}</small></PageLink>)}</div><PageLink className="outline-btn" to={inventoryHref(selected.make)} navigate={navigate}>Browse all {selected.make} stock <ArrowRight/></PageLink></section>:null})()}</div></section>;
+ if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" fetchPriority="high" width="620" height="400" src={detailImage} onError={e=>{if(hasRetried(e.currentTarget))return;if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} loading="eager"/></div><div className="detail-gallery-toolbar">{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image" type="button"><ChevronLeft/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image" type="button"><ChevronRight/></button></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image" type="button"><Maximize2/> Enlarge</button></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i} type="button"><img loading="lazy" decoding="async" width="164" height="110" src={img} onError={e=>{if(hasRetried(e.currentTarget)||e.currentTarget.dataset.f)return;e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div>{hasAuctionSheet(selected)&&<span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>}{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><VehiclePriceDisplay car={selected} discounts={discounts}/></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span><span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span><span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].filter(x=>x[1]!=null&&x[1]!=='').map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div>{(selected.feats||[]).length>0&&<div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div>}<div className="cif-box"><div className="kicker">DEMO CIF ESTIMATE</div><select value={destSel} onChange={e=>setDestSel(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel,discounts);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" width="120" height="46" src={LOGO(selected.make)} alt={selected.make+" logo"} onError={logoOnError}/><span>{selected.make} · sourced in Japan</span></div><VehicleActions car={selected} stockRef={stockNo(selected)} settings={settings} saved={favs.includes(selected.id)} copied={copied} onEnquire={openAuction} onChat={openChat} onToggleSave={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])} onCopy={copyVehicleLink}/><div className="sheet-box"><ClipboardCheck/><div>{hasAuctionSheet(selected)?<><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></>:<><b>Condition &amp; documentation</b><p>Ask our Japan team for this vehicle&rsquo;s condition report and documentation before you commit.</p></>}</div></div></div></div><BuyerGuide car={selected} navigate={navigate}/>{(()=>{const related=cars.filter(c=>c&&c.published!==false&&carRef(c)!==carRef(selected)&&(c.make===selected.make||c.body===selected.body)).sort((a,b)=>Number(b.make===selected.make)-Number(a.make===selected.make)).slice(0,3);return related.length?<section className="related-stock" aria-label="Related vehicles"><div className="kicker">SIMILAR STOCK</div><h2>More vehicles to explore</h2><p className="related-stock-note">Other published vehicles from the same make or body type, currently listed in Japan.</p><div className="related-stock-grid">{related.map(c=><PageLink key={carRef(c)} className="related-stock-card" to={'/inventory/'+carRef(c)} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark.png'} alt={carAlt(c)}/><b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b><small>{carRef(c)}{c.status?' · '+c.status:''}</small></PageLink>)}</div><PageLink className="outline-btn" to={inventoryHref(selected.make)} navigate={navigate}>Browse all {selected.make} stock <ArrowRight/></PageLink></section>:null})()}</div></section>;
 if(['services','destinations','reviews','faq','portal'].includes(page))return <ExtraPage type={page} navigate={navigate} openAuction={openAuction}/>;
  if(['brands','howbuy','tools','news'].includes(page))return <ExtraPages2 type={page} navigate={navigate} openAuction={openAuction} articleSlug={page==='news'?vehicleId:null} discounts={discounts}/>;
  const makes=[...new Set(cars.map(c=>c.make))].sort();
@@ -1173,6 +1173,10 @@ export function App(){
       <h1>{t('hero.h1a')}<br/><em>{t('hero.h1b')}</em></h1>
       <p>{t('hero.lead')} <b>{t('hero.leadEm')}</b>.</p>
       <div className="hero-cta"><button className="primary" onClick={()=>go('inventory')} type="button">{t('hero.explore')} <ArrowRight/></button><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink></div>
+      <div className="hero-vignettes">
+        <PageLink className="hero-vignette" to="inventory" navigate={navigate}><CarFront/><span>Cars<small>Japan stock</small></span></PageLink>
+        <PageLink className="hero-vignette" to="machinery" navigate={navigate}><Wrench/><span>Machines<small>China desk</small></span></PageLink>
+      </div>
       <div className="hero-quick"><button className="text-btn" onClick={()=>setModal(true)} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
       <FounderStat variant="hero" delay={900}/>
     </div>

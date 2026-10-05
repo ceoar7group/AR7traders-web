@@ -49,14 +49,6 @@
   overflow-wrap: anywhere;
 }
 
-.detail-gallery .detail-orb {
-  pointer-events: none;
-}
-
-.detail-gallery .detail-orb .iglobe {
-  pointer-events: auto;
-}
-
 @media (min-width: 651px) and (max-width: 1000px) {
   .detail-page {
     padding-top: 136px;
@@ -157,15 +149,6 @@
   .detail-grid {
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 22px !important;
-  }
-
-  .detail-gallery .detail-orb {
-    top: 8px;
-    right: 8px;
-  }
-
-  .detail-gallery .detail-orb .iglobe {
-    width: 58px;
   }
 
   .detail-gallery > .detail-main-image > img {
