@@ -1,0 +1,65 @@
+/* Final layout corrections: the public chrome must stay attached to the viewport,
+   while the page content remains below the two-row header. */
+.nav-wrap {
+  position: fixed !important;
+  inset-inline: 0;
+  top: var(--promo-h, 0px) !important;
+  z-index: 80;
+  width: 100%;
+}
+.nav-wrap > .world-time-ribbon,
+.nav-wrap > .nav {
+  position: relative;
+  z-index: 1;
+}
+
+/* Keep the founder proof point readable at every width. The figure is isolated
+   from the decorative rule/glint so neither can paint over the 900+ digits. */
+.founder-stat {
+  align-items: center;
+  gap: clamp(14px, 2vw, 22px);
+  min-width: 0;
+}
+.founder-stat-figure {
+  z-index: 1;
+  line-height: .95;
+  background: transparent;
+}
+.founder-stat-rule { z-index: 0; }
+.founder-stat-copy { min-width: 0; }
+.founder-stat-unit,
+.founder-stat-label { overflow-wrap: anywhere; }
+
+/* The hero cards are supporting callouts, not a second hero. Reduce their
+   footprint so the vehicle image and headline remain the visual focus. */
+.hero .hero-visual .floating-card.auction-card {
+  padding: 8px 10px;
+  gap: 7px;
+  max-width: 188px;
+}
+.hero .hero-visual .floating-card.auction-card > svg {
+  width: 25px;
+  height: 25px;
+  padding: 5px;
+}
+.hero .hero-visual .floating-card.route-card {
+  width: 205px;
+  padding: 10px 11px;
+}
+.hero .hero-visual .floating-card .card-title { font-size: 10.5px; }
+.hero .hero-visual .route-card .route-lane { font-size: 11px; }
+.hero .hero-visual .route-card .progress { margin: 10px 0 7px; }
+
+@media (max-width: 650px) {
+  .founder-stat { align-items: flex-start; gap: 11px; }
+  .founder-stat-figure { flex: 0 0 auto; font-size: clamp(38px, 13vw, 48px); }
+  .founder-stat-copy { flex: 1 1 auto; }
+  .founder-stat-unit { font-size: 16px !important; }
+  .founder-stat-label { font-size: 12px !important; line-height: 1.4; }
+  .founder-stat-rule { min-height: 39px; }
+  .hero .hero-visual .floating-card.auction-card,
+  .hero .hero-visual .floating-card.route-card { max-width: none; width: auto; }
+  .hero .hero-visual .floating-card.auction-card { padding: 10px 11px; }
+  .hero .hero-visual .floating-card.auction-card > svg { width: 30px; height: 30px; padding: 6px; }
+  .hero .hero-visual .floating-card.route-card { padding: 10px 11px; }
+}

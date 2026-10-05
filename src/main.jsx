@@ -59,6 +59,7 @@ import './performance.css';
 // Loaded last: the single owner of the header bar and the hero-visual stacking
 // that depends on the bar's height, at every width. See the file header.
 import './site-layout.css';
+import './fixes.css';
 import './i18n.css';
 
 // ---------------------------------------------------------------------------
