@@ -266,8 +266,6 @@ html,body{overflow-x:clip}
 .hero-visual>.hero-orb{left:-18px;bottom:-10px}
 .hero-orb.in-page{right:18px;top:18px;z-index:3}
 .hero-orb.in-page .iglobe{width:100px}
-.detail-orb{right:14px;top:14px;z-index:2}
-.detail-orb .iglobe{width:90px}
 
 /* ---------- floating orb on text-only page heroes ---------- */
 .page-orb-wrap{position:absolute;right:7%;top:50%;transform:translateY(-50%);width:180px;z-index:2;pointer-events:none}
@@ -292,8 +290,6 @@ html,body{overflow-x:clip}
  .hero-orb.in-page{right:10px;top:10px}
  .hero-orb.in-page .iglobe{width:74px}
  .page-orb-wrap,.studio-orb{display:none}
- .detail-orb{right:8px;top:8px}
- .detail-orb .iglobe{width:66px}
 }
 
 /* home running-slide dots + make/budget explorer */

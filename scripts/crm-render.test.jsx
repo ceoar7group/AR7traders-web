@@ -33,12 +33,30 @@ setGlobal('removeEventListener', dom.window.removeEventListener.bind(dom.window)
 setGlobal('dispatchEvent', dom.window.dispatchEvent.bind(dom.window));
 dom.window.scrollTo = () => {};
 dom.window.HTMLElement.prototype.scrollIntoView = function () {};
-setGlobal('fetch', () => Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' }));
+const scraperRequests = [];
+const scraperCandidates = Array.from({length: 8}, (_, index) => ({
+  name: `Candidate machine ${index + 1}`, brand: 'AR7 Test', model: `D${index + 1}`, type: 'Excavators',
+  year: 2021, hours: 1800 + index, supplierPrice: 25000 + index * 1000, listPrice: 31500 + index * 1250,
+  images: [`/assets/machinery/test-${index + 1}.webp`],
+  specs: [['Operating weight', `${20 + index} t`], ['Condition', 'Used']],
+  source: {url: `https://supplier.example/machine-${index + 1}`, rights: 'dropship-authorized', adapter: 'product-page'}
+}));
+setGlobal('fetch', (url, options = {}) => {
+  const value = String(url);
+  if (value.includes('/api/site-content?import=machinery&step=scraper')) {
+    scraperRequests.push({url: value, options});
+    return Promise.resolve({ok: true, status: 200, json: async () => ({
+      ok: true, machines: scraperCandidates, previews: scraperCandidates.map((_, index) => ({warnings: index === 0 ? ['Verify supplier hours before publication.'] : [], review: {pass: true}})),
+      warnings: [], skipped: [], stats: {previews: 8}, note: 'Previews only — nothing was written.'
+    })});
+  }
+  return Promise.resolve({ok: false, status: 404, json: async () => ({}), text: async () => ''});
+});
 
 const React = (await import('react')).default;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { default: CrmApp } = await import('../src/crm.jsx');
+const { default: CrmApp, MachineryImportPanel } = await import('../src/crm.jsx');
 
 let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
@@ -94,6 +112,16 @@ for (const label of TABS) {
     const revenue = kpis.find(([n]) => /revenue/i.test(n))?.[1] || '';
     ok(/\$[\d,]+/.test(revenue) && revenue !== '$0', `lifetime revenue is summed, not collapsed to zero (${revenue})`);
   }
+}
+
+say('\nSEO desk navigation remains singular and staff-only');
+{
+  const seoSidebar = [...document.querySelectorAll('.crm-side nav button')].filter(button =>
+    (button.querySelector(':scope > span')?.textContent || '').trim() === 'SEO desk');
+  ok(seoSidebar.length === 1, 'the primary SEO desk tab remains in the CRM sidebar');
+  ok(!!document.querySelector('.crm-staff-tools small') && /STAFF TOOLS/.test(document.querySelector('.crm-staff-tools small').textContent),
+    'the Staff Tools divider remains');
+  ok(!document.querySelector('.crm-staff-tools a[href="/seo"]'), 'the duplicate shortcut below the divider is removed');
 }
 
 // ---- the merged cars panel ---------------------------------------------------
@@ -450,6 +478,76 @@ await clickText('.crm-side nav button', 'Machinery desk');
         'Import still does not exist — the machine has not been read yet');
     }
   }
+}
+
+// ---- scraper cap, candidate selection and write confirmation ----------------
+say('\\nMachinery scraper review and explicit confirmation');
+{
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const panelRoot = createRoot(host);
+  const notices = [];
+  let imported = 0;
+  let confirmAnswer = false;
+  const confirmations = [];
+  dom.window.confirm = message => { confirmations.push(String(message)); return confirmAnswer; };
+  await act(async () => {
+    panelRoot.render(React.createElement(MachineryImportPanel, {
+      token: 'machinery-test-token', canWrite: true,
+      notify: message => notices.push(message), onImported: () => { imported++; }
+    }));
+  });
+  const runScraper = host.querySelector('.crm-scraper-toggle');
+  ok(!!runScraper, 'the scraper action is mounted in the import panel');
+  if (runScraper) {
+    await act(async () => { runScraper.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+  }
+  const request = scraperRequests.at(-1);
+  ok(!!request, 'the scraper sends a same-origin preview request');
+  ok(JSON.parse(request?.options.body || '{}').limit === 6, 'the UI asks the API for at most six candidates');
+  const candidateRows = [...host.querySelectorAll('.crm-scraper-list > li')];
+  ok(candidateRows.length === 6, `the UI hard-caps even an overlong response at six (${candidateRows.length})`);
+  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === '6 of 6 selected',
+    'the selected count is explicit');
+  ok(host.querySelectorAll('.crm-scraper-check input[type="checkbox"]').length === 6,
+    'each candidate has its own checkbox');
+  ok(host.querySelector('.crm-import-body select[aria-label="Photo rights basis"]')?.value === 'dropship-authorized',
+    'the supplier-photo rights basis defaults to dropship-authorized');
+  ok(candidateRows[0]?.textContent.includes('supplier $25,000') && candidateRows[0]?.textContent.includes('usable photo'),
+    'each candidate shows readable price and photo details');
+  ok(candidateRows[0]?.querySelector('details') && candidateRows[0]?.querySelector('a[href^="https://supplier.example/"]'),
+    'candidate rows expose supplier specs and the source link');
+  ok(/Preview only: nothing has been written/.test(host.textContent), 'the scraper result is clearly marked preview-only');
+  ok(scraperRequests.every(call => !call.url.includes('step=confirm')), 'preview did not make a write request');
+
+  const selectionButtons = [...host.querySelectorAll('.crm-scraper-selection button')];
+  const selectNone = selectionButtons.find(button => /select none/i.test(button.textContent));
+  const selectAll = selectionButtons.find(button => /select all/i.test(button.textContent));
+  ok(!!selectNone && !!selectAll, 'select-all and select-none controls are both present');
+  if (selectNone) await act(async () => { selectNone.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === '0 of 6 selected', 'select-none clears the batch');
+  let confirmButton = [...host.querySelectorAll('.crm-import-actions button')].find(button => /confirm import/i.test(button.textContent));
+  ok(confirmButton?.disabled === true, 'the write action is disabled with no candidates selected');
+  if (selectAll) await act(async () => { selectAll.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  confirmButton = [...host.querySelectorAll('.crm-import-actions button')].find(button => /confirm import/i.test(button.textContent));
+  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === '6 of 6 selected' && !confirmButton?.disabled,
+    'select-all restores all six and enables the write action');
+
+  if (confirmButton) await act(async () => { confirmButton.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  ok(confirmations.length === 1 && /6 selected machine/.test(confirmations[0]) && /published to the public machinery catalogue immediately/i.test(confirmations[0]),
+    'a write requires confirmation that names the selected count and publication state');
+  ok(host.querySelectorAll('.crm-scraper-list > li').length === 6 && imported === 0,
+    'declining confirmation keeps the preview and performs no write');
+  ok(scraperRequests.every(call => !call.url.includes('step=confirm')), 'cancelling never invokes the confirm endpoint');
+
+  confirmAnswer = true;
+  confirmButton = [...host.querySelectorAll('.crm-import-actions button')].find(button => /confirm import/i.test(button.textContent));
+  if (confirmButton) await act(async () => { confirmButton.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  ok(confirmations.length === 2 && imported === 1, 'accepting the confirmation proceeds through the demo-mode confirmation path');
+  ok(notices.some(message => /published.*demo mode/i.test(message)), 'the UI reports the demo publication state explicitly');
+  await act(async () => { panelRoot.unmount(); });
+  host.remove();
 }
 
 // ---- React logged nothing ---------------------------------------------------

@@ -14,10 +14,12 @@
 //
 // It is a staff route: noindex, and never linked from the public nav.
 
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Save, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2 } from 'lucide-react';
 import { auditDocument, summarise } from './seo-audit.js';
 import { applySeo, BASE } from './seo.js';
+import { staticAuditRoutes, publicLandingRoutes } from './seo-routes.js';
+import { SITE_CANONICAL_ORIGIN, canonicalSiteUrl, isStaffNoindexPath, sitemapLocations, sitemapSourcesFromRobots } from './seo-url.js';
 import { NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH, getPublishedNews, getNewsCategories, setPublishedNews } from './news-data.js';
 import { updateSettingsCache } from './site-settings.js';
 import { campaignIsLive } from './offers.js';
@@ -62,6 +64,19 @@ export const GUIDE_ASSETS = [
 
 const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 const readMins = body => Math.max(2, Math.round(String(body).split(/\s+/).filter(Boolean).length / 200));
+const prettyLabel = value => String(value || '').replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase());
+
+/** Deterministic fact-only draft formatting: it adds no outside claims. */
+export function buildFactualDraft({title, facts, cat, img}) {
+  const approvedFacts = String(facts || '').split(/\r?\n/)
+    .map(line => line.trim().replace(/^(?:[-*•]|\d+[.)])\s*/, ''))
+    .filter(Boolean);
+  if (!String(title || '').trim() || !approvedFacts.length) return null;
+  const body = approvedFacts.join('\n\n') +
+    '\n\n[EDITOR REVIEW: verify every fact and remove this note before publication.]';
+  const excerpt = approvedFacts.join(' ').replace(/\s+/g, ' ').trim().slice(0, 165);
+  return {title: String(title).trim(), cat, img, desc: excerpt, body, facts: approvedFacts};
+}
 
 /** Validate the guide form. Returns {errors, warnings, slug} — errors block,
  *  warnings advise (they mirror what the audit would score down). */
@@ -135,6 +150,21 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   const [guideBusy, setGuideBusy] = useState(false);
   const [campaignForm, setCampaignForm] = useState({headline: '', sub: '', cta: 'Browse stock', href: '/inventory', until: ''});
 
+  // Live crawl/provider status is kept separate from the local document score.
+  const [connectorStatus, setConnectorStatus] = useState(null);
+  const [connectorError, setConnectorError] = useState('');
+  const [connectorBusy, setConnectorBusy] = useState(false);
+  const [liveCrawl, setLiveCrawl] = useState({state: 'idle', rows: [], done: 0, total: 0, sources: [], sourceErrors: []});
+  const crawlController = useRef(null);
+  const [indexingPreview, setIndexingPreview] = useState(null);
+  const [indexingBusy, setIndexingBusy] = useState(false);
+  const [indexingResult, setIndexingResult] = useState(null);
+  const [inspectionUrl, setInspectionUrl] = useState('');
+  const [inspectionBusy, setInspectionBusy] = useState(false);
+  const [inspectionResult, setInspectionResult] = useState(null);
+  const [auditTrail, setAuditTrail] = useState([]);
+  const [workflowError, setWorkflowError] = useState('');
+
   // ---- guide creator state --------------------------------------------------
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', cat: categories[0] || NEWS_CATEGORIES[0], img: GUIDE_ASSETS[0], desc: '', body: '' });
@@ -142,6 +172,23 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   const [createWarnings, setCreateWarnings] = useState([]);
   const [created, setCreated] = useState(null); // { article, json, slug, url, published, clip }
   const [draftAudit, setDraftAudit] = useState(null);
+  const [draftFacts, setDraftFacts] = useState('');
+  const [editorArticles, setEditorArticles] = useState([]);
+  const [activeDraftId, setActiveDraftId] = useState(null);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [draftReviewed, setDraftReviewed] = useState(false);
+
+  async function seoWorkflow(action, method = 'GET', body = null) {
+    const response = await fetch(`/api/site-content?seo=${encodeURIComponent(action)}`, {
+      method,
+      cache: 'no-store',
+      headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})},
+      ...(body == null ? {} : {body: JSON.stringify(body)})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `SEO workflow failed (${response.status}).`);
+    return payload;
+  }
 
   useEffect(() => {
     let alive = true;
@@ -177,6 +224,39 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     return () => { alive = false; };
   }, [token]);
 
+  useEffect(() => {
+    let alive = true;
+    if (!token || !canPublish) {
+      setConnectorStatus({google: {state: 'permission_required', detail: 'Sign in with the website-edit permission to read Search Console status.'}, indexNow: {state: 'permission_required', detail: 'Sign in with the website-edit permission to read IndexNow status.'}});
+      return () => { alive = false; };
+    }
+    setConnectorBusy(true);
+    setConnectorError('');
+    Promise.allSettled([seoWorkflow('status'), seoWorkflow('audit')]).then(([statusResult, auditResult]) => {
+      if (!alive) return;
+      if (statusResult.status === 'fulfilled') setConnectorStatus(statusResult.value);
+      else setConnectorError(statusResult.reason?.message || 'Provider status is unavailable.');
+      if (auditResult.status === 'fulfilled' && Array.isArray(auditResult.value)) setAuditTrail(auditResult.value);
+    }).finally(() => { if (alive) setConnectorBusy(false); });
+    return () => { alive = false; };
+  }, [token, canPublish]);
+
+  useEffect(() => {
+    if (!token || !canPublish) return;
+    let alive = true;
+    fetch('/api/site-content?entity=articles&all=1', {
+      cache: 'no-store', headers: {Authorization: `Bearer ${token}`}
+    }).then(async response => {
+      if (!response.ok) throw new Error('The staff article list could not be loaded.');
+      const rows = await response.json();
+      if (!alive || !Array.isArray(rows)) return;
+      setEditorArticles(rows);
+      setPublishedNews(rows);
+      setArticles(getPublishedNews());
+    }).catch(error => { if (alive) setWorkflowError(error.message); });
+    return () => { alive = false; };
+  }, [token, canPublish]);
+
   const report = useMemo(() => {
     if (typeof document === 'undefined') return null;
     const url = BASE + (location.pathname === '/' ? '/' : location.pathname);
@@ -193,6 +273,191 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   // same ones the CLI prints for the shipped HTML.
   const summary = useMemo(() => summarise(report ? [report] : []), [report]);
 
+  async function discoverCrawlTargets(signal) {
+    const sourceErrors = [];
+    let robotsText = '';
+    try {
+      const response = await fetch('/robots.txt', {cache: 'no-store', signal});
+      if (response.ok) robotsText = await response.text();
+      else sourceErrors.push(`/robots.txt returned HTTP ${response.status}.`);
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      sourceErrors.push(`/robots.txt could not be read: ${String(error?.message || 'request failed')}.`);
+    }
+    const sources = sitemapSourcesFromRobots(robotsText, {base: SITE_CANONICAL_ORIGIN});
+    const urls = publicLandingRoutes().map(route => route.url);
+    for (const sitemap of sources) {
+      if (signal?.aborted) break;
+      const path = new URL(sitemap).pathname;
+      try {
+        // Use the current origin (including Arena's preview proxy), never a
+        // browser request to localhost or a hard-coded production host.
+        const response = await fetch(path, {cache: 'no-store', signal});
+        if (!response.ok) {
+          sourceErrors.push(`${path} returned HTTP ${response.status}.`);
+          continue;
+        }
+        urls.push(...sitemapLocations(await response.text()));
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        sourceErrors.push(`${path} could not be read: ${String(error?.message || 'request failed')}.`);
+      }
+    }
+    const unique = [...new Set(urls.map(value => canonicalSiteUrl(value, {base: SITE_CANONICAL_ORIGIN})))]
+      .filter(Boolean)
+      .filter(url => {
+        const path = new URL(url).pathname;
+        return !isStaffNoindexPath(path) && !path.startsWith('/api/') && !/\.(?:xml|txt|json)$/i.test(path);
+      });
+    return {robotsText, sources, sourceErrors, urls: unique};
+  }
+
+  async function auditCrawlUrl(url, signal, facts = {}) {
+    const canonical = canonicalSiteUrl(url, {base: SITE_CANONICAL_ORIGIN});
+    if (!canonical) return {url: String(url), state: 'invalid', error: 'Not a canonical HTTPS site URL.'};
+    const path = new URL(canonical).pathname;
+    try {
+      const response = await fetch(path, {cache: 'no-store', signal, headers: {Accept: 'text/html'}});
+      const httpStatus = Number(response.status) || 0;
+      if (!response.ok) return {url: canonical, path, state: 'http_error', httpStatus, error: `Page request returned HTTP ${httpStatus}.`};
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const robotsValue = doc.querySelector('meta[name="robots"]')?.getAttribute('content') || '';
+      const noindex = /noindex/i.test(robotsValue);
+      const audit = auditDocument(doc, {
+        route: path === '/' ? 'home' : path.replace(/^\//, ''),
+        label: path,
+        url: canonical,
+        expectIndexable: true,
+        origin: location.origin,
+        facts: {sitemapUrls: facts.sitemapUrls || [], robotsTxt: facts.robotsTxt || ''}
+      });
+      return {
+        url: canonical, path, state: audit.status, httpStatus, noindex,
+        title: doc.title || '', canonical: doc.querySelector('link[rel="canonical"]')?.getAttribute('href') || '',
+        score: audit.score, fails: audit.fails, warns: audit.warns, checks: audit.checks,
+        detail: noindex ? 'The fetched page declares noindex and is excluded from submission.' : ''
+      };
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      return {url: canonical, path, state: 'request_error', error: String(error?.message || 'Page request failed.')};
+    }
+  }
+
+  async function runCrawl(singleUrl = null) {
+    crawlController.current?.abort();
+    const controller = new AbortController();
+    crawlController.current = controller;
+    setWorkflowError('');
+    setIndexingPreview(null);
+    setIndexingResult(null);
+    const one = singleUrl ? canonicalSiteUrl(singleUrl, {base: SITE_CANONICAL_ORIGIN}) : null;
+    if (singleUrl && !one) {
+      setWorkflowError('Enter a canonical HTTPS URL on this site, without a query string.');
+      return;
+    }
+    setLiveCrawl(previous => ({
+      ...previous, state: one ? 'running' : 'discovering',
+      rows: one ? previous.rows : [], done: 0, total: one ? 1 : 0,
+      sourceErrors: one ? previous.sourceErrors : []
+    }));
+    try {
+      let robotsText = robots;
+      let sources = liveCrawl.sources || [];
+      let targets = one ? [one] : [];
+      let sourceErrors = [];
+      let sitemapUrls = liveCrawl.rows.map(row => row.url);
+      if (!one) {
+        const discovery = await discoverCrawlTargets(controller.signal);
+        robotsText = discovery.robotsText;
+        sources = discovery.sources;
+        sourceErrors = discovery.sourceErrors;
+        targets = discovery.urls;
+        sitemapUrls = targets;
+        setRobots(robotsText);
+        setSitemapUrls(discovery.urls);
+        setLiveCrawl({state: 'running', rows: [], done: 0, total: targets.length, sources, sourceErrors});
+      }
+      let rows = one ? [...liveCrawl.rows] : [];
+      let done = 0;
+      for (const target of targets) {
+        if (controller.signal.aborted) break;
+        const row = await auditCrawlUrl(target, controller.signal, {sitemapUrls, robotsTxt: robotsText});
+        if (one) rows = rows.filter(old => old.url !== row.url).concat(row);
+        else rows = [...rows, row];
+        done++;
+        setLiveCrawl({state: 'running', rows, done, total: targets.length, sources, sourceErrors});
+      }
+      const state = controller.signal.aborted ? 'cancelled' : (sourceErrors.length ? 'complete_with_warnings' : 'complete');
+      setLiveCrawl({state, rows, done, total: targets.length, sources, sourceErrors});
+    } catch (error) {
+      setLiveCrawl(previous => ({...previous, state: controller.signal.aborted ? 'cancelled' : 'error'}));
+      if (!controller.signal.aborted) setWorkflowError(error.message || 'The crawl failed.');
+    } finally {
+      if (crawlController.current === controller) crawlController.current = null;
+    }
+  }
+
+  function cancelCrawl() {
+    crawlController.current?.abort();
+  }
+
+  function indexingRequest() {
+    const successful = liveCrawl.rows.filter(row => row.httpStatus >= 200 && row.httpStatus < 300);
+    return {
+      urls: successful.map(row => row.url),
+      noindexUrls: liveCrawl.rows.filter(row => row.noindex).map(row => row.url),
+      sitemaps: liveCrawl.sources || []
+    };
+  }
+
+  async function previewIndexing() {
+    if (!liveCrawl.rows.length) { setWorkflowError('Run a crawl first so each candidate can be checked for status and noindex.'); return; }
+    setIndexingBusy(true); setWorkflowError(''); setIndexingResult(null);
+    try {
+      const request = indexingRequest();
+      const result = await seoWorkflow('preview', 'POST', request);
+      setIndexingPreview({...result, request});
+    } catch (error) { setWorkflowError(error.message || 'Indexing preview failed.'); }
+    finally { setIndexingBusy(false); }
+  }
+
+  async function submitIndexing() {
+    if (!indexingPreview?.request) return;
+    const count = indexingPreview.eligibleUrls?.length || 0;
+    if (!window.confirm(`Submit the refreshed sitemap list and notify IndexNow about ${count} eligible URL(s)? These are crawl requests, not a promise or confirmation of Google indexing.`)) return;
+    setIndexingBusy(true); setWorkflowError('');
+    try {
+      const result = await seoWorkflow('submit', 'POST', indexingPreview.request);
+      setIndexingResult(result);
+      const trail = await seoWorkflow('audit');
+      if (Array.isArray(trail)) setAuditTrail(trail);
+    } catch (error) { setWorkflowError(error.message || 'Indexing submission failed.'); }
+    finally { setIndexingBusy(false); }
+  }
+
+  async function inspectUrl() {
+    const url = canonicalSiteUrl(inspectionUrl, {base: SITE_CANONICAL_ORIGIN});
+    if (!url) { setWorkflowError('Enter a canonical HTTPS URL on this site, without a query string.'); return; }
+    setInspectionBusy(true); setWorkflowError(''); setInspectionResult(null);
+    try {
+      const result = await seoWorkflow('inspect', 'POST', {url,
+        noindexUrls: liveCrawl.rows.some(row => row.url === url && row.noindex) ? [url] : []});
+      setInspectionResult(result);
+    } catch (error) { setWorkflowError(error.message || 'Search Console inspection failed.'); }
+    finally { setInspectionBusy(false); }
+  }
+
+  async function refreshConnectors() {
+    if (!token || !canPublish) { setConnectorError('The website-edit permission is required for provider status.'); return; }
+    setConnectorBusy(true); setConnectorError('');
+    const [statusResult, auditResult] = await Promise.allSettled([seoWorkflow('status'), seoWorkflow('audit')]);
+    if (statusResult.status === 'fulfilled') setConnectorStatus(statusResult.value);
+    else setConnectorError(statusResult.reason?.message || 'Provider status is unavailable.');
+    if (auditResult.status === 'fulfilled' && Array.isArray(auditResult.value)) setAuditTrail(auditResult.value);
+    setConnectorBusy(false);
+  }
+
   const copy = async (text, tag) => {
     try { await navigator.clipboard.writeText(text); setCopied(tag); setTimeout(() => setCopied(''), 1600); }
     catch { /* clipboard blocked in the embedded preview */ }
@@ -203,12 +468,16 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     : status === 'warn'
       ? <AlertTriangle size={15} className="seo-warn"/>
       : <X size={15} className="seo-bad"/>;
+  const providerStateLabel = state => String(state || 'unknown').replaceAll('_', ' ');
+  const crawlActive = liveCrawl.state === 'running' || liveCrawl.state === 'discovering';
+  const registeredRoutes = staticAuditRoutes();
 
   const setField = (k, v) => {
     setForm(f => ({ ...f, [k]: v }));
     setCreateErrors({});
     setCreated(null);
     setDraftAudit(null);
+    setDraftReviewed(false);
   };
 
   const editTitle = v => {
@@ -216,27 +485,59 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     setCreateErrors({});
     setCreated(null);
     setDraftAudit(null);
+    setDraftReviewed(false);
   };
 
   const refreshArticleList = async () => {
-    const response = await fetch('/api/site-content?entity=articles', {cache: 'no-store'});
-    if (!response.ok) throw new Error('The public guide list could not be refreshed.');
+    const response = await fetch('/api/site-content?entity=articles&all=1', {
+      cache: 'no-store', headers: {Authorization: `Bearer ${token}`}
+    });
+    if (!response.ok) throw new Error('The staff article list could not be refreshed.');
     const rows = await response.json();
-    if (!Array.isArray(rows)) throw new Error('The public guide list returned an unexpected response.');
+    if (!Array.isArray(rows)) throw new Error('The staff article list returned an unexpected response.');
+    setEditorArticles(rows);
     setPublishedNews(rows);
     const fresh = getPublishedNews();
     setArticles(fresh);
     return fresh;
   };
 
-  // ---- publish guide ---------------------------------------------------------
-  // Validates and audits a draft first, then writes through the existing
-  // site-content API (site.write permission). The public news page hydrates
-  // published rows from that same table; no source edit or redeploy is needed.
+  const auditGuidePreview = (article, publishedRows) => {
+    const previewDoc = document.implementation.createHTMLDocument('guide-preview');
+    const withPreview = [...publishedRows.filter(row => articleSlug(row) !== article.slug), article];
+    applySeo('news', article.slug, null, {articleList: withPreview, doc: previewDoc});
+    return auditDocument(previewDoc, {
+      route: 'news/' + article.slug,
+      url: BASE + '/news/' + encodeURIComponent(article.slug),
+      expectIndexable: true,
+      origin: BASE,
+      facts: {robotsTxt: robots},
+      skipBody: true
+    });
+  };
+
+  const generateFactDraft = () => {
+    const generated = buildFactualDraft({...form, facts: draftFacts});
+    if (!generated) { setCreateErrors({facts: 'Add at least one staff-verified fact, one per line.'}); return; }
+    setForm(current => ({...current, title: generated.title, cat: generated.cat || current.cat,
+      img: generated.img || current.img, desc: generated.desc, body: generated.body}));
+    setCreateErrors({});
+    setCreateWarnings([]);
+    setCreated(null);
+    setDraftAudit(null);
+    setDraftReviewed(false);
+  };
+
+  // Save a draft to site_articles without publishing it. Publication is a
+  // separate, explicit action after a person has reviewed the title, derived
+  // canonical slug, metadata and body.
   const createGuide = async e => {
     e.preventDefault();
-    if (!canPublish || !token) { notify('Your role cannot publish website guides. Ask a website editor.'); return; }
+    if (!canPublish || !token) { notify('Your role cannot edit website guides. Ask a website editor.'); return; }
     const { errors, warnings, slug } = validateGuide(form, articles);
+    const duplicateDraft = editorArticles.find(row => String(row.id) !== String(activeDraftId || '') &&
+      row.published === false && articleSlug(row.title) === slug);
+    if (duplicateDraft) errors.slug = 'An unpublished draft already uses this title-derived slug. Load that draft to continue editing it.';
     setCreateErrors(errors);
     setCreateWarnings(warnings);
     if (Object.keys(errors).length) { setCreated(null); setDraftAudit(null); return; }
@@ -246,37 +547,56 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     const url = BASE + '/news/' + encodeURIComponent(slug);
     setGuideBusy(true);
     try {
-      const nextOrder = Math.min(0, ...articles.map(a => Number(a.sort_order) || 0)) - 1;
+      const existingDraft = editorArticles.find(row => String(row.id) === String(activeDraftId || ''));
+      const nextOrder = existingDraft?.sort_order ?? (Math.min(0, ...editorArticles.map(a => Number(a.sort_order) || 0)) - 1);
+      const payload = {title: article.title, category: article.cat, date: existingDraft?.date || article.date,
+        read_min: article.min, image: article.img, excerpt: article.ex, body: article.body,
+        published: false, sort_order: nextOrder, ...(activeDraftId ? {id: activeDraftId} : {})};
       const response = await fetch('/api/site-content?entity=articles', {
-        method: 'POST',
+        method: activeDraftId ? 'PATCH' : 'POST',
         headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
-        body: JSON.stringify({title: article.title, category: article.cat, date: article.date,
-          read_min: article.min, image: article.img, excerpt: article.ex, body: article.body,
-          published: true, sort_order: nextOrder})
+        body: JSON.stringify(payload)
       });
       const saved = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(saved.error || `Guide publication failed (${response.status}).`);
-      let clip = 'copy-failed';
-      try { await navigator.clipboard.writeText(json); clip = 'copied'; } catch { /* clipboard may be blocked in the preview */ }
-      const published = await refreshArticleList();
-      const liveArticle = articleBySlug(slug, published) || article;
-      setCreated({article: liveArticle, json, slug, url, clip, published: true, id: saved.id});
-      setSitemapUrls(list => list.includes(url) ? list : [...list, url]);
-      notify(`Guide published: ${article.title}. The public news page can serve it now.`);
-
-      // Audit the just-published canonical URL against the same shared SEO
-      // renderer and include it in the sitemap facts shown to the operator.
-      const draftDoc = document.implementation.createHTMLDocument('draft');
-      applySeo('news', slug, null, {articleList: published, doc: draftDoc});
-      setDraftAudit(auditDocument(draftDoc, {
-        route: 'news/' + slug, url, expectIndexable: true, origin: BASE,
-        facts: {sitemapUrls: [...sitemapUrls, url], robotsTxt: robots}, skipBody: true
-      }));
+      if (!response.ok) throw new Error(saved.error || `Draft save failed (${response.status}).`);
+      const fresh = await refreshArticleList();
+      const id = saved.id || activeDraftId;
+      setActiveDraftId(id);
+      setCreated({article, json, slug, url, clip: 'not-copied', published: false, id});
+      setDraftReviewed(false);
+      setDraftAudit(auditGuidePreview(article, fresh));
+      notify(`Unpublished draft saved: ${article.title}. It is not public and is absent from the news sitemap.`);
     } catch (error) {
-      notify(error.message || 'Guide publication failed.');
+      notify(error.message || 'Draft save failed.');
       setCreated(null);
       setDraftAudit(null);
     } finally { setGuideBusy(false); }
+  };
+
+  const publishGuide = async () => {
+    if (!created?.id || created.published || !canPublish || !token || !draftReviewed) return;
+    if (/\[EDITOR REVIEW:/i.test(created.article.body || '')) {
+      notify('Remove the editor-review placeholder, revise the draft, and save it again before publication.');
+      return;
+    }
+    if (!window.confirm(`Publish the reviewed guide “${created.article.title}” at /news/${created.slug}? It will become public and enter the dynamic news sitemap. Confirm that every factual claim and its source have been reviewed.`)) return;
+    setPublishBusy(true);
+    try {
+      const response = await fetch('/api/site-content?entity=articles', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+        body: JSON.stringify({id: created.id, published: true})
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Guide publication failed (${response.status}).`);
+      const published = await refreshArticleList();
+      const article = articleBySlug(created.slug, published) || created.article;
+      setActiveDraftId(null);
+      setCreated(current => current ? {...current, article, published: true} : current);
+      setDraftAudit(auditGuidePreview(article, published));
+      notify(`Guide published: ${article.title}. Refresh the crawl to verify the live page and sitemap.`);
+    } catch (error) { notify(error.message || 'Guide publication failed.'); }
+    finally { setPublishBusy(false); }
   };
 
   const saveCampaign = async e => {
@@ -338,7 +658,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
             {copied === 'cmds' ? <><Check size={15}/> Commands copied</> : <><Copy size={15}/> Copy agent commands</>}
           </button>
           <button className="gold-btn seo-create-toggle" onClick={() => setCreating(c => !c)} aria-expanded={creating} type="button">
-            <FilePlus2 size={15}/> {creating ? 'Hide the guide creator' : 'Create guide'}
+            <FilePlus2 size={15}/> {creating ? 'Hide the draft creator' : 'Create draft'}
           </button>
         </div>
       </div>
@@ -360,14 +680,50 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
           </form>
         </section>
 
+        {canPublish && (
+          <section className="seo-card seo-drafts" aria-label="Unpublished news drafts">
+            <div className="seo-hub-title"><FilePlus2 size={18}/><div><h2>Article drafts</h2><p>Drafts are stored in <code>site_articles</code> with <code>published=false</code>; they do not appear on the public news page or sitemap.</p></div></div>
+            <div className="seo-draft-toolbar">
+              <b>{editorArticles.filter(row => row.published === false).length} unpublished draft(s)</b>
+              <button className="gold-btn" type="button" onClick={() => {
+                setForm({title: '', cat: categories[0] || NEWS_CATEGORIES[0], img: GUIDE_ASSETS[0], desc: '', body: ''});
+                setActiveDraftId(null); setDraftFacts(''); setCreated(null); setDraftAudit(null); setDraftReviewed(false); setCreateErrors({}); setCreating(true);
+              }}>New draft</button>
+            </div>
+            {editorArticles.filter(row => row.published === false).length > 0
+              ? <ul className="seo-draft-list">{editorArticles.filter(row => row.published === false).map(row => (
+                <li key={row.id}>
+                  <div><b>{row.title}</b><small>/news/{articleSlug(row.title)} · saved {row.updated_at || row.date || 'date not reported'}</small></div>
+                  <button type="button" onClick={() => {
+                    setForm({title: row.title || '', cat: row.category || row.cat || categories[0] || NEWS_CATEGORIES[0],
+                      img: row.image || row.img || GUIDE_ASSETS[0], desc: row.excerpt || row.ex || '', body: row.body || ''});
+                    setActiveDraftId(row.id); setDraftFacts(''); setCreated(null); setDraftAudit(null); setDraftReviewed(false); setCreateErrors({}); setCreating(true);
+                  }}>Load for review</button>
+                </li>
+              ))}</ul>
+              : <p className="seo-muted">No unpublished article drafts have been saved.</p>}
+          </section>
+        )}
+
         {creating && (
           <form className="seo-card seo-create" onSubmit={createGuide}>
-            <h3><FilePlus2 size={16}/> Create a buyer guide</h3>
+            <h3><FilePlus2 size={16}/> {activeDraftId ? 'Review and edit draft' : 'Create a buyer-guide draft'}</h3>
             <p className="seo-muted">
-              Creates a complete guide, checks its slug and metadata, audits the canonical
-              <code>/news/&lt;slug&gt;</code> page, then publishes through the staff website-content API.
-              The new guide is available on the public news page without a code edit or redeploy.
+              The formatter only uses facts you provide; it does not look up or invent stock, auction or shipping claims.
+              Save creates or updates an unpublished row. A separate confirmation is required before publication.
             </p>
+
+            <fieldset className="seo-fact-generator">
+              <legend>Generate from staff-verified facts</legend>
+              <label><span>Verified facts, one per line (include a source/date or stock reference where applicable)</span>
+                <textarea value={draftFacts} rows={4} onChange={e => {setDraftFacts(e.target.value); setCreateErrors({});}}
+                  placeholder="Example: Current public stock page lists [exact model and year].\nExample: The current route table shows [port and planning transit window]."
+                  aria-label="Staff verified facts" />
+                {createErrors.facts && <em className="seo-err">{createErrors.facts}</em>}
+              </label>
+              <button type="button" className="gold-btn" onClick={generateFactDraft}>Generate factual draft text</button>
+              <small className="seo-muted">Generated excerpt/body echo only these notes and add a review reminder. They are not independently verified.</small>
+            </fieldset>
 
             <div className="seo-create-grid">
               <label>
@@ -445,29 +801,37 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
               </ul>
             )}
 
-            <button className="gold-btn" type="submit" disabled={!canPublish || guideBusy}>{guideBusy ? <RefreshCw size={14}/> : <Send size={14}/>} Publish guide + audit</button>
-            {!canPublish && <p className="seo-muted">Your role can review SEO but cannot publish website guides.</p>}
+            <button className="gold-btn" type="submit" disabled={!canPublish || guideBusy}>{guideBusy ? <RefreshCw size={14}/> : <Save size={14}/>} Save unpublished draft</button>
+            {!canPublish && <p className="seo-muted">Your role can review SEO but cannot edit or publish website guides.</p>}
 
             {created && (
               <div className="seo-created">
                 <p>
-                  <Check size={14} className="seo-ok"/> Guide published at{' '}
-                  <a href={created.url.replace(BASE, '')} target="_blank" rel="noreferrer"><code>{created.url.replace(BASE, '')}</code></a>.
-                  {' '}It is available from the public news page and the dynamic news sitemap.
-                  {created.clip === 'copied' ? ' A JSON backup is on your clipboard.' : ' A JSON backup is available below.'}
+                  <Check size={14} className="seo-ok"/> {created.published ? 'Published guide:' : 'Unpublished draft saved:'}{' '}
+                  {created.published
+                    ? <a href={created.url.replace(BASE, '')} target="_blank" rel="noreferrer"><code>{created.url.replace(BASE, '')}</code></a>
+                    : <code>{created.url.replace(BASE, '')}</code>}.
+                  {created.published
+                    ? ' It is public; refresh the crawl to verify its live page and dynamic sitemap entry.'
+                    : ' It is private, excluded from the public news page and sitemap until a person reviews and publishes it.'}
+                  {' '}A JSON backup is available below.
                 </p>
                 <pre className="seo-json">{created.json}</pre>
                 <details>
-                  <summary>Canonical URL and published sitemap endpoint</summary>
-                  <pre className="seo-json">{created.url}<br/>{BASE}/api/sitemap-news.xml</pre>
+                  <summary>Title-derived canonical URL and dynamic sitemap endpoint</summary>
+                  <pre className="seo-json">{created.url}<br/>{BASE}/api/sitemap-news.xml (published articles only)</pre>
                 </details>
+                {!created.published && <label className="seo-review-check">
+                  <input type="checkbox" checked={draftReviewed} onChange={event => setDraftReviewed(event.target.checked)} />
+                  <span>I reviewed every factual claim against its source, corrected the draft, and removed all editor-review notes.</span>
+                </label>}
                 <div className="seo-create-actions">
                   <button type="button" className="gold-btn" onClick={() => copy(created.json, 'guide-json')}>
-                    {copied === 'guide-json' ? <><Check size={14}/> Copied again</> : <><Copy size={14}/> Copy JSON again</>}
+                    {copied === 'guide-json' ? <><Check size={14}/> Copied again</> : <><Copy size={14}/> Copy JSON backup</>}
                   </button>
-                  <button type="button" className="gold-btn" onClick={() => copy(BASE + '/api/sitemap-news.xml', 'guide-sitemap')}>
-                    {copied === 'guide-sitemap' ? <><Check size={14}/> Sitemap URL copied</> : <><Copy size={14}/> Copy sitemap URL</>}
-                  </button>
+                  {!created.published && <button type="button" className="gold-btn" onClick={publishGuide} disabled={!canPublish || publishBusy || !draftReviewed}>
+                    {publishBusy ? <RefreshCw size={14}/> : <Send size={14}/>} Publish reviewed draft
+                  </button>}
                 </div>
               </div>
             )}
@@ -475,19 +839,17 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
             {draftAudit && (
               <div className="seo-draft-audit">
                 <h3>
-                  Draft audit — <code>/news/{encodeURIComponent(created?.slug || '')}</code>
+                  Local metadata preview — <code>/news/{encodeURIComponent(created?.slug || '')}</code>
                 </h3>
                 <div className="seo-score">
                   <div className={`seo-score-ring ${draftAudit.status}`}>
                     <b>{draftAudit.score}</b><small>/100</small>
                   </div>
                   <div>
-                    <h2>Scored as the page will ship: {draftAudit.score}/100</h2>
+                    <h2>Shared-engine metadata audit: {draftAudit.score}/100</h2>
                     <p className="seo-muted">
-                      {draftAudit.fails} failure(s), {draftAudit.warns} warning(s). Head tags, canonical,
-                      Open Graph and structured data come from the real <code>applySeo()</code>; the
-                      sitemap line below is counted as added. Body checks run on the static-shell audit
-                      after the rebuild.
+                      {draftAudit.fails} failure(s), {draftAudit.warns} warning(s). This local preview uses <code>applySeo()</code> and is not a live crawl or Search Console result.
+                      {created?.published ? ' The article is published; run the crawl to verify served HTML and sitemap inclusion.' : ' The saved draft remains unpublished and cannot be indexed.'}
                     </p>
                   </div>
                 </div>
@@ -504,16 +866,133 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
           </form>
         )}
 
+        <section className="seo-card seo-live-workbench" aria-label="Live SEO crawl and indexing workflows">
+          <div className="seo-hub-title"><Search size={18}/><div><h2>Live crawl &amp; indexing workflows</h2><p>Separate local audit evidence from provider credentials, live page fetches and Google’s reported index state. Crawl requests do not force indexing.</p></div></div>
+
+          <div className="seo-live-status-grid">
+            <article className="seo-live-status local">
+              <b>Local shared-engine audit</b>
+              <strong>{report ? `${report.score}/100` : 'Pending'}</strong>
+              <span>{report ? `${report.fails} failure(s), ${report.warns} warning(s) on this staff page.` : 'Waiting for the local document audit.'} This is not Search Console.</span>
+            </article>
+            <article className={'seo-live-status ' + (connectorStatus?.google?.state || 'pending')}>
+              <b>Search Console API</b>
+              <strong>{connectorBusy ? 'Checking…' : providerStateLabel(connectorStatus?.google?.state)}</strong>
+              <span>{connectorStatus?.google?.detail || connectorError || 'Provider status has not been verified.'}</span>
+              {connectorStatus?.google?.property && <small>Property: {connectorStatus.google.property}</small>}
+            </article>
+            <article className={'seo-live-status ' + (connectorStatus?.indexNow?.state || 'pending')}>
+              <b>IndexNow key verification</b>
+              <strong>{connectorBusy ? 'Checking…' : providerStateLabel(connectorStatus?.indexNow?.state)}</strong>
+              <span>{connectorStatus?.indexNow?.detail || connectorError || 'Provider status has not been verified.'}</span>
+              {connectorStatus?.indexNow?.keyFile && <small>Key file: {connectorStatus.indexNow.keyFile}</small>}
+            </article>
+          </div>
+          <div className="seo-workflow-actions">
+            <button className="gold-btn" type="button" onClick={refreshConnectors} disabled={!canPublish || connectorBusy}>
+              <RefreshCw size={14}/> {connectorBusy ? 'Checking providers…' : 'Refresh provider status'}
+            </button>
+            <button className="gold-btn" type="button" onClick={() => runCrawl()} disabled={!canPublish || crawlActive}>
+              <Search size={14}/> {crawlActive ? 'Crawling…' : 'Refresh sitemaps & crawl whole site'}
+            </button>
+            <button className="seo-secondary-btn" type="button" onClick={() => runCrawl(BASE + location.pathname)} disabled={!canPublish || crawlActive}>
+              Audit this page
+            </button>
+            {crawlActive && <button className="seo-secondary-btn" type="button" onClick={cancelCrawl}>Cancel crawl</button>}
+            <button className="seo-secondary-btn" type="button" onClick={previewIndexing} disabled={!canPublish || crawlActive || indexingBusy || !liveCrawl.rows.length}>
+              {indexingBusy ? 'Preparing…' : 'Preview eligible URLs'}
+            </button>
+            {indexingPreview && <button className="gold-btn" type="button" onClick={submitIndexing} disabled={!canPublish || indexingBusy || !(indexingPreview.eligibleUrls?.length)}>
+              {indexingBusy ? 'Submitting…' : `Submit crawl requests (${indexingPreview.eligibleUrls?.length || 0})`}
+            </button>}
+          </div>
+          <p className="seo-muted">
+            Route registry: {registeredRoutes.filter(route => route.indexable !== false).length} public examples, {registeredRoutes.filter(route => route.indexable === false).length} staff/noindex entries omitted.
+            Sitemap URLs are refreshed from same-origin <code>/robots.txt</code> declarations and the allowlisted sitemap endpoints. This browser crawl uses the current origin and shared <code>src/seo-audit.js</code> engine.
+          </p>
+          {workflowError && <p className="seo-workflow-error" role="alert"><AlertTriangle size={14}/>{workflowError}</p>}
+          {liveCrawl.state !== 'idle' && (
+            <div className="seo-crawl-progress" role="status" aria-live="polite">
+              <b>{liveCrawl.state === 'discovering' ? 'Discovering routes and sitemap sources…' : `${liveCrawl.done}/${liveCrawl.total} URL(s) audited`}</b>
+              <span>{providerStateLabel(liveCrawl.state)}{liveCrawl.state === 'complete' ? ` · ${liveCrawl.sources.length} sitemap source(s)` : ''}</span>
+              {liveCrawl.total > 0 && <progress max={liveCrawl.total} value={liveCrawl.done} />}
+            </div>
+          )}
+          {liveCrawl.sourceErrors?.length > 0 && <ul className="seo-workflow-error-list">{liveCrawl.sourceErrors.map((error, i) => <li key={i}>{error}</li>)}</ul>}
+
+          {liveCrawl.rows.length > 0 && (
+            <div className="seo-crawl-results">
+              <h3>Per-URL crawl diagnostics <small>{liveCrawl.rows.length} URL(s)</small></h3>
+              <ul>
+                {liveCrawl.rows.map(row => (
+                  <li key={row.url} className={'seo-crawl-row ' + (row.state || 'unknown')}>
+                    <div className="seo-crawl-row-head">
+                      <div><b>{row.path || row.url}</b><small>{row.httpStatus ? `HTTP ${row.httpStatus}` : row.error || 'No HTTP response'}{row.score != null ? ` · ${row.score}/100 · ${row.fails} fail · ${row.warns} warn` : ''}{row.noindex ? ' · noindex — excluded' : ''}</small></div>
+                      <div>
+                        <button type="button" className="seo-mini-action" onClick={() => runCrawl(row.url)} disabled={!canPublish || crawlActive}>Retry</button>
+                        <button type="button" className="seo-mini-action" onClick={() => setInspectionUrl(row.url)} disabled={!canPublish}>Inspect</button>
+                      </div>
+                    </div>
+                    {row.title && <small className="seo-crawl-title">Title: {row.title}{row.canonical ? ` · canonical ${row.canonical}` : ' · no canonical'}</small>}
+                    {row.detail && <small className="seo-crawl-detail">{row.detail}</small>}
+                    {row.error && <small className="seo-crawl-detail">{row.error}</small>}
+                    {row.checks?.filter(check => check.status !== 'pass').length > 0
+                      ? <details><summary>{row.checks.filter(check => check.status !== 'pass').length} diagnostic(s) — warnings are retained</summary><ul className="seo-page-checks">{row.checks.filter(check => check.status !== 'pass').map(check => <li key={check.id} className={check.status}><b>{check.label}</b><span>{check.detail}</span>{check.fix && <em>→ {check.fix}</em>}</li>)}</ul></details>
+                      : row.checks && <small className="seo-crawl-detail">Shared-engine checks: no warning or failure reported.</small>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {indexingPreview && (
+            <div className="seo-indexing-preview">
+              <h3>Eligible-URL indexing preview <small>{indexingPreview.eligibleUrls?.length || 0} eligible · {indexingPreview.excluded?.length || 0} excluded</small></h3>
+              <p className="seo-muted">Draft, noindex and staff paths are excluded. Search Console sitemap submission and IndexNow only request crawl/processing; neither guarantees an index entry.</p>
+              <div className="seo-indexing-columns">
+                <div><b>Eligible URLs</b><ul>{(indexingPreview.eligibleUrls || []).slice(0, 40).map(url => <li key={url}>{url.replace(SITE_CANONICAL_ORIGIN, '')}</li>)}</ul>{(indexingPreview.eligibleUrls || []).length > 40 && <small>+ {(indexingPreview.eligibleUrls || []).length - 40} more</small>}</div>
+                <div><b>Excluded candidates</b><ul>{(indexingPreview.excluded || []).slice(0, 40).map((item, i) => <li key={item.url + i}><code>{item.url.replace(SITE_CANONICAL_ORIGIN, '')}</code> — {item.reason}</li>)}</ul>{(indexingPreview.excluded || []).length > 40 && <small>+ {(indexingPreview.excluded || []).length - 40} more</small>}</div>
+              </div>
+              <p className="seo-muted">Refreshed sitemap sources: {(indexingPreview.sitemapSources || []).map(source => new URL(source).pathname).join(' · ') || 'none found'}.</p>
+              <p className="seo-muted">{indexingPreview.note}</p>
+            </div>
+          )}
+
+          {indexingResult && (
+            <div className="seo-indexing-result" role="status">
+              <h3>Submission result · {indexingResult.submittedAt}</h3>
+              <p>{indexingResult.eligibleCount} eligible URL(s); {indexingResult.excludedCount} excluded. This records provider responses, not indexing success.</p>
+              <div className="seo-indexing-columns">
+                <div><b>Google Search Console sitemap submission</b><strong>{providerStateLabel(indexingResult.google?.state)}</strong><p>{indexingResult.google?.detail}</p>{indexingResult.google?.results?.map(result => <small key={result.sitemap}>{new URL(result.sitemap).pathname}: {result.detail}</small>)}</div>
+                <div><b>IndexNow notification</b><strong>{providerStateLabel(indexingResult.indexNow?.state)}</strong><p>{indexingResult.indexNow?.detail}</p></div>
+              </div>
+              <p className="seo-muted">Audit trail: {indexingResult.audit?.saved ? 'saved in activities' : `not saved — ${indexingResult.audit?.detail || 'not confirmed'}`}</p>
+            </div>
+          )}
+
+          <form className="seo-inspection-form" onSubmit={event => {event.preventDefault(); inspectUrl();}}>
+            <label><span>Search Console URL Inspection (live API result, not a submit/force-index action)</span><input type="url" value={inspectionUrl} onChange={event => setInspectionUrl(event.target.value)} placeholder="https://ar7traders.com/inventory" aria-label="URL to inspect in Search Console"/></label>
+            <button className="gold-btn" type="submit" disabled={!canPublish || inspectionBusy || !inspectionUrl.trim()}>{inspectionBusy ? 'Inspecting…' : 'Inspect URL'}</button>
+          </form>
+          {inspectionResult && <div className="seo-inspection-result"><b>Google inspection state: {providerStateLabel(inspectionResult.state)}</b><p>{inspectionResult.detail}</p>{['verdict','coverageState','indexingState','pageFetchState','robotsTxtState','lastCrawlTime','userCanonical','googleCanonical'].filter(key => inspectionResult[key]).map(key => <span key={key}><small>{prettyLabel(key)}</small><b>{inspectionResult[key]}</b></span>)}</div>}
+
+          <div className="seo-audit-trail">
+            <h3>SEO submission audit trail <small>{auditTrail.length} recent event(s)</small></h3>
+            {auditTrail.length
+              ? <ul>{auditTrail.map(item => <li key={item.id || item.created_at}><span>{item.action}</span><small>{item.actor || 'Staff'} · {item.created_at || 'time not reported'}</small></li>)}</ul>
+              : <p className="seo-muted">No submission events returned. Status checks and previews do not create trail entries.</p>}
+          </div>
+        </section>
+
         <div className="seo-score">
           <div className={`seo-score-ring ${report?.status || 'warn'}`}>
             <b>{report ? report.score : '—'}</b><small>/100</small>
           </div>
           <div>
-            <h2>This page scores {report ? report.score : '—'}/100</h2>
+            <h2>Local audit of this staff route: {report ? report.score : '—'}/100</h2>
             <p>
               {report ? `${report.fails} failure(s), ${report.warns} warning(s). ` : ''}
-              Checks are run by <code>src/seo-audit.js</code> — the module both the CLI agent and this
-              panel import, so the tool and the site can never disagree.
+              This is the browser document scored by the shared <code>src/seo-audit.js</code> engine. It is not a live-site crawl, Search Console connection or Google index status.
             </p>
           </div>
         </div>
@@ -548,10 +1027,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
               ))}
             </ul>
             <p className="seo-muted">
-              Connectors (Search Console, Bing Webmaster, GA4) read credentials from environment
-              variables the owner sets — see <code>npm run seo:connect</code>. IndexNow needs no
-              account: <code>npm run seo:fix</code> publishes the key file, <code>npm run seo:indexnow</code>
-              submits.
+              The live workbench above calls Search Console and IndexNow only. Search Console setup needs <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and <code>GSC_SITE_URL</code>, with the service account granted access to the verified property. IndexNow needs <code>AR7_INDEXNOW_KEY</code> and a public <code>/&lt;key&gt;.txt</code> file whose contents match. Keep secrets in deployment environment settings, never in source. Connection checks report what this server actually verifies.
             </p>
           </div>
         </div>

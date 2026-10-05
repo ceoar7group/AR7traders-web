@@ -12,6 +12,7 @@ const stylesCss = read('../src/styles.css');
 const expandedCss = read('../src/expanded.css');
 const crmCss = read('../src/crm.css');
 const layoutCss = read('../src/site-layout.css');
+const landingCss = read('../src/landing-v2.css');
 
 // 2026-10-03 header rebuild: the bar is ONE line at every width, owned by
 // src/site-layout.css (imported last, so nothing earlier can re-shape it). The
@@ -139,4 +140,47 @@ assert.match(detailCss, /\.hero \.scroll-cue\{display:flex!important/);
 assert.match(detailCss, /\.hero-copy \.founder-stat--hero\{display:flex;visibility:visible;opacity:1/);
 assert.match(detailCss, /@media\(max-width:650px\)\{\s*\.hero\{padding-bottom:94px!important\}/);
 
-console.log('Responsive layout and first-paint checks passed.');
+// The vehicle detail photos keep their gallery and zoom affordances but no
+// longer inherit the decorative globe used by the header/world network.
+assert.doesNotMatch(main, /detail-orb/);
+assert.doesNotMatch(detailCss, /detail-orb/);
+assert.doesNotMatch(landingCss, /detail-orb/);
+assert.match(main, /detail-gallery-toolbar/);
+assert.match(main, /gallery-expand/);
+
+// Hero viewport contracts for the requested widths. 1920/1366/1024 use the
+// collage; 768/390 flow through the stacked visual. These source/CSS contracts
+// complement the client-mount control checks and are deliberately pinned to
+// the exact breakpoint where the columns change.
+const targetHeroWidths = [1920, 1366, 1024, 768, 390];
+for (const width of targetHeroWidths) {
+  const expectedMode = width <= 1000 ? 'stacked' : 'collage';
+  const stackedRule = /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-visual \{[\s\S]*?display: grid/.test(layoutCss);
+  const collageRule = /\.hero-visual\{height:620px;position:relative;perspective:1200px\}/.test(stylesCss);
+  const actualMode = width <= 1000 ? (stackedRule ? 'stacked' : 'missing') : (collageRule ? 'collage' : 'missing');
+  assert.equal(actualMode, expectedMode, `${width}px hero uses its declared ${expectedMode} geometry`);
+  assert.match(layoutCss, /\.hero \.hero-copy \.hero-vignettes \{[^}]*position: relative/s,
+    `${width}px origin links remain in the copy flow rather than floating over photos`);
+  assert.match(layoutCss, /\.hero \.hero-copy \.hero-vignette \{[^}]*min-height: 50px/s,
+    `${width}px origin links keep a touch/keyboard target height`);
+}
+assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*top: 50%[^}]*left: 5px[^}]*right: 5px/s,
+  'desktop carousel arrows are centered vertically at the photo edges');
+assert.ok(layoutCss.includes('.hero-carousel-controls {top:150px}'),
+  'tablet arrows track the 300px-tall hero photo');
+assert.ok(layoutCss.includes('.hero-carousel-controls {top:min(125px,30vw);left:4px;right:4px}'),
+  'phone arrows track the smaller photo without colliding with the sample cards');
+assert.match(layoutCss, /\.hero-carousel-controls button \{[^}]*width: 42px[^}]*height: 42px/s);
+assert.match(layoutCss, /\.hero-carousel-controls button \{width:40px;height:40px\}/);
+assert.match(layoutCss, /\.hero \.hero-copy \.hero-vignette:focus-visible/);
+assert.match(main, /!query\.matches&&!document\.hidden&&!el\.matches\(':hover,:focus-within'\)/,
+  'the rotating hero pauses for reduced motion, hover, hidden pages, and keyboard focus');
+assert.match(main, /prefers-reduced-motion: reduce/);
+assert.ok(layoutCss.includes('@media (prefers-reduced-motion:reduce)') && layoutCss.includes('.hero .hero-visual .floating-card'));
+assert.ok(landingCss.includes('@media (prefers-reduced-motion: reduce)') && landingCss.includes('.ticker>div'));
+assert.match(main, /className="floating-card auction-card" aria-hidden="true"/);
+assert.match(main, /className="floating-card route-card" aria-hidden="true"/);
+assert.match(main, /className="floating-badge" aria-hidden="true"/);
+assert.match(main, /className="ticker"/);
+
+console.log('Responsive layout, hero viewport contracts and first-paint checks passed.');

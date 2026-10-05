@@ -8,7 +8,7 @@ import {
   Wallet, Settings, KeyRound, LogIn, ArrowLeft, Check, Ban, Send, Link2,
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
-  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy,
+  Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
   ChevronDown, Percent
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
@@ -634,7 +634,7 @@ async function api(entity, token, options = {}) {
     // machine can be re-published without a database query.
     return fetch('/api/site-content?machinery=' + action
       + (id ? '&id=' + encodeURIComponent(id) : '')
-      + (action === 'list' ? '&all=1' : ''), {
+      + (action === 'list' && all ? '&all=1' : ''), {
       ...init,
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(init.headers || {}) }
     }).then(async res => {
@@ -760,7 +760,9 @@ export default function CrmApp() {
         const allStock = hasPerm(matrix, me?.role, 'site.write');
         const entries = await Promise.all(keys.map(async k => {
           try {
-            return [k, await api(k, session.access_token, { all: k === 'goonet' ? allStock : undefined })];
+            return [k, await api(k, session.access_token, {
+              all: k === 'goonet' || k === 'machinery' ? allStock : undefined
+            })];
           } catch {
             return [k, []];
           }
@@ -1002,6 +1004,10 @@ export default function CrmApp() {
   async function publishMachine(row, published) {
     const action = published ? 'publish' : 'unpublish';
     const label = row.ref || [row.brand, row.model].filter(Boolean).join(' ') || 'machine';
+    const prompt = published
+      ? `Publish ${label} on the public machinery catalogue? The current record and rights-cleared photos will become visible.`
+      : `Unpublish ${label}? It will be removed from the public machinery catalogue and sitemap; its canonical record is kept for later editing or republishing.`;
+    if (!window.confirm(prompt)) return;
     try {
       if (DEMO) {
         const next = (rows.machinery || []).map(x => x.id === row.id
@@ -1013,9 +1019,31 @@ export default function CrmApp() {
         const updated = await machineryAction(action, row.id, session.access_token);
         setRows(v => ({ ...v, machinery: (v.machinery || []).map(x => x.id === row.id ? updated : x) }));
       }
+      await loadAll();
       setNotice(published
-        ? `${label} is live on the website`
-        : `${label} is off the website and out of the machinery sitemap — the record is kept`);
+        ? `${label} is published. Canonical machinery data refreshed.`
+        : `${label} is unpublished and excluded from public catalogue/sitemap. Canonical record refreshed.`);
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
+  async function archiveMachine(row) {
+    const label = row.ref || [row.brand, row.model].filter(Boolean).join(' ') || 'machine';
+    if (!window.confirm(`Archive ${label}? This also unpublishes it from the public machinery catalogue. The record is retained and can be reviewed later.`)) return;
+    try {
+      if (DEMO) {
+        const next = (rows.machinery || []).map(x => x.id === row.id
+          ? { ...x, published: false, status: 'Archived', published_by_name: null }
+          : x);
+        demoWrite('machinery', next);
+        setRows(v => ({ ...v, machinery: next }));
+      } else {
+        const updated = await machineryAction('archive', row.id, session.access_token);
+        setRows(v => ({ ...v, machinery: (v.machinery || []).map(x => x.id === row.id ? updated : x) }));
+      }
+      await loadAll();
+      setNotice(`${label} archived and removed from the public catalogue. Canonical record refreshed.`);
     } catch (e) {
       setNotice(e.message);
     }
@@ -1044,7 +1072,7 @@ export default function CrmApp() {
 
   async function remove(entity, row) {
     if (!row?.id) return;
-    const label = row.name || row.title || row.stock_no || row.quote_no || row.tracking_no || 'this record';
+    const label = row.name || row.title || row.ref || [row.brand, row.model].filter(Boolean).join(' ') || row.stock_no || row.quote_no || row.tracking_no || 'this record';
     const direct = (profile?.role || '') === 'admin' || hasPerm(perms, profile?.role, 'delete.direct');
     if (!confirm(direct ? `Delete ${label}? This cannot be undone.`
       : `Request approval to delete ${label}? An administrator must approve it.`)) return;
@@ -1143,9 +1171,6 @@ export default function CrmApp() {
         </nav>
         <div className="crm-staff-tools">
           <small>STAFF TOOLS</small>
-          <a href="/seo" target="_blank" rel="noopener noreferrer" title="SEO desk — staff only, noindex">
-            <Search /> SEO desk
-          </a>
         </div>
         <div className="crm-user">
           <button className="crm-user-open" onClick={() => setWho({ self: true })} title="Edit your profile" type="button">
@@ -1315,16 +1340,17 @@ export default function CrmApp() {
             <EntityView
               entity={activeEntity}
               rows={filtered}
-              onEdit={data => setEditor({ entity: activeEntity, data })}
+              onEdit={canWrite(activeEntity) ? data => setEditor({ entity: activeEntity, data }) : null}
               onDelete={canWrite(activeEntity) ? row => remove(activeEntity, row) : null}
-              onManagePhotos={row => setPhotoTarget({ entity: activeEntity, row })}
+              onManagePhotos={canWrite(activeEntity) ? row => setPhotoTarget({ entity: activeEntity, row }) : null}
               onViewGallery={row => setGalleryView(row)}
-              onQuickPatch={(row, patch) => quickPatch(activeEntity, row, patch)}
+              onQuickPatch={canWrite(activeEntity) ? (row, patch) => quickPatch(activeEntity, row, patch) : null}
               statusOptions={configs[activeEntity]?.statusOptions}
               query={query}
               onClearSearch={() => setQuery('')}
-              onPublish={tab === 'machinery' ? row => publishMachine(row, true) : null}
-              onUnpublish={tab === 'machinery' ? row => publishMachine(row, false) : null}
+              onPublish={tab === 'machinery' && canWrite(activeEntity) ? row => publishMachine(row, true) : null}
+              onUnpublish={tab === 'machinery' && canWrite(activeEntity) ? row => publishMachine(row, false) : null}
+              onArchive={tab === 'machinery' && canWrite(activeEntity) ? archiveMachine : null}
             />
           </>
         )}
@@ -1667,7 +1693,7 @@ function imgFallback(e) {
   el.src = '/assets/ar7-mark.png';
 }
 
-export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish }) {
+export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish, onArchive }) {
   const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState(defaultViewMode);
   const [chipFilter, setChipFilter] = useState('all');
@@ -1942,7 +1968,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                     <button className="btn-photos" onClick={() => onManagePhotos && onManagePhotos(row)} type="button">
                       <Camera size={13} /> Manage Photos ({photos.length})
                     </button>
-                    <button className="btn-edit" onClick={() => onEdit(row)} type="button">Edit</button>
+                    {onEdit && <button className="btn-edit" onClick={() => onEdit(row)} type="button">Edit</button>}
                     {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 size={13} /></button>}
                   </div>
                 </div>
@@ -2010,11 +2036,12 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                           Unpublish is the only thing that hides one. */}
                       {entity === 'machinery' && onPublish && onUnpublish && (
                         row.published === false
-                          ? <button className="crm-btn-publish" onClick={() => onPublish(row)} title="Put this machine back on the website" type="button"><Globe size={13} /> Publish</button>
-                          : <button className="crm-del" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time." type="button"><Ban size={13} /> Unpublish</button>
+                          ? <button className="crm-btn-publish" onClick={() => onPublish(row)} title="Put this machine back on the website (confirmation required)" type="button"><Globe size={13} /> Publish</button>
+                          : <button className="crm-del" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time (confirmation required)." type="button"><Ban size={13} /> Unpublish</button>
                       )}
-                      <button onClick={() => onEdit(row)} type="button">Edit</button>
-                      {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
+                      {entity === 'machinery' && onArchive && row.status !== 'Archived' && <button className="crm-del crm-archive-action" onClick={() => onArchive(row)} title="Archive and unpublish this canonical machine record (confirmation required)" type="button"><Archive size={13} /> Archive</button>}
+                      {onEdit && <button onClick={() => onEdit(row)} type="button">Edit</button>}
+                      {onDelete && <button className="crm-del" title="Delete record (confirmation required)" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
                     </td>
                   </tr>
                 );
@@ -4688,7 +4715,11 @@ export function MachineryPhotoManager({ row, onClose, onSave }) {
 //  better a machine listed without a photo than one carrying a photograph we
 //  have no right to use.
 // ---------------------------------------------------------------------
-function MachineryImportPanel({ token, canWrite, notify, onImported }) {
+function machineryCandidateKey(machine, index) {
+  return String(machine?.source?.url || machine?.source_url || machine?.ref || `${machine?.name || 'machine'}-${index}`);
+}
+
+export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   // 2026-10-04: owner policy — photos import by default with dropship-authorized
@@ -4698,52 +4729,74 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
+  const [selectedCandidateKeys, setSelectedCandidateKeys] = useState(() => new Set());
   // Which Made-in-China category the scraper crawls (one page per run).
   const [scrapeCat, setScrapeCat] = useState('excavators');
 
   // A new link invalidates the preview immediately — importing after editing
   // the box would write something the operator never read.
-  const editUrl = v => { setUrl(v); setPreview(null); setError(''); };
-  const editRights = v => { setRights(v); setPreview(null); setError(''); };
+  const editUrl = v => { setUrl(v); setPreview(null); setSelectedCandidateKeys(new Set()); setError(''); };
+  const editRights = v => { setRights(v); setPreview(null); setSelectedCandidateKeys(new Set()); setError(''); };
 
   const runPreview = async () => {
-    setBusy(true); setError(''); setPreview(null);
+    setBusy(true); setError(''); setPreview(null); setSelectedCandidateKeys(new Set());
     try {
       const out = await machineryImport('preview', { url: url.trim(), rights: rights || null }, token);
-      setPreview(out);
-      notify(`Previewed ${out.machine?.name || 'that link'} — nothing has been written yet`);
+      const list = out.machine ? [out.machine] : [];
+      setPreview({...out, machines: list, previews: [{warnings: out.warnings || [], review: out.review}], isScraper: false});
+      setSelectedCandidateKeys(new Set(list.map((machine, index) => machineryCandidateKey(machine, index))));
+      notify(`Previewed ${out.machine?.name || 'that link'} — preview only; nothing has been written`);
     } catch (e) {
       setError(e.message);
     } finally { setBusy(false); }
   };
 
+  const candidateRows = (preview?.machines || (preview?.machine ? [preview.machine] : []))
+    .slice(0, 6).map((machine, index) => ({machine, index, key: machineryCandidateKey(machine, index)}));
+  const selectedMachines = candidateRows
+    .filter(candidate => selectedCandidateKeys.has(candidate.key))
+    .map(candidate => candidate.machine);
+
+  const setAllCandidates = selected => setSelectedCandidateKeys(
+    new Set(selected ? candidateRows.map(candidate => candidate.key) : [])
+  );
+  const toggleCandidate = key => setSelectedCandidateKeys(current => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+
   const runImport = async () => {
     if (!preview) return;
+    const list = selectedMachines;
+    if (!list.length) { setError('Select at least one candidate before confirming.'); return; }
+    const summary = list.slice(0, 6).map(machine => `• ${machine.name || [machine.brand, machine.model].filter(Boolean).join(' ') || 'Machine'}${machine.year ? ` (${machine.year})` : ''}`).join('\n');
+    if (!window.confirm(
+      `Confirm import of ${list.length} selected machine${list.length === 1 ? '' : 's'}?\n\n${summary}\n\nThis will write the selected records. Confirmed imports are published to the public machinery catalogue immediately. Supplier photos use the dropship-authorized rights basis by default; visibly watermarked photos are excluded.`
+    )) return;
     setBusy(true); setError('');
-    // A scraper run previews a whole batch (preview.machines); a pasted link
-    // previews one machine. Confirm writes exactly what is in the list.
-    const list = preview.machines?.length ? preview.machines : [preview.machine];
     try {
       if (DEMO) {
         // In demo mode there is no live database: report what a real confirm
         // would have written and ask the parent to reload its local rows.
         const names = list.slice(0, 3).map(m => m.name).join(', ');
         notify(`Imported ${list.length} machine(s) — ${names}${list.length > 3 ? '…' : ''} — published and on the website (demo mode)`);
-        setPreview(null); setUrl(''); setRights('');
+        setPreview(null); setUrl(''); setRights('dropship-authorized'); setSelectedCandidateKeys(new Set());
         onImported && onImported();
         return;
       }
       const out = await machineryImport('confirm', {
         machines: list,
         rights: preview.confirmWith?.rights || rights || null,
-        adapter: preview.confirmWith?.adapter || null
+        adapter: preview.confirmWith?.adapter || null,
+        source: preview.isScraper ? 'scraper' : 'supplier-link'
       }, token);
       const parts = [];
       if (out.imported) parts.push(`${out.imported} imported`);
       if (out.updated) parts.push(`${out.updated} updated`);
       if (out.rePriced?.length) parts.push(`${out.rePriced.length} re-priced`);
-      notify(parts.join(', ') + ' — every machine is published and on the website');
-      setPreview(null); setUrl(''); setRights('');
+      notify(parts.join(', ') + ' — selected machines are published on the website');
+      setPreview(null); setUrl(''); setRights('dropship-authorized'); setSelectedCandidateKeys(new Set());
       onImported && onImported();
     } catch (e) {
       setError(e.message);
@@ -4758,7 +4811,7 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
     );
   }
 
-  const m = preview?.machine;
+  const m = selectedMachines[0] || preview?.machine;
   const would = preview?.would || {};
 
   return (
@@ -4780,20 +4833,23 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
           <option value="cranes">Cranes</option>
         </select>
         <button className="crm-import-toggle crm-scraper-toggle" type="button" onClick={async () => {
-          setBusy(true); setError(''); setPreview(null);
+          setBusy(true); setError(''); setPreview(null); setSelectedCandidateKeys(new Set());
           try {
-            const out = await machineryImport('scraper', { category: scrapeCat }, token);
-            if (out?.machines?.length) {
-              notify(`Scraper found ${out.machines.length} machine(s) — preview to import`);
+            const out = await machineryImport('scraper', { category: scrapeCat, limit: 6 }, token);
+            const candidates = Array.isArray(out?.machines) ? out.machines.slice(0, 6) : [];
+            if (candidates.length) {
+              notify(`Scraper found ${candidates.length} machine(s) — review and select candidates`);
               setPreview({
-                machine: out.machines[0],
-                machines: out.machines,
+                machine: candidates[0],
+                machines: candidates,
                 previews: out.previews || [],
                 warnings: out.warnings || [],
                 skipped: out.skipped || [],
                 source: { label: 'Made-in-China scraper' },
-                would: { create: out.machines.length }
+                isScraper: true,
+                would: { create: candidates.length }
               });
+              setSelectedCandidateKeys(new Set(candidates.map((machine, index) => machineryCandidateKey(machine, index))));
               setOpen(true);
             } else {
               const why = out?.warnings?.length ? ` — ${out.warnings[0]}` : '';
@@ -4803,7 +4859,7 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
             setError('Scraper: ' + e.message);
           } finally { setBusy(false); }
         }} disabled={busy}>
-          <RefreshCw size={13} /> Run scraper
+          <RefreshCw size={13} /> Run scraper (up to 6)
         </button>
       </div>
 
@@ -4839,27 +4895,47 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
 
           {error && <p className="crm-import-error"><Ban size={13} /> {error}</p>}
 
-          {/* Scraper batch: the whole preview list the run returned, each row
-              summarised. Import writes the full list through the same confirm
-              step a single pasted link uses. */}
-          {preview?.machines?.length > 1 && (
-            <ul className="crm-scraper-list" aria-label={`Scraper previews (${preview.machines.length})`}>
-              {preview.machines.map((sm, i) => (
-                <li key={sm.source?.url || i}>
-                  <div>
-                    <b>{sm.name}</b>
-                    <span>
-                      {sm.brand} · {sm.type} · {sm.year}
-                      {sm.listPrice ? ` · $${Number(sm.listPrice).toLocaleString()} list` : ' · no price found'}
-                      {sm.photosPending ? ' · photos pending' : ` · ${sm.images?.length || 0} photo(s)`}
-                    </span>
-                  </div>
-                  {sm.images?.length
-                    ? <img src={sm.images[0]} alt="" width={64} height={48} loading="lazy" decoding="async" />
-                    : <span className="crm-status dormant">No photos</span>}
-                </li>
-              ))}
-            </ul>
+          {preview?.isScraper && (
+            <section className="crm-scraper-review" aria-label="Scraper candidates">
+              <div className="crm-scraper-selection">
+                <b>{selectedMachines.length} of {candidateRows.length} selected</b>
+                <div>
+                  <button type="button" onClick={() => setAllCandidates(true)} disabled={busy || selectedMachines.length === candidateRows.length}>Select all</button>
+                  <button type="button" onClick={() => setAllCandidates(false)} disabled={busy || selectedMachines.length === 0}>Select none</button>
+                </div>
+              </div>
+              <ul className="crm-scraper-list">
+                {candidateRows.map(({machine: sm, index: i, key}) => {
+                  const previewRow = preview.previews?.[i] || {};
+                  const machineSpecs = Array.isArray(sm.specs) ? sm.specs : [];
+                  return (
+                    <li key={key} className={selectedCandidateKeys.has(key) ? 'selected' : ''}>
+                      <label className="crm-scraper-check">
+                        <input type="checkbox" checked={selectedCandidateKeys.has(key)} onChange={() => toggleCandidate(key)} disabled={busy} aria-label={`Select ${sm.name || sm.model || 'machine ' + (i + 1)}`} />
+                      </label>
+                      {sm.images?.length
+                        ? <img src={sm.images[0]} alt={`${sm.name || sm.model || 'Machine'} preview photo`} width={88} height={66} loading="lazy" decoding="async" />
+                        : <span className="crm-status dormant">No photos</span>}
+                      <div className="crm-scraper-copy">
+                        <b>{sm.name || [sm.brand, sm.model].filter(Boolean).join(' ') || 'Machine candidate'}</b>
+                        <span>{[sm.brand, sm.model, sm.type, sm.year].filter(value => value != null && value !== '').join(' · ') || 'Type and model not identified'}</span>
+                        <span>
+                          {sm.hours != null ? `${Number(sm.hours).toLocaleString()} h` : 'Hours not found'}
+                          {sm.supplierPrice ? ` · supplier $${Number(sm.supplierPrice).toLocaleString('en-US')}` : ' · supplier price not found'}
+                          {sm.listPrice ? ` · indicative list $${Number(sm.listPrice).toLocaleString('en-US')}` : ' · no list price'}
+                          {` · ${sm.images?.length || 0} usable photo(s)`}
+                        </span>
+                        <small>Photo rights basis: {sm.source?.rights || rights || 'dropship-authorized'} · visibly watermarked images are omitted.</small>
+                        {sm.source?.url && <a href={sm.source.url} target="_blank" rel="noopener noreferrer">Open supplier source <ExternalLink size={12}/></a>}
+                        {previewRow.warnings?.length > 0 && <ul className="crm-import-warnings">{previewRow.warnings.map((warning, wi) => <li key={wi}><ShieldAlert size={12}/>{warning}</li>)}</ul>}
+                        {machineSpecs.length > 0 && <details><summary>Read {machineSpecs.length} supplier specification{machineSpecs.length === 1 ? '' : 's'}</summary><dl className="crm-import-specs">{machineSpecs.map(([label, value], si) => <div key={si}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="crm-hint">Preview only: nothing has been written. Review each candidate, select the rows to import, then confirm the write. A run can return at most six candidates.</p>
+            </section>
           )}
 
           {preview?.skipped?.length > 0 && (
@@ -4904,22 +4980,21 @@ function MachineryImportPanel({ token, canWrite, notify, onImported }) {
               )}
 
               <p className="crm-import-would">
-                Importing would{' '}
-                <b>{would.create ? `create ${would.create} new machine${would.create > 1 ? 's' : ''}` : would.update ? `update ${would.update} existing machine${would.update > 1 ? 's' : ''}` : 'change nothing'}</b>
+                {preview.isScraper
+                  ? <>Confirming would create <b>{selectedMachines.length} selected machine{selectedMachines.length === 1 ? '' : 's'}</b>.</>
+                  : <>Preview says the importer would <b>{would.create ? `create ${would.create} new machine${would.create > 1 ? 's' : ''}` : would.update ? `update ${would.update} existing machine${would.update > 1 ? 's' : ''}` : 'change nothing'}</b>.</>}
                 {would.rePrice?.length
-                  ? ` and re-price ${would.rePrice.length === 1 ? 'it' : `${would.rePrice.length} machines`} (${would.rePrice.map(r => `$${r.before} → $${r.after}`).join(', ')})`
-                  : ''}.
-                {' '}The machine is published as soon as it is imported.
+                  ? ` Re-pricing: ${would.rePrice.map(r => `$${r.before} → $${r.after}`).join(', ')}.`
+                  : ''}
+                {' '}Preview is non-writing. A confirmed import is published on the public machinery site; you can unpublish or archive it later.
               </p>
 
               <div className="crm-import-actions">
-                <button type="button" className="crm-ghost-btn" onClick={() => { setPreview(null); setError(''); }}>Discard</button>
-                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy}>
+                <button type="button" className="crm-ghost-btn" onClick={() => { setPreview(null); setSelectedCandidateKeys(new Set()); setError(''); }}>Discard preview</button>
+                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy || selectedMachines.length === 0}>
                   <Check size={13} /> {busy
-                    ? 'Importing…'
-                    : preview?.machines?.length > 1
-                      ? `Import ${preview.machines.length} machines`
-                      : 'Import machine'}
+                    ? 'Writing selected machines…'
+                    : `Confirm import ${selectedMachines.length} machine${selectedMachines.length === 1 ? '' : 's'}`}
                 </button>
               </div>
             </div>

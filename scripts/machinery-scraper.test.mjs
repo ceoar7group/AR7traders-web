@@ -10,7 +10,7 @@
 //   • it returns PREVIEWS ({ ok: true, machines }) and writes nothing;
 //   • robots.txt is fetched before the first page on each host and obeyed —
 //     an unreadable robots.txt fails CLOSED (the host is skipped);
-//   • at most 20 machines per run, with a 1-second pause between fetches;
+//   • at most six machines per run, even when a caller requests more, with a 1-second pause between fetches;
 //   • machines already in the catalogue are deduped, never imported twice;
 //   • the owner's photo policy holds: watermarked photos are filtered, the
 //     rights basis defaults to dropship-authorized, the machine still imports;
@@ -183,7 +183,7 @@ say('\n-- category wiring --');
     'a named category crawls exactly its own page');
   ok(categoriesFor('').length === 4 && categoriesFor('nonsense').length === 4,
     'an unnamed category crawls all four pages');
-  ok(MAX_SCRAPER_MACHINES === 20, 'the per-run cap is 20 machines');
+  ok(MAX_SCRAPER_MACHINES === 6, 'the per-run cap is six machines');
   ok(SCRAPER_DELAY_MS === 1000, 'the pause between fetches is 1 second');
   ok(/made-in-china\.com$/.test(SCRAPER_ORIGIN), 'it crawls made-in-china.com');
 }
@@ -307,23 +307,27 @@ say('\n-- dedupe against the existing catalogue --');
   ok(db._tables.machinery.length === 1, 'the catalogue was not touched');
 }
 
-say('\n-- the 20-machine cap --');
+say('\n-- the six-machine API cap --');
 {
   const many = Array.from({ length: 30 }, (_, i) =>
     `https://${SUPPLIER_HOST}/product/mass${i}/China-Excavator-Number-${i}.html`);
   const bigCategory = '<html><body>' + many.map(u => `<a href="${u}">m</a>`).join('') + '</body></html>';
   const db = fakeDb();
   const world = makeWorld();
+  let productFetches = 0;
   const fetchImpl = async url => {
     if (String(url) === SCRAPER_ORIGIN + SCRAPER_CATEGORIES.excavators) return { ok: true, status: 200, text: bigCategory, networkError: false };
-    if (/\/product\/mass\d+\//.test(String(url))) return { ok: true, status: 200, text: productPage('Sany Sy75 Mini Excavator ' + url.match(/mass(\d+)/)[1], 12000), networkError: false };
+    if (/\/product\/mass\d+\//.test(String(url))) {
+      productFetches++;
+      return { ok: true, status: 200, text: productPage('Sany Sy75 Mini Excavator ' + url.match(/mass(\d+)/)[1], 12000), networkError: false };
+    }
     return world.fetchImpl(url);
   };
-  const res = await scrape(db, { category: 'excavators' }, { fetch: fetchImpl, sleep: world.sleepImpl });
+  const res = await scrape(db, { category: 'excavators', limit: 50 }, { fetch: fetchImpl, sleep: world.sleepImpl });
   const b = res.json();
-  ok(b.machines.length <= MAX_SCRAPER_MACHINES, `no more than ${MAX_SCRAPER_MACHINES} machines per run (${b.machines.length})`);
-  ok(world.fetchLog.filter(u => /\/product\/mass/.test(u)).length <= MAX_SCRAPER_MACHINES,
-    'and no more product pages than the cap are fetched');
+  ok(b.machines.length === 6, `even a caller limit of 50 returns six candidates (${b.machines.length})`);
+  ok(productFetches === 6, `the API never fetches more than six product pages (${productFetches})`);
+  ok(db._tables.machinery.length === 0, 'the six-result cap still leaves scraper preview non-writing');
 }
 
 say('\n-- a caller-supplied limit is honoured --');

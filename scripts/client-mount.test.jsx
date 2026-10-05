@@ -117,6 +117,24 @@ const root = await boot();
 let unmounted = false;
 ok(!crash(), 'the site mounts without the boot error boundary');
 ok(document.querySelector('.site'), 'the site shell renders');
+{
+  const stockLinks = [...document.querySelectorAll('.hero-copy .hero-vignettes a')];
+  ok(stockLinks.length === 2 && /Cars/.test(stockLinks[0]?.textContent) && /Japan stock/.test(stockLinks[0]?.textContent),
+    'the hero clearly links to Cars / Japan stock from the hero-copy column');
+  ok(stockLinks.length === 2 && /Machines/.test(stockLinks[1]?.textContent) && /China desk/.test(stockLinks[1]?.textContent),
+    'the hero clearly links to Machines / China desk from the hero-copy column');
+  ok(stockLinks[0]?.getAttribute('href') === '/inventory' && stockLinks[1]?.getAttribute('href') === '/machinery',
+    'both origin links are keyboard-focusable same-site links to their real desks');
+  const counter = document.querySelector('.hero-card .car-counter');
+  const before = counter?.textContent.trim();
+  const next = document.querySelector('.hero-carousel-controls button[aria-label="Next"]');
+  ok(!!next, 'the stock visual exposes an accessible next control');
+  if (next) await act(async () => { next.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  ok(!!counter && counter.textContent.trim() !== before, 'the next control changes the featured stock slide');
+  const previous = document.querySelector('.hero-carousel-controls button[aria-label="Prev"]');
+  ok(!!previous, 'the stock visual exposes an accessible previous control');
+  if (previous) await act(async () => { previous.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+}
 
 // ---- navigate every route, back and forth ----------------------------------
 // path -> text that must be on screen once we get there. Without this, a
@@ -219,6 +237,16 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   try {
     await goto('/inventory/' + encodeURIComponent(stock));
     ok(!!document.querySelector('.detail-page'), 'opening a vehicle renders .detail-page');
+    const gallery = document.querySelector('.detail-gallery');
+    ok(!!gallery && !gallery.querySelector('.detail-orb, .hero-orb'), 'vehicle detail photos no longer carry the decorative globe');
+    ok(!!gallery?.querySelector('.detail-main-image img') && !!gallery.querySelector('.detail-gallery-toolbar .gallery-expand'),
+      'the main vehicle photo and enlarge control remain available');
+    const enlarge = gallery?.querySelector('.gallery-expand');
+    if (enlarge) await act(async () => { enlarge.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+    ok(!!document.querySelector('.gallery-lightbox[role="dialog"]'), 'the gallery zoom/lightbox still opens from vehicle details');
+    const closeLightbox = document.querySelector('.lightbox-close');
+    if (closeLightbox) await act(async () => { closeLightbox.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+    ok(!document.querySelector('.gallery-lightbox'), 'the zoom/lightbox still closes normally');
     const backBtn = document.querySelector('.detail-page .back-btn');
     ok(!!backBtn, 'vehicle detail page renders the Back to inventory control');
     if (backBtn) {
