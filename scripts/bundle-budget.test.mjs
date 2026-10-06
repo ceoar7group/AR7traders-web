@@ -183,8 +183,10 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // Ratcheted 139 → 141 kB gzip / 469 → 476 kB raw on 2026-10-04 for the SEO
 // content pass (machinery FAQ markup + guide → machinery internal links);
 // see the table entry above. Measured 473.26 kB raw / 140.00 kB gzip.
+// Ratcheted 476 → 477 kB raw on 2026-10-05 for the two keyboard-focusable
+// hero sourcing-desk links.
 const BUDGET_GZIP = 141 * 1024;
-const BUDGET_RAW = 476 * 1024;
+const BUDGET_RAW = 477 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -222,8 +224,10 @@ for (const file of entryCss) {
 // machinery scraper's batch preview list + category picker in the CRM import
 // panel (src/crm.css, ~1.4 kB). Both are deliberate staff-tool surfaces; the
 // public first paint is unchanged. Measured 189.29 kB raw / 36.72 kB gzip.
-const CSS_BUDGET_GZIP = 37 * 1024;   // measured 30.55 kB after the B3 CSS split (down from 39.67 kB)
-const CSS_BUDGET_RAW = 190 * 1024;   // 2026-10-04: +SEO desk guide creator + machinery scraper list (3.3 kB); measured 189.29 kB raw / 36.72 kB gzip. 182.89 kB after the 2026-10-03 SEO landing-link row + SEO desk styles; measured 153.39 kB after the B3 CSS split; 166.94 kB after the 2026-10-03 responsive/header + home budget-section pass; 170.33 kB after the 2026-10-03 header/hero rebuild; 179.18 kB after the 2026-10-03 machinery desk; 186.25 kB after the 2026-10-03 promotion bar
+// Ratcheted 37 → 38 kB gzip / 190 → 192 kB raw on 2026-10-05 for the
+// fixed header, resized hero callouts and responsive founder-stat corrections.
+const CSS_BUDGET_GZIP = 38 * 1024;
+const CSS_BUDGET_RAW = 192 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
