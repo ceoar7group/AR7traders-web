@@ -1,8 +1,9 @@
 /* ============================================================
    AR7 TRADERS — SITE LAYOUT: the header bar + the space under it
    ============================================================
-   Loaded LAST (see src/main.jsx) on purpose: this file is the single owner of
-   the public header at every width, plus the hero-visual stacking that depends
+   Loaded after every older stylesheet (see src/main.jsx) on purpose: this file
+   is the single owner of the public header at every width, of the space the bar
+   occupies (`--head-h`), and of the hero box, plus the stacking that depends
    on how tall that header is. Everything here replaces older per-file rules
    that used to fight each other (styles.css, expanded.css, landing-v2.css and
    currency-responsive.css still style other things, but no longer the shape of
@@ -589,6 +590,19 @@
 }
 
 @media (max-width: 380px) {
+  .nav-wrap .nav {
+    padding: 0 6px 0 8px;
+    gap: 5px;
+  }
+
+  .nav-wrap .nav-actions {
+    gap: 4px;
+  }
+
+  .nav-wrap .brand-group {
+    gap: 7px;
+  }
+
   .nav-wrap .brand img {
     flex-basis: 33px;
     width: 33px;
@@ -625,24 +639,160 @@
 }
 
 /* ---------------------------------------------------------------------------
-   8. THE SPACE UNDER THE BAR
+   8. THE TOP BLOCK AND THE SPACE UNDER IT
    ---------------------------------------------------------------------------
-   The bar is position:fixed, so every page has to reserve its height. On a
-   phone that is now 110px (ribbon 36 + bar 58 + 16 of padding). The old 88px
-   value let the bar sit on top of the hero heading. */
-@media (max-width: 639px) {
-  .hero {
-    padding-top: 122px !important;
-  }
+   ONE owner. `.nav-wrap` is the whole top block — promo bar, World Time ribbon
+   and the navigation row — and src/site-header.jsx measures it into `--head-h`
+   on <html>. The page reserves that height exactly once (below) and every hero
+   adds only its own small lead-in (`--hero-lead`). The old per-page offsets
+   (122 / 140 / 142 / 152 / 158 / 160px in expanded.css, landing-v2.css,
+   pages.css, detail-responsive.css and portal.css) each described the same
+   header, so they stacked into a blank band under the bar and pushed the hero
+   down by a different amount at every width. They are gone.
 
-  .page-hero,
-  .page-hero.mini {
-    padding-top: 122px !important;
+   The variables below are the no-JS fallback — the arithmetic of the real rows,
+   not a guessed number — so the first paint reserves the right space before the
+   script has measured anything. */
+
+:root {
+  --nav-h: 64px;        /* the bar row — §1 above */
+  --ribbon-h: 35px;     /* the World Time ribbon — expanded.css */
+  --head-pad: 16px;     /* block padding above the ribbon and below the bar */
+  --head-gap: 7px;      /* ribbon → bar */
+  --head-h: calc(var(--promo-h, 0px) + var(--head-pad) + var(--ribbon-h) + var(--head-gap) + var(--nav-h) + var(--head-pad));
+  --hero-lead: clamp(18px, 3.2vh, 44px);
+  --head-ease: transform .34s cubic-bezier(.22,.61,.36,1);
+}
+
+.nav-wrap {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 80;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  transition: var(--head-ease), visibility 0s linear 0s;
+}
+
+/* Row spacing is the block's own business — the promo bar is flush with the
+   top edge, the ribbon and the bar keep their gaps either way. */
+.nav-wrap > .promo-bar { margin: 0; }
+.nav-wrap > .world-time-ribbon { margin: var(--head-pad) auto var(--head-gap); }
+.nav-wrap > .promo-bar + .world-time-ribbon { margin-top: var(--head-gap); }
+.nav-wrap > .nav { margin-bottom: var(--head-pad); }
+.nav-wrap > .world-time-ribbon,
+.nav-wrap > .nav { position: relative; z-index: 1; }
+
+/* `is-away` is set from src/site-header.jsx, and only on a page whose first
+   region is a hero. The bar is pinned while that hero is the top of the page
+   and tucked away before its first line of copy can slide under it — so the
+   headline, the CTA row, the 900+ statistic, the ticker, the inventory grid
+   and the footer can never be covered. It is derived from the hero's OWN
+   measured geometry, never from a hard-coded scroll offset. */
+.nav-wrap.is-away {
+  transform: translateY(-102%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: var(--head-ease), visibility 0s linear .34s;
+}
+
+/* Reserve the measured header height ONCE, on the page's own main. */
+.site > main {
+  padding-top: var(--head-h);
+}
+
+/* In-page anchor jumps must not land underneath the pinned bar. */
+:root {
+  scroll-padding-top: calc(var(--head-h) + 14px);
+}
+
+/* Real page sections only — never the header block itself. */
+main [id],
+footer [id] {
+  scroll-margin-top: calc(var(--head-h) + 14px);
+}
+
+@media (max-width: 1000px) {
+  :root {
+    --head-pad: 14px;
+    --head-gap: 6px;
+  }
+}
+
+@media (max-width: 639px) {
+  :root {
+    --nav-h: 58px;
+    --ribbon-h: 31px;
+    --head-pad: 12px;
+    --head-gap: 5px;
+    --hero-lead: clamp(14px, 2.6vh, 30px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-wrap,
+  .nav-wrap.is-away {
+    transition: none;
   }
 }
 
 /* ---------------------------------------------------------------------------
-   9. HERO VISUAL — stacked on phones and tablets, plus the sample cards
+   9. THE HERO BOX — how tall the hero is, and what lives inside it
+   ---------------------------------------------------------------------------
+   The hero is sized by its CONTENT. It used to carry `height:100vh` plus a
+   `max-height:800px` cap while its copy column was 717px tall, so on a 900px
+   desktop the founder statistic spilled out of the hero box and landed under
+   the ticker — the "900+ merging into the section below" report. There is no
+   viewport height, no cap and no header offset here now:
+
+     • `main` already reserves the header height (§8), so the hero adds only
+       `--hero-lead` — one deliberate gap at every width.
+     • the row height is whatever the taller column needs.
+     • the vehicle window keeps a deliberate ratio-driven size so it stays the
+       primary visual (never shrunk to make the sample cards fit).
+     • the sample cards stay INSIDE `.hero-visual`, which is their containing
+       block at every width (position: relative, §9.2). */
+
+.hero {
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  padding-top: var(--hero-lead);
+  padding-bottom: clamp(16px, 3vh, 40px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.06fr);
+  align-items: center;
+  gap: clamp(22px, 3vw, 46px);
+}
+
+/* Card column: two compact links side by side instead of a tall stack, so the
+   copy column stops being the tallest thing in the hero. */
+/* The scroll cue is part of the hero's own flow — it can never sticker over the
+   statistic, the sample cards or the ticker. */
+.hero .scroll-cue {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: clamp(10px, 2vh, 22px);
+}
+
+@media (max-width: 1000px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero .scroll-cue {
+    margin-top: 6px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   9.1 HERO VISUAL — stacked on phones and tablets, plus the sample cards
    ---------------------------------------------------------------------------
    The car photo, the auction card, the route card and the translated-sheets
    badge used to be layered on top of each other in a fixed height box. On a
@@ -828,7 +978,9 @@
     z-index: 4;
     grid-column: 1 / -1;
     order: 1;
-    height: min(58vw, 300px);
+    height: auto;
+    aspect-ratio: 16 / 10;
+    max-height: min(58vh, 460px);
     border-width: 5px;
     border-radius: 20px;
     transform: none;
@@ -992,7 +1144,8 @@
   }
 
   .hero .hero-visual .car-main {
-    height: min(60vw, 250px);
+    aspect-ratio: 16 / 10;
+    max-height: 300px;
     border-radius: 18px;
   }
 
@@ -1067,12 +1220,45 @@
 
 /* --- the same cards above 1000px, where they float over the collage --- */
 @media (min-width: 1001px) {
+  /* Every sample card lives inside its own containing block (`.hero-visual`)
+     and keeps a stable width, padding and minimum height, so it cannot drift
+     over the hero copy, the CTA row, the ticker or the statistic. */
+  .hero .hero-visual .floating-card {
+    padding: 14px 16px;
+    border-radius: 16px;
+  }
+
+  .hero .hero-visual .floating-card.auction-card {
+    left: clamp(0px, 1.6%, 22px);
+    right: auto;
+    top: 4%;
+    width: 200px;
+    max-width: calc(100% - 12px);
+    min-height: 92px;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .hero .hero-visual .floating-card.route-card {
+    right: clamp(0px, 1.6%, 22px);
+    left: auto;
+    bottom: 5%;
+    top: auto;
+    width: 216px;
+    max-width: calc(100% - 12px);
+    min-height: 124px;
+  }
+
   /* The badge is a trust card now, not a 118px disc: give it the right rail
      between the auction card (top) and the route card (bottom). */
   .hero .hero-visual .floating-badge {
-    right: 0;
-    top: 118px;
-    width: 212px;
+    right: clamp(0px, 1.6%, 22px);
+    left: auto;
+    top: 119px;
+    bottom: auto;
+    width: 208px;
+    max-width: calc(100% - 12px);
+    min-height: 84px;
     height: auto;
     padding: 12px 14px;
     border-radius: 16px;
@@ -1108,22 +1294,15 @@
     line-height: 1.35;
   }
 
-  .hero .hero-visual .floating-card {
-    padding: 14px 16px;
-    border-radius: 16px;
-  }
-
-  .hero .hero-visual .floating-card.auction-card {
-    align-items: flex-start;
-    gap: 12px;
-  }
-
   .hero .hero-visual .auction-card .rotating-card-copy {
-    min-width: 168px;
+    flex: 1 1 auto;
+    min-width: 118px;
   }
 
   .hero .hero-visual .route-card .rotating-card-copy {
-    min-width: 196px;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
   }
 
   .hero .hero-visual .card-foot {
@@ -1543,19 +1722,18 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   position: relative;
   inset: auto;
   z-index: 3;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;
+  max-width: 460px;
   margin: 14px 0 0;
 }
 .hero .hero-copy .hero-vignette {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  flex: 0 1 184px;
-  min-width: 152px;
+  min-width: 0;
   min-height: 50px;
   padding: 8px 13px 8px 10px;
   border: 1px solid var(--line);
@@ -1611,12 +1789,14 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
 .hero-carousel-controls button:hover {border-color:var(--gold);background:var(--card);transform:scale(1.04)}
 .hero-carousel-controls button svg {width:17px;height:17px}
 @media (max-width:1000px) {
-  .hero-carousel-controls {top:150px}
+  /* .car-main sits 24px below the top of the stacked visual; 28–72px keeps the
+     arrows on the photograph at every width, clear of the rows underneath. */
+  .hero-carousel-controls {top:clamp(28px, 6vw, 72px)}
 }
 @media (max-width:650px) {
   .hero .hero-copy .hero-vignettes {width:100%;gap:8px;margin-top:12px}
-  .hero .hero-copy .hero-vignette {flex:1 1 142px;min-width:0;min-height:50px;padding-inline:10px}
-  .hero-carousel-controls {top:min(125px,30vw);left:4px;right:4px}
+  .hero .hero-copy .hero-vignette {min-height:50px;padding-inline:10px}
+  .hero-carousel-controls {top:clamp(30px, 9vw, 56px);left:6px;right:6px}
   .hero-carousel-controls button {width:40px;height:40px}
 }
 @media (prefers-reduced-motion:reduce) {

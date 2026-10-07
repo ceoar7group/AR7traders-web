@@ -73,18 +73,21 @@ ok(!/hot sale|alibaba/i.test(name), `marketplace noise is stripped from the name
 console.log('\n-- photo rights --');
 ok(RIGHTS.includes('dropship-authorized'), 'dropshipping authorisation is a recognised basis');
 ok(rightsAreUsable('supplier-permission') && !rightsAreUsable('because-im-in-a-hurry'), 'an unrecognised basis is not usable');
+ok(rightsAreUsable('supplier-listing'), 'a supplier published listing photo is a recognised basis');
 
 const withRights = toMachine({ ...parsed, images: parsed.images }, { rights: 'dropship-authorized', markup: MACHINERY_MARKUP });
 ok(withRights.images.length === 2 && withRights.photosPending === false, 'a recorded basis keeps the photos');
 ok(withRights.source.rights === 'dropship-authorized', 'the basis is recorded on the listing');
 ok(withRights.source.url === parsed.url, 'the source URL is recorded so the price can be re-checked');
 
-// 2026-10-04: owner policy — photos import by default with 'dropship-authorized'
-// basis. The old "no basis = no photos" default was replaced.
+// 2026-10-07: owner instruction — the importer carries the supplier-listing
+// basis by default, with no drop-shipping / written-agreement gate, and it
+// lists machines the way the car importer does: with their photos.
 const withoutRights = toMachine({ ...parsed, images: parsed.images }, { markup: MACHINERY_MARKUP });
-ok(withoutRights.images.length > 0 && withoutRights.photosPending === false, 'without explicit basis, photos import by default (owner policy)');
+ok(withoutRights.images.length === parsed.images.length && withoutRights.photosPending === false, 'every published photo imports, with no agreement step');
 ok(withoutRights.supplierPrice === 28500 && withoutRights.listPrice === Math.round((28500 * 1.25) / 50) * 50, 'the price still imports and still carries the markup');
-ok(withoutRights.source.rights === 'dropship-authorized', 'default basis is recorded as dropship-authorized when none was given');
+ok(withoutRights.source.rights === 'supplier-listing', 'the default basis recorded is supplier-listing when none was given');
+ok(withoutRights.skippedPhotos === 0, 'no photo is dropped for looking like a marketplace copy');
 
 ok(ADAPTERS['alibaba-open'].requires.includes('ALIBABA_APP_KEY'), 'the Alibaba adapter declares the credentials it needs');
 ok(ADAPTERS['facts-only'].canImages === false, 'the facts-only adapter cannot publish images');

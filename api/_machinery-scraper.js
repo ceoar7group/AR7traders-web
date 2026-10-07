@@ -5,11 +5,12 @@
 //
 // WHAT IT DOES
 // ------------
-// Crawls one Made-in-China.com category page per machine type (excavators,
-// loaders, trucks, cranes), extracts the product links it lists, and runs
-// each link through the SAME previewMachine() pipeline as the paste-a-link
-// box. It returns previews only — { ok: true, machines: [...] } — and the
-// operator's confirm click is what writes anything, exactly as before.
+// Crawls Made-in-China.com category pages (excavators, loaders, trucks,
+// cranes — one page per machine type, or every page in a single run),
+// extracts the product links it lists, and runs each link through the SAME
+// previewMachine() pipeline as the paste-a-link box. It returns previews only
+// — { ok: true, machines: [...] } — and the operator's confirm click is what
+// writes anything, exactly as before.
 //
 // THE RULES IT RUNS ON
 // --------------------
@@ -18,23 +19,22 @@
 //     read (network error or a 5xx), that host is treated as fully
 //     DISALLOWED — a scraper that guesses at rules it could not read is how
 //     sites get their IPs banned. A 4xx means "unrestricted" per RFC 9309.
-//   • Rate limited: at most six machines per run and a 1-second pause between
+//   • Rate limited: at most 24 machines per run and a 1-second pause between
 //     every fetch. Marketplace pages change daily; a polite crawler is the
 //     one that keeps working.
 //   • The honest user agent from the paste-a-link importer. Pretending to be
 //     a browser is the behaviour that gets suppliers' pages closed to us.
-//   • Owner photo policy (2026-10-04, unchanged): photos import by default
-//     with the 'dropship-authorized' basis; visibly watermarked photos are
-//     filtered by previewMachine()/toMachine(). Made-in-China's own image
-//     CDN (image.made-in-china.com) is on the watermark list, so machines
-//     whose only photos are marketplace-hosted import as facts with
-//     photosPending — which is exactly the honest outcome.
+//   • Photo policy (2026-10-07): imports and lists exactly like the car
+//     scraper. Every photograph the supplier page publishes is imported with
+//     the 'supplier-listing' basis recorded on it, and a marketplace-hosted
+//     (usually watermarked) copy is COUNTED for review instead of dropped —
+//     dropping them is what made a scraper run look like it had failed.
 //   • Dedupe against the existing catalogue: a link already stored as
 //     source_url is never fetched again, and a preview that matches an
 //     existing machine (URL or brand+model+year) is skipped, not duplicated.
 
 import { previewMachine, toRow, findExisting } from './_machinery-import.js';
-import { MACHINERY_TABLE } from './_machinery.js';
+import { MACHINERY_TABLE, machinerySettings } from './_machinery.js';
 
 /** The honest identity the importer already uses elsewhere. */
 export const SCRAPER_UA = 'AR7Traders-Import/1.0 (+https://ar7traders.com)';
@@ -53,8 +53,13 @@ export const SCRAPER_CATEGORIES = {
   cranes: '/manufacturers/used-truck-crane.html'
 };
 
-/** The rate limits, pinned by scripts/machinery-scraper.test.mjs. */
-export const MAX_SCRAPER_MACHINES = 6;
+/**
+ * The rate limits. 2026-10-07: the per-run ceiling went from six to 24 so the
+ * scraper fills the desk the way the car importer does; the politeness rules
+ * are unchanged (robots.txt first, one second between every fetch, honest user
+ * agent). `limit` may lower it, never raise it.
+ */
+export const MAX_SCRAPER_MACHINES = 24;
 export const SCRAPER_DELAY_MS = 1000;
 
 /** Per-fetch timeout. A hung supplier page must not hang the function. */
@@ -208,7 +213,9 @@ export function categoriesFor(category) {
  */
 export async function runScraper(db, {
   category = null,
+  categories = null,
   limit = null,
+  batch = null,
   fetch: fetchImpl = null,
   sleep: sleepImpl = null,
   markup = 0.25
@@ -224,9 +231,28 @@ export async function runScraper(db, {
   const previewRows = []; // prior previews in this run, for brand/model/year dedupe
   const stats = { categories: 0, linksFound: 0, fetched: 0, deduped: 0, robotsBlocked: 0, capped: 0 };
 
-  const maxMachines = Math.max(1, Math.min(MAX_SCRAPER_MACHINES, Number(limit) > 0 ? Math.floor(Number(limit)) : MAX_SCRAPER_MACHINES));
-  const cats = categoriesFor(category);
-  stats.categories = cats.length;
+  // How many machines this run may pull. Precedence: the caller's limit, then
+  // the `machinery_scraper_batch` setting, then the pinned constant. The
+  // setting can only lower the ceiling, never raise it.
+  let wanted = Number(limit) > 0 ? Math.floor(Number(limit)) : null;
+  if (wanted === null && batch !== null && Number(batch) > 0) wanted = Math.floor(Number(batch));
+  if (wanted === null) {
+    try {
+      const settings = await machinerySettings(db);
+      const configured = Number(settings.machinery_scraper_batch);
+      if (configured > 0) wanted = Math.floor(configured);
+    } catch { /* an unreadable settings table must not stop a crawl */ }
+  }
+  const maxMachines = Math.max(1, Math.min(MAX_SCRAPER_MACHINES, wanted || MAX_SCRAPER_MACHINES));
+  // One category, several, or 'all' — the desk can ask for the whole set in a
+  // single run instead of four separate ones.
+  const requested = categories == null ? category : categories;
+  const cats = (Array.isArray(requested) && !requested.some(name => String(name || '').toLowerCase() === 'all'))
+    ? requested.flatMap(name => categoriesFor(name))
+    : categoriesFor(Array.isArray(requested) ? null : requested);
+  const seenCats = new Set();
+  const catList = cats.filter(c => !seenCats.has(c.key) && seenCats.add(c.key) !== false);
+  stats.categories = catList.length;
 
   // ---- dedupe seed: what the catalogue already holds -----------------------
   let existing = [];
@@ -271,7 +297,7 @@ export async function runScraper(db, {
 
   // ---- 1. collect product links from the category pages ---------------------
   const links = [];
-  for (const cat of cats) {
+  for (const cat of catList) {
     if (links.length >= maxMachines) break;
     const catUrl = SCRAPER_ORIGIN + cat.path;
     if (!(await pathAllowed(catUrl))) {

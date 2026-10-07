@@ -486,7 +486,6 @@ section[id]{scroll-margin-top:120px}
  .shell{width:calc(100% - 20px)}
  .brand span{font-size:12px}
  .icon-btn,.menu-btn{width:38px;height:38px}
- .hero-visual{height:310px}
 }
 
 /* tablet polish */
@@ -494,7 +493,6 @@ section[id]{scroll-margin-top:120px}
  .car-grid{grid-template-columns:repeat(2,1fr)}
  .car-grid .car-card .car-image{height:230px}
  .full-grid{grid-template-columns:repeat(2,1fr)!important}
- .hero-visual{height:520px}
  .hero-copy{text-align:center}
 }
 
@@ -585,10 +583,9 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
  .shell{width:min(100% - 40px,1180px)}
  .nav{padding-left:14px}.brand span{font-size:13px}.nav-actions{gap:6px}
  .primary.compact{padding-inline:12px}
- .hero{min-height:720px;max-height:none;height:auto;padding-top:128px;padding-bottom:55px;grid-template-columns:.92fr 1.08fr;gap:28px}
+ .hero{grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);gap:28px}
  .hero h1{font-size:clamp(52px,5.7vw,76px);letter-spacing:-4px}
  .hero-copy>p{font-size:16px}
- .hero-visual{height:540px}
  .car-main{inset:38px 15px 42px 38px}
  .full-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
  .detail-grid{grid-template-columns:minmax(0,1.08fr) minmax(340px,.92fr);gap:38px}
@@ -602,11 +599,11 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
 @media (min-width:651px) and (max-width:1000px){
  .shell{width:min(100% - 36px,900px)}
  .nav-wrap{padding:12px 0}.nav{height:64px}
- .hero{min-height:0!important;height:auto!important;padding-top:126px!important;padding-bottom:65px;gap:30px}
+ .hero{min-height:0;height:auto;gap:30px}
  .hero h1{font-size:clamp(52px,8vw,72px);letter-spacing:-4px}
  .hero-copy>p{max-width:650px;margin-inline:auto}
- .hero-visual{width:min(680px,100%);height:500px;margin-inline:auto}
- .page-hero.mini{min-height:390px;padding-top:125px}
+ .hero-visual{margin-inline:auto}
+ .page-hero.mini{min-height:0}
  .page-content{padding-top:64px;padding-bottom:80px}
  .inv-toolbar{display:grid;grid-template-columns:1fr 1fr}
  .inv-toolbar .inv-search{grid-column:1/-1;width:100%}
@@ -628,11 +625,11 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
  html{font-size:16px}
  body{min-width:0}
  .shell{width:min(100% - 24px,620px)}
- .hero{padding-top:122px!important;padding-bottom:40px;min-height:0!important;height:auto!important}
+ .hero{min-height:0;height:auto}
  .hero h1{font-size:clamp(38px,12vw,54px);line-height:1;letter-spacing:-3px;margin:18px 0}
  .hero-copy>p{font-size:14px;line-height:1.55}
  .hero-cta{align-items:stretch}.hero-cta .primary,.hero-cta .text-btn{width:100%;justify-content:center}
- .page-hero.mini{min-height:320px;padding:122px 0 45px}.page-hero h1{font-size:clamp(38px,11vw,52px)}
+ .page-hero.mini{min-height:0}.page-hero h1{font-size:clamp(38px,11vw,52px)}
  .page-content{padding-top:46px;padding-bottom:64px}
  .inv-toolbar{display:grid;grid-template-columns:1fr;padding:10px}
  .inv-toolbar .inv-search,.inv-toolbar select{width:100%;min-width:0;margin:0}
@@ -706,16 +703,17 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
 html[data-theme=dark] .world-time-ribbon{background:linear-gradient(110deg,rgba(13,33,24,.97),rgba(22,46,34,.94));border-color:#375c49;box-shadow:0 12px 32px #0006}
 html[data-theme=dark] .world-time-item>strong{color:#85e2b3}
 
-/* Account for the permanent second header row */
-@media (min-width:1367px){.hero{padding-top:160px}.page-hero.mini{padding-top:145px}}
-@media (min-width:1001px) and (max-width:1366px){.world-time-ribbon{width:min(100% - 40px,1180px)}.hero{padding-top:158px}.page-hero.mini{padding-top:152px}}
-@media (min-width:651px) and (max-width:1000px){.world-time-ribbon{width:min(100% - 36px,900px);margin-bottom:6px}.hero{padding-top:142px!important}.page-hero.mini{padding-top:140px}.account-form-wrap{padding-top:150px}}
+/* The World Time ribbon is a row of the header block; the space it and the bar
+   need is reserved once by `main { padding-top: var(--head-h) }` in
+   src/site-layout.css §8 — no page carries its own header offset any more. */
+@media (min-width:1001px) and (max-width:1366px){.world-time-ribbon{width:min(100% - 40px,1180px)}}
+@media (min-width:651px) and (max-width:1000px){.world-time-ribbon{width:min(100% - 36px,900px)}}
 @media (max-width:650px){
  .world-time-ribbon{width:min(100% - 24px,620px);height:31px;margin-bottom:5px;border-radius:9px}
  .world-time-label{padding:0 9px}.world-time-label span{display:none}.world-time-label svg{width:15px}
  .world-time-item{height:30px;padding:0 11px;gap:5px}.world-time-item>b{font-size:8.5px}.world-time-item>strong{font-size:9px}.world-time-item>small{display:none}
  .world-time-track{animation-duration:34s}
- .hero{padding-top:122px!important}.page-hero.mini{padding-top:122px!important}.account-form-wrap{padding-top:125px}
+ .account-form-wrap{padding-top:var(--hero-lead)}
 }
 @media (max-width:420px){.world-time-ribbon{width:calc(100% - 18px)}.world-time-item{padding-inline:9px}.world-time-item>i{display:none}}
 @media (prefers-reduced-motion:reduce){.world-time-track{animation:none;transform:none}.world-time-viewport{overflow-x:auto;mask-image:none}.world-time-label>i{animation:none}}
@@ -1123,7 +1121,7 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
 }
 
 /* World time ribbon sits above the nav row; nav + dropdowns stack on top */
-.nav-wrap>.world-time-ribbon{order:-1}
+.nav-wrap>.world-time-ribbon{order:0}
 .nav-wrap .nav{position:relative;z-index:5}
 @media(max-width:1000px){
  .nav-wrap .navlinks{top:calc(100% + 8px);left:0;right:0}

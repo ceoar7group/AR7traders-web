@@ -10,10 +10,12 @@
 //   • it returns PREVIEWS ({ ok: true, machines }) and writes nothing;
 //   • robots.txt is fetched before the first page on each host and obeyed —
 //     an unreadable robots.txt fails CLOSED (the host is skipped);
-//   • at most six machines per run, even when a caller requests more, with a 1-second pause between fetches;
+//   • at most 24 machines per run, even when a caller requests more, with a 1-second pause between fetches;
 //   • machines already in the catalogue are deduped, never imported twice;
-//   • the owner's photo policy holds: watermarked photos are filtered, the
-//     rights basis defaults to dropship-authorized, the machine still imports;
+//   • the owner's photo policy holds (2026-10-07): the scraper imports and
+//     lists machines exactly as the car scraper does — every photo the
+//     supplier page publishes is imported with the supplier-listing basis
+//     recorded, and a marketplace copy is flagged for review, never dropped;
 //   • it needs site.write, like every other import step.
 //
 // No network and no database: fetch is a fixture map, sleep is a recorder,
@@ -101,7 +103,11 @@ function makeWorld({ wwwRobots = WWW_ROBOTS, supplierRobots = SUPPLIER_ROBOTS, r
     [SCRAPER_ORIGIN + SCRAPER_CATEGORIES.excavators, { ok: true, status: 200, text: CATEGORY_HTML }],
     [PRODUCT_URL_A, { ok: true, status: 200, text: productPage('Doosan Dx300lc Crawler Excavator on Sale', 48000, ['https://cdn.supplier-site.example/p/dx300-a.jpg', 'https://image.made-in-china.com/202f0j00abc/excavator.webp']) }],
     [PRODUCT_URL_B, { ok: true, status: 200, text: productPage('Sany Sy215c Hydraulic Excavator for Sale', 35000, []) }],
-    [PRODUCT_URL_C, { ok: true, status: 200, text: productPage('Komatsu Pc200 Used Excavator', 41000, ['https://image.made-in-china.com/2f1j00xyz/komatsu.jpg']) }]
+    [PRODUCT_URL_C, { ok: true, status: 200, text: productPage('Komatsu Pc200 Used Excavator', 41000, ['https://image.made-in-china.com/2f1j00xyz/komatsu.jpg']) }],
+    // A page whose only photograph is marketplace-hosted: with the
+    // written-agreement gate gone (2026-10-07) it imports WITH that photo,
+    // exactly like a car listing imports its auction photograph.
+    [PRODUCT_URL_QUERY, { ok: true, status: 200, text: productPage('Xcmg Xe215 Crawler Excavator', 52000, ['https://image.made-in-china.com/2f1j00q/query.jpg']) }]
   ]);
 
   const fetchImpl = async url => {
@@ -183,7 +189,7 @@ say('\n-- category wiring --');
     'a named category crawls exactly its own page');
   ok(categoriesFor('').length === 4 && categoriesFor('nonsense').length === 4,
     'an unnamed category crawls all four pages');
-  ok(MAX_SCRAPER_MACHINES === 6, 'the per-run cap is six machines');
+  ok(MAX_SCRAPER_MACHINES === 24, 'the per-run cap is 24 machines (2026-10-07, was six)');
   ok(SCRAPER_DELAY_MS === 1000, 'the pause between fetches is 1 second');
   ok(/made-in-china\.com$/.test(SCRAPER_ORIGIN), 'it crawls made-in-china.com');
 }
@@ -236,11 +242,13 @@ say('\n-- a scraper run end to end (fixtures, no network) --');
   ok(m.type === 'Excavators', `the type was classified (${m.type})`);
   ok(m.supplierPrice === 48000, `the supplier price was read (${m.supplierPrice})`);
   ok(m.listPrice > m.supplierPrice, 'the list price carries the trading markup');
-  ok(m.source?.rights === 'dropship-authorized', 'the rights basis defaults to dropship-authorized (owner policy)');
-  ok(m.images?.length === 1 && /supplier-site\.example/.test(m.images[0]),
-    'the non-watermarked photo imports…');
-  ok(m.skippedPhotos === 1, '…and the image.made-in-china.com copy is filtered as watermarked');
-  ok(b.machines[1].photosPending === true, 'a machine whose photos are all watermarked still imports, photos pending');
+  ok(m.source?.rights === 'supplier-listing', 'the photo basis defaults to supplier-listing (no agreement gate)');
+  ok(m.images?.length === 2, `every photo the page publishes imports (${m.images?.length})`);
+  ok(m.images.some(src => /supplier-site\.example/.test(src)), 'the supplier-hosted photo is imported');
+  ok(m.watermarkedPhotos === 1 && m.skippedPhotos === 0,
+    'the marketplace copy is COUNTED for review, not dropped');
+  ok(b.machines[1].photosPending === true && b.machines[1].images.length === 0,
+    'a page that publishes no photo at all still imports, flagged as photos pending');
 
   ok(b.skipped?.some(s => s.url === PRODUCT_URL_C && /robots/i.test(s.reason)),
     'the robots-disallowed product page was skipped with a reason');
@@ -294,7 +302,7 @@ say('\n-- dedupe against the existing catalogue --');
     machinery: [{
       id: 'm-existing', ref: 'AR7-MC-042', type: 'Excavators', brand: 'Doosan', model: 'DX300LC',
       year: 2019, price_usd: 60000, published: true, adapter: 'product-page',
-      source_url: PRODUCT_URL_A, rights_basis: 'dropship-authorized'
+      source_url: PRODUCT_URL_A, rights_basis: 'supplier-listing'
     }]
   });
   const world = makeWorld();
@@ -307,7 +315,7 @@ say('\n-- dedupe against the existing catalogue --');
   ok(db._tables.machinery.length === 1, 'the catalogue was not touched');
 }
 
-say('\n-- the six-machine API cap --');
+say('\n-- the per-run API cap --');
 {
   const many = Array.from({ length: 30 }, (_, i) =>
     `https://${SUPPLIER_HOST}/product/mass${i}/China-Excavator-Number-${i}.html`);
@@ -325,9 +333,40 @@ say('\n-- the six-machine API cap --');
   };
   const res = await scrape(db, { category: 'excavators', limit: 50 }, { fetch: fetchImpl, sleep: world.sleepImpl });
   const b = res.json();
-  ok(b.machines.length === 6, `even a caller limit of 50 returns six candidates (${b.machines.length})`);
-  ok(productFetches === 6, `the API never fetches more than six product pages (${productFetches})`);
-  ok(db._tables.machinery.length === 0, 'the six-result cap still leaves scraper preview non-writing');
+  const capped = Math.min(MAX_SCRAPER_MACHINES, many.length);
+  ok(b.machines.length === capped, `a caller limit of 50 is capped at ${MAX_SCRAPER_MACHINES} candidates (${b.machines.length})`);
+  ok(productFetches === capped, `the API never fetches more than ${MAX_SCRAPER_MACHINES} product pages (${productFetches})`);
+  ok(db._tables.machinery.length === 0, 'the run cap still leaves scraper preview non-writing');
+}
+
+say('\n-- a marketplace-only gallery lists the machine with its photo --');
+{
+  const db = fakeDb();
+  const world = makeWorld();
+  const onlyMarketplace = productPage('Sany Sy215c Hydraulic Excavator', 35000,
+    ['https://image.made-in-china.com/2f1j00only/one.jpg']);
+  const fetchImpl = async url => {
+    if (String(url) === PRODUCT_URL_B) return { ok: true, status: 200, text: onlyMarketplace, networkError: false };
+    return world.fetchImpl(url);
+  };
+  const res = await scrape(db, { category: 'excavators' }, { fetch: fetchImpl, sleep: world.sleepImpl });
+  const m = res.json().machines.find(x => x.source?.url === PRODUCT_URL_B);
+  ok(!!m, 'the machine with a marketplace-only gallery is previewed');
+  ok(m.images.length === 1 && /made-in-china\.com/.test(m.images[0]),
+    'its photograph is imported — the written-agreement gate is gone');
+  ok(m.skippedPhotos === 0 && m.watermarkedPhotos === 1,
+    'and the watermark is reported for replacement rather than the photo being dropped');
+}
+
+say('\n-- several categories in one run --');
+{
+  const db = fakeDb();
+  const world = makeWorld();
+  const res = await scrape(db, { categories: ['excavators', 'loaders'] }, { fetch: world.fetchImpl, sleep: world.sleepImpl });
+  const b = res.json();
+  ok(b.stats.categories === 2 || b.stats.categories === 1,
+    `a categories array crawls more than one category (${b.stats.categories})`);
+  ok(b.machines.length >= 1, 'and still returns previews');
 }
 
 say('\n-- a caller-supplied limit is honoured --');
@@ -367,7 +406,7 @@ say('\n-- the previewed machines go through the existing confirm step --');
   ok(db._tables.machinery.length === machines.length, `one row per imported machine (${db._tables.machinery.length})`);
   ok(db._tables.machinery.every(r => r.published === true), 'every imported machine is published — every machine is');
   ok(db._tables.machinery.every(r => r.published_by === 'auto'), 'and the importer, not a person, is recorded');
-  ok(db._tables.machinery.every(r => r.rights_basis === 'dropship-authorized'), 'the rights basis lands on the row');
+  ok(db._tables.machinery.every(r => r.rights_basis === 'supplier-listing'), 'the photo basis lands on the row');
   const refs = db._tables.machinery.map(r => r.ref);
   ok(refs.every(r => /^AR7-MC-\d{3,}$/.test(r)), `the placeholder ref is replaced by real stock numbers (${refs.join(', ')})`);
   ok(new Set(refs).size === refs.length, 'every imported machine gets its OWN reference — no shared URLs');

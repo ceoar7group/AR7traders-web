@@ -78,39 +78,38 @@ const { brand, type } = classify(product.title, product.specs);
 eq(brand, 'Caterpillar', 'the brand is classified from the spec sheet ("caterpillar" in the product name row)');
 eq(type, 'Excavators', 'the type is classified from the title');
 
-// ---- 2026-10-04: watermark filtering happens at import time ------------------
-// Owner policy: watermarked images are filtered out during toMachine(). The
-// reviewPhotos check is for non-watermark quality issues on the surviving photos.
-say('\n-- watermarked marketplace photos are filtered at import --');
+// ---- 2026-10-07: the scraper imports and lists like the car scraper --------
+// Owner instruction: no drop-shipping / written-agreement gate, and no photo
+// is dropped for looking like a marketplace copy. Every photo the supplier
+// page publishes is imported with the basis recorded; a watermark is a review
+// flag, not a reason to publish the machine without pictures.
+say('\n-- every published photo is imported, watermark or not --');
 const machine = toMachine(product, { markup: 0.25, rights: 'supplier-permission', adapter: 'product-page' });
-// The fixture's images are all on image.made-in-china.com (a watermark CDN),
-// so they are filtered out. The machine still imports with its facts.
-ok(machine.images.length === 0, 'watermarked marketplace photos are filtered out at import');
-ok(machine.skippedPhotos > 0, 'the skipped count records how many were filtered');
-ok(machine.source.rights === 'supplier-permission', 'the rights basis is still recorded even when photos were skipped');
-// reviewPhotos checks the quality of existing photos, not whether photos exist.
-// With zero surviving photos, reviewPhotos passes (nothing to review).
-// The machine is still importable — photosPending is set separately.
+ok(machine.images.length > 0, `the photos on the supplier page are imported (${machine.images.length})`);
+ok(machine.skippedPhotos === 0, 'nothing is skipped for looking watermarked');
+ok(machine.watermarkedPhotos > 0, 'the marketplace-hosted copies are counted for review instead');
+ok(machine.source.rights === 'supplier-permission', 'the chosen basis is recorded on the photos');
+ok(machine.photosPending === false, 'so the machine lists WITH its pictures');
 const review = reviewPhotos(machine);
-ok(machine.photosPending === true, 'photosPending is set when no photos survived the watermark filter');
-ok(review.pass === true, 'reviewPhotos passes with zero images (nothing to flag)');
+ok(review.flags.some(f => /watermark/i.test(f)), 'reviewPhotos still flags the watermark for a human');
+ok(review.pass === false, '…so the run is honest about what needs replacing');
 
 const hosted = { name: 'Doosan DX300LC-9C Crawler Excavator', year: 2023,
   images: ['/assets/machinery/doosan-dx300lc-1.webp', '/assets/machinery/doosan-dx300lc-2.webp'] };
 const cleanReview = reviewPhotos(hosted);
 ok(cleanReview.pass && cleanReview.flags.length === 0, 'a self-hosted recent gallery with two photos passes');
 
-// 2026-10-04: owner policy — default basis is dropship-authorized, so even
-// with rights:null the images still get through (subject to watermark filter).
+// 2026-10-07: imports carry the standing supplier-listing basis, with no
+// agreement step in between.
 const factsOnly = toMachine(product, { markup: 0.25, rights: null, adapter: 'product-page' });
-ok(factsOnly.source.rights === 'dropship-authorized', 'with no explicit basis the default is dropship-authorized');
-// The fixture images are all watermarked (image.made-in-china.com), so they
-// are filtered regardless of the rights basis.
-eq(factsOnly.images.length, 0, 'the fixture images are all watermarked so none survive the filter');
-eq(factsOnly.photosPending, true, 'and the machine waits for photos instead');
-ok(factsOnly.supplierPrice === 25000, 'the facts still import — the price survives a facts-only import');
+ok(factsOnly.source.rights === 'supplier-listing', 'with no explicit basis the default is supplier-listing');
+eq(factsOnly.images.length, machine.images.length, 'the same photos import with the default basis');
+eq(factsOnly.photosPending, false, 'and the machine lists with them');
+ok(factsOnly.supplierPrice === 25000, 'the facts still import — the price survives every path');
+ok(rightsAreUsable('supplier-listing') && RIGHTS.includes('supplier-listing'),
+  'supplier-listing is a recorded basis: a photo the supplier published for buyers');
 ok(rightsAreUsable('dropship-authorized') && RIGHTS.includes('dropship-authorized'),
-  'dropship-authorized remains a recorded rights basis for supplier-authorized image use');
+  'and the older bases remain valid for a source that has one');
 
 // ---- a dl-only page (no tables at all) --------------------------------------
 say('\n-- dl-only spec pages --');

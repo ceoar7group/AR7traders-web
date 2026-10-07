@@ -39,7 +39,7 @@ const scraperCandidates = Array.from({length: 8}, (_, index) => ({
   year: 2021, hours: 1800 + index, supplierPrice: 25000 + index * 1000, listPrice: 31500 + index * 1250,
   images: [`/assets/machinery/test-${index + 1}.webp`],
   specs: [['Operating weight', `${20 + index} t`], ['Condition', 'Used']],
-  source: {url: `https://supplier.example/machine-${index + 1}`, rights: 'dropship-authorized', adapter: 'product-page'}
+  source: {url: `https://supplier.example/machine-${index + 1}`, rights: 'supplier-listing', adapter: 'product-page'}
 }));
 setGlobal('fetch', (url, options = {}) => {
   const value = String(url);
@@ -341,12 +341,12 @@ await clickText('.crm-side nav button', 'Machinery desk');
     'each row can open the photo editor');
 }
 
-// ---- machinery photos need a rights basis ----------------------------------
-// A photograph without a recorded reason we may use it must never reach the
-// website. The editor is where that is enforced in the UI: every photo gets a
-// rights dropdown, and a photo with none chosen is visibly held back rather
-// than silently published.
-say('\nMachinery photo rights');
+// ---- machinery photos record their basis -----------------------------------
+// 2026-10-07: a photograph is never withheld for want of an agreement — it
+// publishes with the machine, exactly like a car listing's photo. The editor
+// keeps the basis beside every photo and flags the ones that still have none,
+// so the provenance is visible in the desk.
+say('\nMachinery photo basis');
 {
   const photosBtn = [...document.querySelectorAll('.crm-row-actions button')]
     .find(b => /photos/i.test(b.textContent || ''));
@@ -357,24 +357,30 @@ say('\nMachinery photo rights');
     ok(!!modal, 'the photo editor opens');
 
     const selects = [...(modal?.querySelectorAll('figcaption select') || [])];
-    ok(selects.length > 0, `each photo carries a rights dropdown (${selects.length} photos)`);
-    // The three accepted bases, plus the empty "no rights" option.
+    ok(selects.length > 0, `each photo carries a basis dropdown (${selects.length} photos)`);
+    // Every accepted basis, plus the "no basis yet" option.
     const emptyOption = selects[0] && [...selects[0].options].some(o => o.value === '');
-    ok(!!emptyOption, 'a photo can be added with no rights recorded');
+    ok(!!emptyOption, 'a photo can be added with no basis recorded yet');
     const known = selects[0] ? [...selects[0].options].map(o => o.value).filter(Boolean) : [];
-    for (const basis of ['own-photo', 'supplier-permission', 'dropship-authorized'])
-      ok(known.includes(basis), `the editor offers "${basis}" as a rights basis`);
+    for (const basis of ['supplier-listing', 'own-photo', 'supplier-permission', 'dropship-authorized'])
+      ok(known.includes(basis), `the editor offers "${basis}" as a photo basis`);
+    const addSelect = modal?.querySelector('.photo-add-row select');
+    ok(addSelect?.value === 'supplier-listing',
+      `a newly added photo starts on the supplier-listing basis (${addSelect?.value})`);
 
-    // Choose "no rights" on the first photo: it must be flagged as held back.
+    // Choose "no basis" on the first photo: it is flagged for provenance — the
+    // photograph itself is not withheld.
     if (selects[0]) {
       await act(async () => {
         selects[0].value = '';
         selects[0].dispatchEvent(new dom.window.Event('change', { bubbles: true }));
       });
-      const held = document.querySelectorAll('.crm-photo-modal figure.is-held').length;
-      ok(held > 0, `a photo with no rights basis is visibly held back (${held} flagged)`);
-      ok(/held back/i.test(document.querySelector('.crm-photo-modal footer')?.textContent || ''),
-        'the save button says how many photos are held back');
+      const flagged = document.querySelectorAll('.crm-photo-modal figure.is-unlabelled').length;
+      ok(flagged > 0, `a photo with no basis recorded is flagged (${flagged} flagged)`);
+      ok(document.querySelectorAll('.crm-photo-modal figure.is-held').length === 0,
+        'and nothing is marked as withheld — the photo still publishes');
+      ok(/without a basis/i.test(document.querySelector('.crm-photo-modal footer')?.textContent || ''),
+        'the save button says how many photos still need a basis');
     }
 
     const closeBtn = document.querySelector('.crm-photo-modal footer .crm-ghost-btn');
@@ -441,11 +447,11 @@ await clickText('.crm-side nav button', 'Machinery desk');
     ok(!!input, 'there is a box for the supplier link');
     const rightsSelect = body?.querySelector('select');
     ok(!!rightsSelect, 'there is a rights-basis dropdown');
-    // 2026-10-04: owner policy — the default is 'dropship-authorized', not facts-only.
-    // Photos import by default when no visible watermark is detected.
-    ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === 'dropship-authorized'),
-      'the default rights basis is dropship-authorized (owner policy)');
-    for (const basis of ['own-photo', 'supplier-permission', 'dropship-authorized'])
+    // 2026-10-07: the importer carries the supplier-listing basis by default and
+    // needs no drop-shipping / written-agreement step.
+    ok(rightsSelect?.value === 'supplier-listing',
+      `the default photo basis is supplier-listing (${rightsSelect?.value})`);
+    for (const basis of ['supplier-listing', 'own-photo', 'supplier-permission', 'dropship-authorized'])
       ok(!!rightsSelect && [...rightsSelect.options].some(o => o.value === basis),
         `it offers "${basis}" as a rights basis`);
 
@@ -505,15 +511,16 @@ say('\\nMachinery scraper review and explicit confirmation');
   }
   const request = scraperRequests.at(-1);
   ok(!!request, 'the scraper sends a same-origin preview request');
-  ok(JSON.parse(request?.options.body || '{}').limit === 6, 'the UI asks the API for at most six candidates');
+  ok(JSON.parse(request?.options.body || '{}').limit === 24, 'the UI asks the API for up to 24 candidates');
   const candidateRows = [...host.querySelectorAll('.crm-scraper-list > li')];
-  ok(candidateRows.length === 6, `the UI hard-caps even an overlong response at six (${candidateRows.length})`);
-  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === '6 of 6 selected',
+  ok(candidateRows.length === scraperCandidates.length,
+    `the UI shows every candidate the run returned (${candidateRows.length})`);
+  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === `${scraperCandidates.length} of ${scraperCandidates.length} selected`,
     'the selected count is explicit');
-  ok(host.querySelectorAll('.crm-scraper-check input[type="checkbox"]').length === 6,
+  ok(host.querySelectorAll('.crm-scraper-check input[type="checkbox"]').length === scraperCandidates.length,
     'each candidate has its own checkbox');
-  ok(host.querySelector('.crm-import-body select[aria-label="Photo rights basis"]')?.value === 'dropship-authorized',
-    'the supplier-photo rights basis defaults to dropship-authorized');
+  ok(host.querySelector('.crm-import-body select[aria-label="Photo rights basis"]')?.value === 'supplier-listing',
+    'the supplier-photo basis defaults to supplier-listing');
   ok(candidateRows[0]?.textContent.includes('supplier $25,000') && candidateRows[0]?.textContent.includes('usable photo'),
     'each candidate shows readable price and photo details');
   ok(candidateRows[0]?.querySelector('details') && candidateRows[0]?.querySelector('a[href^="https://supplier.example/"]'),
@@ -526,18 +533,19 @@ say('\\nMachinery scraper review and explicit confirmation');
   const selectAll = selectionButtons.find(button => /select all/i.test(button.textContent));
   ok(!!selectNone && !!selectAll, 'select-all and select-none controls are both present');
   if (selectNone) await act(async () => { selectNone.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
-  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === '0 of 6 selected', 'select-none clears the batch');
+  const total = scraperCandidates.length;
+  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === `0 of ${total} selected`, 'select-none clears the batch');
   let confirmButton = [...host.querySelectorAll('.crm-import-actions button')].find(button => /confirm import/i.test(button.textContent));
   ok(confirmButton?.disabled === true, 'the write action is disabled with no candidates selected');
   if (selectAll) await act(async () => { selectAll.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
   confirmButton = [...host.querySelectorAll('.crm-import-actions button')].find(button => /confirm import/i.test(button.textContent));
-  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === '6 of 6 selected' && !confirmButton?.disabled,
-    'select-all restores all six and enables the write action');
+  ok(host.querySelector('.crm-scraper-selection b')?.textContent.trim() === `${total} of ${total} selected` && !confirmButton?.disabled,
+    'select-all restores every candidate and enables the write action');
 
   if (confirmButton) await act(async () => { confirmButton.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
-  ok(confirmations.length === 1 && /6 selected machine/.test(confirmations[0]) && /published to the public machinery catalogue immediately/i.test(confirmations[0]),
+  ok(confirmations.length === 1 && new RegExp(`${total} selected machine`).test(confirmations[0]) && /published to the public machinery catalogue immediately/i.test(confirmations[0]),
     'a write requires confirmation that names the selected count and publication state');
-  ok(host.querySelectorAll('.crm-scraper-list > li').length === 6 && imported === 0,
+  ok(host.querySelectorAll('.crm-scraper-list > li').length === total && imported === 0,
     'declining confirmation keeps the preview and performs no write');
   ok(scraperRequests.every(call => !call.url.includes('step=confirm')), 'cancelling never invokes the confirm endpoint');
 

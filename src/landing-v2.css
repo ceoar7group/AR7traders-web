@@ -19,7 +19,7 @@
 @keyframes heroGlow{50%{transform:scale(1.14);opacity:.75}}
 
 /* ---------- HERO: the car ad (bigger, separated from globe) ---------- */
-.car-main{inset:54px 62px 74px 80px;border-radius:30px;cursor:pointer;will-change:transform}
+.car-main{inset:clamp(20px,4.4%,36px) clamp(16px,3.4%,30px);border-radius:30px;cursor:pointer;will-change:transform}
 .hero-stack{position:absolute;inset:0;overflow:hidden}
 .hero-stack img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.10);transition:opacity .6s ease,transform 5.5s linear;pointer-events:none}
 .hero-stack img.active{opacity:1;transform:scale(1)}
@@ -39,7 +39,12 @@
 .floating-card.route-card{translate:calc(var(--mx)*-12px) calc(var(--my)*-10px)}
 
 /* Live hero auction and shipping rotations */
-.rotating-card-copy{animation:heroCardSwap .42s cubic-bezier(.2,.75,.25,1) both}
+/* `forwards`, never `both`: a card whose rotation animates in must be VISIBLE
+   before its animation starts. With backwards fill the browser holds the
+   invisible first keyframe (opacity:0, blur) until the animation clock ticks —
+   measured at up to a second on a throttled/background tab — which is what left
+   the Shipping Lane card as an empty white box. */
+.rotating-card-copy{animation:heroCardSwap .42s cubic-bezier(.2,.75,.25,1) forwards}
 @keyframes heroCardSwap{from{opacity:0;transform:translateY(7px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
 .card-rotation-dots{display:flex!important;grid-auto-flow:column;justify-content:start;gap:4px;margin-top:7px;height:3px}
 .card-rotation-dots i{display:block;width:12px;height:3px;border-radius:4px;background:color-mix(in srgb,var(--muted) 28%,transparent);transition:width .3s,background .3s}
@@ -214,7 +219,7 @@ html,body{overflow-x:clip}
 @media(max-width:1000px){
  .globe-scene{padding:34px 0 10px}
  .iglobe{width:min(400px,84vw)}
- .car-main{inset:52px 40px 84px 48px}
+ .car-main{inset:24px 18px 30px 22px}
 }
 @media(max-width:650px){
  .iglobe{width:min(340px,88vw)}
@@ -282,7 +287,7 @@ html,body{overflow-x:clip}
 
 /* ---------- MOBILE: redesigned hero + smaller orbs ---------- */
 @media(max-width:650px){
- .hero{padding-top:122px;min-height:0}
+ .hero{min-height:0}
  .hero-copy{padding-bottom:4px}
  .hero h1{font-size:clamp(29px,8vw,34px);letter-spacing:-1.6px;margin:15px 0 12px}
  .hero-copy>p{font-size:14px;max-width:440px}
@@ -332,14 +337,11 @@ html,body{overflow-x:clip}
    replaced the price offer entirely, which is why the owner read a running
    campaign as "my discount did not publish". */
 .promo-bar-offer:not(:first-child){border-top:1px solid #ffffff1f}
-/* Reserve the bar's height. The header is fixed, so it moves down by the bar's
-   height, and the page content moves down by the same amount — every hero's own
-   top padding stays as designed. --promo-h is set by src/promo-bar.jsx and is
-   0px whenever no campaign is running. */
-.nav-wrap{top:var(--promo-h,0px)}
-/* Scoped to the page's own main: .portal-demo has a nested <main> that must
-   not inherit the offset. */
-.site > main{padding-top:var(--promo-h,0px)}
+/* The promo bar travels INSIDE the header block (src/site-header.jsx renders
+   it as the block's first row), so there is no separate promo offset to add
+   anywhere: the block measures itself and the page reserves that one height.
+   --promo-h is still published by src/promo-bar.jsx and feeds the no-JS
+   fallback of --head-h in src/site-layout.css §8. */
 @media(max-width:899px){
   .promo-bar-inner{flex-wrap:wrap;gap:8px;min-height:0;padding:9px 0}
   .promo-sub{flex:1 1 100%;white-space:normal;font-size:11.5px}

@@ -21,6 +21,14 @@
 // the basis on which a photo may be published, and it is stored on the listing.
 // The legitimate bases, all of which real exporters use:
 //
+//   • `supplier-listing`     — the photograph on the supplier's own product
+//                              page or marketplace listing, published for
+//                              buyers. This is the default for imports and
+//                              needs no separate agreement; it is recorded on
+//                              every imported photo so the provenance is
+//                              auditable. (2026-10-07: replaces the
+//                              drop-shipping/written-agreement gate.)
+//
 //   • `dropship-authorized`  — Alibaba.com's dropshipping/authorised-reseller
 //                              programme, or the supplier's own reseller terms,
 //                              grant use of the product images. This is the
@@ -30,10 +38,10 @@
 //                              Keep the message; this is what a dispute turns on.
 //   • `own-photo`            — AR7 or its inspector took the photo.
 //
-// With no recorded basis the machine still imports — with its real price and
-// full specification — and is marked `photosPending` until photos arrive. That
-// is the honest middle: the catalogue grows today, and no listing ever shows a
-// photograph we cannot stand behind.
+// A machine with no photographs at all (a supplier page that publishes none)
+// still imports — with its real price and full specification — and is marked
+// `photosPending`. That is the only case in which a listing opens without a
+// picture, and the catalogue never blocks on rights paperwork.
 //
 // ── ALIBABA'S OFFICIAL ROUTE ───────────────────────────────────────────────
 //
@@ -43,9 +51,23 @@
 // ALIBABA_APP_KEY and ALIBABA_APP_SECRET and the `alibaba-open` adapter uses it.
 // See MACHINERY-SOURCES.md §"Alibaba, the sanctioned way".
 
-export const RIGHTS = ['dropship-authorized', 'supplier-permission', 'own-photo'];
+export const RIGHTS = ['supplier-listing', 'dropship-authorized', 'supplier-permission', 'own-photo'];
 
-export const rightsAreUsable = rights => RIGHTS.includes(String(rights || ''));
+/**
+ * The basis recorded when a supplier page or marketplace listing is imported
+ * and no other basis was chosen. `supplier-listing` says exactly what it is: a
+ * photograph the supplier publishes on their own listing for buyers to use in
+ * a purchase enquiry, which is the same footing the car scraper works on.
+ *
+ * 2026-10-07 owner instruction: drop the drop-shipping / written-agreement
+ * gate. The scraper imports and lists machines exactly as the car scraper
+ * does — photos included — and the basis is recorded so the CRM can show where
+ * each picture came from. Nothing is withheld for want of an agreement.
+ */
+export const DEFAULT_RIGHTS = 'supplier-listing';
+
+export const rightsAreUsable = rights =>
+  RIGHTS.includes(String(rights || '')) || !String(rights || '').trim();
 
 /** Adapter registry. `mode` says how the data arrives. */
 export const ADAPTERS = {
@@ -442,14 +464,15 @@ export function toMachine(product, {
 } = {}) {
   const { brand, type, name } = classify(product.title, product.specs);
   const price = Number(product.priceUSD) > 0 ? Number(product.priceUSD) : null;
-  // 2026-10-04: owner policy — photos import by default when no visible
-  // watermark is detected. The rights basis defaults to 'dropship-authorized'
-  // (supplier terms allow reseller image use). Only watermarked photos are
-  // skipped; the machine still imports without them.
-  const basis = rightsAreUsable(rights) ? rights : 'dropship-authorized';
+  // 2026-10-07: owner instruction — the scraper imports and lists machines the
+  // way the car scraper does. Every photograph the supplier page publishes is
+  // imported; a marketplace watermark is REPORTED for review, never a reason to
+  // throw the picture away (throwing it away is what left the machinery desk
+  // importing facts-only, which read as "the scraper is broken").
+  const basis = rightsAreUsable(rights) && String(rights || '').trim() ? rights : DEFAULT_RIGHTS;
   const allImages = product.images || [];
-  const skippedWatermarked = allImages.filter(looksWatermarked);
-  const images = allImages.filter(src => !looksWatermarked(src));
+  const watermarked = allImages.filter(looksWatermarked);
+  const images = allImages;
   return {
     id: id || ('mch-import-' + Math.random().toString(36).slice(2, 8)),
     ref: ref || 'AR7-MC-NEW',
@@ -466,7 +489,8 @@ export function toMachine(product, {
     image: images[0] || null,
     images,
     photosPending: images.length === 0,
-    skippedPhotos: skippedWatermarked.length,
+    watermarkedPhotos: watermarked.length,
+    skippedPhotos: 0,
     summary: summary || `${name} offered by a vetted Chinese supplier. Price and specification as quoted; confirmed by written quotation.`,
     specs: (product.specs || []).slice(0, 10),
     source: {
