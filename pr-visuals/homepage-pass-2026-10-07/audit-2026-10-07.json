@@ -11,11 +11,126 @@
       "overflowX": false,
       "heroGrid": "580.969px 615.828px",
       "heroPaddingTop": "28.8px",
+      "visual": {
+        "x": 724,
+        "y": 244,
+        "w": 616,
+        "h": 540,
+        "top": 244,
+        "bottom": 784,
+        "right": 1340,
+        "left": 724
+      },
+      "vehicleWindow": {
+        "x": 745,
+        "y": 268,
+        "w": 574,
+        "h": 493,
+        "top": 268,
+        "bottom": 760,
+        "right": 1319,
+        "left": 745
+      },
+      "auctionCard": {
+        "x": 734,
+        "y": 265,
+        "w": 200,
+        "h": 105,
+        "top": 265,
+        "bottom": 370,
+        "right": 934,
+        "left": 734
+      },
+      "routeCard": {
+        "x": 1114,
+        "y": 600,
+        "w": 216,
+        "h": 157,
+        "top": 600,
+        "bottom": 757,
+        "right": 1330,
+        "left": 1114
+      },
+      "founderStat": {
+        "x": 100,
+        "y": 753,
+        "w": 581,
+        "h": 72,
+        "top": 753,
+        "bottom": 825,
+        "right": 681,
+        "left": 100
+      },
+      "statParts": {
+        "figure": {
+          "x": 100,
+          "y": 755,
+          "w": 142,
+          "h": 68,
+          "top": 755,
+          "bottom": 823,
+          "right": 242,
+          "left": 100
+        },
+        "rule": {
+          "x": 264,
+          "y": 753,
+          "w": 2,
+          "h": 72,
+          "top": 753,
+          "bottom": 825,
+          "right": 266,
+          "left": 264
+        },
+        "copy": {
+          "x": 288,
+          "y": 753,
+          "w": 310,
+          "h": 72,
+          "top": 753,
+          "bottom": 825,
+          "right": 598,
+          "left": 288
+        },
+        "unit": {
+          "x": 288,
+          "y": 753,
+          "w": 310,
+          "h": 23,
+          "top": 753,
+          "bottom": 776,
+          "right": 598,
+          "left": 288
+        },
+        "label": {
+          "x": 288,
+          "y": 782,
+          "w": 310,
+          "h": 43,
+          "top": 782,
+          "bottom": 825,
+          "right": 598,
+          "left": 288
+        },
+        "count": {
+          "x": 100,
+          "y": 755,
+          "w": 122,
+          "h": 68,
+          "top": 755,
+          "bottom": 823,
+          "right": 222,
+          "left": 100
+        },
+        "figureText": "900",
+        "unitText": "cars sold",
+        "labelText": "Dozens of satisfied customers, including car businesses."
+      },
       "cardsOpacity": [
         "1",
         "1"
       ],
-      "barOverHeroCopy": 0,
+      "barOverHeroCopy": [],
       "scrollLegs": [
         {
           "at": "hero-mid",
@@ -82,11 +197,126 @@
       "overflowX": false,
       "heroGrid": "554.172px 587.438px",
       "heroPaddingTop": "25.6px",
+      "visual": {
+        "x": 643,
+        "y": 275,
+        "w": 587,
+        "h": 480,
+        "top": 275,
+        "bottom": 755,
+        "right": 1230,
+        "left": 643
+      },
+      "vehicleWindow": {
+        "x": 681,
+        "y": 313,
+        "w": 534,
+        "h": 400,
+        "top": 313,
+        "bottom": 713,
+        "right": 1215,
+        "left": 681
+      },
+      "auctionCard": {
+        "x": 652,
+        "y": 294,
+        "w": 200,
+        "h": 105,
+        "top": 294,
+        "bottom": 399,
+        "right": 852,
+        "left": 652
+      },
+      "routeCard": {
+        "x": 1005,
+        "y": 574,
+        "w": 216,
+        "h": 157,
+        "top": 574,
+        "bottom": 731,
+        "right": 1221,
+        "left": 1005
+      },
+      "founderStat": {
+        "x": 50,
+        "y": 758,
+        "w": 554,
+        "h": 72,
+        "top": 758,
+        "bottom": 830,
+        "right": 604,
+        "left": 50
+      },
+      "statParts": {
+        "figure": {
+          "x": 50,
+          "y": 762,
+          "w": 134,
+          "h": 64,
+          "top": 762,
+          "bottom": 826,
+          "right": 184,
+          "left": 50
+        },
+        "rule": {
+          "x": 206,
+          "y": 758,
+          "w": 2,
+          "h": 72,
+          "top": 758,
+          "bottom": 830,
+          "right": 208,
+          "left": 206
+        },
+        "copy": {
+          "x": 230,
+          "y": 758,
+          "w": 310,
+          "h": 72,
+          "top": 758,
+          "bottom": 830,
+          "right": 540,
+          "left": 230
+        },
+        "unit": {
+          "x": 230,
+          "y": 758,
+          "w": 310,
+          "h": 23,
+          "top": 758,
+          "bottom": 781,
+          "right": 540,
+          "left": 230
+        },
+        "label": {
+          "x": 230,
+          "y": 787,
+          "w": 310,
+          "h": 43,
+          "top": 787,
+          "bottom": 830,
+          "right": 540,
+          "left": 230
+        },
+        "count": {
+          "x": 50,
+          "y": 762,
+          "w": 115,
+          "h": 64,
+          "top": 762,
+          "bottom": 826,
+          "right": 165,
+          "left": 50
+        },
+        "figureText": "900",
+        "unitText": "cars sold",
+        "labelText": "Dozens of satisfied customers, including car businesses."
+      },
       "cardsOpacity": [
         "1",
         "1"
       ],
-      "barOverHeroCopy": 0,
+      "barOverHeroCopy": [],
       "scrollLegs": [
         {
           "at": "hero-mid",
@@ -126,7 +356,7 @@
         },
         {
           "at": "bottom",
-          "scrollY": 7828,
+          "scrollY": 8541,
           "away": true,
           "navOverlaps": []
         }
@@ -153,11 +383,126 @@
       "overflowX": false,
       "heroGrid": "462.75px 490.531px",
       "heroPaddingTop": "24.576px",
+      "visual": {
+        "x": 513,
+        "y": 276,
+        "w": 491,
+        "h": 461,
+        "top": 276,
+        "bottom": 737,
+        "right": 1004,
+        "left": 513
+      },
+      "vehicleWindow": {
+        "x": 551,
+        "y": 314,
+        "w": 438,
+        "h": 381,
+        "top": 314,
+        "bottom": 695,
+        "right": 989,
+        "left": 551
+      },
+      "auctionCard": {
+        "x": 521,
+        "y": 294,
+        "w": 200,
+        "h": 105,
+        "top": 294,
+        "bottom": 399,
+        "right": 721,
+        "left": 521
+      },
+      "routeCard": {
+        "x": 780,
+        "y": 556,
+        "w": 216,
+        "h": 157,
+        "top": 556,
+        "bottom": 713,
+        "right": 996,
+        "left": 780
+      },
+      "founderStat": {
+        "x": 20,
+        "y": 741,
+        "w": 463,
+        "h": 72,
+        "top": 741,
+        "bottom": 814,
+        "right": 483,
+        "left": 20
+      },
+      "statParts": {
+        "figure": {
+          "x": 20,
+          "y": 752,
+          "w": 107,
+          "h": 51,
+          "top": 752,
+          "bottom": 803,
+          "right": 127,
+          "left": 20
+        },
+        "rule": {
+          "x": 147,
+          "y": 741,
+          "w": 2,
+          "h": 72,
+          "top": 741,
+          "bottom": 814,
+          "right": 149,
+          "left": 147
+        },
+        "copy": {
+          "x": 170,
+          "y": 741,
+          "w": 310,
+          "h": 72,
+          "top": 741,
+          "bottom": 814,
+          "right": 480,
+          "left": 170
+        },
+        "unit": {
+          "x": 170,
+          "y": 741,
+          "w": 310,
+          "h": 23,
+          "top": 741,
+          "bottom": 764,
+          "right": 480,
+          "left": 170
+        },
+        "label": {
+          "x": 170,
+          "y": 770,
+          "w": 310,
+          "h": 43,
+          "top": 770,
+          "bottom": 814,
+          "right": 480,
+          "left": 170
+        },
+        "count": {
+          "x": 20,
+          "y": 752,
+          "w": 91,
+          "h": 51,
+          "top": 752,
+          "bottom": 803,
+          "right": 111,
+          "left": 20
+        },
+        "figureText": "900",
+        "unitText": "cars sold",
+        "labelText": "Dozens of satisfied customers, including car businesses."
+      },
       "cardsOpacity": [
         "1",
         "1"
       ],
-      "barOverHeroCopy": 0,
+      "barOverHeroCopy": [],
       "scrollLegs": [
         {
           "at": "hero-mid",
@@ -197,7 +542,7 @@
         },
         {
           "at": "bottom",
-          "scrollY": 7716,
+          "scrollY": 8493,
           "away": true,
           "navOverlaps": []
         }
@@ -224,11 +569,126 @@
       "overflowX": false,
       "heroGrid": "732px",
       "heroPaddingTop": "32.768px",
+      "visual": {
+        "x": 44,
+        "y": 895,
+        "w": 680,
+        "h": 646,
+        "top": 895,
+        "bottom": 1541,
+        "right": 724,
+        "left": 44
+      },
+      "vehicleWindow": {
+        "x": 44,
+        "y": 895,
+        "w": 680,
+        "h": 425,
+        "top": 895,
+        "bottom": 1320,
+        "right": 724,
+        "left": 44
+      },
+      "auctionCard": {
+        "x": 44,
+        "y": 1330,
+        "w": 335,
+        "h": 145,
+        "top": 1330,
+        "bottom": 1475,
+        "right": 379,
+        "left": 44
+      },
+      "routeCard": {
+        "x": 389,
+        "y": 1330,
+        "w": 335,
+        "h": 145,
+        "top": 1330,
+        "bottom": 1475,
+        "right": 724,
+        "left": 389
+      },
+      "founderStat": {
+        "x": 18,
+        "y": 756,
+        "w": 732,
+        "h": 89,
+        "top": 756,
+        "bottom": 846,
+        "right": 750,
+        "left": 18
+      },
+      "statParts": {
+        "figure": {
+          "x": 163,
+          "y": 786,
+          "w": 100,
+          "h": 48,
+          "top": 786,
+          "bottom": 834,
+          "right": 263,
+          "left": 163
+        },
+        "rule": {
+          "x": 278,
+          "y": 773,
+          "w": 2,
+          "h": 72,
+          "top": 773,
+          "bottom": 846,
+          "right": 280,
+          "left": 278
+        },
+        "copy": {
+          "x": 295,
+          "y": 773,
+          "w": 310,
+          "h": 72,
+          "top": 773,
+          "bottom": 846,
+          "right": 605,
+          "left": 295
+        },
+        "unit": {
+          "x": 295,
+          "y": 773,
+          "w": 310,
+          "h": 23,
+          "top": 773,
+          "bottom": 796,
+          "right": 605,
+          "left": 295
+        },
+        "label": {
+          "x": 295,
+          "y": 802,
+          "w": 310,
+          "h": 43,
+          "top": 802,
+          "bottom": 846,
+          "right": 605,
+          "left": 295
+        },
+        "count": {
+          "x": 163,
+          "y": 786,
+          "w": 85,
+          "h": 48,
+          "top": 786,
+          "bottom": 834,
+          "right": 247,
+          "left": 163
+        },
+        "figureText": "900",
+        "unitText": "cars sold",
+        "labelText": "Dozens of satisfied customers, including car businesses."
+      },
       "cardsOpacity": [
         "1",
         "1"
       ],
-      "barOverHeroCopy": 0,
+      "barOverHeroCopy": [],
       "scrollLegs": [
         {
           "at": "hero-mid",
@@ -295,11 +755,126 @@
       "overflowX": false,
       "heroGrid": "372px",
       "heroPaddingTop": "21.944px",
+      "visual": {
+        "x": 9,
+        "y": 842,
+        "w": 372,
+        "h": 565,
+        "top": 842,
+        "bottom": 1408,
+        "right": 381,
+        "left": 9
+      },
+      "vehicleWindow": {
+        "x": 9,
+        "y": 842,
+        "w": 372,
+        "h": 233,
+        "top": 842,
+        "bottom": 1075,
+        "right": 381,
+        "left": 9
+      },
+      "auctionCard": {
+        "x": 9,
+        "y": 1084,
+        "w": 372,
+        "h": 105,
+        "top": 1084,
+        "bottom": 1189,
+        "right": 381,
+        "left": 9
+      },
+      "routeCard": {
+        "x": 9,
+        "y": 1198,
+        "w": 372,
+        "h": 144,
+        "top": 1198,
+        "bottom": 1342,
+        "right": 381,
+        "left": 9
+      },
+      "founderStat": {
+        "x": 9,
+        "y": 729,
+        "w": 372,
+        "h": 72,
+        "top": 729,
+        "bottom": 800,
+        "right": 381,
+        "left": 9
+      },
+      "statParts": {
+        "figure": {
+          "x": 31,
+          "y": 746,
+          "w": 93,
+          "h": 44,
+          "top": 746,
+          "bottom": 790,
+          "right": 124,
+          "left": 31
+        },
+        "rule": {
+          "x": 138,
+          "y": 746,
+          "w": 2,
+          "h": 55,
+          "top": 746,
+          "bottom": 800,
+          "right": 140,
+          "left": 138
+        },
+        "copy": {
+          "x": 154,
+          "y": 746,
+          "w": 205,
+          "h": 55,
+          "top": 746,
+          "bottom": 800,
+          "right": 359,
+          "left": 154
+        },
+        "unit": {
+          "x": 154,
+          "y": 746,
+          "w": 205,
+          "h": 18,
+          "top": 746,
+          "bottom": 763,
+          "right": 359,
+          "left": 154
+        },
+        "label": {
+          "x": 154,
+          "y": 768,
+          "w": 205,
+          "h": 32,
+          "top": 768,
+          "bottom": 800,
+          "right": 359,
+          "left": 154
+        },
+        "count": {
+          "x": 31,
+          "y": 746,
+          "w": 79,
+          "h": 44,
+          "top": 746,
+          "bottom": 790,
+          "right": 110,
+          "left": 31
+        },
+        "figureText": "900",
+        "unitText": "cars sold",
+        "labelText": "Dozens of satisfied customers, including car businesses."
+      },
       "cardsOpacity": [
         "1",
         "1"
       ],
-      "barOverHeroCopy": 0,
+      "barOverHeroCopy": [],
       "scrollLegs": [
         {
           "at": "hero-mid",
@@ -367,11 +942,126 @@
       "overflowX": false,
       "heroGrid": "342px",
       "heroPaddingTop": "19.24px",
+      "visual": {
+        "x": 9,
+        "y": 879,
+        "w": 342,
+        "h": 546,
+        "top": 879,
+        "bottom": 1425,
+        "right": 351,
+        "left": 9
+      },
+      "vehicleWindow": {
+        "x": 9,
+        "y": 879,
+        "w": 342,
+        "h": 214,
+        "top": 879,
+        "bottom": 1093,
+        "right": 351,
+        "left": 9
+      },
+      "auctionCard": {
+        "x": 9,
+        "y": 1102,
+        "w": 342,
+        "h": 105,
+        "top": 1102,
+        "bottom": 1207,
+        "right": 351,
+        "left": 9
+      },
+      "routeCard": {
+        "x": 9,
+        "y": 1216,
+        "w": 342,
+        "h": 144,
+        "top": 1216,
+        "bottom": 1360,
+        "right": 351,
+        "left": 9
+      },
+      "founderStat": {
+        "x": 9,
+        "y": 765,
+        "w": 342,
+        "h": 72,
+        "top": 765,
+        "bottom": 837,
+        "right": 351,
+        "left": 9
+      },
+      "statParts": {
+        "figure": {
+          "x": 16,
+          "y": 782,
+          "w": 93,
+          "h": 44,
+          "top": 782,
+          "bottom": 826,
+          "right": 109,
+          "left": 16
+        },
+        "rule": {
+          "x": 123,
+          "y": 782,
+          "w": 2,
+          "h": 55,
+          "top": 782,
+          "bottom": 837,
+          "right": 125,
+          "left": 123
+        },
+        "copy": {
+          "x": 139,
+          "y": 782,
+          "w": 205,
+          "h": 55,
+          "top": 782,
+          "bottom": 837,
+          "right": 344,
+          "left": 139
+        },
+        "unit": {
+          "x": 139,
+          "y": 782,
+          "w": 205,
+          "h": 18,
+          "top": 782,
+          "bottom": 800,
+          "right": 344,
+          "left": 139
+        },
+        "label": {
+          "x": 139,
+          "y": 805,
+          "w": 205,
+          "h": 32,
+          "top": 805,
+          "bottom": 837,
+          "right": 344,
+          "left": 139
+        },
+        "count": {
+          "x": 16,
+          "y": 782,
+          "w": 79,
+          "h": 44,
+          "top": 782,
+          "bottom": 826,
+          "right": 95,
+          "left": 16
+        },
+        "figureText": "900",
+        "unitText": "cars sold",
+        "labelText": "Dozens of satisfied customers, including car businesses."
+      },
       "cardsOpacity": [
         "1",
         "1"
       ],
-      "barOverHeroCopy": 0,
+      "barOverHeroCopy": [],
       "scrollLegs": [
         {
           "at": "hero-mid",

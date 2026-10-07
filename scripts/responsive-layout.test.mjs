@@ -30,6 +30,10 @@ assert.ok(!existsSync(new URL('../src/fixes.css', import.meta.url)),
   'the fixes.css override layer was removed, not merely un-imported');
 assert.doesNotMatch(headerOffsetFiles, /padding-top:\s*(?:110|122|140|142|150|152|158|160)px/);
 assert.match(layoutCss, /@media \(max-width: 639px\)/);
+// The action row is single-line at every width: the bar's own row is `nowrap`,
+// and each icon control is square so the row shares one centre line.
+assert.match(layoutCss, /\.nav-wrap \.nav \{[^}]*flex-wrap:\s*nowrap;/);
+assert.match(layoutCss, /\.nav-wrap \.nav-actions \.ar7cur-btn \{[^}]*height: 32px;/);
 assert.doesNotMatch(currencyCss, /grid-template-rows:\s*auto auto/);
 // Below 640px the link row is the panel only: no second bar row, no wrapping.
 assert.match(layoutCss, /\.nav-wrap \.navlinks \{\s*display: none;/);

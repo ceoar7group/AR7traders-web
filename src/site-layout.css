@@ -18,7 +18,7 @@
      640–699   quick links, brand · globe · currency · theme · burger
      421–639   brand · globe · currency · theme · burger
      ≤420      brand · globe · currency · theme · burger
-     ≤380      tighter brand + 32px controls
+     ≤380      tighter brand + 32px controls (currency matches their height)
      ≤340      globe button drops out (still one line)
 
    WHY: below 500px the bar used to become a two-row grid (brand on top,
@@ -627,6 +627,7 @@
 
   .nav-wrap .nav-actions .ar7cur-btn {
     min-width: 50px;
+    height: 32px;          /* same as the icon buttons at this tier: one row, one centre line */
     font-size: 10px;
     padding-inline: 6px;
   }

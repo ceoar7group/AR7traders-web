@@ -107,6 +107,29 @@ and Shipping Lane cards inside the same bounded container and smaller than it:
 vehicle photographs come from the goo-net CDN, which the capture sandbox cannot
 reach — the local machine photographs show the same container, inset and crop.)
 
+### Mobile header: one row, verified by geometry
+
+| viewport | bar height | visible action controls | distinct centre lines | wrapped? | `scrollWidth` |
+| --- | ---: | ---: | ---: | --- | --- |
+| 1440×900 | 64 px | 6 | 1 | no (`flex-wrap: nowrap`) | = viewport |
+| 1024×768 | 64 px | 6 | 1 | no | = viewport |
+| 768×1024 | 64 px | 5 | 1 | no | = viewport |
+| 390×844 | 58 px | 4 (EN · USD · theme · burger) | 1 | no | = viewport |
+| 360×740 | 58 px | 4 | 1 | no | = viewport |
+| 320×568 | 58 px | 4 | 1 | no | = viewport |
+
+The desktop-only *preview device modes* button and the sign-in icon (whose
+destination is already the account row inside the burger panel) step out at
+≤1023 / ≤699 px, which is what keeps 360 px single-line. At ≤380 px the currency
+control is now the same 32 px height as the icon buttons, so the row shares one
+centre line instead of sitting ~1 px off (measured spread `0.0` at every width).
+
+Hero keyboard/touch reachability at 390 and 360: `Explore vehicles` (372×54 /
+342×54), `Browse machinery` → `/machinery` (372×50 / 342×50), `Cars · Japan stock`
+→ `/inventory` and `Machines · China desk` → `/machinery` (182×50 / 167×50) are
+all `tabIndex 0`, take focus (`document.activeElement`), and show a visible focus
+ring (`outline 3px`, `overflow-y: visible` — nothing clipped).
+
 **Why some earlier hero screenshots show an empty white window**: not a layout
 fault. The rotating vehicle images are goo-net CDN URLs
 (`picture1.goo-net.com`, `naturalWidth: 0` here); the container, insets, shade
