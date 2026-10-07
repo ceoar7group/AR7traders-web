@@ -86,6 +86,32 @@ Also in this folder: [world section at 1440](world-1440x900.jpg),
 [`900+` in the world band, light](stat-world-light.jpg) and
 [dark](stat-world-dark.jpg).
 
+### Hero composition, in full
+
+The vehicle window is the dominant element at every breakpoint, with the Auction
+and Shipping Lane cards inside the same bounded container and smaller than it:
+
+| viewport | visual (container) | vehicle window | auction card | route card |
+| --- | --- | --- | --- | --- |
+| 1440×900 | 616×540 | **574×493** | 200×105 | 216×157 |
+| 1024×768 | 491×461 | **438×381** | 200×105 | 216×157 |
+| 390×844 | 372×565 (stacked) | **372×233** | 372×105 | 372×144 |
+
+| viewport | the visual, cropped |
+| --- | --- |
+| 1440×900 | [hero-visual-1440x900.jpg](hero-visual-1440x900.jpg) |
+| 1024×768 | [hero-visual-1024x768.jpg](hero-visual-1024x768.jpg) |
+| 390×844 | [hero-visual-390x844.jpg](hero-visual-390x844.jpg) |
+
+(The screenshots step the carousel onto the *China machinery* slide because the
+vehicle photographs come from the goo-net CDN, which the capture sandbox cannot
+reach — the local machine photographs show the same container, inset and crop.)
+
+**Why some earlier hero screenshots show an empty white window**: not a layout
+fault. The rotating vehicle images are goo-net CDN URLs
+(`picture1.goo-net.com`, `naturalWidth: 0` here); the container, insets, shade
+and float title render exactly as measured above.
+
 ## CRM machinery desk — the second half of the work
 
 | screen | what it shows |
