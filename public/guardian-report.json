@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T18:06:39.658Z",
+  "generatedAt": "2026-10-07T20:29:18.264Z",
   "summary": {
     "total": 18,
     "pass": 18,
@@ -32,7 +32,7 @@
       "area": "health",
       "name": "Sitemap has no noindex or staff URLs",
       "status": "pass",
-      "detail": "37 URL(s) in the sitemap",
+      "detail": "43 URL(s) in the sitemap",
       "fix": "Remove staff and transactional paths from public/sitemap.xml"
     },
     {
@@ -53,7 +53,7 @@
       "area": "security",
       "name": "No secrets in the client source",
       "status": "pass",
-      "detail": "39 source file(s) scanned",
+      "detail": "40 source file(s) scanned",
       "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
     },
     {
