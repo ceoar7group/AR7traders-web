@@ -118,13 +118,30 @@ let unmounted = false;
 ok(!crash(), 'the site mounts without the boot error boundary');
 ok(document.querySelector('.site'), 'the site shell renders');
 {
-  const stockLinks = [...document.querySelectorAll('.hero-copy .hero-vignettes a')];
-  ok(stockLinks.length === 2 && /Cars/.test(stockLinks[0]?.textContent) && /Japan stock/.test(stockLinks[0]?.textContent),
-    'the hero clearly links to Cars / Japan stock from the hero-copy column');
-  ok(stockLinks.length === 2 && /Machines/.test(stockLinks[1]?.textContent) && /China desk/.test(stockLinks[1]?.textContent),
-    'the hero clearly links to Machines / China desk from the hero-copy column');
+  // 2026-10-07 hero rebuild: the `.hero-vignettes` chip pair is gone. Both
+  // desks are still one click away — as the hero's own two CTA anchors, which
+  // unlike the old `onClick={()=>go('inventory')}` button are real hrefs, so
+  // Ctrl/Cmd-click, middle-click and crawlers all work.
+  const stockLinks = [...document.querySelectorAll('.hero-copy .hero-cta a')];
+  ok(stockLinks.length === 2, `the hero CTA row is two real anchors (got ${stockLinks.length})`);
   ok(stockLinks[0]?.getAttribute('href') === '/inventory' && stockLinks[1]?.getAttribute('href') === '/machinery',
-    'both origin links are keyboard-focusable same-site links to their real desks');
+    'both desks are keyboard-focusable same-site anchors to their real pages');
+  ok(stockLinks.every(a => a.classList.contains('primary') || a.classList.contains('ghost-btn')),
+    'the two anchors keep the hero CTA styling, not a bare text link');
+  ok(!document.querySelector('.hero-copy .hero-vignettes'),
+    'the duplicated vignette chips no longer float over the photograph');
+  // The facts row is in flow under the photo: nothing is layered on the image.
+  const facts = document.querySelector('.hero-visual .hero-facts');
+  ok(!!facts, 'the hero renders its facts row');
+  ok(!!facts?.querySelector('.route-strip') && !!facts?.querySelector('.auction-chip'),
+    'the facts row carries the shipping-lane strip and the next-auction chip');
+  ok(!document.querySelector('.hero-visual .floating-card') && !document.querySelector('.hero-visual .floating-badge'),
+    'no card or badge is absolutely positioned on the vehicle photograph');
+  ok(!document.querySelector('.hero-visual .spark'), 'the six decorative sparkles are gone from the photo box');
+  ok((facts?.textContent || '').includes('Shipping lane · ') && (facts?.textContent || '').includes('Next auction · '),
+    'both facts cards label themselves, and both still carry the visible demo tag');
+  ok((facts?.querySelectorAll('.card-demo') || []).length === 2,
+    'each facts card says "demo" on its face — the departures are an illustration');
   const counter = document.querySelector('.hero-card .car-counter');
   const before = counter?.textContent.trim();
   const next = document.querySelector('.hero-carousel-controls button[aria-label="Next"]');
@@ -157,6 +174,10 @@ const ROUTES = [
   ['/about', 'ABOUT'],
   ['/contact', 'Contact'],
   ['/destinations', 'DEMO ROUTE CALCULATOR'],
+  // 2026-10-08: each market has its own page; mounting it must show that
+  // market's H1, not the hub's picker.
+  ['/destinations/kenya', 'Import a used car from Japan to Kenya'],
+  ['/destinations/united-kingdom', 'Import a used car from Japan to United Kingdom'],
   ['/world', 'world-page'],
   ['/account', 'AR7'],
   ['/studio', 'AR7'],

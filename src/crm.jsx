@@ -16,7 +16,7 @@ import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readC
 import { imageFallback, hasRetried } from './image-fallback.js';
 import { updateSettingsCache } from './site-settings.js';
 import SeoDesk from './seo-desk.jsx';
-import { MACHINES, MACHINE_TYPES, listPriceUSD } from './machinery-data.js';
+import { MACHINES, MACHINE_TYPES, listPriceUSD, machineYearText } from './machinery-data.js';
 import { buildDiscountStockRows } from './stock-discount-catalogue.js';
 import { RIGHTS } from './machinery-source.js';
 
@@ -721,8 +721,123 @@ async function machineryImport(step, body, token) {
 async function call(path, token, options = {}) {
   const res = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(options.headers || {}) } });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Request failed');
+  if (!res.ok) {
+    // 2026-10-07: a refusal carries the receipt. A confirm that wrote nothing
+    // answers 422 with `invalid` / `skipped` per row; throwing only body.error
+    // threw that away, so "where did my machines go?" had no answer on screen.
+    // The error keeps the whole body and describeImportOutcome() reads it.
+    const err = new Error(body.error || 'Request failed');
+    err.body = body;
+    throw err;
+  }
   return body;
+}
+
+/**
+ * Turn one confirm (or refused confirm) response into a full account of what
+ * happened to EVERY selected machine — the answer to "I selected many machines
+ * and they were not listed".
+ *
+ * The server has always returned the reasons: `invalid` (failed validation:
+ * unknown type, missing brand/model, bad ref), `skipped` (no dedupe key — not
+ * enough detail to tell it apart) and `failed` (a database error). The desk
+ * used to read only imported/updated/rePriced and then announce that the
+ * selection was published, even when nothing had been written. This renders
+ * the other side, per row, by name, with the reason the server gave.
+ *
+ * Pure, exported, and covered by scripts/machinery-receipt.test.jsx (rendered
+ * against a stubbed API, and unit-tested against the exact body applyImport()
+ * returns) so the receipt cannot drift from the API's shape.
+ */
+export function describeImportOutcome(out, selectedCount = null) {
+  const body = out || {};
+  const imported = Number(body.imported) || 0;
+  const updated = Number(body.updated) || 0;
+  const rePriced = Array.isArray(body.rePriced) ? body.rePriced : [];
+  const skipped = Array.isArray(body.skipped) ? body.skipped : [];
+  const invalid = Array.isArray(body.invalid) ? body.invalid : [];
+  const failed = Array.isArray(body.failed) ? body.failed : [];
+  const wrote = imported + updated;
+  const missed = skipped.length + invalid.length + failed.length;
+  // A row is named the way a person recognises it. A real stock number
+  // (AR7-MC-014) is the best identifier there is; the placeholder every NEW
+  // machine carries (AR7-MC-NEW) identifies nobody, so for a refusal the
+  // brand/model the scraper read is used instead.
+  const PLACEHOLDER_REF = 'AR7-MC-NEW';
+  const described = row => row?.name || [row?.brand, row?.model].filter(Boolean).join(' ').trim();
+  const name = row => {
+    const ref = String(row?.ref || '').trim();
+    const label = described(row);
+    const realRef = ref && ref.toUpperCase() !== PLACEHOLDER_REF;
+    if (realRef && label) return `${ref} · ${label}`;
+    if (realRef) return ref;
+    return label || ref || 'that machine';
+  };
+
+  const headline = [];
+  if (imported) headline.push(`${imported} added`);
+  if (updated) headline.push(`${updated} updated`);
+  if (rePriced.length) headline.push(`${rePriced.length} re-priced`);
+  if (!headline.length) headline.push('nothing written');
+
+  const lines = [];
+  for (const row of invalid) {
+    const why = (row?.errors || []).map(e => e?.message).filter(Boolean).join('; ');
+    lines.push({ kind: 'invalid', ref: name(row), why: why || 'failed validation' });
+  }
+  for (const row of skipped) lines.push({ kind: 'skipped', ref: name(row), why: row?.reason || 'not enough detail to tell this machine apart' });
+  for (const row of failed) lines.push({ kind: 'failed', ref: name(row), why: row?.error || 'the database refused the write' });
+
+  return {
+    imported, updated, rePriced, skipped, invalid, failed,
+    // The refused rows themselves, so the desk can point the operator at the
+    // candidate that needs correcting rather than at every selected one.
+    refused: [...invalid, ...skipped, ...failed],
+    wrote, missed, selectedCount,
+    headline: headline.join(', '),
+    lines,
+    everythingWrote: wrote > 0 && missed === 0,
+    partial: wrote > 0 && missed > 0,
+    nothingWritten: wrote === 0,
+    // The names the server refused, so the desk can offer an inline fix-up and
+    // a re-confirm instead of making the operator re-scrape the source.
+    refusedRefs: lines.map(l => String(l.ref).toUpperCase())
+  };
+}
+
+/**
+ * Which previewed candidates the server actually refused.
+ *
+ * The receipt names rows; this maps those names back onto the candidates still
+ * on screen, so the inline fix-up editor opens on the machine that needs it and
+ * not on the two that were written successfully. Matching is on the fields both
+ * sides carry — brand/model when the refusal has them, a real stock number
+ * otherwise. A refusal that identifies nothing (no brand, no model, no real
+ * ref) can only mean "some of your selection", so every selected candidate is
+ * offered the fix-up rather than none.
+ *
+ * @param {{machine: object, key: string}[]} candidateRows  the previewed rows
+ * @param {Set<string>} selectedKeys                        the ones confirmed
+ * @param {object[]} refusedRows                            outcome.refused
+ */
+export function refusedCandidateKeys(candidateRows, selectedKeys, refusedRows) {
+  const selected = (candidateRows || []).filter(c => selectedKeys?.has?.(c.key));
+  const rows = (refusedRows || []).filter(Boolean);
+  const tokens = v => String(v || '').trim().toLowerCase();
+  const identifiable = rows.filter(r => tokens(r.brand) || tokens(r.model) || tokens(r.name) ||
+    (tokens(r.ref) && tokens(r.ref) !== 'ar7-mc-new'));
+  if (!identifiable.length) return new Set(selected.map(c => c.key));
+  const keys = new Set();
+  for (const c of selected) {
+    const m = c.machine || {};
+    const hit = identifiable.some(r =>
+      (tokens(r.brand) && tokens(r.brand) === tokens(m.brand)) ||
+      (tokens(r.model) && tokens(r.model) === tokens(m.model)) ||
+      (tokens(r.name) && tokens(r.name) === tokens(m.name)) ||
+      (tokens(r.ref) && tokens(r.ref) !== 'ar7-mc-new' && tokens(r.ref) === tokens(m.ref)));
+    if (hit) keys.add(c.key);
+  }
+  return keys;
 }
 
 export default function CrmApp() {
@@ -1377,7 +1492,14 @@ export default function CrmApp() {
                     </button>
                   </div>
                 )}
-                <MachineryImportPanel token={session.access_token} canWrite={canWrite('machinery')} notify={setNotice} onImported={loadAll} />
+                <MachineryImportPanel
+                  token={session.access_token}
+                  canWrite={canWrite('machinery')}
+                  canSetDefault={hasPerm(perms, profile?.role, 'settings.write')}
+                  machines={rows.machinery || []}
+                  notify={setNotice}
+                  onImported={loadAll}
+                />
               </>
             )}
             {/* Merged cars panel: CRM inventory and the website showroom are
@@ -4826,7 +4948,7 @@ function machineryCandidateKey(machine, index) {
   return String(machine?.source?.url || machine?.source_url || machine?.ref || `${machine?.name || 'machine'}-${index}`);
 }
 
-export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
+export function MachineryImportPanel({ token, canWrite, canSetDefault = false, notify, onImported, machines = [] }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   // 2026-10-07: owner policy — imports carry the supplier-listing basis by
@@ -4841,6 +4963,27 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   // category page in one run, the way the car importer takes the whole seed.
   const [scrapeCat, setScrapeCat] = useState('excavators');
   const [scrapeAll, setScrapeAll] = useState(false);
+  // 2026-10-07: how many machines ONE run may pull. Per-run by default (this
+  // input, remembered for the operator in localStorage), and — for staff with
+  // settings.write — "Make default" writes machinery_scraper_batch so the whole
+  // desk and the nightly run agree. The server clamps to MAX_SCRAPER_MACHINES.
+  const [batch, setBatch] = useState(() => {
+    try {
+      const v = Math.floor(Number(localStorage.getItem('ar7.machinery.scraperBatch')));
+      return Number.isFinite(v) && v > 0 ? Math.min(SCRAPER_RUN_LIMIT, Math.max(1, v)) : 8;
+    } catch { return 8; }
+  });
+  const editBatch = v => {
+    const n = Math.min(SCRAPER_RUN_LIMIT, Math.max(1, Math.floor(Number(v) || 1)));
+    setBatch(n);
+    try { localStorage.setItem('ar7.machinery.scraperBatch', String(n)); } catch { /* private mode */ }
+  };
+  // The receipt: what actually happened to every selected machine on confirm.
+  const [receipt, setReceipt] = useState(null);
+  // Refused candidate keys, so an operator can fix type/brand/model in place
+  // and re-confirm instead of re-scraping.
+  const [refusedKeys, setRefusedKeys] = useState(() => new Set());
+  const [purgeBusy, setPurgeBusy] = useState(false);
 
   // A new link invalidates the preview immediately — importing after editing
   // the box would write something the operator never read.
@@ -4900,17 +5043,68 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         adapter: preview.confirmWith?.adapter || null,
         source: preview.isScraper ? 'scraper' : 'supplier-link'
       }, token);
-      const parts = [];
-      if (out.imported) parts.push(`${out.imported} imported`);
-      if (out.updated) parts.push(`${out.updated} updated`);
-      if (out.rePriced?.length) parts.push(`${out.rePriced.length} re-priced`);
-      notify(parts.join(', ') + ' — selected machines are published on the website');
-      setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
+      const account = describeImportOutcome(out, list.length);
+      setReceipt(account);
+      // Only a clean, complete write clears the preview. Anything refused stays
+      // on screen with its reason, fixable in place (see the inline editor).
+      if (account.everythingWrote) {
+        setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
+        setRefusedKeys(new Set());
+      } else {
+        setRefusedKeys(refusedCandidateKeys(candidateRows, selectedCandidateKeys, account.refused));
+      }
+      notify(account.everythingWrote
+        ? `${account.headline} — published on the website`
+        : `${account.headline} — ${account.missed} of ${list.length} selected were NOT written (see the receipt)`);
       onImported && onImported();
     } catch (e) {
-      setError(e.message);
+      // A 422 refusal is also a receipt: the server lists every refused row and
+      // why. Show it as one, not as a bare error string.
+      const account = describeImportOutcome(e.body || {}, list.length);
+      if (account.lines.length || account.nothingWritten) {
+        setReceipt(account);
+        setRefusedKeys(refusedCandidateKeys(candidateRows, selectedCandidateKeys, account.refused));
+        setError(`${e.message} — nothing was written.`);
+      } else {
+        setError(e.message);
+      }
     } finally { setBusy(false); }
   };
+
+  // A refused candidate is fixable in the desk: correct the type, brand or
+  // model the scraper guessed and re-confirm. Re-scraping would just guess the
+  // same wrong value again.
+  const patchCandidate = (key, field, value) => setPreview(prev => {
+    if (!prev) return prev;
+    const machinesNext = (prev.machines || []).map((machine, index) =>
+      machineryCandidateKey(machine, index) === key ? { ...machine, [field]: value } : machine);
+    return { ...prev, machines: machinesNext, machine: machinesNext[0] || prev.machine };
+  });
+
+  // Stale + unpublished rows a person may clear. `step=stale` only flags; this
+  // is the archive/delete end of that path, and it is explicit per click.
+  const staleUnpublished = (machines || []).filter(m =>
+    m.published === false && m.source_missing_since &&
+    (Date.now() - Date.parse(m.source_missing_since)) > 14 * 86400000);
+  const runPurge = async remove => {
+    if (!window.confirm(remove
+      ? `DELETE ${staleUnpublished.length} unpublished machine(s) whose source has been gone 14+ days? Archived rows and rows missing twice that long are removed permanently. Published machines are never touched.`
+      : `Archive ${staleUnpublished.length} unpublished machine(s) whose source has been gone 14+ days? The rows stay in the desk and can be re-published.`)) return;
+    setPurgeBusy(true);
+    try {
+      const out = await call('/api/site-content?machinery=purge-stale', token, {
+        method: 'POST', body: JSON.stringify({ olderThanDays: 14, remove })
+      });
+      notify(remove
+        ? `Deleted ${out.deleted?.length || 0} machine(s); kept ${out.kept?.length || 0}`
+        : `Archived ${out.archived?.length || 0} machine(s); ${out.kept?.length || 0} were already archived`);
+      onImported && onImported();
+    } catch (e) { setError('Purge: ' + e.message); }
+    finally { setPurgeBusy(false); }
+  };
+
+  const deskTotal = (machines || []).filter(m => !m._notInDesk).length;
+  const deskPublished = (machines || []).filter(m => !m._notInDesk && m.published !== false).length;
 
   if (!canWrite) {
     return (
@@ -4925,10 +5119,90 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
 
   return (
     <div className="crm-import-panel">
+      {/* The honest state of the desk, above the import controls: published is
+          the default and the only way a machine leaves the public catalogue is
+          a person hiding it. */}
+      <p className="crm-hint crm-desk-count">
+        <Check size={13} /> {deskPublished} of {deskTotal} desk machines are published on the website
+        {deskTotal - deskPublished > 0
+          ? ` — ${deskTotal - deskPublished} hidden by a person (unpublished or archived).`
+          : ', and none are hidden.'}
+      </p>
+      {staleUnpublished.length > 0 && (
+        <div className="crm-scraper-result crm-scraper-stale" data-kind="partial">
+          <b><Ban size={13} /> {staleUnpublished.length} unpublished machine(s) have been missing from their source for 14+ days</b>
+          <span>They still cost a row and a place in the review queue. step=stale only flags; this is the deliberate end of that path.</span>
+          <div>
+            <button type="button" onClick={() => runPurge(false)} disabled={purgeBusy}>Archive them</button>
+            <button type="button" onClick={() => runPurge(true)} disabled={purgeBusy}>Delete archived / 28-day rows</button>
+          </div>
+        </div>
+      )}
+      {receipt && (
+        <section
+          className="crm-scraper-result"
+          data-kind={receipt.nothingWritten ? 'none' : receipt.partial ? 'partial' : 'ok'}
+          aria-live="polite"
+          aria-label="What the last import wrote"
+        >
+          <b>
+            {receipt.nothingWritten ? <Ban size={13} /> : receipt.partial ? <ShieldAlert size={13} /> : <Check size={13} />}
+            {' '}{receipt.headline}
+            {receipt.selectedCount != null
+              ? ` of ${receipt.selectedCount} selected`
+              : ''}
+          </b>
+          <span>
+            {receipt.missed === 0
+              ? 'Every selected machine was written and is published on the public catalogue.'
+              : `${receipt.missed} of the selection did NOT make it. A preview writes nothing at all — only “Confirm import” writes, and each row below carries the reason the server gave.`}
+          </span>
+          {receipt.lines.length > 0 && (
+            <ul>
+              {receipt.lines.map((line, i) => (
+                <li key={i} data-kind={line.kind}>
+                  <b>{line.ref}</b>
+                  <span>{line.kind === 'invalid' ? 'refused: ' : line.kind === 'skipped' ? 'skipped: ' : 'failed: '}{line.why}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {receipt.nothingWritten && !receipt.lines.length && (
+            <span>Nothing was written and the server gave no per-row reason — check the connection and try the preview again.</span>
+          )}
+        </section>
+      )}
       <div className="crm-import-toggles">
         <button className="crm-import-toggle" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}>
           <Link2 size={13} /> {open ? 'Hide' : 'Import from a supplier link'}
         </button>
+        <label className="crm-import-toggle crm-scraper-batch" title="How many machines this run may pull (1–24)">
+          Machines per run
+          <input
+            type="number" min={1} max={SCRAPER_RUN_LIMIT} step={1} value={batch}
+            onChange={e => editBatch(e.target.value)}
+            aria-label="Machines per scraper run"
+          />
+        </label>
+        {canSetDefault && (
+          <button
+            className="crm-import-toggle crm-scraper-default"
+            type="button"
+            title="Save this as machinery_scraper_batch for the whole desk and the nightly run"
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await call('/api/settings', token, { method: 'PATCH', body: JSON.stringify({ machinery_scraper_batch: String(batch) }) });
+                updateSettingsCache && updateSettingsCache();
+                notify(`Machines per run saved as the desk default (${batch})`);
+              } catch (e) { setError('Saving the default: ' + e.message); }
+              finally { setBusy(false); }
+            }}
+            disabled={busy}
+          >
+            <Check size={13} /> Make default
+          </button>
+        )}
         <select
           className="crm-import-toggle crm-scraper-cat"
           value={scrapeAll ? 'all' : scrapeCat}
@@ -4945,7 +5219,8 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         <button className="crm-import-toggle crm-scraper-toggle" type="button" onClick={async () => {
           setBusy(true); setError(''); setPreview(null); setSelectedCandidateKeys(new Set());
           try {
-            const out = await machineryImport('scraper', scrapeAll ? { categories: ['all'], limit: SCRAPER_RUN_LIMIT } : { category: scrapeCat, limit: SCRAPER_RUN_LIMIT }, token);
+            const out = await machineryImport('scraper', scrapeAll ? { categories: ['all'], limit: batch } : { category: scrapeCat, limit: batch }, token);
+            setReceipt(null); setRefusedKeys(new Set());
             const candidates = Array.isArray(out?.machines) ? out.machines.slice(0, SCRAPER_RUN_LIMIT) : [];
             if (candidates.length) {
               notify(`Scraper found ${candidates.length} machine(s) — review and select candidates`);
@@ -4969,7 +5244,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
             setError('Scraper: ' + e.message);
           } finally { setBusy(false); }
         }} disabled={busy}>
-          <RefreshCw size={13} /> Run scraper (up to {SCRAPER_RUN_LIMIT})
+          <RefreshCw size={13} /> Run scraper (up to {batch})
         </button>
       </div>
 
@@ -5037,6 +5312,23 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
                         </span>
                         <small>Photo basis recorded: {sm.source?.rights || rights || 'supplier-listing'} · a watermarked copy is flagged for replacement, not dropped.</small>
                         {sm.source?.url && <a href={sm.source.url} target="_blank" rel="noopener noreferrer">Open supplier source <ExternalLink size={12}/></a>}
+                        {refusedKeys.has(key) && (
+                          <div className="crm-scraper-fix" aria-label={`Fix ${sm.name || sm.model || 'this candidate'} and re-confirm`}>
+                            <b><ShieldAlert size={12} /> Refused last confirm — correct it here and confirm again, no re-scrape needed</b>
+                            <label>Type
+                              <select value={sm.type || ''} onChange={e => patchCandidate(key, 'type', e.target.value)} aria-label="Machine type">
+                                <option value="">— choose —</option>
+                                {MACHINE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            </label>
+                            <label>Brand
+                              <input value={sm.brand || ''} onChange={e => patchCandidate(key, 'brand', e.target.value)} aria-label="Brand" />
+                            </label>
+                            <label>Model
+                              <input value={sm.model || ''} onChange={e => patchCandidate(key, 'model', e.target.value)} aria-label="Model" />
+                            </label>
+                          </div>
+                        )}
                         {previewRow.warnings?.length > 0 && <ul className="crm-import-warnings">{previewRow.warnings.map((warning, wi) => <li key={wi}><ShieldAlert size={12}/>{warning}</li>)}</ul>}
                         {machineSpecs.length > 0 && <details><summary>Read {machineSpecs.length} supplier specification{machineSpecs.length === 1 ? '' : 's'}</summary><dl className="crm-import-specs">{machineSpecs.map(([label, value], si) => <div key={si}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>}
                       </div>
@@ -5063,7 +5355,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
                   <small>READ FROM {preview.source?.label || 'the link'}</small>
                   <h3>{m.name}</h3>
                   <p>
-                    {m.brand} · {m.type} · {m.year}
+                    {m.brand} · {m.type} · {machineYearText(m, 'year not stated')}
                     {m.supplierPrice ? ` · $${Number(m.supplierPrice).toLocaleString()} supplier` : ' · no price found'}
                     {m.listPrice ? ` → $${Number(m.listPrice).toLocaleString()} list` : ''}
                   </p>

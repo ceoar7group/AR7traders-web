@@ -27,7 +27,7 @@ export function decodeRef(ref) {
   return raw;
 }
 
-import { carRef as _carRef, hrefFor as _hrefFor, machineHrefFor, brandFromSlug, slugify, carLandingPath } from './sitemap-helpers.js';
+import { carRef as _carRef, hrefFor as _hrefFor, machineHrefFor, brandFromSlug, slugify, carLandingPath, destinationPath } from './sitemap-helpers.js';
 export const carRef = _carRef;
 export const hrefFor = _hrefFor;
 
@@ -138,6 +138,7 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
   let modelSlug = null;
   let machineType = null;
   let machineRef = null;
+  let destSlug = null;
 
   if (parts[0] === 'inventory') {
     page = 'inventory';
@@ -157,6 +158,12 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
     page = 'machinery';
     machineType = unslug(parts[1]);
     machineRef = parts[2] ? decodeRef(parts[2]) : null;
+  } else if (parts[0] === 'destinations' && parts[1]) {
+    // /destinations/kenya, /destinations/united-kingdom … — one indexable page
+    // per market. The hub's picker stays a control on /destinations; these are
+    // the URLs a search engine can reach, share and rank (2026-10-08).
+    page = 'destinations';
+    destSlug = slugify(decodeRef(parts[1])) || null;
   } else if (parts[0] && PAGES.has(parts[0])) {
     page = parts[0];
     carId = carFrom(parts[1], params.get('car'), hashed.carId);
@@ -192,7 +199,7 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
     }
   }
 
-  return { page: page || 'home', carId: carId || null, make, model, machineType, machineRef: machineRef || null };
+  return { page: page || 'home', carId: carId || null, make, model, machineType, machineRef: machineRef || null, destSlug: destSlug || null };
 }
 
 /** Accepts navigate() strings: 'inventory', 'inventory?car=43', '/inventory/43', '#contact'. */
@@ -228,6 +235,7 @@ export function hrefFromTarget(target) {
   // href of every machinery <a> collapsed to /machinery, so the detail page was
   // unreachable by link — the bug the client-mount test now pins.
   if (r.page === 'machinery' && r.machineType) return machineHrefFor(r.machineType, r.machineRef);
+  if (r.page === 'destinations' && r.destSlug) return destinationPath(r.destSlug);
   const href = hrefFor(r.page, r.carId);
   // Brand filters live in the query string, never in the hash (a `?` in the
   // hash is dropped by browsers on reload — see the note at the top).
@@ -248,7 +256,11 @@ export function canonicalHref(loc) {
   params.delete('car');
   if (route.make) params.set('make', route.make);
   else params.delete('make');
-  return withSearch(hrefFor(route.page, route.carId), params) + hashFor(route.page, route.carId);
+  // One canonical per market page, exactly as for a machine or a brand landing.
+  const base = (route.page === 'destinations' && route.destSlug)
+    ? destinationPath(route.destSlug)
+    : hrefFor(route.page, route.carId);
+  return withSearch(base, params) + hashFor(route.page, route.carId);
 }
 
 /**
@@ -286,7 +298,7 @@ export function rememberVehicle(carId) {
   } catch { /* private mode */ }
 }
 
-export function writeLocation(page, carId, { replace = false, make = null, machineType = null, machineRef = null } = {}) {
+export function writeLocation(page, carId, { replace = false, make = null, machineType = null, machineRef = null, destSlug = null } = {}) {
   const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
   params.delete('car');
   const m = makeFrom(make);
@@ -297,6 +309,7 @@ export function writeLocation(page, carId, { replace = false, make = null, machi
   // land on the machine, never on the catalogue.
   const path = (page === 'machinery' && machineType)
     ? machineHrefFor(machineType, machineRef)
+    : (page === 'destinations' && destSlug) ? destinationPath(destSlug)
     : (m && page === 'inventory' && !carId) ? carLandingHref(m) : hrefFor(page, carId);
   const url = withSearch(path, params) + hashFor(page, carId);
   rememberVehicle(page === 'inventory' ? carId : null);
@@ -306,7 +319,8 @@ export function writeLocation(page, carId, { replace = false, make = null, machi
   if (now === url) return url;
   try {
     const fn = replace ? history.replaceState : history.pushState;
-    fn.call(history, page === 'machinery' ? { page, carId, machineType, machineRef } : { page, carId }, '', url);
+    fn.call(history, page === 'machinery' ? { page, carId, machineType, machineRef }
+      : page === 'destinations' ? { page, carId, destSlug } : { page, carId }, '', url);
   } catch {
     try { location.hash = hashFor(page, carId).replace(/^#/, '') || ''; }
     catch { /* ignore */ }

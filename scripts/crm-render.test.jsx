@@ -511,7 +511,11 @@ say('\\nMachinery scraper review and explicit confirmation');
   }
   const request = scraperRequests.at(-1);
   ok(!!request, 'the scraper sends a same-origin preview request');
-  ok(JSON.parse(request?.options.body || '{}').limit === 24, 'the UI asks the API for up to 24 candidates');
+  // 2026-10-08: the per-run count is the operator's, defaulting to the server's
+  // machinery_scraper_batch (8). The ceiling is still 24 and is asserted in
+  // scripts/machinery-receipt.test.jsx, which also drives the input itself.
+  ok(JSON.parse(request?.options.body || '{}').limit === 8,
+    `the UI asks the API for the operator's per-run count, 8 by default (got ${JSON.parse(request?.options.body || '{}').limit})`);
   const candidateRows = [...host.querySelectorAll('.crm-scraper-list > li')];
   ok(candidateRows.length === scraperCandidates.length,
     `the UI shows every candidate the run returned (${candidateRows.length})`);

@@ -381,7 +381,20 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // 2026-10-03: +4 machinery type pages (/machinery/<type>), then +12 machine
   // detail pages (/machinery/<type>/<REF>) — a unit nobody can find in a
   // search result is a unit nobody quotes.
-  ok(locs.length === 37, `sitemap lists 37 URLs (found ${locs.length})`);
+  // 2026-10-08: +6 market pages (/destinations/<market>) — one indexable URL
+  // per market we ship to, because "import a used car from japan to kenya" has
+  // to be answerable by a page of its own. The count stays hard-coded on
+  // purpose: every URL added to the sitemap should make someone update it.
+  ok(locs.length === 43, `sitemap lists 43 URLs (found ${locs.length})`);
+  {
+    const { DEST, destinationHref } = await import('../src/destinations.js');
+    for (const d of DEST) {
+      const u = 'https://ar7traders.com' + destinationHref(d[0]);
+      ok(locs.includes(u), `sitemap includes the market page ${destinationHref(d[0])}`);
+      ok(locs.filter(x => x === u).length === 1, `and lists ${destinationHref(d[0])} exactly once — one canonical per market`);
+    }
+    ok(new Set(locs).size === locs.length, `no URL appears twice in the sitemap (${locs.length} entries, ${new Set(locs).size} unique)`);
+  }
   {
     const { MACHINES, machineHref } = await import('../src/machinery-data.js');
     for (const m of MACHINES) {

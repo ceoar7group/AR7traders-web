@@ -112,6 +112,12 @@ export async function previewMachine({ url, html = null, rights = null, adapter 
     warnings.push(`Could not tell what kind of machine this is (${MACHINE_TYPES.join(', ')}). Set it before confirming.`);
   }
   if (!machine.supplierPrice) warnings.push('No price was found — the machine will import without one and cannot be quoted.');
+  // 2026-10-08: the year is never invented (see toMachine). Say so in the
+  // preview, because a listing without a model year is a fact the operator
+  // should see before confirming, not discover on the public page.
+  if (machine.year == null || machine.year === '') {
+    warnings.push('The supplier page states no model year — the machine will be listed without one rather than with an invented year.');
+  }
 
   const review = reviewPhotos(machine);
   if (!review.pass) warnings.push(...review.flags);
@@ -150,6 +156,20 @@ async function fetchPage(url) {
 // Confirm — writes, and only what was approved
 // ---------------------------------------------------------------------------
 
+/** A stated, finite, positive year — otherwise null. Never 0, never invented. */
+export function yearValue(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+/** A stated, finite, non-negative hour meter — otherwise null ("on request"). */
+export function hoursValue(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+}
+
 /** Map the site's machine shape onto database columns. */
 export function toRow(machine, { rights = null, adapter = 'product-page', ref = null } = {}) {
   // `ref` lets a re-check keep the reference it already has. toMachine()
@@ -166,8 +186,11 @@ export function toRow(machine, { rights = null, adapter = 'product-page', ref = 
     type: resolveType(machine.type) || null,
     brand: machine.brand || null,
     model: machine.model || machine.name || null,
-    year: Number.isFinite(Number(machine.year)) ? Number(machine.year) : null,
-    hours: Number.isFinite(Number(machine.hours)) ? Number(machine.hours) : null,
+    // `Number(null)` is 0 and `Number('')` is 0, so a naive Number() test would
+    // turn an unstated year or hour meter into a confident "0". Absent stays
+    // absent (2026-10-08).
+    year: yearValue(machine.year),
+    hours: hoursValue(machine.hours),
     // NULL, not 0, when no price was found. A machine with no price is
     // importable (and the preview says so); a price of 0 fails validation
     // outright, which would silently break the promise the warning made.
@@ -228,7 +251,19 @@ export function planImport(existingRows, candidates) {
     const checked = validateRow(row);
 
     if (checked.errors.length) {
-      errors.push({ ref: row?.ref || null, errors: checked.errors });
+      // 2026-10-08: a refused row has to be identifiable on the desk. Every
+      // NEW machine carries the placeholder ref 'AR7-MC-NEW' at this point
+      // (the real AR7-MC-NNN is only assigned to a row that passes), so a
+      // refusal quoting the ref alone says "one of them was wrong" — which is
+      // exactly the ambiguity behind "where did the machines I selected go?".
+      // Carry the fields the operator can recognise the machine by.
+      errors.push({
+        ref: row?.ref || null,
+        name: row?.name || null,
+        brand: row?.brand || null,
+        model: row?.model || row?.name || null,
+        errors: checked.errors
+      });
       continue;
     }
     const value = checked.value;
