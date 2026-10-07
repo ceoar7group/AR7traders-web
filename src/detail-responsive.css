@@ -51,7 +51,7 @@
 
 @media (min-width: 651px) and (max-width: 1000px) {
   .detail-page {
-    padding-top: 136px;
+    padding-top: var(--hero-lead);
     padding-bottom: 88px;
   }
 
@@ -129,7 +129,7 @@
 
 @media (max-width: 650px) {
   .detail-page {
-    padding-top: 124px;
+    padding-top: var(--hero-lead);
     padding-bottom: 60px;
   }
 
@@ -416,16 +416,15 @@
 }
 
 /* W2 — make the scroll cue and the 900+ hero proof visible on small screens.
-   The old generic <=1000px rule hid the cue entirely. Reserve its own bottom
-   strip so it cannot cover the founder statistic or the hero controls. */
+   The old generic <=1000px rule hid the cue entirely. The cue now sits in the
+   hero's own flow (site-layout.css §9), so it can never cover the statistic or
+   the hero controls and needs no reserved bottom strip. */
 @media(max-width:1000px){
- .hero{padding-bottom:82px!important}
- .hero .scroll-cue{display:flex!important;left:50%;bottom:18px;transform:translateX(-50%);z-index:8;white-space:nowrap}
+ .hero .scroll-cue{display:flex!important;white-space:nowrap}
  .hero-copy .founder-stat--hero{display:flex;visibility:visible;opacity:1;margin-top:28px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent);position:relative;z-index:4}
 }
 @media(max-width:650px){
- .hero{padding-bottom:94px!important}
- .hero .scroll-cue{bottom:16px;font-size:7px;letter-spacing:1.2px}
+ .hero .scroll-cue{font-size:7px;letter-spacing:1.2px}
  .hero-copy{padding-bottom:0}
  .hero-copy .founder-stat--hero{justify-content:center;gap:14px;margin-top:22px}
  .hero-copy .founder-stat--hero .founder-stat-figure{font-size:44px;letter-spacing:-1px}

@@ -135,23 +135,32 @@ console.log('\n-- validation --');
   ok(badStatus.errors.some(e => e.field === 'status'), `an unknown status is rejected (allowed: ${MACHINE_STATUSES.join(', ')})`);
 }
 
-console.log('\n-- the rights gate --');
+console.log('\n-- photo basis: recorded, never a publishing gate --');
 {
   const clean = { ...GOOD, images: [{ src: '/a.webp', rights: 'own-photo' }] };
-  ok(publishBlockers(clean, {}).length === 0, 'a photo with a rights basis raises no blocker');
-  for (const basis of ['dropship-authorized', 'supplier-permission', 'own-photo']) {
+  ok(publishBlockers(clean, {}).length === 0, 'a photo with a basis raises no blocker');
+  for (const basis of ['supplier-listing', 'dropship-authorized', 'supplier-permission', 'own-photo']) {
     ok(publishBlockers({ ...GOOD, images: [{ src: '/a.webp', rights: basis }] }, {}).length === 0,
-      `${basis} is accepted as a rights basis`);
+      `${basis} is accepted and raises no blocker`);
   }
+  // 2026-10-07: a machine lists with its photos whatever basis they carry; the
+  // desk shows the basis, and a marketplace copy is flagged for replacement.
+  const marketplace = { ...GOOD, images: [{ src: 'https://image.made-in-china.com/a.jpg', rights: 'supplier-listing' }] };
+  const pub = toPublic({ id: 'x', ...marketplace });
+  ok(pub.images.length === 1, 'a marketplace-hosted photo is published, not withheld');
+  ok(pub.photos_withheld === 0, 'nothing is withheld for want of an agreement');
+  ok(pub.photos_flagged === 1, 'and the CRM is told the copy looks watermarked');
+  ok(pub.published !== false, 'the machine is listed');
+
+  const mixed = { ...GOOD, images: [{ src: '/a.webp', rights: 'own-photo' }, { src: '/b.webp', rights: 'supplier-listing' }] };
+  ok(JSON.stringify(toPublic({ id: 'x', ...mixed }).images) === '["/a.webp","/b.webp"]',
+    'a mixed gallery keeps every photo');
+
+  // A legacy row that explicitly records an empty basis still reports the hold,
+  // so the desk can ask for the missing provenance.
   const dirty = { ...GOOD, images: [{ src: '/a.webp', rights: '' }] };
-  ok(publishBlockers(dirty, {}).includes(HOLD.NO_RIGHTS), 'a photo with no rights basis is flagged');
-  const pub = toPublic({ id: 'x', ...dirty });
-  ok(pub.images.length === 0, 'the unlicensed photo is dropped from the public row');
-  ok(pub.photos_withheld === 1, 'the CRM is told how many photos were withheld');
-  ok(pub.published !== false, 'the machine itself is still listed');
-  const mixed = { ...GOOD, images: [{ src: '/a.webp', rights: 'own-photo' }, { src: '/watermarked.webp', rights: '' }] };
-  ok(JSON.stringify(toPublic({ id: 'x', ...mixed }).images) === '["/a.webp"]',
-    'a mixed gallery keeps the licensed photo and drops the rest');
+  ok(publishBlockers(dirty, {}).includes(HOLD.NO_RIGHTS), 'an explicitly empty basis is still reported');
+  ok(toPublic({ id: 'x', ...dirty }).images.length === 1, 'but the photo itself is not hidden from the site');
 }
 
 console.log('\n-- create / read through the API --');

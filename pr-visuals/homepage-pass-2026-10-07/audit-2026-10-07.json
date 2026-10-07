@@ -1,0 +1,433 @@
+{
+  "captured": "2026-10-07",
+  "tool": "puppeteer-core + @sparticuz/chromium, prefers-reduced-motion",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "headH": "174px",
+      "heroTop": 174,
+      "heroBottom": 937,
+      "tickerTop": 937,
+      "overflowX": false,
+      "heroGrid": "580.969px 615.828px",
+      "heroPaddingTop": "28.8px",
+      "cardsOpacity": [
+        "1",
+        "1"
+      ],
+      "barOverHeroCopy": 0,
+      "scrollLegs": [
+        {
+          "at": "hero-mid",
+          "scrollY": 400,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 581x157",
+            ".hero-visual .car-main 574x129"
+          ]
+        },
+        {
+          "at": "hero-end",
+          "scrollY": 0,
+          "away": false,
+          "navOverlaps": []
+        },
+        {
+          "at": "ticker",
+          "scrollY": 737,
+          "away": true,
+          "navOverlaps": [
+            ".hero-cta 581x54",
+            ".hero-visual .car-main 574x174"
+          ]
+        },
+        {
+          "at": "inventory",
+          "scrollY": 1665,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "world",
+          "scrollY": 4298,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "bottom",
+          "scrollY": 8302,
+          "away": true,
+          "navOverlaps": []
+        }
+      ],
+      "promoDismissed": {
+        "head": {
+          "height": "138px",
+          "navTop": 0,
+          "navBottom": 138,
+          "away": false
+        },
+        "heroTop": 138,
+        "overflowX": false
+      },
+      "offscreen": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "1280x800",
+      "headH": "174px",
+      "heroTop": 174,
+      "heroBottom": 933,
+      "tickerTop": 933,
+      "overflowX": false,
+      "heroGrid": "554.172px 587.438px",
+      "heroPaddingTop": "25.6px",
+      "cardsOpacity": [
+        "1",
+        "1"
+      ],
+      "barOverHeroCopy": 0,
+      "scrollLegs": [
+        {
+          "at": "hero-mid",
+          "scrollY": 400,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 554x160",
+            ".hero-visual .car-main 534x84"
+          ]
+        },
+        {
+          "at": "hero-end",
+          "scrollY": 79,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "ticker",
+          "scrollY": 733,
+          "away": true,
+          "navOverlaps": [
+            ".hero-cta 554x54",
+            ".hero-visual .car-main 534x157"
+          ]
+        },
+        {
+          "at": "inventory",
+          "scrollY": 1661,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "world",
+          "scrollY": 4279,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "bottom",
+          "scrollY": 7828,
+          "away": true,
+          "navOverlaps": []
+        }
+      ],
+      "promoDismissed": {
+        "head": {
+          "height": "138px",
+          "navTop": 0,
+          "navBottom": 138,
+          "away": false
+        },
+        "heroTop": 138,
+        "overflowX": false
+      },
+      "offscreen": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "1024x768",
+      "headH": "174px",
+      "heroTop": 174,
+      "heroBottom": 907,
+      "tickerTop": 907,
+      "overflowX": false,
+      "heroGrid": "462.75px 490.531px",
+      "heroPaddingTop": "24.576px",
+      "cardsOpacity": [
+        "1",
+        "1"
+      ],
+      "barOverHeroCopy": 0,
+      "scrollLegs": [
+        {
+          "at": "hero-mid",
+          "scrollY": 400,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 463x161",
+            ".hero-visual .car-main 438x83"
+          ]
+        },
+        {
+          "at": "hero-end",
+          "scrollY": 85,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "ticker",
+          "scrollY": 707,
+          "away": true,
+          "navOverlaps": [
+            ".hero-cta 463x54",
+            ".hero-visual .car-main 438x165"
+          ]
+        },
+        {
+          "at": "inventory",
+          "scrollY": 1635,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "world",
+          "scrollY": 4233,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "bottom",
+          "scrollY": 7716,
+          "away": true,
+          "navOverlaps": []
+        }
+      ],
+      "promoDismissed": {
+        "head": {
+          "height": "138px",
+          "navTop": 0,
+          "navBottom": 138,
+          "away": false
+        },
+        "heroTop": 138,
+        "overflowX": false
+      },
+      "offscreen": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "768x1024",
+      "headH": "227px",
+      "heroTop": 227,
+      "heroBottom": 1625,
+      "tickerTop": 1625,
+      "overflowX": false,
+      "heroGrid": "732px",
+      "heroPaddingTop": "32.768px",
+      "cardsOpacity": [
+        "1",
+        "1"
+      ],
+      "barOverHeroCopy": 0,
+      "scrollLegs": [
+        {
+          "at": "hero-mid",
+          "scrollY": 400,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 732x99"
+          ]
+        },
+        {
+          "at": "hero-end",
+          "scrollY": 494,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 732x118"
+          ]
+        },
+        {
+          "at": "ticker",
+          "scrollY": 1425,
+          "away": true,
+          "navOverlaps": [
+            ".hero-visual .car-main 680x126"
+          ]
+        },
+        {
+          "at": "inventory",
+          "scrollY": 2731,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "world",
+          "scrollY": 4711,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "bottom",
+          "scrollY": 10565,
+          "away": true,
+          "navOverlaps": []
+        }
+      ],
+      "promoDismissed": {
+        "head": {
+          "height": "133px",
+          "navTop": 0,
+          "navBottom": 133,
+          "away": false
+        },
+        "heroTop": 133,
+        "overflowX": false
+      },
+      "offscreen": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "390x844",
+      "headH": "213px",
+      "heroTop": 213,
+      "heroBottom": 1485,
+      "tickerTop": 1485,
+      "overflowX": false,
+      "heroGrid": "372px",
+      "heroPaddingTop": "21.944px",
+      "cardsOpacity": [
+        "1",
+        "1"
+      ],
+      "barOverHeroCopy": 0,
+      "scrollLegs": [
+        {
+          "at": "hero-mid",
+          "scrollY": 400,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 372x78"
+          ]
+        },
+        {
+          "at": "hero-end",
+          "scrollY": 548,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 372x15",
+            ".hero-cta 372x73"
+          ]
+        },
+        {
+          "at": "ticker",
+          "scrollY": 1285,
+          "away": true,
+          "navOverlaps": [
+            ".hero-visual .car-main 372x7"
+          ]
+        },
+        {
+          "at": "inventory",
+          "scrollY": 2509,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "world",
+          "scrollY": 4337,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "bottom",
+          "scrollY": 13942,
+          "away": true,
+          "navOverlaps": []
+        }
+      ],
+      "promoDismissed": {
+        "head": {
+          "height": "118px",
+          "navTop": 0,
+          "navBottom": 118,
+          "away": false
+        },
+        "heroTop": 118,
+        "overflowX": false
+      },
+      "offscreen": [],
+      "pageErrors": []
+    },
+    {
+      "viewport": "360x740",
+      "headH": "213px",
+      "heroTop": 213,
+      "heroBottom": 1499,
+      "tickerTop": 1499,
+      "overflowX": false,
+      "heroGrid": "342px",
+      "heroPaddingTop": "19.24px",
+      "cardsOpacity": [
+        "1",
+        "1"
+      ],
+      "barOverHeroCopy": 0,
+      "scrollLegs": [
+        {
+          "at": "hero-mid",
+          "scrollY": 400,
+          "away": true,
+          "navOverlaps": [
+            ".hero h1 342x117"
+          ]
+        },
+        {
+          "at": "hero-end",
+          "scrollY": 666,
+          "away": true,
+          "navOverlaps": [
+            ".hero-cta 342x116"
+          ]
+        },
+        {
+          "at": "ticker",
+          "scrollY": 1299,
+          "away": true,
+          "navOverlaps": [
+            ".hero-visual .car-main 342x11"
+          ]
+        },
+        {
+          "at": "inventory",
+          "scrollY": 2523,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "world",
+          "scrollY": 4351,
+          "away": true,
+          "navOverlaps": []
+        },
+        {
+          "at": "bottom",
+          "scrollY": 13901,
+          "away": true,
+          "navOverlaps": []
+        }
+      ],
+      "promoDismissed": {
+        "head": {
+          "height": "118px",
+          "navTop": 0,
+          "navBottom": 118,
+          "away": false
+        },
+        "heroTop": 118,
+        "overflowX": false
+      },
+      "offscreen": [],
+      "pageErrors": []
+    }
+  ]
+}

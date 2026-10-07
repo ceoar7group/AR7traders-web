@@ -36,9 +36,12 @@ presented, and fix it.
 - **Every machine in the database is published.** `published` defaults to
   true; `false` means "a person deliberately hid this". Do not reintroduce an
   approval gate.
-- **No photograph goes on the site without a recorded rights basis**
-  (`dropship-authorized`, `supplier-permission`, `own-photo`). Never copy a
-  marketplace photo, never strip a watermark, never invent a specification.
+- **Photographs import with the listing, and each one records a rights
+  basis** (`supplier-listing` by default, or `supplier-permission` /
+  `own-photo` / `dropship-authorized`). The basis is provenance for the desk,
+  not an import gate — a machine must never again fail to list because of
+  paperwork. Never strip a watermark (count and flag it instead), never invent
+  a specification.
 - **The car side and the scraper are load-bearing.** Do not restructure
   `team.js`, `hr.js`, `approvals.js`, `crm.js`, `goonet-sync.js`,
   `goonet-stock.js` just to make something tidier.
@@ -195,9 +198,10 @@ all green; guard 18/18, SEO 100/100 on every page incl. machinery types):
    Verified against the owner's Made-in-China Cat 320D URL, reproduced
    byte-faithfully in `scripts/fixtures/made-in-china-cat320d.html` (sandbox
    egress is blocked; the page was fetched through the proxy reader), with
-   `scripts/machinery-source.test.mjs` (41 assertions). Rights gating is
-   unchanged: no photo without a recorded basis, `dropship-authorized` still
-   applies to supplier-terms reseller use.
+   `scripts/machinery-source.test.mjs` (41 assertions). Photo rights are
+   recorded, not gated: every imported photo carries a basis
+   (`supplier-listing` for the supplier's own listing images), and
+   `dropship-authorized` still applies to supplier-terms reseller use.
 
 3. **CRM UX polish.** Toolbar buttons wrap and their labels truncate
    (`.crm-btn-label` ellipsis); some long labels shortened ("Sync website

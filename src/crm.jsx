@@ -18,7 +18,13 @@ import { updateSettingsCache } from './site-settings.js';
 import SeoDesk from './seo-desk.jsx';
 import { MACHINES, MACHINE_TYPES, listPriceUSD } from './machinery-data.js';
 import { buildDiscountStockRows } from './stock-discount-catalogue.js';
-import { RIGHTS, rightsAreUsable } from './machinery-source.js';
+import { RIGHTS } from './machinery-source.js';
+
+/** How many candidates one scraper run may return to the desk. */
+export const SCRAPER_RUN_LIMIT = 24;
+
+/** The basis filed on an imported photo when the operator picks none. */
+export const DEFAULT_MACHINE_RIGHTS = 'supplier-listing';
 import {priceWithOffer, formatDate, stockDiscountFor} from './offers.js';
 import {
   EMPTY_STOCK_DISCOUNTS, STOCK_DISCOUNT_VERSION, STOCK_DISCOUNT_MIN_PERCENT,
@@ -598,6 +604,52 @@ function machinerySeed() {
   return [...listed, needsAttention];
 }
 
+/**
+ * The catalogue the PUBLIC website ships with (src/machinery-data.js). The
+ * machinery page falls back to it whenever the database has nothing published,
+ * so those machines are on the website while being absent from the desk — the
+ * owner's "the machines already on the website should be editable here".
+ *
+ * They are listed in the desk flagged `_notInDesk`; one click writes the real
+ * row (Add to desk / Add all), after which they are ordinary records that can
+ * be edited, re-photographed, unpublished or deleted like any other machine.
+ */
+export function machineryWebsiteCatalogue() {
+  return MACHINES.map((m, i) => ({
+    ...m,
+    id: null,
+    price_usd: m.price || m.supplierPrice || 0,
+    images: (m.images || []).map(src => ({ src, rights: 'own-photo' })),
+    published: true,
+    status: m.status || 'Available',
+    sort_order: Number.isFinite(Number(m.sort_order)) ? Number(m.sort_order) : i,
+    adapter: m.adapter || 'bundled-catalogue',
+    _notInDesk: true
+  }));
+}
+
+/** Desk rows + any bundled catalogue machine the desk does not hold yet. */
+export function withWebsiteCatalogue(rows) {
+  const held = new Set();
+  for (const r of rows || []) {
+    if (r?.ref) held.add(String(r.ref).trim().toUpperCase());
+    if (r?.id) held.add(String(r.id));
+  }
+  const extra = machineryWebsiteCatalogue().filter(m => !held.has(String(m.ref).toUpperCase()) && !held.has(String(m.id)));
+  return [...(rows || []), ...extra];
+}
+
+/** The row a website-catalogue entry becomes when it is added to the desk. */
+export function machineryCreatePayload(row, { publish = true } = {}) {
+  const out = {};
+  for (const k of ['ref', 'type', 'brand', 'model', 'year', 'hours', 'price_usd', 'summary', 'specs', 'images',
+    'status', 'origin', 'location', 'sort_order']) {
+    if (row?.[k] !== undefined && row[k] !== null && row[k] !== '') out[k] = row[k];
+  }
+  out.published = publish;
+  return out;
+}
+
 function baseData(entity) {
   if (entity === 'machinery') return machinerySeed();
   return SITE_ENTITIES.includes(entity) ? (siteSeed[entity] || []) : (seed[entity] || []);
@@ -767,13 +819,38 @@ export default function CrmApp() {
             return [k, []];
           }
         }));
-        setRows(Object.fromEntries(entries));
+        const loaded = Object.fromEntries(entries);
+        // Machinery only: the bundled catalogue is on the public site, so it
+        // belongs in the desk too (flagged until it is added).
+        loaded.machinery = withWebsiteCatalogue(loaded.machinery || []);
+        setRows(loaded);
       }
     } catch (e) {
       setNotice(e.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Add a bundled-catalogue machine (or every one of them) to the desk, so it
+  // becomes a real, editable record. This is how a machine that is already
+  // live on the website arrives in the desk.
+  async function addMachinesToDesk(list) {
+    const items = (Array.isArray(list) ? list : [list]).filter(Boolean);
+    if (!items.length) return;
+    if (items.length > 1 && !window.confirm(`Add ${items.length} website-catalogue machines to the desk?\n\nThey become normal records here — editable, republishable and deletable — and keep their place on the public catalogue.`)) return;
+    let added = 0;
+    const failed = [];
+    for (const row of items) {
+      try {
+        await save('machinery', machineryCreatePayload(row), { quiet: true });
+        added++;
+      } catch (e) { failed.push(`${row.ref || row.name}: ${e.message}`); }
+    }
+    await loadAll();
+    setNotice(failed.length
+      ? `Added ${added} machine(s); ${failed.length} failed — ${failed[0]}`
+      : `Added ${added} machine${added === 1 ? '' : 's'} from the website catalogue to the desk`);
   }
 
   // One-click stock sync (admin only): makes the public website's car list
@@ -798,7 +875,7 @@ export default function CrmApp() {
     }
   }
 
-  async function save(entity, data) {
+  async function save(entity, data, { quiet = false } = {}) {
     try {
       if (DEMO) {
         const list = rows[entity] || [];
@@ -811,9 +888,10 @@ export default function CrmApp() {
         setRows(v => ({ ...v, [entity]: data.id ? v[entity].map(x => x.id === result.id ? result : x) : [result, ...(v[entity] || [])] }));
       }
       setEditor(null);
-      setNotice('Saved successfully');
+      if (!quiet) setNotice('Saved successfully');
     } catch (e) {
-      setNotice(e.message);
+      if (!quiet) setNotice(e.message);
+      throw e;
     }
   }
 
@@ -1062,7 +1140,7 @@ export default function CrmApp() {
         setRows(v => ({ ...v, [entity]: (v[entity] || []).map(x => x.id === row.id ? updated : x) }));
       }
       setNotice(entity === 'machinery'
-        ? `Updated photos for ${row.ref || [row.brand, row.model].filter(Boolean).join(' ') || 'machine'}${photos.some(p => p && !rightsAreUsable(p.rights)) ? ' — photos with no rights basis are held back from the website' : ''}`
+        ? `Updated photos for ${row.ref || [row.brand, row.model].filter(Boolean).join(' ') || 'machine'}${photos.some(p => p && !String(p.rights || '').trim()) ? ' — some photos still need a basis recorded' : ''}`
         : `Updated photos for ${row.make || ''} ${row.model || row.stock_no || 'vehicle'}`);
       setPhotoTarget(null);
     } catch (e) {
@@ -1287,7 +1365,20 @@ export default function CrmApp() {
             {/* Machinery: paste a supplier link. Nothing is written until the
                 operator has read the machine and pressed Import. */}
             {tab === 'machinery' && (
-              <MachineryImportPanel token={session.access_token} canWrite={canWrite('machinery')} notify={setNotice} onImported={loadAll} />
+              <>
+                {canWrite('machinery') && (rows.machinery || []).some(r => r._notInDesk) && (
+                  <div className="crm-catalogue-bar">
+                    <div>
+                      <b>{(rows.machinery || []).filter(r => r._notInDesk).length} machines are live on the website from the built-in catalogue</b>
+                      <small>They are not desk records yet. Add them to edit, photograph, unpublish or delete them — the public catalogue keeps showing them either way.</small>
+                    </div>
+                    <button type="button" className="crm-add" onClick={() => addMachinesToDesk((rows.machinery || []).filter(r => r._notInDesk))}>
+                      <Plus size={14}/> Add all to the desk
+                    </button>
+                  </div>
+                )}
+                <MachineryImportPanel token={session.access_token} canWrite={canWrite('machinery')} notify={setNotice} onImported={loadAll} />
+              </>
             )}
             {/* Merged cars panel: CRM inventory and the website showroom are
                 two sub-tabs inside one screen. Both record sets stay separate
@@ -1351,6 +1442,7 @@ export default function CrmApp() {
               onPublish={tab === 'machinery' && canWrite(activeEntity) ? row => publishMachine(row, true) : null}
               onUnpublish={tab === 'machinery' && canWrite(activeEntity) ? row => publishMachine(row, false) : null}
               onArchive={tab === 'machinery' && canWrite(activeEntity) ? archiveMachine : null}
+              onAddToDesk={tab === 'machinery' && canWrite(activeEntity) ? row => addMachinesToDesk(row) : null}
             />
           </>
         )}
@@ -1693,7 +1785,7 @@ function imgFallback(e) {
   el.src = '/assets/ar7-mark.png';
 }
 
-export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish, onArchive }) {
+export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish, onArchive, onAddToDesk }) {
   const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState(defaultViewMode);
   const [chipFilter, setChipFilter] = useState('all');
@@ -2025,6 +2117,15 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       </td>
                     ))}
                     <td className="crm-row-actions">
+                      {/* A machine that is only in the website's built-in
+                          catalogue has no database row yet: the only action
+                          that applies is adding it to the desk. */}
+                      {row._notInDesk ? (
+                        <>
+                          <span className="crm-not-in-desk" title="Live on the website from the built-in catalogue — add it to the desk to edit, photograph, unpublish or delete it">Website catalogue</span>
+                          {onAddToDesk && <button className="crm-btn-publish" title="Create a desk record for this machine" onClick={() => onAddToDesk(row)} type="button"><Plus size={13} /> Add to desk</button>}
+                        </>
+                      ) : <>
                       {(isVehicleType || entity === 'machinery') && onManagePhotos && (
                         <button className="crm-btn-photo" onClick={() => onManagePhotos(row)} title={entity === 'machinery' ? 'Manage machine photos and their rights basis' : 'Manage vehicle gallery photos'} type="button">
                           <Camera size={13} /> Photos ({photos.length})
@@ -2042,6 +2143,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       {entity === 'machinery' && onArchive && row.status !== 'Archived' && <button className="crm-del crm-archive-action" onClick={() => onArchive(row)} title="Archive and unpublish this canonical machine record (confirmation required)" type="button"><Archive size={13} /> Archive</button>}
                       {onEdit && <button onClick={() => onEdit(row)} type="button">Edit</button>}
                       {onDelete && <button className="crm-del" title="Delete record (confirmation required)" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
+                      </>}
                     </td>
                   </tr>
                 );
@@ -2089,20 +2191,19 @@ function renderCell(k, v, fmt = money) {
   if (['price', 'amount', 'total_spend', 'budget', 'price_usd'].includes(k)) {
     return typeof v === 'number' ? fmt(v) : (v ?? '—');
   }
-  // Photos: how many will actually show on the site. A photo with no recorded
-  // rights basis is held back by the API, so the CRM counts it separately
-  // rather than pretending the gallery is full.
+  // Photos: how many show on the site. Every stored photo shows (2026-10-07),
+  // so the count is the gallery; the extra line flags photos whose provenance
+  // — the basis they were published under — has not been recorded yet.
   if (k === 'photos') {
     const list = Array.isArray(v) ? v : [];
-    const live = list.filter(p => typeof p === 'object' && rightsAreUsable(p?.rights));
-    const held = list.length - live.length;
+    const unlabelled = list.filter(p => typeof p === 'object' && !String(p?.rights || '').trim()).length;
     if (!list.length) return <em className="crm-status dormant" title="No photos yet — the machine lists without one">none</em>;
     return (
       <span className="crm-photo-cell">
-        <Camera size={11} /> {live.length}
-        {held > 0 && (
-          <em className="crm-status dormant" title={`${held} photo(s) held back: no rights basis recorded, so they cannot go on the website`}>
-            +{held} held
+        <Camera size={11} /> {list.length}
+        {unlabelled > 0 && (
+          <em className="crm-status dormant" title={`${unlabelled} photo(s) have no basis recorded — they still publish; record where they came from`}>
+            {unlabelled} to label
           </em>
         )}
       </span>
@@ -4524,7 +4625,7 @@ function GuardianView({ notify, onOpenSeo }) {
             ['npm test', 'the full test suite (26 suites)'],
             ['npm run seo', 'the 100-point SEO audit'],
             ['npm run promo:plan', 'build this week’s campaigns from real stock'],
-            ['npm run machinery:sync -- --url <link> --rights dropship-authorized', 'import a machine from a supplier link']
+            ['npm run machinery:sync -- --url <link>', 'import a machine from a supplier link (photos included)']
           ].map(([cmd, what]) => (
             <div className="guardian-cmd" key={cmd}>
               <button onClick={() => { navigator.clipboard?.writeText(cmd); notify('Command copied'); }} title="Copy this command" type="button"><ClipboardCopy size={13} /></button>
@@ -4542,21 +4643,23 @@ function GuardianView({ notify, onOpenSeo }) {
 //  Machinery Photo Manager — every photo carries a rights basis.
 //
 //  Why this is not VehiclePhotoManager: that editor saves a list of bare URL
-//  strings. A machinery photo with no recorded rights basis is dropped by the
-//  API at render time, so a gallery saved through it would look full in the
-//  CRM and be empty on the website. This editor makes the rights basis a
-//  required part of adding a photo, and shows plainly which photos are being
-//  held back and why.
+//  strings. A machinery photograph carries the basis it was published under —
+//  provenance the desk can audit and replace later — so this editor keeps that
+//  basis beside every photo and flags the ones still missing it. 2026-10-07:
+//  the basis is a record, not a gate; photographs publish with the machine.
 // ---------------------------------------------------------------------
 const RIGHTS_LABEL = {
+  'supplier-listing': 'Supplier listing photo (published for buyers)',
   'own-photo': 'Our own photograph',
-  'supplier-permission': 'Supplier gave written permission',
-  'dropship-authorized': 'Dropship agreement covers it'
+  'supplier-permission': 'Supplier sent it to us to sell from',
+  'dropship-authorized': 'Supplier reseller terms cover it'
 };
 const RIGHTS_HELP =
-  'A photo may only go on the website with a recorded reason we are allowed to ' +
-  'use it. Never upload a marketplace photo or strip a watermark — ask the ' +
-  'supplier for their own pictures instead.';
+  'Every photo records where it came from — that is provenance, not a gate. An ' +
+  'imported listing photo is filed as a supplier listing photo automatically, so ' +
+  'the scraper imports and lists machines exactly as the car importer does. ' +
+  'Swap in our own photographs when you have them; a marketplace watermark is ' +
+  'flagged for replacement, never a reason to drop the picture.';
 
 /** Accept however the row currently stores its gallery and normalise it. */
 /**
@@ -4566,7 +4669,7 @@ const RIGHTS_HELP =
  */
 const MACHINERY_REVIEW_CHIPS = [
   { id: 'no_photos',   label: 'No photos',        why: 'Listed without a photograph — it will not sell from the catalogue page' },
-  { id: 'held_photos', label: 'Photos held back', why: 'Has photographs with no recorded rights basis, so they cannot go on the website' },
+  { id: 'held_photos', label: 'Basis not recorded', why: 'A photograph has no basis recorded — it publishes, but the desk cannot say where it came from' },
   { id: 'no_price',    label: 'No price',         why: 'Cannot be quoted until someone sets a price' },
   { id: 'missing',     label: 'Missing from source', why: 'The supplier no longer lists it — decide whether it is really gone' },
   { id: 're_priced',   label: 'Re-priced',        why: 'The supplier changed the price — check the new figure before it is quoted' },
@@ -4578,9 +4681,9 @@ function machineryNeedsReview(r) {
   if (!r) return [];
   const out = [];
   const list = Array.isArray(r.images) ? r.images : [];
-  const live = list.filter(p => typeof p === 'object' && rightsAreUsable(p?.rights));
-  if (!live.length) out.push(list.length ? 'held_photos' : 'no_photos');
-  else if (live.length < list.length) out.push('held_photos');
+  const unlabelled = list.filter(p => typeof p === 'object' && !String(p?.rights || '').trim()).length;
+  if (!list.length) out.push('no_photos');
+  else if (unlabelled) out.push('held_photos');
   if (!(Number(r.price_usd) > 0)) out.push('no_price');
   if (r.source_missing_since) out.push('missing');
   if (r.price_before_usd != null && r.price_changed_at) out.push('re_priced');
@@ -4598,10 +4701,14 @@ function machineryPhotos(row) {
 export function MachineryPhotoManager({ row, onClose, onSave }) {
   const [photos, setPhotos] = useState(() => machineryPhotos(row));
   const [url, setUrl] = useState('');
-  const [rights, setRights] = useState(RIGHTS[0]);
+  const [rights, setRights] = useState(DEFAULT_MACHINE_RIGHTS);
 
-  const usable = photos.filter(p => rightsAreUsable(p.rights));
-  const held = photos.length - usable.length;
+  // 2026-10-07: a photograph is no longer withheld for want of an agreement —
+  // it publishes with the listing and its basis is recorded on it. What the
+  // desk still flags is a photo with NO basis at all, because provenance is
+  // what makes the catalogue auditable.
+  const labelled = photos.filter(p => String(p.rights || '').trim());
+  const unlabelled = photos.length - labelled.length;
 
   const add = () => {
     const src = url.trim();
@@ -4622,12 +4729,12 @@ export function MachineryPhotoManager({ row, onClose, onSave }) {
     <div className="crm-photo-modal" onMouseDown={e => e.stopPropagation()}>
       <header className="photo-modal-head">
         <div>
-          <small>MACHINE PHOTOS · RIGHTS REQUIRED</small>
+          <small>MACHINE PHOTOS · BASIS RECORDED</small>
           <h2>{[row?.brand, row?.model].filter(Boolean).join(' ') || row?.ref || 'Machine'}</h2>
           <p className="photo-modal-subtitle">
             {row?.ref ? `Ref ${row.ref} · ` : ''}{photos.length} photo{photos.length === 1 ? '' : 's'}
-            {' · '}<b>{usable.length} on the website</b>
-            {held > 0 && <em className="crm-status dormant"> · {held} held back</em>}
+            {' · '}<b>{labelled.length} with a basis recorded</b>
+            {unlabelled > 0 && <em className="crm-status dormant"> · {unlabelled} to label</em>}
           </p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close"><X /></button>
@@ -4663,17 +4770,17 @@ export function MachineryPhotoManager({ row, onClose, onSave }) {
 
         <div className="photo-grid">
           {photos.map((p, i) => {
-            const ok = rightsAreUsable(p.rights);
+            const ok = !!String(p.rights || '').trim();
             return (
-              <figure key={p.src + i} className={ok ? '' : 'is-held'}>
-                <img src={p.src} alt={`Machine photo ${i + 1}${rightsAreUsable(p.rights) ? '' : ' — held back, no rights basis'}`} width={400} height={300} loading="lazy" decoding="async" />
+              <figure key={p.src + i} className={ok ? '' : 'is-unlabelled'}>
+                <img src={p.src} alt={`Machine photo ${i + 1}${ok ? '' : ' — no basis recorded yet'}`} width={400} height={300} loading="lazy" decoding="async" />
                 <figcaption>
                   <select
                     value={p.rights}
                     onChange={e => setRight(i, e.target.value)}
                     aria-label={`Rights basis for photo ${i + 1}`}
                   >
-                    <option value="">No rights recorded — will not be published</option>
+                    <option value="">No basis recorded yet</option>
                     {RIGHTS.map(r => <option key={r} value={r}>{RIGHTS_LABEL[r] || r}</option>)}
                   </select>
                   <div className="photo-fig-actions">
@@ -4681,7 +4788,7 @@ export function MachineryPhotoManager({ row, onClose, onSave }) {
                     <button type="button" className="crm-del" onClick={() => drop(i)} title="Remove this photo"><Trash2 size={12} /></button>
                   </div>
                 </figcaption>
-                {!ok && <span className="photo-held-flag" title="This photo has no rights basis, so the website will not show it">Held back</span>}
+                {!ok && <span className="photo-held-flag" title="No basis is recorded for this photo — the website still shows it, but the provenance is missing from the desk">Label me</span>}
               </figure>
             );
           })}
@@ -4695,7 +4802,7 @@ export function MachineryPhotoManager({ row, onClose, onSave }) {
         <button type="button" className="crm-ghost-btn" onClick={onClose}>Cancel</button>
         <button type="button" className="crm-btn-add-photo" onClick={() => onSave(photos)}>
           <Check size={14} /> Save {photos.length} photo{photos.length === 1 ? '' : 's'}
-          {held > 0 ? ` (${held} held back)` : ''}
+          {unlabelled > 0 ? ` (${unlabelled} without a basis)` : ''}
         </button>
       </footer>
     </div>
@@ -4722,16 +4829,18 @@ function machineryCandidateKey(machine, index) {
 export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
-  // 2026-10-04: owner policy — photos import by default with dropship-authorized
-  // basis. The rights selector still allows choosing a different basis, but the
-  // default is the owner's standing decision for marketplace/supplier imports.
-  const [rights, setRights] = useState('dropship-authorized');
+  // 2026-10-07: owner policy — imports carry the supplier-listing basis by
+  // default, with no drop-shipping / written-agreement gate. The selector still
+  // lets an operator record a different basis for a given source.
+  const [rights, setRights] = useState('supplier-listing');
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
   const [selectedCandidateKeys, setSelectedCandidateKeys] = useState(() => new Set());
-  // Which Made-in-China category the scraper crawls (one page per run).
+  // Which Made-in-China categories the scraper crawls. 'all' walks every
+  // category page in one run, the way the car importer takes the whole seed.
   const [scrapeCat, setScrapeCat] = useState('excavators');
+  const [scrapeAll, setScrapeAll] = useState(false);
 
   // A new link invalidates the preview immediately — importing after editing
   // the box would write something the operator never read.
@@ -4752,7 +4861,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   };
 
   const candidateRows = (preview?.machines || (preview?.machine ? [preview.machine] : []))
-    .slice(0, 6).map((machine, index) => ({machine, index, key: machineryCandidateKey(machine, index)}));
+    .slice(0, SCRAPER_RUN_LIMIT).map((machine, index) => ({machine, index, key: machineryCandidateKey(machine, index)}));
   const selectedMachines = candidateRows
     .filter(candidate => selectedCandidateKeys.has(candidate.key))
     .map(candidate => candidate.machine);
@@ -4772,7 +4881,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
     if (!list.length) { setError('Select at least one candidate before confirming.'); return; }
     const summary = list.slice(0, 6).map(machine => `• ${machine.name || [machine.brand, machine.model].filter(Boolean).join(' ') || 'Machine'}${machine.year ? ` (${machine.year})` : ''}`).join('\n');
     if (!window.confirm(
-      `Confirm import of ${list.length} selected machine${list.length === 1 ? '' : 's'}?\n\n${summary}\n\nThis will write the selected records. Confirmed imports are published to the public machinery catalogue immediately. Supplier photos use the dropship-authorized rights basis by default; visibly watermarked photos are excluded.`
+      `Confirm import of ${list.length} selected machine${list.length === 1 ? '' : 's'}?\n\n${summary}\n\nThis will write the selected records. Confirmed imports are published to the public machinery catalogue immediately, with their photos, exactly as an imported car is. Each photo records the supplier-listing basis; a visibly watermarked copy is flagged for replacement, not dropped.`
     )) return;
     setBusy(true); setError('');
     try {
@@ -4781,7 +4890,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         // would have written and ask the parent to reload its local rows.
         const names = list.slice(0, 3).map(m => m.name).join(', ');
         notify(`Imported ${list.length} machine(s) — ${names}${list.length > 3 ? '…' : ''} — published and on the website (demo mode)`);
-        setPreview(null); setUrl(''); setRights('dropship-authorized'); setSelectedCandidateKeys(new Set());
+        setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
         onImported && onImported();
         return;
       }
@@ -4796,7 +4905,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
       if (out.updated) parts.push(`${out.updated} updated`);
       if (out.rePriced?.length) parts.push(`${out.rePriced.length} re-priced`);
       notify(parts.join(', ') + ' — selected machines are published on the website');
-      setPreview(null); setUrl(''); setRights('dropship-authorized'); setSelectedCandidateKeys(new Set());
+      setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
       onImported && onImported();
     } catch (e) {
       setError(e.message);
@@ -4822,21 +4931,22 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         </button>
         <select
           className="crm-import-toggle crm-scraper-cat"
-          value={scrapeCat}
-          onChange={e => setScrapeCat(e.target.value)}
+          value={scrapeAll ? 'all' : scrapeCat}
+          onChange={e => { setScrapeAll(e.target.value === 'all'); if (e.target.value !== 'all') setScrapeCat(e.target.value); }}
           aria-label="Scraper category"
-          title="Which Made-in-China category the scraper crawls"
+          title="Which Made-in-China categories the scraper crawls in one run"
         >
           <option value="excavators">Excavators</option>
           <option value="loaders">Loaders</option>
           <option value="trucks">Trucks</option>
           <option value="cranes">Cranes</option>
+          <option value="all">All categories</option>
         </select>
         <button className="crm-import-toggle crm-scraper-toggle" type="button" onClick={async () => {
           setBusy(true); setError(''); setPreview(null); setSelectedCandidateKeys(new Set());
           try {
-            const out = await machineryImport('scraper', { category: scrapeCat, limit: 6 }, token);
-            const candidates = Array.isArray(out?.machines) ? out.machines.slice(0, 6) : [];
+            const out = await machineryImport('scraper', scrapeAll ? { categories: ['all'], limit: SCRAPER_RUN_LIMIT } : { category: scrapeCat, limit: SCRAPER_RUN_LIMIT }, token);
+            const candidates = Array.isArray(out?.machines) ? out.machines.slice(0, SCRAPER_RUN_LIMIT) : [];
             if (candidates.length) {
               notify(`Scraper found ${candidates.length} machine(s) — review and select candidates`);
               setPreview({
@@ -4859,7 +4969,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
             setError('Scraper: ' + e.message);
           } finally { setBusy(false); }
         }} disabled={busy}>
-          <RefreshCw size={13} /> Run scraper (up to 6)
+          <RefreshCw size={13} /> Run scraper (up to {SCRAPER_RUN_LIMIT})
         </button>
       </div>
 
@@ -4890,7 +5000,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
           </div>
 
           <p className="crm-hint">
-            <Check size={13} /> Photos without a visible watermark are imported automatically. Watermarked photos are skipped. The rights basis is recorded on every photo.
+            <Check size={13} /> Every photo the supplier page publishes is imported with its basis recorded. A marketplace copy that looks watermarked is flagged for replacement in the desk — never dropped, so a run always lists the machine with pictures exactly as the car importer does.
           </p>
 
           {error && <p className="crm-import-error"><Ban size={13} /> {error}</p>}
@@ -4925,7 +5035,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
                           {sm.listPrice ? ` · indicative list $${Number(sm.listPrice).toLocaleString('en-US')}` : ' · no list price'}
                           {` · ${sm.images?.length || 0} usable photo(s)`}
                         </span>
-                        <small>Photo rights basis: {sm.source?.rights || rights || 'dropship-authorized'} · visibly watermarked images are omitted.</small>
+                        <small>Photo basis recorded: {sm.source?.rights || rights || 'supplier-listing'} · a watermarked copy is flagged for replacement, not dropped.</small>
                         {sm.source?.url && <a href={sm.source.url} target="_blank" rel="noopener noreferrer">Open supplier source <ExternalLink size={12}/></a>}
                         {previewRow.warnings?.length > 0 && <ul className="crm-import-warnings">{previewRow.warnings.map((warning, wi) => <li key={wi}><ShieldAlert size={12}/>{warning}</li>)}</ul>}
                         {machineSpecs.length > 0 && <details><summary>Read {machineSpecs.length} supplier specification{machineSpecs.length === 1 ? '' : 's'}</summary><dl className="crm-import-specs">{machineSpecs.map(([label, value], si) => <div key={si}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>}
@@ -4934,7 +5044,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
                   );
                 })}
               </ul>
-              <p className="crm-hint">Preview only: nothing has been written. Review each candidate, select the rows to import, then confirm the write. A run can return at most six candidates.</p>
+              <p className="crm-hint">Preview only: nothing has been written. Review each candidate, select the rows to import, then confirm the write. A run can return at most {SCRAPER_RUN_LIMIT} candidates.</p>
             </section>
           )}
 

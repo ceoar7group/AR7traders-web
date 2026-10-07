@@ -460,17 +460,19 @@ The car side has imported from a pasted Goo-net link for months. Machinery now
 does the same:
 
 ```bash
-npm run machinery:sync -- --url <product link>                       # price + specs
-npm run machinery:sync -- --url <link> --rights dropship-authorized   # + photos
+npm run machinery:sync -- --url <product link>                       # price + specs + photos
+npm run machinery:sync -- --url <link> --rights supplier-permission   # override the recorded basis
 npm run machinery:sync -- --daily --write                             # re-price everything
 ```
 
 It reads the product data, works out make/type/price/specifications, applies
 the +25% margin, and merges the listing as **Imported — review before
-quoting**. Photographs need a recorded basis (`dropship-authorized`,
-`supplier-permission` or `own-photo`) because facts are facts and photographs
-belong to whoever took them — the same rule the catalogue has always run on,
-now applied automatically instead of by hand. With an approved Alibaba Open
+quoting**. The photographs the supplier publishes on their own listing come
+across with it, so a machine imports and lists *with* its pictures — exactly
+like the car importer. The basis for each photo is still recorded on it
+(`supplier-listing` by default, or `supplier-permission` / `own-photo` /
+`dropship-authorized` when a person knows better); that is provenance for the
+desk to audit, not a gate on the listing. With an approved Alibaba Open
 Platform application, `ALIBABA_APP_KEY` + `ALIBABA_APP_SECRET` switch it to
 Alibaba's own API. Full detail: `MACHINERY-SOURCES.md`.
 

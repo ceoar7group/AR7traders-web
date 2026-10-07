@@ -5,7 +5,8 @@
 // not control:
 //   • step=preview WRITES NOTHING — not a row, not an activity, not a log;
 //   • step=confirm writes only what the operator approved;
-//   • a photo with no rights basis is never imported, let alone published;
+//   • a photo never needs an agreement to be imported: the basis is recorded
+//     (supplier-listing by default) and the machine lists with its pictures;
 //   • the same machine seen twice UPDATES (and records a re-price) instead of
 //     being imported again;
 //   • a machine that goes missing is FLAGGED, never deleted;
@@ -142,18 +143,22 @@ say('\n-- preview reads a supplier page --');
   ok(db._tables.machinery.length === 0, 'and still nothing was written');
 }
 
-// 2026-10-04: owner policy — photos import by default with 'dropship-authorized'.
-// The old "no rights basis means no photos" behaviour was replaced.
-say('\n-- no explicit rights basis defaults to dropship-authorized --');
+// 2026-10-07: owner instruction — no drop-shipping / written-agreement gate.
+// An import carries the supplier-listing basis, and it lists the machine with
+// every photograph the supplier page publishes, exactly as the car importer
+// does.
+say('\n-- no explicit basis: the import is never gated on an agreement --');
 {
   const db = fakeDb();
   const res = await preview(db, { url: URL_A, rights: '', html: PAGE(URL_A) });
   const b = res.json();
-  ok(b.machine?.source?.rights === 'dropship-authorized', 'default basis is dropship-authorized when none given');
-  ok(b.machine?.images?.length >= 0, 'photos are imported (subject to watermark check)');
-  ok(!b.warnings.some(w => /rights basis/i.test(w)), 'no "no rights basis" warning with the new default');
+  if (!b.machine) { ok(false, `preview failed with no basis: ${res.statusCode} ${JSON.stringify(b).slice(0, 160)}`); }
+  ok(b.machine?.source?.rights === 'supplier-listing', 'the default basis recorded is supplier-listing');
+  ok(b.machine?.images?.length >= 1, `the published photos import (${b.machine?.images?.length})`);
+  ok(b.machine?.photosPending === false, 'so the machine lists with pictures immediately');
+  ok(!b.warnings?.some(w => /rights basis/i.test(w)), 'no "no rights basis" warning is raised');
   // The machine is always importable — every machine is listed.
-  ok(b.would.create === 1, 'the machine is importable with default rights');
+  ok(b.would.create === 1, 'the machine is importable with no agreement step');
 }
 
 say('\n-- a page with nothing to read --');

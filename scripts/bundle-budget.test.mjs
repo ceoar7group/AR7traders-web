@@ -185,8 +185,14 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // see the table entry above. Measured 473.26 kB raw / 140.00 kB gzip.
 // Ratcheted 476 → 477 kB raw on 2026-10-05 for the two keyboard-focusable
 // hero sourcing-desk links.
-const BUDGET_GZIP = 141 * 1024;
-const BUDGET_RAW = 477 * 1024;
+// Ratcheted 141 → 142 kB gzip / 477 → 479 kB raw on 2026-10-07 for the header
+// single-owner pass: the bar measures itself instead of every section carrying
+// a hard-coded offset, and it now owns its own lifecycle (pinned at the top of
+// a hero page, gone before the hero's first line of copy can slide under it,
+// back on scroll-up). That is ~0.6 kB of first-load JS; the CSS it deleted
+// stays inside the unchanged CSS budget. Measured 477.61 kB raw / 140.99 kB gzip.
+const BUDGET_GZIP = 142 * 1024;
+const BUDGET_RAW = 479 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

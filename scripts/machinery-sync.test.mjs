@@ -166,9 +166,12 @@ say('\n-- the job applies the default dropship-authorized basis --');
   const db = fakeDb([bare]);
   await sync(req({ job: 'machinery', key: 'test-key' }), fakeRes(), { db });
   const row = db._tables.machinery[0];
-  // With the new policy, photos are imported by default
-  ok(row.rights_basis === 'dropship-authorized' || row.rights_basis === null, 'the row records a rights basis');
-  ok((row.images || []).length >= 0, 'photographs are subject to watermark check');
+  // 2026-10-07: the scheduled job carries the same standing basis as the
+  // scraper and the paste-a-link importer — no agreement step, and the photos
+  // the listing publishes come across with it.
+  ok(row.rights_basis === 'supplier-listing', `the row records the supplier-listing basis (${row.rights_basis})`);
+  ok((row.images || []).length === 1, `the listing photo is imported (${(row.images || []).length})`);
+  ok(row.images.every(i => i.rights === 'supplier-listing'), 'and every stored photo carries that basis');
 }
 
 say('\n-- the car side is untouched --');

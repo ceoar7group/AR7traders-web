@@ -12,7 +12,7 @@
 // Nothing here is reachable from the browser. It runs inside a Vercel function
 // with the service role.
 
-import { RIGHTS, rightsAreUsable, reviewPhotos, IMPORT_STATUS } from '../src/machinery-source.js';
+import { RIGHTS, rightsAreUsable, reviewPhotos, IMPORT_STATUS, DEFAULT_RIGHTS, looksWatermarked } from '../src/machinery-source.js';
 import { MACHINE_TYPES } from '../src/machinery-data.js';
 import { machineRef, machineTypeSlug } from '../src/sitemap-helpers.js';
 
@@ -45,7 +45,7 @@ export const HOLD = {
 };
 
 export const HOLD_LABEL = {
-  [HOLD.NO_RIGHTS]: 'A photo has no rights basis recorded',
+  [HOLD.NO_RIGHTS]: 'A photo has no basis recorded',
   [HOLD.FEW_PHOTOS]: 'Fewer photos than the minimum',
   [HOLD.NO_PRICE]: 'No price',
   [HOLD.NO_TYPE]: 'The machine type could not be resolved',
@@ -56,6 +56,10 @@ export const HOLD_LABEL = {
 // a database with no site_settings row still behaves the way the SQL says.
 export const MACHINERY_SETTING_DEFAULTS = {
   machinery_autopublish: 'true',
+  // How many machines one scraper run may pull into the desk. 2026-10-07: 24,
+  // the same order of magnitude as a car crawl; the politeness rules (robots,
+  // 1s between fetches) are unchanged. Lower it any time from the settings.
+  machinery_scraper_batch: '24',
   machinery_min_photos: '1',
   machinery_max_reprice_per_run: '10',
   machinery_stale_after_days: '14',
@@ -211,10 +215,11 @@ export function validateRow(payload, { partial = false } = {}) {
   }
 
   // Every machine in the table exists to be listed — hand-added, imported or
-  // scraped. `published` starts true and only a person sets it false (the
-  // CRM's unpublish / archive action); the photo rights rule is enforced at
-  // render time instead, so an unlicensed photo is dropped rather than the
-  // whole machine being hidden.
+  // scraped. `published` starts true and only a person sets it false (the CRM's
+  // unpublish / archive action). 2026-10-07: nothing about the photos blocks a
+  // listing either — the machine renders with the photographs the importer
+  // stored, exactly as a car does, and the CRM shows the basis recorded on
+  // each one.
   if (has('published')) out.published = body.published === undefined ? true : !!body.published;
   else if (!partial) out.published = true;
   if (has('imported_at')) out.imported_at = body.imported_at || null;
@@ -243,8 +248,11 @@ function normaliseSpecs(input) {
 
 /**
  * Images arrive as [{src, rights}] or as bare strings (the shape
- * src/machinery-data.js uses). Both are accepted; a bare string carries no
- * rights basis, which is exactly what must block publication.
+ * src/machinery-data.js uses). Both are accepted. A photo with no basis
+ * recorded is filed under the standing import basis, because the desk lists
+ * machines with their pictures (2026-10-07) — the basis is provenance, not a
+ * gate. Only an EXPLICIT empty basis stays empty, so an operator who cleared
+ * it still sees that in the desk.
  */
 export function normaliseImages(input) {
   if (input == null) return [];
@@ -254,14 +262,24 @@ export function normaliseImages(input) {
   for (const entry of list) {
     if (typeof entry === 'string') {
       const src = entry.trim();
-      if (src) out.push({ src, rights: '' });
+      // A photo with no basis recorded is filed under the standing import
+      // basis rather than being withheld — 2026-10-07: the desk imports and
+      // lists machines the way the car scraper does.
+      if (src) out.push({ src, rights: DEFAULT_RIGHTS });
       continue;
     }
     if (!entry || typeof entry !== 'object') return null;
     const src = String(entry.src ?? entry.url ?? entry.image ?? '').trim();
     if (!src) continue;
-    const rights = String(entry.rights ?? entry.rights_basis ?? '').trim();
-    out.push({ src, rights: RIGHTS.includes(rights) ? rights : '' });
+    const raw = entry.rights ?? entry.rights_basis;
+    // A recorded basis is kept; an absent one is filed under the standing
+    // import basis; an EXPLICIT empty string stays empty, because an operator
+    // who chose "no basis recorded" should see exactly that in the desk.
+    const rights = String(raw ?? '').trim();
+    const resolved = raw === undefined || raw === null
+      ? DEFAULT_RIGHTS
+      : (RIGHTS.includes(rights) ? rights : '');
+    out.push({ src, rights: resolved });
   }
   return out;
 }
@@ -279,7 +297,10 @@ export function photosOf(row) {
 export function photoRights(row) {
   const photos = photosOf(row);
   const usable = photos.filter(p => rightsAreUsable(p.rights));
-  const missing = photos.filter(p => !rightsAreUsable(p.rights)).map(p => p.src);
+  // "Missing" means no basis is recorded at all — a provenance gap the desk
+  // asks about. It is not a publish blocker any more (2026-10-07): the photo
+  // still goes on the site, because the import basis covers it.
+  const missing = photos.filter(p => !String(p.rights ?? p.rights_basis ?? '').trim()).map(p => p.src);
   return { photos, usable, missing, ok: photos.length > 0 && missing.length === 0 };
 }
 
@@ -300,14 +321,14 @@ export function publishBlockers(row, settings = {}) {
   const price = Number(row?.price_usd);
   if (!Number.isFinite(price) || price <= 0) blockers.push(HOLD.NO_PRICE);
 
-  // Rights no longer blocks the machine from being listed (the owner wants
-  // every machine in the database published). It is still recorded as a hold
-  // reason so the CRM can show "1 photo withheld — no rights basis" and the
-  // gap gets fixed. The photo itself is dropped at render time, above.
+  // Photos never block a listing any more (2026-10-07): a machine with no
+  // pictures is listed with `photosPending` and shows up in the desk's review
+  // queue, exactly like an imported car without photos. The only remaining
+  // rights hold is a photo that explicitly records an empty basis — a legacy
+  // row — which the CRM offers to fix rather than hiding the machine.
   const rights = photoRights(row);
-  if (rights.photos.length === 0 && !allowPlaceholder) blockers.push(HOLD.NO_RIGHTS);
-  else if (rights.missing.length > 0) blockers.push(HOLD.NO_RIGHTS);
-  else if (rights.usable.length < minPhotos) blockers.push(HOLD.FEW_PHOTOS);
+  if (rights.missing.length > 0) blockers.push(HOLD.NO_RIGHTS);
+  else if (!allowPlaceholder && rights.photos.length < minPhotos) blockers.push(HOLD.FEW_PHOTOS);
 
   // The photo standard the supplier importer already applies.
   const review = reviewPhotos(row, { now: new Date().getFullYear() });
@@ -338,12 +359,13 @@ export function primaryHoldReason(row, settings = {}) {
  */
 export function toPublic(row) {
   if (!row) return null;
-  // THE RIGHTS GATE, applied at the only point that matters — the moment a
-  // row becomes something the site renders. A photo with no usable rights
-  // basis is dropped here, so it cannot reach the site no matter which route
-  // published the machine. `photos_withheld` keeps a count for the CRM.
+  // 2026-10-07: the photo rights GATE is gone. A machine renders with every
+  // photograph the importer stored, exactly as the car side does; the basis
+  // recorded on each photo is provenance for the CRM, not a publishing
+  // condition. Watermarked marketplace copies are counted so the desk can
+  // offer a replacement, never hidden.
   const allPhotos = photosOf(row);
-  const photos = allPhotos.filter(p => rightsAreUsable(p.rights));
+  const photos = allPhotos;
   const srcs = photos.map(p => p.src);
   // Imported models already carry their brand (classify() prepends it), so a
   // naive join would say "Doosan Doosan DX300LC" on the card and the page.
@@ -370,7 +392,10 @@ export function toPublic(row) {
     images: srcs,
     image: srcs[0] || '',
     photosPending: srcs.length === 0,
-    photos_withheld: allPhotos.length - srcs.length,
+    photos_withheld: 0,
+    // Kept for the CRM's review queue: marketplace-hosted copies usually carry
+    // a visible mark, so they are listed for replacement rather than dropped.
+    photos_flagged: srcs.filter(src => looksWatermarked(src)).length,
     created_by: row.created_by || null,
     created_by_name: row.created_by_name || null,
     status: row.status || 'Available',
@@ -426,9 +451,9 @@ const rowLabel = row => [row?.brand, row?.model].filter(Boolean).join(' ') || ro
 
 /**
  * Read machines.
- *  - publishedOnly (the public default): only rows a person has not hidden,
- *    and only ever rows whose photos pass the rights gate (toPublic drops the
- *    rest), so an unlicensed photo cannot escape through a public read.
+ *  - publishedOnly (the public default): only rows a person has not hidden.
+ *    Photographs travel with the row (2026-10-07) — the basis recorded on each
+ *    one is provenance for the desk, not a condition on publication.
  *  - all=1 from the CRM: every row including hidden ones.
  */
 export async function listMachines(db, { publishedOnly = true, type = null } = {}) {

@@ -105,7 +105,8 @@ side now does the same:
 npm run machinery:sync -- --url https://www.alibaba.com/product-detail/…
 
 # with the supplier's own photographs
-npm run machinery:sync -- --url … --rights dropship-authorized
+npm run machinery:sync -- --url …                          # photos included
+npm run machinery:sync -- --url … --rights supplier-permission   # a specific basis
 
 # a whole list, one link per line
 npm run machinery:sync -- --file links.txt --rights supplier-permission
@@ -120,23 +121,29 @@ resulting listing. `--write` merges it into `src/machinery-data.js` with status
 **Imported — review before quoting**, so nothing reaches a customer without a
 person looking at it first.
 
-**Facts and photographs are two different things.** Product facts — model,
-year, price, engine, capacity — are not copyrightable, so the importer takes
-them from any link. A photograph belongs to whoever took it, and a watermark is
-a label rather than the source of the right: removing one does not make a photo
-available. So the importer asks for the basis on which a photo may be
-published, records it on the listing, and has three answers:
+**Photographs import with the listing.** 2026-10-07, owner instruction: the
+machinery importer works exactly like the car importer — the photographs the
+supplier publishes on their own listing come across with it, so a machine
+imports and lists *with* its pictures instead of waiting for paperwork. The
+basis for each photograph is still **recorded** on it; that is provenance for
+the desk to audit, not a gate on the listing:
 
-| `--rights` | when it applies |
+| basis | when it applies |
 | --- | --- |
-| `dropship-authorized` | Alibaba's dropshipping/reseller programme or the supplier's own reseller terms grant use of the product images — the normal case when you are quoting their machine |
-| `supplier-permission` | the supplier sent you the photographs (WhatsApp, email, WeChat) to sell from. **Keep that message** — this is what a dispute turns on. |
+| `supplier-listing` | the photo the supplier publishes on their own product page or marketplace listing for buyers — the default for every import |
+| `supplier-permission` | the supplier sent you the photographs (WhatsApp, email, WeChat) to sell from |
 | `own-photo` | AR7 or its inspector took the photograph |
+| `dropship-authorized` | a reseller/dropship programme grants use of the product images |
 
-With no basis recorded the listing still imports — real price, real
-specification — and stays photoless until photographs arrive. That is the same
-rule as before, applied consistently: the catalogue grows today, and no listing
-shows a photograph we cannot stand behind.
+A watermark is a label, not the source of the right, so the importer never
+strips one. Made-in-China's image CDN is on the known-watermark list: those
+copies are **counted and flagged for replacement** in the CRM (`photo basis
+missing` / watermark review chips) rather than being dropped, which is what the
+desk used to see as "the scraper imported nothing".
+
+The one remaining gap is a listing the supplier publishes with *no* photograph
+at all: it imports with real price and specification and is marked
+`photosPending`, showing up in the desk's review queue.
 
 ### Alibaba, the sanctioned way
 

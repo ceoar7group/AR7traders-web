@@ -37,3 +37,11 @@ The hero rotates its featured stock, auction and shipping cards by design. Its b
 | 390 × 844 | [Before](hero-before-390.jpg) | [After](hero-after-390.jpg) |
 
 Full capture metrics: [`audit-metrics.json`](audit-metrics.json).
+
+## 2026-10-07 — homepage header/hero pass + CRM machinery desk
+
+The header no longer reserves a hard-coded offset per breakpoint, the hero starts
+exactly below the bar, the bar leaves before the hero's first line of copy can
+reach it, and the CRM machinery desk shows (and lets you edit/delete) the machines
+already on the website. Viewport-by-viewport evidence, measured numbers and the
+CRM captures: [`homepage-pass-2026-10-07/`](homepage-pass-2026-10-07/README.md).

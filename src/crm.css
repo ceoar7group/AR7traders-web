@@ -3541,9 +3541,11 @@ html[data-crm-theme="light"] .crm-shell {
   border-radius: 7px;
 }
 
-/* A photo with no rights basis: visibly held, not silently dropped. */
-.photo-grid figure.is-held { border-color: var(--crm-danger); }
-.photo-grid figure.is-held img { opacity: .42; filter: grayscale(1); }
+/* 2026-10-07: a photograph is never withheld — it publishes with the listing.
+   What the desk still flags is a photo with no basis recorded at all, as a
+   provenance reminder rather than a red "cannot be used" state. */
+.photo-grid figure.is-unlabelled { border-color: var(--crm-gold); }
+.photo-grid figure.is-unlabelled img { opacity: .86; }
 .photo-held-flag {
   position: absolute;
   top: 8px;
@@ -3790,4 +3792,70 @@ html[data-crm-theme="light"] .crm-shell {
   .crm-scraper-list li { grid-template-columns: 22px 66px minmax(0,1fr); gap: 8px; padding: 9px; }
   .crm-scraper-list img { width: 66px; height: 54px; }
   .crm-scraper-selection { align-items: flex-start; }
+}
+
+/* ---------------------------------------------------------------------------
+   Machinery desk — the website's built-in catalogue.
+
+   The public machinery page falls back to the catalogue that ships in the
+   bundle (src/machinery-data.js), so those machines can be live on the
+   website while having no desk record. The desk lists them, says plainly that
+   they are not records yet, and offers one click to create the row — after
+   which they edit, photograph, unpublish and delete like anything else.
+   --------------------------------------------------------------------------- */
+.crm-catalogue-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--crm-accent) 30%, var(--crm-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--crm-accent) 7%, var(--crm-panel));
+}
+
+.crm-catalogue-bar > div {
+  min-width: 0;
+}
+
+.crm-catalogue-bar b {
+  display: block;
+  font-size: 12.5px;
+}
+
+.crm-catalogue-bar small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--crm-muted);
+}
+
+.crm-catalogue-bar > button {
+  flex: 0 0 auto;
+}
+
+.crm-not-in-desk {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px dashed color-mix(in srgb, var(--crm-accent) 45%, var(--crm-border));
+  border-radius: 999px;
+  color: var(--crm-muted);
+  font: 700 9.5px Manrope, sans-serif;
+  letter-spacing: .4px;
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .crm-catalogue-bar {
+    align-items: flex-start;
+  }
+
+  .crm-catalogue-bar > button {
+    width: 100%;
+    justify-content: center;
+  }
 }

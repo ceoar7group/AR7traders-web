@@ -467,7 +467,7 @@
 
 
 /* ── One machine's own page ────────────────────────────────────────────────── */
-.mch-detail-page .page-content{padding-top:130px}
+.mch-detail-page .page-content{padding-top:var(--hero-lead)}
 .mch-detail{display:grid;grid-template-columns:1.08fr .92fr;gap:34px;align-items:start}
 .mch-detail-gallery{position:relative;display:grid;gap:12px}
 .mch-detail-shot{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);cursor:zoom-in}

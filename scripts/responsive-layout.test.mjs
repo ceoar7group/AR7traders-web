@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const html = read('../index.html');
@@ -13,12 +13,22 @@ const expandedCss = read('../src/expanded.css');
 const crmCss = read('../src/crm.css');
 const layoutCss = read('../src/site-layout.css');
 const landingCss = read('../src/landing-v2.css');
+const i18nCss = read('../src/i18n.css');
+// Every stylesheet that used to clear the header by hand. Since the rebuild
+// there is ONE owner (src/site-layout.css §8) and no file may re-introduce a
+// hard-coded top offset.
+const headerOffsetFiles = [layoutCss, stylesCss, expandedCss, landingCss, detailCss, pagesCss, portalCss, i18nCss].join('\n');
 
-// 2026-10-03 header rebuild: the bar is ONE line at every width, owned by
-// src/site-layout.css (imported last, so nothing earlier can re-shape it). The
-// old two-row phone grid is gone and the burger tier drops from 1100px to
-// 899px so laptops and tablets keep their real navigation row.
-assert.match(main, /import '\.\/site-layout\.css';\s*$/m);
+// 2026-10-03 header rebuild, consolidated 2026-10-07: the bar is ONE line at
+// every width, owned by src/site-layout.css, which now also owns the space the
+// bar occupies (`--head-h`, measured by src/site-header.jsx). The old per-file
+// offsets and the fixes.css override layer are gone — a later import (i18n.css)
+// may follow it, but nothing may re-declare a hard-coded header height.
+assert.match(main, /import '\.\/site-layout\.css';/);
+assert.doesNotMatch(main, /import '\.\/fixes\.css';/);
+assert.ok(!existsSync(new URL('../src/fixes.css', import.meta.url)),
+  'the fixes.css override layer was removed, not merely un-imported');
+assert.doesNotMatch(headerOffsetFiles, /padding-top:\s*(?:110|122|140|142|150|152|158|160)px/);
 assert.match(layoutCss, /@media \(max-width: 639px\)/);
 assert.doesNotMatch(currencyCss, /grid-template-rows:\s*auto auto/);
 // Below 640px the link row is the panel only: no second bar row, no wrapping.
@@ -79,11 +89,14 @@ assert.match(detailCss, /@media\s*\(min-width:\s*651px\)\s*and\s*\(max-width:\s*
 assert.match(detailCss, /@media\s*\(max-width:\s*650px\)/);
 assert.match(detailCss, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
 assert.match(detailCss, /overflow-wrap:\s*anywhere/);
-// The lazily loaded account stylesheet must reserve the same fixed-header
-// space after it arrives; otherwise its later CSS would cover the form.
-assert.match(portalCss, /\.account-form-wrap\{padding:150px/);
-assert.match(portalCss, /@media\(max-width:650px\).*\.account-form-wrap\{padding:160px/s);
-assert.match(portalCss, /\.my-account\{padding:150px/);
+// The lazily loaded account stylesheet must once again not re-clear the header
+// by hand: the shell reserves it once (`.site > main`), so the account panels
+// only add their own lead-in.
+assert.match(portalCss, /\.account-page\{min-height:calc\(100vh - var\(--head-h,0px\)\)/);
+assert.match(portalCss, /\.account-overlay\{position:absolute;z-index:2;inset:0;padding:clamp\(/);
+assert.match(portalCss, /\.account-form-wrap\{padding:clamp\(/);
+assert.match(portalCss, /@media\(max-width:650px\).*\.account-form-wrap\{padding:clamp\(20px,4vh,38px\) 20px 45px\}/s);
+assert.match(portalCss, /\.my-account\{padding:var\(--hero-lead\)/);
 
 // The currency menu anchors to the whole actions row; the switch itself must be
 // static on phones or the panel clips off the left screen edge.
@@ -93,12 +106,13 @@ assert.doesNotMatch(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-menu\s*\{[^}
 assert.match(currencyCss, /@media\s*\(max-width:\s*420px\)/);
 assert.match(currencyCss, /@media\s*\(max-width:\s*650px\)/);
 assert.match(currencyCss, /@media\s*\(min-width:\s*651px\)\s*and\s*\(max-width:\s*720px\)/);
-// The bar is fixed, so the pages under it must reserve its real height: 110px
-// on a phone. The old 88px value let the bar sit on top of the hero heading.
-assert.match(layoutCss, /\.hero \{\s*padding-top: 122px !important;/);
-assert.match(layoutCss, /@media \(max-width: 639px\)[\s\S]*\.page-hero\.mini \{\s*padding-top: 122px !important;/);
-assert.match(expandedCss, /\.hero\{padding-top:122px!important/);
-assert.match(pagesCss, /@media\(max-width:650px\)\{\.page-hero\{padding-top:122px\}/);
+// The bar is fixed, so the page reserves its real height exactly once — from
+// the measured `--head-h` — and every hero adds only its own lead-in.
+assert.match(layoutCss, /--head-h: calc\(var\(--promo-h, 0px\) \+ var\(--head-pad\) \+ var\(--ribbon-h\) \+ var\(--head-gap\) \+ var\(--nav-h\) \+ var\(--head-pad\)\)/);
+assert.match(layoutCss, /\.site > main \{\s*padding-top: var\(--head-h\);/);
+assert.match(layoutCss, /\.hero \{\s*min-height: 0;[\s\S]*?max-height: none;\s*padding-top: var\(--hero-lead\);/);
+assert.match(pagesCss, /@media\(max-width:650px\)\{\.page-hero\{padding-top:var\(--hero-lead\)\}/);
+assert.match(layoutCss, /scroll-padding-top: calc\(var\(--head-h\) \+ 14px\)/);
 assert.match(currencyCss, /@media\s*\(max-width:\s*899px\)/);
 assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/lux\/rolls-royce-ghost\.webp\"\s+fetchpriority=\"high\"/);
 assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+used-japanese-cars-auction-export-toyota/);
@@ -138,7 +152,11 @@ assert.match(detailCss, /\.inv-toolbar-facets>\.inv-search\{[^}]*width:100%/);
 assert.match(main, /<FounderStat variant="hero" delay=\{900\}\/>/);
 assert.match(detailCss, /\.hero \.scroll-cue\{display:flex!important/);
 assert.match(detailCss, /\.hero-copy \.founder-stat--hero\{display:flex;visibility:visible;opacity:1/);
-assert.match(detailCss, /@media\(max-width:650px\)\{\s*\.hero\{padding-bottom:94px!important\}/);
+// The mobile hero no longer needs a hard-coded bottom pad to clear the cue: the
+// cue sits in the hero's own flow (§9) and the hero grows to hold it.
+assert.doesNotMatch(detailCss, /\.hero\{padding-bottom:94px/);
+assert.match(layoutCss, /\.hero \.scroll-cue \{[^}]*position: static;/s);
+assert.match(layoutCss, /\.hero \.scroll-cue \{[^}]*grid-column: 1 \/ -1;/s);
 
 // The vehicle detail photos keep their gallery and zoom affordances but no
 // longer inherit the decorative globe used by the header/world network.
@@ -156,7 +174,7 @@ const targetHeroWidths = [1920, 1366, 1024, 768, 390];
 for (const width of targetHeroWidths) {
   const expectedMode = width <= 1000 ? 'stacked' : 'collage';
   const stackedRule = /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-visual \{[\s\S]*?display: grid/.test(layoutCss);
-  const collageRule = /\.hero-visual\{height:620px;position:relative;perspective:1200px\}/.test(stylesCss);
+  const collageRule = /\.hero-visual\{height:clamp\(430px,min\(60vh,46vw\),620px\)\}/.test(stylesCss);
   const actualMode = width <= 1000 ? (stackedRule ? 'stacked' : 'missing') : (collageRule ? 'collage' : 'missing');
   assert.equal(actualMode, expectedMode, `${width}px hero uses its declared ${expectedMode} geometry`);
   assert.match(layoutCss, /\.hero \.hero-copy \.hero-vignettes \{[^}]*position: relative/s,
@@ -166,9 +184,9 @@ for (const width of targetHeroWidths) {
 }
 assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*top: 50%[^}]*left: 5px[^}]*right: 5px/s,
   'desktop carousel arrows are centered vertically at the photo edges');
-assert.ok(layoutCss.includes('.hero-carousel-controls {top:150px}'),
-  'tablet arrows track the 300px-tall hero photo');
-assert.ok(layoutCss.includes('.hero-carousel-controls {top:min(125px,30vw);left:4px;right:4px}'),
+assert.ok(layoutCss.includes('.hero-carousel-controls {top:clamp(28px, 6vw, 72px)}'),
+  'the stacked arrows park on the top of the vehicle window, not a fixed 150px offset');
+assert.ok(layoutCss.includes('.hero-carousel-controls {top:clamp(30px, 9vw, 56px);left:6px;right:6px}'),
   'phone arrows track the smaller photo without colliding with the sample cards');
 assert.match(layoutCss, /\.hero-carousel-controls button \{[^}]*width: 42px[^}]*height: 42px/s);
 assert.match(layoutCss, /\.hero-carousel-controls button \{width:40px;height:40px\}/);

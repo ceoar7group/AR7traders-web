@@ -109,6 +109,31 @@ ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reac
   ok(true, 'logoOnError survives a null target');
 }
 
+// ---- the bar's lifecycle is derived, never hard-coded ----------------------
+// 2026-10-07: the bar used to be pinned for the whole page unless a `hold`
+// prop was flipped, and the space under it was reserved with one hard-coded
+// offset per breakpoint (122/140/142/158/160px) — the source of the blank band
+// under the header and of the bar sitting over the hero's headline.
+{
+  const fs = require('node:fs');
+  const src = fs.readFileSync('src/site-header.jsx', 'utf8');
+  // Comments may NAME the retired values (they explain what was removed); only
+  // executable code must be free of them.
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok(!/\b(122|140|142|158|160)\b/.test(code), 'site-header.jsx carries no hard-coded header offset');
+  ok(!/\b(122|140|142|158|160)px\b/.test(code) && code.includes('--head-h'), 'the reserved space comes from the measured --head-h variable');
+  ok(src.includes("document.querySelector('[data-header-hold], .page-hero, .hero')"),
+    'the held region is the page hero, resolved from the document');
+  ok(src.includes("target.querySelector('.eyebrow, .kicker, .hero-copy, .page-hero-copy')"),
+    'the leave boundary is the hero\'s first line of copy, not a magic number');
+  ok(src.includes('const leaveAt = Math.max(0, Math.min(leadTop - headH - 8, heroBottom - headH));'),
+    'the bar leaves 8px before the hero copy can reach it, or at the hero\'s end');
+  ok(src.includes('window.scrollY > 0 && window.scrollY >= (last ? backAt : leaveAt)'),
+    'the top of the document always shows the bar, with hysteresis below it');
+  ok(src.includes('new MutationObserver(onScroll)'),
+    'a lazy route chunk that mounts its hero late is picked up without a scroll');
+}
+
 // ---- dropdown CSS never uses :focus-within to force panels open ------------
 {
   const fs = require('node:fs');

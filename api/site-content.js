@@ -642,6 +642,7 @@ async function importDispatch(req, res, injected = {}) {
     if (step === 'scraper') {
       const out = await runScraper(db, {
         category: body.category || null,
+        categories: Array.isArray(body.categories) && body.categories.length ? body.categories : null,
         limit: body.limit || null,
         fetch: injected.fetch || null,
         sleep: injected.sleep || null,

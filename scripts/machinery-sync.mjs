@@ -24,12 +24,14 @@
 // in China frequently block datacentre IPs, so without the relay many pages
 // will come back empty — that is a network fact, not a bug in the parser.
 //
-// WHAT IT WILL NOT DO
-// -------------------
-// It will not strip a watermark, and it will not publish a product photo
-// without a recorded rights basis. With no basis it imports the listing —
-// real price, real specification — and marks the machine `photosPending`.
-// Facts are facts; photographs belong to whoever took them. Details:
+// WHAT IT DOES WITH PHOTOS
+// ------------------------
+// 2026-10-07: it imports and lists machines exactly the way the car importer
+// does. Every photograph the supplier page publishes comes across with the
+// `supplier-listing` basis recorded on it — no drop-shipping agreement and no
+// written permission needed. It will not strip a watermark: a marketplace copy
+// is flagged for replacement in the CRM, not dropped. `--rights <basis>` still
+// records something more specific for a source that has one. Details:
 // MACHINERY-SOURCES.md.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -241,7 +243,7 @@ async function importOne(url, { rights, forceAdapter, factsOnly }) {
     machine.image = null;
     machine.photosPending = true;
     machine.source.rights = null;
-    if (!factsOnly && !rights) console.log('  · importing facts only. Add --rights dropship-authorized (or supplier-permission) to publish photos.');
+    if (!factsOnly && !rights) console.log('  · importing facts only — the adapter cannot publish photographs. Drop --facts-only to import them.');
   }
 
   console.log(`  ${machine.name} — ${machine.brand}, ${machine.type}, ${machine.year}`);
@@ -254,7 +256,7 @@ async function daily() {
   const sourced = MACHINES.filter(m => m.source?.url);
   if (!sourced.length) {
     console.log('No machine in the catalogue carries a source URL yet.');
-    console.log('Import one first:  npm run machinery:sync -- --url <link> --rights dropship-authorized --write');
+    console.log('Import one first:  npm run machinery:sync -- --url <link> --write');
     return 0;
   }
   console.log(`Re-checking ${sourced.length} sourced listing(s)…\n`);
@@ -304,18 +306,20 @@ const run = async () => {
   if (!links.length) {
     console.log(`Machinery import — paste a link, get a listing.
 
-  npm run machinery:sync -- --url <product link>                       facts only
-  npm run machinery:sync -- --url <link> --rights dropship-authorized   with photos
-  npm run machinery:sync -- --file links.txt --rights supplier-permission
+  npm run machinery:sync -- --url <product link>                       import with its photos
+  npm run machinery:sync -- --url <link> --rights supplier-permission   record a specific basis
+  npm run machinery:sync -- --file links.txt
   npm run machinery:sync -- --daily                                     re-price everything
 
-Rights flags (${RIGHTS.join(' | ')}):
-  dropship-authorized   the supplier or programme grants resale use of the images
+Basis flags (${RIGHTS.join(' | ')}):
+  supplier-listing      the photo the supplier publishes on their own listing (the default)
   supplier-permission   the supplier sent you the photos to sell from
   own-photo             AR7 or its inspector took them
+  dropship-authorized   a reseller programme grants use of the images
 
-Without a rights flag the listing still imports — real price, real specification —
-and stays photoless until photos arrive.
+Photos import by default. The basis is recorded on every one, and a marketplace
+copy that looks watermarked is flagged for replacement in the desk — never
+dropped, and never a reason to hold the listing back.
 
 Photo standard: recent machine, clean paint, whole unit in frame, at least ${PHOTO_STANDARD.minPhotos} photos,
 nothing older than ${PHOTO_STANDARD.maxAgeYears} years unless the photos show its current condition. A flagged

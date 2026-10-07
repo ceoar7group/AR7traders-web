@@ -13,7 +13,7 @@
 // a human sees the machine before it exists and cannot be surprised by it.
 import {
   ADAPTERS, chooseAdapter, extractProduct, toMachine, reviewPhotos,
-  rightsAreUsable, RIGHTS
+  rightsAreUsable, RIGHTS, DEFAULT_RIGHTS
 } from '../src/machinery-source.js';
 // MACHINE_TYPES comes from the site's own data module rather than being
 // re-exported through _machinery.js, so there is one definition of what a
@@ -101,7 +101,7 @@ export async function previewMachine({ url, html = null, rights = null, adapter 
   // 2026-10-04: owner policy — photos import by default with the
   // 'dropship-authorized' basis (supplier terms allow reseller image use).
   // Only visibly watermarked photos are skipped; the machine always imports.
-  const basis = rightsAreUsable(rights) ? rights : 'dropship-authorized';
+  const basis = (rights && rightsAreUsable(rights)) ? rights : DEFAULT_RIGHTS;
 
   const machine = toMachine(product, { markup, rights: basis, adapter: chosen });
 
@@ -159,7 +159,8 @@ export function toRow(machine, { rights = null, adapter = 'product-page', ref = 
   const ref2 = normaliseRef(ref) || normaliseRef(machine.ref) || null;
   // 2026-10-04: owner policy — photos always carry a recorded basis. The
   // default is 'dropship-authorized' (supplier terms allow reseller image use).
-  const basis = rightsAreUsable(rights) ? rights : (rightsAreUsable(machine.source?.rights) ? machine.source.rights : 'dropship-authorized');
+  const basis = (rights && rightsAreUsable(rights)) ? rights
+    : (machine.source?.rights && rightsAreUsable(machine.source.rights) ? machine.source.rights : DEFAULT_RIGHTS);
   const row = {
     ref: ref2,
     type: resolveType(machine.type) || null,
