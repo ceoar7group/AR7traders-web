@@ -65,7 +65,7 @@ export { carRef, hrefFor };
 // below is added here.
 import {
   listMachines, createMachine, updateMachine, setPublished, deleteMachine,
-  MACHINERY_TABLE, toPublic
+  MACHINERY_TABLE, purgeStale, toPublic
 } from './_machinery.js';
 // The import agent: another shared module, so the machinery desk, the paste-a
 // -link box and the nightly job all cost zero extra functions.
@@ -512,6 +512,16 @@ async function machineryDispatch(req, res, action, injected = {}) {
     if (action === 'archive')
       return send(res, 200, await setPublished(db, id, false, auth.profile,
         {archive: true, reason: 'archived from the CRM'}));
+    // 2026-10-08: the deliberate end of the staleness path. step=stale only
+    // flags; this archives (default) or deletes rows a person has already
+    // unpublished and whose source has been gone for N days. Same site.write
+    // gate as every other write on this desk.
+    if (action === 'purge-stale' && req.method === 'POST')
+      return send(res, 200, await purgeStale(db, {
+        olderThanDays: req.body?.olderThanDays,
+        remove: req.body?.remove === true,
+        actor: auth.profile
+      }));
   } catch (e) { return sendErr(e); }
 
   return send(res, 400, {error: `Unknown machinery action: ${action}`});

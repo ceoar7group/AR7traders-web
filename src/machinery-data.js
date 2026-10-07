@@ -381,6 +381,38 @@ export const MACHINES = [
 /** Filter helpers shared by the page and the home teaser. */
 export const machinesByType = type => (type && type !== 'All' ? MACHINES.filter(m => m.type === type) : MACHINES);
 
+// ---------------------------------------------------------------------------
+// Stated facts only: the year and the hour meter.
+//
+// 2026-10-08: the importer no longer invents either. A supplier page that
+// states no model year is stored with year=NULL (api/_machinery-import.js
+// yearValue / hoursValue, src/machinery-source.js toMachine), because a
+// listing claiming "2026" that nobody verified is the one fabrication this
+// catalogue must never contain. That makes NULL a value every renderer has to
+// handle — and `Number(null)` is 0, so the null test has to come first or an
+// unstated year silently becomes the year 0 and an unstated hour meter becomes
+// "0 hours". These two helpers are the single place that decision is made.
+// ---------------------------------------------------------------------------
+
+/** A machine's model year as a number, or null when nobody stated one. */
+export const machineYear = m => {
+  const v = m?.year;
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/** A machine's hour meter (kilometres on a truck) as a number, or null. */
+export const machineHours = m => {
+  const v = m?.hours;
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/** The year as words: the number, or an honest "not stated". Never "null". */
+export const machineYearText = (m, fallback = 'Year not stated') => machineYear(m) ?? fallback;
+
 /** Kept for backwards compatibility with the home teaser. */
 export const machinePriceUSD = machine => listPriceUSD(machine);
 

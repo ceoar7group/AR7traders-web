@@ -40,6 +40,7 @@ const { auditDocument, summarise } = await import('../src/seo-audit.js');
 const { applySeo, PAGE_SEO, MACHINERY_SEO, BASE } = await import('../src/seo.js');
 const { NEWS, articleSlug } = await import('../src/news-data.js');
 const { MACHINES } = await import('../src/machinery-data.js');
+const { DEST, destinationFacts } = await import('../src/destinations.js');
 
 const args = process.argv.slice(2);
 const cmd = (args.find(a => !a.startsWith('-')) || 'audit').toLowerCase();
@@ -85,6 +86,16 @@ const STATIC_ROUTES = () => {
   for (const type of Object.keys(MACHINERY_SEO)) {
     routes.push({ page: 'machinery', url: BASE + '/machinery/' + type, label: 'machinery/' + type, seo: { machineType: type } });
   }
+  // One route per market page (2026-10-08): /destinations/kenya and the rest.
+  // Each is audited like any other indexable URL, and an unknown market slug is
+  // audited too — it must stay out of the index rather than duplicate the hub.
+  for (const dest of DEST) {
+    const f = destinationFacts(dest);
+    routes.push({ page: 'destinations', url: BASE + f.href, label: 'destinations/' + f.slug,
+      seo: { destination: dest, destSlug: f.slug } });
+  }
+  routes.push({ page: 'destinations', url: BASE + '/destinations/atlantis', label: 'destinations/unknown-market',
+    seo: { destSlug: 'atlantis' }, indexable: false });
   routes.push({ page: 'news', url: BASE + '/news/' + articleSlug(NEWS[0]), label: 'news/' + articleSlug(NEWS[0]), seo: {}, carId: articleSlug(NEWS[0]) });
   return routes;
 };
@@ -104,7 +115,9 @@ function auditRoute(route, facts) {
       make: route.seo?.make ?? null,
       model: route.seo?.model ?? null,
       machineType: route.seo?.machineType ?? null,
-      vehicleCount: route.seo?.vehicleCount ?? null
+      vehicleCount: route.seo?.vehicleCount ?? null,
+      destination: route.seo?.destination ?? null,
+      destSlug: route.seo?.destSlug ?? null
     });
     return auditDocument(globalThis.document, {
       route: route.label,
@@ -420,7 +433,12 @@ function runBrief() {
   problems.sort((a, b) => order[a.status] - order[b.status]);
 
   console.log('SEO work brief — highest impact first\n');
-  if (!problems.length) console.log('Audit is clean. Add content and keep publishing.');
+  if (!problems.length) {
+    const marketPages = sitemapUrls().filter(u => /\/destinations\/[a-z0-9-]+\/?$/.test(u));
+    console.log(`Audit is clean across ${reports.length} route(s)` +
+      (marketPages.length ? `, including ${marketPages.length} market landing pages` : '') +
+      '. Keep publishing guides and keep the market pages fresh.');
+  }
   problems.slice(0, 25).forEach((p, i) => {
     console.log(`${i + 1}. [${p.status.toUpperCase()}] ${p.route} → ${p.label}`);
     console.log(`   ${p.detail}`);
@@ -428,7 +446,17 @@ function runBrief() {
   });
   console.log('\nAlso worth doing by hand (the agent cannot judge these):');
   console.log('  • replace illustrative machinery photos with supplier photos you have rights to');
-  console.log('  • add a destination landing page per market you actually ship to (Kenya, UAE, Pakistan)');
+  // 2026-10-08: the market pages exist now, so this bullet is a coverage check
+  // rather than standing advice — it names only markets that still lack a page.
+  {
+    const inSitemap = sitemapUrls().join('\n');
+    const missing = DEST.filter(d => !inSitemap.includes('/destinations/' + destinationFacts(d).slug));
+    if (missing.length) {
+      console.log(`  • add a destination landing page per market you actually ship to — still missing: ${missing.map(d => d[0]).join(', ')}`);
+    } else {
+      console.log(`  • keep the ${DEST.length} market pages current (transit windows, models, document packs) — every market in DEST has one`);
+    }
+  }
   console.log('  • publish buying guides targeting real queries ("how to import a car to Kenya")');
   console.log('  • earn links: supplier pages, port agents, freight partners, chambers of commerce');
   return 0;

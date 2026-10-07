@@ -191,8 +191,17 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // a hero page, gone before the hero's first line of copy can slide under it,
 // back on scroll-up). That is ~0.6 kB of first-load JS; the CSS it deleted
 // stays inside the unchanged CSS budget. Measured 477.61 kB raw / 140.99 kB gzip.
-const BUDGET_GZIP = 142 * 1024;
-const BUDGET_RAW = 479 * 1024;
+// Ratcheted 142 → 143 kB gzip / 479 → 482 kB raw on 2026-10-08 for the six
+// market landing pages (/destinations/<market>). The page markup itself is a
+// route-level React.lazy chunk (destination-page-*.js, asserted below not to be
+// preloaded), and the hub's duplicated inline guide was deleted in the same
+// change — one owner for that copy, and no duplicate paragraphs for a crawler
+// to choose between. What remains in first load is the market copy src/seo.js
+// has to read synchronously to build each URL's title, description, breadcrumb
+// and FAQPage markup: document packs, authorities and the five FAQ templates.
+// Measured 481.36 kB raw / 142.07 kB gzip.
+const BUDGET_GZIP = 143 * 1024;
+const BUDGET_RAW = 482 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

@@ -793,31 +793,57 @@ footer [id] {
 }
 
 /* ---------------------------------------------------------------------------
-   9.1 HERO VISUAL — stacked on phones and tablets, plus the sample cards
+   9.1 HERO VISUAL — the photograph IS the card, and the facts row sits under it
    ---------------------------------------------------------------------------
-   The car photo, the auction card, the route card and the translated-sheets
-   badge used to be layered on top of each other in a fixed height box. On a
-   phone that buried a third of the car and collided with the globe. Below
-   1000px the same markup flows as a grid instead: the photo first and
-   unobstructed, then the two cards side by side, then the badge and the globe.
-   Every child keeps its order via `order`, so no markup change was needed.
+   2026-10-07 rebuild. The auction card, the shipping-lane card and the
+   "auction sheets translated" badge used to be absolutely positioned ON TOP of
+   the vehicle photograph. Below 1000px they covered roughly a third of the car;
+   at every width they read as stickers laid over somebody else's picture, and
+   the six gold `.spark` twinkles on top of an uncovered photograph read as
+   sensor noise. All of it is gone.
 
-   Both cards share one skeleton at every width — kicker, title, meta, then a
-   footer row holding the rotation dots on the left and the "demo" tag on the
-   right — so their internal lines line up when they sit side by side. */
+   `.hero-visual` is now a two-row grid (src/styles.css owns the rows and the
+   card skin):
 
-/* --- card skeleton, all widths --- */
-.hero-visual .rotating-card-copy {
+     row 1  `.car-main`   — the photograph, full-bleed, nothing layered on it
+     row 2  `.hero-facts` — ONE in-flow row: `.route-strip` (shipping lane) and
+                            `.auction-chip` (next auction + live countdown),
+                            side by side above 1000px, stacked below it.
+
+   Because row 2 is in flow, `.hero-facts`' top can never be above `.car-main`'s
+   bottom: the overlap class of bug is gone by construction rather than by
+   z-index. Verified at six viewports — see pr-visuals/2026-10-07/README.md.
+
+   OWNERSHIP. This section owns the geometry and the shared card skeleton
+   (kicker, title, meta, lane row, ETA pill, rotation dots, "demo" tag).
+   src/landing-v2.css owns the MOTION (the lane line drawing in, the ship
+   sailing on it, the live dot, the card swap) and its reduced-motion stops.
+   src/styles.css owns the box itself. Nothing else may restyle the hero. */
+
+/* --- facts row: shared card skeleton, all widths --- */
+.hero-facts .rotating-card-copy {
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
 }
 
-.hero-visual .card-kicker {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
+.hero-facts .auction-chip {
+  justify-content: center;
+}
+
+.hero-facts .auction-chip .rotating-card-copy {
+  justify-content: center;
+  height: 100%;
+}
+
+.hero-facts .card-kicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 700 8px/1.35 Manrope, sans-serif;
+  letter-spacing: 1.3px;
   text-transform: uppercase;
   color: var(--muted);
   white-space: nowrap;
@@ -825,78 +851,49 @@ footer [id] {
   text-overflow: ellipsis;
 }
 
-.hero-visual .card-title {
-  font: 700 15px/1.2 Manrope, sans-serif;
+.hero-facts .card-title {
+  font: 700 12.5px/1.25 Manrope, sans-serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.hero-visual .card-meta {
+.hero-facts .card-meta {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 9.5px;
+  min-width: 0;
+  font-size: 9px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.hero-visual .card-meta svg {
+.hero-facts .card-meta svg {
   flex: 0 0 auto;
   width: 12px;
   height: 12px;
   color: var(--gold);
 }
 
-/* The countdown is the live-feeling line of the auction card; the route's
+/* The countdown is the live-feeling line of the auction chip; the route's
    status line stays muted so the lane bar carries the colour. */
-.hero-visual .auction-card .card-meta {
+.hero-facts .auction-chip .card-meta {
   color: var(--gold);
 }
 
-.hero-visual .card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: auto;
-  padding-top: 8px;
+/* A live number needs fixed-width digits, or the chip jitters every second. */
+.hero-facts .card-countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
-.hero-visual .card-rotation-dots {
-  margin: 0;
-}
-
-.hero-visual .card-demo {
-  flex: 0 0 auto;
-  font: 700 7px/1 Manrope, sans-serif;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 3px 6px;
-}
-
-.hero-visual .route-card .route-lane {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font: 700 12.5px/1.2 Manrope, sans-serif;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The countdown is a live number: fixed-width digits stop it jittering as the
-   seconds change, and a small pulsing dot marks it as the card's live line. */
-.hero-visual .card-live {
+.hero-facts .card-live {
   display: inline-block;
+  flex: 0 0 auto;
   width: 6px;
   height: 6px;
-  margin-right: 6px;
   border-radius: 50%;
   background: var(--gold);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent);
@@ -907,80 +904,149 @@ footer [id] {
   50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 8%, transparent); }
 }
 
-.hero-visual .card-countdown {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
+/* The honesty tag: these are real venue names and real lanes, but the departure
+   times are a rotating illustration, so both cards say so on their face. */
+.hero-facts .card-demo {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font: 700 7px/1 Manrope, sans-serif;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 6px;
+  font-style: normal;
 }
 
-/* Lane row: origin → destination on the left, transit time as a chip on the
-   right, so the card answers "where" and "how long" on one line. */
-.hero-visual .route-lane-row {
+/* --- both cards: four lines each, and both carry the visible demo tag --- */
+.hero-facts .facts-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
-.hero-visual .route-lane-row .card-title {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.hero-visual .lane-eta {
-  flex: 0 0 auto;
-  font: 700 9px/1 Manrope, sans-serif;
-  letter-spacing: .6px;
-  color: var(--green-text);
-  background: color-mix(in srgb, var(--green) 10%, transparent);
-  border-radius: 999px;
-  padding: 4px 7px;
-  white-space: nowrap;
-}
-
-.hero-visual .route-status svg {
-  color: var(--gold);
-}
-
-.hero-visual .route-card .lane-arrow {
+.hero-facts .facts-head > svg {
   flex: 0 0 auto;
   width: 13px;
   height: 13px;
   color: var(--gold);
 }
 
+.hero-facts .facts-head .card-kicker {
+  flex: 1 1 auto;
+}
+
+.hero-facts .route-lane-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hero-facts .route-lane-row .card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hero-facts .route-lane {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 12.5px/1.25 Manrope, sans-serif;
+}
+
+.hero-facts .lane-arrow {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  color: var(--gold);
+}
+
+/* The ETA pill answers "how long" on the same line as "where". It is a planning
+   window, never a promise, and the destinations page says so in full. */
+.hero-facts .lane-eta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 700 8.5px/1 Manrope, sans-serif;
+  letter-spacing: .4px;
+  font-style: normal;
+  color: var(--green-text);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--green) 18%, transparent);
+  border-radius: 999px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+.hero-facts .lane-eta svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Line 4 pairs the vessel status with the rotation dots so the strip is four
+   lines tall at every width instead of five. */
+.hero-facts .route-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hero-facts .route-status {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-facts .route-status svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  color: var(--gold);
+}
+
+.hero-facts .card-rotation-dots {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.hero-facts .auction-chip .card-rotation-dots {
+  margin-top: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+   9.2 THE SAME HERO BELOW 1000px — one column, photo first, facts stacked
+   --------------------------------------------------------------------------- */
 @media (max-width: 1000px) {
-  /* Free the box to grow: with the old 940px cap the last grid rows
-     (badge + globe) spilled over the marquee below the hero. */
+  /* Free the box to grow: with the old 940px cap the last grid rows spilled
+     over the marquee below the hero. */
   .hero {
     max-height: none;
   }
 
   .hero .hero-visual {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-rows: auto auto;
+    gap: 12px;
     width: min(680px, 100%);
     height: auto;
     margin: 26px auto 0;
-    perspective: none;
-  }
-
-  .hero .hero-visual:before {
-    display: none;
-  }
-
-  .hero .hero-visual .spark {
-    display: none;
   }
 
   .hero .hero-visual .car-main {
-    position: relative;
-    inset: auto;
-    z-index: 4;
-    grid-column: 1 / -1;
-    order: 1;
-    height: auto;
     aspect-ratio: 16 / 10;
+    height: auto;
     max-height: min(58vh, 460px);
     border-width: 5px;
     border-radius: 20px;
@@ -1016,131 +1082,19 @@ footer [id] {
     bottom: 12px;
   }
 
-  /* The two cards keep their live rotation but stop floating and stop
-     scaling: as grid cells they must line up, not bob. */
-  .hero .hero-visual .floating-card {
-    position: relative;
-    inset: auto;
-    order: 2;
-    animation: none;
-    transform: none;
-    scale: 1;
-    translate: none;
-    height: 100%;
-    min-height: 132px;
-  }
-
-  .hero .hero-visual .floating-card .rotating-card-copy {
-    width: 100%;
-    height: 100%;
-  }
-
-  .hero .hero-visual .floating-card.auction-card {
-    padding: 13px;
-    border-radius: 14px;
-    gap: 11px;
-    align-items: flex-start;
-  }
-
-  .hero .hero-visual .auction-card > svg {
-    flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
-    padding: 8px;
-    border-radius: 10px;
-  }
-
-  .hero .hero-visual .card-kicker {
-    font-size: 8px;
-  }
-
-  .hero .hero-visual .card-title {
-    font-size: 15.5px;
-  }
-
-  .hero .hero-visual .card-meta {
-    font-size: 10px;
-  }
-
-  .hero .hero-visual .floating-card.route-card {
-    order: 3;
-    width: auto;
-    padding: 13px;
-    border-radius: 14px;
-  }
-
-  .hero .hero-visual .route-card .route-head {
-    margin-bottom: 7px;
-  }
-
-  .hero .hero-visual .route-card .progress {
-    margin: 12px 0 4px;
-  }
-
-  .hero .hero-visual .floating-badge {
-    position: relative;
-    inset: auto;
-    order: 4;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 11px;
-    width: auto;
-    height: auto;
-    padding: 12px 14px;
-    border-radius: 14px;
-    text-align: left;
-    animation: none;
-    transform: none;
-  }
-
-  .hero .hero-visual .floating-badge svg {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    margin: 0;
-  }
-
-  .hero .hero-visual .floating-badge span {
-    display: grid;
-    gap: 2px;
-    font-size: 9.5px;
-  }
-
-  .hero .hero-visual .floating-badge b {
-    font-size: 12px;
-    letter-spacing: .2px;
-  }
-
-  .hero .hero-visual .floating-badge small {
-    font-size: 9.5px;
-    font-weight: 500;
-    opacity: .9;
-    line-height: 1.35;
-  }
-
-  /* The header globe's bigger sibling, parked beside the badge instead of on
-     top of the car. */
-  .hero .hero-visual > .hero-orb {
-    position: relative;
-    inset: auto;
-    order: 5;
-    display: grid;
-    place-items: center;
-    filter: none;
-  }
-
-  .hero .hero-visual > .hero-orb .iglobe {
-    width: 74px;
+  /* The facts row becomes two full-width cards: side by side on a phone each
+     was ~170px wide, which truncated the lane and squeezed the countdown. */
+  .hero .hero-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
   }
 }
 
-/* Phones: one card per row — side by side each was only ~170px wide, which
-   squeezed the auction icon flat and left the route bar nowhere to breathe. */
+/* Phones: tighter padding, slightly larger type — the facts row is now read at
+   arm's length, not glanced at over a photograph. */
 @media (max-width: 560px) {
   .hero .hero-visual {
-    gap: 9px;
+    gap: 10px;
     margin-top: 20px;
   }
 
@@ -1154,160 +1108,45 @@ footer [id] {
     font-size: 14px;
   }
 
-  .hero .hero-visual .floating-card {
-    grid-column: 1 / -1;
-    min-height: 0;
+  .hero .hero-facts {
+    gap: 9px;
   }
 
-  .hero .hero-visual .floating-card.auction-card {
-    align-items: center;
-    gap: 12px;
-    padding: 13px 14px;
+  .hero-facts .route-strip,
+  .hero-facts .auction-chip {
+    padding: 11px 12px;
+    border-radius: 14px;
   }
 
-  .hero .hero-visual .auction-card > svg {
-    width: 38px;
-    height: 38px;
-    padding: 9px;
-    border-radius: 11px;
+  .hero-facts .card-title {
+    font-size: 13.5px;
   }
 
-  .hero .hero-visual .floating-card.route-card {
-    padding: 13px 14px;
+  .hero-facts .route-lane {
+    font-size: 13px;
   }
 
-  .hero .hero-visual .card-kicker {
-    font-size: 8.5px;
-    letter-spacing: 1.3px;
-  }
-
-  .hero .hero-visual .card-title {
-    font-size: 16px;
-  }
-
-  .hero .hero-visual .route-card .route-lane {
-    font-size: 14.5px;
-  }
-
-  .hero .hero-visual .card-meta {
-    font-size: 10px;
-  }
-
-  .hero .hero-visual .route-card .progress {
-    margin: 12px 0 4px;
-  }
-
-  .hero .hero-visual .floating-badge {
-    grid-column: 1 / -1;
-  }
-
-  .hero .hero-visual .floating-badge b {
-    font-size: 12.5px;
-  }
-
-  .hero .hero-visual .floating-badge small {
-    font-size: 10px;
-  }
-
-  .hero .hero-visual > .hero-orb {
-    grid-column: 1 / -1;
-    margin-top: 2px;
-  }
-
-  .hero .hero-visual > .hero-orb .iglobe {
-    width: 68px;
+  .hero-facts .card-meta,
+  .hero-facts .route-status {
+    font-size: 9.5px;
   }
 }
 
-/* --- the same cards above 1000px, where they float over the collage --- */
+/* --- above 1000px: the two cards share one row under the photograph --- */
 @media (min-width: 1001px) {
-  /* Every sample card lives inside its own containing block (`.hero-visual`)
-     and keeps a stable width, padding and minimum height, so it cannot drift
-     over the hero copy, the CTA row, the ticker or the statistic. */
-  .hero .hero-visual .floating-card {
-    padding: 14px 16px;
-    border-radius: 16px;
+  .hero .hero-facts {
+    gap: 14px;
   }
 
-  .hero .hero-visual .floating-card.auction-card {
-    left: clamp(0px, 1.6%, 22px);
-    right: auto;
-    top: 4%;
-    width: 200px;
-    max-width: calc(100% - 12px);
-    min-height: 92px;
-    align-items: flex-start;
-    gap: 12px;
+  .hero-facts .route-strip,
+  .hero-facts .auction-chip {
+    padding: 11px 14px;
   }
 
-  .hero .hero-visual .floating-card.route-card {
-    right: clamp(0px, 1.6%, 22px);
-    left: auto;
-    bottom: 5%;
-    top: auto;
-    width: 216px;
-    max-width: calc(100% - 12px);
-    min-height: 124px;
-  }
-
-  /* The badge is a trust card now, not a 118px disc: give it the right rail
-     between the auction card (top) and the route card (bottom). */
-  .hero .hero-visual .floating-badge {
-    right: clamp(0px, 1.6%, 22px);
-    left: auto;
-    top: 119px;
-    bottom: auto;
-    width: 208px;
-    max-width: calc(100% - 12px);
-    min-height: 84px;
-    height: auto;
-    padding: 12px 14px;
-    border-radius: 16px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 11px;
-    text-align: left;
-  }
-
-  .hero .hero-visual .floating-badge svg {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    margin: 0;
-  }
-
-  .hero .hero-visual .floating-badge span {
-    display: grid;
-    gap: 2px;
-    font-size: 9px;
-  }
-
-  .hero .hero-visual .floating-badge b {
-    font-size: 12px;
-  }
-
-  .hero .hero-visual .floating-badge small {
-    font-size: 9.5px;
-    font-weight: 500;
-    opacity: .92;
-    line-height: 1.35;
-  }
-
-  .hero .hero-visual .auction-card .rotating-card-copy {
-    flex: 1 1 auto;
-    min-width: 118px;
-  }
-
-  .hero .hero-visual .route-card .rotating-card-copy {
-    flex: 1 1 auto;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .hero .hero-visual .card-foot {
-    padding-top: 9px;
+  /* The auction chip is the narrow, fixed one; the lane strip takes the rest so
+     a long port pair ("Yokohama → Dar es Salaam") has room to run. */
+  .hero-facts .auction-chip {
+    width: clamp(196px, 17vw, 236px);
   }
 }
 
@@ -1318,10 +1157,6 @@ footer [id] {
   .nav-wrap .brand-group .nav-orb,
   .nav-wrap .brand-group .nav-orb:hover {
     transform: none;
-  }
-
-  .hero-visual .card-live {
-    animation: none;
   }
 
   /* The mobile currency menu slides up from the switch; the machinery cards
@@ -1377,6 +1212,15 @@ footer [id] {
 
 .hero .hero-quick {
   margin-top: 16px;
+}
+
+/* 2026-10-07: the `.hero-vignettes` pair used to sit between the "see how
+   bidding works" line and the founder statistic, giving the column its last
+   beat. With it gone the statistic collided with the quick link, so the stat
+   carries that beat instead. The <=650px refinement stays in expanded.css,
+   which already owned it. */
+.hero .hero-copy .founder-stat {
+  margin-top: 26px;
 }
 
 @media (max-width: 650px) {
@@ -1718,57 +1562,30 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   }
 }
 
-/* Origin links live with the hero copy, never as floating photo annotations. */
-.hero .hero-copy .hero-vignettes {
-  position: relative;
-  inset: auto;
-  z-index: 3;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  width: 100%;
-  max-width: 460px;
-  margin: 14px 0 0;
-}
-.hero .hero-copy .hero-vignette {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  min-height: 50px;
-  padding: 8px 13px 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: color-mix(in srgb,var(--card) 94%,transparent);
-  color: var(--ink);
-  box-shadow: 0 7px 20px rgba(0,0,0,.07);
-  font: 700 11px/1.2 Manrope,sans-serif;
-  text-decoration: none;
-  transition: border-color .2s,box-shadow .2s,transform .2s;
-}
-.hero .hero-copy .hero-vignette:hover {
-  border-color: var(--gold);
-  box-shadow: 0 10px 24px rgba(0,0,0,.1);
-  text-decoration: none;
-}
-.hero .hero-copy .hero-vignette:focus-visible,
+/* 2026-10-07: the `.hero-vignettes` pair is gone. Those two chips repeated the
+   hero's own two CTAs as floating annotations over the photograph; the CTA row
+   is now two real anchors (`/inventory`, `/machinery`) and the machinery teaser
+   below carries the China desk, so the links survive without a second copy of
+   themselves on top of the car. */
+.hero .hero-cta a:focus-visible,
 .hero-carousel-controls button:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 3px;
 }
-.hero .hero-copy .hero-vignette svg {width:19px;height:19px;flex:none;color:var(--gold)}
-.hero .hero-copy .hero-vignette span {display:block;line-height:1.2}
-.hero .hero-copy .hero-vignette small {display:block;margin-top:3px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.25px}
+/* The prev/next arrows share grid row 1 with the photograph, so they are
+   centred on the PHOTO by construction. They used to be `position:absolute;
+   top:50%` on `.hero-visual`, which was fine while the visual held only the
+   car — with the facts row added underneath, 50% of the box landed the arrows
+   below the photograph. Grid placement removes the per-breakpoint `top`
+   guesswork entirely (there were three of them). */
 .hero-carousel-controls {
-  position: absolute;
+  grid-row: 1;
+  grid-column: 1 / -1;
   z-index: 8;
-  top: 50%;
-  left: 5px;
-  right: 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transform: translateY(-50%);
+  padding-inline: 5px;
   pointer-events: none;
 }
 .hero-carousel-controls button {
@@ -1789,27 +1606,35 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
 }
 .hero-carousel-controls button:hover {border-color:var(--gold);background:var(--card);transform:scale(1.04)}
 .hero-carousel-controls button svg {width:17px;height:17px}
-@media (max-width:1000px) {
-  /* .car-main sits 24px below the top of the stacked visual; 28–72px keeps the
-     arrows on the photograph at every width, clear of the rows underneath. */
-  .hero-carousel-controls {top:clamp(28px, 6vw, 72px)}
-}
 @media (max-width:650px) {
-  .hero .hero-copy .hero-vignettes {width:100%;gap:8px;margin-top:12px}
-  .hero .hero-copy .hero-vignette {min-height:50px;padding-inline:10px}
-  .hero-carousel-controls {top:clamp(30px, 9vw, 56px);left:6px;right:6px}
+  /* On a phone the photo is only ~232px tall, so a vertically centred arrow
+     lands on the stock tag of the caption block. Park the pair under the dot
+     rail instead — clear of the dots above and the caption below — and keep
+     them grid-placed, so they still track the photo, not a magic `top`. */
+  .hero-carousel-controls {align-self:start;margin-top:36px;padding-inline:6px}
   .hero-carousel-controls button {width:40px;height:40px}
 }
+/* ONE owner for hero motion preferences. src/landing-v2.css defines the facts
+   row's animations; this block is what stops them.
+
+   Measured with `prefers-reduced-motion: reduce` (see pr-visuals/2026-10-07):
+   the lane line, the ship on it, the auction chip's live dot, the card swap,
+   the photograph cross-fade, the scroll cue and the ticker are all `none`.
+   The lane line still shows the route's REAL progress — that is data, not
+   decoration — it just arrives at its width without animating. */
 @media (prefers-reduced-motion:reduce) {
-  .hero .hero-copy .hero-vignette,
+  .hero .hero-cta a,
   .hero-carousel-controls button {transition:none!important}
-  .hero .hero-copy .hero-vignette:hover,
+  .hero .hero-cta a:hover,
   .hero-carousel-controls button:hover {transform:none!important}
-  .hero .hero-visual {--mx:0!important;--my:0!important}
   .hero .hero-visual .car-main {transform:none!important;transition:none!important}
-  .hero .hero-visual .floating-card,
-  .hero .hero-visual .floating-badge,
   .hero .scroll-cue svg,
   .hero .hero-visual .hero-stack img,
+  .hero-facts .rotating-card-copy,
+  .hero-facts .card-live,
+  .route-strip .progress span,
+  .route-strip .route-ship,
   .ticker>div {animation:none!important;transition:none!important}
+  .route-strip .progress span {width:var(--route-progress)!important;transform:none!important;translate:none!important;rotate:none!important}
+  .route-strip .route-ship {transform:translateX(50%)!important;translate:none!important;rotate:none!important}
 }

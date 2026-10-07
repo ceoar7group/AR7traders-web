@@ -27,7 +27,7 @@ import {useSettings, telHref, waLink} from './site-settings.js';
 import {useLang} from './i18n.jsx';
 import {
   MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machinesByType,
-  machineByRef, machineHref
+  machineByRef, machineHref, machineYear, machineHours, machineYearText
 } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useStockDiscounts, stockDiscountFor, priceWithOffer, formatDate} from './offers.js';
@@ -71,9 +71,12 @@ const MACHINE_INTRO = {
   All: 'Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers — inspected, photographed and shipped to your port with the paperwork handled.'
 };
 
+// `Number(null)` is 0, so the null test comes first: an unstated hour meter
+// reads "hours on request", never "0 h" (2026-10-08, machineHours in
+// src/machinery-data.js is the one place that decides).
 const usageOf = m => {
-  const h = Number(m.hours);
-  if (!Number.isFinite(h) || h <= 0) return m.type === 'Trucks' ? 'km on request' : 'hours on request';
+  const h = machineHours(m);
+  if (h == null) return m.type === 'Trucks' ? 'km on request' : 'hours on request';
   return m.type === 'Trucks' ? `${h.toLocaleString('en-US')} km` : `${h.toLocaleString('en-US')} h`;
 };
 
@@ -163,13 +166,13 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
             {price.hasOffer && <em className="mch-offer-line">Individual stock discount{offer?.until ? ` — ends ${formatDate(offer.until)}` : ''}. Indicative FOB price; confirmed with your written quotation.</em>}
           </div>
           <div className="mch-detail-meta">
-            <span><Gauge/> {machine.year} · {usageOf(machine)}</span>
+            <span><Gauge/> {machineYearText(machine)} · {usageOf(machine)}</span>
             <span><MapPin/> {machine.location}, {machine.origin}</span>
             <span><PackageCheck/> Sourced to order</span>
           </div>
           <table className="mch-detail-specs">
             <tbody>
-              {[[t('machinery.year'), machine.year], [t('machinery.usage'), usageOf(machine)], [t('machinery.location'), `${machine.location}, ${machine.origin}`]]
+              {[[t('machinery.year'), machineYearText(machine)], [t('machinery.usage'), usageOf(machine)], [t('machinery.location'), `${machine.location}, ${machine.origin}`]]
                 .concat(machine.specs)
                 .map(([k, v]) => <tr key={k}><th>{k}</th><td>{v}</td></tr>)}
             </tbody>
@@ -208,7 +211,7 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
                 }}>
                 {machineImages(m)[0] && <img loading="lazy" decoding="async" width="420" height="290" src={machineImages(m)[0]} alt={`${m.name} for export — ${m.ref}`}/>}
                 <b>{m.name}</b>
-                <small>{m.year} · {usageOf(m)} · {m.location}</small>
+                <small>{machineYearText(m)} · {usageOf(m)} · {m.location}</small>
                 {p.hasOffer ? <span className="mch-related-price"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span> : <span className="mch-related-price"><b>{fmt(p.now)}</b></span>}
               </a>;
             })}
@@ -295,7 +298,7 @@ function MachineCard({machine, onQuote, onChat, navigate, discounts}) {
         <small><MapPin/> {machine.location}, {machine.origin} · {t('machinery.ref')} {machine.ref}</small>
       </div>
       <p>{machine.summary}</p>
-      <div className="mch-meta"><span><Gauge/> {machine.year} · {usageOf(machine)}</span>{machine.specs[0] && <span><Wrench/> {machine.specs[0][0]}: <b>{machine.specs[0][1]}</b></span>}</div>
+      <div className="mch-meta"><span><Gauge/> {machineYearText(machine)} · {usageOf(machine)}</span>{machine.specs[0] && <span><Wrench/> {machine.specs[0][0]}: <b>{machine.specs[0][1]}</b></span>}</div>
       <ul className="mch-specs">{machine.specs.slice(1).map(([k, v]) => <li key={k}><small>{k}</small><b>{v}</b></li>)}</ul>
       <div className="mch-foot">
         <div>
@@ -352,7 +355,10 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
   useMachineryVersion();
 
   const brands = [...new Set(MACHINES.map(m => m.brand))].sort();
-  const years = [...new Set(MACHINES.map(m => m.year))].sort((a, b) => b - a);
+  // Only years somebody stated are offered as filters: a machine with no year
+  // cannot promise to be "2019 or newer", and a null option in the dropdown
+  // would filter to nothing.
+  const years = [...new Set(MACHINES.map(machineYear).filter(y => y != null))].sort((a, b) => b - a);
   const [, lo, hi] = PRICE_BANDS.find(b => b[0] === band) || PRICE_BANDS[0];
 
   const list = useMemo(() => {
@@ -360,13 +366,13 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
     if (make !== 'All') out = out.filter(m => m.brand === make);
     if (lo != null) out = out.filter(m => listPriceUSD(m) >= lo);
     if (hi != null) out = out.filter(m => listPriceUSD(m) <= hi);
-    if (yearFrom !== 'Any') out = out.filter(m => m.year >= Number(yearFrom));
+    if (yearFrom !== 'Any') out = out.filter(m => (machineYear(m) || 0) >= Number(yearFrom));
     const by = {
       'Featured': null,
       'FOB price: low to high': (a, b) => listPriceUSD(a) - listPriceUSD(b),
       'FOB price: high to low': (a, b) => listPriceUSD(b) - listPriceUSD(a),
-      'Newest first': (a, b) => b.year - a.year,
-      'Lowest hours': (a, b) => (a.hours || 0) - (b.hours || 0)
+      'Newest first': (a, b) => (machineYear(b) || 0) - (machineYear(a) || 0),
+      'Lowest hours': (a, b) => (machineHours(a) || 0) - (machineHours(b) || 0)
     }[sort];
     return by ? [...out].sort(by) : out;
   }, [type, make, band, yearFrom, sort, lo, hi]);

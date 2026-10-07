@@ -13,13 +13,11 @@
 .hero-copy>p{animation:fadeUp .9s .3s both}
 .hero-copy .hero-cta{animation:fadeUp .9s .45s both}
 
-/* ---------- HERO: glow + parallax ---------- */
-.hero-visual{--mx:0;--my:0}
-.hero-visual:before{animation:heroGlow 5.5s ease-in-out infinite;translate:calc(var(--mx)*10px) calc(var(--my)*8px);will-change:transform}
-@keyframes heroGlow{50%{transform:scale(1.14);opacity:.75}}
-
-/* ---------- HERO: the car ad (bigger, separated from globe) ---------- */
-.car-main{inset:clamp(20px,4.4%,36px) clamp(16px,3.4%,30px);border-radius:30px;cursor:pointer;will-change:transform}
+/* ---------- HERO: the car ad IS the card (2026-10-07 rebuild) ---------- */
+/* Radius, border and shadow are owned by `.hero-card` in src/styles.css; this
+   file only carries the motion layer. There is no inset any more — the photo
+   fills the grid row and the facts row sits underneath it in flow. */
+.car-main{cursor:pointer}
 .hero-stack{position:absolute;inset:0;overflow:hidden}
 .hero-stack img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.10);transition:opacity .6s ease,transform 5.5s linear;pointer-events:none}
 .hero-stack img.active{opacity:1;transform:scale(1)}
@@ -34,10 +32,12 @@
 .car-counter{position:absolute;right:16px;bottom:14px;z-index:3;display:flex;align-items:center;gap:6px;font-size:8px;letter-spacing:1px;color:rgba(255,255,255,.85);background:rgba(0,37,15,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);padding:6px 10px;border-radius:20px}
 .car-counter svg{width:12px;color:var(--gold)}
 
-/* ---------- HERO: parallax layers (compose via translate) ---------- */
-.floating-card.auction-card{translate:calc(var(--mx)*-20px) calc(var(--my)*-16px)}
-.floating-card.route-card{translate:calc(var(--mx)*-12px) calc(var(--my)*-10px)}
-
+/* ---------- HERO: the facts row (motion layer) ---------- */
+/* Geometry, colours and the card skeleton live in src/site-layout.css §9.1 —
+   one owner per rule. What lives here is only what MOVES: the lane line
+   drawing itself in, the ship sailing on it, and the live dot on the auction
+   chip. All three stop under prefers-reduced-motion — the stops live in
+   src/site-layout.css §10, which is the one owner of hero motion preferences. */
 /* Live hero auction and shipping rotations */
 /* `forwards`, never `both`: a card whose rotation animates in must be VISIBLE
    before its animation starts. With backwards fill the browser holds the
@@ -50,30 +50,14 @@
 .card-rotation-dots i{display:block;width:12px;height:3px;border-radius:4px;background:color-mix(in srgb,var(--muted) 28%,transparent);transition:width .3s,background .3s}
 .card-rotation-dots i.active{width:24px;background:var(--gold)}
 .route-dots{margin-top:7px}
-.floating-card.route-card{width:238px;padding:14px 15px;border-radius:14px}
-.route-card .route-head{margin-bottom:8px}
-.route-card .route-head span{font-size:7.5px}
-.route-card .rotating-card-copy>b{font-size:11.5px;gap:6px}
-.route-card .progress{height:3px;margin:16px 0 10px;overflow:visible;position:relative}
-.route-card .progress span{position:relative;width:var(--route-progress);animation:routeLineIn .8s cubic-bezier(.25,.65,.3,1) both;will-change:width}
-.route-card .progress span:after{display:none}
-.route-card .route-ship{position:absolute;right:-5px;top:-13px;width:10px!important;height:10px!important;color:var(--gold);padding:0;border-radius:0;background:transparent;filter:drop-shadow(0 1px 1px #0004);transform:translateX(50%);animation:routeShipSail 1.7s ease-in-out infinite;overflow:visible}
-.route-card small{font-size:8px;line-height:1.25;padding-top:1px}
+.route-strip .progress{height:3px;margin:7px 0 5px;overflow:visible;position:relative}
+.route-strip .progress span{position:relative;width:var(--route-progress);animation:routeLineIn .8s cubic-bezier(.25,.65,.3,1) both;will-change:width}
+.route-strip .progress span:after{display:none}
+.route-strip .route-ship{position:absolute;right:-6px;top:-6px;width:15px!important;height:15px!important;color:var(--gold);padding:2.5px;border-radius:50%;background:var(--card);box-shadow:0 0 0 1px var(--line),0 2px 6px rgba(0,0,0,.18);transform:translateX(50%);animation:routeShipSail 1.7s ease-in-out infinite;overflow:visible}
 @keyframes routeLineIn{from{width:5%;opacity:.45}to{width:var(--route-progress);opacity:1}}
 @keyframes routeShipSail{0%,100%{translate:-2px 1px;rotate:-2deg}50%{translate:2px -1px;rotate:2deg}}
-.auction-card .rotating-card-copy>span{white-space:nowrap}
-.auction-card .rotating-card-copy>b,.route-card .rotating-card-copy>b{white-space:nowrap}
-.floating-badge{translate:calc(var(--mx)*-26px) calc(var(--my)*-20px)}
-
-/* ---------- HERO: sparkles ---------- */
-.spark{position:absolute;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle,#fff3cf,#e0a63b);box-shadow:0 0 12px #e0a63baa;animation:twinkle 2.8s ease-in-out infinite;pointer-events:none;z-index:2}
-.spark.s1{right:70px;top:130px}
-.spark.s2{right:230px;bottom:80px;animation-delay:.7s;width:5px;height:5px}
-.spark.s3{left:36px;top:210px;animation-delay:1.3s;width:6px;height:6px}
-.spark.s4{left:130px;bottom:34px;animation-delay:1.9s;width:4px;height:4px}
-.spark.s5{right:18px;top:70px;animation-delay:2.3s;width:4px;height:4px}
-.spark.s6{left:60px;top:88px;animation-delay:2.9s;width:5px;height:5px}
-@keyframes twinkle{0%,100%{opacity:.12;transform:scale(.55)}50%{opacity:1;transform:scale(1.2)}}
+.auction-chip .card-kicker{white-space:nowrap}
+.auction-chip .card-title,.route-strip .route-lane{white-space:nowrap}
 
 /* ============================================================
    INTERACTIVE 360° GLOBE
@@ -211,7 +195,7 @@ html,body{overflow-x:clip}
 
 /* ---------- PERFORMANCE: no loops for reduced-motion users ---------- */
 @media (prefers-reduced-motion: reduce){
- .orbit-ring,.orbiter,.imover,.spark,.iglobe-sheen:before,.iglobe-halo,.igate,.moving-car,.moving-ship,.ticker>div,.car-float-title{animation:none!important}
+ .orbit-ring,.orbiter,.imover,.iglobe-sheen:before,.iglobe-halo,.igate,.moving-car,.moving-ship,.ticker>div,.car-float-title{animation:none!important}
  .hero-stack img{transition:opacity .6s ease}
 }
 
@@ -219,7 +203,6 @@ html,body{overflow-x:clip}
 @media(max-width:1000px){
  .globe-scene{padding:34px 0 10px}
  .iglobe{width:min(400px,84vw)}
- .car-main{inset:24px 18px 30px 22px}
 }
 @media(max-width:650px){
  .iglobe{width:min(340px,88vw)}
@@ -230,7 +213,7 @@ html,body{overflow-x:clip}
  .drag-hint{font-size:7px;bottom:-6px}
  .float-label.japan{right:2px}
  .float-label.shipment{left:2px}
- .car-main{inset:26px 8px 46px 12px;border-radius:20px}
+ .car-main{border-radius:20px}
  .car-float-title{left:18px;bottom:38px;max-width:64%}
  .car-float-title h3{font-size:16px}
  .car-float-title p{font-size:10px}
