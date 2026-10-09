@@ -157,7 +157,17 @@ export function routeRules() {
   }
   rules.push({ route: '/machinery', match: k => /\b(excavator|loader|wheel loader|crane|tipper|truck|machinery|machine|heavy equipment|bulldozer|forklift)\b/.test(k) });
   rules.push({ route: '/tools', match: k => /\b(duty|tax|taxes|customs|cif|freight|calculator|shipping cost)\b/.test(k) });
-  rules.push({ route: '/destinations', match: k => destinations.some(c => k.includes(c.toLowerCase())) });
+  // 2026-10-08: a query that names ONE market belongs on that market's own
+  // page, not on the hub — /destinations/kenya is the URL that can answer
+  // "import car to kenya". A query that spans markets ("kenya or tanzania")
+  // belongs on the hub, the only page that compares them, so that rule has to
+  // come first: routeFor() takes the first match.
+  rules.push({ route: '/destinations',
+    match: k => destinations.filter(c => k.includes(c.toLowerCase())).length > 1 });
+  for (const country of destinations) {
+    const needle = country.toLowerCase();
+    rules.push({ route: `/destinations/${needle.replace(/[^a-z0-9]+/g, '-')}`, match: k => k.includes(needle), country });
+  }
   for (const make of carMakes) {
     rules.push({ route: '/cars/' + slug(make), match: k => k.includes(make.toLowerCase()) });
   }

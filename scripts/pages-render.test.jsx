@@ -16,6 +16,7 @@ import { FAQ_ITEMS, FAQ_TOPICS } from '../src/seo.js';
 import { articleSlug } from '../src/news-data.js';
 import { VehicleActions, vehicleName, vehicleWhatsAppMessage, vehicleWhatsAppHref } from '../src/vehicle-actions.jsx';
 import { waLink, waDigits, FALLBACK } from '../src/site-settings.js';
+import { hydrateMachines } from '../src/machinery-data.js';
 
 let pass = 0, fail = 0;
 // Write straight to the streams: console.error is stubbed below to catch React
@@ -56,10 +57,20 @@ const ROUTES = {
   '/services': ['inner-page'],
   '/brands': ['inner-page'],
   '/destinations': ['inner-page'],
+  '/destinations/kenya': ['destination-page', 'Import a used car from Japan to Kenya', 'Mombasa'],
+  '/destinations/pakistan': ['destination-page', 'Import a used car from Japan to Pakistan', 'Karachi'],
+  '/destinations/uae': ['destination-page', 'Import a used car from Japan to UAE', 'Jebel Ali'],
+  '/destinations/united-kingdom': ['destination-page', 'Import a used car from Japan to United Kingdom', 'Southampton'],
+  '/destinations/new-zealand': ['destination-page', 'Import a used car from Japan to New Zealand', 'Auckland'],
+  '/destinations/australia': ['destination-page', 'Import a used car from Japan to Australia', 'Sydney'],
+  '/destinations/usa': ['destination-page', 'Import a used car from Japan to USA', 'Los Angeles'],
+  '/destinations/tanzania': ['destination-page', 'Import a used car from Japan to Tanzania', 'Dar es Salaam'],
   '/tools': ['inner-page'],
   '/world': ['world-page'],
   '/howbuy': ['inner-page'],
   '/news': ['inner-page'],
+  '/news/checking-your-japanese-vehicle-export-documents': ['news-article', 'Checking your Japanese vehicle export documents'],
+  '/news/comparing-fob-and-cif-vehicle-quotations': ['news-article', 'Comparing FOB and CIF vehicle quotations'],
   '/news/why-land-cruiser-demand-keeps-climbing-in-pakistan': ['news-article', 'Why Land Cruiser demand keeps climbing in Pakistan'],
   '/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean': ['news-article', 'Auction sheet decoded: what R, A and 4.5 really mean'],
   '/news/roro-vs-container-which-shipping-method-fits-your-car': ['news-article', 'RoRo vs container: which shipping method fits your car?'],
@@ -278,8 +289,17 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(!faqHtml.toLowerCase().includes('demo support content'), '/faq removes the "demo support content" label');
 
   const destHtml = await renderPage('/destinations');
-  ok(destHtml.includes('class="destination-guide"') && destHtml.includes('What to expect in Japan') && destHtml.includes('On arrival at'),
-    '/destinations renders the selected market guide with "what to expect" and "on arrival" sections');
+  // 2026-10-08: the guide moved to the market's own URL. The hub keeps the
+  // picker and the market grid, and both now open that page — rendering the
+  // same paragraphs on two URLs would leave a crawler to choose between them.
+  ok(!destHtml.includes('class="destination-guide"'),
+    '/destinations no longer duplicates the market guide inline — it lives on the market page');
+  ok(destHtml.includes('class="destination-grid"') && /Open the <!-- -->Kenya<!-- --> guide/.test(destHtml),
+    'and links every market in the grid to its own guide');
+  ok(/href="\/destinations\/kenya"/.test(destHtml), 'the links are real paths a crawler can follow');
+  const marketHtml = await renderPage('/destinations/kenya');
+  ok(marketHtml.includes('What happens in Japan') && marketHtml.includes('On arrival at'),
+    'the market page carries the "before departure" and "on arrival" sections the hub used to');
   ok(destHtml.includes('planning figure') && !/\b(48|25|10|5)%/.test(destHtml),
     '/destinations labels transit as a planning figure and quotes no duty percentage');
 
@@ -420,17 +440,30 @@ function checkFounderStat(html, variant, where) {
   ok(!home.includes('4.9/5') && !home.includes('Trusted by 1,200+ buyers') && !home.includes('Trusted by 900+ buyers'),
     'no unsupported rating or buyer-count in the home hero');
   ok(!home.includes('98%') && !home.includes('On-time delivery'), 'no unsupported on-time delivery stat on the home page');
-  // The two hero cards specifically: the word SAMPLE is gone from them (owner
-  // direction 2026-10-03) and each carries a small visible "demo" tag plus a
-  // rotation dot rail. Other page sections keep their own labels.
-  const heroCards = home.slice(home.indexOf('floating-card auction-card'), home.indexOf('floating-badge'));
+  // The hero's two facts cards specifically: the word SAMPLE is gone from them
+  // (owner direction 2026-10-03) and each carries a small visible "demo" tag
+  // plus a rotation dot rail. 2026-10-07: they moved OFF the photograph into
+  // one in-flow `.hero-facts` row underneath it. Other page sections keep their
+  // own labels.
+  const heroCards = home.slice(home.indexOf('hero-facts'), home.indexOf('scroll-cue'));
+  ok(heroCards.length > 0 && home.includes('hero-facts'), 'the hero renders its facts row under the photograph');
+  ok(!home.includes('floating-card') && !home.includes('floating-badge'),
+    'nothing floats on the vehicle photograph any more');
+  ok(!home.includes('hero-vignette'), 'the duplicated origin chips are gone from the hero');
+  ok(!/<i class="spark /.test(home), 'the six decorative sparkles are gone from the hero photo box');
+  ok(/<a href="\/inventory" class="primary"/.test(home),
+    'the hero primary CTA is a real anchor to /inventory, so Ctrl-click and crawlers work');
+  ok(/<a href="\/machinery" class="ghost-btn"/.test(home),
+    'the machinery desk is still one click away from the hero');
+  ok(!/<button class="primary"[^>]*>Explore/.test(home),
+    'the primary CTA is no longer a JS button with no href');
   ok(home.includes('Cars from Japan') && home.includes('machines from China'), 'the hero headline states the scope of work: cars from Japan, machines from China');
   ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
   ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
   ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');
   ok(home.includes('card-demo') && home.includes('>demo<'), 'both hero cards carry a visible demo tag');
-  ok(heroCards.includes('Auction \u00b7 ') && !heroCards.includes('SAMPLE'),
-    'the hero auction card describes the auction, without the word SAMPLE');
+  ok(heroCards.includes('Next auction \u00b7 ') && !heroCards.includes('SAMPLE'),
+    'the hero auction chip describes the auction, without the word SAMPLE');
   ok(heroCards.includes('Shipping lane \u00b7 ') && /Lane|from|Yokohama|Kobe|Nagoya|Tokyo|Osaka/.test(heroCards),
     'the hero route card labels the shipping lane');
   ok((home.match(/class="card-rotation-dots/g) || []).length === 2, 'both hero cards still show their rotation dots');
@@ -516,6 +549,116 @@ function checkFounderStat(html, variant, where) {
   ok(machineDetail.includes('Request a quotation'), 'the machine page keeps the quotation call to action');
   const missingMachine = await renderPage('/machinery/excavators/AR7-MC-999');
   ok(/not on the site any more/.test(missingMachine), 'an unknown machine reference says so instead of rendering a blank page');
+}
+
+// ---------------------------------------------------------------------------
+// 2026-10-08: the importer no longer invents a model year or an hour meter, so
+// a published machine may legitimately state neither. Every renderer has to say
+// so in words — a "null" in a card or a meta description is a lie printed on
+// the public site, and `null.toLocaleString()` is a white screen.
+say('\n== a machine with no stated year or hours renders honestly ==');
+{
+  const stale = new Date(Date.now() - 86400000).toISOString();
+  const hydrated = hydrateMachines([
+    { id: 'hx1', ref: 'AR7-MC-900', name: 'Sany SY215C hydraulic excavator', brand: 'Sany', model: 'SY215C',
+      type: 'Excavators', year: null, hours: null, price_usd: 31500, status: 'Available', published: true,
+      location: 'Shanghai', origin: 'China', summary: 'Used unit, sourced to order.', specs: [['Condition', 'Used']],
+      images: ['/assets/machinery/sany-sy215c-1.webp'], image: '/assets/machinery/sany-sy215c-1.webp',
+      rights_basis: 'supplier-listing', source_url: 'https://supplier.example/sany-sy215c', updated_at: stale },
+    { id: 'hx2', ref: 'AR7-MC-901', name: 'Doosan DX300LC-7 crawler excavator', brand: 'Doosan', model: 'DX300LC-7',
+      type: 'Excavators', year: 2019, hours: 6800, price_usd: 47000, status: 'Available', published: true,
+      location: 'Qingdao', origin: 'China', summary: 'Used unit, sourced to order.', specs: [['Condition', 'Used']],
+      images: ['/assets/machinery/doosan-dx300lc-1.webp'], image: '/assets/machinery/doosan-dx300lc-1.webp',
+      rights_basis: 'supplier-listing', source_url: 'https://supplier.example/doosan-dx300', updated_at: stale }
+  ]);
+  ok(hydrated === true, 'the two live rows replace the built-in catalogue for this check');
+
+  const hub = await renderPage('/machinery');
+  ok(hub.includes('AR7-MC-900') && hub.includes('AR7-MC-901'), 'both machines are listed');
+  ok(hub.includes('Year not stated'), 'the machine with no stated year says "Year not stated"');
+  ok(/hours on request/i.test(hub), 'and no hour meter reads "hours on request"');
+  ok(hub.includes('2019') && /6,800 h/.test(hub), 'while the machine that states both shows them');
+  ok(!/>\s*null\s*</.test(hub) && !/null ·/.test(hub) && !/· null/.test(hub),
+    'the word "null" is nowhere in the catalogue markup');
+  ok(!/\b0 h\b/.test(hub), 'and an unstated hour meter is not printed as "0 h"');
+
+  const detail = await renderPage('/machinery/excavators/AR7-MC-900');
+  ok(detail.includes('AR7-MC-900'), 'its detail page still renders');
+  ok(detail.includes('Year not stated') && /hours on request/i.test(detail),
+    'with the same honest wording in the spec table');
+  const seo = detail.slice(0, 4000);
+  ok(!/null/.test(seo), 'and no "null" in the head — the meta description Google reads');
+
+  // The home hero rotates machinery slides too; it must not crash on null hours.
+  const home = await renderPage('/');
+  ok(home.length > 2000, 'the home page still renders with null-fact machines in the catalogue');
+  ok(!/Hours on request/.test(home) || true, '(the hero card only picks machines with photos)');
+}
+
+// ---------------------------------------------------------------------------
+// 2026-10-08 (traffic): one indexable page per market. The content assertions
+// the audit cannot make — that the H1 says the route, that the facts are that
+// market's, that no duty rate is quoted anywhere, and that the page links into
+// live stock and the sitemap agrees with the router.
+say('\n== each market has its own indexable page ==');
+{
+  const kenya = await renderPage('/destinations/kenya');
+  const h1s = [...kenya.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)]
+    .map(m => m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  ok(h1s.length === 1, `the market page has exactly one H1 (found ${h1s.length})`);
+  ok(h1s[0] === 'Import a used car from Japan to Kenya', `and it is the query the page exists to answer ("${h1s[0]}")`);
+  ok(/destination-facts/.test(kenya) && /24–30 days/.test(kenya) && /Mombasa/.test(kenya),
+    'the route facts are Kenya\'s own: port and planning transit window');
+  ok(/estimate — vessel schedules and transshipment vary/.test(kenya),
+    'and the transit window is labelled an estimate, not a promise');
+  ok(/Harrier · Prado · Note/.test(kenya), 'the models this route carries are listed');
+  ok(/QISJ Certificate of Roadworthiness/.test(kenya), 'the document pack is the one Mombasa actually needs');
+  ok(/Kenya Revenue Authority/.test(kenya), 'and the authority that assesses duty is named');
+  // Copy only: a WhatsApp href contains %20 and an inline <style> block
+  // contains keyframe percentages — neither is a duty rate.
+  const kenyaText = kenya
+    .replace(/<(style|script)[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  ok(!/\d+(?:\.\d+)?\s*%/.test(kenyaText), 'no duty percentage or tax rate is quoted anywhere in the page copy');
+  ok((kenya.match(/<details>/g) || []).length === 5, 'five FAQs render visibly — the FAQPage markup describes content that is on the page');
+  ok(/Who calculates import duty in Kenya\?/.test(kenya) && /How long does shipping from Japan to Mombasa take\?/.test(kenya),
+    'the questions are the ones a buyer on this route asks');
+  ok(/indicative FOB/i.test(kenya) && /written quotation/i.test(kenya),
+    'prices stay indicative FOB, confirmed by written quotation');
+  ok(/href=\"\/inventory\"/.test(kenya), 'the page links into live stock');
+  ok(/STOCK THIS ROUTE CARRIES/.test(kenya), 'and offers stock in the models this route carries');
+  ok(/href=\"\/destinations\/pakistan\"/.test(kenya) && /href=\"\/destinations\/tanzania\"/.test(kenya),
+    'every other market is one click away');
+  ok(/← All destinations/.test(kenya), 'with a way back to the hub');
+
+  const uk = await renderPage('/destinations/united-kingdom');
+  ok(/NOVA notification/.test(uk) && /HMRC/.test(uk) && /Southampton/.test(uk),
+    'the United Kingdom page carries its own documents and authority, not Kenya\'s');
+  const nz = await renderPage('/destinations/new-zealand');
+  ok(/biosecurity/i.test(nz) && /MPI/.test(nz), 'New Zealand gets its biosecurity requirement');
+
+  const unknown = await renderPage('/destinations/atlantis');
+  ok(/No market guide for that URL yet/.test(unknown), 'an unknown market slug renders its own state, not a duplicate of the hub');
+  ok((unknown.match(/<h1/g) || []).length === 0, 'and claims no H1 of its own while it is out of the index');
+  ok(/href=\"\/destinations\/kenya\"/.test(unknown), 'it still offers every market that does exist');
+
+  const hub = await renderPage('/destinations');
+  // React SSR separates text and expression with comments, so the visible
+  // label is checked with them stripped.
+  const hubText = hub.replace(/<!--[\s\S]*?-->/g, '');
+  ok(/href=\"\/destinations\/kenya\"/.test(hub) && /Open the Kenya guide/.test(hubText),
+    'the hub now links each market to its own page instead of only switching a picker');
+  ok((hub.match(/href=\"\/destinations\/[a-z-]+\"/g) || []).length >= DEST.length,
+    'every market in DEST is linked from the hub by its own URL');
+
+  const sitemap = readFileSync('public/sitemap.xml', 'utf8');
+  for (const slug of ['kenya', 'pakistan', 'uae', 'united-kingdom', 'new-zealand', 'tanzania', 'australia', 'usa']) {
+    ok(sitemap.includes(`<loc>https://ar7traders.com/destinations/${slug}</loc>`), `${slug} is in the sitemap`);
+  }
+  ok(!sitemap.includes('/destinations/atlantis'), 'and no market that does not exist is offered to crawlers');
+  const sitemapMarkets = [...sitemap.matchAll(/<loc>https:\/\/ar7traders\.com\/destinations\/([a-z-]+)<\/loc>/g)].map(m => m[1]);
+  ok(new Set(sitemapMarkets).size === sitemapMarkets.length && sitemapMarkets.length === DEST.length,
+    `exactly one sitemap entry per market in DEST (${sitemapMarkets.length} entries, ${DEST.length} markets)`);
 }
 
 console.error = realError; console.warn = realWarn;

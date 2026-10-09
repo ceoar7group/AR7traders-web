@@ -1,0 +1,775 @@
+{
+  "generatedAt": "2026-10-07T20:12:00.914Z",
+  "base": "http://127.0.0.1:4174",
+  "note": "Measured with scripts/page-shots.mjs against `npm run preview` (dist/). Reduced motion on, deviceScaleFactor 1, rectangles read before any full-page capture.",
+  "results": [
+    {
+      "path": "/destinations/kenya",
+      "viewport": "1440x900",
+      "file": "pr-visuals/2026-10-08/destinations-kenya-1440x900.jpg",
+      "title": "Japan to Kenya — Used Car Imports | AR7 Traders",
+      "description": "Japan to Kenya used car imports via Mombasa: 24–30 days planning transit, Harrier · Prado. Indicative FOB, confirmed by written quotation.",
+      "descriptionLength": 138,
+      "canonical": "https://ar7traders.com/destinations/kenya",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Japan to Kenya — Used Car Imports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Import a used car from Japan to Kenya",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 3
+        },
+        {
+          "id": "destination-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 5,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 5,
+      "docItems": 3,
+      "factTiles": 4,
+      "marketLinks": 5,
+      "stockLinks": 9,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "boxes": {
+        "hero": {
+          "top": 196,
+          "left": 100,
+          "width": 1240,
+          "height": 401,
+          "bottom": 597,
+          "right": 1340
+        },
+        "facts": {
+          "top": 389.9,
+          "left": 100,
+          "width": 1240,
+          "height": 105.1,
+          "bottom": 495,
+          "right": 1340
+        },
+        "docs": {
+          "top": 834.7,
+          "left": 100,
+          "width": 1240,
+          "height": 313.3,
+          "bottom": 1148,
+          "right": 1340
+        },
+        "faq": {
+          "top": 1637.5,
+          "left": 100,
+          "width": 1240,
+          "height": 360.6,
+          "bottom": 1998.1,
+          "right": 1340
+        },
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/destinations/kenya",
+      "viewport": "768x1024",
+      "file": "pr-visuals/2026-10-08/destinations-kenya-768x1024.jpg",
+      "title": "Japan to Kenya — Used Car Imports | AR7 Traders",
+      "description": "Japan to Kenya used car imports via Mombasa: 24–30 days planning transit, Harrier · Prado. Indicative FOB, confirmed by written quotation.",
+      "descriptionLength": 138,
+      "canonical": "https://ar7traders.com/destinations/kenya",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Japan to Kenya — Used Car Imports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Import a used car from Japan to Kenya",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 3
+        },
+        {
+          "id": "destination-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 5,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 5,
+      "docItems": 3,
+      "factTiles": 4,
+      "marketLinks": 5,
+      "stockLinks": 9,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "boxes": {
+        "hero": {
+          "top": 249,
+          "left": 18,
+          "width": 732,
+          "height": 449.2,
+          "bottom": 698.2,
+          "right": 750
+        },
+        "facts": {
+          "top": 425.7,
+          "left": 18,
+          "width": 732,
+          "height": 170.4,
+          "bottom": 596.2,
+          "right": 750
+        },
+        "docs": {
+          "top": 1137.5,
+          "left": 18,
+          "width": 732,
+          "height": 344.5,
+          "bottom": 1482,
+          "right": 750
+        },
+        "faq": {
+          "top": 1990.5,
+          "left": 18,
+          "width": 732,
+          "height": 351.4,
+          "bottom": 2341.9,
+          "right": 750
+        },
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/destinations/kenya",
+      "viewport": "390x844",
+      "file": "pr-visuals/2026-10-08/destinations-kenya-390x844.jpg",
+      "title": "Japan to Kenya — Used Car Imports | AR7 Traders",
+      "description": "Japan to Kenya used car imports via Mombasa: 24–30 days planning transit, Harrier · Prado. Indicative FOB, confirmed by written quotation.",
+      "descriptionLength": 138,
+      "canonical": "https://ar7traders.com/destinations/kenya",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Japan to Kenya — Used Car Imports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Import a used car from Japan to Kenya",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 3
+        },
+        {
+          "id": "destination-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 5,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 5,
+      "docItems": 3,
+      "factTiles": 4,
+      "marketLinks": 5,
+      "stockLinks": 9,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "boxes": {
+        "hero": {
+          "top": 235,
+          "left": 9,
+          "width": 372,
+          "height": 754.7,
+          "bottom": 989.7,
+          "right": 381
+        },
+        "facts": {
+          "top": 488.8,
+          "left": 9,
+          "width": 372,
+          "height": 332.9,
+          "bottom": 821.7,
+          "right": 381
+        },
+        "docs": {
+          "top": 1514,
+          "left": 9,
+          "width": 372,
+          "height": 433.3,
+          "bottom": 1947.3,
+          "right": 381
+        },
+        "faq": {
+          "top": 2571.8,
+          "left": 9,
+          "width": 372,
+          "height": 418.7,
+          "bottom": 2990.5,
+          "right": 381
+        },
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/destinations/united-kingdom",
+      "viewport": "1440x900",
+      "file": "pr-visuals/2026-10-08/destinations-united-kingdom-1440x900.jpg",
+      "title": "Japan to United Kingdom — Used Car Imports | AR7 Traders",
+      "description": "Japan to United Kingdom used car imports via Southampton: 35–42 days planning transit, Vellfire · Skyline. Indicative FOB, confirmed by written quotation.",
+      "descriptionLength": 154,
+      "canonical": "https://ar7traders.com/destinations/united-kingdom",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Japan to United Kingdom — Used Car Imports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Import a used car from Japan to United Kingdom",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 3
+        },
+        {
+          "id": "destination-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 5,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 5,
+      "docItems": 4,
+      "factTiles": 4,
+      "marketLinks": 5,
+      "stockLinks": 5,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "boxes": {
+        "hero": {
+          "top": 196,
+          "left": 100,
+          "width": 1240,
+          "height": 401,
+          "bottom": 597,
+          "right": 1340
+        },
+        "facts": {
+          "top": 389.9,
+          "left": 100,
+          "width": 1240,
+          "height": 105.1,
+          "bottom": 495,
+          "right": 1340
+        },
+        "docs": {
+          "top": 834.7,
+          "left": 100,
+          "width": 1240,
+          "height": 285.1,
+          "bottom": 1119.8,
+          "right": 1340
+        },
+        "faq": {
+          "top": 1145.8,
+          "left": 100,
+          "width": 1240,
+          "height": 360.6,
+          "bottom": 1506.3,
+          "right": 1340
+        },
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/destinations/united-kingdom",
+      "viewport": "768x1024",
+      "file": "pr-visuals/2026-10-08/destinations-united-kingdom-768x1024.jpg",
+      "title": "Japan to United Kingdom — Used Car Imports | AR7 Traders",
+      "description": "Japan to United Kingdom used car imports via Southampton: 35–42 days planning transit, Vellfire · Skyline. Indicative FOB, confirmed by written quotation.",
+      "descriptionLength": 154,
+      "canonical": "https://ar7traders.com/destinations/united-kingdom",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Japan to United Kingdom — Used Car Imports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Import a used car from Japan to United Kingdom",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 3
+        },
+        {
+          "id": "destination-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 5,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 5,
+      "docItems": 4,
+      "factTiles": 4,
+      "marketLinks": 5,
+      "stockLinks": 5,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "boxes": {
+        "hero": {
+          "top": 249,
+          "left": 18,
+          "width": 732,
+          "height": 449.2,
+          "bottom": 698.2,
+          "right": 750
+        },
+        "facts": {
+          "top": 425.7,
+          "left": 18,
+          "width": 732,
+          "height": 170.4,
+          "bottom": 596.2,
+          "right": 750
+        },
+        "docs": {
+          "top": 1116.2,
+          "left": 18,
+          "width": 732,
+          "height": 297.1,
+          "bottom": 1413.3,
+          "right": 750
+        },
+        "faq": {
+          "top": 1439.3,
+          "left": 18,
+          "width": 732,
+          "height": 351.4,
+          "bottom": 1790.7,
+          "right": 750
+        },
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/destinations/united-kingdom",
+      "viewport": "390x844",
+      "file": "pr-visuals/2026-10-08/destinations-united-kingdom-390x844.jpg",
+      "title": "Japan to United Kingdom — Used Car Imports | AR7 Traders",
+      "description": "Japan to United Kingdom used car imports via Southampton: 35–42 days planning transit, Vellfire · Skyline. Indicative FOB, confirmed by written quotation.",
+      "descriptionLength": 154,
+      "canonical": "https://ar7traders.com/destinations/united-kingdom",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Japan to United Kingdom — Used Car Imports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Import a used car from Japan to United Kingdom",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 3
+        },
+        {
+          "id": "destination-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 5,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 5,
+      "docItems": 4,
+      "factTiles": 4,
+      "marketLinks": 5,
+      "stockLinks": 5,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "boxes": {
+        "hero": {
+          "top": 235,
+          "left": 9,
+          "width": 372,
+          "height": 754.7,
+          "bottom": 989.7,
+          "right": 381
+        },
+        "facts": {
+          "top": 488.8,
+          "left": 9,
+          "width": 372,
+          "height": 332.9,
+          "bottom": 821.7,
+          "right": 381
+        },
+        "docs": {
+          "top": 1514,
+          "left": 9,
+          "width": 372,
+          "height": 365.3,
+          "bottom": 1879.3,
+          "right": 381
+        },
+        "faq": {
+          "top": 1905.3,
+          "left": 9,
+          "width": 372,
+          "height": 481.8,
+          "bottom": 2387.1,
+          "right": 381
+        },
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/destinations",
+      "viewport": "1440x900",
+      "file": "pr-visuals/2026-10-08/destinations-1440x900.jpg",
+      "title": "Car Export Destinations & Ports | AR7 Traders",
+      "description": "Shipping routes, transit times, freight costs and import duty guidance for Pakistan, the UAE, Kenya, Tanzania, the UK and more.",
+      "descriptionLength": 127,
+      "canonical": "https://ar7traders.com/destinations",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Car Export Destinations & Ports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Routes built foryour market.",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 2
+        }
+      ],
+      "faqQuestionsOnPage": 0,
+      "docItems": 0,
+      "factTiles": 0,
+      "marketLinks": 6,
+      "stockLinks": 11,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "boxes": {
+        "hero": null,
+        "facts": null,
+        "docs": null,
+        "faq": null,
+        "picker": {
+          "top": 1390.3,
+          "left": 100,
+          "width": 1240,
+          "height": 116.4,
+          "bottom": 1506.6,
+          "right": 1340
+        },
+        "grid": {
+          "top": 1625,
+          "left": 100,
+          "width": 1240,
+          "height": 632,
+          "bottom": 2257,
+          "right": 1340
+        }
+      }
+    },
+    {
+      "path": "/destinations",
+      "viewport": "768x1024",
+      "file": "pr-visuals/2026-10-08/destinations-768x1024.jpg",
+      "title": "Car Export Destinations & Ports | AR7 Traders",
+      "description": "Shipping routes, transit times, freight costs and import duty guidance for Pakistan, the UAE, Kenya, Tanzania, the UK and more.",
+      "descriptionLength": 127,
+      "canonical": "https://ar7traders.com/destinations",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Car Export Destinations & Ports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Routes built foryour market.",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 2
+        }
+      ],
+      "faqQuestionsOnPage": 0,
+      "docItems": 0,
+      "factTiles": 0,
+      "marketLinks": 6,
+      "stockLinks": 11,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "boxes": {
+        "hero": null,
+        "facts": null,
+        "docs": null,
+        "faq": null,
+        "picker": {
+          "top": 1319,
+          "left": 18,
+          "width": 732,
+          "height": 145.8,
+          "bottom": 1464.8,
+          "right": 750
+        },
+        "grid": {
+          "top": 1602.4,
+          "left": 18,
+          "width": 732,
+          "height": 957,
+          "bottom": 2559.4,
+          "right": 750
+        }
+      }
+    },
+    {
+      "path": "/destinations",
+      "viewport": "390x844",
+      "file": "pr-visuals/2026-10-08/destinations-390x844.jpg",
+      "title": "Car Export Destinations & Ports | AR7 Traders",
+      "description": "Shipping routes, transit times, freight costs and import duty guidance for Pakistan, the UAE, Kenya, Tanzania, the UK and more.",
+      "descriptionLength": 127,
+      "canonical": "https://ar7traders.com/destinations",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Car Export Destinations & Ports | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Routes built foryour market.",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 2
+        }
+      ],
+      "faqQuestionsOnPage": 0,
+      "docItems": 0,
+      "factTiles": 0,
+      "marketLinks": 6,
+      "stockLinks": 11,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "boxes": {
+        "hero": null,
+        "facts": null,
+        "docs": null,
+        "faq": null,
+        "picker": {
+          "top": 1307.3,
+          "left": 9,
+          "width": 372,
+          "height": 252.4,
+          "bottom": 1559.7,
+          "right": 381
+        },
+        "grid": {
+          "top": 1735.7,
+          "left": 9,
+          "width": 372,
+          "height": 1932,
+          "bottom": 3667.7,
+          "right": 381
+        }
+      }
+    },
+    {
+      "path": "/machinery",
+      "viewport": "1440x900",
+      "file": "pr-visuals/2026-10-08/machinery-1440x900.jpg",
+      "title": "Construction Machinery for Export | AR7 Traders",
+      "description": "Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers, inspected and shipped to your port. Indicative FOB prices.",
+      "descriptionLength": 152,
+      "canonical": "https://ar7traders.com/machinery",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Construction Machinery for Export | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Machines sourced from China,quoted to your port.",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 2
+        },
+        {
+          "id": "machinery-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 3,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 3,
+      "docItems": 0,
+      "factTiles": 0,
+      "marketLinks": 0,
+      "stockLinks": 4,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "boxes": {
+        "hero": null,
+        "facts": null,
+        "docs": null,
+        "faq": null,
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/machinery",
+      "viewport": "768x1024",
+      "file": "pr-visuals/2026-10-08/machinery-768x1024.jpg",
+      "title": "Construction Machinery for Export | AR7 Traders",
+      "description": "Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers, inspected and shipped to your port. Indicative FOB prices.",
+      "descriptionLength": 152,
+      "canonical": "https://ar7traders.com/machinery",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Construction Machinery for Export | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Machines sourced from China,quoted to your port.",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 2
+        },
+        {
+          "id": "machinery-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 3,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 3,
+      "docItems": 0,
+      "factTiles": 0,
+      "marketLinks": 0,
+      "stockLinks": 4,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "boxes": {
+        "hero": null,
+        "facts": null,
+        "docs": null,
+        "faq": null,
+        "picker": null,
+        "grid": null
+      }
+    },
+    {
+      "path": "/machinery",
+      "viewport": "390x844",
+      "file": "pr-visuals/2026-10-08/machinery-390x844.jpg",
+      "title": "Construction Machinery for Export | AR7 Traders",
+      "description": "Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers, inspected and shipped to your port. Indicative FOB prices.",
+      "descriptionLength": 152,
+      "canonical": "https://ar7traders.com/machinery",
+      "robots": "index,follow,max-image-preview:large,max-snippet:-1",
+      "ogTitle": "Construction Machinery for Export | AR7 Traders",
+      "h1Count": 1,
+      "h1": "Machines sourced from China,quoted to your port.",
+      "jsonld": [
+        {
+          "id": "business-jsonld",
+          "type": null,
+          "questions": 0,
+          "crumbs": 0
+        },
+        {
+          "id": "breadcrumb-jsonld",
+          "type": "BreadcrumbList",
+          "questions": 0,
+          "crumbs": 2
+        },
+        {
+          "id": "machinery-faq-jsonld",
+          "type": "FAQPage",
+          "questions": 3,
+          "crumbs": 0
+        }
+      ],
+      "faqQuestionsOnPage": 3,
+      "docItems": 0,
+      "factTiles": 0,
+      "marketLinks": 0,
+      "stockLinks": 4,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "boxes": {
+        "hero": null,
+        "facts": null,
+        "docs": null,
+        "faq": null,
+        "picker": null,
+        "grid": null
+      }
+    }
+  ]
+}

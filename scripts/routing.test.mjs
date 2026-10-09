@@ -129,6 +129,33 @@ ok(parseNavTarget('/machinery/excavators/AR7-MC-001').machineRef === 'AR7-MC-001
   'navigate("/machinery/excavators/AR7-MC-001") carries the ref into the router');
 
 
+// ---- one market's own URL (/destinations/kenya) ---------------------------
+// 2026-10-08 (traffic): the hub's picker is a control on one page — invisible
+// to a search engine. "import a used car from japan to kenya" needs a URL that
+// can answer it, so each market gets a path, a canonical and a sitemap entry.
+ok(parseRoute({ pathname: '/destinations/kenya', hash: '', search: '' }).destSlug === 'kenya',
+  '/destinations/kenya carries the market slug');
+ok(parseRoute({ pathname: '/destinations/united-kingdom', hash: '', search: '' }).destSlug === 'united-kingdom',
+  'a two-word market keeps its hyphenated slug');
+ok(parseRoute({ pathname: '/destinations', hash: '', search: '' }).destSlug === null,
+  'the hub itself carries no slug, so it still renders the picker');
+ok(parseRoute({ pathname: '/destinations/Kenya', hash: '', search: '' }).destSlug === 'kenya',
+  'a capitalised market link resolves to the same slug');
+ok(hrefFromTarget('/destinations/kenya') === '/destinations/kenya',
+  'hrefFromTarget keeps the market path, so the <a href> a crawler follows is the market');
+ok(hrefFromTarget('/destinations/kenya?x=1#y') === '/destinations/kenya',
+  'and it survives query/hash noise');
+ok(canonicalHref({ pathname: '/destinations/kenya', search: '', hash: '' }).startsWith('/destinations/kenya'),
+  'one canonical per market — the hub and the market page never share one');
+location.pathname = '/destinations'; location.search = ''; location.hash = '';
+ok(writeLocation('destinations', null, { destSlug: 'kenya' }) === '/destinations/kenya#/destinations',
+  'writeLocation writes the market path, so refresh and share land on the market');
+ok(pushed === '/destinations/kenya#/destinations', 'the market path reaches history.pushState');
+ok(writeLocation('destinations', null) === '/destinations#/destinations',
+  'leaving a market clears the slug from the address bar');
+ok(parseNavTarget('/destinations/pakistan').destSlug === 'pakistan',
+  'navigate("/destinations/pakistan") carries the slug into the router');
+
 store[LAST_VEHICLE_KEY] = '51'; // the writeLocation calls above clear it
 const restored = parseRoute({ pathname: '/', hash: '', search: '' }, { restoreOnReload: true });
 ok(restored.page === 'inventory' && restored.carId === '51', 'reload of / restores the last open vehicle');

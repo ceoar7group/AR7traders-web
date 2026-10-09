@@ -56,10 +56,12 @@ export const HOLD_LABEL = {
 // a database with no site_settings row still behaves the way the SQL says.
 export const MACHINERY_SETTING_DEFAULTS = {
   machinery_autopublish: 'true',
-  // How many machines one scraper run may pull into the desk. 2026-10-07: 24,
-  // the same order of magnitude as a car crawl; the politeness rules (robots,
-  // 1s between fetches) are unchanged. Lower it any time from the settings.
-  machinery_scraper_batch: '24',
+  // How many machines one scraper run may pull into the desk. 2026-10-08: 8 —
+  // the review queue and the row count are the real cost of a run, not the
+  // table size, and 8 previews is what one operator can actually read before
+  // confirming. MAX_SCRAPER_MACHINES (24) stays the hard ceiling; a setting or
+  // a per-run limit may lower it, never raise it.
+  machinery_scraper_batch: '8',
   machinery_min_photos: '1',
   machinery_max_reprice_per_run: '10',
   machinery_stale_after_days: '14',
@@ -154,13 +156,19 @@ export function validateRow(payload, { partial = false } = {}) {
   }
 
   // ---- numbers -------------------------------------------------------------
+  // 2026-10-08: a model year is validated hard when stated and stored as NULL
+  // when it is not. Requiring it used to force the importer to invent one (see
+  // toMachine in src/machinery-source.js); a machine with no verified year is
+  // listed without one, which is true, instead of refused or fabricated.
   if (has('year') && body.year !== null && body.year !== '') {
     const y = Number(body.year);
     const maxYear = new Date().getFullYear() + 1;
     if (!Number.isFinite(y) || y < 1950 || y > maxYear)
       errors.push({ field: 'year', message: `Year must be between 1950 and ${maxYear}` });
     else out.year = Math.round(y);
-  } else if (!partial) errors.push({ field: 'year', message: 'Model year is required' });
+  } else {
+    out.year = null;
+  }
 
   if (has('hours') && body.hours !== null && body.hours !== '') {
     const h = Number(body.hours);
@@ -387,6 +395,8 @@ export function toPublic(row) {
     // the CRM figure with no markup applied on top of it.
     price: Number.isFinite(Number(row.price_usd)) ? Number(row.price_usd) : 0,
     supplierPrice: 0,
+    price_usd: row.price_usd ?? null,
+    source_last_seen_at: row.source_last_seen_at || null,
     summary: row.summary || '',
     specs: Array.isArray(row.specs) ? row.specs : [],
     images: srcs,
@@ -456,13 +466,54 @@ const rowLabel = row => [row?.brand, row?.model].filter(Boolean).join(' ') || ro
  *    one is provenance for the desk, not a condition on publication.
  *  - all=1 from the CRM: every row including hidden ones.
  */
+// Supabase's default response cap must not silently hide older imports or
+// make duplicate detection forget them. Stable, paged reads; errors are not []!
+export async function readMachineryRows(db, { publishedOnly = false, type = null } = {}) {
+  const rows = [];
+  const size = 500;
+  for (let offset = 0; offset < 100000; offset += size) {
+    let q = db.from(MACHINERY_TABLE).select('*').order('id', { ascending: true });
+    if (publishedOnly) q = q.eq('published', true);
+    if (type) q = q.eq('type', type);
+    const paged = typeof q.range === 'function';
+    if (paged) q = q.range(offset, offset + size - 1);
+    const { data, error } = await q;
+    if (error) throw Object.assign(new Error(error.message), { status: 500, code: error.code });
+    if (!Array.isArray(data)) throw new Error('Machinery database returned no readable rows');
+    rows.push(...data);
+    if (!paged || data.length < size) return rows;
+  }
+  throw new Error('Machinery catalogue exceeds the safe scan limit; no partial result was used');
+}
+
+/** Private, read-only inventory of stored rows — no guessed publication cause. */
+export function machineryVisibility(rows) {
+  const items = rows.map(row => {
+    const invalid = validateRow({ ...row, ref: row.ref }).errors.map(e => e.message);
+    const visible = row.published === true && !!resolveType(row.type) && !!normaliseRef(row.ref);
+    return {
+      id: row.id, ref: row.ref, name: [row.brand, row.model].filter(Boolean).join(' '),
+      imported: !!(row.imported_at || row.source_url),
+      published: row.published === true, status: row.status || 'Available',
+      visibility: visible ? 'published' : row.status === 'Archived' ? 'archived'
+        : row.published !== true ? 'unpublished' : 'invalid-route',
+      hold_reason: row.hold_reason || null, invalid,
+      href: visible ? `/machinery/${typeSlugOf(row)}/${normaliseRef(row.ref)}` : null
+    };
+  });
+  return {
+    total: items.length,
+    imported: items.filter(r => r.imported).length,
+    published: items.filter(r => r.visibility === 'published').length,
+    hiddenImported: items.filter(r => r.imported && r.visibility !== 'published').length,
+    items
+  };
+}
+
 export async function listMachines(db, { publishedOnly = true, type = null } = {}) {
-  let q = db.from(MACHINERY_TABLE).select('*').order('sort_order', {ascending: true}).order('created_at', {ascending: false});
-  if (publishedOnly) q = q.eq('published', true);
-  if (type) q = q.eq('type', type);
-  const { data, error } = await q;
-  if (error) throw Object.assign(new Error(error.message), { status: 500 });
-  return (data || []).map(toPublic);
+  const rows = await readMachineryRows(db, { publishedOnly, type });
+  return rows.sort((a,b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)
+    || String(b.created_at || '').localeCompare(String(a.created_at || ''))).map(toPublic);
 }
 
 export async function createMachine(db, body, actor) {
@@ -548,6 +599,67 @@ export async function setPublished(db, id, published, actor, { reason = '', arch
     (published ? 'Published ' : 'Unpublished ') + data.ref +
     (archive ? ' (archived)' : '') + (reason ? ' — ' + reason : ''), id);
   return toPublic(data);
+}
+
+/**
+ * The deliberate end of the staleness path. `step=stale` only FLAGS a machine
+ * whose source listing disappeared (source_missing_since); nothing ever removed
+ * one, so an unpublished row from a dead supplier stayed in the table and in
+ * the review queue forever. Row count and the photo-review queue are the real
+ * cost of this desk, so a person can now clear them — per call, audited:
+ *
+ *   remove=false (default)  → status='Archived'. The row is kept and the
+ *                             decision is reversible.
+ *   remove=true             → the row is DELETED, and only if a person already
+ *                             parked it (status='Archived') or it has been
+ *                             missing for twice the threshold. A supplier's
+ *                             weekend outage must never delete stock.
+ *
+ * Published rows are never touched, at either setting: `published=false` means
+ * a person hid it deliberately, and a person decides when it goes.
+ */
+export async function purgeStale(db, { olderThanDays = 14, remove = false, actor = null } = {}) {
+  const days = Math.max(1, Math.min(365, Math.round(Number(olderThanDays) || 14)));
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+  const double = new Date(Date.now() - days * 2 * 86400000).toISOString();
+  // Only unpublished rows are ever considered, so the filter is `published=false`
+  // server-side and the date comparison is done here, on ISO strings (which sort
+  // chronologically). Keeping the query to one `.eq()` means the same call works
+  // against PostgREST and against the test doubles.
+  const { data, error } = await db.from(MACHINERY_TABLE)
+    .select('id,ref,status,source_missing_since')
+    .eq('published', false)
+    .order('source_missing_since', { ascending: true });
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
+  const rows = (Array.isArray(data) ? data : [])
+    .filter(r => r.source_missing_since && String(r.source_missing_since) < cutoff);
+  const archived = [], deleted = [], kept = [];
+
+  for (const row of rows) {
+    if (!remove) {
+      if (row.status === 'Archived') { kept.push(row.ref); continue; }
+      const { error: e2 } = await db.from(MACHINERY_TABLE)
+        .update({ status: 'Archived', updated_at: now() }).eq('id', row.id);
+      if (e2) throw Object.assign(new Error(e2.message), { status: 500 });
+      archived.push(row.ref);
+      await audit(db, actor,
+        `Archived ${row.ref} — unpublished and missing from its source since ${String(row.source_missing_since).slice(0, 10)}`,
+        row.id);
+      continue;
+    }
+    // Deleting needs a person to have already parked the row, or the row to be
+    // twice as stale as the threshold. Everything else is kept and reported.
+    const parked = row.status === 'Archived';
+    const twice = String(row.source_missing_since) < double;
+    if (!parked && !twice) { kept.push(row.ref); continue; }
+    const { error: e3 } = await db.from(MACHINERY_TABLE).delete().eq('id', row.id);
+    if (e3) throw Object.assign(new Error(e3.message), { status: 500 });
+    deleted.push(row.ref);
+    await audit(db, actor,
+      `Deleted ${row.ref} — unpublished, source missing since ${String(row.source_missing_since).slice(0, 10)}${parked ? ', already archived' : ', over twice the stale threshold'}`,
+      row.id);
+  }
+  return { days, cutoff, considered: rows.length, archived, deleted, kept };
 }
 
 export async function deleteMachine(db, id, actor) {

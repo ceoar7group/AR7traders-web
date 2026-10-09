@@ -28,6 +28,10 @@ const ReviewsShowcase = React.lazy(() => import('./reviews.jsx'));
 // The machinery desk is its own page (and its own CSS chunk), reached from
 // /machinery, the Inventory menu and the home teaser.
 const MachineryPage = React.lazy(() => import('./machinery.jsx').then(m => ({ default: m.MachineryPage })));
+// 2026-10-08: the six market pages are a route-level screen like the machinery
+// desk, so their markup stays out of the first-load bundle — a visitor on the
+// home page never downloads a page about Mombasa.
+const DestinationPage = React.lazy(() => import('./destination-page.jsx').then(m => ({ default: m.DestinationPage })));
 import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
 import { Flag } from './flag.jsx';
 import { ChatWidget } from './ChatWidget.jsx';
@@ -35,7 +39,7 @@ import { VehicleActions } from './vehicle-actions.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
 import { useSeo, FAQ_ITEMS, FAQ_TOPICS } from './seo.js';
-import { DEST } from './destinations.js';
+import { DEST, destinationBySlug, destinationHref } from './destinations.js';
 import { NEWS, articleSlug, articleBySlug, getPublishedNews, getNewsCategories, setPublishedNews, subscribePublishedNews } from './news-data.js';
 export { DEST, NEWS };
 import { CurrencyProvider, useCurrency } from './currency.jsx';
@@ -45,7 +49,7 @@ import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, hashFor, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
-import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines } from './machinery-data.js';
+import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import { useStockDiscounts, stockDiscountFor, priceWithOffer } from './offers.js';
 // A car uploaded before the 2026-10 WebP pass stores a `.jpg` photo path that
@@ -379,7 +383,7 @@ function RelatedMachines({navigate,pick,limit=3,kicker='MACHINERY FROM OUR CHINA
   {note&&<p className="related-stock-note">{note}</p>}
   <div className="related-stock-grid">{shown.map(m=><PageLink key={m.id} className="related-stock-card" to={machineHref(m)} navigate={navigate}>
    <img loading="lazy" decoding="async" width="820" height="550" src={machineImages(m)[0]} alt={`${m.name} for export from China`}/>
-   <b>{m.name}</b><small>{m.year} · ${listPriceUSD(m).toLocaleString('en-US')} FOB · {m.type}</small>
+   <b>{m.name}</b><small>{machineYearText(m)} · ${listPriceUSD(m).toLocaleString('en-US')} FOB · {m.type}</small>
   </PageLink>)}</div>
   <PageLink className="outline-btn" to="/machinery" navigate={navigate}>Browse all machinery <ArrowRight/></PageLink>
  </aside>;
@@ -412,7 +416,12 @@ const heroSlides=(fmtPrice)=>{
   machinesOut.push({kind:'machine',id:'m'+m.id,image:machineImages(m)[0],
    alt:`${m.name} machinery from China`,
    href:'/machinery',tag:'MACHINERY · CHINA',title:m.name,
-   meta:`${m.year} · ${m.hours.toLocaleString('en-US')} h · $${listPriceUSD(m).toLocaleString('en-US')} FOB`});
+   // 2026-10-08: a hydrated machine may state no year and no hour meter (the
+   // importer stores null rather than inventing either), so the meta line is
+   // built from the parts that exist — `null.toLocaleString()` is a crash and
+   // "null · 0 h" would be a lie on the hero of all places.
+   meta:[machineYearText(m, ''), machineHours(m) != null ? `${machineHours(m).toLocaleString('en-US')} h` : 'Hours on request',
+     `$${listPriceUSD(m).toLocaleString('en-US')} FOB`].filter(Boolean).join(' · ')});
  }
  // Weave: two cars, then a machine.
  const woven=[];
@@ -465,8 +474,6 @@ function HeroVisual({navigate,discounts}){
   io.observe(el);
   return()=>{clearInterval(timer);io.disconnect()}
  },[]);
- const onMove=e=>{const el=wrap.current;if(!el)return;const r=el.getBoundingClientRect();const mx=((e.clientX-r.left)/r.width-.5).toFixed(3),my=((e.clientY-r.top)/r.height-.5).toFixed(3);el.style.setProperty('--mx',mx);el.style.setProperty('--my',my)};
- const onLeave=()=>{const el=wrap.current;if(!el)return;el.style.setProperty('--mx','0');el.style.setProperty('--my','0')};
  const slides=heroSlides(price);
  const moveSlide=delta=>setManualIdx(v=>(v+delta+slides.length)%slides.length);
  const activeIndex=(manualIdx+Math.floor(elapsed/3.2))%slides.length;
@@ -479,12 +486,11 @@ function HeroVisual({navigate,discounts}){
  const route=heroRoutes[routeIdx];
  const remaining=(auctionEnds.current[auctionIdx]-Date.now())/1000;
  if(!c)return null;
- return <div className="hero-visual" ref={wrap} onMouseMove={onMove} onMouseLeave={onLeave}>
+ return <div className="hero-visual" ref={wrap}>
    {/* The rotating card is a link preview, not a document section, but it does show
        real headings for each vehicle — so the hero gets its own screen-reader heading
        and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
    <h2 className="sr-only">Japan cars, China machinery</h2>
-  <i className="spark s1"/><i className="spark s2"/><i className="spark s3"/><i className="spark s4"/><i className="spark s5"/><i className="spark s6"/>
   <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.href,navigate)}>
    <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
    <div className="image-shade"/>
@@ -498,23 +504,38 @@ function HeroVisual({navigate,discounts}){
    <button type="button" onClick={()=>moveSlide(-1)} aria-label="Prev"><ChevronLeft/></button>
    <button type="button" onClick={()=>moveSlide(1)} aria-label="Next"><ChevronRight/></button>
   </div>
-  <div className="floating-card auction-card" aria-hidden="true"><Gavel/><div className="rotating-card-copy" key={auctionIdx}>
-   <span className="card-kicker"><i className="card-live"/>Auction · {auction.city}</span>
-   <b className="card-title">{auction.name}</b>
-   <small className="card-meta card-countdown"><Clock3/> Starts in {formatCountdown(remaining)}</small>
-   <div className="card-foot"><div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div><i className="card-demo">demo</i></div>
-  </div></div>
-  <div className="floating-card route-card" aria-hidden="true"><div className="rotating-card-copy" key={routeIdx}>
-   <div className="route-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></div>
-   <div className="route-lane-row">
-    <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
-    <i className="lane-eta">{route.eta}</i>
-   </div>
-   <div className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></div>
-   <small className="card-meta route-status"><Ship/> {route.status}</small>
-   <div className="card-foot"><div className="card-rotation-dots route-dots">{heroRoutes.map((_,n)=><i key={n} className={n===routeIdx?'active':''}/>)}</div><i className="card-demo">demo</i></div>
-  </div></div>
-  <div className="floating-badge" aria-hidden="true"><BadgeCheck/><span><b>Auction sheets translated</b><small>Grade, marks and repair history in plain English.</small></span></div>
+  {/* 2026-10-07 hero rebuild — the photograph IS the card.
+      The auction card, the shipping-lane card and the "auction sheets
+      translated" badge used to be absolutely positioned ON TOP of the vehicle
+      photo: at 1000px-and-below they covered roughly a third of the car, and
+      at every width they read as stickers on somebody else's picture. They are
+      now ONE in-flow row (`.hero-facts`) that renders UNDER the photo, so
+      nothing overlaps the image at any viewport and the car keeps its full
+      frame. Same live data, same rotation cadence, same "demo" honesty tag —
+      and because the row is in flow, `.hero-facts` top is always ≥ the car
+      card's bottom (measured, see pr-visuals/).
+      The six `.spark` twinkles went with them: decorative gold dots on an
+      uncovered photograph read as sensor noise, not as sparkle. */}
+  <div className="hero-facts">
+   <div className="route-strip"><div className="rotating-card-copy" key={routeIdx}>
+    <div className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span><i className="card-demo">demo</i></div>
+    <div className="route-lane-row">
+     <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
+     <i className="lane-eta"><Clock3/> ETA {route.eta}</i>
+    </div>
+    <div className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></div>
+    <div className="route-foot">
+     <small className="card-meta route-status"><Ship/> {route.status}</small>
+     <div className="card-rotation-dots route-dots">{heroRoutes.map((_,n)=><i key={n} className={n===routeIdx?'active':''}/>)}</div>
+    </div>
+   </div></div>
+   <div className="auction-chip"><div className="rotating-card-copy" key={auctionIdx}>
+    <div className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span><i className="card-demo">demo</i></div>
+    <b className="card-title">{auction.name}</b>
+    <small className="card-meta card-countdown"><Clock3/> Starts in {formatCountdown(remaining)}</small>
+    <div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div>
+   </div></div>
+  </div>
  </div>}
 
 const globeSeg=(s)=><div className="imap" key={s}>
@@ -627,14 +648,10 @@ function DeviceStudio({navigate}){
 function ExtraPage({type,navigate,openAuction}){
  const {fmt}=useCurrency();
  const [open,setOpen]=useState(0),[service,setService]=useState(0),[port,setPort]=useState(DEST[0][0]),[portalTab,setPortalTab]=useState('Shipments');
- const destGuideRef=useRef(null);
  const activeDest=DEST.find(x=>x[0]===port||x[1]===port||x[1].startsWith(port))||DEST[0];
- const selectDest=val=>{
-  setPort(val);
-  if(destGuideRef.current?.scrollIntoView){
-   try{destGuideRef.current.scrollIntoView({behavior:'smooth',block:'nearest'});}catch{}
-  }
- };
+ // The picker used to scroll to an inline guide; the guide is a page now, so
+ // choosing a market simply sets which one the button opens.
+ const selectDest=val=>setPort(val);
  const headers={
   services:['WHAT WE DO',<>Complete vehicle<br/><em>sourcing solutions.</em></>,'Auction bidding, dealer sourcing, inspection, logistics and export paperwork—managed by one accountable team.'],
   destinations:['WORLDWIDE EXPORT',<>Routes built for<br/><em>your market.</em></>,'Destination guides, estimated transit windows and popular vehicles for every region we serve.'],
@@ -645,7 +662,11 @@ function ExtraPage({type,navigate,openAuction}){
  const services=[['Auction sourcing','Live access to USS, TAA, JU, CAA and more.','100,000+ weekly listings'],['Dealer stock','Curated off-auction vehicles from trusted networks.','Fast purchase decisions'],['Inspection','Independent condition checks, photos and road tests.','Clear condition report'],['Export logistics','Booking, customs, insurance and documentation.','Destination markets worldwide'],['Parts sourcing','Optional OEM parts and accessories before shipment.','Consolidated shipping'],['Dealer programs','Volume sourcing and dedicated account support.','Wholesale pricing']];
  return <section className="inner-page extra-page"><div className="page-hero mini extra-head"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">{h[0]}</div><h1>{h[1]}</h1><p>{h[2]}</p>{type==='portal'?<PageLink className="gold-btn" to="account" navigate={navigate}>Open my real account <ArrowRight/></PageLink>:<button className="gold-btn" onClick={openAuction} type="button">Talk to our team <ArrowRight/></button>}</div></div><div className="shell page-content">
  {type==='services'&&<><div className="service-layout"><div className="service-tabs">{services.map((x,i)=><button key={x[0]} className={service===i?'active':''} onClick={()=>setService(i)} type="button"><span>0{i+1}</span>{x[0]}<ArrowRight/></button>)}</div><div className="service-panel"><Gavel/><div className="kicker">AR7 SERVICE 0{service+1}</div><h2>{services[service][0]}</h2><p>{services[service][1]}</p><strong>{services[service][2]}</strong><ul><li><Check/> Dedicated Japan-based specialist</li><li><Check/> Transparent itemized quotation</li><li><Check/> Photo and status updates</li></ul><button className="primary" onClick={openAuction} type="button">Request this service</button></div></div><RelatedStock navigate={navigate} kicker="AVAILABLE FOR THIS SERVICE" note="Stock currently listed in our Japan inventory."/><div className="demo-strip">{[['Japan-wide','Auction sourcing'],['Personal','One point of contact'],['100%','Cost transparency'],['1 team','End-to-end support']].map(x=><div key={x[1]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div></>}
- {type==='destinations'&&<><RelatedStock navigate={navigate} limit={6} kicker="POPULAR IN THIS MARKET" note="Stock already in Japan and ready to quote for your route."/><div className="destination-picker"><div><div className="kicker">DEMO ROUTE CALCULATOR</div><h2>Where are we shipping?</h2></div><select value={activeDest[0]} onChange={e=>setPort(e.target.value)} aria-label="Select destination market">{DEST.map(x=><option key={x[0]} value={x[0]}>{FLAG[x[0]]} {x[0]} — {x[1].split(' / ')[0]}</option>)}</select><button className="primary" onClick={openAuction} type="button">Get shipping quote</button></div><section className="destination-guide" ref={destGuideRef} aria-label={`${activeDest[0]} market guide`}><div className="destination-guide-head"><div><div className="kicker">{FLAG[activeDest[0]]} DESTINATION GUIDE · {activeDest[0].toUpperCase()}</div><h2>{activeDest[0]} — <em>{activeDest[1]}</em></h2><p className="destination-guide-meta"><Ship/> Planning transit estimate: <b>{activeDest[2]}</b> (vessel schedules and transshipment vary) · Popular models: <b>{activeDest[3]}</b></p></div><button type="button" className="primary" onClick={openAuction}>Quote for {activeDest[1].split(' / ')[0]} <ArrowRight/></button></div><div className="destination-guide-cols"><article className="destination-guide-card"><div className="kicker">BEFORE DEPARTURE</div><h3>What to expect in Japan</h3><p>{activeDest[5]}</p></article><article className="destination-guide-card"><div className="kicker">PORT CLEARANCE</div><h3>On arrival at {activeDest[1]}</h3><p>{activeDest[6]}</p></article></div><p className="destination-guide-note"><ShieldCheck/> <span><b>Customs &amp; import duty:</b> Import duty, local taxes and registration charges are always determined by your own country’s customs authority at the port of entry — we prepare the full export document pack your clearing agent needs.</span></p></section><div className="destination-grid">{DEST.map(x=><article key={x[0]} className={activeDest[0]===x[0]?'active':''}><Globe2/><div className="kicker">{FLAG[x[0]]} {x[0]}</div><h3>{x[1]}</h3><p><Ship/> Estimated transit (planning figure): <b>{x[2]}</b></p><small>POPULAR: {x[3]}</small><button type="button" onClick={()=>selectDest(x[0])}>{activeDest[0]===x[0]?'Viewing market guide':'View market guide'} <ArrowRight/></button></article>)}</div></>}
+ {type==='destinations'&&<><RelatedStock navigate={navigate} limit={6} kicker="POPULAR IN THIS MARKET" note="Stock already in Japan and ready to quote for your route."/><div className="destination-picker"><div><div className="kicker">DEMO ROUTE CALCULATOR</div><h2>Where are we shipping?</h2></div><select value={activeDest[0]} onChange={e=>setPort(e.target.value)} aria-label="Select destination market">{DEST.map(x=><option key={x[0]} value={x[0]}>{FLAG[x[0]]} {x[0]} — {x[1].split(' / ')[0]}</option>)}</select><PageLink className="primary" to={destinationHref(activeDest[0])} navigate={navigate}>Open the {activeDest[0]} guide <ArrowRight/></PageLink></div>{/* 2026-10-08: the guide itself moved to the market's own URL. Rendering it
+     here as well meant the same paragraphs lived on two URLs — duplicate copy
+     for a crawler to choose between, and a hub that answered nothing a market
+     page could not answer better. The hub now picks the market and opens it. */}
+<p className="destination-hub-note"><ShieldCheck/> <span><b>Customs &amp; import duty:</b> import duty, local taxes and registration charges are always determined by your own country’s customs authority at the port of entry — we prepare the full export document pack your clearing agent needs, and we never quote a duty rate.</span></p><div className="destination-grid">{DEST.map(x=><article key={x[0]} className={activeDest[0]===x[0]?'active':''}><Globe2/><div className="kicker">{FLAG[x[0]]} {x[0]}</div><h3>{x[1]}</h3><p><Ship/> Estimated transit (planning figure): <b>{x[2]}</b></p><small>POPULAR: {x[3]}</small><PageLink className="outline-btn" to={destinationHref(x[0])} navigate={navigate}>Open the {x[0]} guide <ArrowRight/></PageLink></article>)}</div></>}
  {type==='reviews'&&<React.Suspense fallback={<div className="empty-state"><h3>Loading customer reviews…</h3></div>}><ReviewsShowcase navigate={navigate} openAuction={openAuction} founderClaim={FOUNDER_CLAIM}/></React.Suspense>}
  {type==='faq'&&<div className="faq-layout"><div><div className="kicker">POPULAR QUESTIONS</div><h2>Buying from Japan, explained.</h2><p>Practical answers on Japanese auctions, dealer stock, pricing, shipping and port clearance — grouped by topic.</p><PageLink className="primary" to="contact" navigate={navigate}>Ask another question</PageLink><RelatedStock navigate={navigate} limit={4} kicker="ANSWERING YOUR QUESTION WITH REAL STOCK" note="Cars already in Japan that match what buyers ask us most."/></div><div className="accordions">{FAQ_TOPICS.map(topic=><div className="faq-topic-group" key={topic}><h3 className="faq-topic-title">{topic}</h3>{FAQ_ITEMS.map((x,i)=>x[2]===topic?<article key={x[0]} className={open===i?'open':''}><button type="button" onClick={()=>setOpen(open===i?-1:i)}><span>{x[0]}</span><b>{open===i?'−':'+'}</b></button>{open===i&&<p>{x[1]}</p>}</article>:null)}</div>)}</div></div>}
  {type==='portal'&&<div className="portal-live-note"><ShieldCheck/><div><b>This is a preview of the dashboard.</b><span>Your own vehicles, every payment received and the balance remaining are waiting in your account.</span></div><PageLink className="primary" to="account" navigate={navigate}>Sign in <ArrowRight/></PageLink></div>}
@@ -851,7 +872,7 @@ function JapanStockPage({navigate, openAuction, discounts}){
 // pages, so returning before the hook list runs changes the hook count between
 // renders and React flags it ("Expected static flag was missing"). Page
 // selection happens in App's ternary, which swaps component types instead.
-function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,initialMake,initialModel}){
+function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,initialMake,initialModel,destSlug}){
  const settings=useSettings();
  const discounts=useStockDiscounts();
  const price=useCarPrice(discounts);
@@ -924,6 +945,9 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  stepGalleryRef.current=stepGallery;
  if(page==='inventory'&&vehicleId&&!selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="empty-state vehicle-missing">{isContentHydrated()?<><Search/><h3>This vehicle is no longer listed</h3><p>It may have sold or the link is out of date. Browse current Japan stock instead.</p><PageLink className="primary" to={backTarget} navigate={backToInventory}>View inventory <ArrowRight/></PageLink></>:<><CarFront/><h3>Loading vehicle…</h3><p>Fetching the latest stock so we can open this car.</p></>}</div></div></section>;
  if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" fetchPriority="high" width="620" height="400" src={detailImage} onError={e=>{if(hasRetried(e.currentTarget))return;if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} loading="eager"/></div><div className="detail-gallery-toolbar">{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image" type="button"><ChevronLeft/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image" type="button"><ChevronRight/></button></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image" type="button"><Maximize2/> Enlarge</button></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i} type="button"><img loading="lazy" decoding="async" width="164" height="110" src={img} onError={e=>{if(hasRetried(e.currentTarget)||e.currentTarget.dataset.f)return;e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div>{hasAuctionSheet(selected)&&<span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>}{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><VehiclePriceDisplay car={selected} discounts={discounts}/></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span><span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span><span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].filter(x=>x[1]!=null&&x[1]!=='').map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div>{(selected.feats||[]).length>0&&<div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div>}<div className="cif-box"><div className="kicker">DEMO CIF ESTIMATE</div><select value={destSel} onChange={e=>setDestSel(e.target.value)}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel,discounts);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" width="120" height="46" src={LOGO(selected.make)} alt={selected.make+" logo"} onError={logoOnError}/><span>{selected.make} · sourced in Japan</span></div><VehicleActions car={selected} stockRef={stockNo(selected)} settings={settings} saved={favs.includes(selected.id)} copied={copied} onEnquire={openAuction} onChat={openChat} onToggleSave={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])} onCopy={copyVehicleLink}/><div className="sheet-box"><ClipboardCheck/><div>{hasAuctionSheet(selected)?<><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></>:<><b>Condition &amp; documentation</b><p>Ask our Japan team for this vehicle&rsquo;s condition report and documentation before you commit.</p></>}</div></div></div></div><BuyerGuide car={selected} navigate={navigate}/>{(()=>{const related=cars.filter(c=>c&&c.published!==false&&carRef(c)!==carRef(selected)&&(c.make===selected.make||c.body===selected.body)).sort((a,b)=>Number(b.make===selected.make)-Number(a.make===selected.make)).slice(0,3);return related.length?<section className="related-stock" aria-label="Related vehicles"><div className="kicker">SIMILAR STOCK</div><h2>More vehicles to explore</h2><p className="related-stock-note">Other published vehicles from the same make or body type, currently listed in Japan.</p><div className="related-stock-grid">{related.map(c=><PageLink key={carRef(c)} className="related-stock-card" to={'/inventory/'+carRef(c)} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark.png'} alt={carAlt(c)}/><b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b><small>{carRef(c)}{c.status?' · '+c.status:''}</small></PageLink>)}</div><PageLink className="outline-btn" to={inventoryHref(selected.make)} navigate={navigate}>Browse all {selected.make} stock <ArrowRight/></PageLink></section>:null})()}</div></section>;
+// One market's own page comes before the hub: /destinations/kenya is the URL a
+// search engine reaches, and it must not fall through to the picker.
+if(page==='destinations'&&destSlug)return <React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the market guide…</h3></div>}><DestinationPage dest={destinationBySlug(destSlug)} destSlug={destSlug} navigate={navigate} openAuction={openAuction} Link={PageLink} Related={RelatedStock} Flag={FLAG}/></React.Suspense>;
 if(['services','destinations','reviews','faq','portal'].includes(page))return <ExtraPage type={page} navigate={navigate} openAuction={openAuction}/>;
  if(['brands','howbuy','tools','news'].includes(page))return <ExtraPages2 type={page} navigate={navigate} openAuction={openAuction} articleSlug={page==='news'?vehicleId:null} discounts={discounts}/>;
  const makes=[...new Set(cars.map(c=>c.make))].sort();
@@ -1086,10 +1110,15 @@ export function App(){
  // like carId: reading it once at mount meant a click on a machine rewrote the
  // URL to /machinery and showed the catalogue instead of the machine.
  const [machineRoute,setMachineRoute]=useState({type:initialRoute.machineType||null,ref:initialRoute.machineRef||null});
+ // The market in the URL (/destinations/kenya) is state for the same reason:
+ // reading it once at mount meant a click on a market rewrote the address bar
+ // to /destinations and showed the hub instead of the page that was asked for.
+ const [destRoute,setDestRoute]=useState(initialRoute.destSlug||null);
  const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [modal,setModal]=useState(false), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [sent,setSent]=useState(false), [leadSending,setLeadSending]=useState(false), [leadError,setLeadError]=useState(''), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
   const machineOnRoute = page === 'machinery' && machineRoute.ref ? machineByRef(machineRoute.ref) : null;
+ const destOnRoute = page === 'destinations' && destRoute ? destinationBySlug(destRoute) : null;
   // One published discount setting feeds cards, detail pages and JSON-LD.
   const liveDiscounts = useStockDiscounts();
   const price = useCarPrice(liveDiscounts);
@@ -1098,7 +1127,7 @@ export function App(){
   const machineDiscount = machineOnRoute ? stockDiscountFor(liveDiscounts, 'machine', machineOnRoute.ref) : null;
   const machineOfferPercent = machineDiscount?.percent || 0;
   useSeo(page, vehicleId, vehicleOnRoute,
-    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !vehicleOnRoute && isContentHydrated(), make: makeFilter, model: modelFilter, machineType: machineRoute.type, machineRef: machineRoute.ref, machine: machineOnRoute, machineOfferPercent, machineOfferUntil: machineDiscount?.until || null, vehicleOfferPercent: vehicleDiscount?.percent || 0, vehicleOfferUntil: vehicleDiscount?.until || null, vehicleCount: cars.length });
+    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !vehicleOnRoute && isContentHydrated(), make: makeFilter, model: modelFilter, destination: destOnRoute, destSlug: page === 'destinations' ? destRoute : null, machineType: machineRoute.type, machineRef: machineRoute.ref, machine: machineOnRoute, machineOfferPercent, machineOfferUntil: machineDiscount?.until || null, vehicleOfferPercent: vehicleDiscount?.percent || 0, vehicleOfferUntil: vehicleDiscount?.until || null, vehicleCount: cars.length });
   useEffect(()=>onContentChange(forceContent),[]);
   useEffect(()=>subscribePublishedNews(forceContent),[]);
  useEffect(()=>{
@@ -1115,13 +1144,13 @@ export function App(){
   return()=>{window.removeEventListener('scroll',fn);if(t)cancelAnimationFrame(t)};
  },[]);
  useEffect(()=>{
-  const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setMenu(false)};
+  const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setDestRoute(route.destSlug||null);setMenu(false)};
   const route=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()});
-  writeLocation(route.page,route.carId,{replace:true,make:route.make,machineType:route.machineType,machineRef:route.machineRef});
+  writeLocation(route.page,route.carId,{replace:true,make:route.make,machineType:route.machineType,machineRef:route.machineRef,destSlug:route.destSlug});
   setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
-  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});
+  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setDestRoute(route.destSlug||null);
   const onPop=()=>apply({restoreOnReload:false});
-  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make,machineType:next.machineType,machineRef:next.machineRef});setPage(next.page);setVehicleId(next.carId);setMachineRoute({type:next.machineType||null,ref:next.machineRef||null});setMakeFilter(next.make);setModelFilter(next.model);setMenu(false)};
+  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make,machineType:next.machineType,machineRef:next.machineRef,destSlug:next.destSlug});setPage(next.page);setVehicleId(next.carId);setMachineRoute({type:next.machineType||null,ref:next.machineRef||null});setDestRoute(next.destSlug||null);setMakeFilter(next.make);setModelFilter(next.model);setMenu(false)};
   addEventListener('popstate',onPop);
   addEventListener('hashchange',onHash);
   return()=>{removeEventListener('popstate',onPop);removeEventListener('hashchange',onHash)};
@@ -1152,12 +1181,11 @@ export function App(){
  const budgetBands=[['Under $15k','Kei cars, hatchbacks & first imports'],['$15k–$30k','Hybrids, family SUVs & sedans'],['$30k–$60k','Late-model premium & vans'],['$60k+','Luxury & super sport']];
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
-  writeLocation(route.page,route.carId,{replace,make:route.make,machineType:route.machineType,machineRef:route.machineRef});
+  writeLocation(route.page,route.carId,{replace,make:route.make,machineType:route.machineType,machineRef:route.machineRef,destSlug:route.destSlug});
   setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
-  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setMenu(false);
+  setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setDestRoute(route.destSlug||null);setMenu(false);
   if(scroll) scrollTo({top:0,behavior:'smooth'});
  };
- const go=(id)=>{if(page!=='home'){navigate('home');setTimeout(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth'}),100)}else document.getElementById(id)?.scrollIntoView({behavior:'smooth'});setMenu(false)};
  const submitLead=async e=>{e.preventDefault();setLeadSending(true);setLeadError('');const f=new FormData(e.currentTarget),payload=Object.fromEntries(f.entries());try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Unable to send request');setSent(true);e.currentTarget.reset()}catch(err){setLeadError(err.message)}finally{setLeadSending(false)}};
  if(page==='crm')return <React.Suspense fallback={<div className="empty-state"><Monitor/><h3>Loading the CRM…</h3><p>Fetching your workspace.</p></div>}><CrmApp/></React.Suspense>;
  return <div className="site">
@@ -1173,12 +1201,16 @@ export function App(){
       <div className="eyebrow"><span className="live-dot"/> {t('hero.eyebrow')}</div>
       <h1>{t('hero.h1a')}<br/><em>{t('hero.h1b')}</em></h1>
       <p>{t('hero.lead')} <b>{t('hero.leadEm')}</b>.</p>
-      <div className="hero-cta"><button className="primary" onClick={()=>go('inventory')} type="button">{t('hero.explore')} <ArrowRight/></button><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink></div>
+      {/* 2026-10-07: the primary CTA is a real anchor, not a JS button. It was
+          `onClick={()=>go('inventory')}` — one click on the same page, but no
+          href, so no Ctrl/Cmd-click, no middle-click, no "open in new tab" and
+          no crawlable link out of the hero. Both desks are now one click AND
+          one Ctrl+click away. The `.hero-vignettes` pair that repeated those
+          two links as floating chips over the photo is gone: the same two
+          destinations are these two buttons, and the machinery teaser below
+          carries the China desk. */}
+      <div className="hero-cta"><PageLink className="primary" to="inventory" navigate={navigate}>{t('hero.explore')} <ArrowRight/></PageLink><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink></div>
       <div className="hero-quick"><button className="text-btn" onClick={()=>setModal(true)} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
-      <div className="hero-vignettes" aria-label="Browse our sourcing desks">
-        <a className="hero-vignette" href="/inventory" onClick={linkClick('inventory', navigate)}><CarFront/><span>Cars<small>Japan stock</small></span></a>
-        <a className="hero-vignette" href="/machinery" onClick={linkClick('machinery', navigate)}><Wrench/><span>Machines<small>China desk</small></span></a>
-      </div>
       <FounderStat variant="hero" delay={900}/>
     </div>
     <HeroVisual navigate={navigate} discounts={liveDiscounts}/>
@@ -1245,7 +1277,7 @@ export function App(){
    </section>
 
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">READY WHEN YOU ARE</div><h2>Let’s find your<br/>next <em>vehicle.</em></h2><p>Tell us what you’re looking for. Our Japan team will reply with suitable options.</p></div><button className="gold-btn large" onClick={()=>setModal(true)} type="button">Start your search <ArrowUpRight/></button></section>
-   </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='machinery'? <React.Suspense fallback={<div className="empty-state"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()}/></React.Suspense>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)} discounts={liveDiscounts}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} initialModel={modelFilter} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
+   </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='machinery'? <React.Suspense fallback={<div className="empty-state"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()}/></React.Suspense>:page==='japan-stock'?<JapanStockPage navigate={navigate} openAuction={()=>setModal(true)} discounts={liveDiscounts}/>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} destSlug={page==='destinations'?destRoute:null} initialMake={makeFilter} initialModel={modelFilter} openAuction={()=>setModal(true)} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
   </main>
 
   <footer className="site-footer">

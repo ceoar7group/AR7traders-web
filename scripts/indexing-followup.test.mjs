@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { JSDOM } from 'jsdom';
+import { DEST, destinationHref } from '../src/destinations.js';
+import { NEWS, articleSlug } from '../src/news-data.js';
+import { editorialPlan } from '../src/editorial-plan.js';
+import { syncFailure } from './check-sync-report.mjs';
+assert.equal(syncFailure({ inserted: 0, alreadyKnown: 12 }), null);
+assert.ok(syncFailure({ blocked: true, inserted: 0 }));
+assert.ok(syncFailure({ parseMiss: true, inserted: 0 }));
+assert.equal(syncFailure({ parseMiss: true, inserted: 2 }), null);
+assert.ok(syncFailure({ job: 'machinery', failed: [{}] }));
+assert.ok(syncFailure({}));
+assert.equal(editorialPlan(new Date('2026-10-09'), 100).length, 4);
+assert.equal(editorialPlan(new Date('2026-10-09'), 1).length, 2);
+assert.ok(editorialPlan(new Date('2026-10-09')).every(x=>x.status==='review-required' && x.due.startsWith('2026-10-')));
+const config = JSON.parse(readFileSync('vercel.json'));
+const paths = [...DEST.map(d=>destinationHref(d[0])), ...NEWS.map(a=>'/news/'+(a.slug||articleSlug(a)))];
+for (const path of paths) {
+  const rule = config.rewrites.find(r=>r.source===path);
+  assert.equal(rule?.destination, path+'/index.html');
+  assert.ok(config.rewrites.indexOf(rule) < config.rewrites.findIndex(r=>r.destination==='/index.html'));
+  const dom = new JSDOM(readFileSync('dist'+path+'/index.html', 'utf8'));
+  const d=dom.window.document;
+  assert.equal(d.querySelectorAll('h1').length, 1, path);
+  assert.equal(d.querySelectorAll('link[rel="canonical"]').length, 1);
+  assert.equal(d.querySelector('link[rel="canonical"]').href, 'https://ar7traders.com'+path);
+  assert.ok(d.querySelector('main').textContent.length > 400);
+  assert.ok(d.querySelector('script[type="module"][src^="/assets/"]'));
+  assert.ok(!d.querySelector('meta[name="robots"]').content.includes('noindex'));
+  if(path.startsWith('/destinations/')) assert.equal(JSON.parse(d.getElementById('destination-faq-jsonld').textContent).mainEntity.length, 5);
+  dom.window.close();
+}
+console.log(`Indexing follow-up: ${paths.length} HTML routes, sync health and editorial cadence pass.`);

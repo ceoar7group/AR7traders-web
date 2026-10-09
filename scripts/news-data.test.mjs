@@ -14,7 +14,7 @@ const ok = (cond, msg) => {
 
 console.log('news-data & destinations unit tests');
 
-ok(Array.isArray(NEWS) && NEWS.length === 4, `NEWS contains 4 guides (got ${NEWS?.length})`);
+ok(Array.isArray(NEWS) && NEWS.length === 6, `NEWS contains 6 guides (got ${NEWS?.length})`);
 ok(Array.isArray(NEWS_CATEGORIES) && NEWS_CATEGORIES.length === 4, `NEWS_CATEGORIES contains 4 topics (${NEWS_CATEGORIES.join(', ')})`);
 
 for (const a of NEWS) {
@@ -75,7 +75,7 @@ console.log('published site_articles hydration');
 }
 
 // DEST structure (7 fields per row, transit planning figure, no duty % quoted)
-ok(Array.isArray(DEST) && DEST.length === 6, `DEST has 6 destination markets (got ${DEST?.length})`);
+ok(Array.isArray(DEST) && DEST.length === 8, `DEST has 8 destination markets (got ${DEST?.length})`);
 for (const row of DEST) {
   ok(Array.isArray(row) && row.length === 7, `${row[0]} row has 7 fields ([country, port, transit, models, freight, whatToExpect, onArrival])`);
   ok(typeof row[5] === 'string' && row[5].length >= 60, `${row[0]} has a substantive "what to expect" guide`);

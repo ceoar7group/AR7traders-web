@@ -72,6 +72,42 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://ar7traders.com/destinations/kenya</loc>
+    <lastmod>2026-10-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ar7traders.com/destinations/pakistan</loc>
+    <lastmod>2026-10-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ar7traders.com/destinations/uae</loc>
+    <lastmod>2026-10-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ar7traders.com/destinations/united-kingdom</loc>
+    <lastmod>2026-10-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://ar7traders.com/destinations/new-zealand</loc>
+    <lastmod>2026-10-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://ar7traders.com/destinations/tanzania</loc>
+    <lastmod>2026-10-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://ar7traders.com/tools</loc>
     <lastmod>2026-09-28</lastmod>
     <changefreq>monthly</changefreq>
@@ -221,4 +257,8 @@
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
+  <url><loc>https://ar7traders.com/destinations/australia</loc></url>
+  <url><loc>https://ar7traders.com/destinations/usa</loc></url>
+  <url><loc>https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents</loc></url>
+  <url><loc>https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations</loc></url>
 </urlset>

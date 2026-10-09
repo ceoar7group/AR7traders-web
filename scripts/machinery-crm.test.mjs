@@ -234,6 +234,15 @@ console.log('\n-- publish / unpublish / archive --');
   const adminList = fakeRes();
   await handler(req('GET', { machinery: 'list', all: '1' }), adminList, { db, ...asUser(ADMIN) });
   ok(adminList.json().length === 1, 'the CRM still sees it with all=1');
+  ok('price_usd' in adminList.json()[0], 'private desk read keeps the editable database price column');
+  const audit = fakeRes();
+  await handler(req('GET', { machinery: 'audit' }), audit, { db, ...asUser(ADMIN) });
+  ok(audit.statusCode === 200 && audit.json().total === 1, 'audit discovers the stored unpublished row');
+  ok(audit.json().items[0].visibility === 'unpublished', 'audit names the exact visibility state');
+  const deniedAudit = fakeRes();
+  await handler(req('GET', { machinery: 'audit' }), deniedAudit, { db, ...asUser(SALES) });
+  ok(deniedAudit.statusCode === 403, 'audit does not expose private records to a role without site.write');
+
 
   const anonAll = fakeRes();
   await handler(req('GET', { machinery: 'list', all: '1' }), anonAll, { db });

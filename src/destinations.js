@@ -14,6 +14,8 @@
 // here — customs duties and local taxes are always determined by the buyer's
 // own customs authority at the port of entry.
 
+import { slugify, destinationPath } from './sitemap-helpers.js';
+
 export const DEST = [
   [
     'Pakistan',
@@ -68,5 +70,135 @@ export const DEST = [
     1300,
     'We coordinate mandatory TBS pre-shipment roadworthiness inspection (EAA / JEVIC) at the Japanese export yard, confirm chassis and engine numbers against the Export Certificate, and book RoRo freight to Dar es Salaam.',
     'We courier the Original Bill of Lading, Export Certificate, inspection certificate and commercial invoice ahead of vessel arrival so your clearing agent can process TRA customs and port release without storage delays. Duties and taxes are decided by Tanzanian customs.'
+  ],
+  [
+    'Australia', 'Sydney', '21–28 days', 'Land Cruiser · Hiace', 1200,
+    'Before buying, ask your Australian compliance specialist to confirm the exact vehicle’s import approval pathway. Do not bid or book shipping until the required approval is in place. Japan export preparation and biosecurity cleaning must match the agreed entry requirements.',
+    'Your broker checks the invoice, Bill of Lading, Japanese Export Certificate and import approval for Australian Border Force clearance. Biosecurity inspection and state or territory registration are separate steps; shipping a car does not guarantee it can be registered.'
+  ],
+  [
+    'USA', 'Los Angeles', '28–36 days', 'Kei trucks · 4Runner', 1400,
+    'Check the exact manufacture date and vehicle specification with a US import specialist before purchase. NHTSA safety eligibility and EPA emissions eligibility are separate requirements. Do not assume a Japanese-market car or kei truck is road-legal merely because it can be shipped.',
+    'Your customs broker confirms the invoice, Bill of Lading, Japanese Export Certificate and applicable NHTSA and EPA declarations for US Customs and Border Protection. State title and registration requirements must be checked separately before committing to a vehicle.'
   ]
 ];
+
+// ---------------------------------------------------------------------------
+// One indexable page per market (2026-10-08).
+//
+// Everything below is derived from the tuples above plus the arrival copy each
+// market already states — no new facts, and specifically no duty percentages or
+// tax rates anywhere (CLAIMS-POLICY.md: customs duty and local taxes are always
+// the buyer's own authority's decision, quoted by their clearing agent).
+// ---------------------------------------------------------------------------
+
+/** `/destinations/kenya` — the URL for one market, from its country name. */
+export const destinationHref = country => destinationPath(country);
+
+/** The URL slug for a country: 'United Kingdom' → 'united-kingdom'. */
+export const destinationSlug = country => slugify(String(country || '').trim());
+
+/** Find a market by the slug in the URL. Unknown slug → null (the page says so). */
+export function destinationBySlug(slug) {
+  const s = String(slug || '').trim().toLowerCase();
+  if (!s) return null;
+  return DEST.find(d => destinationSlug(d[0]) === s) || null;
+}
+
+/**
+ * The document pack this market's courier contains, and the pre-shipment
+ * inspection it needs — lifted from the market's own arrival and departure
+ * copy above, because a generic list would be a guess about someone's customs.
+ */
+// Australia/USA planning figures and model examples reuse the existing
+// site_routes seed (SETUP-EVERYTHING.sql). They are not eligibility promises.
+export const DESTINATION_DOCS = {
+  Australia: {
+    inspection: 'Confirm biosecurity cleaning and inspection requirements before departure',
+    docs: ['Commercial invoice', 'Bill of Lading', 'Japanese Export Certificate', 'Applicable vehicle import approval'],
+    authority: 'Australian Border Force and relevant Australian authorities',
+    eligibility: 'Approval depends on the exact vehicle and import pathway. Confirm eligibility, biosecurity and registration before buying.',
+    source: 'https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/importing-road-vehicle-australia'
+  },
+  USA: {
+    inspection: null,
+    docs: ['Commercial invoice', 'Bill of Lading', 'Japanese Export Certificate', 'Applicable NHTSA HS-7 and EPA declarations, confirmed by your broker'],
+    authority: 'US Customs and Border Protection',
+    eligibility: 'Federal safety, emissions and state registration are separate checks. Model examples are not a promise of US road legality.',
+    source: 'https://www.nhtsa.gov/importing-vehicle'
+  },
+  Pakistan: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate (with English translation)', 'Commercial invoice'],
+    authority: 'Pakistan Customs'
+  },
+  UAE: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Certificate of Origin (when requested)', 'Itemised CIF invoice'],
+    authority: 'UAE customs authorities (Jebel Ali)'
+  },
+  Kenya: {
+    inspection: 'KEBS / QISJ pre-shipment roadworthiness and radiation inspection, booked in Japan before loading',
+    docs: ['QISJ Certificate of Roadworthiness', 'Original Bill of Lading', 'Japanese Export Certificate'],
+    authority: 'Kenya Revenue Authority'
+  },
+  'United Kingdom': {
+    inspection: null,
+    docs: ['Commercial invoice', 'Bill of Lading', 'Japanese Export Certificate (Yushutsu Massho, showing odometer history)', 'NOVA notification and customs entry, filed by your shipping agent'],
+    authority: 'HMRC'
+  },
+  'New Zealand': {
+    inspection: 'Pre-export biosecurity cleaning and odometer verification in Japan',
+    docs: ['Bill of Lading', 'Japanese Export Certificate', 'Biosecurity cleaning record for MPI inspection'],
+    authority: 'New Zealand Customs and MPI'
+  },
+  Tanzania: {
+    inspection: 'TBS pre-shipment roadworthiness inspection (EAA / JEVIC) at the Japanese export yard',
+    docs: ['Inspection certificate', 'Original Bill of Lading', 'Export Certificate', 'Commercial invoice'],
+    authority: 'Tanzania Revenue Authority'
+  }
+};
+
+/** The market's facts as an object, so a page cannot mis-index the tuple. */
+export function destinationFacts(dest) {
+  if (!Array.isArray(dest)) return null;
+  const [country, port, transit, popularModels, baseFreightUsd, whatToExpect, onArrival] = dest;
+  const extra = DESTINATION_DOCS[country] || { inspection: null, docs: [], authority: 'your customs authority' };
+  return {
+    country, port, transit, popularModels, baseFreightUsd, whatToExpect, onArrival,
+    models: String(popularModels || '').split(' · ').map(x => x.trim()).filter(Boolean),
+    slug: destinationSlug(country),
+    href: destinationPath(country),
+    docs: extra.docs,
+    inspection: extra.inspection,
+    eligibility: extra.eligibility || null,
+    source: extra.source || null,
+    authority: extra.authority,
+    h1: `Import a used car from Japan to ${country}`
+  };
+}
+
+/**
+ * The five questions a buyer on this route actually asks, answered only with
+ * facts this site already states: the planning transit window, the models this
+ * route carries, the document pack, who assesses duty, and what a quotation
+ * covers. Rendered visibly on the page and mirrored in the FAQPage JSON-LD that
+ * src/seo.js emits for the same URL — markup that describes content that is not
+ * on the page is worse than no markup.
+ */
+export function destinationFaqs(dest) {
+  const f = destinationFacts(dest);
+  if (!f) return [];
+  return [
+    [`How long does shipping from Japan to ${f.port} take?`,
+     `The planning window for this route is ${f.transit} after the vessel is loaded in Japan. Schedules and transshipment vary, so the sailing date on your written quotation is the one to plan against — the ${f.transit} figure is an estimate, not a commitment.`],
+    [`Which used cars does AR7 ship to ${f.country}?`,
+     `${f.eligibility ? 'Model examples to discuss, subject to eligibility checks, include' : 'The models this route carries most often are'} ${f.models.join(', ')}. We also source any make and model to order: share your target car, year range, mileage cap and budget, and our Japan desk monitors daily auction lists and dealer networks until a match appears.${f.eligibility ? ` ${f.eligibility}` : ''}`],
+    [`What documents arrive before the vessel does?`,
+     `${f.docs.join('; ')}${f.inspection ? `. ${f.inspection} is arranged in Japan before loading` : ''}. The pack is couriered to you or your clearing agent ahead of arrival so it can be filed without storage delays at the port.`],
+    [`Who calculates import duty in ${f.country}?`,
+     `${f.authority} does, at the port of entry. Import duty, local taxes and registration charges are never bundled into a Japan CIF invoice and we do not quote a rate — your licensed clearing agent assesses the exact payable amount against the original documents we courier.`],
+    [`What does a quotation for ${f.country} include?`,
+     `Every price on this site is an indicative FOB price — the vehicle and export preparation up to loading in Japan. A written quotation confirms it and, on a CIF quote, adds sea freight to ${f.port} and marine transit insurance. Nothing is charged from a website figure: you buy against the written quotation.`]
+  ];
+}
