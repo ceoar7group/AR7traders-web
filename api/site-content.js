@@ -65,7 +65,7 @@ export { carRef, hrefFor };
 // below is added here.
 import {
   listMachines, createMachine, updateMachine, setPublished, deleteMachine,
-  MACHINERY_TABLE, purgeStale, toPublic
+  MACHINERY_TABLE, purgeStale, toPublic, readMachineryRows, machineryVisibility, recoverImportedMachines
 } from './_machinery.js';
 // The import agent: another shared module, so the machinery desk, the paste-a
 // -link box and the nightly job all cost zero extra functions.
@@ -464,14 +464,16 @@ function clean(entity, body) {
  * edit it.
  */
 async function machineryDispatch(req, res, action, injected = {}) {
-  const db = injected.db || adminClient();
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
   const sendErr = e => send(res, e.status || 500, {
     error: e.message || 'Machinery request failed',
     details: e.details
   });
 
   // ---- Public read. Anonymous visitors only ever see published rows, and
-  // listMachines() has already stripped any photo without a rights basis.
+  // Photos are not a publication gate; stored provenance remains available in the desk.
   if (action === 'list' && req.method === 'GET' && req.query.all !== '1') {
     try {
       return send(res, 200, await listMachines(db, {
@@ -497,8 +499,12 @@ async function machineryDispatch(req, res, action, injected = {}) {
 
   const id = req.body?.id || req.query.id;
   try {
+    if (action === 'recover-imports' && req.method === 'POST')
+      return send(res, 200, await recoverImportedMachines(db, auth.profile, req.body || {}));
+    if (action === 'audit' && req.method === 'GET')
+      return send(res, 200, machineryVisibility(await readMachineryRows(db)));
     if (action === 'list' && req.method === 'GET')
-      return send(res, 200, await listMachines(db, {publishedOnly: false}));
+      return send(res, 200, await readMachineryRows(db));
     if (action === 'create' && req.method === 'POST')
       return send(res, 201, await createMachine(db, req.body, auth.profile));
     if (action === 'update' && req.method === 'PATCH')
@@ -544,7 +550,9 @@ async function machineryDispatch(req, res, action, injected = {}) {
  * the website nobody typed, from a source we do not control.
  */
 async function importDispatch(req, res, injected = {}) {
-  const db = injected.db || adminClient();
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
   const step = String(req.query.step || req.body?.step || '').toLowerCase();
   const sendErr = e => send(res, e.status || 500, {
     error: e.message || 'Machinery import failed',
@@ -586,7 +594,7 @@ async function importDispatch(req, res, injected = {}) {
       if (!result.ok) return send(res, 422, { error: result.error, warnings: result.warnings || [] });
 
       // Say what it WOULD do, without doing any of it.
-      const { data: existing } = await db.from(MACHINERY_TABLE).select('*');
+      const existing = await readMachineryRows(db);
       const row = toRow(result.machine, { rights: body.rights || null, adapter: result.source?.adapter });
       const plan = planImport(Array.isArray(existing) ? existing : [], [row]);
 
@@ -616,7 +624,7 @@ async function importDispatch(req, res, injected = {}) {
         return send(res, 400, { error: `Import at most ${MAX_IMPORT_BATCH} machines at a time` });
       }
 
-      const { data: existing } = await db.from(MACHINERY_TABLE).select('*');
+      const existing = await readMachineryRows(db);
       const rows = candidates.map(m => (m && m.row)
         ? m.row
         : toRow(m, { rights: m?.source?.rights || body.rights || null, adapter: m?.source?.adapter || body.adapter || 'product-page' }));
@@ -646,7 +654,7 @@ async function importDispatch(req, res, injected = {}) {
 
     // ---- SCRAPER: crawl the Made-in-China category pages, preview only ----
     // Reads category pages + product pages (robots.txt first, 1s between
-    // fetches, max six machines) and returns previews through the same
+    // fetches, max 24 machines) and returns previews through the same
     // previewMachine() pipeline as step=preview. Writes nothing — the
     // operator's confirm click is what imports, exactly as with a pasted link.
     if (step === 'scraper') {
@@ -691,6 +699,8 @@ async function seoDispatch(req, res, action, injected = {}) {
 }
 
 export default async function handler(req, res, injected = {}) {
+  if (req.method === 'GET' && req.query.capabilities === 'machinery')
+    return send(res, 200, {version:2, audit:true, recoverImports:true});
   // ---- Vehicle sitemap dispatch: /api/sitemap-vehicles.xml rewrites here
   // with ?sitemap=vehicles. Kept inside this function so the deployment
   // stays at 12 Serverless Functions (Vercel Hobby cap) — see the block

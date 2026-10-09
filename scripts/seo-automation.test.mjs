@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import {generateKeyPairSync} from 'node:crypto';
+import {generateEditorialDraft,safeDraftSeo,keywordIdeas} from '../api/_seo-content.js';
+import {handleSeoWorkflow} from '../api/_seo-workflows.js';
+import handler from '../api/site-content.js';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
+const facts='2026-10-09: Staff confirmed the export document pack contains the commercial invoice and Japanese export certificate. Destination requirements must be confirmed with the buyer’s broker before purchase.';
+const input={topic:'Checking vehicle export documents',facts,kind:'news',sources:['https://ar7traders.com/howbuy']};
+await assert.rejects(generateEditorialDraft(input,{env:{}}),/OPENAI_API_KEY/);
+await assert.rejects(generateEditorialDraft({...input,sources:[]},{env:{}}),/News needs/);
+await assert.rejects(generateEditorialDraft({...input,sources:['file:///secret']},{env:{}}),/HTTPS/);
+await assert.rejects(generateEditorialDraft({...input,facts:'too short'},{env:{}}),/verified facts/);
+let providerCalls=0;
+const result=await generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test-key'},fetch:async(url,opts)=>{
+  providerCalls++;
+  assert.equal(url,'https://api.openai.com/v1/chat/completions');
+  assert.equal(opts.redirect,'error'); assert.ok(opts.signal);
+  const body=JSON.parse(opts.body);assert.equal(body.response_format.type,'json_object');
+  assert.match(body.messages[0].content,/ONLY supplied verified facts/);
+  return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({title:input.topic,excerpt:facts,body:facts+'\n\n'+facts})}}]})};
+}});
+assert.equal(providerCalls,1);assert.equal(result.published,false);assert.equal(result.saved,false);
+assert.equal(result.reviewRequired,true);assert.match(result.body,/EDITOR REVIEW/);assert.match(result.body,/https:\/\/ar7traders.com\/howbuy/);
+assert.ok(result.desc.length<=165);
+await assert.rejects(generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test'},fetch:async()=>({ok:false,status:429})}),/HTTP 429/);
+await assert.rejects(generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test'},fetch:async()=>({ok:true,json:async()=>({choices:[{message:{content:'oops'}}]})})}),/invalid draft JSON/);
+assert.ok(keywordIdeas().length>=20);assert.ok(keywordIdeas().every(r=>r.volume===null));
+assert.ok(safeDraftSeo({body:facts.repeat(8)}).desc.length<=165);
+const res=()=>({statusCode:0,body:null,status(n){this.statusCode=n;return this},setHeader(){return this},end(v){this.body=JSON.parse(v)}});
+let r=res();await handleSeoWorkflow({method:'POST',body:{}},r,'keywords',{injected:{env:{}}});
+assert.equal(r.statusCode,200);assert.equal(r.body.source,'catalogue-only');assert.equal(r.body.opportunities.length,0);
+r=res();await handler({method:'POST',headers:{},query:{seo:'generate'},body:input},r,{db:{},getUser:async()=>({profile:{role:'viewer'}}),permsFor:async()=>({'site.write':false})});
+assert.equal(r.statusCode,403,'generation must remain permission gated');
+const {privateKey} = generateKeyPairSync('rsa',{modulusLength:2048});
+const providerEnv={GSC_SITE_URL:'sc-domain:ar7traders.com',GOOGLE_SERVICE_ACCOUNT_JSON:JSON.stringify({client_email:'test@example.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})})};
+r=res();await handleSeoWorkflow({method:'POST',body:{}},r,'keywords',{injected:{env:providerEnv,now:Date.parse('2026-10-10'),fetch:async(url,opts)=>{
+  if(url.includes('oauth2')) return {ok:true,json:async()=>({access_token:'test-token'})};
+  assert.match(url,/searchAnalytics\/query$/);
+  assert.equal(JSON.parse(opts.body).endDate,'2026-10-07');
+  return {ok:true,json:async()=>({rows:[{keys:['import car kenya','https://ar7traders.com/destinations/kenya'],clicks:4,impressions:80,ctr:0.05,position:7}]})};
+}}});
+assert.equal(r.body.source,'search-console');assert.equal(r.body.opportunities[0].impressions,80);
+assert.equal(r.body.opportunities[0].position,7);
+// Repair is repeatable and preserves exclusions, existing URLs and timestamps.
+const temp=mkdtempSync(join(tmpdir(),'ar7-seo-repair-'));
+try {
+  mkdirSync(join(temp,'public'));writeFileSync(join(temp,'public/robots.txt'),'User-agent: *\nDisallow: /crm\n');
+  writeFileSync(join(temp,'public/sitemap.xml'),'<urlset><url><loc>https://ar7traders.com/</loc><lastmod>2026-01-01</lastmod></url></urlset>');
+  writeFileSync(join(temp,'vercel.json'),JSON.stringify({rewrites:[{source:'/news(/.*)?',destination:'/index.html'}]}));
+  const script=resolve('scripts/repair-crawl.mjs');execFileSync(process.execPath,[script],{cwd:temp});
+  const first=readFileSync(join(temp,'public/sitemap.xml'),'utf8');
+  execFileSync(process.execPath,[script],{cwd:temp});
+  assert.equal(readFileSync(join(temp,'public/sitemap.xml'),'utf8'),first);
+  assert.match(first,/<lastmod>2026-01-01<\/lastmod>/);
+  const robots=readFileSync(join(temp,'public/robots.txt'),'utf8');assert.match(robots,/Disallow: \/crm/);
+  assert.equal((robots.match(/^Sitemap:/gm)||[]).length,4);
+} finally {rmSync(temp,{recursive:true,force:true});}
+console.log('SEO automation: provider contracts, validation, review-only content, permission checks, keyword provenance and idempotent crawl repairs passed.');

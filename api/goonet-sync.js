@@ -273,8 +273,8 @@ async function carryOn(report, stepPromise, row) {
  * can tell those apart.
  */
 async function machineryJob(db, actor, { overBudget, res }) {
-  const { previewMachine, toRow, planImport, applyImport, markStale } = await import('./_machinery-import.js');
-  const { toPublic } = await import('./_machinery.js');
+  const { previewMachine, toRow, planImport, applyImport } = await import('./_machinery-import.js');
+  const { readMachineryRows, machineryVisibility } = await import('./_machinery.js');
 
   const report = {
     job: 'machinery', actor, sources: 0, seen: 0, created: 0, updated: 0,
@@ -282,10 +282,11 @@ async function machineryJob(db, actor, { overBudget, res }) {
     failed: [], note: null
   };
 
-  const { data: rows, error } = await db.from('machinery').select('*');
-  if (error) return send(res, 500, { error: 'Could not read the machinery table', details: error.message });
-  const all = Array.isArray(rows) ? rows : [];
-  const sourced = all.filter(r => r.source_url);
+  const all = await readMachineryRows(db);
+  report.inventory = machineryVisibility(all);
+  // Oldest checks first so large catalogues do not recheck only page one.
+  const sourced = all.filter(r => r.source_url && r.status !== 'Archived')
+    .sort((a,b) => String(a.source_last_seen_at || '').localeCompare(String(b.source_last_seen_at || '')));
   report.sources = sourced.length;
 
   if (!sourced.length) {
@@ -294,10 +295,9 @@ async function machineryJob(db, actor, { overBudget, res }) {
   }
 
   const candidates = [];
-  const seenIds = [];
   // Which machines were ALREADY flagged before this run, so the report can say
   // how many came back. applyImport() clears the flag as part of its update,
-  // so by the time markStale() looks, the flag is gone and it would report 0.
+  // so count cleared flags from the stored rows after the update.
   const wasFlagged = new Set(sourced.filter(r => r.source_missing_since).map(r => String(r.id)));
 
   for (const row of sourced) {
@@ -314,9 +314,16 @@ async function machineryJob(db, actor, { overBudget, res }) {
         // Unreadable (bot gate, expired listing) is not the same as gone, but
         // it is worth recording rather than swallowing.
         report.failed.push({ ref: row.ref, reason: p.error });
+        // Only a confirmed gone response can flag THIS row. A timeout/403 or
+        // an unvisited sibling on the same host must never look delisted.
+        if ([404, 410].includes(p.sourceStatus) && !row.source_missing_since) {
+          const { error } = await db.from('machinery')
+            .update({ source_missing_since: new Date().toISOString() }).eq('id', row.id);
+          if (error) report.failed.push({ ref: row.ref, reason: error.message });
+          else report.flagged++;
+        }
         continue;
       }
-      seenIds.push(row.id);
       report.seen++;
       // Keep this machine's own reference — toMachine() would otherwise
       // invent 'AR7-MC-NEW' and the run would rewrite the reference (and so
@@ -331,6 +338,15 @@ async function machineryJob(db, actor, { overBudget, res }) {
 
   if (candidates.length) {
     const plan = planImport(all, candidates);
+    // A scheduled price refresh is not an instruction to republish a hidden
+    // listing or change Reserved/Sold back to Available.
+    for (const u of plan.updates) {
+      for (const key of ['published', 'status', 'hold_reason', 'published_by', 'published_by_name', 'published_at', 'imported_at']) {
+        if (key in u.before) u.next[key] = u.before[key];
+        else delete u.next[key];
+      }
+    }
+    report.failed.push(...plan.errors.map(e => ({ ref: e.ref, reason: e.errors.map(x => x.message).join('; ') })));
     const out = await applyImport(db, plan, { id: null, full_name: actor, email: null });
     report.created = out.created.length;
     report.updated = out.updated.length;
@@ -339,12 +355,9 @@ async function machineryJob(db, actor, { overBudget, res }) {
     report.unchanged = out.updated.length - out.rePriced.length;
   }
 
-  // Flag, never delete, the ones this run did not see.
-  const hosts = [...new Set(sourced.map(r => { try { return new URL(r.source_url).host; } catch { return null; } }).filter(Boolean))];
-  for (const host of hosts) {
-    const m = await markStale(db, { sourceHost: host, seenIds });
-    report.flagged += m.flagged;
-  }
+  // A detail-page recheck is NOT a complete supplier inventory crawl.
+  // Timeouts, bot gates and unvisited rows do not prove removal. Never pass
+  // this partial seenIds list to markStale (which flags all absent host rows).
   // Count what actually came back: flagged before this run, clean now.
   if (wasFlagged.size) {
     const { data: after } = await db.from('machinery').select('*');
@@ -379,7 +392,9 @@ export default async function handler(req, res, injected) {
     }
   }
 
-  const db = injected.db || adminClient();
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
   const start = Date.now();
   const overBudget = () => Date.now() - start > RUN_BUDGET_MS;
 
@@ -388,8 +403,24 @@ export default async function handler(req, res, injected) {
   // scheduled machinery run costs no extra Serverless Function. It re-reads
   // every machine that came from a link, records any price change, and flags
   // (never deletes) the ones the supplier has taken down.
-  if (String(req.query?.job || '') === 'machinery') {
-    return machineryJob(db, actor, { overBudget, res });
+  if (['machinery', 'machinery-audit', 'machinery-recover'].includes(String(req.query?.job || ''))) {
+    try {
+      if (req.query.job === 'machinery-recover') {
+        if (req.method !== 'POST' || req.body?.confirm !== true) return send(res, 400, {error:'Recovery needs POST with explicit confirmation'});
+        const {recoverImportedMachines} = await import('./_machinery.js');
+        return send(res, 200, {job:'machinery-recover', ...await recoverImportedMachines(db,{full_name:actor},{confirm:true})});
+      }
+      if (req.query.job === 'machinery-audit') {
+        const { readMachineryRows, machineryVisibility } = await import('./_machinery.js');
+        return send(res, 200, { job: 'machinery-audit', readOnly: true,
+          inventory: machineryVisibility(await readMachineryRows(db)) });
+      }
+      return await machineryJob(db, actor, { overBudget, res });
+    } catch (e) {
+      console.error('machinery-sync failed', e);
+      return send(res, 500, { error: 'Machinery sync failed', details: e.message || 'Unknown error', code: e.code || null,
+        hint: ['42P01', '42703', 'PGRST205'].includes(e.code) ? 'Apply the machinery schema migration in supabase/MIGRATION-2026-10-machinery.sql and check schema compatibility.' : 'Check the Vercel function log and Supabase service-role configuration.' });
+    }
   }
   const report = {
     page: null, cardsSeen: 0, inserted: 0, updated: 0,

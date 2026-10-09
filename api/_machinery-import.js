@@ -86,7 +86,7 @@ export async function previewMachine({ url, html = null, rights = null, adapter 
     try {
       page = await fetchPage(url);
     } catch (e) {
-      return { ok: false, error: `Could not read that link: ${e.message}` };
+      return { ok: false, error: `Could not read that link: ${e.message}`, sourceStatus: e.sourceStatus || null };
     }
   }
 
@@ -145,7 +145,7 @@ async function fetchPage(url) {
         accept: 'text/html,application/xhtml+xml'
       }
     });
-    if (!res.ok) throw new Error(`the supplier answered ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`the supplier answered ${res.status}`), { sourceStatus: res.status });
     return await res.text();
   } finally {
     clearTimeout(timer);

@@ -38,6 +38,7 @@ export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related
     <div className="kicker">{Flag[f.country]} JAPAN → {f.country.toUpperCase()} · {f.port}</div>
     <h1>{f.h1}</h1>
     <p className="destination-lede">Used cars bought at Japanese auctions and from dealer stock, exported to {f.port} with the document pack your clearing agent files with. Every price on this site is an indicative FOB figure, confirmed by a written quotation.</p>
+    {f.eligibility&&<p className="destination-note"><b>Before you buy:</b> {f.eligibility} <a href={f.source} target="_blank" rel="noopener noreferrer">Check the official import guidance</a></p>}
     <dl className="destination-facts">
      <div><dt>Port of discharge</dt><dd>{f.port}</dd></div>
      <div><dt>Planning transit</dt><dd>{f.transit} <small>estimate — vessel schedules and transshipment vary</small></dd></div>

@@ -62,11 +62,15 @@ const ROUTES = {
   '/destinations/uae': ['destination-page', 'Import a used car from Japan to UAE', 'Jebel Ali'],
   '/destinations/united-kingdom': ['destination-page', 'Import a used car from Japan to United Kingdom', 'Southampton'],
   '/destinations/new-zealand': ['destination-page', 'Import a used car from Japan to New Zealand', 'Auckland'],
+  '/destinations/australia': ['destination-page', 'Import a used car from Japan to Australia', 'Sydney'],
+  '/destinations/usa': ['destination-page', 'Import a used car from Japan to USA', 'Los Angeles'],
   '/destinations/tanzania': ['destination-page', 'Import a used car from Japan to Tanzania', 'Dar es Salaam'],
   '/tools': ['inner-page'],
   '/world': ['world-page'],
   '/howbuy': ['inner-page'],
   '/news': ['inner-page'],
+  '/news/checking-your-japanese-vehicle-export-documents': ['news-article', 'Checking your Japanese vehicle export documents'],
+  '/news/comparing-fob-and-cif-vehicle-quotations': ['news-article', 'Comparing FOB and CIF vehicle quotations'],
   '/news/why-land-cruiser-demand-keeps-climbing-in-pakistan': ['news-article', 'Why Land Cruiser demand keeps climbing in Pakistan'],
   '/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean': ['news-article', 'Auction sheet decoded: what R, A and 4.5 really mean'],
   '/news/roro-vs-container-which-shipping-method-fits-your-car': ['news-article', 'RoRo vs container: which shipping method fits your car?'],
@@ -648,7 +652,7 @@ say('\n== each market has its own indexable page ==');
     'every market in DEST is linked from the hub by its own URL');
 
   const sitemap = readFileSync('public/sitemap.xml', 'utf8');
-  for (const slug of ['kenya', 'pakistan', 'uae', 'united-kingdom', 'new-zealand', 'tanzania']) {
+  for (const slug of ['kenya', 'pakistan', 'uae', 'united-kingdom', 'new-zealand', 'tanzania', 'australia', 'usa']) {
     ok(sitemap.includes(`<loc>https://ar7traders.com/destinations/${slug}</loc>`), `${slug} is in the sitemap`);
   }
   ok(!sitemap.includes('/destinations/atlantis'), 'and no market that does not exist is offered to crawlers');

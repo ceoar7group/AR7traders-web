@@ -395,6 +395,8 @@ export function toPublic(row) {
     // the CRM figure with no markup applied on top of it.
     price: Number.isFinite(Number(row.price_usd)) ? Number(row.price_usd) : 0,
     supplierPrice: 0,
+    price_usd: row.price_usd ?? null,
+    source_last_seen_at: row.source_last_seen_at || null,
     summary: row.summary || '',
     specs: Array.isArray(row.specs) ? row.specs : [],
     images: srcs,
@@ -464,13 +466,54 @@ const rowLabel = row => [row?.brand, row?.model].filter(Boolean).join(' ') || ro
  *    one is provenance for the desk, not a condition on publication.
  *  - all=1 from the CRM: every row including hidden ones.
  */
+// Supabase's default response cap must not silently hide older imports or
+// make duplicate detection forget them. Stable, paged reads; errors are not []!
+export async function readMachineryRows(db, { publishedOnly = false, type = null } = {}) {
+  const rows = [];
+  const size = 500;
+  for (let offset = 0; offset < 100000; offset += size) {
+    let q = db.from(MACHINERY_TABLE).select('*').order('id', { ascending: true });
+    if (publishedOnly) q = q.eq('published', true);
+    if (type) q = q.eq('type', type);
+    const paged = typeof q.range === 'function';
+    if (paged) q = q.range(offset, offset + size - 1);
+    const { data, error } = await q;
+    if (error) throw Object.assign(new Error(error.message), { status: 500, code: error.code });
+    if (!Array.isArray(data)) throw new Error('Machinery database returned no readable rows');
+    rows.push(...data);
+    if (!paged || data.length < size) return rows;
+  }
+  throw new Error('Machinery catalogue exceeds the safe scan limit; no partial result was used');
+}
+
+/** Private, read-only inventory of stored rows — no guessed publication cause. */
+export function machineryVisibility(rows) {
+  const items = rows.map(row => {
+    const invalid = validateRow({ ...row, ref: row.ref }).errors.map(e => e.message);
+    const visible = row.published === true && !!resolveType(row.type) && !!normaliseRef(row.ref);
+    return {
+      id: row.id, ref: row.ref, name: [row.brand, row.model].filter(Boolean).join(' '),
+      imported: !!(row.imported_at || row.source_url),
+      published: row.published === true, status: row.status || 'Available',
+      visibility: visible ? 'published' : row.status === 'Archived' ? 'archived'
+        : row.published !== true ? 'unpublished' : 'invalid-route',
+      hold_reason: row.hold_reason || null, invalid,
+      href: visible ? `/machinery/${typeSlugOf(row)}/${normaliseRef(row.ref)}` : null
+    };
+  });
+  return {
+    total: items.length,
+    imported: items.filter(r => r.imported).length,
+    published: items.filter(r => r.visibility === 'published').length,
+    hiddenImported: items.filter(r => r.imported && r.visibility !== 'published').length,
+    items
+  };
+}
+
 export async function listMachines(db, { publishedOnly = true, type = null } = {}) {
-  let q = db.from(MACHINERY_TABLE).select('*').order('sort_order', {ascending: true}).order('created_at', {ascending: false});
-  if (publishedOnly) q = q.eq('published', true);
-  if (type) q = q.eq('type', type);
-  const { data, error } = await q;
-  if (error) throw Object.assign(new Error(error.message), { status: 500 });
-  return (data || []).map(toPublic);
+  const rows = await readMachineryRows(db, { publishedOnly, type });
+  return rows.sort((a,b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)
+    || String(b.created_at || '').localeCompare(String(a.created_at || ''))).map(toPublic);
 }
 
 export async function createMachine(db, body, actor) {
@@ -626,4 +669,27 @@ export async function deleteMachine(db, id, actor) {
   if (error) throw Object.assign(new Error(error.message), { status: 500 });
   await audit(db, actor, `Deleted ${rowLabel(data)} (${data?.ref || id}) from the machinery desk`, id);
   return { ok: true };
+}
+
+/** Owner-requested recovery, never a nightly task. Reuses existing rows and
+ * refuses archived/sold/reserved or incomplete records. No photos/price gate. */
+export async function recoverImportedMachines(db, actor, {confirm = false, ids = null} = {}) {
+  if (confirm !== true) throw Object.assign(new Error('Explicit confirmation is required to publish hidden imports'), {status:400});
+  const rows = await readMachineryRows(db);
+  const eligible = rows.filter(r => r.published === false && r.status === 'Available' &&
+    (r.imported_at || r.source_url) && !validateRow(r).errors.length &&
+    (!Array.isArray(ids) || ids.includes(r.id)));
+  const restored = [], failed = [];
+  const start = Date.now();
+  for (const row of eligible.slice(0,100)) {
+    if (Date.now()-start > 40000) break;
+    const {data, error} = await db.from(MACHINERY_TABLE).update({published:true,hold_reason:null,
+      published_at:now(),updated_at:now(),published_by:actor?.id || 'owner-recovery',
+      published_by_name:actor?.full_name || 'Owner-requested recovery'})
+      .eq('id',row.id).eq('published',false).eq('status','Available').select('*').single();
+    if (error || !data) failed.push({ref:row.ref,error:error?.message || 'Row changed before recovery; not overwritten'});
+    else {restored.push(row.ref); await audit(db,actor,`Recovered hidden import ${row.ref} — owner requested publication`,row.id);}
+  }
+  return {restored,failed,remaining:Math.max(0,eligible.length-restored.length),
+    inventory:machineryVisibility(await readMachineryRows(db))};
 }

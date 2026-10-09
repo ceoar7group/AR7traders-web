@@ -577,5 +577,24 @@ say('\n-- purge-stale is a gated write on the same desk --');
     `remove:true deletes only the parked row (${removed.json().deleted.join(',')})`);
 }
 
+say('\n-- total run deadline keeps collected previews --');
+{
+  const world = makeWorld();
+  let clock = 0;
+  const out = await runScraper(fakeDb(), {
+    category: 'excavators', limit: 24, now: () => clock, budgetMs: 9000,
+    sleep: async ms => { clock += ms; },
+    fetch: async (url, options) => {
+      ok(options.timeoutMs <= 9000 - clock, 'fetch timeout fits remaining run budget');
+      const page = await world.fetchImpl(url);
+      clock += 1000;
+      return page;
+    }
+  });
+  ok(out.partial === true, 'deadline returns a partial receipt, not a lost HTTP timeout');
+  ok(out.machines.length > 0, 'already collected previews survive the deadline');
+  ok(out.warnings.some(w => w.includes('Time limit')), 'operator is told to confirm and run again');
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

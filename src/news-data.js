@@ -31,6 +31,20 @@ export function articleSlug(input) {
 
 const RAW_NEWS = [
   {
+    cat: 'BUYING GUIDE', date: 'Oct 09, 2026', min: 3,
+    img: '/assets/japanese-car-auction-inspection-shipping-1.webp',
+    title: 'Checking your Japanese vehicle export documents',
+    ex: 'Check the chassis reference, consignee and destination before your car leaves Japan.',
+    body: 'Start with the exact vehicle reference. Compare the chassis number on the commercial invoice, Japanese Export Certificate and available vehicle photographs. Ask for any discrepancy to be resolved in writing before payment or shipment. A model name alone is not enough to identify a particular car.\n\nConfirm the consignee name, contact details, discharge port and document delivery address with your clearing agent. The Bill of Lading records the shipment; ask whether originals or an agreed release procedure will be used. Do not assume a scan alone will release your vehicle.\n\nRequirements differ by destination. Your broker should confirm translation, pre-shipment inspection and import-approval requirements before purchase. The destination guides on this site describe the planning document pack, but they are not a substitute for current instructions from the relevant authority.\n\nKeep the quotation, payment receipts, inspection material and shipping correspondence together. Ask the export desk when each document will be available and who is responsible for each outstanding step. Destination duties, taxes, storage and registration are separate from Japan export preparation; confirm those costs with your broker.'
+  },
+  {
+    cat: 'LOGISTICS', date: 'Oct 09, 2026', min: 3,
+    img: '/assets/japanese-car-auction-inspection-shipping-2.webp',
+    title: 'Comparing FOB and CIF vehicle quotations',
+    ex: 'Compare the same car, port and included costs instead of choosing the lowest headline number.',
+    body: 'A useful comparison starts with the same vehicle: chassis reference, year, mileage, condition and included accessories. Two similar model names can hide very different condition or specification. Ask which inspection material supports the quoted car.\n\nAn FOB quotation covers the vehicle and agreed export preparation up to loading in Japan. A CIF quotation adds the agreed sea freight and marine insurance to the named destination port. Ask for the actual inclusions in writing rather than treating a website calculator as a binding offer.\n\nCompare the loading and discharge ports, shipping method, currency, quotation validity and payment terms. Ask whether inland transport and documentation charges are included. For insurance, confirm the cover, exclusions, excess and claims procedure; an insurance line on an invoice does not explain all of these.\n\nNeither headline figure is a complete promise of your final local cost. Your clearing agent must confirm destination handling, customs duties, local taxes, compliance work and registration. Allow for schedule changes and ask how any revised freight charge would be approved before booking. Keep the agreed quotation with your vehicle documents so every later charge can be checked against it.'
+  },
+  {
     cat: 'MARKET WATCH', date: 'Aug 18, 2026', min: 4,
     img: '/assets/japanese-car-auction-inspection-shipping-3.webp',
     title: 'Why Land Cruiser demand keeps climbing in Pakistan',

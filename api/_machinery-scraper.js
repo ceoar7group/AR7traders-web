@@ -34,7 +34,7 @@
 //     existing machine (URL or brand+model+year) is skipped, not duplicated.
 
 import { previewMachine, toRow, findExisting } from './_machinery-import.js';
-import { MACHINERY_TABLE, machinerySettings } from './_machinery.js';
+import { machinerySettings, readMachineryRows } from './_machinery.js';
 
 /** The honest identity the importer already uses elsewhere. */
 export const SCRAPER_UA = 'AR7Traders-Import/1.0 (+https://ar7traders.com)';
@@ -218,8 +218,13 @@ export async function runScraper(db, {
   batch = null,
   fetch: fetchImpl = null,
   sleep: sleepImpl = null,
-  markup = 0.25
+  markup = 0.25,
+  now = Date.now,
+  budgetMs = 45000
 } = {}) {
+  const deadline = now() + Math.min(45000, Math.max(0, budgetMs));
+  let timedOut = false;
+  const exhausted = () => (timedOut ||= now() >= deadline);
   const doFetch = fetchImpl || defaultFetch;
   const sleep = sleepImpl || (ms => new Promise(r => setTimeout(r, ms)));
   const delayMs = SCRAPER_DELAY_MS;
@@ -255,19 +260,22 @@ export async function runScraper(db, {
   stats.categories = catList.length;
 
   // ---- dedupe seed: what the catalogue already holds -----------------------
-  let existing = [];
-  try {
-    const { data } = await db.from(MACHINERY_TABLE).select('*');
-    existing = Array.isArray(data) ? data : [];
-  } catch { /* no readable catalogue means nothing to dedupe against */ }
+  const existing = await readMachineryRows(db);
+  const hiddenExisting = existing.filter(r => r.published !== true && r.source_url)
+    .map(r => ({ id: r.id, ref: r.ref, name: [r.brand, r.model].filter(Boolean).join(' '),
+      status: r.status, hold_reason: r.hold_reason || null }));
   const seenUrls = new Set(existing.map(r => normUrl(r?.source_url)).filter(Boolean));
 
   // ---- paced fetch: one delay BEFORE every fetch after the first -----------
   let fetchCount = 0;
   async function pacedFetch(url) {
+    if (exhausted() || deadline - now() <= delayMs) {
+      timedOut = true;
+      return { ok: false, status: 0, networkError: true, text: '', error: 'Run time budget exhausted' };
+    }
     if (fetchCount > 0) await sleep(delayMs);
     fetchCount++;
-    return doFetch(url);
+    return doFetch(url, { timeoutMs: Math.max(1, Math.min(SCRAPER_FETCH_TIMEOUT_MS, deadline - now())) });
   }
 
   // ---- robots.txt per host, cached, fail-closed -----------------------------
@@ -298,7 +306,7 @@ export async function runScraper(db, {
   // ---- 1. collect product links from the category pages ---------------------
   const links = [];
   for (const cat of catList) {
-    if (links.length >= maxMachines) break;
+    if (exhausted() || links.length >= maxMachines) break;
     const catUrl = SCRAPER_ORIGIN + cat.path;
     if (!(await pathAllowed(catUrl))) {
       stats.robotsBlocked++;
@@ -315,7 +323,7 @@ export async function runScraper(db, {
       if (links.includes(link)) continue;
       if (seenUrls.has(normUrl(link))) {
         stats.deduped++;
-        skipped.push({ url: link, reason: 'already in the catalogue (source link)' });
+        skipped.push({ url: link, reason: 'already in the catalogue (source link)', ref: existing.find(r => normUrl(r.source_url) === normUrl(link))?.ref });
         continue;
       }
       links.push(link);
@@ -326,6 +334,7 @@ export async function runScraper(db, {
 
   // ---- 2. preview each link through the existing pipeline -------------------
   for (const link of links) {
+    if (exhausted()) break;
     if (machines.length >= maxMachines) { stats.capped++; continue; }
 
     if (!(await pathAllowed(link))) {
@@ -372,8 +381,11 @@ export async function runScraper(db, {
     });
   }
 
+  if (timedOut) warnings.push('Time limit reached. Review and confirm the collected previews, then run again; confirmed source links will be skipped.');
   return {
     ok: true,
+    partial: timedOut,
+    existingHidden: hiddenExisting,
     machines,
     previews,
     skipped,

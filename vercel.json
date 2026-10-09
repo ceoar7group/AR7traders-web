@@ -6,6 +6,22 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/news/comparing-fob-and-cif-vehicle-quotations",
+      "destination": "/news/comparing-fob-and-cif-vehicle-quotations/index.html"
+    },
+    {
+      "source": "/news/checking-your-japanese-vehicle-export-documents",
+      "destination": "/news/checking-your-japanese-vehicle-export-documents/index.html"
+    },
+    {
+      "source": "/destinations/usa",
+      "destination": "/destinations/usa/index.html"
+    },
+    {
+      "source": "/destinations/australia",
+      "destination": "/destinations/australia/index.html"
+    },
+    {
       "source": "/api/sitemap-vehicles.xml",
       "destination": "/api/site-content?sitemap=vehicles"
     },
@@ -16,6 +32,46 @@
     {
       "source": "/api/sitemap-news.xml",
       "destination": "/api/site-content?sitemap=news"
+    },
+    {
+      "source": "/destinations/pakistan",
+      "destination": "/destinations/pakistan/index.html"
+    },
+    {
+      "source": "/destinations/uae",
+      "destination": "/destinations/uae/index.html"
+    },
+    {
+      "source": "/destinations/kenya",
+      "destination": "/destinations/kenya/index.html"
+    },
+    {
+      "source": "/destinations/united-kingdom",
+      "destination": "/destinations/united-kingdom/index.html"
+    },
+    {
+      "source": "/destinations/new-zealand",
+      "destination": "/destinations/new-zealand/index.html"
+    },
+    {
+      "source": "/destinations/tanzania",
+      "destination": "/destinations/tanzania/index.html"
+    },
+    {
+      "source": "/news/why-land-cruiser-demand-keeps-climbing-in-pakistan",
+      "destination": "/news/why-land-cruiser-demand-keeps-climbing-in-pakistan/index.html"
+    },
+    {
+      "source": "/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean",
+      "destination": "/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean/index.html"
+    },
+    {
+      "source": "/news/roro-vs-container-which-shipping-method-fits-your-car",
+      "destination": "/news/roro-vs-container-which-shipping-method-fits-your-car/index.html"
+    },
+    {
+      "source": "/news/how-online-bidding-works-with-ar7",
+      "destination": "/news/how-online-bidding-works-with-ar7/index.html"
     },
     {
       "source": "/assets/gallery/lexus-lc-500-01.jpg",

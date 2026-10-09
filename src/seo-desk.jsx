@@ -173,6 +173,10 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   const [created, setCreated] = useState(null); // { article, json, slug, url, published, clip }
   const [draftAudit, setDraftAudit] = useState(null);
   const [draftFacts, setDraftFacts] = useState('');
+  const [aiKind, setAiKind] = useState('guide');
+  const [aiSources, setAiSources] = useState('');
+  const [automationBusy, setAutomationBusy] = useState(false);
+  const [keywordReport, setKeywordReport] = useState(null);
   const [editorArticles, setEditorArticles] = useState([]);
   const [activeDraftId, setActiveDraftId] = useState(null);
   const [publishBusy, setPublishBusy] = useState(false);
@@ -516,6 +520,36 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     });
   };
 
+  const researchKeywords = async () => {
+    setAutomationBusy(true); setWorkflowError('');
+    try { setKeywordReport(await seoWorkflow('keywords','POST',{})); }
+    catch (e) { setWorkflowError(e.message); }
+    finally { setAutomationBusy(false); }
+  };
+  const generateAiDraft = async () => {
+    setAutomationBusy(true); setCreateErrors({});
+    try {
+      const out = await seoWorkflow('generate','POST',{topic:form.title,facts:draftFacts,kind:aiKind,
+        sources:aiSources.split(/\n/).map(s => s.trim()).filter(Boolean)});
+      setForm(current => ({...current,title:out.title,desc:out.desc,body:out.body,
+        cat:aiKind === 'news' ? 'MARKET WATCH' : 'BUYING GUIDE'}));
+      setCreateWarnings(out.warnings || []); setCreated(null); setDraftAudit(null);
+      setActiveDraftId(null); setDraftReviewed(false);
+      notify('AI draft generated. Review the claims and source notes, then save; nothing is public.');
+    } catch (e) { setCreateErrors({facts:e.message}); }
+    finally { setAutomationBusy(false); }
+  };
+  const optimizeDraft = async () => {
+    setAutomationBusy(true);
+    try {
+      const out = await seoWorkflow('optimize-draft','POST',form);
+      setForm(current => ({...current,desc:out.desc}));
+      setCreateWarnings(out.warnings || []); setCreated(null); setDraftReviewed(false);
+      notify('Draft excerpt optimized from existing copy. Title, URL and factual body are unchanged; save to persist.');
+    } catch (e) { setCreateErrors({facts:e.message}); }
+    finally { setAutomationBusy(false); }
+  };
+
   const generateFactDraft = () => {
     const generated = buildFactualDraft({...form, facts: draftFacts});
     if (!generated) { setCreateErrors({facts: 'Add at least one staff-verified fact, one per line.'}); return; }
@@ -664,6 +698,16 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       </div>
 
       <div className="shell page-content seo-desk-content">
+        <section className="seo-card" aria-label="Keyword research automation">
+          <h2>Keyword opportunities</h2>
+          <p>Research real Search Console queries when connected, plus catalogue-based topic ideas. No invented search volumes.</p>
+          <button type="button" className="gold-btn" disabled={!canPublish || !token || automationBusy} onClick={researchKeywords}>Research keywords</button>
+          {keywordReport && <>
+            <p>{keywordReport.note}</p>{keywordReport.providerError && <p role="alert">{keywordReport.providerError}</p>}
+            <ul>{(keywordReport.opportunities || []).slice(0,15).map((r,i) => <li key={i}><b>{r.query}</b> · {r.impressions} impressions · {r.clicks} clicks · position {Number(r.position).toFixed(1)} · {r.url}</li>)}</ul>
+            <ul>{(keywordReport.ideas || []).map(r => <li key={r.query}><b>{r.query}</b> — {r.target} <button type="button" onClick={() => {setCreating(true);setActiveDraftId(null);setCreated(null);setDraftReviewed(false);setForm({title:r.query,cat:'BUYING GUIDE',img:GUIDE_ASSETS[0],desc:'',body:''});}}>Draft this topic</button></li>)}</ul>
+          </>}
+        </section>
         <section className="seo-card seo-campaign-hub">
           <div className="seo-hub-title"><Megaphone size={18}/><div><h2>Campaign launchpad</h2><p>Publish the public PromoBar from this staff-only desk. This is campaign messaging only—real price savings remain attached to individual stock in Price offers.</p></div></div>
           <div className={'seo-campaign-status' + (campaign && campaignIsLive(campaign) ? ' live' : '')}>
@@ -723,6 +767,11 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
               </label>
               <button type="button" className="gold-btn" onClick={generateFactDraft}>Generate factual draft text</button>
               <small className="seo-muted">Generated excerpt/body echo only these notes and add a review reminder. They are not independently verified.</small>
+              <label>AI content type<select aria-label="AI content type" value={aiKind} onChange={e => setAiKind(e.target.value)}><option value="guide">Buyer guide</option><option value="news">Source-backed news</option></select></label>
+              <label>Source URLs (one HTTPS URL per line)<textarea aria-label="AI source URLs" value={aiSources} onChange={e => setAiSources(e.target.value)} rows={2}/></label>
+              <p className="seo-muted">Enter the topic in Title below. News requires a verified event date (YYYY-MM-DD) in the facts and at least one source URL. AI does not browse or verify those sources. OPENAI_API_KEY must be configured on the server.</p>
+              <button type="button" className="gold-btn" onClick={generateAiDraft} disabled={!canPublish || !token || automationBusy}>{automationBusy ? 'Working…' : 'Generate AI draft'}</button>
+              <button type="button" className="gold-btn" onClick={optimizeDraft} disabled={!canPublish || !token || automationBusy || !form.body.trim()}>Fix draft SEO</button>
             </fieldset>
 
             <div className="seo-create-grid">

@@ -194,6 +194,12 @@ setGlobal('fetch', async (url, options = {}) => {
     json: async () => payload, text: async () => JSON.stringify(payload)
   });
 
+  if (value.includes('/api/site-content?machinery=audit')) {
+    return answer(200, {total:2,imported:2,published:0,hiddenImported:2,items:[
+      {id:'old1',ref:'AR7-MC-101',name:'Sany SY215',visibility:'unpublished',status:'Available',invalid:[],hold_reason:'Legacy photo hold'},
+      {id:'old2',ref:'AR7-MC-102',name:'Komatsu PC200',visibility:'archived',status:'Archived',invalid:[]}
+    ]});
+  }
   if (value.includes('/api/site-content?import=machinery&step=scraper')) {
     return answer(200, {
       ok: true,
@@ -347,7 +353,16 @@ say('\n== 3. the rendered panel: desk truth, per-run count, and the default ==')
 
   ok(/1 of 2 desk machines are published on the website/.test(text(p.host)),
     `the desk states its real published count: "${(p.host.querySelector('.crm-desk-count')?.textContent || '').replace(/\s+/g, ' ').trim()}"`);
-  ok(/1 hidden by a person/.test(text(p.host)), 'and names the hidden one as a person\'s doing, not a sync failure');
+  ok(/1 not published/.test(text(p.host)), 'reports hidden rows without guessing who hid them');
+
+  const auditButton = [...p.host.querySelectorAll('button')].find(b => /Find stored \/ hidden imports/.test(b.textContent));
+  ok(!!auditButton, 'stored imports have a dedicated read-only inspection action');
+  await click(auditButton);
+  const audit = p.host.querySelector('[aria-label="Stored machinery visibility"]');
+  ok(audit?.textContent.includes('AR7-MC-101') && audit?.textContent.includes('AR7-MC-102'), 'both unpublished and archived imports are discoverable');
+  ok(audit?.textContent.includes('Legacy photo hold'), 'stored hold reason is displayed');
+  ok(audit?.querySelectorAll('li button').length === 1, 'only the valid unarchived row has an individual recovery action');
+  ok(!requests.some(r => r.url.includes('machinery=publish')), 'inspecting stored imports publishes nothing');
 
   const stale = p.host.querySelector('.crm-scraper-stale');
   ok(!!stale && /missing from their source for 14\+ days/.test(stale.textContent),
@@ -501,6 +516,15 @@ say('\n== 6. the stale purge posts what its buttons say ==');
       source_missing_since: new Date(Date.now() - 40 * 86400000).toISOString() }
   ];
   const p = await mount({ machines });
+  const auditButton = [...p.host.querySelectorAll('button')].find(b => /Find stored \/ hidden imports/.test(b.textContent));
+  ok(!!auditButton, 'stored imports have a dedicated read-only inspection action');
+  await click(auditButton);
+  const audit = p.host.querySelector('[aria-label="Stored machinery visibility"]');
+  ok(audit?.textContent.includes('AR7-MC-101') && audit?.textContent.includes('AR7-MC-102'), 'both unpublished and archived imports are discoverable');
+  ok(audit?.textContent.includes('Legacy photo hold'), 'stored hold reason is displayed');
+  ok(audit?.querySelectorAll('li button').length === 1, 'only the valid unarchived row has an individual recovery action');
+  ok(!requests.some(r => r.url.includes('machinery=publish')), 'inspecting stored imports publishes nothing');
+
   const stale = p.host.querySelector('.crm-scraper-stale');
   const [archive, remove] = [...stale.querySelectorAll('button')];
 

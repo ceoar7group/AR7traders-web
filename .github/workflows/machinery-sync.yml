@@ -13,7 +13,17 @@ name: Machinery importer
 on:
   schedule:
     - cron: '40 3 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Audit stored/hidden imports (read only), or refresh supplier listings'
+        type: choice
+        options: [audit, refresh, recover]
+        default: audit
+      confirm_recovery:
+        description: 'Confirm publication of valid Available hidden imports (not archived/sold/reserved)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,24 +33,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
       - name: Trigger machinery sync on Vercel
         env:
           SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
           SYNC_KEY: ${{ secrets.GOONET_SYNC_KEY }}
+          MODE: ${{ inputs.mode || 'refresh' }}
+          CONFIRM_RECOVERY: ${{ inputs.confirm_recovery || 'false' }}
         run: |
           if [ -z "$SYNC_KEY" ]; then
             echo "::error::GOONET_SYNC_KEY secret is not set. Add it in GitHub → Settings → Secrets, matching the GOONET_SYNC_KEY env var in Vercel."
             exit 1
           fi
-          URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}&job=machinery"
+          # Old deployments ignore unknown job names. Verify support before
+          # sending an audit or recovery request; never accidentally run a car sync.
+          curl --fail -sSL -m 20 "${SYNC_URL:-https://ar7traders.com}/api/site-content?capabilities=machinery" -o /tmp/machinery-capabilities.json
+          node -e "const c=require('/tmp/machinery-capabilities.json'); if(c.version!==2 || !c.audit || !c.recoverImports) process.exit(1)"
+          JOB=machinery
+          if [ "$MODE" = "audit" ]; then JOB=machinery-audit; fi
+          CURL_ARGS=()
+          if [ "$MODE" = "recover" ]; then
+            if [ "$CONFIRM_RECOVERY" != "true" ]; then echo "::error::Recovery confirmation is required"; exit 1; fi
+            JOB=machinery-recover
+            CURL_ARGS=(-X POST -H 'Content-Type: application/json' --data '{"confirm":true}')
+          fi
+          URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}&job=${JOB}"
           # -L follows the site's canonical-domain redirect (www.ar7traders.com → ar7traders.com;
           # the apex is canonical — all canonical/og:url/sitemap URLs use https://ar7traders.com)
-          CODE=$(curl -sSL -m 60 -o /tmp/machinery-sync.json -w "%{http_code}" "$URL")
+          CODE=$(curl -sSL -m 75 "${CURL_ARGS[@]}" -o /tmp/machinery-sync.json -w "%{http_code}" "$URL")
           echo "HTTP status: $CODE"
           echo "Response:"
           cat /tmp/machinery-sync.json
           echo
           if [ "$CODE" != "200" ]; then
-            echo "::error::Machinery importer returned HTTP $CODE — see the Response above for the reason"
+            node scripts/check-sync-report.mjs /tmp/machinery-sync.json || true
+            echo "::error::Machinery importer returned HTTP $CODE — see the diagnostic above"
             exit 1
           fi
+          node scripts/check-sync-report.mjs /tmp/machinery-sync.json

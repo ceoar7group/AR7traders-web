@@ -385,7 +385,8 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // per market we ship to, because "import a used car from japan to kenya" has
   // to be answerable by a page of its own. The count stays hard-coded on
   // purpose: every URL added to the sitemap should make someone update it.
-  ok(locs.length === 43, `sitemap lists 43 URLs (found ${locs.length})`);
+  // 2026-10-09: Australia, USA and two document/quotation guides.
+  ok(locs.length === 47, `sitemap lists 47 URLs (found ${locs.length})`);
   {
     const { DEST, destinationHref } = await import('../src/destinations.js');
     for (const d of DEST) {

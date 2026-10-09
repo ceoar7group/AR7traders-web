@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
       - name: Trigger Goo-net sync on Vercel
         env:
           SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
@@ -34,3 +35,4 @@ jobs:
             echo "::error::Importer returned HTTP $CODE — see the Response above for the reason"
             exit 1
           fi
+          node scripts/check-sync-report.mjs /tmp/goonet-sync.json

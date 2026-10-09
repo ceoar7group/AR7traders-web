@@ -4984,6 +4984,16 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
   // and re-confirm instead of re-scraping.
   const [refusedKeys, setRefusedKeys] = useState(() => new Set());
   const [purgeBusy, setPurgeBusy] = useState(false);
+  const [visibilityAudit, setVisibilityAudit] = useState(null);
+  const [auditBusy, setAuditBusy] = useState(false);
+  const inspectStored = async () => {
+    setAuditBusy(true); setError('');
+    try {
+      const out = await call('/api/site-content?machinery=audit', token);
+      setVisibilityAudit(out);
+    } catch (e) { setError('Inventory audit: ' + e.message); }
+    finally { setAuditBusy(false); }
+  };
 
   // A new link invalidates the preview immediately — importing after editing
   // the box would write something the operator never read.
@@ -5125,9 +5135,43 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
       <p className="crm-hint crm-desk-count">
         <Check size={13} /> {deskPublished} of {deskTotal} desk machines are published on the website
         {deskTotal - deskPublished > 0
-          ? ` — ${deskTotal - deskPublished} hidden by a person (unpublished or archived).`
+          ? ` — ${deskTotal - deskPublished} not published (review their stored status and hold reason).`
           : ', and none are hidden.'}
       </p>
+      <button type="button" className="crm-add" onClick={inspectStored} disabled={auditBusy || busy}>
+        {auditBusy ? 'Checking stored imports…' : 'Find stored / hidden imports'}
+      </button>
+      {visibilityAudit && <section className="crm-scraper-result" aria-label="Stored machinery visibility">
+        <b>{visibilityAudit.total} stored · {visibilityAudit.imported} imported · {visibilityAudit.published} published · {visibilityAudit.hiddenImported} hidden imports</b>
+        <p>This reads the database, not the built-in demo catalogue. A preview alone does not save anything. Review unpublished rows below; archived rows are never restored automatically.</p>
+        <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported} onClick={async () => {
+          if (!window.confirm('Publish all valid Available imported machines currently hidden? Archived, sold, reserved and invalid rows are excluded. Up to 100 records per run.')) return;
+          setAuditBusy(true);
+          try {
+            const out = await call('/api/site-content?machinery=recover-imports', token, {method:'POST',body:JSON.stringify({confirm:true})});
+            setVisibilityAudit(out.inventory);
+            notify(`Restored ${out.restored.length} imports; ${out.failed.length} failed; ${out.remaining} eligible rows remain.`);
+            onImported && onImported();
+          } catch (e) {setError('Recovery: '+e.message);}
+          finally {setAuditBusy(false);}
+        }}>Publish all eligible hidden imports</button>
+        <ul>{(visibilityAudit.items || []).filter(r => r.visibility !== 'published').map(r => <li key={r.id}>
+          <b>{r.ref} — {r.name}</b> · {r.visibility}
+          {r.hold_reason && <span> · Recorded hold: {r.hold_reason}</span>}
+          {r.invalid?.length > 0 && <span> · Fix in desk: {r.invalid.join('; ')}</span>}
+          {r.visibility === 'unpublished' && r.status !== 'Archived' && !r.invalid?.length && <button type="button" disabled={auditBusy} onClick={async () => {
+            if (!window.confirm(`Publish the existing ${r.ref} listing to the website? This does not create a duplicate.`)) return;
+            setAuditBusy(true);
+            try {
+              await call('/api/site-content?machinery=publish', token, { method: 'POST', body: JSON.stringify({ id: r.id }) });
+              notify(`Published existing listing ${r.ref}`);
+              await inspectStored();
+              onImported && onImported();
+            } catch (e) { setError('Publish: ' + e.message); }
+            finally { setAuditBusy(false); }
+          }}>Publish existing listing</button>}
+        </li>)}</ul>
+      </section>}
       {staleUnpublished.length > 0 && (
         <div className="crm-scraper-result crm-scraper-stale" data-kind="partial">
           <b><Ban size={13} /> {staleUnpublished.length} unpublished machine(s) have been missing from their source for 14+ days</b>
@@ -5237,7 +5281,9 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
               setSelectedCandidateKeys(new Set(candidates.map((machine, index) => machineryCandidateKey(machine, index))));
               setOpen(true);
             } else {
-              const why = out?.warnings?.length ? ` — ${out.warnings[0]}` : '';
+              const why = out?.existingHidden?.length
+                ? ` — ${out.existingHidden.length} imported rows are already stored but unpublished. Use Find stored / hidden imports.`
+                : out?.warnings?.length ? ` — ${out.warnings[0]}` : '';
               notify(`Scraper found no new machines this run${why}`);
             }
           } catch (e) {

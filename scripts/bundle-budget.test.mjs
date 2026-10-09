@@ -200,8 +200,10 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // has to read synchronously to build each URL's title, description, breadcrumb
 // and FAQPage markup: document packs, authorities and the five FAQ templates.
 // Measured 481.36 kB raw / 142.07 kB gzip.
-const BUDGET_GZIP = 143 * 1024;
-const BUDGET_RAW = 482 * 1024;
+// 2026-10-09: two missing market copy sets and two substantive buyer guides
+// share the existing synchronous SEO/news data. No new first-load library.
+const BUDGET_GZIP = 145 * 1024;
+const BUDGET_RAW = 488 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

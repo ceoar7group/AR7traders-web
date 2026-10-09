@@ -70,6 +70,16 @@ export const DEST = [
     1300,
     'We coordinate mandatory TBS pre-shipment roadworthiness inspection (EAA / JEVIC) at the Japanese export yard, confirm chassis and engine numbers against the Export Certificate, and book RoRo freight to Dar es Salaam.',
     'We courier the Original Bill of Lading, Export Certificate, inspection certificate and commercial invoice ahead of vessel arrival so your clearing agent can process TRA customs and port release without storage delays. Duties and taxes are decided by Tanzanian customs.'
+  ],
+  [
+    'Australia', 'Sydney', '21–28 days', 'Land Cruiser · Hiace', 1200,
+    'Before buying, ask your Australian compliance specialist to confirm the exact vehicle’s import approval pathway. Do not bid or book shipping until the required approval is in place. Japan export preparation and biosecurity cleaning must match the agreed entry requirements.',
+    'Your broker checks the invoice, Bill of Lading, Japanese Export Certificate and import approval for Australian Border Force clearance. Biosecurity inspection and state or territory registration are separate steps; shipping a car does not guarantee it can be registered.'
+  ],
+  [
+    'USA', 'Los Angeles', '28–36 days', 'Kei trucks · 4Runner', 1400,
+    'Check the exact manufacture date and vehicle specification with a US import specialist before purchase. NHTSA safety eligibility and EPA emissions eligibility are separate requirements. Do not assume a Japanese-market car or kei truck is road-legal merely because it can be shipped.',
+    'Your customs broker confirms the invoice, Bill of Lading, Japanese Export Certificate and applicable NHTSA and EPA declarations for US Customs and Border Protection. State title and registration requirements must be checked separately before committing to a vehicle.'
   ]
 ];
 
@@ -100,7 +110,23 @@ export function destinationBySlug(slug) {
  * inspection it needs — lifted from the market's own arrival and departure
  * copy above, because a generic list would be a guess about someone's customs.
  */
+// Australia/USA planning figures and model examples reuse the existing
+// site_routes seed (SETUP-EVERYTHING.sql). They are not eligibility promises.
 export const DESTINATION_DOCS = {
+  Australia: {
+    inspection: 'Confirm biosecurity cleaning and inspection requirements before departure',
+    docs: ['Commercial invoice', 'Bill of Lading', 'Japanese Export Certificate', 'Applicable vehicle import approval'],
+    authority: 'Australian Border Force and relevant Australian authorities',
+    eligibility: 'Approval depends on the exact vehicle and import pathway. Confirm eligibility, biosecurity and registration before buying.',
+    source: 'https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/importing-road-vehicle-australia'
+  },
+  USA: {
+    inspection: null,
+    docs: ['Commercial invoice', 'Bill of Lading', 'Japanese Export Certificate', 'Applicable NHTSA HS-7 and EPA declarations, confirmed by your broker'],
+    authority: 'US Customs and Border Protection',
+    eligibility: 'Federal safety, emissions and state registration are separate checks. Model examples are not a promise of US road legality.',
+    source: 'https://www.nhtsa.gov/importing-vehicle'
+  },
   Pakistan: {
     inspection: null,
     docs: ['Original Bill of Lading', 'Japanese Export Certificate (with English translation)', 'Commercial invoice'],
@@ -145,6 +171,8 @@ export function destinationFacts(dest) {
     href: destinationPath(country),
     docs: extra.docs,
     inspection: extra.inspection,
+    eligibility: extra.eligibility || null,
+    source: extra.source || null,
     authority: extra.authority,
     h1: `Import a used car from Japan to ${country}`
   };
@@ -165,7 +193,7 @@ export function destinationFaqs(dest) {
     [`How long does shipping from Japan to ${f.port} take?`,
      `The planning window for this route is ${f.transit} after the vessel is loaded in Japan. Schedules and transshipment vary, so the sailing date on your written quotation is the one to plan against — the ${f.transit} figure is an estimate, not a commitment.`],
     [`Which used cars does AR7 ship to ${f.country}?`,
-     `The models this route carries most often are ${f.models.join(', ')}. We also source any make and model to order: share your target car, year range, mileage cap and budget, and our Japan desk monitors daily auction lists and dealer networks until a match appears.`],
+     `${f.eligibility ? 'Model examples to discuss, subject to eligibility checks, include' : 'The models this route carries most often are'} ${f.models.join(', ')}. We also source any make and model to order: share your target car, year range, mileage cap and budget, and our Japan desk monitors daily auction lists and dealer networks until a match appears.${f.eligibility ? ` ${f.eligibility}` : ''}`],
     [`What documents arrive before the vessel does?`,
      `${f.docs.join('; ')}${f.inspection ? `. ${f.inspection} is arranged in Japan before loading` : ''}. The pack is couriered to you or your clearing agent ahead of arrival so it can be filed without storage delays at the port.`],
     [`Who calculates import duty in ${f.country}?`,
