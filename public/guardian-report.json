@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T10:41:57.871Z",
+  "generatedAt": "2026-10-09T21:13:04.502Z",
   "summary": {
     "total": 18,
     "pass": 18,
@@ -18,7 +18,7 @@
       "area": "health",
       "name": "Internal links resolve",
       "status": "pass",
-      "detail": "2 page(s) checked; every asset link and every route resolves",
+      "detail": "16 page(s) checked; every asset link and every route resolves",
       "fix": "Open the listed file and correct the href"
     },
     {
@@ -32,7 +32,7 @@
       "area": "health",
       "name": "Sitemap has no noindex or staff URLs",
       "status": "pass",
-      "detail": "43 URL(s) in the sitemap",
+      "detail": "47 URL(s) in the sitemap",
       "fix": "Remove staff and transactional paths from public/sitemap.xml"
     },
     {
@@ -53,7 +53,7 @@
       "area": "security",
       "name": "No secrets in the client source",
       "status": "pass",
-      "detail": "40 source file(s) scanned",
+      "detail": "41 source file(s) scanned",
       "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
     },
     {
@@ -123,14 +123,14 @@
       "area": "seo",
       "name": "One H1 per page",
       "status": "pass",
-      "detail": "2 page(s) carry exactly one H1",
+      "detail": "16 page(s) carry exactly one H1",
       "fix": "The shared page shell renders the H1 — check the route does not add a second"
     },
     {
       "area": "seo",
       "name": "Canonical on every page",
       "status": "pass",
-      "detail": "2 page(s) canonical",
+      "detail": "16 page(s) canonical",
       "fix": "Add the route to PAGE_SEO in src/seo.js"
     }
   ]
