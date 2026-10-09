@@ -5144,6 +5144,17 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
       {visibilityAudit && <section className="crm-scraper-result" aria-label="Stored machinery visibility">
         <b>{visibilityAudit.total} stored · {visibilityAudit.imported} imported · {visibilityAudit.published} published · {visibilityAudit.hiddenImported} hidden imports</b>
         <p>This reads the database, not the built-in demo catalogue. A preview alone does not save anything. Review unpublished rows below; archived rows are never restored automatically.</p>
+        <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported} onClick={async () => {
+          if (!window.confirm('Publish all valid Available imported machines currently hidden? Archived, sold, reserved and invalid rows are excluded. Up to 100 records per run.')) return;
+          setAuditBusy(true);
+          try {
+            const out = await call('/api/site-content?machinery=recover-imports', token, {method:'POST',body:JSON.stringify({confirm:true})});
+            setVisibilityAudit(out.inventory);
+            notify(`Restored ${out.restored.length} imports; ${out.failed.length} failed; ${out.remaining} eligible rows remain.`);
+            onImported && onImported();
+          } catch (e) {setError('Recovery: '+e.message);}
+          finally {setAuditBusy(false);}
+        }}>Publish all eligible hidden imports</button>
         <ul>{(visibilityAudit.items || []).filter(r => r.visibility !== 'published').map(r => <li key={r.id}>
           <b>{r.ref} — {r.name}</b> · {r.visibility}
           {r.hold_reason && <span> · Recorded hold: {r.hold_reason}</span>}

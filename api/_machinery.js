@@ -670,3 +670,26 @@ export async function deleteMachine(db, id, actor) {
   await audit(db, actor, `Deleted ${rowLabel(data)} (${data?.ref || id}) from the machinery desk`, id);
   return { ok: true };
 }
+
+/** Owner-requested recovery, never a nightly task. Reuses existing rows and
+ * refuses archived/sold/reserved or incomplete records. No photos/price gate. */
+export async function recoverImportedMachines(db, actor, {confirm = false, ids = null} = {}) {
+  if (confirm !== true) throw Object.assign(new Error('Explicit confirmation is required to publish hidden imports'), {status:400});
+  const rows = await readMachineryRows(db);
+  const eligible = rows.filter(r => r.published === false && r.status === 'Available' &&
+    (r.imported_at || r.source_url) && !validateRow(r).errors.length &&
+    (!Array.isArray(ids) || ids.includes(r.id)));
+  const restored = [], failed = [];
+  const start = Date.now();
+  for (const row of eligible.slice(0,100)) {
+    if (Date.now()-start > 40000) break;
+    const {data, error} = await db.from(MACHINERY_TABLE).update({published:true,hold_reason:null,
+      published_at:now(),updated_at:now(),published_by:actor?.id || 'owner-recovery',
+      published_by_name:actor?.full_name || 'Owner-requested recovery'})
+      .eq('id',row.id).eq('published',false).eq('status','Available').select('*').single();
+    if (error || !data) failed.push({ref:row.ref,error:error?.message || 'Row changed before recovery; not overwritten'});
+    else {restored.push(row.ref); await audit(db,actor,`Recovered hidden import ${row.ref} — owner requested publication`,row.id);}
+  }
+  return {restored,failed,remaining:Math.max(0,eligible.length-restored.length),
+    inventory:machineryVisibility(await readMachineryRows(db))};
+}

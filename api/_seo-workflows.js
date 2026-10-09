@@ -4,6 +4,7 @@
 // short non-secret audit summary in the existing activities table.
 import {sign as signData} from 'node:crypto';
 import {send} from './_supabase.js';
+import {keywordIdeas, safeDraftSeo, generateEditorialDraft} from './_seo-content.js';
 import {NEWS, articleSlug} from '../src/news-data.js';
 import {
   SITE_CANONICAL_ORIGIN, SITE_SITEMAP_PATHS, canonicalSiteUrl,
@@ -348,6 +349,38 @@ export async function handleSeoWorkflow(req, res, action, {db, auth, injected = 
   const fetchImpl = fetchOf(injected);
   const env = envOf(injected);
   const now = injected.now ? Number(injected.now) : Date.now();
+
+  if (action === 'generate' && method === 'POST') {
+    try { return send(res, 200, await generateEditorialDraft(req.body || {}, {env, fetch: fetchImpl})); }
+    catch (e) { return send(res, e.status || 502, {error:e.name === 'TimeoutError' ? 'AI request timed out; nothing was saved.' : e.message}); }
+  }
+  if (action === 'optimize-draft' && method === 'POST') {
+    return send(res, 200, safeDraftSeo(req.body || {}));
+  }
+  if (action === 'keywords' && method === 'POST') {
+    const ideas = keywordIdeas();
+    const result = {ideas, opportunities:[], source:'catalogue-only', note:'Ideas are not measured search volume. Connect Search Console to see actual queries.'};
+    if (env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GSC_SITE_URL) {
+      try {
+        const token = await googleToken(fetchImpl, env, now);
+        if (!token.accessToken) throw new Error(token.error);
+        const endDate = new Date(now - 3*86400000).toISOString().slice(0,10);
+        const startDate = new Date(now - 31*86400000).toISOString().slice(0,10);
+        const response = await fetchImpl(`${GOOGLE_API}/sites/${encodeURIComponent(token.siteUrl)}/searchAnalytics/query`, {
+          method:'POST', redirect:'error', signal:AbortSignal.timeout(15000),
+          headers:{Authorization:`Bearer ${token.accessToken}`, 'Content-Type':'application/json'},
+          body:JSON.stringify({startDate,endDate,dimensions:['query','page'],rowLimit:100,dataState:'final'})
+        });
+        if (!response.ok) throw new Error(`Search Console query failed (HTTP ${response.status})`);
+        const payload = await response.json();
+        result.opportunities = (payload.rows || []).map(r => ({query:r.keys?.[0],url:r.keys?.[1],clicks:r.clicks,impressions:r.impressions,ctr:r.ctr,position:r.position}))
+          .filter(r => r.query && r.impressions > 0).sort((a,b) => b.impressions-a.impressions);
+        result.source='search-console'; result.startDate=startDate; result.endDate=endDate;
+        result.note='Real query impressions, not total market search volume. Review high-impression, low-CTR pages and positions 4–20 first.';
+      } catch (e) {result.providerError=e.message;}
+    }
+    return send(res, 200, result);
+  }
 
   if (action === 'status' && method === 'GET') {
     const states = await connectorStates(fetchImpl, env, now);

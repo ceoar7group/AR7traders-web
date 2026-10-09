@@ -58,6 +58,9 @@ setGlobal('fetch', (url, options = {}) => {
   const u = String(url);
   const method = options.method || 'GET';
   fetchCalls.push({url: u, options});
+  if (u.includes('?seo=keywords')) return Promise.resolve({ok:true,json:async()=>({ideas:[{query:'import cars to Kenya',target:'/destinations/kenya'}],opportunities:[],note:'Catalogue ideas only'})});
+  if (u.includes('?seo=generate')) return Promise.resolve({ok:true,json:async()=>({title:'Verified export document guide',desc:'Check the vehicle reference and agreed document pack with your export desk and clearing agent before shipping.',body:'Staff-supplied draft facts.\n\n[EDITOR REVIEW: verify sources before publication.]',warnings:[],published:false})});
+  if (u.includes('?seo=optimize-draft')) return Promise.resolve({ok:true,json:async()=>({desc:'A repaired excerpt derived from the supplied draft content, without changing the title or canonical URL.',warnings:[]})});
   if (u.includes('?seo=status')) return Promise.resolve({ok: true, status: 200, json: async () => ({
     google: {state: 'not_configured', configured: false, ready: false, detail: 'Search Console credentials are not configured.'},
     indexNow: {state: 'not_configured', configured: false, ready: false, detail: 'Set AR7_INDEXNOW_KEY and publish its key file.'}
@@ -314,6 +317,21 @@ say('\nPure helpers agree with the UI');
   ok(!dynamicCategory.errors.cat, 'categories already used by published site_articles rows remain valid');
   const built = buildArticle({title: 'T', cat: NEWS[0].cat, img: '/assets/og/auction.jpg', desc: 'd', body: 'b'}, 'the-slug', {now: new Date('2026-10-04T12:00:00Z')});
   ok(built.slug === 'the-slug' && built.date === 'Oct 04, 2026', 'buildArticle stamps the derived slug and date for the SEO audit');
+}
+
+say('\nOne-click SEO automation stays review-only');
+{
+  await mountDesk();
+  await click($$('button').find(b=>b.textContent==='Research keywords'));
+  ok(document.body.textContent.includes('Catalogue ideas only'), 'keyword research labels its evidence source');
+  await click($$('button').find(b=>b.textContent==='Draft this topic'));
+  const beforeWrites=fetchCalls.filter(c=>c.url.includes('entity=articles') && ['POST','PATCH'].includes(c.options.method)).length;
+  await click($$('button').find(b=>b.textContent==='Generate AI draft'));
+  ok(labelOf('Title')?.querySelector('input')?.value==='Verified export document guide', 'one click fills the generated title');
+  ok(document.body.textContent.includes('EDITOR REVIEW'), 'generated body retains the mandatory review marker');
+  ok(fetchCalls.filter(c=>c.url.includes('entity=articles') && ['POST','PATCH'].includes(c.options.method)).length===beforeWrites, 'generation does not save or publish without review');
+  await click($$('button').find(b=>b.textContent==='Fix draft SEO'));
+  ok(labelOf('Title')?.querySelector('input')?.value==='Verified export document guide', 'safe SEO fix never changes the title-derived canonical');
 }
 
 console.log = realLog;

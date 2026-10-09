@@ -361,7 +361,7 @@ say('\n== 3. the rendered panel: desk truth, per-run count, and the default ==')
   const audit = p.host.querySelector('[aria-label="Stored machinery visibility"]');
   ok(audit?.textContent.includes('AR7-MC-101') && audit?.textContent.includes('AR7-MC-102'), 'both unpublished and archived imports are discoverable');
   ok(audit?.textContent.includes('Legacy photo hold'), 'stored hold reason is displayed');
-  ok(audit?.querySelectorAll('button').length === 1, 'only the valid unarchived row has an explicit recovery action');
+  ok(audit?.querySelectorAll('li button').length === 1, 'only the valid unarchived row has an individual recovery action');
   ok(!requests.some(r => r.url.includes('machinery=publish')), 'inspecting stored imports publishes nothing');
 
   const stale = p.host.querySelector('.crm-scraper-stale');
@@ -522,7 +522,7 @@ say('\n== 6. the stale purge posts what its buttons say ==');
   const audit = p.host.querySelector('[aria-label="Stored machinery visibility"]');
   ok(audit?.textContent.includes('AR7-MC-101') && audit?.textContent.includes('AR7-MC-102'), 'both unpublished and archived imports are discoverable');
   ok(audit?.textContent.includes('Legacy photo hold'), 'stored hold reason is displayed');
-  ok(audit?.querySelectorAll('button').length === 1, 'only the valid unarchived row has an explicit recovery action');
+  ok(audit?.querySelectorAll('li button').length === 1, 'only the valid unarchived row has an individual recovery action');
   ok(!requests.some(r => r.url.includes('machinery=publish')), 'inspecting stored imports publishes nothing');
 
   const stale = p.host.querySelector('.crm-scraper-stale');

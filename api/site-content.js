@@ -65,7 +65,7 @@ export { carRef, hrefFor };
 // below is added here.
 import {
   listMachines, createMachine, updateMachine, setPublished, deleteMachine,
-  MACHINERY_TABLE, purgeStale, toPublic, readMachineryRows, machineryVisibility
+  MACHINERY_TABLE, purgeStale, toPublic, readMachineryRows, machineryVisibility, recoverImportedMachines
 } from './_machinery.js';
 // The import agent: another shared module, so the machinery desk, the paste-a
 // -link box and the nightly job all cost zero extra functions.
@@ -499,6 +499,8 @@ async function machineryDispatch(req, res, action, injected = {}) {
 
   const id = req.body?.id || req.query.id;
   try {
+    if (action === 'recover-imports' && req.method === 'POST')
+      return send(res, 200, await recoverImportedMachines(db, auth.profile, req.body || {}));
     if (action === 'audit' && req.method === 'GET')
       return send(res, 200, machineryVisibility(await readMachineryRows(db)));
     if (action === 'list' && req.method === 'GET')
@@ -697,6 +699,8 @@ async function seoDispatch(req, res, action, injected = {}) {
 }
 
 export default async function handler(req, res, injected = {}) {
+  if (req.method === 'GET' && req.query.capabilities === 'machinery')
+    return send(res, 200, {version:2, audit:true, recoverImports:true});
   // ---- Vehicle sitemap dispatch: /api/sitemap-vehicles.xml rewrites here
   // with ?sitemap=vehicles. Kept inside this function so the deployment
   // stays at 12 Serverless Functions (Vercel Hobby cap) — see the block

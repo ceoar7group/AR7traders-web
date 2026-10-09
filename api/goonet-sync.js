@@ -403,8 +403,13 @@ export default async function handler(req, res, injected) {
   // scheduled machinery run costs no extra Serverless Function. It re-reads
   // every machine that came from a link, records any price change, and flags
   // (never deletes) the ones the supplier has taken down.
-  if (['machinery', 'machinery-audit'].includes(String(req.query?.job || ''))) {
+  if (['machinery', 'machinery-audit', 'machinery-recover'].includes(String(req.query?.job || ''))) {
     try {
+      if (req.query.job === 'machinery-recover') {
+        if (req.method !== 'POST' || req.body?.confirm !== true) return send(res, 400, {error:'Recovery needs POST with explicit confirmation'});
+        const {recoverImportedMachines} = await import('./_machinery.js');
+        return send(res, 200, {job:'machinery-recover', ...await recoverImportedMachines(db,{full_name:actor},{confirm:true})});
+      }
       if (req.query.job === 'machinery-audit') {
         const { readMachineryRows, machineryVisibility } = await import('./_machinery.js');
         return send(res, 200, { job: 'machinery-audit', readOnly: true,

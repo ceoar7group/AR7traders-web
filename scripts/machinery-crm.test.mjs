@@ -334,5 +334,29 @@ console.log('\n-- live-site hydration --');
   ok(renderCrash === null, `hydrated rows survive what the home teaser does to them${renderCrash ? ` — ${renderCrash}` : ''}`);
 }
 
+console.log('\n-- owner-requested hidden import recovery --');
+{
+  const seed = { ...GOOD, source_url:'https://supplier.example/machine', published:false, status:'Available', price_usd:null, images:[] };
+  const db = fakeDb({machinery:[
+    {...seed,id:'recover1',ref:'AR7-MC-901'},
+    {...seed,id:'archive1',ref:'AR7-MC-902',status:'Archived'},
+    {...seed,id:'sold1',ref:'AR7-MC-903',status:'Sold'},
+    {...seed,id:'invalid1',ref:'AR7-MC-904',type:'unknown'},
+    {...seed,id:'reserved1',ref:'AR7-MC-905',status:'Reserved'}
+  ]});
+  const denied = fakeRes();
+  await handler(req('POST',{machinery:'recover-imports'},{confirm:false}),denied,{db,...asUser(ADMIN)});
+  ok(denied.statusCode === 400,'bulk recovery needs explicit confirmation');
+  const response = fakeRes();
+  await handler(req('POST',{machinery:'recover-imports'},{confirm:true}),response,{db,...asUser(ADMIN)});
+  ok(response.statusCode === 200,'confirmed recovery completes');
+  ok(response.json().restored.length === 1 && response.json().restored[0] === 'AR7-MC-901','recovers valid available import without photos or a price');
+  ok(db._tables.machinery.length === 5,'creates no duplicate records');
+  ok(db._tables.machinery.filter(r=>r.published).length === 1,'does not publish archived, sold, reserved or invalid rows');
+  const again = fakeRes();
+  await handler(req('POST',{machinery:'recover-imports'},{confirm:true}),again,{db,...asUser(ADMIN)});
+  ok(again.json().restored.length === 0,'recovery is idempotent');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
