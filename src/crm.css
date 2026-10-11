@@ -3159,9 +3159,14 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-table-wrap th.th-actions,
 .crm-table-wrap td.crm-row-actions{position:sticky;right:0;background:var(--crm-panel);box-shadow:-10px 0 14px -10px rgba(0,0,0,.35);z-index:2}
 .crm-table-wrap tbody tr:hover td.crm-row-actions{background:var(--crm-panel-hover,var(--crm-panel))}
-.crm-goonet .goonet-actions button{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--crm-border);background:var(--crm-panel-sub);color:var(--crm-ink);border-radius:8px;padding:4px 8px;font-size:9.5px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
+/* 2026-10-11: the row's actions are now Edit + a labelled overflow menu (see
+   .crm-row-primary / .crm-row-menu-* above). This rule deliberately sets no
+   padding or font size any more: the old 4px/8px + 9.5px pills measured 36x32
+   and pushed Edit 43px outside the scroller. Sizes come from the shared
+   .crm-table-wrap td.crm-row-actions rules so the targets stay thumb-sized. */
+.crm-goonet .goonet-actions button{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--crm-border);background:var(--crm-panel-sub);color:var(--crm-ink);border-radius:8px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
 .crm-goonet .goonet-actions button:hover{background:var(--crm-panel-hover);color:var(--crm-ink)}
-.crm-goonet .goonet-actions .crm-del:hover{background:var(--crm-danger-bg);border-color:var(--crm-danger-border);color:var(--crm-danger)}
+.crm-goonet .goonet-actions .crm-row-menu-item.danger:hover{background:var(--crm-danger-bg);border-color:var(--crm-danger-border);color:var(--crm-danger)}
 /* "Already added": a car that is on the website / in the inventory keeps its
    place in the row as a quiet confirmation instead of an action that would
    copy it a second time. */
@@ -3943,4 +3948,322 @@ html[data-crm-theme="light"] .crm-shell {
 @media (min-width: 700px) {
   .crm-scraper-fix { grid-template-columns: 1fr 1fr 1fr; }
   .crm-scraper-fix > b { grid-column: 1 / -1; }
+}
+
+/* ==========================================================================
+   Row actions — discoverable primary + accessible overflow menu
+   ==========================================================================
+   2026-10-11, from the owner's report that Edit on Japan dealer stock was
+   "pushed to the extreme right and hard to find".
+
+   Measured cause (scripts/crm-actions-evidence.mjs, 1440/1024/768/390):
+   `.crm-table-wrap` scrolls horizontally (scrollWidth 1463 vs clientWidth
+   1114) and the pinned action cell was 280px wide inside a 280px-wide zone
+   whose right 43px are padding — so the LAST pill in a `nowrap` six-button row
+   sat 43px outside the visible area with no way to scroll it back (it was
+   already at its sticky position). That last pill was Edit.
+
+   The fix is structural, not cosmetic: the primary action is first in the
+   cell and the rest live in a menu whose trigger is last. Nothing else in the
+   table depends on these rules, so the wide tables (cars, inventory, team)
+   keep their existing markup. */
+.crm-row-actions .crm-row-menu-wrap{
+  display:flex;align-items:center;gap:6px;justify-content:flex-start;flex-wrap:nowrap;min-width:0;
+}
+.crm-row-menu{position:relative;display:inline-flex;flex-shrink:0}
+.crm-table-wrap td.crm-row-actions{padding-right:12px}
+.crm-table-wrap td.crm-row-actions .crm-row-primary{
+  display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 12px;
+  border:1px solid var(--crm-gold);border-radius:8px;
+  background:color-mix(in srgb, var(--crm-gold) 16%, transparent);
+  color:var(--crm-gold);font:700 11px var(--crm-font);cursor:pointer;white-space:nowrap;
+}
+.crm-table-wrap td.crm-row-actions .crm-row-primary:hover{background:var(--crm-gold);color:var(--crm-on-gold)}
+.crm-table-wrap td.crm-row-actions .crm-row-primary:focus-visible,.crm-table-wrap td.crm-row-actions .crm-row-menu-trigger:focus-visible,.crm-row-menu-item:focus-visible{
+  outline:2px solid var(--crm-gold);outline-offset:2px;
+}
+.crm-table-wrap td.crm-row-actions .crm-row-primary.danger{border-color:var(--crm-danger-border);color:var(--crm-danger);background:var(--crm-danger-bg)}
+.crm-table-wrap td.crm-row-actions .crm-row-menu-trigger{
+  display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;
+  border:1px solid var(--crm-border);border-radius:8px;background:var(--crm-panel-sub);
+  color:var(--crm-ink);font:700 11px var(--crm-font);cursor:pointer;white-space:nowrap;
+}
+.crm-table-wrap td.crm-row-actions .crm-row-menu-trigger:hover{border-color:var(--crm-gold);color:var(--crm-gold)}
+.crm-table-wrap td.crm-row-actions .crm-row-menu-trigger.open{border-color:var(--crm-gold);color:var(--crm-gold)}
+/* The panel is anchored to the right edge of the trigger and opens upward when
+   there is no room below, so it is never clipped by the table's scroll box. */
+.crm-row-menu-panel{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:60;
+  min-width:224px;max-width:min(320px,calc(100vw - 32px));padding:6px;
+  background:var(--crm-panel);border:1px solid var(--crm-border);border-radius:12px;
+  box-shadow:0 18px 40px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:2px;
+}
+.crm-row-menu-item{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  padding:9px 10px;border:0;border-radius:8px;background:transparent;color:var(--crm-ink);
+  font:600 12px var(--crm-font);cursor:pointer;min-height:36px;
+}
+.crm-row-menu-item:hover{background:var(--crm-panel-hover)}
+.crm-row-menu-item[disabled]{opacity:.55;cursor:default}
+.crm-row-menu-item[disabled]:hover{background:transparent}
+.crm-row-menu-item.danger{color:var(--crm-danger)}
+.crm-row-menu-item.danger:hover{background:var(--crm-danger-bg)}
+.crm-row-menu-divider{height:1px;margin:4px 2px;background:var(--crm-border)}
+.crm-row-menu-count{font-size:10px}
+
+/* Below 700px the pinned action column would eat most of a phone viewport, so
+   the row action cell is released from the right edge and the table scrolls
+   normally: the actions are then reachable by scrolling like any other cell,
+   and the primary action is the first thing in that cell. */
+@media (max-width: 700px) {
+  .crm-table-wrap th.th-actions,
+  .crm-table-wrap td.crm-row-actions{position:static;box-shadow:none}
+  .crm-goonet .crm-table-wrap table{min-width:0}
+  .crm-row-menu-panel{right:auto;left:0}
+}
+@media (min-width: 701px) and (max-width: 1024px) {
+  .crm-goonet .crm-table-wrap table{min-width:900px}
+}
+.crm-row-menu-panel.is-closed{display:none}
+
+/* --------------------------------------------------------------------------
+   Phone layout for the data tables that carry row actions.
+   An 11-column table cannot fit a 390px viewport, so below 700px each row is
+   presented as a labelled card: the header band is hidden and every cell
+   prints its own label from `data-label`. The actions then sit at the end of
+   the card, in view, instead of at the far right of a 1,326px-wide scroll box.
+   -------------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  .crm-cards-sm .crm-table-wrap, .crm-table-wrap.crm-cards-sm{overflow:visible}
+  .crm-cards-sm table, .crm-table-wrap.crm-cards-sm table{min-width:0;width:100%;display:block}
+  .crm-cards-sm thead, .crm-table-wrap.crm-cards-sm thead{display:none}
+  .crm-cards-sm tbody, .crm-table-wrap.crm-cards-sm tbody{display:flex;flex-direction:column;gap:10px}
+  .crm-cards-sm tbody tr, .crm-table-wrap.crm-cards-sm tbody tr{
+    display:grid;grid-template-columns:auto 1fr;gap:0 10px;
+    padding:12px;border:1px solid var(--crm-border);border-radius:14px;background:var(--crm-panel-sub);
+  }
+  .crm-cards-sm tbody td, .crm-table-wrap.crm-cards-sm tbody td{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    max-width:none;width:auto;overflow:visible;white-space:normal;text-align:right;
+    padding:6px 0;border-top:1px solid var(--crm-border-subtle);
+  }
+  .crm-cards-sm tbody td:first-child, .crm-table-wrap.crm-cards-sm tbody td:first-child{border-top:0}
+  .crm-cards-sm tbody td::before, .crm-table-wrap.crm-cards-sm tbody td::before{
+    content:attr(data-label);flex:0 0 auto;font:700 9.5px var(--crm-font);
+    letter-spacing:.7px;text-transform:uppercase;color:var(--crm-muted);text-align:left;
+  }
+  /* The photo and the actions span the card, so a thumb is not squashed and
+     the primary action is a full-width, thumb-sized target. */
+  .crm-cards-sm tbody td.td-photo, .crm-table-wrap.crm-cards-sm tbody td.td-photo{grid-column:1 / -1;padding:0 0 10px}
+  .crm-cards-sm tbody td.td-photo::before, .crm-table-wrap.crm-cards-sm tbody td.td-photo::before{display:none}
+  .crm-cards-sm tbody td.crm-cell-title, .crm-table-wrap.crm-cards-sm tbody td.crm-cell-title{grid-column:1 / -1;justify-content:flex-start;text-align:left;font-size:14px}
+  .crm-cards-sm tbody td.crm-cell-title::before, .crm-table-wrap.crm-cards-sm tbody td.crm-cell-title::before{display:none}
+  .crm-cards-sm tbody td.crm-row-actions, .crm-table-wrap.crm-cards-sm tbody td.crm-row-actions{
+    grid-column:1 / -1;justify-content:flex-start;padding-top:10px;border-top:1px solid var(--crm-border);
+  }
+  .crm-cards-sm tbody td.crm-row-actions::before, .crm-table-wrap.crm-cards-sm tbody td.crm-row-actions::before{display:none}
+  .crm-cards-sm .crm-row-menu-wrap, .crm-table-wrap.crm-cards-sm .crm-row-menu-wrap{width:100%;flex-wrap:wrap}
+  .crm-table-wrap.crm-cards-sm td.crm-row-actions .crm-row-primary, .crm-table-wrap.crm-cards-sm td.crm-row-actions .crm-row-menu-trigger{height:40px}
+  .crm-cards-sm .crm-row-menu-panel, .crm-table-wrap.crm-cards-sm .crm-row-menu-panel{left:0;right:auto;min-width:min(320px,calc(100vw - 56px))}
+}
+
+/* ==========================================================================
+   AI Growth — the agent management area (src/ai-growth.jsx)
+
+   Two rules drive every decision here:
+     1. A draft must never look like something that has happened. Drafts,
+        approvals and executions carry different chips and different wording,
+        and the banner states the mode (dry run / review) at all times.
+     2. Disabled, paused, dry run, emergency stop and "not connected" are
+        states, not errors — they are styled as calm, legible status, so a
+        stopped agent cannot be mistaken for a broken one, or vice versa.
+   ========================================================================== */
+.ai-tabs { margin-bottom: 14px; }
+
+.ai-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; margin-bottom: 14px;
+  border: 1px solid var(--crm-border); border-radius: 12px;
+  background: var(--crm-panel); font-size: 12.5px; color: var(--crm-muted);
+}
+.ai-banner b { color: var(--crm-ink); font-size: 13px; }
+.ai-banner.is-off { border-color: rgba(229, 176, 88, .45); background: rgba(229, 176, 88, .07); }
+.ai-banner.is-off b { color: var(--crm-gold); }
+.ai-banner.is-stopped { border-color: var(--crm-danger); background: rgba(255, 138, 138, .08); }
+.ai-banner.is-stopped b { color: var(--crm-danger); }
+.ai-banner-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.ai-banner-actions button {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+  border: 1px solid var(--crm-border); border-radius: 9px; background: var(--crm-panel-sub);
+  color: var(--crm-ink); font: 700 12px var(--crm-font); cursor: pointer;
+  /* "Emergency stop" must never break across two lines in the banner: a
+     wrapped label reads like a different control. */
+  white-space: nowrap;
+}
+.ai-banner-actions button:hover { background: var(--crm-panel-hover); }
+.ai-banner-actions .crm-del { border-color: rgba(255, 138, 138, .4); color: var(--crm-danger); }
+
+.ai-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.ai-kpis article {
+  display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 2px 8px;
+  padding: 12px 14px; border: 1px solid var(--crm-border); border-radius: 12px; background: var(--crm-panel);
+}
+.ai-kpis article svg { grid-row: span 2; color: var(--crm-gold); }
+.ai-kpis article b { font: 800 20px var(--crm-font); color: var(--crm-ink); }
+.ai-kpis article span { font-size: 11.5px; color: var(--crm-muted); }
+.ai-kpis article.is-alert { border-color: rgba(255, 138, 138, .45); }
+.ai-kpis article.is-alert svg, .ai-kpis article.is-alert b { color: var(--crm-danger); }
+
+.ai-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.ai-agent {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px; border: 1px solid var(--crm-border); border-radius: 14px; background: var(--crm-panel);
+}
+.ai-agent.is-on { border-color: rgba(52, 211, 153, .35); }
+.ai-agent > header { display: flex; gap: 10px; align-items: flex-start; }
+.ai-agent > header i {
+  display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto;
+  border-radius: 10px; background: var(--crm-panel-sub); color: var(--crm-gold);
+}
+.ai-agent > header div { flex: 1 1 auto; min-width: 0; }
+.ai-agent > header b { display: block; color: var(--crm-ink); font-size: 14px; }
+.ai-agent > header span { display: block; margin-top: 3px; color: var(--crm-muted); font-size: 11.5px; line-height: 1.5; }
+.ai-agent > header em { flex: 0 0 auto; align-self: flex-start; }
+.ai-agent dl { display: grid; gap: 6px; margin: 0; }
+.ai-agent dl > div { display: flex; gap: 10px; align-items: baseline; }
+.ai-agent dt { flex: 0 0 92px; color: var(--crm-muted); font: 700 10.5px var(--crm-font); letter-spacing: .5px; text-transform: uppercase; }
+.ai-agent dd { margin: 0; color: var(--crm-ink); font-size: 12px; }
+.ai-agent > footer {
+  display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: auto;
+  padding-top: 10px; border-top: 1px solid var(--crm-border-subtle);
+}
+.ai-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--crm-muted); cursor: pointer; }
+.ai-switch input { accent-color: var(--crm-gold); width: 15px; height: 15px; }
+.ai-switch:hover { color: var(--crm-ink); }
+
+.ai-runbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px; margin: 14px 0; border: 1px dashed var(--crm-border); border-radius: 12px;
+}
+.ai-runbar label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--crm-muted); }
+.ai-runbar select {
+  height: 36px; padding: 0 10px; border: 1px solid var(--crm-border); border-radius: 9px;
+  background: var(--crm-input-bg); color: var(--crm-ink); font: 600 12px var(--crm-font);
+}
+.ai-runbar .crm-hint { flex: 1 1 220px; }
+
+.ai-provider-test {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 14px; margin-bottom: 14px; border-radius: 12px; font-size: 12px;
+  border: 1px solid var(--crm-border); background: var(--crm-panel);
+}
+.ai-provider-test.is-ok { border-color: rgba(52, 211, 153, .4); }
+.ai-provider-test.is-ok svg { color: var(--crm-accent); }
+.ai-provider-test.is-bad { border-color: rgba(255, 138, 138, .45); }
+.ai-provider-test.is-bad svg, .ai-provider-test.is-bad b { color: var(--crm-danger); }
+.ai-provider-test b { color: var(--crm-ink); }
+.ai-provider-test span { color: var(--crm-muted); }
+.ai-owner-action { flex-basis: 100%; color: var(--crm-gold); font-weight: 700; }
+
+.ai-panel { margin-bottom: 18px; padding: 14px; border: 1px solid var(--crm-border); border-radius: 14px; background: var(--crm-panel); }
+.ai-panel h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font: 800 14px var(--crm-font); color: var(--crm-ink); }
+.ai-panel h3 svg { color: var(--crm-gold); }
+.ai-panel .crm-hint { margin: 0 0 10px; font-size: 11.5px; color: var(--crm-muted); line-height: 1.6; }
+.ai-table-wrap { overflow-x: auto; }
+.ai-table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ai-table-wrap th {
+  text-align: left; padding: 8px 10px; color: var(--crm-muted);
+  font: 700 10px var(--crm-font); letter-spacing: .6px; text-transform: uppercase;
+}
+.ai-table-wrap td { padding: 9px 10px; vertical-align: top; border-top: 1px solid var(--crm-border-subtle); color: var(--crm-ink); }
+.ai-table-wrap td small { color: var(--crm-muted); font-size: 10.5px; }
+.ai-table-wrap th.th-actions { width: 1%; white-space: nowrap; }
+.ai-err { display: block; color: var(--crm-danger); }
+
+.ai-drafts { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ai-drafts > li {
+  padding: 12px 14px; border: 1px solid var(--crm-border-subtle); border-radius: 12px;
+  background: var(--crm-panel-sub);
+}
+.ai-draft-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.ai-draft-head b { color: var(--crm-ink); font-size: 13.5px; }
+.ai-draft-head small { color: var(--crm-muted); font-size: 11px; }
+.ai-draft-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.ai-draft-actions button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--crm-border); border-radius: 9px; background: var(--crm-panel);
+  color: var(--crm-ink); font: 700 12px var(--crm-font); cursor: pointer;
+}
+.ai-draft-actions button:hover:not(:disabled) { background: var(--crm-panel-hover); }
+.ai-draft-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.ai-draft-actions .save { border-color: transparent; background: var(--crm-primary); color: var(--crm-primary-text); }
+.ai-draft-actions .save:hover:not(:disabled) { background: var(--crm-primary-hover); }
+.ai-draft-actions .crm-del { border-color: rgba(255, 138, 138, .4); color: var(--crm-danger); }
+.ai-warnings { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 5px; }
+.ai-warnings li { display: flex; gap: 7px; align-items: flex-start; color: var(--crm-gold); font-size: 11.5px; line-height: 1.5; }
+.ai-empty { display: flex; align-items: center; gap: 8px; color: var(--crm-muted); font-size: 12px; }
+
+.ai-usage { display: grid; gap: 8px; }
+.ai-usage article { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; font-size: 12px; color: var(--crm-ink); }
+.ai-usage span { color: var(--crm-muted); }
+.ai-usage em { font-style: normal; padding: 2px 8px; border-radius: 999px; background: var(--crm-status-bg); font-size: 11px; }
+.ai-usage em.is-alert { color: var(--crm-danger); background: rgba(255, 138, 138, .12); }
+
+.ai-workspace > .crm-hint { color: var(--crm-muted); font-size: 12px; margin-bottom: 12px; }
+.ai-lead, .ai-evidence, .ai-social { margin-top: 10px; display: grid; gap: 8px; font-size: 12px; color: var(--crm-ink); }
+.ai-score { display: flex; align-items: baseline; gap: 10px; }
+.ai-score b { font: 800 22px var(--crm-font); color: var(--crm-gold); }
+.ai-score span { color: var(--crm-muted); font-size: 11px; }
+.ai-lead ul, .ai-evidence ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: var(--crm-muted); }
+.ai-missing { color: var(--crm-gold); }
+.ai-stock { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ai-stock li { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.ai-stock a { color: var(--crm-accent); font-weight: 700; text-decoration: none; }
+.ai-stock a:hover { text-decoration: underline; }
+.ai-stock small { color: var(--crm-muted); }
+.ai-social details { border: 1px solid var(--crm-border-subtle); border-radius: 10px; padding: 8px 10px; }
+.ai-social summary { cursor: pointer; font-weight: 700; color: var(--crm-ink); text-transform: capitalize; }
+.ai-social pre, .ai-detail pre, .ai-spec {
+  margin: 8px 0 0; padding: 10px; border-radius: 10px; background: var(--crm-bg-sub);
+  border: 1px solid var(--crm-border-subtle); color: var(--crm-ink);
+  font: 400 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto;
+}
+.ai-spec { max-height: 220px; }
+.ai-media { display: flex; gap: 10px; flex-wrap: wrap; }
+.ai-media figure { margin: 0; width: 168px; }
+.ai-media img { width: 100%; border-radius: 10px; border: 1px solid var(--crm-border); display: block; }
+.ai-media figcaption { margin-top: 4px; font-size: 11px; }
+.ai-media a { display: inline-flex; align-items: center; gap: 5px; color: var(--crm-accent); font-weight: 700; text-decoration: none; }
+
+.ai-detail .ai-detail-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr); gap: 16px; }
+.ai-detail h4 { margin: 12px 0 6px; font: 800 12px var(--crm-font); color: var(--crm-ink); letter-spacing: .3px; text-transform: uppercase; }
+.ai-detail h4:first-child { margin-top: 0; }
+.ai-detail .ai-detail-body > section > pre { max-height: 52vh; }
+.ai-facts { display: grid; gap: 5px; margin: 0; }
+.ai-facts > div { display: flex; gap: 10px; align-items: baseline; }
+.ai-facts dt { flex: 0 0 96px; color: var(--crm-muted); font: 700 10.5px var(--crm-font); text-transform: uppercase; letter-spacing: .5px; }
+.ai-facts dd { margin: 0; font-size: 12px; color: var(--crm-ink); }
+.ai-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12px; }
+.ai-steps li { display: grid; gap: 2px; }
+.ai-steps b { color: var(--crm-ink); }
+.ai-steps span { color: var(--crm-muted); }
+.ai-steps li.state-failed b, .ai-steps li.state-skipped b { color: var(--crm-gold); }
+.ai-messages { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 12px; color: var(--crm-ink); }
+.ai-messages em { font-style: normal; color: var(--crm-gold); }
+
+@media (max-width: 1024px) {
+  .ai-detail .ai-detail-body { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .ai-banner-actions { margin-left: 0; width: 100%; }
+  .ai-banner-actions button { flex: 1 1 auto; justify-content: center; }
+  .ai-agent dl > div { flex-direction: column; gap: 2px; }
+  .ai-agent dt { flex: 0 0 auto; }
+  .ai-runbar { flex-direction: column; align-items: stretch; }
+  .ai-runbar .crm-add { justify-content: center; }
+  .ai-media figure { width: calc(50% - 5px); }
+  /* Thumb-sized targets on a phone: the review buttons share a row, so they
+     need a floor as well as a share (Cancel measured 39px wide without it). */
+  .ai-draft-actions button { flex: 1 1 auto; min-width: 88px; justify-content: center; }
 }

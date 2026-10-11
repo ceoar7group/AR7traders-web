@@ -1,0 +1,451 @@
+{
+  "base": "http://127.0.0.1:5199",
+  "label": "after",
+  "generatedAt": "2026-10-11T21:23:43.422Z",
+  "viewports": {
+    "1440x900": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 292,
+        "right": 1408,
+        "width": 1116,
+        "scrollWidth": 1325,
+        "clientWidth": 1114
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 985,
+        "actionCell": {
+          "left": 1265,
+          "right": 1407,
+          "width": 142
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 32
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 32
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 211,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 43,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 210,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-after-1440x900.jpg"
+    },
+    "1024x768": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 292,
+        "right": 992,
+        "width": 700,
+        "scrollWidth": 1325,
+        "clientWidth": 698
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 569,
+        "actionCell": {
+          "left": 849,
+          "right": 991,
+          "width": 142
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 32
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 32
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 627,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 43,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 210,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-after-1024x768.jpg"
+    },
+    "768x1024": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "scrollWidth": 1325,
+        "clientWidth": 734
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 605,
+        "actionCell": {
+          "left": 609,
+          "right": 751,
+          "width": 142
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 32
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 32
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 591,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 45,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 210,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 210,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-after-768x1024.jpg"
+    },
+    "390x844": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "scrollWidth": 356,
+        "clientWidth": 356
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 14,
+        "actionCell": {
+          "left": 30,
+          "right": 360,
+          "width": 330
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 40
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 40
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 330,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 45,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 306,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 306,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 306,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 306,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 306,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-after-390x844.jpg"
+    }
+  }
+}

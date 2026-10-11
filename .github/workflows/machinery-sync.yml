@@ -10,16 +10,28 @@ name: Machinery importer
 # Vercel function budget, and set well after it so a slow car run cannot
 # overlap. Same pattern as goonet-sync.yml: a free GitHub Actions schedule
 # calling one small Vercel function, so no Vercel cron add-on is needed.
+#
+# 2026-10-11 — WHY THIS WORKFLOW WAS FAILING EVERY NIGHT
+# The runs failed inside "Trigger machinery sync on Vercel" with HTTP 500 while
+# the deployment itself was healthy. The cause was storage, not code: the
+# `machinery` table had never been created in the production Supabase project,
+# so every read answered
+#   {"error":"Could not find the table 'public.machinery' in the schema cache"}
+# The workflow now runs a labelled PREFLIGHT (`?job=machinery-doctor`) before
+# it dispatches anything. A doctor run that exits 503 stops the job and prints
+# the SQL file to run, so a configuration fault is named at the top of the log
+# instead of arriving as a bare 500 at the bottom. The audit mode also prints
+# the stored/published/hidden counts as a job summary.
 on:
   schedule:
     - cron: '40 3 * * *'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Audit stored/hidden imports (read only), or refresh supplier listings'
+        description: 'doctor = storage health (read only) · audit = stored/hidden imports (read only) · refresh = re-read supplier links · recover = publish eligible hidden imports'
         type: choice
-        options: [audit, refresh, recover]
-        default: audit
+        options: [doctor, audit, refresh, recover]
+        default: doctor
       confirm_recovery:
         description: 'Confirm publication of valid Available hidden imports (not archived/sold/reserved)'
         type: boolean
@@ -45,19 +57,44 @@ jobs:
             echo "::error::GOONET_SYNC_KEY secret is not set. Add it in GitHub → Settings → Secrets, matching the GOONET_SYNC_KEY env var in Vercel."
             exit 1
           fi
+          BASE="${SYNC_URL:-https://ar7traders.com}"
           # Old deployments ignore unknown job names. Verify support before
           # sending an audit or recovery request; never accidentally run a car sync.
-          curl --fail -sSL -m 20 "${SYNC_URL:-https://ar7traders.com}/api/site-content?capabilities=machinery" -o /tmp/machinery-capabilities.json
+          curl --fail -sSL -m 20 "${BASE}/api/site-content?capabilities=machinery" -o /tmp/machinery-capabilities.json
           node -e "const c=require('/tmp/machinery-capabilities.json'); if(c.version!==2 || !c.audit || !c.recoverImports) process.exit(1)"
-          JOB=machinery
-          if [ "$MODE" = "audit" ]; then JOB=machinery-audit; fi
-          CURL_ARGS=()
-          if [ "$MODE" = "recover" ]; then
-            if [ "$CONFIRM_RECOVERY" != "true" ]; then echo "::error::Recovery confirmation is required"; exit 1; fi
-            JOB=machinery-recover
-            CURL_ARGS=(-X POST -H 'Content-Type: application/json' --data '{"confirm":true}')
+
+          # ---- PREFLIGHT: can this deployment do machinery work at all? -------
+          # `probe=storage` makes the same probe read the database. A 503 here
+          # means the storage is missing — the exact failure that made every
+          # previous run of this workflow die with HTTP 500.
+          PROBE_CODE=$(curl -sSL -m 25 -o /tmp/machinery-probe.json -w "%{http_code}" \
+            "${BASE}/api/site-content?capabilities=machinery&probe=storage")
+          echo "Storage probe HTTP ${PROBE_CODE}"
+          cat /tmp/machinery-probe.json; echo
+          if [ "$PROBE_CODE" != "200" ]; then
+            node -e "
+              const p=require('/tmp/machinery-probe.json');
+              const s=p.storage||{};
+              console.log('::error title=Machinery storage unavailable::'+(s.state||'unknown')+': '+(s.message||''));
+              if(p.ownerAction) console.log('::error::'+p.ownerAction);
+            " || true
+            echo "::error::Machinery storage is not ready — the run was stopped before dispatch. Apply supabase/MIGRATION-2026-10-machinery.sql in Supabase → SQL Editor, then run: select pg_notify('pgrst','reload schema');"
+            exit 1
           fi
-          URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}&job=${JOB}"
+          echo "::notice::Machinery storage ready ($(node -e "process.stdout.write((require('/tmp/machinery-probe.json').storage||{}).state||'ready')"))"
+
+          JOB=machinery
+          CURL_ARGS=()
+          case "$MODE" in
+            doctor)  JOB=machinery-doctor ;;
+            audit)   JOB=machinery-audit ;;
+            recover)
+              if [ "$CONFIRM_RECOVERY" != "true" ]; then echo "::error::Recovery confirmation is required"; exit 1; fi
+              JOB=machinery-recover
+              CURL_ARGS=(-X POST -H 'Content-Type: application/json' --data '{"confirm":true}')
+              ;;
+          esac
+          URL="${BASE}/api/goonet-sync?key=${SYNC_KEY}&job=${JOB}"
           # -L follows the site's canonical-domain redirect (www.ar7traders.com → ar7traders.com;
           # the apex is canonical — all canonical/og:url/sitemap URLs use https://ar7traders.com)
           CODE=$(curl -sSL -m 75 "${CURL_ARGS[@]}" -o /tmp/machinery-sync.json -w "%{http_code}" "$URL")
@@ -65,8 +102,14 @@ jobs:
           echo "Response:"
           cat /tmp/machinery-sync.json
           echo
+          echo "Job mode: ${MODE} (JOB=${JOB})"
           if [ "$CODE" != "200" ]; then
             node scripts/check-sync-report.mjs /tmp/machinery-sync.json || true
+            node -e "
+              const r=require('/tmp/machinery-sync.json');
+              const s=r.storage||{};
+              if (r.ownerAction || s.ownerAction) console.log('::error::'+((r.ownerAction||s.ownerAction)));
+            " || true
             echo "::error::Machinery importer returned HTTP $CODE — see the diagnostic above"
             exit 1
           fi

@@ -279,7 +279,15 @@ async function machineryJob(db, actor, { overBudget, res }) {
   const report = {
     job: 'machinery', actor, sources: 0, seen: 0, created: 0, updated: 0,
     rePriced: [], unchanged: 0, missing: 0, flagged: 0, cleared: 0,
-    failed: [], note: null
+    failed: [], note: null,
+    // 2026-10-11: say what this run IS. It re-reads links a person already
+    // imported; it does not discover stock. A refresh must never be reported
+    // as "machinery importing worked" — the two are different jobs.
+    mode: 'refresh',
+    modeLabel: 'Refresh of already-imported supplier links',
+    modeMeaning: 'Re-reads each stored source_url, records price changes and flags listings the supplier has withdrawn. This run does NOT discover new stock and does NOT save new listings — a new machine enters the catalogue only when a person previews a link and confirms the import in CRM → Machinery desk.',
+    newStock: { discovered: 0, saved: 0, note: 'Discovery and saving happen only through CRM → Machinery desk (scrape → preview → select → confirm).' },
+    outcomes: { checked: 0, unchanged: 0, rePriced: 0, flaggedGone: 0, unreadable: 0 }
   };
 
   const all = await readMachineryRows(db);
@@ -310,17 +318,19 @@ async function machineryJob(db, actor, { overBudget, res }) {
         rights: row.rights_basis || null,
         adapter: row.adapter || null
       });
+      report.outcomes.checked++;
       if (!p.ok) {
         // Unreadable (bot gate, expired listing) is not the same as gone, but
         // it is worth recording rather than swallowing.
-        report.failed.push({ ref: row.ref, reason: p.error });
+        report.outcomes.unreadable++;
+        report.failed.push({ ref: row.ref, reason: p.error, sourceStatus: p.sourceStatus || null });
         // Only a confirmed gone response can flag THIS row. A timeout/403 or
         // an unvisited sibling on the same host must never look delisted.
         if ([404, 410].includes(p.sourceStatus) && !row.source_missing_since) {
           const { error } = await db.from('machinery')
             .update({ source_missing_since: new Date().toISOString() }).eq('id', row.id);
           if (error) report.failed.push({ ref: row.ref, reason: error.message });
-          else report.flagged++;
+          else { report.flagged++; report.outcomes.flaggedGone++; }
         }
         continue;
       }
@@ -353,6 +363,12 @@ async function machineryJob(db, actor, { overBudget, res }) {
     report.rePriced = out.rePriced.map(r => ({ ref: r.ref, before: r.before, after: r.after }));
     report.failed.push(...out.failed.map(f => ({ ref: f.ref, reason: f.error })));
     report.unchanged = out.updated.length - out.rePriced.length;
+    report.outcomes.rePriced = out.rePriced.length;
+    report.outcomes.unchanged = report.unchanged;
+    // A refresh never creates rows: every candidate matched a stored source.
+    // If one ever does, it is reported rather than passed off as new stock.
+    if (out.created.length) report.newStock = { discovered: out.created.length, saved: out.created.length,
+      note: 'These matched a stored source link, so they refreshed existing rows, not new stock.' };
   }
 
   // A detail-page recheck is NOT a complete supplier inventory crawl.
@@ -365,7 +381,16 @@ async function machineryJob(db, actor, { overBudget, res }) {
       .filter(r => wasFlagged.has(String(r.id)) && !r.source_missing_since).length;
   }
   report.missing = report.flagged;
-
+  report.counts = {
+    sources: report.sources, checked: report.outcomes.checked,
+    unchanged: report.unchanged, rePriced: report.outcomes.rePriced,
+    flaggedGone: report.outcomes.flaggedGone, unreadable: report.outcomes.unreadable,
+    failed: report.failed.length
+  };
+  report.note = report.note || `${report.outcomes.checked} of ${report.sources} stored source link(s) re-read: `
+    + `${report.unchanged} unchanged, ${report.outcomes.rePriced} re-priced, `
+    + `${report.outcomes.flaggedGone} flagged as withdrawn, ${report.outcomes.unreadable} unreadable. `
+    + 'Refreshed rows only — no new listings were discovered by this run.';
   return send(res, 200, report);
 }
 
@@ -403,7 +428,38 @@ export default async function handler(req, res, injected) {
   // scheduled machinery run costs no extra Serverless Function. It re-reads
   // every machine that came from a link, records any price change, and flags
   // (never deletes) the ones the supplier has taken down.
-  if (['machinery', 'machinery-audit', 'machinery-recover'].includes(String(req.query?.job || ''))) {
+  // ---- AI Growth agents: ?job=agents ---------------------------------------
+  // The scheduled runner. It comes through THIS function (with the same sync
+  // key) rather than a new api/*.js file, so the Vercel Hobby 12-function cap
+  // is untouched and no Vercel cron add-on is needed — the GitHub Actions
+  // workflow .github/workflows/ai-growth.yml drives it, exactly like the
+  // importers. Every agent it runs is still bounded, leased and idempotent, and
+  // it can only ever produce drafts.
+  if (String(req.query?.job || '') === 'agents') {
+    try {
+      const { runScheduledAgents } = await import('./_agents.js');
+      const query = req.body && typeof req.body === 'object' ? req.body : {};
+      const report = await runScheduledAgents(db, {
+        agent: String(req.query.agent || query.agent || '') || null,
+        mode: String(req.query.mode || query.mode || '') || null,
+        actor: { full_name: actor, email: null }
+      });
+      const failed = (report.results || []).filter(r => ['failed', 'locked', 'limit-reached'].includes(r.state));
+      return send(res, report.state === 'not-configured' ? 503 : 200, {
+        ...report,
+        failed: failed.length,
+        note: report.ownerAction ? `${report.note} ${report.ownerAction}` : report.note
+      });
+    } catch (e) {
+      console.error('agents job failed', e);
+      return send(res, e.state === 'missing-tables' ? 503 : 500, {
+        error: 'AI Growth run failed', details: e.message, state: e.state || null,
+        ownerAction: e.ownerAction || null
+      });
+    }
+  }
+
+  if (['machinery', 'machinery-audit', 'machinery-recover', 'machinery-doctor'].includes(String(req.query?.job || ''))) {
     try {
       if (req.query.job === 'machinery-recover') {
         if (req.method !== 'POST' || req.body?.confirm !== true) return send(res, 400, {error:'Recovery needs POST with explicit confirmation'});
@@ -415,11 +471,32 @@ export default async function handler(req, res, injected) {
         return send(res, 200, { job: 'machinery-audit', readOnly: true,
           inventory: machineryVisibility(await readMachineryRows(db)) });
       }
+      // 2026-10-11: the preflight. Runs before the refresh and answers "can
+      // this run do anything at all?" — storage present, catalogue source,
+      // hidden eligible imports, and the exact owner action when it cannot.
+      if (req.query.job === 'machinery-doctor') {
+        const { machineryDoctor } = await import('./_machinery.js');
+        const report = await machineryDoctor(db);
+        return send(res, report.ok ? 200 : 503, report);
+      }
       return await machineryJob(db, actor, { overBudget, res });
     } catch (e) {
       console.error('machinery-sync failed', e);
-      return send(res, 500, { error: 'Machinery sync failed', details: e.message || 'Unknown error', code: e.code || null,
-        hint: ['42P01', '42703', 'PGRST205'].includes(e.code) ? 'Apply the machinery schema migration in supabase/MIGRATION-2026-10-machinery.sql and check schema compatibility.' : 'Check the Vercel function log and Supabase service-role configuration.' });
+      // A missing table is not a crash to shrug at: it is the reason nothing
+      // has ever imported. Report it with HTTP 503 and the file to run, so the
+      // nightly workflow's log says what to do instead of only "500".
+      const storage = e.storage || null;
+      return send(res, storage ? 503 : 500, {
+        error: storage ? `Machinery storage unavailable (${storage.state})` : 'Machinery sync failed',
+        details: e.message || 'Unknown error',
+        code: e.code || null,
+        stage: e.stage || null,
+        storage,
+        ownerAction: storage?.ownerAction || null,
+        hint: storage ? storage.ownerAction
+          : ['42P01', '42703', 'PGRST205'].includes(e.code) ? 'Apply the machinery schema migration in supabase/MIGRATION-2026-10-machinery.sql and check schema compatibility.'
+          : 'Check the Vercel function log and Supabase service-role configuration.'
+      });
     }
   }
   const report = {

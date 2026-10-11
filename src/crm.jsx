@@ -9,13 +9,14 @@ import {
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
   Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
-  ChevronDown, Percent
+  ChevronDown, Percent, Bot
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
 import { updateSettingsCache } from './site-settings.js';
 import SeoDesk from './seo-desk.jsx';
+import AiGrowth from './ai-growth.jsx';
 import { MACHINES, MACHINE_TYPES, listPriceUSD, machineYearText } from './machinery-data.js';
 import { buildDiscountStockRows } from './stock-discount-catalogue.js';
 import { RIGHTS } from './machinery-source.js';
@@ -44,6 +45,12 @@ const fmt0 = value => '$' + Number(value || 0).toLocaleString('en-US');
 const machinePhoto = machine => (Array.isArray(machine?.images) && machine.images[0]) || machine?.image || null;
 
 const KEY_ACTIVATE = (run) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(); } };
+
+// RowActions lives in its own module (src/row-actions.jsx) so the AI Growth desk
+// can reuse it without a circular import. It is imported (the CRM's own tables
+// use it) and re-exported unchanged for every existing caller and the tests.
+import { RowActions } from './row-actions.jsx';
+export { RowActions };
 
 const PHOTO_PRESETS = [
   {
@@ -238,6 +245,10 @@ const tabs = [
   ['settings', 'Website settings', Settings],
   ['offers', 'Price offers', Percent],
   ['seo', 'SEO desk', Search],
+  // The three growth agents (Lead Gen & CRM, SEO Engine, Social Media) run
+  // from this one desk. It is grouped with the other automation tabs because a
+  // scheduled run and a manual run go through exactly the same orchestrator.
+  ['agents', 'AI Growth', Bot],
   ['guardian', 'Site guardian', ShieldCheck],
   ['activities', 'Activity log', Activity]
 ];
@@ -1325,7 +1336,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'SEO desk' };
+  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'SEO desk', agents: 'AI Growth' };
   // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
   // activeEntity picks which set the panel, the toolbar and the editor work on.
   const activeEntity = tab === 'vehicles' ? carSub : tab;
@@ -1443,6 +1454,13 @@ export default function CrmApp() {
           <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} rows={rows} onOpenSeo={() => setTab('seo')} />
         ) : tab === 'seo' ? (
           <SeoDesk token={session.access_token} canPublish={hasPerm(perms, profile?.role, 'site.write')} canPromote={hasPerm(perms, profile?.role, 'settings.write')} notify={setNotice} />
+        ) : tab === 'agents' ? (
+          <AiGrowth
+            token={session.access_token}
+            canWrite={hasPerm(perms, profile?.role, 'site.write')}
+            notify={setNotice}
+            navigate={setTab}
+          />
         ) : tab === 'guardian' ? (
           <GuardianView notify={setNotice} onOpenSeo={() => setTab('seo')} />
         ) : tab === 'settings' ? (
@@ -2749,7 +2767,10 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
       {!filtered.length ? (
         <div className="crm-empty"><Search /><h3>No imported cars in this view</h3><p>{rows.length ? 'Try another filter or search.' : 'Run the importer or add a car manually with Add.'}</p></div>
       ) : (
-        <div className="crm-table-wrap">
+        /* `crm-cards-sm`: below 700px each row becomes a labelled card (see
+           crm.css), because an 11-column table cannot fit a phone — the row's
+           actions would otherwise have to be hunted for by scrolling sideways. */
+        <div className="crm-table-wrap crm-cards-sm">
           <table>
             <thead>
               <tr>
@@ -2768,25 +2789,25 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                 const ref = row.stock_no || row.goonet_id || '';
                 return (
                   <tr key={row.id || row.stock_no} className={row.available === false ? 'row-muted' : ''}>
-                    <td className="td-photo">
+                    <td className="td-photo" data-label="Photo">
                       <div className="table-thumb-wrap" role="button" tabIndex={0} aria-label="View photos" onClick={() => onViewGallery && onViewGallery(row)} onKeyDown={KEY_ACTIVATE(() => onViewGallery && onViewGallery(row))} title="Click to view photos">
                         <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback}  decoding="async"/>
                         <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                       </div>
                     </td>
-                    <td>{row.stock_no || row.goonet_id || '—'}</td>
-                    <td><b>{row.make} {row.model}</b></td>
-                    <td>{row.year || '—'}</td>
-                    <td>{row.km ? row.km + ' km' : '—'}</td>
-                    <td>{row.price || (row.price_usd ? fmt(row.price_usd) : '—')}</td>
-                    <td>{row.photo_count ?? photos.length}</td>
-                    <td><span className="crm-score" title="Quality score set by the importer"><b>{row.quality_score ?? '—'}</b><i style={{ width: Math.min(100, row.quality_score || 0) + '%' }} /></span></td>
-                    <td>
+                    <td data-label="Stock no.">{row.stock_no || row.goonet_id || '—'}</td>
+                    <td data-label="Vehicle" className="crm-cell-title"><b>{row.make} {row.model}</b></td>
+                    <td data-label="Year">{row.year || '—'}</td>
+                    <td data-label="Km">{row.km ? row.km + ' km' : '—'}</td>
+                    <td data-label="Price">{row.price || (row.price_usd ? fmt(row.price_usd) : '—')}</td>
+                    <td data-label="Photos">{row.photo_count ?? photos.length}</td>
+                    <td data-label="Quality"><span className="crm-score" title="Quality score set by the importer"><b>{row.quality_score ?? '—'}</b><i style={{ width: Math.min(100, row.quality_score || 0) + '%' }} /></span></td>
+                    <td data-label="Status">
                       {row.available === false
                         ? <em className="crm-status dormant">Delisted</em>
                         : <em className={'crm-status ' + statusClass(row.status || 'New Arrival')}>{row.status || 'New Arrival'}</em>}
                     </td>
-                    <td>
+                    <td data-label="Promoted">
                       {promo.any
                         ? <em className="crm-status active" title={[
                           promo.onWebsite ? 'On the website (Website cars)' : null,
@@ -2796,26 +2817,40 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                         </em>
                         : <em className="crm-status">—</em>}
                     </td>
-                    <td>{importDate}</td>
-                    <td className="crm-row-actions">
-                      <div className="goonet-actions">
-                        {row.available !== false && (
-                          <>
-                            {promo.onWebsite
-                              ? <button className="is-added" disabled title={`Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab. Use Edit to change it there.`} type="button"><Check size={13} /> On website</button>
-                              : <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')} type="button"><Globe size={13} /> Website</button>}
-                            {promo.inInventory
-                              ? <button className="is-added" disabled title={`Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.`} type="button"><Check size={13} /> In inventory</button>
-                              : <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')} type="button"><CarFront size={13} /> Inventory</button>}
-                          </>
-                        )}
-                        {row.available !== false
-                          ? <button className="crm-del" title="Delist (remove from website)" onClick={() => onDelist(row)} type="button"><Ban size={13} /> Delist</button>
-                          : <button title="Re-list on the website" onClick={() => onDelist(row)} type="button"><Check size={13} /> Re-list</button>}
-                        <button title="Manage photo gallery" onClick={() => onManagePhotos && onManagePhotos(row)} type="button"><Camera size={13} /> Photos</button>
-                        <button onClick={() => onEdit(row)} type="button">Edit</button>
-                        {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
-                      </div>
+                    <td data-label="Imported">{importDate}</td>
+                    <td className="crm-row-actions" data-label="Actions">
+                      {/* 2026-10-11: Edit is the first control in the pinned cell
+                          and the rest live in a labelled overflow menu — see
+                          <RowActions>. Six inline pills made Edit the control
+                          clipped at the right edge of the scroller at every
+                          viewport (measured: 43px past the visible area). */}
+                      <RowActions
+                        className="goonet-actions"
+                        label={`More actions for ${row.make || ''} ${row.model || ''} ${ref}`.trim()}
+                        primary={{ key: 'edit', label: 'Edit', title: `Edit ${ref || 'this car'}`, onSelect: () => onEdit(row) }}
+                        items={[
+                          promo.onWebsite
+                            ? { key: 'website', label: 'On website (already published)', icon: <Check size={13} />, disabled: true, className: 'is-added',
+                                title: `Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab; Edit changes it there.` }
+                            : { key: 'website', label: 'Publish to website', icon: <Globe size={13} />, disabled: row.available === false,
+                                title: 'Publish this car on the website (Japan stock page + inventory)', onSelect: () => onPromote(row, 'listings') },
+                          promo.inInventory
+                            ? { key: 'inventory', label: 'In inventory (already added)', icon: <Check size={13} />, disabled: true, className: 'is-added',
+                                title: `Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.` }
+                            : { key: 'inventory', label: 'Copy to inventory', icon: <CarFront size={13} />, disabled: row.available === false,
+                                title: 'Copy this car into CRM inventory', onSelect: () => onPromote(row, 'vehicles') },
+                          { key: 'photos', label: 'Manage photos', icon: <Camera size={13} />,
+                            title: 'Manage photo gallery', onSelect: () => onManagePhotos && onManagePhotos(row) },
+                          { divider: true },
+                          row.available !== false
+                            ? { key: 'delist', label: 'Delist from website', icon: <Ban size={13} />, danger: true,
+                                title: 'Delist (remove from the website; the record is kept)', onSelect: () => onDelist(row) }
+                            : { key: 'relist', label: 'Re-list on website', icon: <Check size={13} />,
+                                title: 'Re-list on the website', onSelect: () => onDelist(row) },
+                          onDelete && { key: 'delete', label: 'Delete record', icon: <Trash2 size={13} />, danger: true,
+                            title: 'Delete this record permanently — asks for confirmation', onSelect: () => onDelete(row) }
+                        ]}
+                      />
                     </td>
                   </tr>
                 );

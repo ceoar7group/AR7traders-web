@@ -1,0 +1,154 @@
+{
+  "base": "http://127.0.0.1:5199",
+  "capturedAt": "2026-10-11T21:40:47.717Z",
+  "viewports": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "navLabels": [
+        "Overview",
+        "Leads1",
+        "Customers",
+        "Customer accounts",
+        "Cars33",
+        "Profit & sourcing",
+        "Japan dealer stock4",
+        "Quotes",
+        "Shipments",
+        "Tasks",
+        "Shipping routes",
+        "News & guides",
+        "Machinery desk13",
+        "Approvals",
+        "Team & permissions",
+        "People & payroll",
+        "Website settings",
+        "Price offers",
+        "SEO desk",
+        "AI Growth",
+        "Site guardian",
+        "Activity log"
+      ],
+      "aiGrowthNavEntry": "AI Growth",
+      "measured": {
+        "banner": "AI Growth is enabled",
+        "bannerText": "Provider: formatter · model gemini-3.8-flash · tier free. Drafts are never presented as published.",
+        "tabs": [
+          "Overview",
+          "Lead workspace",
+          "SEO workspace",
+          "Social workspace"
+        ],
+        "draftCount": 1,
+        "actionButtons": [
+          {
+            "label": "Open",
+            "w": 76,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Copy",
+            "w": 75,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Execute",
+            "w": 92,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Cancel",
+            "w": 32,
+            "h": 36,
+            "visible": true
+          }
+        ],
+        "overflowRight": 0,
+        "pageHeadHeight": 133,
+        "heading": "Lead Gen & CRM, SEO Engine and Social Media, managed from on",
+        "statusChips": [
+          "social-post"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "navLabels": [
+        "Overview",
+        "Leads1",
+        "Customers",
+        "Customer accounts",
+        "Cars33",
+        "Profit & sourcing",
+        "Japan dealer stock4",
+        "Quotes",
+        "Shipments",
+        "Tasks",
+        "Shipping routes",
+        "News & guides",
+        "Machinery desk13",
+        "Approvals",
+        "Team & permissions",
+        "People & payroll",
+        "Website settings",
+        "Price offers",
+        "SEO desk",
+        "AI Growth",
+        "Site guardian",
+        "Activity log"
+      ],
+      "aiGrowthNavEntry": "AI Growth",
+      "measured": {
+        "banner": "AI Growth is enabled",
+        "bannerText": "Provider: formatter · model gemini-3.8-flash · tier free. Drafts are never presented as published.",
+        "tabs": [
+          "Overview",
+          "Lead workspace",
+          "SEO workspace",
+          "Social workspace"
+        ],
+        "draftCount": 1,
+        "actionButtons": [
+          {
+            "label": "Open",
+            "w": 99,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Copy",
+            "w": 98,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Execute",
+            "w": 115,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Cancel",
+            "w": 328,
+            "h": 36,
+            "visible": true
+          }
+        ],
+        "overflowRight": 0,
+        "pageHeadHeight": 240,
+        "heading": "Lead Gen & CRM, SEO Engine and Social Media, managed from on",
+        "statusChips": [
+          "social-post"
+        ]
+      }
+    }
+  ]
+}

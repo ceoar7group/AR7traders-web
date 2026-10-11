@@ -214,6 +214,11 @@ await clickText('.crm-side nav button', 'Japan dealer stock');
 {
   const rowsOf = () => [...document.querySelectorAll('.crm-goonet tbody tr')];
   const rowFor = model => rowsOf().find(tr => (tr.textContent || '').includes(model));
+  // 2026-10-11: the row's actions moved from six inline pills into Edit + a
+  // labelled overflow menu (the pills were clipped at the scroller's right
+  // edge). The wrapper keeps its .goonet-actions marker, and the menu labels
+  // are matched case-insensitively below because they are now written as
+  // sentences ("Copy to inventory") rather than single words.
   const actionsOf = model => [...(rowFor(model)?.querySelectorAll('.goonet-actions button') || [])];
   const labelOf = model => rowFor(model)?.querySelector('td:nth-child(10) em')?.textContent?.trim() || '';
 
@@ -236,7 +241,7 @@ await clickText('.crm-side nav button', 'Japan dealer stock');
   // the row to the "already added" state right away.
   const realConfirm = dom.window.confirm;
   dom.window.confirm = () => true;
-  const before = actionsOf('Harrier S').find(b => /Inventory/.test(b.textContent));
+  const before = actionsOf('Harrier S').find(b => /inventory/i.test(b.textContent));
   ok(!!before && !before.disabled, 'a car that is not in the inventory still offers the Inventory action');
   await act(async () => { before.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
   let notice = document.querySelector('.crm-notice span')?.textContent || '';
@@ -264,10 +269,10 @@ await clickText('.crm-side nav button', 'Japan dealer stock');
   ok(!!rowFor('Forester Test'), 'the refreshed list shows the new car');
   eq(labelOf('Forester Test'), '—', 'a car in neither place shows no promoted state');
   const freshActions = actionsOf('Forester Test').map(b => b.textContent.trim());
-  ok(freshActions.some(t => /^Website$/.test(t)) && freshActions.some(t => /^Inventory$/.test(t)),
+  ok(freshActions.some(t => /website/i.test(t)) && freshActions.some(t => /inventory/i.test(t)),
     `both actions are offered for a car that has not been copied yet (${freshActions.join(' / ')})`);
 
-  const subaru = actionsOf('Forester Test').find(b => /Inventory/.test(b.textContent));
+  const subaru = actionsOf('Forester Test').find(b => /inventory/i.test(b.textContent));
   await act(async () => { subaru.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
   notice = document.querySelector('.crm-notice span')?.textContent || '';
   ok(/inventory/i.test(notice), `the add is confirmed in words ("${notice}")`);
