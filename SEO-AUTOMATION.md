@@ -10,9 +10,18 @@ All server actions remain behind the existing `site.write` permission.
   catalogue-derived ideas, never invented search-volume or competition numbers.
 - **Draft this topic**: opens the existing draft editor with the selected topic.
 - **Generate AI draft**: creates guide or news copy, a title and an excerpt from
-  staff-supplied facts. Requires server-side `OPENAI_API_KEY`; optional
-  `SEO_OPENAI_MODEL` defaults to `gpt-4o-mini`. Requests time out after 30 seconds
-  and are limited to 2,400 output tokens. Provider errors do not save partial work.
+  staff-supplied facts. Since 2026-10-11 the default provider is **Gemini on the
+  free tier** (server-side `GEMINI_API_KEY`, model `gemini-3.8-flash`, overridable
+  with `SEO_GEMINI_MODEL`). It never falls back to a paid provider: OpenAI is used
+  only if you set `SEO_AI_PROVIDER=openai` yourself (then `OPENAI_API_KEY`, with
+  `SEO_OPENAI_MODEL` defaulting to `gpt-4o-mini`). Requests time out after 30
+  seconds, are limited to 2,400 output tokens and are retried a bounded number of
+  times only for transient failures. Every failure names its state and the exact
+  fix (missing key, rejected key, model unavailable, daily quota spent, per-minute
+  limit, timeout, truncation, safety refusal, empty output, provider outage) and
+  **saves nothing** — a provider error never leaves partial work behind. The desk
+  shows which provider will be used, read from the server, so it cannot drift from
+  the deployment. Without a key the factual formatter above still works.
 - News requires HTTPS source URLs and a verified event date in the facts. The
   generator does not browse those URLs or assert that it verified them. It must
   not fabricate breaking news, stock availability, duties, prices or statistics.
@@ -29,6 +38,9 @@ articles; newly published CRM articles still use the existing client renderer.
 This patch does not claim full-site SSR or guaranteed indexing.
 
 ## Automatic technical maintenance
+
+**AI Growth agents** (CRM → AI Growth) use the same provider client. Their setup,
+permissions and approval rules are documented in `AI-GROWTH.md`.
 
 `npm run build` now runs `seo:repair-crawl` first. It deterministically restores
 missing editorial URLs, explicit HTML rewrites and all four robots sitemap

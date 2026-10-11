@@ -190,9 +190,39 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       ...(body == null ? {} : {body: JSON.stringify(body)})
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `SEO workflow failed (${response.status}).`);
+    if (!response.ok) {
+      // The server answers a provider failure with { error, state, provider,
+      // ownerAction, saved:false, published:false }. Throwing a bare Error threw
+      // that away, so the desk could only say "something failed" — the operator
+      // needs the state and the exact fix, and needs to know nothing was saved.
+      const error = new Error(payload.error || `SEO workflow failed (${response.status}).`);
+      error.status = response.status;
+      error.state = payload.state || null;
+      error.ownerAction = payload.ownerAction || null;
+      error.provider = payload.provider || null;
+      error.saved = payload.saved === true;
+      error.published = payload.published === true;
+      error.body = payload;
+      throw error;
+    }
     return payload;
   }
+
+  // Which provider the server would actually use, read once per session. The
+  // generate fieldset used to hard-code "OPENAI_API_KEY must be configured",
+  // which stopped being true when Gemini (free tier) became the default.
+  const [aiProvider, setAiProvider] = useState(null);
+  useEffect(() => {
+    if (!token || !canPublish) return;
+    let alive = true;
+    (async () => {
+      try {
+        const status = await seoWorkflow('ai-status');
+        if (alive) setAiProvider(status);
+      } catch { if (alive) setAiProvider({ provider: 'unknown' }); }
+    })();
+    return () => { alive = false; };
+  }, [token, canPublish]);
 
   useEffect(() => {
     let alive = true;
@@ -536,7 +566,13 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       setCreateWarnings(out.warnings || []); setCreated(null); setDraftAudit(null);
       setActiveDraftId(null); setDraftReviewed(false);
       notify('AI draft generated. Review the claims and source notes, then save; nothing is public.');
-    } catch (e) { setCreateErrors({facts:e.message}); }
+    } catch (e) {
+      // Nothing is written on a provider failure — say so, and say what to do.
+      setCreateErrors({ facts: [e.message, e.ownerAction].filter(Boolean).join(' ') });
+      setCreateWarnings([...(e.state ? [`Provider state: ${e.state}.`] : []),
+        'No draft was generated and nothing was saved or published.']);
+      notify('AI draft was not generated — see the reason under the facts box.');
+    }
     finally { setAutomationBusy(false); }
   };
   const optimizeDraft = async () => {
@@ -769,7 +805,18 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
               <small className="seo-muted">Generated excerpt/body echo only these notes and add a review reminder. They are not independently verified.</small>
               <label>AI content type<select aria-label="AI content type" value={aiKind} onChange={e => setAiKind(e.target.value)}><option value="guide">Buyer guide</option><option value="news">Source-backed news</option></select></label>
               <label>Source URLs (one HTTPS URL per line)<textarea aria-label="AI source URLs" value={aiSources} onChange={e => setAiSources(e.target.value)} rows={2}/></label>
-              <p className="seo-muted">Enter the topic in Title below. News requires a verified event date (YYYY-MM-DD) in the facts and at least one source URL. AI does not browse or verify those sources. OPENAI_API_KEY must be configured on the server.</p>
+              <p className="seo-muted">
+                Enter the topic in Title below. News requires a verified event date (YYYY-MM-DD) in the facts and at least one source URL. AI does not browse or verify those sources.{' '}
+                {aiProvider?.provider === 'gemini'
+                  ? `Drafts are generated with Gemini on the free tier (${aiProvider.gemini?.model || 'gemini-3.8-flash'}) using the server-only GEMINI_API_KEY.`
+                  : aiProvider?.provider === 'openai'
+                    ? 'Drafts are generated with OpenAI because SEO_AI_PROVIDER=openai is set on the server.'
+                    : aiProvider?.provider === 'formatter'
+                      ? 'GEMINI_API_KEY is not set on the server, so AI drafts are unavailable — use “Generate factual draft text” above.'
+                      : aiProvider
+                        ? 'The provider status could not be read; use “Generate factual draft text” if generation fails.'
+                        : 'Checking the draft provider…'}
+              </p>
               <button type="button" className="gold-btn" onClick={generateAiDraft} disabled={!canPublish || !token || automationBusy}>{automationBusy ? 'Working…' : 'Generate AI draft'}</button>
               <button type="button" className="gold-btn" onClick={optimizeDraft} disabled={!canPublish || !token || automationBusy || !form.body.trim()}>Fix draft SEO</button>
             </fieldset>

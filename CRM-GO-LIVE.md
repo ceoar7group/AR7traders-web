@@ -44,6 +44,21 @@ Project → Settings → Environment Variables. Add for **Production**:
 | `VITE_SUPABASE_URL` | Supabase → Settings → API → Project URL |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → service_role key |
+| `GEMINI_API_KEY` | Google AI Studio → *Get API key*. Server-only. **Free tier — do not enable billing.** Powers AI drafts and the AI Growth agents. Without it the factual formatter and every other feature still work. |
+| `GOONET_SYNC_KEY` | Any long random string you invent. The GitHub Actions schedules pass it as `?key=…`; the CRM's own buttons sign in instead. |
+| `SEO_GEMINI_MODEL` *(optional)* | Editorial model. Defaults to `gemini-3.8-flash`. |
+| `GOONET_GEMINI_MODEL` *(optional)* | Model for the car importer's page-parsing assist, tuned separately from editorial. |
+
+**`GEMINI_API_KEY` must never be prefixed `VITE_`** either — like the service-role
+key, a `VITE_` variable is compiled into the public bundle. Add it for
+**Production, Preview and Development**, then redeploy: Vercel only picks up a new
+variable in a new deployment. Press **Test provider** in CRM → AI Growth to prove
+the key works for the configured model (it generates and saves nothing).
+
+The scheduled importers and agents run as GitHub Actions workflows
+(`.github/workflows/`), not on Vercel cron — add `GOONET_SYNC_KEY` (and
+`GOONET_SYNC_URL` if you use a custom domain) under GitHub → Settings → Secrets →
+Actions as well, or the nightly jobs stop with a named error instead of a 500.
 
 **`SUPABASE_SERVICE_ROLE_KEY` must never be prefixed `VITE_`.** Anything starting
 with `VITE_` is compiled into the public JavaScript bundle and readable by any

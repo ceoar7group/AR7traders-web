@@ -52,12 +52,17 @@ const patchBodies = [];
 const confirmCalls = [];
 let confirmAnswer = true;
 const fetchCalls = [];
+// What ?seo=ai-status answers. Tests flip this to prove the desk tells the truth
+// about which provider will generate a draft (free tier vs not configured).
+let providerStatus = { provider: 'gemini', gemini: { configured: true, model: 'gemini-3.8-flash', tier: 'free' },
+  openai: { configured: false, enabled: false }, formatter: { available: true } };
 dom.window.confirm = message => { confirmCalls.push(String(message)); return confirmAnswer; };
 setGlobal('confirm', dom.window.confirm.bind(dom.window));
 setGlobal('fetch', (url, options = {}) => {
   const u = String(url);
   const method = options.method || 'GET';
   fetchCalls.push({url: u, options});
+  if (u.includes('?seo=ai-status')) return Promise.resolve({ok:true,status:200,json:async()=>(providerStatus)});
   if (u.includes('?seo=keywords')) return Promise.resolve({ok:true,json:async()=>({ideas:[{query:'import cars to Kenya',target:'/destinations/kenya'}],opportunities:[],note:'Catalogue ideas only'})});
   if (u.includes('?seo=generate')) return Promise.resolve({ok:true,json:async()=>({title:'Verified export document guide',desc:'Check the vehicle reference and agreed document pack with your export desk and clearing agent before shipping.',body:'Staff-supplied draft facts.\n\n[EDITOR REVIEW: verify sources before publication.]',warnings:[],published:false})});
   if (u.includes('?seo=optimize-draft')) return Promise.resolve({ok:true,json:async()=>({desc:'A repaired excerpt derived from the supplied draft content, without changing the title or canonical URL.',warnings:[]})});
@@ -332,6 +337,51 @@ say('\nOne-click SEO automation stays review-only');
   ok(fetchCalls.filter(c=>c.url.includes('entity=articles') && ['POST','PATCH'].includes(c.options.method)).length===beforeWrites, 'generation does not save or publish without review');
   await click($$('button').find(b=>b.textContent==='Fix draft SEO'));
   ok(labelOf('Title')?.querySelector('input')?.value==='Verified export document guide', 'safe SEO fix never changes the title-derived canonical');
+}
+
+say('\nThe desk reports which provider generates drafts, and what to do when it fails');
+{
+  await mountDesk();
+  await click($$('button').find(b=>b.textContent.trim()==='Create draft'));
+  const text = () => document.body.textContent;
+  ok(fetchCalls.some(c => c.url.includes('?seo=ai-status')), 'the desk asks the server which provider it would use');
+  ok(/Gemini on the free tier/.test(text()) && /gemini-3\.8-flash/.test(text()),
+    'and names Gemini + the free tier instead of the old hard-coded OpenAI claim');
+  ok(!/OPENAI_API_KEY must be configured/.test(text()), 'the stale OpenAI-only claim is gone');
+
+  // No key on the server: the desk must say drafts are unavailable and point at
+  // the formatter, not silently pretend generation will work.
+  providerStatus = { provider: 'formatter', gemini: { configured: false, model: 'gemini-3.8-flash', tier: 'free' },
+    openai: { configured: false, enabled: false }, formatter: { available: true } };
+  await mountDesk();
+  await click($$('button').find(b=>b.textContent.trim()==='Create draft'));
+  ok(/GEMINI_API_KEY is not set/.test(text()) && /Generate factual draft text/.test(text()),
+    'a missing key is reported with the fallback that still works');
+
+  // A provider failure must reach the operator with the state and the owner
+  // action the server sent — and confirm that nothing was saved.
+  providerStatus = { provider: 'gemini', gemini: { configured: true, model: 'gemini-3.8-flash', tier: 'free' },
+    openai: { configured: false, enabled: false }, formatter: { available: true } };
+  const realFetch = globalThis.fetch;
+  setGlobal('fetch', (url, options = {}) => {
+    if (String(url).includes('?seo=generate')) {
+      return Promise.resolve({ ok: false, status: 429, json: async () => ({
+        error: 'The Gemini free-tier quota for today is exhausted; nothing was saved.',
+        state: 'quota-exhausted',
+        ownerAction: 'The free-tier allowance for today is spent — try again after midnight Pacific.',
+        provider: 'gemini', saved: false, published: false }) });
+    }
+    return realFetch(url, options);
+  });
+  await mountDesk();
+  await click($$('button').find(b=>b.textContent.trim()==='Create draft'));
+  await click($$('button').find(b=>b.textContent==='Generate AI draft'));
+  ok(/quota for today is exhausted/i.test(text()), 'the provider failure is reported in the operator’s words');
+  ok(/midnight Pacific/.test(text()), 'with the owner action from the server, not just "failed"');
+  ok(/nothing was saved/i.test(text()), 'and it states that nothing was saved');
+  ok(!/Verified export document guide/.test(labelOf('Title')?.querySelector('input')?.value || ''),
+    'no draft content was inserted into the editor');
+  setGlobal('fetch', realFetch);
 }
 
 console.log = realLog;
