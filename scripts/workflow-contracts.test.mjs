@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { AGENTS } from '../api/_agents.js';
+import { runBlocks, nodeEvalBodies } from './_workflow-shell.mjs';
 
 let pass = 0, fail = 0;
 const ok = (cond, name) => {
@@ -46,60 +47,6 @@ const scratch = (name, body) => {
   writeFileSync(path, body);
   return path;
 };
-
-// ---------------------------------------------------------------------------
-// Extract the shell actually handed to the runner: `run: |` blocks (dedented)
-// and one-line `- run: …` steps. The runner executes these with `bash -e`, so
-// they must at least parse.
-function runBlocks(text) {
-  const lines = text.split('\n');
-  const indentOf = l => l.match(/^\s*/)[0].length;
-  const found = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    // A job may legitimately be called `run` (`jobs: run:`), so a bare `run:`
-    // with nothing after the colon is a job key, never a step.
-    const blockOpen = line.match(/^(\s*)(?:- )?run:\s*\|\s*$/);
-    if (blockOpen) {
-      const base = indentOf(line);
-      const body = [];
-      let j = i + 1;
-      for (; j < lines.length; j++) {
-        if (!lines[j].trim()) { body.push(''); continue; }
-        if (indentOf(lines[j]) <= base) break;
-        body.push(lines[j]);
-      }
-      const strip = Math.min(...body.filter(l => l.trim()).map(indentOf));
-      found.push({ line: i + 1, shell: body.map(l => (l.trim() ? l.slice(strip) : '')).join('\n').trimEnd() });
-      i = j - 1;
-      continue;
-    }
-    const inline = line.match(/^(\s*)(?:- )?run:\s+(\S.*)$/);
-    if (inline) found.push({ line: i + 1, shell: inline[2] });
-  }
-  return found;
-}
-
-// Every `node -e "…"` body inside a shell block: the runner will hand it to
-// node, so it must parse too — and it must not contain `${`, which bash would
-// expand to nothing before node ever sees it.
-function nodeEvalBodies(shell) {
-  const lines = shell.split('\n');
-  const bodies = [];
-  for (let i = 0; i < lines.length; i++) {
-    const start = lines[i].match(/node -e "?$/);
-    if (!start) continue;
-    const body = [];
-    let j = i + 1;
-    for (; j < lines.length; j++) {
-      if (lines[j].trim().startsWith('"')) break;
-      body.push(lines[j]);
-    }
-    bodies.push({ line: i + 1, body: body.join('\n'), closed: j < lines.length });
-    i = j;
-  }
-  return bodies;
-}
 
 // ---------------------------------------------------------------------------
 say('\n-- every committed workflow is structurally a workflow --');

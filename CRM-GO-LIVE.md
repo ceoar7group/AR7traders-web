@@ -66,7 +66,12 @@ step parses (`bash -n`), every inline `node -e` parses and contains no `${…}`
 that bash would expand away, every `/api/…` they call is a function in this
 repository, every `job=` they ask for is dispatched by `api/goonet-sync.js`,
 machinery's storage preflight still runs before the dispatch, no secret is ever
-inlined, and no two schedules fire at the same minute. It runs as part of
+inlined, and no two schedules fire at the same minute. `npm run test:workflow-exec`
+goes further and **executes** those steps (`bash -e`, GitHub's default) against a
+stub of `/api/goonet-sync` on localhost: the missing-secret guard, a 500 carrying
+an owner action, a 200 that describes a blocked supplier, the machinery preflight
+stopping the run *before* it dispatches, recovery refusing without its
+confirmation, and each mode reaching the job name it claims. Both run as part of
 `npm test` and in CI.
 
 **`SUPABASE_SERVICE_ROLE_KEY` must never be prefixed `VITE_`.** Anything starting
