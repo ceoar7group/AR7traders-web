@@ -66,7 +66,8 @@ export { carRef, hrefFor };
 import {
   listMachines, createMachine, updateMachine, setPublished, deleteMachine,
   MACHINERY_TABLE, purgeStale, toPublic, readMachineryRows, machineryVisibility, recoverImportedMachines,
-  machineryDoctor, machineryStorageStatus, MACHINERY_MIGRATION_FILE, MACHINERY_SCHEMA_RELOAD
+  machineryDoctor, machineryStorageStatus, builtinCatalogueMachines,
+  MACHINERY_MIGRATION_FILE, MACHINERY_SCHEMA_RELOAD
 } from './_machinery.js';
 // The import agent: another shared module, so the machinery desk, the paste-a
 // -link box and the nightly job all cost zero extra functions.
@@ -97,6 +98,10 @@ export const config = { maxDuration: 60 };
 
 const SITEMAP_BASE = 'https://ar7traders.com';
 const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
+// When the machinery sitemap is serving the built-in catalogue, it caches
+// briefly: the moment the migration is run (or the read recovers), the next
+// crawl must see the real rows rather than a stale fallback.
+const SITEMAP_FALLBACK_CACHE = 'public, max-age=60, s-maxage=120';
 const SITEMAP_MAX_ROWS = 5000;
 // Imported dealer cars are capped separately: the public /japan-stock page
 // reads at most 300 rows, so the sitemap stays in the same order of magnitude
@@ -444,25 +449,64 @@ export function buildMachineryXml(machines = []) {
 }
 
 export async function sitemapMachinery(req, res, injected = {}) {
+  const method = req.method || 'GET';
+  if (method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+
+  // WHAT THIS SITEMAP ADVERTISES, AND WHY IT IS NOT "THE DATABASE OR NOTHING"
+  //
+  // 2026-10-12: this used to answer 503 whenever the machinery read failed —
+  // and in production the read fails every time, because the `machinery` table
+  // does not exist yet. But the WEBSITE does not fail with it: hydrateMachines()
+  // keeps the built-in catalogue in place when a response is empty or fails, so
+  // /machinery/excavators/AR7-MC-001 is a live, linked, indexable page.
+  // robots.txt declares this sitemap, so the owner's Search Console showed a
+  // fetch error for a site that was serving those pages perfectly well.
+  //
+  // So the rule is the same one the client follows and the doctor reports: this
+  // sitemap lists exactly what the site is serving — the published database rows
+  // when there are any, otherwise the built-in catalogue — and names which in
+  // X-Machinery-Source. A storage problem stays loudly visible where it can be
+  // acted on (the CRM's storage alert, ?machinery=doctor, the workflow preflight
+  // and the log line below); it does not hide live pages from a crawler.
+  let machines = [];
+  let storageState = null;
   try {
     const db = injected.db || adminClient();
-    // Published rows only. listMachines() maps through toPublic(), which
-    // already dropped every photo without a rights basis, so this never
-    // advertises a page whose imagery we are not entitled to show.
-    const machines = await listMachines(db, { publishedOnly: true });
-    res.status(200);
-    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-    res.setHeader('Cache-Control', SITEMAP_CACHE);
-    res.end(buildMachineryXml(machines));
+    // Published rows only. listMachines() maps through toPublic(), which already
+    // dropped every photo without a rights basis; this sitemap emits no images,
+    // so the pages it advertises are the ones we are entitled to serve.
+    machines = await listMachines(db, { publishedOnly: true });
   } catch (e) {
-    // 2026-10-11: this used to be an anonymous 503, which told nobody anything.
-    // A missing table is a configuration fact, not a transient fault, so it is
-    // named in the log where the owner can act on it.
-    console.error('sitemap-machinery:', e.message, e.storage ? `[${e.storage.state}]` : '');
-    if (e.storage) console.error('sitemap-machinery owner action:', e.storage.ownerAction);
-    return sendPlain(res, e.storage?.state === 'missing-table' ? 503 : 503,
-      e.storage ? `Machinery sitemap unavailable — machinery storage is ${e.storage.state}. Apply ${MACHINERY_MIGRATION_FILE} in Supabase → SQL Editor.` : 'Machinery sitemap temporarily unavailable');
+    storageState = e.storage?.state || 'unreadable';
+    // A missing table is a configuration fact, not a transient fault. Named in
+    // the log, where the owner can act on it, instead of only in a status code
+    // nobody reads.
+    console.error('sitemap-machinery:', e.message, `[${storageState}]`);
+    if (e.storage?.ownerAction) console.error('sitemap-machinery owner action:', e.storage.ownerAction);
   }
+
+  let source = 'database';
+  if (!machines.length) {
+    // No readable rows means the site is showing the built-in catalogue, so the
+    // sitemap advertises the same pages. This is also the empty-database case:
+    // `hydrateMachines()` refuses an empty list for exactly the same reason.
+    // `injected.fallback` is only for tests; undefined keeps the shipped
+    // catalogue (a default parameter, so an explicit [] means "no fallback").
+    machines = builtinCatalogueMachines(injected.fallback);
+    source = 'bundled-catalogue';
+    console.error('sitemap-machinery: serving the built-in catalogue the website is showing'
+      + ` (${machines.length} machine(s)${storageState ? `; storage ${storageState}` : '; no published rows'})`);
+  }
+
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', source === 'database' ? SITEMAP_CACHE : SITEMAP_FALLBACK_CACHE);
+  res.setHeader('X-Machinery-Source', source);
+  if (storageState) res.setHeader('X-Machinery-Storage', storageState);
+  res.status(200);
+  res.end(buildMachineryXml(machines));
 }
 
 function clean(entity, body) {

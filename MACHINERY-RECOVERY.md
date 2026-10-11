@@ -119,6 +119,36 @@ response does not confirm which actions the deployed build contains. The
 diagnostic is proven by the handler tests and the desk's DOM tests, not by
 production.
 
+## The machinery sitemap describes the site that exists (2026-10-12)
+
+`/api/sitemap-machinery.xml` answered **503** whenever the machinery read failed —
+which, in production, is every time, because the table does not exist. But the
+website does not fail with it: `hydrateMachines()` keeps the built-in catalogue
+when a response is empty or fails, so `/machinery/excavators/AR7-MC-001` is live,
+linked and indexable. `robots.txt` declares that sitemap, so the owner's Search
+Console showed a fetch error for pages that were being served perfectly well,
+and the dynamic sitemap listed nothing while the static one listed all twelve.
+
+The rule is now the same one the client follows and `?machinery=doctor` reports:
+
+- the sitemap advertises **exactly what the site is serving** — the published
+  database rows when there are any, otherwise the built-in catalogue — and says
+  which in `X-Machinery-Source: database | bundled-catalogue`;
+- a storage problem adds `X-Machinery-Storage: missing-table` and still logs the
+  state and the owner action (the loud, actionable surfaces are unchanged: the
+  CRM storage alert, the doctor, the workflow preflight);
+- the fallback caches for 60s, not the usual 600, so the real rows appear as soon
+  as the migration runs;
+- the empty-database case behaves the same way (`hydrateMachines()` refuses an
+  empty list for exactly the same reason);
+- `POST` is now refused with `405` + `Allow: GET`, matching the vehicle sitemap.
+
+The vehicles sitemap was **not** changed: its own read is healthy in production
+(verified 2026-10-12 — 70+ URLs served). Its built-in car showcase lives inside
+`src/main.jsx` (a client module), so giving it the same fallback would mean moving
+that data into an importable module first — a separate change, recorded rather
+than smuggled in.
+
 ## Validation
 
 Full npm test passed after the workflow/desk changes. Additional focused checks:
@@ -132,3 +162,11 @@ diagnostic report and the blocked import panel through the running preview in
 emerald/dark/light at 1440×900 and 390×844 — 66 checks, 0 failures, every text
 element above AA (lowest 5.72:1), no clipped button, no sub-24px target, no
 sideways overflow, and every disabled control visibly dimmed.
+
+2026-10-12, the machinery sitemap: 50 → 72 checks. Both responses (database rows
+and the built-in catalogue) are parsed as real XML (jsdom `text/xml`: one
+`urlset`, sitemaps.org namespace, one `<loc>` per `<url>`), every advertised URL
+is resolved by the SPA router, the dynamic fallback and the static
+`public/sitemap.xml` are asserted to list the same twelve machine pages, and the
+doctor's own "public catalogue" answer is asserted to count the same machines the
+sitemap advertises.

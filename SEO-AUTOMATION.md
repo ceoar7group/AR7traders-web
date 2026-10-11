@@ -32,6 +32,18 @@ All server actions remain behind the existing `site.write` permission.
   save again, and explicitly publish using the existing review workflow.
   This is one-click generation, not unchecked mass publication.
 
+The **machinery** sitemap (`/api/sitemap-machinery.xml`, declared in robots.txt)
+advertises exactly the machine pages the website is serving: the published
+database rows when there are any, otherwise the built-in catalogue that
+`hydrateMachines()` keeps in place — and it says which in
+`X-Machinery-Source`. Until 2026-10-12 it answered **503** whenever the read
+failed, which it did on every request in production while the site served all
+twelve built-in machines at live, linked URLs; the fallback now caches for 60s so
+the real rows appear as soon as the migration runs. The **vehicle** sitemap keeps
+its existing behaviour (its own read is healthy; the car showcase's fallback
+lives inside `src/main.jsx`, so it would have to move before it could be served
+the same way) — see MACHINERY-RECOVERY.md.
+
 The existing dynamic news sitemap includes published CRM articles, not drafts.
 Build-time HTML currently covers the eight destination pages and six built-in
 articles; newly published CRM articles still use the existing client renderer.

@@ -111,6 +111,35 @@ export async function machineryStorageStatus(db) {
 }
 
 /**
+ * The machines the PUBLIC WEBSITE is serving when the database cannot supply
+ * them — the built-in catalogue from src/machinery-data.js.
+ *
+ * WHY THIS IS A FUNCTION AND NOT `MACHINES` INLINE
+ * Two places have to agree on "what is the site showing right now": the doctor
+ * (which names the public catalogue source) and the machinery sitemap (which
+ * advertises the pages that exist). The client's own rule is in
+ * hydrateMachines(): an empty or failed response leaves the built-in catalogue
+ * standing, so the machinery pages are NEVER blank. A sitemap that advertised
+ * nothing — or refused with a 503 — would be describing a site that does not
+ * exist, and robots.txt declares that sitemap, so the owner got a Search
+ * Console fetch error for pages that are live and linked.
+ *
+ * Only rows that can be addressed are returned: a machine with no type or no
+ * reference has no URL, and a sitemap must never advertise a dead path.
+ */
+export function builtinCatalogueMachines(fallback = MACHINES) {
+  return (Array.isArray(fallback) ? fallback : [])
+    .map(m => ({
+      type: typeof m?.type === 'string' ? m.type.trim() : '',
+      ref: machineRef(m),
+      status: m?.status || 'Available',
+      published: true,
+      updated_at: null
+    }))
+    .filter(m => m.type && m.ref);
+}
+
+/**
  * The machinery desk's health check: is the storage there, what does it hold,
  * and does the public site currently show database rows or the built-in
  * catalogue? Read-only, and it never throws — a doctor that dies on the
