@@ -60,6 +60,15 @@ The scheduled importers and agents run as GitHub Actions workflows
 `GOONET_SYNC_URL` if you use a custom domain) under GitHub → Settings → Secrets →
 Actions as well, or the nightly jobs stop with a named error instead of a 500.
 
+Those workflows run against production and are **not** exercised by a pull
+request, so `npm run test:workflows` checks what a linter cannot: every shell
+step parses (`bash -n`), every inline `node -e` parses and contains no `${…}`
+that bash would expand away, every `/api/…` they call is a function in this
+repository, every `job=` they ask for is dispatched by `api/goonet-sync.js`,
+machinery's storage preflight still runs before the dispatch, no secret is ever
+inlined, and no two schedules fire at the same minute. It runs as part of
+`npm test` and in CI.
+
 **`SUPABASE_SERVICE_ROLE_KEY` must never be prefixed `VITE_`.** Anything starting
 with `VITE_` is compiled into the public JavaScript bundle and readable by any
 visitor. The service-role key bypasses all row-level security.
