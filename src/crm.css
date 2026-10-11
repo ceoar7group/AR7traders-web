@@ -4080,6 +4080,42 @@ html[data-crm-theme="light"] .crm-shell {
    ========================================================================== */
 .ai-tabs { margin-bottom: 14px; }
 
+/* .crm-del is a 32x32 ICON-ONLY square in the shared CRM styles
+   (width: 32px; height: 32px; padding: 0). Every destructive control on this
+   desk carries a word — "Emergency stop", "Reject", "Cancel" — so the shared
+   size clipped the label: measured at 1440px, the Emergency stop button was a
+   32px box holding 65px of content (35px of text painted outside its border),
+   and Cancel in a draft row the same. Scoped to this desk the danger look is
+   kept and the button sizes to its label. */
+.crm-ai-growth .ai-banner-actions .crm-del,
+.crm-ai-growth .ai-draft-actions .crm-del { width: auto; padding: 0 12px; }
+
+/* The desk's primary action is "Run <agent> now". .crm-add is only styled as a
+   primary button inside .crm-tools, so here it fell back to a 26px-tall box —
+   too small for the one control an operator presses most. */
+.ai-runbar .crm-add {
+  height: 38px; padding: 0 14px; border-color: transparent;
+  background: var(--crm-primary); color: var(--crm-primary-text);
+}
+.ai-runbar .crm-add:hover:not(:disabled) { background: var(--crm-primary-hover); }
+.ai-runbar .crm-add:disabled { opacity: .55; cursor: not-allowed; }
+
+/* The shared .crm-status chip hard-codes its colours (dark-theme greens), which
+   measured 4.17:1 for the 10px bold kind chip on this desk's panels — under the
+   4.5 the WCAG AA small-text rule asks for, and worse in Porcelain Light where
+   the background is near-white. Scoped to this desk, the chip is driven by the
+   theme tokens instead, so all three themes are legible. Measured by
+   scripts/ai-growth-shots.mjs --themes. */
+.crm-ai-growth .crm-status.active,
+.crm-ai-growth .crm-status.done,
+.crm-ai-growth .crm-status.completed { background: var(--crm-ok-bg); color: var(--crm-ok); border-color: var(--crm-ok-border); }
+.crm-ai-growth .crm-status.failed,
+.crm-ai-growth .crm-status.partially_completed,
+.crm-ai-growth .crm-status.rejected { background: var(--crm-danger-bg); color: var(--crm-danger); border-color: var(--crm-danger-border); }
+.crm-ai-growth .crm-status.dormant,
+.crm-ai-growth .crm-status.cancelled,
+.crm-ai-growth .crm-status.queued { background: var(--crm-status-bg); color: var(--crm-ink); border-color: var(--crm-border); }
+
 .ai-banner {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 12px 14px; margin-bottom: 14px;
@@ -4127,7 +4163,7 @@ html[data-crm-theme="light"] .crm-shell {
 }
 .ai-agent > header div { flex: 1 1 auto; min-width: 0; }
 .ai-agent > header b { display: block; color: var(--crm-ink); font-size: 14px; }
-.ai-agent > header span { display: block; margin-top: 3px; color: var(--crm-muted); font-size: 11.5px; line-height: 1.5; }
+.ai-agent > header span { display: block; margin-top: 3px; color: color-mix(in srgb, var(--crm-muted) 74%, var(--crm-ink)); font-size: 11.5px; line-height: 1.5; }
 .ai-agent > header em { flex: 0 0 auto; align-self: flex-start; }
 .ai-agent dl { display: grid; gap: 6px; margin: 0; }
 .ai-agent dl > div { display: flex; gap: 10px; align-items: baseline; }
@@ -4168,7 +4204,7 @@ html[data-crm-theme="light"] .crm-shell {
 .ai-panel { margin-bottom: 18px; padding: 14px; border: 1px solid var(--crm-border); border-radius: 14px; background: var(--crm-panel); }
 .ai-panel h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font: 800 14px var(--crm-font); color: var(--crm-ink); }
 .ai-panel h3 svg { color: var(--crm-gold); }
-.ai-panel .crm-hint { margin: 0 0 10px; font-size: 11.5px; color: var(--crm-muted); line-height: 1.6; }
+.ai-panel .crm-hint { margin: 0 0 10px; font-size: 11.5px; color: color-mix(in srgb, var(--crm-muted) 74%, var(--crm-ink)); line-height: 1.6; }
 .ai-table-wrap { overflow-x: auto; }
 .ai-table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .ai-table-wrap th {
@@ -4176,7 +4212,7 @@ html[data-crm-theme="light"] .crm-shell {
   font: 700 10px var(--crm-font); letter-spacing: .6px; text-transform: uppercase;
 }
 .ai-table-wrap td { padding: 9px 10px; vertical-align: top; border-top: 1px solid var(--crm-border-subtle); color: var(--crm-ink); }
-.ai-table-wrap td small { color: var(--crm-muted); font-size: 10.5px; }
+.ai-table-wrap td small { color: color-mix(in srgb, var(--crm-muted) 74%, var(--crm-ink)); font-size: 10.5px; }
 .ai-table-wrap th.th-actions { width: 1%; white-space: nowrap; }
 .ai-err { display: block; color: var(--crm-danger); }
 
@@ -4187,7 +4223,12 @@ html[data-crm-theme="light"] .crm-shell {
 }
 .ai-draft-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .ai-draft-head b { color: var(--crm-ink); font-size: 13.5px; }
-.ai-draft-head small { color: var(--crm-muted); font-size: 11px; }
+/* 11px meta text: --crm-muted alone measured 4.38:1 against the Porcelain Light
+   panel — a hair under the 4.5 WCAG AA asks of text this size. Mixing it toward
+   the ink token fixes the light theme and slightly brightens the dark ones, so
+   the desk's small print is legible in all three (measured per theme by
+   scripts/ai-growth-shots.mjs --themes). */
+.ai-draft-head small { color: color-mix(in srgb, var(--crm-muted) 74%, var(--crm-ink)); font-size: 11px; }
 .ai-draft-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .ai-draft-actions button {
   display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
@@ -4209,7 +4250,7 @@ html[data-crm-theme="light"] .crm-shell {
 .ai-usage em { font-style: normal; padding: 2px 8px; border-radius: 999px; background: var(--crm-status-bg); font-size: 11px; }
 .ai-usage em.is-alert { color: var(--crm-danger); background: rgba(255, 138, 138, .12); }
 
-.ai-workspace > .crm-hint { color: var(--crm-muted); font-size: 12px; margin-bottom: 12px; }
+.ai-workspace > .crm-hint { color: color-mix(in srgb, var(--crm-muted) 74%, var(--crm-ink)); font-size: 12px; margin-bottom: 12px; }
 .ai-lead, .ai-evidence, .ai-social { margin-top: 10px; display: grid; gap: 8px; font-size: 12px; color: var(--crm-ink); }
 .ai-score { display: flex; align-items: baseline; gap: 10px; }
 .ai-score b { font: 800 22px var(--crm-font); color: var(--crm-gold); }

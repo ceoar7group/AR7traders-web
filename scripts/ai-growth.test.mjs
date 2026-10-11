@@ -580,6 +580,39 @@ say('\n-- the migration and the scheduler ship with the code --');
 }
 
 // ---------------------------------------------------------------------------
+say('\n-- the desk\'s styles keep its words inside its buttons --');
+{
+  // These guard layout bugs that only a browser can MEASURE (the numbers live in
+  // pr-visuals/2026-10-12/ai-growth-shots.json, taken with --themes) but that a
+  // one-line CSS deletion would silently reintroduce.
+  const css = readFileSync('src/crm.css', 'utf8');
+  const rule = selector => {
+    const at = css.indexOf(selector);
+    return at < 0 ? null : css.slice(at, css.indexOf('}', at));
+  };
+  // .crm-del is a 32x32 icon-only square; destructive controls here have words.
+  const danger = rule('.crm-ai-growth .ai-banner-actions .crm-del');
+  ok(!!danger && /width:\s*auto/.test(danger),
+    'the desk\'s danger buttons override the icon-only 32px square (the Emergency stop label was clipped by 35px)');
+  ok(rule('.crm-ai-growth .ai-draft-actions .crm-del') && /width:\s*auto/.test(rule('.crm-ai-growth .ai-draft-actions .crm-del')),
+    'and so do the draft-row Cancel controls');
+  const runBtn = rule('.ai-runbar .crm-add');
+  ok(!!runBtn && /background:\s*var\(--crm-primary\)/.test(runBtn),
+    'the primary Run button is styled as a primary (it was a 26px-tall fallback)');
+  ok(!!runBtn && /height:\s*38px/.test(runBtn), 'and sized for a thumb');
+  // Status chips: the shared chip hard-codes dark-theme greens.
+  ok(/\.crm-ai-growth \.crm-status\.active[\s\S]*?var\(--crm-ok-bg\)/.test(css),
+    'the desk\'s status chips are driven by theme tokens');
+  ok(/\.crm-ai-growth \.crm-status\.failed[\s\S]*?var\(--crm-danger-bg\)/.test(css),
+    'including the failure state');
+  ok(/color-mix\(in srgb, var\(--crm-muted\) 74%, var\(--crm-ink\)\)/.test(css),
+    'small print is mixed toward the ink token so it stays AA-legible on the light theme');
+  for (const theme of ['emerald', 'dark', 'light']) {
+    ok(css.includes(`data-crm-theme="${theme}"`), `the ${theme} theme still exists to be measured`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 say('\n-- the provider client: bounded, honest, and never a paid fallback --');
 {
   const noKey = await geminiGenerate('hello', { env: {}, fetch: async () => { throw new Error('must not be called'); } })
