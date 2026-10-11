@@ -3134,7 +3134,7 @@ html[data-crm-theme="light"] .crm-shell {
 .crm-sourcing .crm-table-wrap{margin-top:6px}
 .crm-sourcing .crm-panel{padding:18px}
 .crm-sourcing .kpi-card{cursor:default}
-.crm-hint{display:flex;align-items:center;gap:6px;color:var(--crm-muted);font-size:11px;line-height:1.5;margin:12px 0 0}
+.crm-hint{display:flex;align-items:center;gap:6px;color:color-mix(in srgb, var(--crm-muted) 74%, var(--crm-ink));font-size:11px;line-height:1.5;margin:12px 0 0}
 
 /* ================= Japan dealer stock ================= */
 .crm-goonet .crm-table-wrap table{min-width:1100px}
@@ -4307,4 +4307,57 @@ html[data-crm-theme="light"] .crm-shell {
   /* Thumb-sized targets on a phone: the review buttons share a row, so they
      need a floor as well as a share (Cancel measured 39px wide without it). */
   .ai-draft-actions button { flex: 1 1 auto; min-width: 88px; justify-content: center; }
+}
+
+/* ==========================================================================
+   Machinery storage alert — "the table does not exist" reaches the desk
+
+   The nightly importer failed for days with a bare HTTP 500 while the desk
+   showed an empty list (every failed read was swallowed into []), so the one
+   person who could fix it had no way to see the cause. The server has always
+   answered with the state and the SQL file to run; these rules make that
+   answer the most prominent thing on the screen instead of a console message.
+   ========================================================================== */
+.crm-storage-alert {
+  display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  padding: 14px 16px; margin-bottom: 14px;
+  border: 1px solid var(--crm-danger-border); border-radius: 14px;
+  background: var(--crm-danger-bg); color: var(--crm-danger);
+}
+.crm-storage-alert > svg { flex: 0 0 auto; margin-top: 2px; }
+.crm-storage-alert > div { flex: 1 1 320px; min-width: 0; }
+.crm-storage-alert b { color: var(--crm-danger); font-size: 13.5px; }
+.crm-storage-alert p { margin: 6px 0 0; color: var(--crm-ink); font-size: 12px; line-height: 1.6; }
+.crm-storage-alert code {
+  padding: 1px 5px; border-radius: 6px; background: var(--crm-panel);
+  border: 1px solid var(--crm-border); font-size: 11px;
+}
+.crm-storage-alert .crm-storage-fix { color: var(--crm-danger); font-weight: 700; }
+.crm-storage-alert > button { flex: 0 0 auto; align-self: flex-start; height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+
+.crm-storage-report {
+  margin-bottom: 14px; padding: 14px 16px;
+  border: 1px solid var(--crm-border); border-radius: 14px; background: var(--crm-panel);
+}
+.crm-storage-report.is-ok { border-color: var(--crm-ok-border); }
+.crm-storage-report.is-bad { border-color: var(--crm-danger-border); }
+.crm-storage-report-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.crm-storage-report-head b { font-size: 13.5px; color: var(--crm-ink); }
+.crm-storage-report.is-bad .crm-storage-report-head b { color: var(--crm-danger); }
+.crm-storage-report-head button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--crm-border);
+  background: var(--crm-panel-sub); color: var(--crm-muted); cursor: pointer;
+}
+.crm-storage-report > p { margin: 8px 0 0; font-size: 12px; }
+.crm-storage-report ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.crm-storage-report li { display: grid; gap: 2px; padding-left: 12px; border-left: 2px solid var(--crm-border); }
+.crm-storage-report li.is-ok { border-left-color: var(--crm-ok-border); }
+.crm-storage-report li.is-bad { border-left-color: var(--crm-danger-border); }
+.crm-storage-report li b { font-size: 12px; color: var(--crm-ink); }
+.crm-storage-report li.is-bad b { color: var(--crm-danger); }
+.crm-storage-report li span { font-size: 11.5px; color: color-mix(in srgb, var(--crm-muted) 74%, var(--crm-ink)); line-height: 1.55; }
+.crm-storage-report .crm-storage-fix { color: var(--crm-danger); font-weight: 700; }
+@media (max-width: 700px) {
+  .crm-storage-alert > button { width: 100%; justify-content: center; }
 }

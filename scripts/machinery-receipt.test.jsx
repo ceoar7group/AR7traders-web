@@ -74,7 +74,8 @@ const ok = (cond, label) => {
 // The real importer, used as the stub server's engine
 // ---------------------------------------------------------------------------
 const { toRow, planImport, applyImport } = await import('../api/_machinery-import.js');
-const { MachineryImportPanel, describeImportOutcome, refusedCandidateKeys } = await import('../src/crm.jsx');
+const { MachineryImportPanel, describeImportOutcome, refusedCandidateKeys, describeLoadFailure } = await import('../src/crm.jsx');
+const { MachineryStorageAlert, MachineryDoctorReport } = await import('../src/crm.jsx');
 const React = (await import('react')).default;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
@@ -557,5 +558,128 @@ say('\n== 7. without write permission there is no import panel to misuse ==');
 }
 
 ok(errors.length === 0, `nothing was logged as an error${errors.length ? ': ' + errors[0].slice(0, 240) : ''}`);
+// ---------------------------------------------------------------------------
+say('\n== 8. an unreadable desk says WHY it is empty ==');
+{
+  // The exact answer production gave for weeks. It used to be swallowed by
+  // `catch { return [k, []] }`, so the desk showed an empty table — or worse,
+  // looked healthy because the built-in website catalogue filled it — while
+  // every import failed. The failure is now described, and missing storage is
+  // distinguished from an ordinary read error.
+  const missing = describeLoadFailure('machinery', Object.assign(new Error("Could not find the table 'public.machinery' in the schema cache"), {
+    body: {
+      error: "Could not find the table 'public.machinery' in the schema cache",
+      stage: 'machinery-storage', state: 'missing-table',
+      storage: { state: 'missing-table', table: 'machinery', ownerAction: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor, then select pg_notify(\'pgrst\',\'reload schema\');' },
+      ownerAction: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor.'
+    }
+  }));
+  ok(missing.missingTable === true, 'a missing table is recognised as missing storage, not as "no records"');
+  ok(/does not exist yet/i.test(missing.title), `the banner leads with what is actually wrong (${missing.title})`);
+  ok(/MIGRATION-2026-10-machinery\.sql/.test(missing.ownerAction || ''), 'and carries the file the owner must run');
+  ok(missing.storage?.table === 'machinery', 'the storage detail comes through for the desk to print');
+  ok(missing.writesBlocked === true, 'and the failure says that writes cannot work');
+
+  // Same message, no structured body (an older deployment): still recognised.
+  const bare = describeLoadFailure('machinery', new Error("Could not find the table 'public.machinery' in the schema cache"));
+  ok(bare.missingTable === true && /does not exist yet/i.test(bare.title),
+    'the message alone is enough to name missing storage');
+
+  // An ordinary read error must NOT be dressed up as a missing migration.
+  const transient = describeLoadFailure('machinery', Object.assign(new Error('The records could not be read (HTTP 503)'), {
+    body: { error: 'The records could not be read (HTTP 503)', stage: 'read' }
+  }));
+  ok(transient.missingTable === false && /could not be read/i.test(transient.title), 'a transient failure keeps its own wording');
+  ok(transient.ownerAction === null, 'and invents no owner action');
+  ok(transient.writesBlocked === false, 'a transient read failure does not claim writes are blocked');
+
+  // A permission refusal is its own thing (never "the table is missing").
+  const denied = describeLoadFailure('goonet', Object.assign(new Error('Your role (viewer) is not allowed to do this'), { body: { error: 'Your role (viewer) is not allowed to do this' } }));
+  ok(denied.missingTable === false && denied.state === null, 'a refusal is not misreported as missing storage');
+  ok(describeLoadFailure('machinery', null).error === 'The records could not be read.', 'an empty error still produces a readable sentence');
+}
+
+// ---------------------------------------------------------------------------
+say('\n== 9. the DOM an operator actually sees when storage is missing ==');
+{
+  // Rendered, not just described: the point of this round is that the person
+  // who can run the migration sees it without opening the console.
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  // One root for the whole section — re-creating it on the same container logs a
+  // React error and would mask a real one.
+  const alertRoot = createRoot(host);
+  const mount = element => act(async () => { alertRoot.render(element); });
+
+  const issue = describeLoadFailure('machinery', Object.assign(new Error("Could not find the table 'public.machinery' in the schema cache"), {
+    body: { error: "Could not find the table 'public.machinery' in the schema cache", stage: 'machinery-storage', state: 'missing-table',
+      storage: { state: 'missing-table', table: 'machinery', ownerAction: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor, then run: select pg_notify(\'pgrst\',\'reload schema\');' } }
+  }));
+
+  let diagnosed = 0;
+  await mount(<MachineryStorageAlert issue={issue} busy={false} onDiagnose={() => { diagnosed++; }} />);
+  const alert = host.querySelector('.crm-storage-alert');
+  ok(alert?.getAttribute('role') === 'alert', 'the storage failure is announced as an alert, not printed quietly');
+  const alertText = (alert?.textContent || '').replace(/\s+/g, ' ');
+  ok(/Machinery storage does not exist yet/.test(alertText), `it leads with the real cause (${alertText.slice(0, 60)}…)`);
+  ok(/Could not find the table 'public.machinery'/.test(alertText), 'it quotes the server verbatim');
+  ok(/missing-table/.test(alertText) && /machinery/.test(alertText), 'it shows the reported state and the table');
+  ok(/MIGRATION-2026-10-machinery\.sql/.test(alertText), 'it names the SQL file to run');
+  ok(/pg_notify/.test(alertText), 'and the schema-cache reload that makes it visible');
+  ok(/built-in website catalogue/.test(alertText), 'it says the list below is the website catalogue, not the database');
+  ok(/nightly job cannot work/.test(alertText), 'and what stays broken until it is fixed');
+  ok(/buttons that add or change machines are hidden/.test(alertText),
+    'including the buttons the desk has actually hidden — so their absence is explained');
+
+  const diagnose = [...host.querySelectorAll('button')].find(b => /storage diagnostic/i.test(b.textContent || ''));
+  ok(!!diagnose, 'the alert offers a storage diagnostic');
+  if (diagnose) await act(async () => { diagnose.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+  ok(diagnosed === 1, 'pressing it asks the server for a fresh diagnosis');
+
+  await mount(<MachineryStorageAlert issue={issue} busy onDiagnose={() => {}} />);
+  const busyButton = [...host.querySelectorAll('button')].find(b => /checking storage/i.test(b.textContent || ''));
+  ok(!!busyButton && busyButton.disabled === true, 'while it is in flight the button says so and cannot be double-fired');
+
+  ok(!host.querySelector('.crm-storage-report'), 'and no report is shown before one is asked for');
+
+  // The report: the answer the server actually sends for a missing table.
+  let dismissed = 0;
+  await mount(<MachineryStorageAlert issue={issue} busy={false} onDiagnose={() => {}} />);
+  await mount(<div><MachineryStorageAlert issue={issue} busy={false} onDiagnose={() => {}} /><MachineryDoctorReport
+    report={{ ok: false, storage: { state: 'missing-table', table: 'machinery', migration: 'supabase/MIGRATION-2026-10-machinery.sql' },
+      checks: [
+        { name: 'Machinery storage readable', ok: false, detail: "public.machinery: Could not find the table", fix: 'Run supabase/MIGRATION-2026-10-machinery.sql.' },
+        { name: 'Public catalogue source', ok: false, detail: 'The public catalogue is showing the built-in fallback.', fix: 'Apply the migration, then reload the schema cache.' }
+      ],
+      ownerAction: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor.' }}
+    onDismiss={() => { dismissed++; }} /></div>);
+  const report = host.querySelector('.crm-storage-report');
+  ok(report?.className.includes('is-bad'), 'a failing diagnostic is styled as a failure');
+  ok(report?.getAttribute('role') === 'status', 'the diagnostic answers as a status region');
+  const items = [...host.querySelectorAll('.crm-storage-report li')];
+  ok(items.length === 2, `each check gets its own line (${items.length})`);
+  ok(items.every(li => /^Fail — /.test((li.textContent || '').trim())), 'every failing check is marked Fail, never silently green');
+  ok(items.every(li => /Fix:/.test(li.textContent || '')), 'every failing check carries its own fix');
+  ok(/Read-only diagnostic — nothing was changed/.test((report?.textContent || '')), 'the report states it changed nothing');
+  const dismiss = report?.querySelector('button');
+  ok(dismiss?.getAttribute('aria-label') === 'Dismiss the storage report', 'the report can be dismissed by name');
+  if (dismiss) await act(async () => { dismiss.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
+  ok(dismissed === 1, 'dismissing it clears the report');
+
+  // A healthy diagnostic must never read like a failure.
+  await mount(<MachineryDoctorReport report={{ ok: true, checks: [{ name: 'Machinery storage readable', ok: true, detail: 'public.machinery answered 12 row(s).', fix: null }] }} onDismiss={() => {}} />);
+  const good = host.querySelector('.crm-storage-report');
+  ok(good?.className.includes('is-ok') && /is healthy/.test(good.textContent || ''), 'a healthy diagnostic says so');
+  ok(/^Pass — /.test((host.querySelector('.crm-storage-report li')?.textContent || '').trim()), 'and marks its checks Pass');
+
+  // The bare minimum: no structured body at all.
+  await mount(<MachineryDoctorReport report={{ ok: false, error: 'The diagnostic did not answer.' }} onDismiss={() => {}} />);
+  ok(/No checks returned/.test(host.textContent || '') && /did not answer/.test(host.textContent || ''),
+    'an unanswered diagnostic admits it instead of rendering an empty green box');
+
+  await act(async () => { alertRoot.unmount(); });
+  host.remove();
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

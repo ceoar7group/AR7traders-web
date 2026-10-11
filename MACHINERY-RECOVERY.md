@@ -68,9 +68,56 @@ machines. The CRM scraper is the discovery → preview → confirm path.
 5. Run the CRM scraper, confirm selected candidates and review the receipt.
    Then open each published machinery URL on the website.
 
+## The desk now says WHY it is empty (2026-10-12)
+
+The failed machinery reads used to be swallowed (`catch { return [k, []] }`), so
+an uncreated table produced an **empty desk**, not a broken one — and because the
+bundled website catalogue fills that table, it could even look healthy. The
+nightly importer 500'd for days while the one person who could fix it had no
+cause on screen. That is fixed:
+
+- **Every failed entity read is kept**, with the server's `stage`, `storage` and
+  `ownerAction` (the API has always sent them; the desk threw them away).
+- **The machinery tab shows a storage alert** — `role="alert"`, the server's own
+  sentence ("Could not find the table 'public.machinery' in the schema cache"),
+  the state and table, the SQL file to run with its `pg_notify` reload, and the
+  plain statement that the list below is the built-in website catalogue rather
+  than database records.
+- **Missing storage is distinguished from a transient read error.** Only a
+  missing table sets `writesBlocked`, which hides the "Add all to the desk"
+  button — a button whose only possible answer is the same failure again. A
+  timeout or a 503 keeps the button and its own wording.
+- **Run storage diagnostic** calls `GET /api/site-content?machinery=doctor`
+  (staff-only, read-only) and renders one line per check with a Pass/Fail
+  verdict and the fix for each failure. Nothing is written or changed.
+- The alert's button is 38px tall with a full-width phone layout, and every text
+  element in both blocks was measured against WCAG AA in all three CRM themes
+  (`scripts/machinery-alert-shots.mjs`). The measurement caught real failures —
+  gold "Fix:" text at 2.75:1 and the 11px hint line at 4.23:1 on the Porcelain
+  Light theme — which are now fixed and pinned by guards.
+
+Owner steps are unchanged and are printed on the screen:
+
+1. Run `supabase/MIGRATION-2026-10-machinery.sql` in the Supabase SQL editor.
+2. Then `select pg_notify('pgrst', 'reload schema');` so PostgREST sees it.
+3. Press **Run storage diagnostic** until every check reads Pass, then import.
+
+Verification limits: no production credentials exist in this workspace, and
+anonymous requests to `/api/site-content?machinery=doctor` are answered
+`{"error":"Unauthorized"}` — the auth gate runs before action dispatch, so that
+response does not confirm which actions the deployed build contains. The
+diagnostic is proven by the handler tests and the desk's DOM tests, not by
+production.
+
 ## Validation
 
 Full npm test passed after the workflow/desk changes. Additional focused checks:
 98 receipt/UI checks; 41 nightly sync checks; 75 machinery CRM checks; 121 scraper
 checks; paginated audit tested against 1,201 rows and against a missing-table
 failure. Website and CRM builds pass. No extra Vercel function was added.
+
+2026-10-12, the storage alert: 133 receipt/UI checks (was 98) and 73 CRM theme
+checks (was 46); `scripts/machinery-alert-shots.mjs` rendered both blocks through
+the running preview in emerald/dark/light at 1440×900 and 390×844 — 48 checks,
+0 failures, every text element above AA (lowest 5.72:1), no clipped button, no
+sideways overflow.

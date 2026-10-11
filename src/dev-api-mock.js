@@ -311,6 +311,38 @@ export function devApiMock() {
         });
       });
 
+      // Machinery list, as production answers when the migration has not been
+      // run. Without this branch the preview always looks healthy, and the one
+      // failure the desk exists to explain cannot be seen. ?dev=stranded forces
+      // it; the default ?machinery=doctor answer mirrors machineryDoctor().
+      server.middlewares.use('/api/site-content', (req, res, next) => {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        if (params.get('machinery') !== 'doctor') return next();
+        res.setHeader('Content-Type', 'application/json');
+        const healthy = !String(params.get('dev') || '').includes('stranded');
+        return res.end(JSON.stringify(healthy ? {
+          ok: true, readOnly: true, storage: { ok: true, state: 'ok', table: 'machinery', migration: null },
+          catalogue: { source: 'database', note: 'Reading stored machines.' }, inventory: { total: 12, published: 12, hiddenImported: 0 },
+          checks: [
+            { name: 'Machinery storage readable', ok: true, detail: 'public.machinery answered 12 row(s).' },
+            { name: 'Public catalogue source', ok: true, detail: 'Database rows are being served (not the built-in fallback).', fix: null },
+            { name: 'Hidden eligible imports', ok: true, detail: 'No hidden published-eligible imports.', fix: null }
+          ],
+          ownerAction: null, note: 'Read-only diagnostic. Nothing was changed.'
+        } : {
+          ok: false, readOnly: true, storage: { ok: false, state: 'missing-table', table: 'machinery', migration: 'supabase/MIGRATION-2026-10-machinery.sql' },
+          catalogue: { source: 'built-in-fallback', note: 'The public catalogue is showing the catalogue that ships with the site.' },
+          inventory: { total: 0, published: 0 },
+          checks: [
+            { name: 'Machinery storage readable', ok: false, detail: "Could not find the table 'public.machinery' in the schema cache", fix: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor, then run: select pg_notify(\'pgrst\',\'reload schema\');' },
+            { name: 'Public catalogue source', ok: false, detail: 'The public catalogue is showing the built-in fallback, so imports cannot appear on the website.', fix: 'Apply the migration above, then reload the schema cache.' },
+            { name: 'Hidden eligible imports', ok: false, detail: 'Cannot be checked while the storage is missing.', fix: null }
+          ],
+          ownerAction: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor, then run: select pg_notify(\'pgrst\',\'reload schema\');',
+          note: 'Read-only diagnostic. Nothing was changed.'
+        }));
+      });
+
       // AI Growth (CRM → AI Growth) and the provider status the desk tests.
       // Read the DEV_AI block above for what this preview does and does not claim.
       server.middlewares.use('/api/site-content', (req, res, next) => {

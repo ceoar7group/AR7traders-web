@@ -9,7 +9,7 @@ import {
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
   Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
-  ChevronDown, Percent, Bot
+  ChevronDown, Percent, Bot, Stethoscope
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
@@ -722,6 +722,116 @@ async function machineryAction(action, id, token) {
   });
 }
 
+/**
+ * Turn a failed entity read into the issue the desk shows.
+ *
+ * WHY: loadAll() used to swallow every failure into `[]`, so the machinery desk
+ * rendered an empty table (or, worse, looked healthy because the built-in
+ * website catalogue filled it) while production answered "Could not find the
+ * table 'public.machinery' in the schema cache". The server has always sent the
+ * state and the file to run; this keeps them, and separates a MISSING STORAGE
+ * from an ordinary read error so the desk can say which one it is.
+ *
+ * Pure and exported so the shapes are unit-tested (scripts/machinery-receipt.test.jsx).
+ */
+export function describeLoadFailure(entity, error) {
+  const body = error?.body || {};
+  const storage = body.storage || null;
+  const state = storage?.state || body.state || null;
+  const missingTable = state === 'missing-table' || state === 'missing-tables'
+    || /does not exist|schema cache|relation .* does not exist/i.test(body.details || error?.message || '');
+  return {
+    entity,
+    error: error?.message || 'The records could not be read.',
+    stage: body.stage || null,
+    storage,
+    state,
+    missingTable,
+    // No storage means no writes: the desk must not offer a button whose only
+    // possible answer is another copy of this failure.
+    writesBlocked: missingTable,
+    title: missingTable ? 'Machinery storage does not exist yet' : 'Machinery records could not be read',
+    ownerAction: body.ownerAction || storage?.ownerAction || null
+  };
+}
+
+/**
+ * The machinery desk's storage alert.
+ *
+ * WHY: the desk rendered a machine list whether or not the database could be
+ * read — in demo mode, or with the bundled catalogue as a fallback — so "the
+ * public.machinery table was never created" produced an EMPTY desk, not a
+ * broken one, and nothing on screen asked for the migration. This is that
+ * sentence, in the operator's words, with the file to run and a button that
+ * asks the server for a fresh diagnosis. Presentational on purpose: the state
+ * and the network call live in the tab, and the DOM is asserted by
+ * scripts/machinery-receipt.test.jsx.
+ */
+export function MachineryStorageAlert({ issue, busy = false, onDiagnose }) {
+  if (!issue) return null;
+  return (
+    <div className="crm-storage-alert" role="alert">
+      <ShieldAlert size={16} />
+      <div>
+        <b>{issue.title}</b>
+        <p>{issue.error}</p>
+        {(issue.storage || issue.state) && (
+          <p>
+            State: <code>{issue.state || issue.storage?.state || 'unknown'}</code>
+            {issue.storage?.table ? <> · table <code>{issue.storage.table}</code></> : null}
+          </p>
+        )}
+        {issue.ownerAction && <p className="crm-storage-fix"><b>Fix:</b> {issue.ownerAction}</p>}
+        <p>
+          The machine list below is the <b>built-in website catalogue</b>, not your database records.
+          Imports, price refreshes and the nightly job cannot work until this is fixed, so the
+          buttons that add or change machines are hidden.
+        </p>
+      </div>
+      <button type="button" className="crm-add" disabled={busy} onClick={onDiagnose}>
+        <Stethoscope size={14} /> {busy ? 'Checking storage…' : 'Run storage diagnostic'}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The read-only answer from ?machinery=doctor: one row per check, the fix on
+ * the rows that failed, and nothing that implies a change was made.
+ */
+export function MachineryDoctorReport({ report, onDismiss }) {
+  if (!report) return null;
+  return (
+    <div className={'crm-storage-report' + (report.ok ? ' is-ok' : ' is-bad')} role="status">
+      <div className="crm-storage-report-head">
+        <b>{report.ok ? 'Machinery storage is healthy' : 'Machinery storage needs attention'}</b>
+        <button type="button" onClick={onDismiss} aria-label="Dismiss the storage report"><X size={13} /></button>
+      </div>
+      {report.ownerAction && <p className="crm-storage-fix"><b>Fix:</b> {report.ownerAction}</p>}
+      <ul>
+        {(report.checks || []).map((check, i) => (
+          <li key={i} className={check.ok ? 'is-ok' : 'is-bad'}>
+            <b>{check.ok ? 'Pass' : 'Fail'} — {check.name}</b>
+            <span>{check.detail}</span>
+            {check.fix && <span className="crm-storage-fix"><b>Fix:</b> {check.fix}</span>}
+          </li>
+        ))}
+        {!(report.checks || []).length && <li className="is-bad"><b>No checks returned</b><span>{report.error || 'The diagnostic did not answer.'}</span></li>}
+      </ul>
+      <p className="crm-storage-note">Read-only diagnostic — nothing was changed.</p>
+    </div>
+  );
+}
+
+/**
+ * read-only). This is the desk's own version of the nightly workflow's preflight:
+ * it answers "is the table there, and does the catalogue show database rows or
+ * the built-in fallback?" instead of leaving the owner with an empty table.
+ */
+async function machineryDoctor(token) {
+  return call('/api/site-content?machinery=doctor', token);
+}
+
 /** Preview or confirm a machinery import. Preview writes nothing at all. */
 async function machineryImport(step, body, token) {
   return call('/api/site-content?import=machinery&step=' + encodeURIComponent(step), token, {
@@ -870,6 +980,11 @@ export default function CrmApp() {
   const [perms, setPerms] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [openCustomer, setOpenCustomer] = useState(null);
+  // Per-entity read failures, so an empty desk can say WHY it is empty.
+  const [loadIssues, setLoadIssues] = useState({});
+  // The storage diagnostic the desk can run itself (read-only, ?machinery=doctor).
+  const [storageReport, setStorageReport] = useState(null);
+  const [storageBusy, setStorageBusy] = useState(false);
   const [theme, setTheme] = useState(() => lsGet('ar7-crm-theme') || 'emerald');
 
   const handleThemeChange = newTheme => {
@@ -938,14 +1053,22 @@ export default function CrmApp() {
         const allStock = hasPerm(matrix, me?.role, 'site.write');
         const entries = await Promise.all(keys.map(async k => {
           try {
-            return [k, await api(k, session.access_token, {
+            const loaded = await api(k, session.access_token, {
               all: k === 'goonet' || k === 'machinery' ? allStock : undefined
-            })];
-          } catch {
-            return [k, []];
+            });
+            return [k, loaded, null];
+          } catch (e) {
+            // A failed read used to be swallowed into `[]`, so the desk showed an
+            // empty list with no reason — which is how "the machinery table was
+            // never created in production" stayed invisible for weeks while the
+            // nightly importer 500'd. The failure is kept (with the server's
+            // stage/storage/ownerAction) and shown on the desk.
+            return [k, [], describeLoadFailure(k, e)];
           }
         }));
-        const loaded = Object.fromEntries(entries);
+        // Errors are reported per entity and survive the other entities loading.
+        setLoadIssues(Object.fromEntries(entries.filter(([, , issue]) => issue).map(([k, , issue]) => [k, issue])));
+        const loaded = Object.fromEntries(entries.map(([k, value]) => [k, value]));
         // Machinery only: the bundled catalogue is on the public site, so it
         // belongs in the desk too (flagged until it is added).
         loaded.machinery = withWebsiteCatalogue(loaded.machinery || []);
@@ -1499,7 +1622,20 @@ export default function CrmApp() {
                 operator has read the machine and pressed Import. */}
             {tab === 'machinery' && (
               <>
-                {canWrite('machinery') && (rows.machinery || []).some(r => r._notInDesk) && (
+                {loadIssues.machinery && (
+                  <MachineryStorageAlert
+                    issue={loadIssues.machinery}
+                    busy={storageBusy}
+                    onDiagnose={async () => {
+                      setStorageBusy(true);
+                      try { setStorageReport(await machineryDoctor(session.access_token)); }
+                      catch (e) { setStorageReport({ ok: false, error: e.message, ownerAction: e.body?.ownerAction || null }); }
+                      finally { setStorageBusy(false); }
+                    }}
+                  />
+                )}
+                {storageReport && <MachineryDoctorReport report={storageReport} onDismiss={() => setStorageReport(null)} />}
+                {canWrite('machinery') && !loadIssues.machinery?.writesBlocked && (rows.machinery || []).some(r => r._notInDesk) && (
                   <div className="crm-catalogue-bar">
                     <div>
                       <b>{(rows.machinery || []).filter(r => r._notInDesk).length} machines are live on the website from the built-in catalogue</b>
