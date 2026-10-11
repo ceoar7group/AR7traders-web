@@ -784,8 +784,8 @@ export function MachineryStorageAlert({ issue, busy = false, onDiagnose }) {
         {issue.ownerAction && <p className="crm-storage-fix"><b>Fix:</b> {issue.ownerAction}</p>}
         <p>
           The machine list below is the <b>built-in website catalogue</b>, not your database records.
-          Imports, price refreshes and the nightly job cannot work until this is fixed, so the
-          buttons that add or change machines are hidden.
+          Imports, price refreshes and the nightly job cannot work until this is fixed, so every
+          button that reads or writes stored machines is disabled until the migration is run.
         </p>
       </div>
       <button type="button" className="crm-add" disabled={busy} onClick={onDiagnose}>
@@ -1648,6 +1648,7 @@ export default function CrmApp() {
                 )}
                 <MachineryImportPanel
                   token={session.access_token}
+                  storageBlocked={!!loadIssues.machinery?.writesBlocked}
                   canWrite={canWrite('machinery')}
                   canSetDefault={hasPerm(perms, profile?.role, 'settings.write')}
                   machines={rows.machinery || []}
@@ -5119,7 +5120,15 @@ function machineryCandidateKey(machine, index) {
   return String(machine?.source?.url || machine?.source_url || machine?.ref || `${machine?.name || 'machine'}-${index}`);
 }
 
-export function MachineryImportPanel({ token, canWrite, canSetDefault = false, notify, onImported, machines = [] }) {
+export function MachineryImportPanel({ token, canWrite, canSetDefault = false, notify, onImported, machines = [], storageBlocked = false }) {
+  // storageBlocked: the machinery table does not exist (the tab's alert says so).
+  // Everything here that reads or writes STORED machines is dead until the
+  // migration runs, and offering it would just replay the same failure as a
+  // button. The supplier-side previews are not blocked — they touch no row of
+  // ours — so an operator can still see the market while the owner migrates.
+  const blockedTitle = storageBlocked
+    ? 'Machinery storage is missing — run supabase/MIGRATION-2026-10-machinery.sql first'
+    : undefined;
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   // 2026-10-07: owner policy — imports carry the supplier-listing basis by
@@ -5309,13 +5318,20 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
           ? ` — ${deskTotal - deskPublished} not published (review their stored status and hold reason).`
           : ', and none are hidden.'}
       </p>
-      <button type="button" className="crm-add" onClick={inspectStored} disabled={auditBusy || busy}>
+      {storageBlocked && (
+        <p className="crm-import-blocked" role="status">
+          <ShieldAlert size={13} /> Stored machines cannot be read or written until
+          supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are
+          disabled. A supplier link or scraper preview still works — it reads the supplier, not our database.
+        </p>
+      )}
+      <button type="button" className="crm-add" onClick={inspectStored} disabled={auditBusy || busy || storageBlocked} title={blockedTitle}>
         {auditBusy ? 'Checking stored imports…' : 'Find stored / hidden imports'}
       </button>
       {visibilityAudit && <section className="crm-scraper-result" aria-label="Stored machinery visibility">
         <b>{visibilityAudit.total} stored · {visibilityAudit.imported} imported · {visibilityAudit.published} published · {visibilityAudit.hiddenImported} hidden imports</b>
         <p>This reads the database, not the built-in demo catalogue. A preview alone does not save anything. Review unpublished rows below; archived rows are never restored automatically.</p>
-        <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported} onClick={async () => {
+        <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported || storageBlocked} title={blockedTitle} onClick={async () => {
           if (!window.confirm('Publish all valid Available imported machines currently hidden? Archived, sold, reserved and invalid rows are excluded. Up to 100 records per run.')) return;
           setAuditBusy(true);
           try {
@@ -5330,7 +5346,7 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
           <b>{r.ref} — {r.name}</b> · {r.visibility}
           {r.hold_reason && <span> · Recorded hold: {r.hold_reason}</span>}
           {r.invalid?.length > 0 && <span> · Fix in desk: {r.invalid.join('; ')}</span>}
-          {r.visibility === 'unpublished' && r.status !== 'Archived' && !r.invalid?.length && <button type="button" disabled={auditBusy} onClick={async () => {
+          {r.visibility === 'unpublished' && r.status !== 'Archived' && !r.invalid?.length && <button type="button" disabled={auditBusy || storageBlocked} title={blockedTitle} onClick={async () => {
             if (!window.confirm(`Publish the existing ${r.ref} listing to the website? This does not create a duplicate.`)) return;
             setAuditBusy(true);
             try {
@@ -5348,8 +5364,8 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
           <b><Ban size={13} /> {staleUnpublished.length} unpublished machine(s) have been missing from their source for 14+ days</b>
           <span>They still cost a row and a place in the review queue. step=stale only flags; this is the deliberate end of that path.</span>
           <div>
-            <button type="button" onClick={() => runPurge(false)} disabled={purgeBusy}>Archive them</button>
-            <button type="button" onClick={() => runPurge(true)} disabled={purgeBusy}>Delete archived / 28-day rows</button>
+            <button type="button" onClick={() => runPurge(false)} disabled={purgeBusy || storageBlocked} title={blockedTitle}>Archive them</button>
+            <button type="button" onClick={() => runPurge(true)} disabled={purgeBusy || storageBlocked} title={blockedTitle}>Delete archived / 28-day rows</button>
           </div>
         </div>
       )}
@@ -5610,7 +5626,7 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
 
               <div className="crm-import-actions">
                 <button type="button" className="crm-ghost-btn" onClick={() => { setPreview(null); setSelectedCandidateKeys(new Set()); setError(''); }}>Discard preview</button>
-                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy || selectedMachines.length === 0}>
+                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy || selectedMachines.length === 0 || storageBlocked} title={blockedTitle}>
                   <Check size={13} /> {busy
                     ? 'Writing selected machines…'
                     : `Confirm import ${selectedMachines.length} machine${selectedMachines.length === 1 ? '' : 's'}`}

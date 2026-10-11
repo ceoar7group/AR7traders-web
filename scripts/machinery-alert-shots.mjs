@@ -59,7 +59,7 @@ const page = (theme) => `<!doctype html>
 import './src/crm.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { MachineryStorageAlert, MachineryDoctorReport, describeLoadFailure } from './src/crm.jsx';
+import { MachineryStorageAlert, MachineryDoctorReport, MachineryImportPanel, describeLoadFailure } from './src/crm.jsx';
 
 // Exactly what the API answers when the migration has not been run (verified
 // against ar7traders.com on 2026-10-12: "Could not find the table
@@ -90,8 +90,13 @@ createRoot(document.getElementById('mount')).render(
     React.createElement(MachineryDoctorReport, { report: {
       ok: false, storage: body.storage, checks, ownerAction: body.storage.ownerAction
     }, onDismiss: () => {} }),
-    React.createElement('p', { className: 'crm-hint', style: { marginTop: '18px' } },
-      'Below this line the desk lists the built-in website catalogue, not your database records.')
+    // The import panel carries the same gate: its stored-machine buttons are
+    // disabled, its supplier previews are not, and it says so where they are.
+    React.createElement(MachineryImportPanel, {
+      token: 'harness-token', canWrite: true, canSetDefault: true,
+      notify: () => {}, onImported: () => {}, storageBlocked: true,
+      machines: [{ id: 'd1', ref: 'AR7-MC-001', brand: 'Sany', model: 'SY215C', type: 'Excavators', published: true, status: 'Available' }]
+    })
   )
 );
 document.title = 'ready';
@@ -188,10 +193,14 @@ try {
         // A label that does not fit its box is clipped — the failure mode that
         // shipped twice on this desk (icon-only buttons swallowing "Emergency
         // stop" and the draft "Cancel").
-        const clipped = [...document.querySelectorAll('.crm-storage-alert button, .crm-storage-report button')]
+        const disabledButtons = [...document.querySelectorAll('.crm-import-panel button:disabled')]
+          .map(b => ({ text: (b.textContent || '').trim().slice(0, 40), opacity: parseFloat(getComputedStyle(b).opacity) }));
+        const enabledPanelButtons = [...document.querySelectorAll('.crm-import-panel button:not(:disabled)')]
+          .map(b => (b.textContent || '').trim().slice(0, 40));
+        const clipped = [...document.querySelectorAll('.crm-storage-alert button, .crm-storage-report button, .crm-import-panel button')]
           .filter(b => b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1)
           .map(b => ({ text: (b.textContent || '').trim().slice(0, 30), box: [b.clientWidth, b.clientHeight], content: [b.scrollWidth, b.scrollHeight] }));
-        const small = [...document.querySelectorAll('.crm-storage-alert button, .crm-storage-report button')]
+        const small = [...document.querySelectorAll('.crm-storage-alert button, .crm-storage-report button, .crm-import-panel button')]
           .filter(b => { const r = b.getBoundingClientRect(); return r.width < 24 || r.height < 24; })
           .map(b => { const r = b.getBoundingClientRect(); return { text: (b.textContent || '').trim().slice(0, 30), size: [Math.round(r.width), Math.round(r.height)] }; });
 
@@ -202,6 +211,12 @@ try {
           overflowX: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
           clippedButtons: clipped,
           smallTargets: small,
+          disabledButtons,
+          enabledPanelButtons,
+          blockedNotice: document.querySelector('.crm-import-blocked') ? {
+            visible: document.querySelector('.crm-import-blocked').getBoundingClientRect().height > 0,
+            text: (document.querySelector('.crm-import-blocked').textContent || '').replace(/\s+/g, ' ').trim()
+          } : null,
           readings: [
             measure('.crm-storage-alert b', 'alert headline'),
             measure('.crm-storage-alert p', 'alert explanation'),
@@ -212,7 +227,8 @@ try {
             measure('.crm-storage-report li b', 'check verdict'),
             measure('.crm-storage-report li span', 'check detail'),
             measure('.crm-storage-report .crm-storage-fix', 'check fix'),
-            measure('.crm-hint', 'what the list below is')
+            measure('.crm-import-blocked', 'panel notice'),
+            measure('.crm-import-blocked svg', 'panel notice icon')
           ]
         };
       });
@@ -238,6 +254,17 @@ try {
       const unreadable = t.readings.filter(r => r.unreadable);
       check(unreadable.length === 0, `${theme}: every colour was readable`,
         unreadable.map(r => `${r.selector}=${r.unreadable}`).join(', '));
+      check(t.blockedNotice?.visible === true, `${theme}: the import panel says why its buttons are dead`,
+        t.blockedNotice ? '' : 'no .crm-import-blocked');
+      // How many are rendered depends on what has been expanded; what must hold
+      // is that NONE of the disabled ones still looks pressable.
+      const lookEnabled = (t.disabledButtons || []).filter(b => b.opacity >= 1);
+      check((t.disabledButtons || []).length >= 1 && lookEnabled.length === 0,
+        `${theme}: all ${(t.disabledButtons || []).length} disabled panel button(s) LOOK disabled`,
+        lookEnabled.length ? lookEnabled.map(b => `${b.text} opacity=${b.opacity}`).join(', ') : 'none disabled at all');
+      check((t.enabledPanelButtons || []).some(x => /run scraper/i.test(x)),
+        `${theme}: the supplier scraper preview is still offered`,
+        (t.enabledPanelButtons || []).join(' | '));
       const failing = t.readings.filter(r => r.ratio !== undefined && r.ratio < r.required);
       check(failing.length === 0, `${theme}: all ${t.readings.filter(r => r.ratio !== undefined).length} text elements clear WCAG AA`,
         failing.map(r => `${r.label} ${r.ratio}:1 < ${r.required}:1`).join(', '));

@@ -628,8 +628,8 @@ say('\n== 9. the DOM an operator actually sees when storage is missing ==');
   ok(/pg_notify/.test(alertText), 'and the schema-cache reload that makes it visible');
   ok(/built-in website catalogue/.test(alertText), 'it says the list below is the website catalogue, not the database');
   ok(/nightly job cannot work/.test(alertText), 'and what stays broken until it is fixed');
-  ok(/buttons that add or change machines are hidden/.test(alertText),
-    'including the buttons the desk has actually hidden — so their absence is explained');
+  ok(/every button that reads or writes stored machines is disabled/.test(alertText),
+    'including that the buttons touching stored machines are disabled — so their absence is explained');
 
   const diagnose = [...host.querySelectorAll('button')].find(b => /storage diagnostic/i.test(b.textContent || ''));
   ok(!!diagnose, 'the alert offers a storage diagnostic');
@@ -679,6 +679,63 @@ say('\n== 9. the DOM an operator actually sees when storage is missing ==');
 
   await act(async () => { alertRoot.unmount(); });
   host.remove();
+}
+
+// ===========================================================================
+say('\n== 10. missing storage disables exactly what cannot work ==');
+{
+  // The tab's alert promises that the buttons touching stored machines are
+  // disabled. This is that promise, kept — and the control case proves the flag
+  // is what disables them, not something incidental.
+  const machines = [{ id: 'd1', ref: 'AR7-MC-001', brand: 'Doosan', model: 'DX300', type: 'Excavators', published: true, status: 'Available' }];
+
+  const confirmsBefore = requests.filter(r => r.url.includes('step=confirm')).length;
+  const blocked = await mount({ machines, storageBlocked: true });
+  const notice = blocked.host.querySelector('.crm-import-blocked');
+  ok(!!notice, 'the panel states the storage problem where the dead buttons are');
+  ok(/MIGRATION-2026-10-machinery\.sql/.test(notice?.textContent || ''), 'and names the file to run');
+  ok(/preview still works/i.test(notice?.textContent || ''),
+    'and says what still works, so the panel does not read as wholly broken');
+
+  const findStored = [...blocked.host.querySelectorAll('button')].find(b => /Find stored \/ hidden imports/.test(b.textContent));
+  ok(findStored?.disabled === true, 'the stored-imports read is disabled');
+  ok(/MIGRATION-2026-10-machinery\.sql/.test(findStored?.getAttribute('title') || ''),
+    'and its tooltip names the migration (a disabled button with no reason is its own defect)');
+
+  // Previews touch no row of ours, so they stay usable.
+  const runScraper = [...blocked.host.querySelectorAll('button')].find(b => /run scraper/i.test(b.textContent));
+  ok(runScraper?.disabled === false, 'the supplier scraper preview is still available');
+  const beforeRequests = requests.length;
+  await click(runScraper);
+  ok(requests.length > beforeRequests, 'and actually runs against the stub');
+  ok(blocked.host.querySelectorAll('.crm-scraper-list > li').length === CANDIDATES.length,
+    'so the market is still visible while the owner migrates');
+
+  const confirm = [...blocked.host.querySelectorAll('.crm-import-actions button')].find(b => /confirm import/i.test(b.textContent));
+  ok(confirm?.disabled === true, 'the confirm that would write a machine is disabled');
+  ok(/MIGRATION-2026-10-machinery\.sql/.test(confirm?.getAttribute('title') || ''), 'with the reason on the button');
+  await click(confirm);
+  ok(requests.filter(r => r.url.includes('step=confirm')).length === confirmsBefore,
+    'clicking it sends nothing — an earlier section\'s confirms are not counted here');
+  const purgeBefore = purgeRequests.length;
+  ok(!blocked.host.querySelector('.crm-scraper-stale button:not([disabled])'),
+    'no stale-purge action is left enabled either');
+  await blocked.unmount();
+  ok(purgeRequests.length === purgeBefore, 'and nothing was purged by looking at it');
+
+  // Control: the same panel, storage present, offers all of it.
+  const healthy = await mount({ machines, storageBlocked: false });
+  ok(!healthy.host.querySelector('.crm-import-blocked'), 'a healthy desk shows no storage warning');
+  const findStored2 = [...healthy.host.querySelectorAll('button')].find(b => /Find stored \/ hidden imports/.test(b.textContent));
+  ok(findStored2?.disabled === false, 'and the stored-imports read is usable');
+  await click(findStored2);
+  ok(!!healthy.host.querySelector('[aria-label="Stored machinery visibility"]'),
+    'which is what makes the disabled state meaningful rather than a permanent label');
+  const runScraper2 = [...healthy.host.querySelectorAll('button')].find(b => /run scraper/i.test(b.textContent));
+  await click(runScraper2);
+  const confirm2 = [...healthy.host.querySelectorAll('.crm-import-actions button')].find(b => /confirm import/i.test(b.textContent));
+  ok(confirm2?.disabled === false, 'and confirm is enabled when the storage is there');
+  await healthy.unmount();
 }
 
 say(`\n${pass} passed, ${fail} failed`);

@@ -127,13 +127,28 @@ console.log('\n-- a desk that cannot read the machines offers no writes --');
   // tells it so. (The render path is demo mode, where no read can fail, so this
   // is asserted at the source level and by describeLoadFailure's unit tests.)
   const crm = read('src/crm.jsx');
+  // The sentences below wrap across lines in the JSX; compare flattened.
+  const flat = crm.replace(/\s+/g, ' ');
   const bar = crm.slice(crm.indexOf('crm-catalogue-bar') - 400, crm.indexOf('crm-catalogue-bar'));
   ok(/!loadIssues\.machinery\?\.writesBlocked/.test(bar),
     'the catalogue button is gated on writesBlocked, not merely on the failure existing');
   ok(/writesBlocked: missingTable/.test(crm),
     'writesBlocked is derived from a missing table — a transient error must not hide working buttons');
-  ok(/buttons that add or change machines are hidden/.test(crm),
+  ok(/every button that reads or writes stored machines is disabled/.test(flat),
     'and the alert explains why those buttons are not there');
+  // The alert's promise must be kept INSIDE the panel, not only at the tab:
+  // every control that touches stored machines carries the gate.
+  const panel = crm.slice(crm.indexOf('export function MachineryImportPanel'), crm.indexOf('export function MachineryImportPanel') + 40000);
+  ok(/storageBlocked = false/.test(panel), 'the import panel takes the gate as a prop');
+  const gated = [...panel.matchAll(/disabled=\{[^}]*storageBlocked[^}]*\}/g)].length;
+  ok(gated >= 5, `every stored-machine control in the panel is gated on it (${gated} found)`);
+  ok(/crm-import-blocked/.test(panel) && /role="status"/.test(panel),
+    'and the panel says why, next to the controls it disables');
+  ok(/storageBlocked=\{\!\!loadIssues\.machinery\?\.writesBlocked\}/.test(crm),
+    'the tab passes the gate from the same failure the alert is built from');
+  // Previews touch no row of ours: blocking them would be over-blocking.
+  ok(!/run scraper[\s\S]{0,400}storageBlocked/i.test(panel.replace(/storageBlocked = false[\s\S]{0,600}/, '')),
+    'the supplier scraper is deliberately NOT blocked by it');
 }
 
 console.log('\n-- the shared hint line clears AA text size --');

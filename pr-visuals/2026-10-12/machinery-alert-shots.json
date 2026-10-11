@@ -1,7 +1,7 @@
 {
   "base": "http://127.0.0.1:5199",
   "harness": ".crm-alert-harness.html",
-  "capturedAt": "2026-10-11T22:00:08.675Z",
+  "capturedAt": "2026-10-11T22:07:00.656Z",
   "viewports": [
     {
       "viewport": {
@@ -20,6 +20,21 @@
           "overflowX": 0,
           "clippedButtons": [],
           "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
           "readings": [
             {
               "label": "alert headline",
@@ -103,13 +118,22 @@
               "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
             },
             {
-              "label": "what the list below is",
-              "selector": ".crm-hint",
-              "ratio": 9.99,
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.66,
               "required": 4.5,
-              "size": 11,
+              "size": 12,
               "bold": false,
-              "text": "Below this line the desk lists the built-in website catalogu"
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
             }
           ]
         },
@@ -124,6 +148,21 @@
           "overflowX": 0,
           "clippedButtons": [],
           "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
           "readings": [
             {
               "label": "alert headline",
@@ -207,13 +246,22 @@
               "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
             },
             {
-              "label": "what the list below is",
-              "selector": ".crm-hint",
-              "ratio": 9.44,
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 15.27,
               "required": 4.5,
-              "size": 11,
+              "size": 12,
               "bold": false,
-              "text": "Below this line the desk lists the built-in website catalogu"
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
             }
           ]
         },
@@ -228,6 +276,21 @@
           "overflowX": 0,
           "clippedButtons": [],
           "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
           "readings": [
             {
               "label": "alert headline",
@@ -311,13 +374,22 @@
               "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
             },
             {
-              "label": "what the list below is",
-              "selector": ".crm-hint",
-              "ratio": 5.85,
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.26,
               "required": 4.5,
-              "size": 11,
+              "size": 12,
               "bold": false,
-              "text": "Below this line the desk lists the built-in website catalogu"
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
             }
           ]
         }
@@ -335,11 +407,26 @@
           "alert": {
             "visible": true,
             "width": 342,
-            "height": 392
+            "height": 411
           },
           "overflowX": 0,
           "clippedButtons": [],
           "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
           "readings": [
             {
               "label": "alert headline",
@@ -423,13 +510,22 @@
               "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
             },
             {
-              "label": "what the list below is",
-              "selector": ".crm-hint",
-              "ratio": 9.99,
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.66,
               "required": 4.5,
-              "size": 11,
+              "size": 12,
               "bold": false,
-              "text": "Below this line the desk lists the built-in website catalogu"
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
             }
           ]
         },
@@ -439,11 +535,26 @@
           "alert": {
             "visible": true,
             "width": 342,
-            "height": 392
+            "height": 411
           },
           "overflowX": 0,
           "clippedButtons": [],
           "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
           "readings": [
             {
               "label": "alert headline",
@@ -527,13 +638,22 @@
               "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
             },
             {
-              "label": "what the list below is",
-              "selector": ".crm-hint",
-              "ratio": 9.44,
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 15.27,
               "required": 4.5,
-              "size": 11,
+              "size": 12,
               "bold": false,
-              "text": "Below this line the desk lists the built-in website catalogu"
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
             }
           ]
         },
@@ -543,11 +663,26 @@
           "alert": {
             "visible": true,
             "width": 342,
-            "height": 392
+            "height": 411
           },
           "overflowX": 0,
           "clippedButtons": [],
           "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
           "readings": [
             {
               "label": "alert headline",
@@ -631,13 +766,22 @@
               "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
             },
             {
-              "label": "what the list below is",
-              "selector": ".crm-hint",
-              "ratio": 5.85,
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.26,
               "required": 4.5,
-              "size": 11,
+              "size": 12,
               "bold": false,
-              "text": "Below this line the desk lists the built-in website catalogu"
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
             }
           ]
         }

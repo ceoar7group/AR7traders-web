@@ -87,6 +87,16 @@ cause on screen. That is fixed:
   missing table sets `writesBlocked`, which hides the "Add all to the desk"
   button — a button whose only possible answer is the same failure again. A
   timeout or a 503 keeps the button and its own wording.
+- **The import panel keeps the same promise.** While the table is missing, every
+  control that reads or writes STORED machines is disabled (Find stored /
+  hidden imports, publish, archive/delete stale rows, confirm import), each with
+  the migration named on its tooltip, and the panel says so next to them.
+  Supplier link and scraper previews stay enabled — they read the supplier, not
+  our database, so the market is still visible while the owner migrates. A
+  disabled control that still looks pressable is its own defect: the shots
+  script fails if any disabled panel button computes opacity 1, which is why the
+  panel's top-level action now dims (it did not) and why it stopped being a
+  21px target (204×21 → 34px tall, measured).
 - **Run storage diagnostic** calls `GET /api/site-content?machinery=doctor`
   (staff-only, read-only) and renders one line per check with a Pass/Fail
   verdict and the fix for each failure. Nothing is written or changed.
@@ -116,8 +126,9 @@ Full npm test passed after the workflow/desk changes. Additional focused checks:
 checks; paginated audit tested against 1,201 rows and against a missing-table
 failure. Website and CRM builds pass. No extra Vercel function was added.
 
-2026-10-12, the storage alert: 133 receipt/UI checks (was 98) and 73 CRM theme
-checks (was 46); `scripts/machinery-alert-shots.mjs` rendered both blocks through
-the running preview in emerald/dark/light at 1440×900 and 390×844 — 48 checks,
-0 failures, every text element above AA (lowest 5.72:1), no clipped button, no
-sideways overflow.
+2026-10-12, the storage alert: 150 receipt/UI checks (was 98) and 78 CRM theme
+checks (was 46); `scripts/machinery-alert-shots.mjs` rendered the alert, the
+diagnostic report and the blocked import panel through the running preview in
+emerald/dark/light at 1440×900 and 390×844 — 66 checks, 0 failures, every text
+element above AA (lowest 5.72:1), no clipped button, no sub-24px target, no
+sideways overflow, and every disabled control visibly dimmed.
