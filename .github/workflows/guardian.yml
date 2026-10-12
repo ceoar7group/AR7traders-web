@@ -22,6 +22,10 @@ permissions:
 jobs:
   guard:
     runs-on: ubuntu-latest
+    # Bounded: this job installs, builds, audits and runs the whole test suite.
+    # Without a timeout a hung step holds a runner for six hours (the default)
+    # and the nightly report simply never appears.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

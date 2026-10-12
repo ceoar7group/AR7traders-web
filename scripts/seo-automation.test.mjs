@@ -9,12 +9,24 @@ import {join,resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
 const facts='2026-10-09: Staff confirmed the export document pack contains the commercial invoice and Japanese export certificate. Destination requirements must be confirmed with the buyer’s broker before purchase.';
 const input={topic:'Checking vehicle export documents',facts,kind:'news',sources:['https://ar7traders.com/howbuy']};
-await assert.rejects(generateEditorialDraft(input,{env:{}}),/OPENAI_API_KEY/);
+// 2026-10-11: the default provider is Gemini (free tier). With no key the
+// failure must name the free-tier variable and the state, and it must NOT fall
+// back to a paid provider — an error is cheaper than a bill.
+await assert.rejects(generateEditorialDraft(input,{env:{}}),err=>{
+  assert.match(err.message,/GEMINI_API_KEY/);assert.equal(err.status,503);assert.equal(err.state,'no-key');
+  assert.doesNotMatch(err.message,/OPENAI_API_KEY/);return true;
+});
+// OPENAI_API_KEY alone must not be used: the paid provider is opt-in only.
+await assert.rejects(generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test-key'}}),err=>{
+  assert.match(err.message,/GEMINI_API_KEY/);assert.doesNotMatch(err.message,/OPENAI_API_KEY/);return true;
+});
+// SEO_AI_PROVIDER=none is honoured as an explicit switch-off.
+await assert.rejects(generateEditorialDraft(input,{env:{GEMINI_API_KEY:'k',SEO_AI_PROVIDER:'none'}}),/GEMINI_API_KEY/);
 await assert.rejects(generateEditorialDraft({...input,sources:[]},{env:{}}),/News needs/);
 await assert.rejects(generateEditorialDraft({...input,sources:['file:///secret']},{env:{}}),/HTTPS/);
 await assert.rejects(generateEditorialDraft({...input,facts:'too short'},{env:{}}),/verified facts/);
 let providerCalls=0;
-const result=await generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test-key'},fetch:async(url,opts)=>{
+const result=await generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test-key',SEO_AI_PROVIDER:'openai'},fetch:async(url,opts)=>{
   providerCalls++;
   assert.equal(url,'https://api.openai.com/v1/chat/completions');
   assert.equal(opts.redirect,'error'); assert.ok(opts.signal);
@@ -25,8 +37,25 @@ const result=await generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test-key'}
 assert.equal(providerCalls,1);assert.equal(result.published,false);assert.equal(result.saved,false);
 assert.equal(result.reviewRequired,true);assert.match(result.body,/EDITOR REVIEW/);assert.match(result.body,/https:\/\/ar7traders.com\/howbuy/);
 assert.ok(result.desc.length<=165);
-await assert.rejects(generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test'},fetch:async()=>({ok:false,status:429})}),/HTTP 429/);
-await assert.rejects(generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test'},fetch:async()=>({ok:true,json:async()=>({choices:[{message:{content:'oops'}}]})})}),/invalid draft JSON/);
+await assert.rejects(generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test',SEO_AI_PROVIDER:'openai'},fetch:async()=>({ok:false,status:429})}),/HTTP 429/);
+await assert.rejects(generateEditorialDraft(input,{env:{OPENAI_API_KEY:'test',SEO_AI_PROVIDER:'openai'},fetch:async()=>({ok:true,json:async()=>({choices:[{message:{content:'oops'}}]})})}),/invalid draft JSON/);
+// The Gemini path is the default and is exercised end to end against a stubbed
+// endpoint: the request shape, the model asked for, and review-only output.
+{
+  let geminiCalls=0;let seenUrl='';let seenBody=null;let seenKey='';
+  const gemini=await generateEditorialDraft(input,{env:{GEMINI_API_KEY:'test-gemini-key'},fetch:async(url,opts)=>{
+    geminiCalls++;seenUrl=url;seenBody=JSON.parse(opts.body);seenKey=opts.headers['x-goog-api-key'];
+    return {ok:true,json:async()=>({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({title:input.topic,excerpt:facts,body:facts+'\n\n'+facts})}]}}],usageMetadata:{promptTokenCount:900,candidatesTokenCount:300,totalTokenCount:1200}})};
+  }});
+  assert.equal(geminiCalls,1);
+  assert.match(seenUrl,/generativelanguage\.googleapis\.com\/v1beta\/models\/[^:]+:generateContent$/);
+  assert.match(seenUrl,/gemini-3\.8-flash/);
+  assert.equal(seenKey,'test-gemini-key');
+  assert.equal(seenBody.generationConfig.responseMimeType,'application/json');
+  assert.equal(gemini.provider,'gemini');assert.equal(gemini.published,false);assert.equal(gemini.saved,false);
+  assert.equal(gemini.reviewRequired,true);assert.match(gemini.body,/EDITOR REVIEW/);
+  assert.equal(gemini.usage.totalTokens,1200);
+}
 assert.ok(keywordIdeas().length>=20);assert.ok(keywordIdeas().every(r=>r.volume===null));
 assert.ok(safeDraftSeo({body:facts.repeat(8)}).desc.length<=165);
 const res=()=>({statusCode:0,body:null,status(n){this.statusCode=n;return this},setHeader(){return this},end(v){this.body=JSON.parse(v)}});

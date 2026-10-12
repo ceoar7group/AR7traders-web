@@ -82,7 +82,19 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) return 'vendor-react';
-          if (id.includes('lucide-react')) return 'vendor-icons';
+          // lucide-react is deliberately NOT pinned to a vendor chunk.
+          //
+          // It used to be (`return 'vendor-icons'`), which forced every icon in
+          // the app into one chunk. Because the entry module also imports
+          // icons, that chunk was modulepreloaded into first paint — so an icon
+          // added for a staff-only screen (the CRM, the AI Growth desk) was
+          // downloaded by every public visitor on first load. Measured on
+          // 2026-10-11: 1.6 kB of CRM-only icons landed in first-load bytes.
+          //
+          // Letting Rollup place them instead keeps the icons the public pages
+          // need in a shared, preloaded chunk and moves icons only a lazy route
+          // uses into that route's chunk, where they belong. The budget guard
+          // (scripts/bundle-budget.test.mjs) still holds the first-load size.
           if (id.includes('@supabase') || id.includes('node_modules/@supabase')) return 'vendor-supabase';
           return undefined;
         }

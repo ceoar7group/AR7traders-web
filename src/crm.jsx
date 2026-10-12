@@ -9,13 +9,14 @@ import {
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
   Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
-  ChevronDown, Percent
+  ChevronDown, Percent, Bot, Stethoscope
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
 import { updateSettingsCache } from './site-settings.js';
 import SeoDesk from './seo-desk.jsx';
+import AiGrowth from './ai-growth.jsx';
 import { MACHINES, MACHINE_TYPES, listPriceUSD, machineYearText } from './machinery-data.js';
 import { buildDiscountStockRows } from './stock-discount-catalogue.js';
 import { RIGHTS } from './machinery-source.js';
@@ -44,6 +45,12 @@ const fmt0 = value => '$' + Number(value || 0).toLocaleString('en-US');
 const machinePhoto = machine => (Array.isArray(machine?.images) && machine.images[0]) || machine?.image || null;
 
 const KEY_ACTIVATE = (run) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(); } };
+
+// RowActions lives in its own module (src/row-actions.jsx) so the AI Growth desk
+// can reuse it without a circular import. It is imported (the CRM's own tables
+// use it) and re-exported unchanged for every existing caller and the tests.
+import { RowActions } from './row-actions.jsx';
+export { RowActions };
 
 const PHOTO_PRESETS = [
   {
@@ -238,6 +245,10 @@ const tabs = [
   ['settings', 'Website settings', Settings],
   ['offers', 'Price offers', Percent],
   ['seo', 'SEO desk', Search],
+  // The three growth agents (Lead Gen & CRM, SEO Engine, Social Media) run
+  // from this one desk. It is grouped with the other automation tabs because a
+  // scheduled run and a manual run go through exactly the same orchestrator.
+  ['agents', 'AI Growth', Bot],
   ['guardian', 'Site guardian', ShieldCheck],
   ['activities', 'Activity log', Activity]
 ];
@@ -711,6 +722,116 @@ async function machineryAction(action, id, token) {
   });
 }
 
+/**
+ * Turn a failed entity read into the issue the desk shows.
+ *
+ * WHY: loadAll() used to swallow every failure into `[]`, so the machinery desk
+ * rendered an empty table (or, worse, looked healthy because the built-in
+ * website catalogue filled it) while production answered "Could not find the
+ * table 'public.machinery' in the schema cache". The server has always sent the
+ * state and the file to run; this keeps them, and separates a MISSING STORAGE
+ * from an ordinary read error so the desk can say which one it is.
+ *
+ * Pure and exported so the shapes are unit-tested (scripts/machinery-receipt.test.jsx).
+ */
+export function describeLoadFailure(entity, error) {
+  const body = error?.body || {};
+  const storage = body.storage || null;
+  const state = storage?.state || body.state || null;
+  const missingTable = state === 'missing-table' || state === 'missing-tables'
+    || /does not exist|schema cache|relation .* does not exist/i.test(body.details || error?.message || '');
+  return {
+    entity,
+    error: error?.message || 'The records could not be read.',
+    stage: body.stage || null,
+    storage,
+    state,
+    missingTable,
+    // No storage means no writes: the desk must not offer a button whose only
+    // possible answer is another copy of this failure.
+    writesBlocked: missingTable,
+    title: missingTable ? 'Machinery storage does not exist yet' : 'Machinery records could not be read',
+    ownerAction: body.ownerAction || storage?.ownerAction || null
+  };
+}
+
+/**
+ * The machinery desk's storage alert.
+ *
+ * WHY: the desk rendered a machine list whether or not the database could be
+ * read — in demo mode, or with the bundled catalogue as a fallback — so "the
+ * public.machinery table was never created" produced an EMPTY desk, not a
+ * broken one, and nothing on screen asked for the migration. This is that
+ * sentence, in the operator's words, with the file to run and a button that
+ * asks the server for a fresh diagnosis. Presentational on purpose: the state
+ * and the network call live in the tab, and the DOM is asserted by
+ * scripts/machinery-receipt.test.jsx.
+ */
+export function MachineryStorageAlert({ issue, busy = false, onDiagnose }) {
+  if (!issue) return null;
+  return (
+    <div className="crm-storage-alert" role="alert">
+      <ShieldAlert size={16} />
+      <div>
+        <b>{issue.title}</b>
+        <p>{issue.error}</p>
+        {(issue.storage || issue.state) && (
+          <p>
+            State: <code>{issue.state || issue.storage?.state || 'unknown'}</code>
+            {issue.storage?.table ? <> · table <code>{issue.storage.table}</code></> : null}
+          </p>
+        )}
+        {issue.ownerAction && <p className="crm-storage-fix"><b>Fix:</b> {issue.ownerAction}</p>}
+        <p>
+          The machine list below is the <b>built-in website catalogue</b>, not your database records.
+          Imports, price refreshes and the nightly job cannot work until this is fixed, so every
+          button that reads or writes stored machines is disabled until the migration is run.
+        </p>
+      </div>
+      <button type="button" className="crm-add" disabled={busy} onClick={onDiagnose}>
+        <Stethoscope size={14} /> {busy ? 'Checking storage…' : 'Run storage diagnostic'}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The read-only answer from ?machinery=doctor: one row per check, the fix on
+ * the rows that failed, and nothing that implies a change was made.
+ */
+export function MachineryDoctorReport({ report, onDismiss }) {
+  if (!report) return null;
+  return (
+    <div className={'crm-storage-report' + (report.ok ? ' is-ok' : ' is-bad')} role="status">
+      <div className="crm-storage-report-head">
+        <b>{report.ok ? 'Machinery storage is healthy' : 'Machinery storage needs attention'}</b>
+        <button type="button" onClick={onDismiss} aria-label="Dismiss the storage report"><X size={13} /></button>
+      </div>
+      {report.ownerAction && <p className="crm-storage-fix"><b>Fix:</b> {report.ownerAction}</p>}
+      <ul>
+        {(report.checks || []).map((check, i) => (
+          <li key={i} className={check.ok ? 'is-ok' : 'is-bad'}>
+            <b>{check.ok ? 'Pass' : 'Fail'} — {check.name}</b>
+            <span>{check.detail}</span>
+            {check.fix && <span className="crm-storage-fix"><b>Fix:</b> {check.fix}</span>}
+          </li>
+        ))}
+        {!(report.checks || []).length && <li className="is-bad"><b>No checks returned</b><span>{report.error || 'The diagnostic did not answer.'}</span></li>}
+      </ul>
+      <p className="crm-storage-note">Read-only diagnostic — nothing was changed.</p>
+    </div>
+  );
+}
+
+/**
+ * read-only). This is the desk's own version of the nightly workflow's preflight:
+ * it answers "is the table there, and does the catalogue show database rows or
+ * the built-in fallback?" instead of leaving the owner with an empty table.
+ */
+async function machineryDoctor(token) {
+  return call('/api/site-content?machinery=doctor', token);
+}
+
 /** Preview or confirm a machinery import. Preview writes nothing at all. */
 async function machineryImport(step, body, token) {
   return call('/api/site-content?import=machinery&step=' + encodeURIComponent(step), token, {
@@ -859,6 +980,11 @@ export default function CrmApp() {
   const [perms, setPerms] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [openCustomer, setOpenCustomer] = useState(null);
+  // Per-entity read failures, so an empty desk can say WHY it is empty.
+  const [loadIssues, setLoadIssues] = useState({});
+  // The storage diagnostic the desk can run itself (read-only, ?machinery=doctor).
+  const [storageReport, setStorageReport] = useState(null);
+  const [storageBusy, setStorageBusy] = useState(false);
   const [theme, setTheme] = useState(() => lsGet('ar7-crm-theme') || 'emerald');
 
   const handleThemeChange = newTheme => {
@@ -927,14 +1053,22 @@ export default function CrmApp() {
         const allStock = hasPerm(matrix, me?.role, 'site.write');
         const entries = await Promise.all(keys.map(async k => {
           try {
-            return [k, await api(k, session.access_token, {
+            const loaded = await api(k, session.access_token, {
               all: k === 'goonet' || k === 'machinery' ? allStock : undefined
-            })];
-          } catch {
-            return [k, []];
+            });
+            return [k, loaded, null];
+          } catch (e) {
+            // A failed read used to be swallowed into `[]`, so the desk showed an
+            // empty list with no reason — which is how "the machinery table was
+            // never created in production" stayed invisible for weeks while the
+            // nightly importer 500'd. The failure is kept (with the server's
+            // stage/storage/ownerAction) and shown on the desk.
+            return [k, [], describeLoadFailure(k, e)];
           }
         }));
-        const loaded = Object.fromEntries(entries);
+        // Errors are reported per entity and survive the other entities loading.
+        setLoadIssues(Object.fromEntries(entries.filter(([, , issue]) => issue).map(([k, , issue]) => [k, issue])));
+        const loaded = Object.fromEntries(entries.map(([k, value]) => [k, value]));
         // Machinery only: the bundled catalogue is on the public site, so it
         // belongs in the desk too (flagged until it is added).
         loaded.machinery = withWebsiteCatalogue(loaded.machinery || []);
@@ -1325,7 +1459,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'SEO desk' };
+  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'SEO desk', agents: 'AI Growth' };
   // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
   // activeEntity picks which set the panel, the toolbar and the editor work on.
   const activeEntity = tab === 'vehicles' ? carSub : tab;
@@ -1443,6 +1577,13 @@ export default function CrmApp() {
           <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} rows={rows} onOpenSeo={() => setTab('seo')} />
         ) : tab === 'seo' ? (
           <SeoDesk token={session.access_token} canPublish={hasPerm(perms, profile?.role, 'site.write')} canPromote={hasPerm(perms, profile?.role, 'settings.write')} notify={setNotice} />
+        ) : tab === 'agents' ? (
+          <AiGrowth
+            token={session.access_token}
+            canWrite={hasPerm(perms, profile?.role, 'site.write')}
+            notify={setNotice}
+            navigate={setTab}
+          />
         ) : tab === 'guardian' ? (
           <GuardianView notify={setNotice} onOpenSeo={() => setTab('seo')} />
         ) : tab === 'settings' ? (
@@ -1481,7 +1622,20 @@ export default function CrmApp() {
                 operator has read the machine and pressed Import. */}
             {tab === 'machinery' && (
               <>
-                {canWrite('machinery') && (rows.machinery || []).some(r => r._notInDesk) && (
+                {loadIssues.machinery && (
+                  <MachineryStorageAlert
+                    issue={loadIssues.machinery}
+                    busy={storageBusy}
+                    onDiagnose={async () => {
+                      setStorageBusy(true);
+                      try { setStorageReport(await machineryDoctor(session.access_token)); }
+                      catch (e) { setStorageReport({ ok: false, error: e.message, ownerAction: e.body?.ownerAction || null }); }
+                      finally { setStorageBusy(false); }
+                    }}
+                  />
+                )}
+                {storageReport && <MachineryDoctorReport report={storageReport} onDismiss={() => setStorageReport(null)} />}
+                {canWrite('machinery') && !loadIssues.machinery?.writesBlocked && (rows.machinery || []).some(r => r._notInDesk) && (
                   <div className="crm-catalogue-bar">
                     <div>
                       <b>{(rows.machinery || []).filter(r => r._notInDesk).length} machines are live on the website from the built-in catalogue</b>
@@ -1494,6 +1648,7 @@ export default function CrmApp() {
                 )}
                 <MachineryImportPanel
                   token={session.access_token}
+                  storageBlocked={!!loadIssues.machinery?.writesBlocked}
                   canWrite={canWrite('machinery')}
                   canSetDefault={hasPerm(perms, profile?.role, 'settings.write')}
                   machines={rows.machinery || []}
@@ -2749,7 +2904,10 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
       {!filtered.length ? (
         <div className="crm-empty"><Search /><h3>No imported cars in this view</h3><p>{rows.length ? 'Try another filter or search.' : 'Run the importer or add a car manually with Add.'}</p></div>
       ) : (
-        <div className="crm-table-wrap">
+        /* `crm-cards-sm`: below 700px each row becomes a labelled card (see
+           crm.css), because an 11-column table cannot fit a phone — the row's
+           actions would otherwise have to be hunted for by scrolling sideways. */
+        <div className="crm-table-wrap crm-cards-sm">
           <table>
             <thead>
               <tr>
@@ -2768,25 +2926,25 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                 const ref = row.stock_no || row.goonet_id || '';
                 return (
                   <tr key={row.id || row.stock_no} className={row.available === false ? 'row-muted' : ''}>
-                    <td className="td-photo">
+                    <td className="td-photo" data-label="Photo">
                       <div className="table-thumb-wrap" role="button" tabIndex={0} aria-label="View photos" onClick={() => onViewGallery && onViewGallery(row)} onKeyDown={KEY_ACTIVATE(() => onViewGallery && onViewGallery(row))} title="Click to view photos">
                         <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback}  decoding="async"/>
                         <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                       </div>
                     </td>
-                    <td>{row.stock_no || row.goonet_id || '—'}</td>
-                    <td><b>{row.make} {row.model}</b></td>
-                    <td>{row.year || '—'}</td>
-                    <td>{row.km ? row.km + ' km' : '—'}</td>
-                    <td>{row.price || (row.price_usd ? fmt(row.price_usd) : '—')}</td>
-                    <td>{row.photo_count ?? photos.length}</td>
-                    <td><span className="crm-score" title="Quality score set by the importer"><b>{row.quality_score ?? '—'}</b><i style={{ width: Math.min(100, row.quality_score || 0) + '%' }} /></span></td>
-                    <td>
+                    <td data-label="Stock no.">{row.stock_no || row.goonet_id || '—'}</td>
+                    <td data-label="Vehicle" className="crm-cell-title"><b>{row.make} {row.model}</b></td>
+                    <td data-label="Year">{row.year || '—'}</td>
+                    <td data-label="Km">{row.km ? row.km + ' km' : '—'}</td>
+                    <td data-label="Price">{row.price || (row.price_usd ? fmt(row.price_usd) : '—')}</td>
+                    <td data-label="Photos">{row.photo_count ?? photos.length}</td>
+                    <td data-label="Quality"><span className="crm-score" title="Quality score set by the importer"><b>{row.quality_score ?? '—'}</b><i style={{ width: Math.min(100, row.quality_score || 0) + '%' }} /></span></td>
+                    <td data-label="Status">
                       {row.available === false
                         ? <em className="crm-status dormant">Delisted</em>
                         : <em className={'crm-status ' + statusClass(row.status || 'New Arrival')}>{row.status || 'New Arrival'}</em>}
                     </td>
-                    <td>
+                    <td data-label="Promoted">
                       {promo.any
                         ? <em className="crm-status active" title={[
                           promo.onWebsite ? 'On the website (Website cars)' : null,
@@ -2796,26 +2954,40 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                         </em>
                         : <em className="crm-status">—</em>}
                     </td>
-                    <td>{importDate}</td>
-                    <td className="crm-row-actions">
-                      <div className="goonet-actions">
-                        {row.available !== false && (
-                          <>
-                            {promo.onWebsite
-                              ? <button className="is-added" disabled title={`Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab. Use Edit to change it there.`} type="button"><Check size={13} /> On website</button>
-                              : <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')} type="button"><Globe size={13} /> Website</button>}
-                            {promo.inInventory
-                              ? <button className="is-added" disabled title={`Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.`} type="button"><Check size={13} /> In inventory</button>
-                              : <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')} type="button"><CarFront size={13} /> Inventory</button>}
-                          </>
-                        )}
-                        {row.available !== false
-                          ? <button className="crm-del" title="Delist (remove from website)" onClick={() => onDelist(row)} type="button"><Ban size={13} /> Delist</button>
-                          : <button title="Re-list on the website" onClick={() => onDelist(row)} type="button"><Check size={13} /> Re-list</button>}
-                        <button title="Manage photo gallery" onClick={() => onManagePhotos && onManagePhotos(row)} type="button"><Camera size={13} /> Photos</button>
-                        <button onClick={() => onEdit(row)} type="button">Edit</button>
-                        {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
-                      </div>
+                    <td data-label="Imported">{importDate}</td>
+                    <td className="crm-row-actions" data-label="Actions">
+                      {/* 2026-10-11: Edit is the first control in the pinned cell
+                          and the rest live in a labelled overflow menu — see
+                          <RowActions>. Six inline pills made Edit the control
+                          clipped at the right edge of the scroller at every
+                          viewport (measured: 43px past the visible area). */}
+                      <RowActions
+                        className="goonet-actions"
+                        label={`More actions for ${row.make || ''} ${row.model || ''} ${ref}`.trim()}
+                        primary={{ key: 'edit', label: 'Edit', title: `Edit ${ref || 'this car'}`, onSelect: () => onEdit(row) }}
+                        items={[
+                          promo.onWebsite
+                            ? { key: 'website', label: 'On website (already published)', icon: <Check size={13} />, disabled: true, className: 'is-added',
+                                title: `Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab; Edit changes it there.` }
+                            : { key: 'website', label: 'Publish to website', icon: <Globe size={13} />, disabled: row.available === false,
+                                title: 'Publish this car on the website (Japan stock page + inventory)', onSelect: () => onPromote(row, 'listings') },
+                          promo.inInventory
+                            ? { key: 'inventory', label: 'In inventory (already added)', icon: <Check size={13} />, disabled: true, className: 'is-added',
+                                title: `Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.` }
+                            : { key: 'inventory', label: 'Copy to inventory', icon: <CarFront size={13} />, disabled: row.available === false,
+                                title: 'Copy this car into CRM inventory', onSelect: () => onPromote(row, 'vehicles') },
+                          { key: 'photos', label: 'Manage photos', icon: <Camera size={13} />,
+                            title: 'Manage photo gallery', onSelect: () => onManagePhotos && onManagePhotos(row) },
+                          { divider: true },
+                          row.available !== false
+                            ? { key: 'delist', label: 'Delist from website', icon: <Ban size={13} />, danger: true,
+                                title: 'Delist (remove from the website; the record is kept)', onSelect: () => onDelist(row) }
+                            : { key: 'relist', label: 'Re-list on website', icon: <Check size={13} />,
+                                title: 'Re-list on the website', onSelect: () => onDelist(row) },
+                          onDelete && { key: 'delete', label: 'Delete record', icon: <Trash2 size={13} />, danger: true,
+                            title: 'Delete this record permanently — asks for confirmation', onSelect: () => onDelete(row) }
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
@@ -4948,7 +5120,15 @@ function machineryCandidateKey(machine, index) {
   return String(machine?.source?.url || machine?.source_url || machine?.ref || `${machine?.name || 'machine'}-${index}`);
 }
 
-export function MachineryImportPanel({ token, canWrite, canSetDefault = false, notify, onImported, machines = [] }) {
+export function MachineryImportPanel({ token, canWrite, canSetDefault = false, notify, onImported, machines = [], storageBlocked = false }) {
+  // storageBlocked: the machinery table does not exist (the tab's alert says so).
+  // Everything here that reads or writes STORED machines is dead until the
+  // migration runs, and offering it would just replay the same failure as a
+  // button. The supplier-side previews are not blocked — they touch no row of
+  // ours — so an operator can still see the market while the owner migrates.
+  const blockedTitle = storageBlocked
+    ? 'Machinery storage is missing — run supabase/MIGRATION-2026-10-machinery.sql first'
+    : undefined;
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   // 2026-10-07: owner policy — imports carry the supplier-listing basis by
@@ -5138,13 +5318,20 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
           ? ` — ${deskTotal - deskPublished} not published (review their stored status and hold reason).`
           : ', and none are hidden.'}
       </p>
-      <button type="button" className="crm-add" onClick={inspectStored} disabled={auditBusy || busy}>
+      {storageBlocked && (
+        <p className="crm-import-blocked" role="status">
+          <ShieldAlert size={13} /> Stored machines cannot be read or written until
+          supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are
+          disabled. A supplier link or scraper preview still works — it reads the supplier, not our database.
+        </p>
+      )}
+      <button type="button" className="crm-add" onClick={inspectStored} disabled={auditBusy || busy || storageBlocked} title={blockedTitle}>
         {auditBusy ? 'Checking stored imports…' : 'Find stored / hidden imports'}
       </button>
       {visibilityAudit && <section className="crm-scraper-result" aria-label="Stored machinery visibility">
         <b>{visibilityAudit.total} stored · {visibilityAudit.imported} imported · {visibilityAudit.published} published · {visibilityAudit.hiddenImported} hidden imports</b>
         <p>This reads the database, not the built-in demo catalogue. A preview alone does not save anything. Review unpublished rows below; archived rows are never restored automatically.</p>
-        <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported} onClick={async () => {
+        <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported || storageBlocked} title={blockedTitle} onClick={async () => {
           if (!window.confirm('Publish all valid Available imported machines currently hidden? Archived, sold, reserved and invalid rows are excluded. Up to 100 records per run.')) return;
           setAuditBusy(true);
           try {
@@ -5159,7 +5346,7 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
           <b>{r.ref} — {r.name}</b> · {r.visibility}
           {r.hold_reason && <span> · Recorded hold: {r.hold_reason}</span>}
           {r.invalid?.length > 0 && <span> · Fix in desk: {r.invalid.join('; ')}</span>}
-          {r.visibility === 'unpublished' && r.status !== 'Archived' && !r.invalid?.length && <button type="button" disabled={auditBusy} onClick={async () => {
+          {r.visibility === 'unpublished' && r.status !== 'Archived' && !r.invalid?.length && <button type="button" disabled={auditBusy || storageBlocked} title={blockedTitle} onClick={async () => {
             if (!window.confirm(`Publish the existing ${r.ref} listing to the website? This does not create a duplicate.`)) return;
             setAuditBusy(true);
             try {
@@ -5177,8 +5364,8 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
           <b><Ban size={13} /> {staleUnpublished.length} unpublished machine(s) have been missing from their source for 14+ days</b>
           <span>They still cost a row and a place in the review queue. step=stale only flags; this is the deliberate end of that path.</span>
           <div>
-            <button type="button" onClick={() => runPurge(false)} disabled={purgeBusy}>Archive them</button>
-            <button type="button" onClick={() => runPurge(true)} disabled={purgeBusy}>Delete archived / 28-day rows</button>
+            <button type="button" onClick={() => runPurge(false)} disabled={purgeBusy || storageBlocked} title={blockedTitle}>Archive them</button>
+            <button type="button" onClick={() => runPurge(true)} disabled={purgeBusy || storageBlocked} title={blockedTitle}>Delete archived / 28-day rows</button>
           </div>
         </div>
       )}
@@ -5439,7 +5626,7 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
 
               <div className="crm-import-actions">
                 <button type="button" className="crm-ghost-btn" onClick={() => { setPreview(null); setSelectedCandidateKeys(new Set()); setError(''); }}>Discard preview</button>
-                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy || selectedMachines.length === 0}>
+                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy || selectedMachines.length === 0 || storageBlocked} title={blockedTitle}>
                   <Check size={13} /> {busy
                     ? 'Writing selected machines…'
                     : `Confirm import ${selectedMachines.length} machine${selectedMachines.length === 1 ? '' : 's'}`}

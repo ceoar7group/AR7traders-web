@@ -65,7 +65,9 @@ export { carRef, hrefFor };
 // below is added here.
 import {
   listMachines, createMachine, updateMachine, setPublished, deleteMachine,
-  MACHINERY_TABLE, purgeStale, toPublic, readMachineryRows, machineryVisibility, recoverImportedMachines
+  MACHINERY_TABLE, purgeStale, toPublic, readMachineryRows, machineryVisibility, recoverImportedMachines,
+  machineryDoctor, machineryStorageStatus, builtinCatalogueMachines,
+  MACHINERY_MIGRATION_FILE, MACHINERY_SCHEMA_RELOAD
 } from './_machinery.js';
 // The import agent: another shared module, so the machinery desk, the paste-a
 // -link box and the nightly job all cost zero extra functions.
@@ -78,6 +80,15 @@ import { runScraper } from './_machinery-scraper.js';
 // Search Console and IndexNow share this function, preserving the 12-function
 // Vercel limit. The workflow is staff-only and records submissions in activities.
 import { handleSeoWorkflow } from './_seo-workflows.js';
+// The AI Growth agents. Another shared module: the orchestrator, the three
+// agents, the run/draft store and the approval gate all live in api/_agents.js
+// and are dispatched here on ?agents=<action>, so the dashboard, the scheduler
+// and the CRM wizard still cost zero extra Serverless Functions.
+import {
+  runAgent, runScheduledAgents, growthOverview, draftDetail, approveDraft,
+  executeDraft, cancelDraft, cancelRun, readAgents, updateAgent, agentSettings,
+  AI_GROWTH_MIGRATION_FILE
+} from './_agents.js';
 export { machinePath, machineTypePath };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
@@ -87,6 +98,10 @@ export const config = { maxDuration: 60 };
 
 const SITEMAP_BASE = 'https://ar7traders.com';
 const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
+// When the machinery sitemap is serving the built-in catalogue, it caches
+// briefly: the moment the migration is run (or the read recovers), the next
+// crawl must see the real rows rather than a stale fallback.
+const SITEMAP_FALLBACK_CACHE = 'public, max-age=60, s-maxage=120';
 const SITEMAP_MAX_ROWS = 5000;
 // Imported dealer cars are capped separately: the public /japan-stock page
 // reads at most 300 rows, so the sitemap stays in the same order of magnitude
@@ -434,26 +449,176 @@ export function buildMachineryXml(machines = []) {
 }
 
 export async function sitemapMachinery(req, res, injected = {}) {
+  const method = req.method || 'GET';
+  if (method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+
+  // WHAT THIS SITEMAP ADVERTISES, AND WHY IT IS NOT "THE DATABASE OR NOTHING"
+  //
+  // 2026-10-12: this used to answer 503 whenever the machinery read failed —
+  // and in production the read fails every time, because the `machinery` table
+  // does not exist yet. But the WEBSITE does not fail with it: hydrateMachines()
+  // keeps the built-in catalogue in place when a response is empty or fails, so
+  // /machinery/excavators/AR7-MC-001 is a live, linked, indexable page.
+  // robots.txt declares this sitemap, so the owner's Search Console showed a
+  // fetch error for a site that was serving those pages perfectly well.
+  //
+  // So the rule is the same one the client follows and the doctor reports: this
+  // sitemap lists exactly what the site is serving — the published database rows
+  // when there are any, otherwise the built-in catalogue — and names which in
+  // X-Machinery-Source. A storage problem stays loudly visible where it can be
+  // acted on (the CRM's storage alert, ?machinery=doctor, the workflow preflight
+  // and the log line below); it does not hide live pages from a crawler.
+  let machines = [];
+  let storageState = null;
   try {
     const db = injected.db || adminClient();
-    // Published rows only. listMachines() maps through toPublic(), which has
-    // already dropped every photo without a rights basis, so this never
-    // advertises a page whose imagery we are not entitled to show.
-    const machines = await listMachines(db, { publishedOnly: true });
-    res.status(200);
-    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-    res.setHeader('Cache-Control', SITEMAP_CACHE);
-    res.end(buildMachineryXml(machines));
+    // Published rows only. listMachines() maps through toPublic(), which already
+    // dropped every photo without a rights basis; this sitemap emits no images,
+    // so the pages it advertises are the ones we are entitled to serve.
+    machines = await listMachines(db, { publishedOnly: true });
   } catch (e) {
-    console.error('sitemap-machinery:', e);
-    return sendPlain(res, 503, 'Machinery sitemap temporarily unavailable');
+    storageState = e.storage?.state || 'unreadable';
+    // A missing table is a configuration fact, not a transient fault. Named in
+    // the log, where the owner can act on it, instead of only in a status code
+    // nobody reads.
+    console.error('sitemap-machinery:', e.message, `[${storageState}]`);
+    if (e.storage?.ownerAction) console.error('sitemap-machinery owner action:', e.storage.ownerAction);
   }
+
+  let source = 'database';
+  if (!machines.length) {
+    // No readable rows means the site is showing the built-in catalogue, so the
+    // sitemap advertises the same pages. This is also the empty-database case:
+    // `hydrateMachines()` refuses an empty list for exactly the same reason.
+    // `injected.fallback` is only for tests; undefined keeps the shipped
+    // catalogue (a default parameter, so an explicit [] means "no fallback").
+    machines = builtinCatalogueMachines(injected.fallback);
+    source = 'bundled-catalogue';
+    console.error('sitemap-machinery: serving the built-in catalogue the website is showing'
+      + ` (${machines.length} machine(s)${storageState ? `; storage ${storageState}` : '; no published rows'})`);
+  }
+
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', source === 'database' ? SITEMAP_CACHE : SITEMAP_FALLBACK_CACHE);
+  res.setHeader('X-Machinery-Source', source);
+  if (storageState) res.setHeader('X-Machinery-Storage', storageState);
+  res.status(200);
+  res.end(buildMachineryXml(machines));
 }
 
 function clean(entity, body) {
   const out = {};
   for (const k of allowed[entity] || []) if (k in (body || {})) out[k] = body[k];
   return out;
+}
+
+/**
+ * AI Growth — the agent dashboard's API surface.
+ *
+ * Everything here is staff-only: it needs `site.write`, the same permission
+ * that gates listings and articles, because the drafts it produces become
+ * public content once approved. Scheduled runs do NOT come through here: they
+ * use the sync key on api/goonet-sync.js?job=agents, exactly like the stock
+ * importers, so no Vercel cron and no new function is needed.
+ *
+ * The actions are deliberately small and named after what they do:
+ *   GET  ?agents=overview            — read-only dashboard model
+ *   GET  ?agents=config              — agent configuration
+ *   POST ?agents=config-update       — enable/pause/schedule/limits per agent
+ *   POST ?agents=run                 — run one agent (bounded, leased, idempotent)
+ *   POST ?agents=approve|cancel|execute — the approval gate and the only side effects
+ *   GET  ?agents=draft&id=…          — one draft with its run steps and messages
+ */
+async function agentDispatch(req, res, action, injected = {}) {
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
+
+  let auth;
+  try {
+    auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+  } catch (e) {
+    return send(res, e.status || 401, { error: e.message || 'Unauthorized' });
+  }
+  try {
+    await assertSiteWrite(auth.profile, injected);
+  } catch (e) {
+    return send(res, e.status || 403, { error: e.message || 'Not allowed' });
+  }
+
+  const method = String(req.method || 'GET').toUpperCase();
+  const body = req.body || {};
+  const env = injected.env || process.env;
+  const fetchImpl = injected.fetch || globalThis.fetch;
+  const giveUp = e => send(res, e.status || 500, {
+    error: e.message || 'AI Growth request failed',
+    state: e.state || null,
+    ownerAction: e.ownerAction || (e.state === 'missing-tables' ? `Apply ${AI_GROWTH_MIGRATION_FILE} in Supabase → SQL Editor.` : null)
+  });
+
+  try {
+    if (action === 'overview' && method === 'GET') {
+      const overview = await growthOverview(db, { limit: Number(req.query.limit) || 25 });
+      // The provider configuration is reported without the key: configured or
+      // not, which model, and whether a connection test has been run.
+      overview.provider = {
+        configured: !!String(env.GEMINI_API_KEY || '').trim(),
+        name: overview.providerConfigured ? 'gemini' : 'formatter',
+        model: overview.providerModel,
+        tier: 'free',
+        note: 'Server-only key. This response never contains it.'
+      };
+      return send(res, 200, overview);
+    }
+    if (action === 'config' && method === 'GET') {
+      const [agents, settings] = await Promise.all([readAgents(db), agentSettings(db)]);
+      return send(res, 200, {
+        agents, settings: {
+          enabled: settings.ai_growth_enabled === 'true',
+          emergencyStop: settings.ai_growth_emergency_stop === 'true',
+          dryRunDefault: settings.ai_growth_dry_run_default === 'true',
+          maxRunsPerDay: Number(settings.ai_growth_max_runs_per_day) || 6
+        }
+      });
+    }
+    if (action === 'config-update' && method === 'POST') {
+      if (body.global && typeof body.global === 'object') {
+        const allowed = ['ai_growth_enabled', 'ai_growth_emergency_stop', 'ai_growth_dry_run_default', 'ai_growth_max_runs_per_day'];
+        const rows = allowed.filter(k => k in body.global).map(k => ({
+          key: k, value: String(body.global[k]), updated_at: new Date().toISOString()
+        }));
+        if (rows.length) {
+          const { error } = await db.from('site_settings').upsert(rows, { onConflict: 'key' });
+          if (error) throw Object.assign(new Error(error.message), { status: 500 });
+        }
+      }
+      if (body.agent) return send(res, 200, await updateAgent(db, body.agent, body, auth.profile));
+      return send(res, 200, { ok: true });
+    }
+    if (action === 'run' && method === 'POST') return send(res, 200, await runAgent(db, body.agent, {
+      actor: auth.profile, trigger: 'manual', mode: body.mode || null,
+      idempotencyKey: body.idempotencyKey || null, items: body.items || null,
+      recentRefs: body.recentRefs || [], opportunities: body.opportunities || null, env, fetch: fetchImpl
+    }));
+    if (action === 'run-scheduled' && method === 'POST') return send(res, 200, await runScheduledAgents(db, {
+      agent: body.agent || null, mode: body.mode || null, actor: auth.profile, env, fetch: fetchImpl
+    }));
+    if (action === 'approve' && method === 'POST') return send(res, 200, await approveDraft(db, body.id, auth.profile, { approve: body.approve !== false, note: body.note || '' }));
+    if (action === 'cancel' && method === 'POST') {
+      if (body.runId) return send(res, 200, await cancelRun(db, body.runId, auth.profile, { reason: body.reason || '' }));
+      return send(res, 200, await cancelDraft(db, body.id, auth.profile, { reason: body.reason || '' }));
+    }
+    if (action === 'execute' && method === 'POST') return send(res, 200, await executeDraft(db, body.id, auth.profile, { env }));
+    if (action === 'draft' && method === 'GET') {
+      if (!req.query.id) return send(res, 400, { error: 'A draft id is required' });
+      return send(res, 200, await draftDetail(db, req.query.id));
+    }
+  } catch (e) { return giveUp(e); }
+
+  return send(res, 400, { error: `Unknown AI Growth action: ${action}` });
 }
 
 /**
@@ -469,7 +634,13 @@ async function machineryDispatch(req, res, action, injected = {}) {
   catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
   const sendErr = e => send(res, e.status || 500, {
     error: e.message || 'Machinery request failed',
-    details: e.details
+    details: e.details,
+    // 2026-10-11: the CRM shows these two fields verbatim. A missing table used
+    // to arrive as "Machinery request failed"; now it arrives as the state of
+    // the storage, the SQL file to run, and the action that fixes it.
+    stage: e.stage || null,
+    storage: e.storage || null,
+    ownerAction: e.storage?.ownerAction || null
   });
 
   // ---- Public read. Anonymous visitors only ever see published rows, and
@@ -503,6 +674,12 @@ async function machineryDispatch(req, res, action, injected = {}) {
       return send(res, 200, await recoverImportedMachines(db, auth.profile, req.body || {}));
     if (action === 'audit' && req.method === 'GET')
       return send(res, 200, machineryVisibility(await readMachineryRows(db)));
+    // 2026-10-11: the desk's own doctor. Read-only, staff-only, and the first
+    // thing to run when "nothing imports": it reports whether the storage
+    // exists at all, what it holds, whether the public catalogue is showing
+    // database rows or the built-in fallback, and the exact owner action.
+    if (action === 'doctor' && req.method === 'GET')
+      return send(res, 200, await machineryDoctor(db));
     if (action === 'list' && req.method === 'GET')
       return send(res, 200, await readMachineryRows(db));
     if (action === 'create' && req.method === 'POST')
@@ -556,7 +733,13 @@ async function importDispatch(req, res, injected = {}) {
   const step = String(req.query.step || req.body?.step || '').toLowerCase();
   const sendErr = e => send(res, e.status || 500, {
     error: e.message || 'Machinery import failed',
-    details: e.details
+    details: e.details,
+    // The storage diagnosis rides along: "the table does not exist" is not a
+    // failed import, it is an unconfigured database, and the two must not be
+    // reported with the same sentence.
+    stage: e.stage || null,
+    storage: e.storage || null,
+    ownerAction: e.storage?.ownerAction || null
   });
 
   // requireUser() throws with a status on failure — it does NOT return {ok}.
@@ -699,8 +882,36 @@ async function seoDispatch(req, res, action, injected = {}) {
 }
 
 export default async function handler(req, res, injected = {}) {
-  if (req.method === 'GET' && req.query.capabilities === 'machinery')
-    return send(res, 200, {version:2, audit:true, recoverImports:true});
+  // ---- Capability probe -----------------------------------------------------
+  // The nightly workflow calls this BEFORE dispatching a job, so an old
+  // deployment cannot be handed a job name it does not understand. 2026-10-11:
+  // it now also answers the question the failures were really about — is the
+  // machinery table there? `storage.ok:false` is not a transient error: it means
+  // the migration has not been applied, and it is reported as HTTP 503 with the
+  // file to run, so the workflow fails loudly with the cause instead of
+  // detonating later inside the sync job as a bare HTTP 500.
+  if (req.method === 'GET' && req.query.capabilities === 'machinery') {
+    // `probe=storage` asks for the read. It is opt-in so the shipped workflow,
+    // which only parses version/audit/recoverImports, keeps working untouched.
+    if (String(req.query.probe || '') !== 'storage')
+      return send(res, 200, {version:2, audit:true, recoverImports:true});
+    let db;
+    try { db = injected.db || adminClient(); }
+    catch (e) {
+      return send(res, 503, {
+        version: 2, audit: true, recoverImports: true,
+        storage: { ok: false, state: 'database-configuration', message: e.message },
+        migration: MACHINERY_MIGRATION_FILE, schemaReload: MACHINERY_SCHEMA_RELOAD,
+        ownerAction: 'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in Vercel → Settings → Environment Variables.'
+      });
+    }
+    const storage = await machineryStorageStatus(db);
+    return send(res, storage.ok ? 200 : 503, {
+      version: 2, audit: true, recoverImports: true, storage,
+      migration: MACHINERY_MIGRATION_FILE, schemaReload: MACHINERY_SCHEMA_RELOAD,
+      ownerAction: storage.ok ? null : storage.ownerAction
+    });
+  }
   // ---- Vehicle sitemap dispatch: /api/sitemap-vehicles.xml rewrites here
   // with ?sitemap=vehicles. Kept inside this function so the deployment
   // stays at 12 Serverless Functions (Vercel Hobby cap) — see the block
@@ -719,6 +930,10 @@ export default async function handler(req, res, injected = {}) {
   // calls are dispatched through this existing function (no new Vercel route).
   const seoAction = String(req.query.seo || '');
   if (seoAction) return seoDispatch(req, res, seoAction, injected);
+
+  // ---- AI Growth agents: ?agents=overview|config|run|approve|execute|cancel|draft
+  const agentAction = String(req.query.agents || '');
+  if (agentAction) return agentDispatch(req, res, agentAction, injected);
 
   // ---- Machinery desk: ?machinery=list|create|update|delete|publish|
   // unpublish|archive. Dispatched here rather than in its own file so the

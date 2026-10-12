@@ -147,6 +147,90 @@ function devMachineryDb() {
   };
 }
 
+// ---------------------------------------------------------------------------
+// AI Growth (CRM → AI Growth) in a key-less preview.
+//
+// The desk is a management area: it must be visible without a database, so the
+// preview serves a small, clearly-marked example state — three configured
+// agents, one run each, and DRAFTS waiting for review. It never claims anything
+// was published, sent or posted, the run button explains that agents run on the
+// deployed site, and the provider status reports "no key", which is the truth
+// in a preview. Approve / reject / cancel / execute work in memory so the
+// review flow can be walked end to end.
+// ---------------------------------------------------------------------------
+const DEV_AI = {
+  generatedAt: '2026-10-11T07:05:00.000Z',
+  demo: true,
+  settings: { enabled: true, emergencyStop: false, dryRunDefault: true, maxRunsPerDay: 6, provider: 'gemini' },
+  provider: { configured: false, name: 'formatter', model: 'gemini-3.8-flash', tier: 'free',
+    note: 'Preview only: no GEMINI_API_KEY here, so drafts come from the no-key factual formatter.' },
+  note: 'Read-only in this preview. Every draft below is a PROPOSAL: nothing has been published, sent or posted.',
+  agents: [
+    { id: 'dev-ai-leads', agent: 'leads', label: 'Lead Gen & CRM', enabled: true, paused: false, dry_run: true,
+      max_items_per_run: 3, max_runs_per_day: 4, require_approval: true, autopublish: false, schedule_cron: '5 7 * * 1-5', timezone: 'Asia/Karachi' },
+    { id: 'dev-ai-seo', agent: 'seo', label: 'SEO Engine', enabled: false, paused: false, dry_run: true,
+      max_items_per_run: 2, max_runs_per_day: 2, require_approval: true, autopublish: false, schedule_cron: '35 6 * * 2,5', timezone: 'Asia/Karachi' },
+    { id: 'dev-ai-social', agent: 'social', label: 'Social Media', enabled: false, paused: true, dry_run: true,
+      max_items_per_run: 3, max_runs_per_day: 2, require_approval: true, autopublish: false, schedule_cron: '10 8 * * *', timezone: 'Asia/Karachi' }
+  ],
+  runs: [
+    { id: 'dev-run-1', agent: 'leads', status: 'awaiting_review', mode: 'dry-run', trigger: 'manual',
+      requested_by: 'Owner', created_at: '2026-10-11T07:05:00.000Z', started_at: '2026-10-11T07:05:01.000Z',
+      finished_at: '2026-10-11T07:05:03.000Z', counts: { attempted: 1, succeeded: 1, skipped: 0, failed: 0, drafted: 1 },
+      provider: { name: 'formatter', model: null, usage: null },
+      steps: [
+        { step: 'settings', state: 'ok', detail: 'AI Growth enabled; dry run; approval required' },
+        { step: 'lease', state: 'ok', detail: 'lease acquired for this run only' },
+        { step: 'enquiry', state: 'ok', detail: 'consent granted; contact allowed' },
+        { step: 'readiness', state: 'ok', detail: 'scored with evidence (ar7-readiness-1)' },
+        { step: 'stock-match', state: 'ok', detail: 'matched published, Available stock only' },
+        { step: 'draft', state: 'ok', detail: 'reply draft prepared for review — nothing sent' }
+      ] }
+  ],
+  drafts: [
+    { id: 'dev-draft-1', agent: 'leads', run_id: 'dev-run-1', kind: 'lead-reply', status: 'awaiting_review',
+      title: 'Reply draft — Toyota Harrier enquiry (Kenya)', target: '/machinery',
+      created_at: '2026-10-11T07:05:03.000Z',
+      body: 'Thank you for your enquiry.\n\nFor the 2021 Toyota Harrier you asked about, we can confirm the current stock and the export documents that travel with it. Freight and insurance to Mombasa are quoted per vessel booking, so the CIF figure is confirmed by quotation rather than estimated here.\n\nNext step: confirm your preferred vessel month and the receiving port, and we will send the quotation.',
+      meta: {
+        provider: null,
+        enquirySummary: 'Enquiry about a Toyota Harrier, budget stated, ready to buy this week, destination Kenya.',
+        cif: { available: false, label: 'Quotation required', missing: ['freight', 'insurance rate'] },
+        score: { rubric: 'ar7-readiness-1', score: 7, max: 10,
+          evidence: [{ points: 2, reason: 'Budget stated' }, { points: 2, reason: 'Stated timeframe ("this week")' },
+            { points: 2, reason: 'Destination country named (Kenya)' }, { points: 1, reason: 'Named model' }],
+          missing: ['Vessel month', 'Receiving port'],
+          consent: { state: 'granted', mayContact: true },
+          disclaimer: 'This score prioritises follow-up. It is not a credit check, a financial assessment or a judgement about the person.' },
+        stock: { matches: [{ ref: 'AR7-EX-0001', name: 'Sany SY215C', href: '/machinery/excavator/AR7-EX-0001', priceBasis: 'Indicative FOB, USD (confirmed by quotation)', checkedAt: '2026-10-11T07:05:02.000Z' }] },
+        warnings: ['Nothing has been sent. Sending requires an approved draft and a configured WhatsApp connection.']
+      } },
+    { id: 'dev-draft-2', agent: 'seo', run_id: null, kind: 'brief', status: 'awaiting_review',
+      title: 'Research brief — Japan to Kenya car shipping documents', target: '/destinations/kenya',
+      created_at: '2026-10-11T06:35:00.000Z',
+      body: 'Evidence is not sufficient for a draft.\n\nWhat is missing: verified source notes (at least 80 characters) with dated references.\n\nNext step: collect dated, citable facts (port/route documentation, official notices) and record where each came from. Do not publish anything until the facts exist.',
+      meta: { measured: false, sources: [], warnings: ['Speculative keyword idea — no measured search volume is claimed.'] } },
+    { id: 'dev-draft-3', agent: 'social', run_id: null, kind: 'social-post', status: 'approved',
+      title: 'Post — Sany SY215C (AR7-EX-0001)', target: 'AR7-EX-0001', created_at: '2026-10-11T08:10:00.000Z',
+      approved_by: 'Owner',
+      body: 'Sany SY215C — stock ref AR7-EX-0001\n2020 model year · 4,200 hours · Excavator · located in Shanghai\nIndicative FOB USD 88,000 — confirmed by quotation.\n\nAvailable from our China desk. DM or WhatsApp the stock ref for the full specification sheet and a CIF quotation to your port.',
+      meta: { captions: { instagram: 'Sany SY215C — stock ref AR7-EX-0001 …', linkedin: 'Sany SY215C — stock ref AR7-EX-0001 …', whatsapp: 'Sany SY215C (stock AR7-EX-0001) listed for export by AR7 Traders' },
+        altText: 'Yellow Sany SY215C excavator on a yard, photographed from the front left.',
+        accounts: { instagram: 'not configured', linkedin: 'not configured', whatsapp: 'not configured' },
+        publicationBlockers: ['No authorised Instagram connection is configured — approve exports the caption for a person to post.'],
+        media: ['/assets/machinery/doosan-dx250lca-1.webp'], specCard: 'Sany SY215C · 2020 · 4,200 h · Shanghai · FOB USD 88,000 (indicative)' } }
+  ],
+  locks: [],
+  usage: [{ id: 'dev-usage-1', provider: 'formatter', feature: 'leads', day: '2026-10-11', requests: 1, tokens_in: 0, tokens_out: 0, errors: 0, last_state: 'no provider key — factual formatter used' }]
+};
+DEV_AI.counts = {
+  awaitingReview: DEV_AI.drafts.filter(d => d.status === 'awaiting_review').length,
+  approved: DEV_AI.drafts.filter(d => d.status === 'approved').length,
+  executed: DEV_AI.drafts.filter(d => d.status === 'executed').length,
+  failed: DEV_AI.runs.filter(r => ['failed', 'partially_completed'].includes(r.status)).length,
+  running: DEV_AI.runs.filter(r => r.status === 'running').length
+};
+
 export function devApiMock() {
   return {
     name: 'ar7-dev-api-mock',
@@ -224,6 +308,108 @@ export function devApiMock() {
             res.statusCode = 500;
             return res.end(JSON.stringify({ error: e.message }));
           }
+        });
+      });
+
+      // Machinery list, as production answers when the migration has not been
+      // run. Without this branch the preview always looks healthy, and the one
+      // failure the desk exists to explain cannot be seen. ?dev=stranded forces
+      // it; the default ?machinery=doctor answer mirrors machineryDoctor().
+      server.middlewares.use('/api/site-content', (req, res, next) => {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        if (params.get('machinery') !== 'doctor') return next();
+        res.setHeader('Content-Type', 'application/json');
+        const healthy = !String(params.get('dev') || '').includes('stranded');
+        return res.end(JSON.stringify(healthy ? {
+          ok: true, readOnly: true, storage: { ok: true, state: 'ok', table: 'machinery', migration: null },
+          catalogue: { source: 'database', note: 'Reading stored machines.' }, inventory: { total: 12, published: 12, hiddenImported: 0 },
+          checks: [
+            { name: 'Machinery storage readable', ok: true, detail: 'public.machinery answered 12 row(s).' },
+            { name: 'Public catalogue source', ok: true, detail: 'Database rows are being served (not the built-in fallback).', fix: null },
+            { name: 'Hidden eligible imports', ok: true, detail: 'No hidden published-eligible imports.', fix: null }
+          ],
+          ownerAction: null, note: 'Read-only diagnostic. Nothing was changed.'
+        } : {
+          ok: false, readOnly: true, storage: { ok: false, state: 'missing-table', table: 'machinery', migration: 'supabase/MIGRATION-2026-10-machinery.sql' },
+          catalogue: { source: 'built-in-fallback', note: 'The public catalogue is showing the catalogue that ships with the site.' },
+          inventory: { total: 0, published: 0 },
+          checks: [
+            { name: 'Machinery storage readable', ok: false, detail: "Could not find the table 'public.machinery' in the schema cache", fix: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor, then run: select pg_notify(\'pgrst\',\'reload schema\');' },
+            { name: 'Public catalogue source', ok: false, detail: 'The public catalogue is showing the built-in fallback, so imports cannot appear on the website.', fix: 'Apply the migration above, then reload the schema cache.' },
+            { name: 'Hidden eligible imports', ok: false, detail: 'Cannot be checked while the storage is missing.', fix: null }
+          ],
+          ownerAction: 'Run supabase/MIGRATION-2026-10-machinery.sql in the Supabase SQL editor, then run: select pg_notify(\'pgrst\',\'reload schema\');',
+          note: 'Read-only diagnostic. Nothing was changed.'
+        }));
+      });
+
+      // AI Growth (CRM → AI Growth) and the provider status the desk tests.
+      // Read the DEV_AI block above for what this preview does and does not claim.
+      server.middlewares.use('/api/site-content', (req, res, next) => {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const agentsAction = params.get('agents');
+        const seoAction = params.get('seo');
+        if (!agentsAction && seoAction !== 'ai-status') return next();
+        let raw = '';
+        req.on('data', c => { raw += c; });
+        req.on('end', () => {
+          let body = {};
+          try { body = JSON.parse(raw || '{}'); } catch { body = {}; }
+          res.setHeader('Content-Type', 'application/json');
+          const reply = payload => res.end(JSON.stringify({ ...payload, demo: true }));
+          const draft = id => DEV_AI.drafts.find(d => String(d.id) === String(id));
+          if (seoAction === 'ai-status') {
+            return reply({
+              provider: 'formatter',
+              gemini: { configured: false, model: 'gemini-3.8-flash', defaultModel: 'gemini-3.8-flash', tier: 'free' },
+              openai: { configured: false, model: 'gpt-4o-mini', enabled: false },
+              formatter: { available: true, note: 'The factual formatter needs no key and never invents anything.' },
+              note: 'Preview: GEMINI_API_KEY is not set here. Deploy with the key to enable generated drafts. This code never enables billing and never falls back to a paid provider.',
+              connectionTest: { ok: false, state: 'no-key', model: 'gemini-3.8-flash', keyHint: null, latencyMs: null,
+                message: 'GEMINI_API_KEY is not set in this preview.',
+                ownerAction: 'Add GEMINI_API_KEY in Vercel → Settings → Environment Variables (Production, Preview and Development), then redeploy.' }
+            });
+          }
+          if (agentsAction === 'overview') return reply({ ...DEV_AI, counts: { ...DEV_AI.counts } });
+          if (agentsAction === 'config') return reply({ agents: DEV_AI.agents, settings: DEV_AI.settings });
+          if (agentsAction === 'draft') return reply({ draft: draft(params.get('id')) || null, run: null, messages: [] });
+          if (agentsAction === 'approve') {
+            const d = draft(body.id);
+            if (!d) return reply({ error: 'Draft not found' });
+            d.status = body.approve === false ? 'rejected' : 'approved';
+            DEV_AI.counts = { ...DEV_AI.counts,
+              awaitingReview: DEV_AI.drafts.filter(x => x.status === 'awaiting_review').length,
+              approved: DEV_AI.drafts.filter(x => x.status === 'approved').length };
+            return reply(d);
+          }
+          if (agentsAction === 'cancel') {
+            const d = draft(body.id);
+            if (d) d.status = 'cancelled';
+            return reply(d || { error: 'Draft not found' });
+          }
+          if (agentsAction === 'execute') {
+            const d = draft(body.id);
+            if (!d) return reply({ error: 'Draft not found' });
+            d.status = 'executed';
+            d.result = { action: d.kind === 'brief' ? 'article-created' : 'message-prepared', demo: true,
+              note: d.kind === 'article' || d.kind === 'brief'
+                ? 'Preview: a real run saves an UNPUBLISHED draft in News & guides.'
+                : 'Preview: a real run prepares the message; nothing is sent without a configured connection.' };
+            return reply({ state: 'executed', draft: d, result: d.result });
+          }
+          if (agentsAction === 'config-update') {
+            if (body.agent) { const a = DEV_AI.agents.find(x => x.agent === body.agent); if (a) Object.assign(a, body.agent === a.agent ? Object.fromEntries(Object.entries(body).filter(([k]) => k !== 'agent')) : {}); return reply(a || { error: 'Unknown agent' }); }
+            if (body.global) { Object.assign(DEV_AI.settings, {
+              enabled: 'ai_growth_enabled' in body.global ? body.global.ai_growth_enabled === true || body.global.ai_growth_enabled === 'true' : DEV_AI.settings.enabled,
+              emergencyStop: 'ai_growth_emergency_stop' in body.global ? body.global.ai_growth_emergency_stop === true || body.global.ai_growth_emergency_stop === 'true' : DEV_AI.settings.emergencyStop
+            }); }
+            return reply({ ok: true, settings: DEV_AI.settings });
+          }
+          if (agentsAction === 'run' || agentsAction === 'run-scheduled') {
+            return reply({ state: 'preview', results: [],
+              reason: 'This preview has no database or provider key, so an agent cannot run here. On the deployed site the run is bounded, leased and idempotent, and stops immediately if the emergency stop is on or the agent is disabled.' });
+          }
+          return reply({ error: `Unknown AI Growth action: ${agentsAction || seoAction}` });
         });
       });
 

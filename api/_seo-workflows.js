@@ -4,7 +4,7 @@
 // short non-secret audit summary in the existing activities table.
 import {sign as signData} from 'node:crypto';
 import {send} from './_supabase.js';
-import {keywordIdeas, safeDraftSeo, generateEditorialDraft} from './_seo-content.js';
+import {keywordIdeas, safeDraftSeo, generateEditorialDraft, aiProviderStatus, aiConnectionTest} from './_seo-content.js';
 import {NEWS, articleSlug} from '../src/news-data.js';
 import {
   SITE_CANONICAL_ORIGIN, SITE_SITEMAP_PATHS, canonicalSiteUrl,
@@ -352,7 +352,29 @@ export async function handleSeoWorkflow(req, res, action, {db, auth, injected = 
 
   if (action === 'generate' && method === 'POST') {
     try { return send(res, 200, await generateEditorialDraft(req.body || {}, {env, fetch: fetchImpl})); }
-    catch (e) { return send(res, e.status || 502, {error:e.name === 'TimeoutError' ? 'AI request timed out; nothing was saved.' : e.message}); }
+    catch (e) {
+      // Every provider failure is reported as itself: no-key, invalid-key,
+      // quota-exhausted, rate-limited, timeout, truncated, safety-refusal,
+      // malformed. Nothing is saved, and nothing falls back to a paid provider.
+      return send(res, e.status || 502, {
+        error: e.name === 'TimeoutError' ? 'AI request timed out; nothing was saved.' : e.message,
+        state: e.state || null,
+        provider: e.provider || 'gemini',
+        ownerAction: e.ownerAction || null,
+        saved: false, published: false
+      });
+    }
+  }
+  // Which provider/model this deployment is set to, and a live connection test
+  // that never reveals the key. Read-only: it generates nothing and saves
+  // nothing.
+  if (action === 'ai-status' && (method === 'GET' || method === 'POST')) {
+    const status = aiProviderStatus(env);
+    if (req.query?.test === '1' || req.body?.test === true) {
+      const test = await aiConnectionTest({env, fetch: fetchImpl});
+      return send(res, 200, {...status, connectionTest: test});
+    }
+    return send(res, 200, status);
   }
   if (action === 'optimize-draft' && method === 'POST') {
     return send(res, 200, safeDraftSeo(req.body || {}));

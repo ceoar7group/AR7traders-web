@@ -13,12 +13,192 @@
 // with the service role.
 
 import { RIGHTS, rightsAreUsable, reviewPhotos, IMPORT_STATUS, DEFAULT_RIGHTS, looksWatermarked } from '../src/machinery-source.js';
-import { MACHINE_TYPES } from '../src/machinery-data.js';
+import { MACHINE_TYPES, MACHINES } from '../src/machinery-data.js';
 import { machineRef, machineTypeSlug } from '../src/sitemap-helpers.js';
 
 export { RIGHTS, rightsAreUsable, IMPORT_STATUS };
 
 export const MACHINERY_TABLE = 'machinery';
+
+/**
+ * The single SQL file that creates the table behind every machinery route.
+ *
+ * 2026-10-11: production answered
+ *   GET /api/site-content?machinery=list
+ * with
+ *   {"error":"Could not find the table 'public.machinery' in the schema cache"}
+ * which is PostgREST's way of saying the table does not exist (or is not in the
+ * API schema cache). That one missing table is why the nightly machinery
+ * workflow has returned HTTP 500 on every run, why the audit and recovery
+ * buttons in the CRM could never report anything, and why no import has ever
+ * been stored — the code path was never the problem, the storage was.
+ *
+ * The fix is a database migration, so it can only be run by the project owner:
+ * Supabase → SQL Editor → paste supabase/MIGRATION-2026-10-machinery.sql → Run.
+ * Everything else in this repo explains that failure instead of hiding it.
+ */
+export const MACHINERY_MIGRATION_FILE = 'supabase/MIGRATION-2026-10-machinery.sql';
+
+/** The reload a freshly created PostgREST table needs before the API sees it. */
+export const MACHINERY_SCHEMA_RELOAD = "select pg_notify('pgrst', 'reload schema');";
+
+/** What the owner has to do, in the words the workflow and the CRM print. */
+export const MACHINERY_STORAGE_OWNER_ACTION =
+  `Apply ${MACHINERY_MIGRATION_FILE} in Supabase → SQL Editor, then run ` +
+  `${MACHINERY_SCHEMA_RELOAD} so PostgREST picks the table up. Until then every ` +
+  'machinery read and write fails: the nightly refresh, the audit, the recovery ' +
+  'run and every import confirm.';
+
+/**
+ * Turn a Supabase/PostgREST error into something a human can act on.
+ *
+ * Nothing here guesses: the database is asked a question, and its answer —
+ * PGRST205 / 42P01 (no table), 42703 (no column), 42501 (no permission) — is
+ * translated into the state of the storage plus the one action that fixes it.
+ */
+export function classifyStorageFailure(error) {
+  if (!error) return null;
+  const code = String(error.code || '');
+  const message = String(error.message || error.details || '');
+  if (code === 'PGRST205' || code === 'PGRST204' || code === '42P01' ||
+      /could not find the table|relation .* does not exist|in the schema cache/i.test(message)) {
+    return {
+      state: 'missing-table', code: code || null, message,
+      ownerAction: MACHINERY_STORAGE_OWNER_ACTION,
+      // True when the table probably exists and only the API schema cache is
+      // stale — a reload is enough, and saying so saves a pointless migration.
+      maybeJustCache: code === 'PGRST205' && !/does not exist/i.test(message)
+    };
+  }
+  if (code === '42703' || /column .* does not exist/i.test(message)) {
+    return {
+      state: 'missing-column', code, message,
+      ownerAction: `Re-apply ${MACHINERY_MIGRATION_FILE} (it is safe to re-run) — the table exists but is missing a column this code needs.`
+    };
+  }
+  if (code === '42501' || /permission denied|not authorized/i.test(message)) {
+    return {
+      state: 'permission', code, message,
+      ownerAction: 'The Vercel function is reaching Supabase without the service role. Check SUPABASE_SERVICE_ROLE_KEY and the table grants in Supabase → Table editor → machinery.'
+    };
+  }
+  return {
+    state: 'unknown', code: code || null, message,
+    ownerAction: 'Check the Vercel function log and the Supabase service-role configuration.'
+  };
+}
+
+/**
+ * Is the machinery table actually there? One bounded read — no writes, no
+ * side effects, safe to call from a capability probe or a cron preflight.
+ */
+export async function machineryStorageStatus(db) {
+  const base = { table: MACHINERY_TABLE, migration: MACHINERY_MIGRATION_FILE };
+  let query;
+  try {
+    query = db.from(MACHINERY_TABLE).select('id');
+    // `limit` is not part of every test double, and the read is bounded anyway.
+    if (typeof query?.limit === 'function') query = query.limit(1);
+    const { error } = await query;
+    if (!error) return { ...base, ok: true, state: 'ready' };
+    return { ...base, ok: false, ...classifyStorageFailure(error) };
+  } catch (e) {
+    return {
+      ...base, ok: false, state: 'unreachable', message: e?.message || 'storage probe failed',
+      ownerAction: 'The function could not reach Supabase at all. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel → Settings → Environment Variables.'
+    };
+  }
+}
+
+/**
+ * The machines the PUBLIC WEBSITE is serving when the database cannot supply
+ * them — the built-in catalogue from src/machinery-data.js.
+ *
+ * WHY THIS IS A FUNCTION AND NOT `MACHINES` INLINE
+ * Two places have to agree on "what is the site showing right now": the doctor
+ * (which names the public catalogue source) and the machinery sitemap (which
+ * advertises the pages that exist). The client's own rule is in
+ * hydrateMachines(): an empty or failed response leaves the built-in catalogue
+ * standing, so the machinery pages are NEVER blank. A sitemap that advertised
+ * nothing — or refused with a 503 — would be describing a site that does not
+ * exist, and robots.txt declares that sitemap, so the owner got a Search
+ * Console fetch error for pages that are live and linked.
+ *
+ * Only rows that can be addressed are returned: a machine with no type or no
+ * reference has no URL, and a sitemap must never advertise a dead path.
+ */
+export function builtinCatalogueMachines(fallback = MACHINES) {
+  return (Array.isArray(fallback) ? fallback : [])
+    .map(m => ({
+      type: typeof m?.type === 'string' ? m.type.trim() : '',
+      ref: machineRef(m),
+      status: m?.status || 'Available',
+      published: true,
+      updated_at: null
+    }))
+    .filter(m => m.type && m.ref);
+}
+
+/**
+ * The machinery desk's health check: is the storage there, what does it hold,
+ * and does the public site currently show database rows or the built-in
+ * catalogue? Read-only, and it never throws — a doctor that dies on the
+ * patient's illness is useless.
+ */
+export async function machineryDoctor(db, { fallback = MACHINES } = {}) {
+  const fallbackCount = Array.isArray(fallback) ? fallback.length : 0;
+  const storage = await machineryStorageStatus(db);
+  const report = {
+    job: 'machinery-doctor', readOnly: true, migration: MACHINERY_MIGRATION_FILE,
+    schemaReload: MACHINERY_SCHEMA_RELOAD,
+    storage,
+    // What the public site is showing right now, and where it comes from.
+    catalogue: {
+      database: 0, fallback: fallbackCount,
+      publicSource: 'built-in bundle catalogue (src/machinery-data.js)',
+      note: 'The built-in catalogue is a shipped fallback so the machinery pages render before the database is provisioned. It is NOT imported stock.'
+    },
+    inventory: null,
+    checks: []
+  };
+  if (!storage.ok) {
+    report.ok = false;
+    report.cause = `machinery storage is ${storage.state}`;
+    report.ownerAction = storage.ownerAction;
+    report.checks.push({ check: 'storage', ok: false, detail: storage.state, ownerAction: storage.ownerAction });
+    report.checks.push({ check: 'catalogue-source', ok: true, detail: `public pages fall back to ${fallbackCount} built-in records` });
+    return report;
+  }
+  try {
+    const rows = await readMachineryRows(db);
+    const inventory = machineryVisibility(rows);
+    report.ok = true;
+    report.inventory = inventory;
+    report.catalogue = {
+      database: inventory.total, fallback: fallbackCount,
+      publicSource: inventory.published > 0 ? 'database (published rows)' : 'built-in bundle catalogue (no published database rows yet)',
+      note: inventory.total === 0
+        ? `The database is empty: the public catalogue is the ${fallbackCount} built-in records, not imported stock.`
+        : `${inventory.total} stored row(s); ${inventory.published} published on the site.`
+    };
+    report.checks.push({ check: 'storage', ok: true, detail: `${inventory.total} row(s) readable` });
+    report.checks.push({ check: 'schema', ok: true, detail: 'every column this code writes is present' });
+    if (inventory.counts.hiddenEligible > 0) {
+      report.checks.push({
+        check: 'hidden-imports', ok: false,
+        detail: `${inventory.counts.hiddenEligible} imported Available row(s) are stored but unpublished`,
+        ownerAction: 'CRM → Machinery desk → “Find stored / hidden imports” → “Publish all eligible hidden imports”. Recovery restores rows in place; it never inserts duplicates.'
+      });
+    }
+    return report;
+  } catch (e) {
+    report.ok = false;
+    report.cause = e.message;
+    report.ownerAction = e.storage?.ownerAction || MACHINERY_STORAGE_OWNER_ACTION;
+    report.checks.push({ check: 'storage', ok: false, detail: e.message });
+    return report;
+  }
+}
 
 // Writable columns. Mirrors api/_columns.js: an approval or a PATCH can never
 // set a column the CRUD path would refuse, because both filter through here.
@@ -478,7 +658,19 @@ export async function readMachineryRows(db, { publishedOnly = false, type = null
     const paged = typeof q.range === 'function';
     if (paged) q = q.range(offset, offset + size - 1);
     const { data, error } = await q;
-    if (error) throw Object.assign(new Error(error.message), { status: 500, code: error.code });
+    if (error) {
+      // Carry the classified cause with the throw: every caller (the desk, the
+      // sync job, the sitemap, the scraper's dedupe seed) can then say WHAT is
+      // wrong — a missing table is not a generic "sync failed", and it is not
+      // something a retry fixes.
+      const storage = classifyStorageFailure(error);
+      throw Object.assign(new Error(error.message), {
+        status: storage.state === 'missing-table' ? 503 : 500,
+        code: error.code,
+        storage,
+        stage: 'machinery-storage'
+      });
+    }
     if (!Array.isArray(data)) throw new Error('Machinery database returned no readable rows');
     rows.push(...data);
     if (!paged || data.length < size) return rows;
@@ -501,11 +693,31 @@ export function machineryVisibility(rows) {
       href: visible ? `/machinery/${typeSlugOf(row)}/${normaliseRef(row.ref)}` : null
     };
   });
-  return {
+  // 2026-10-11: the counts the owner asked for, each name meaning exactly one
+  // thing. `hiddenImported` keeps its original meaning (imported and not
+  // published, whatever the reason); `hiddenEligible` is the subset a recovery
+  // run may actually restore in place — Available, valid, imported, hidden.
+  // Archived / Reserved / Sold are counted separately and are never swept up.
+  const counts = {
     total: items.length,
     imported: items.filter(r => r.imported).length,
     published: items.filter(r => r.visibility === 'published').length,
     hiddenImported: items.filter(r => r.imported && r.visibility !== 'published').length,
+    hiddenEligible: items.filter(r => r.imported && r.visibility === 'unpublished' &&
+      r.status === 'Available' && !r.invalid.length).length,
+    unpublished: items.filter(r => r.visibility === 'unpublished').length,
+    archived: items.filter(r => r.status === 'Archived').length,
+    reserved: items.filter(r => r.status === 'Reserved').length,
+    sold: items.filter(r => r.status === 'Sold').length,
+    invalidRoute: items.filter(r => r.visibility === 'invalid-route').length,
+    withoutReference: items.filter(r => !normaliseRef(r.ref)).length
+  };
+  return {
+    total: counts.total,
+    imported: counts.imported,
+    published: counts.published,
+    hiddenImported: counts.hiddenImported,
+    counts,
     items
   };
 }
@@ -676,13 +888,34 @@ export async function deleteMachine(db, id, actor) {
 export async function recoverImportedMachines(db, actor, {confirm = false, ids = null} = {}) {
   if (confirm !== true) throw Object.assign(new Error('Explicit confirmation is required to publish hidden imports'), {status:400});
   const rows = await readMachineryRows(db);
-  const eligible = rows.filter(r => r.published === false && r.status === 'Available' &&
-    (r.imported_at || r.source_url) && !validateRow(r).errors.length &&
-    (!Array.isArray(ids) || ids.includes(r.id)));
+  const wanted = Array.isArray(ids) && ids.length ? new Set(ids.map(String)) : null;
+
+  // Why a stored row is NOT restored — recorded per row, so the desk can show
+  // the exclusions instead of an unexplained smaller number. Archived, Sold
+  // and Reserved rows are deliberately never restored by this path: they are
+  // states a person set, and they stay visible in the private audit.
+  const excluded = [];
+  const eligible = [];
+  for (const r of rows) {
+    const imported = !!(r.imported_at || r.source_url);
+    const invalid = validateRow(r).errors;
+    if (wanted && !wanted.has(String(r.id))) continue;
+    if (r.published === true) continue;
+    if (!imported) { excluded.push({ id: r.id, ref: r.ref, reason: 'not an import (no source link or import timestamp)' }); continue; }
+    if (r.status !== 'Available') { excluded.push({ id: r.id, ref: r.ref, reason: `status is ${r.status || 'unset'} — only Available rows are restored` }); continue; }
+    if (invalid.length) { excluded.push({ id: r.id, ref: r.ref, reason: `invalid record: ${invalid.map(e => e.message).join('; ')}` }); continue; }
+    eligible.push(r);
+  }
+
   const restored = [], failed = [];
   const start = Date.now();
+  let stoppedEarly = false;
   for (const row of eligible.slice(0,100)) {
-    if (Date.now()-start > 40000) break;
+    if (Date.now()-start > 40000) { stoppedEarly = true; break; }
+    // Restore IN PLACE: update the existing row, never insert. The guard
+    // clauses (.eq published=false / Available) are the idempotency key — if a
+    // person or another run changed the row in the meantime the update matches
+    // nothing and the row is reported, not overwritten.
     const {data, error} = await db.from(MACHINERY_TABLE).update({published:true,hold_reason:null,
       published_at:now(),updated_at:now(),published_by:actor?.id || 'owner-recovery',
       published_by_name:actor?.full_name || 'Owner-requested recovery'})
@@ -690,6 +923,20 @@ export async function recoverImportedMachines(db, actor, {confirm = false, ids =
     if (error || !data) failed.push({ref:row.ref,error:error?.message || 'Row changed before recovery; not overwritten'});
     else {restored.push(row.ref); await audit(db,actor,`Recovered hidden import ${row.ref} — owner requested publication`,row.id);}
   }
-  return {restored,failed,remaining:Math.max(0,eligible.length-restored.length),
-    inventory:machineryVisibility(await readMachineryRows(db))};
+  const queued = Math.max(0, eligible.length - restored.length - failed.length);
+  const inventory = machineryVisibility(await readMachineryRows(db));
+  return {
+    job: 'machinery-recover', mode: 'recover',
+    modeLabel: 'Publish existing hidden imports, in place',
+    modeMeaning: 'Re-publishes rows that are already stored. It never inserts a row, so it cannot create a duplicate, and it never touches Archived, Sold or Reserved records.',
+    requested: wanted ? wanted.size : null,
+    eligible: eligible.length, restored, failed, excluded,
+    remaining: queued,
+    stoppedEarly,
+    note: (restored.length ? `${restored.length} hidden import(s) restored in place. ` : 'No eligible hidden imports needed restoring. ')
+      + (failed.length ? `${failed.length} row(s) changed underneath the run and were left alone. ` : '')
+      + (queued ? `${queued} row(s) were not reached inside the run budget — press again; recovery is idempotent. ` : '')
+      + (excluded.length ? `${excluded.length} stored row(s) were deliberately excluded (archived/sold/reserved/invalid) — they stay in the private audit.` : ''),
+    inventory
+  };
 }
