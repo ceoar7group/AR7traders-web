@@ -49,8 +49,8 @@ const KEY_ACTIVATE = (run) => (e) => { if (e.key === 'Enter' || e.key === ' ') {
 // RowActions lives in its own module (src/row-actions.jsx) so the AI Growth desk
 // can reuse it without a circular import. It is imported (the CRM's own tables
 // use it) and re-exported unchanged for every existing caller and the tests.
-import { RowActions } from './row-actions.jsx';
-export { RowActions };
+import { RowActions, placeMenu } from './row-actions.jsx';
+export { RowActions, placeMenu };
 
 const PHOTO_PRESETS = [
   {
