@@ -48,6 +48,10 @@ for (const theme of ['dark', 'light']) {
   ok(missing.length === 0,
     `${theme} defines every token the default theme has${missing.length ? ' — missing ' + missing.join(', ') : ''}`);
 }
+for (const theme of ['emerald', 'dark', 'light']) {
+  ok(css.includes(`.crm-row-menu-panel[data-crm-theme="${theme}"]`),
+    `the portalled row-action panel is in the ${theme} token scope`);
+}
 for (const t of ['--crm-bg', '--crm-panel', '--crm-border', '--crm-ink', '--crm-muted', '--crm-gold', '--crm-primary',
   '--crm-input-bg', '--crm-on-gold', '--crm-danger', '--crm-danger-bg', '--crm-danger-border']) {
   ok(themes.light.has(t) && themes.dark.has(t) && themes.emerald.has(t),
