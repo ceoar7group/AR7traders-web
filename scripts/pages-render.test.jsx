@@ -52,7 +52,7 @@ const ROUTES = {
   '/': ['AR7 Traders', 'hero'],
   '/inventory': ['Find your next', 'inv-toolbar'],
   '/inventory?make=Toyota': ['inv-toolbar', 'brand-context-card'],
-  '/japan-stock': ['japan-stock-page', 'LIVE JAPAN DEALER STOCK'],
+  '/japan-stock': ['inv-toolbar'],   // retired page — resolves to the merged /inventory
   '/auction': ['inner-page'],
   '/services': ['inner-page'],
   '/brands': ['inner-page'],
@@ -193,12 +193,17 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const group = attrsOf(tagOf(stackHtml));
   ok(group.role === 'group' && group['aria-label'] === `Actions for the ${vehicleName(car)}`,
     `the vehicle page renders its actions as a labelled group naming the car ("${group['aria-label']}")`);
-  ok(labels.join(' | ') === 'Enquire now | WhatsApp | Chat Now | Save | Copy link',
-    `the stack reads Enquire now, WhatsApp, Chat Now, Save, Copy link (${labels.join(' | ')})`);
+  ok(labels.join(' | ') === 'Make an offer | Enquire now | WhatsApp | Chat Now | Save | Copy link',
+    `the stack reads Make an offer, Enquire now, WhatsApp, Chat Now, Save, Copy link (${labels.join(' | ')})`);
 
-  const enquire = controls[0] || '';
-  ok(enquire.startsWith('<button') && attrsOf(tagOf(enquire)).class === 'primary' && (stackHtml.match(/class="primary"/g) || []).length === 1,
-    'Enquire now is still the single solid .primary button — the dominant action');
+  const offer = controls[0] || '';
+  ok(offer.startsWith('<button') && attrsOf(tagOf(offer)).class === 'primary' && (stackHtml.match(/class="primary"/g) || []).length === 1,
+    'Make an offer is the single solid .primary button — the dominant action');
+  ok(attrsOf(tagOf(offer))['aria-haspopup'] === 'dialog', 'Make an offer announces that it opens a dialog');
+
+  const enquire = controls[1] || '';
+  ok(enquire.startsWith('<button') && /\boutline-btn\b/.test(attrsOf(tagOf(enquire)).class || ''),
+    'Enquire now stays one step quieter than the offer, as an outline button');
 
   const waHtml = controls.find(c => c.includes('detail-cta--wa')) || '';
   const wa = attrsOf(tagOf(waHtml));
@@ -223,7 +228,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(chat['aria-label'] === 'Chat Now with the AR7 assistant' && chat['aria-haspopup'] === 'dialog',
     'Chat Now has a clear accessible name and announces that it opens a dialog');
 
-  ok(controls.slice(3).every(c => attrsOf(tagOf(c)).class === 'ghost-btn') && labels[3] === 'Save' && labels[4] === 'Copy link',
+  ok(controls.slice(4).every(c => attrsOf(tagOf(c)).class === 'ghost-btn') && labels[4] === 'Save' && labels[5] === 'Copy link',
     'Save and Copy link stay as neutral .ghost-btn utilities in their idle state');
   ok((stackHtml.match(/<div class="detail-actions-row">/g) || []).length === 2,
     'the contact pair and the utility pair each sit in their own row, so they wrap independently');
@@ -401,7 +406,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(home.includes('nav-drop-panel brands-panel'), 'the Brands dropdown panel is in the markup');
   ok(home.includes('nav-drop-panel inventory-panel'), 'the Inventory dropdown panel is in the markup');
   ok(home.includes('Calculators'), 'Calculators is reachable from the More menu');
-  ok(home.includes('/japan-stock'), 'Japan dealer stock is linked in the Inventory dropdown');
+  ok(!home.includes('/japan-stock'), 'the retired /japan-stock page is not linked anywhere on the home page');
 }
 
 // ---- honest public claims ----------------------------------------------------

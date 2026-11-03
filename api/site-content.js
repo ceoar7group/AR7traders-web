@@ -103,9 +103,9 @@ const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
 // crawl must see the real rows rather than a stale fallback.
 const SITEMAP_FALLBACK_CACHE = 'public, max-age=60, s-maxage=120';
 const SITEMAP_MAX_ROWS = 5000;
-// Imported dealer cars are capped separately: the public /japan-stock page
-// reads at most 300 rows, so the sitemap stays in the same order of magnitude
-// while still covering every imported car a visitor can reach.
+// Imported dealer cars are capped separately: the public inventory surface
+// reads at most 300 imported rows, so the sitemap stays in the same order of
+// magnitude while still covering every imported car a visitor can reach.
 const SITEMAP_MAX_IMPORTED = 1000;
 const SITEMAP_UNAVAILABLE = /sold|delist|private|hidden|archived|removed/i;
 

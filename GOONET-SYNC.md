@@ -67,6 +67,8 @@ healthchecks.io) can call the same URL — one call per day is plenty.
 | Delist checks per run | 5 | How many existing cars are verified per run |
 | Weekly delist limit | 5 | Maintenance removes at most this many older cars/week |
 | Weekly auto-promote limit | 2 | Fresh cars auto-promoted to the website per week |
+| Auto-promote per run | = max new cars | Fresh imports each run copies onward (0 = import only) |
+| Auto-promote destination | both | Where a passing import goes: website, CRM inventory, or both |
 | JPY → USD rate | 0.0068 | Used for estimated US prices |
 
 What a run does, in order:
@@ -78,14 +80,21 @@ What a run does, in order:
 2. **Quality gate**: for each new car, fetch its detail page, count photos,
    read price/year/mileage/condition — only import cars that pass. Skipped
    cars are listed in the run report.
-3. **Delist check**: a few existing cars are re-visited; if Goo-net shows the
+3. **Same-run promotion** (2026-11): cars imported by THIS run are copied
+   straight on to the public website and/or the CRM inventory (the
+   auto-promote destination setting, default both), bounded per run. The
+   `promoted` flag is written only after a copy lands, both copies upsert by
+   stock number (no duplicates), and rows imported on *earlier* runs — the
+   unpromoted backlog — are never swept up automatically: promoting those is
+   an owner decision in the CRM.
+4. **Delist check**: a few existing cars are re-visited; if Goo-net shows the
    car is gone (404 or the "listed until …" notice), it is **delisted** — it
    disappears from the *Japan dealer stock* page, and if it had been promoted
    to the website, that listing is hidden too (`published=false`, reversible).
-4. **Weekly maintenance** (once per 7 days): delists a *few* older/lower-quality
+5. **Weekly maintenance** (once per 7 days): delists a *few* older/lower-quality
    cars, and auto-promotes a *few* fresh high-quality cars to the website so
    stock keeps growing without ever flooding the site.
-5. Writes the run timestamps/settings. The page bookmark has already advanced
+6. Writes the run timestamps/settings. The page bookmark has already advanced
    only if step 1 yielded a readable listing; otherwise it stays held for the
    next run.
 

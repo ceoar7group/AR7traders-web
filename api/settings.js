@@ -41,6 +41,11 @@ const WRITABLE_KEYS = new Set([
   'goonet_max_new_per_run', 'goonet_max_delist_per_run',
   'goonet_weekly_delist_limit', 'goonet_weekly_promote_limit',
   'goonet_jpy_usd_rate', 'goonet_bookmark_page', 'goonet_auto_promote',
+  // Per-run promotion (2026-11-03): where a passing import is copied the
+  // moment it lands ('listings' | 'vehicles' | 'both') and how many fresh
+  // rows one run may promote. The stuck-bookmark auto-reset stays opt-in.
+  'goonet_auto_promote_target', 'goonet_max_promote_per_run',
+  'goonet_auto_reset_bookmark',
   'goonet_last_run_at', 'goonet_last_weekly_delist', 'goonet_last_weekly_promote',
   // The machinery importer's rules (2026-10-08). They were already readable
   // through machinerySettings() but not WRITABLE here, so the CRM's "Make

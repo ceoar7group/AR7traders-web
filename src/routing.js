@@ -13,8 +13,14 @@
 export const PAGES = new Set([
   'home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
   'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'account',
-  'portal', 'crm', 'studio', 'shipping', 'japan-stock', 'machinery', 'seo'
+  'portal', 'crm', 'studio', 'shipping', 'machinery', 'seo'
 ]);
+
+// Pages that used to exist and now live elsewhere. /japan-stock was folded
+// into /inventory (2026-11): the public site has ONE all-cars page, and the
+// imported dealer cars are part of it. Old links, bookmarks and hashes must
+// land on the inventory list — never on a 404 or a stale duplicate surface.
+export const PAGE_REDIRECTS = Object.freeze({ 'japan-stock': 'inventory' });
 
 export const LAST_VEHICLE_KEY = 'ar7-open-vehicle';
 
@@ -164,9 +170,15 @@ export function parseRoute(loc = {}, { restoreOnReload = false } = {}) {
     // the URLs a search engine can reach, share and rank (2026-10-08).
     page = 'destinations';
     destSlug = slugify(decodeRef(parts[1])) || null;
+  } else if (parts[0] && PAGE_REDIRECTS[parts[0]]) {
+    // A retired page — resolve straight to its successor (e.g. /japan-stock
+    // → the merged /inventory list).
+    page = PAGE_REDIRECTS[parts[0]];
   } else if (parts[0] && PAGES.has(parts[0])) {
     page = parts[0];
     carId = carFrom(parts[1], params.get('car'), hashed.carId);
+  } else if (hashed.page && PAGE_REDIRECTS[hashed.page]) {
+    page = PAGE_REDIRECTS[hashed.page];
   } else if (hashed.page && PAGES.has(hashed.page)) {
     page = hashed.page;
     carId = hashed.carId || carFrom(params.get('car'));

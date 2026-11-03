@@ -35,15 +35,24 @@ ok(!/goo-net\.com/i.test(html), 'index.html links no goo-net.com URL');
 ok(!/goo-net\.com/i.test(seo), 'src/seo.js names no goo-net.com URL');
 
 console.log('\n-- the source is not named in customer-facing copy or meta --');
-const japanStock = main.slice(main.indexOf('function JapanStockPage'), main.indexOf('function InnerPage'));
-ok(japanStock.length > 0, 'the JapanStockPage source block was found');
-ok(!SOURCE_NAME.test(japanStock), 'the Japan dealer stock page copy never names the source');
+// 2026-11-03: JapanStockPage is retired — imported dealer cars now surface on
+// the merged /inventory page, so the guard covers the whole public app file
+// (stored photo-host URLs and the internal endpoint id are excluded above).
+const publicCopy = main
+  .replace(/https:\/\/picture1\.goo-net\.com\/[^'"\s]*/g, '')
+  .replace(/goonet[-_a-z]*/gi, '')
+  // Service-level marketing copy (reviews/services pages) names the source as
+  // deliberate SEO per the owner's rule above — only that exact phrase is
+  // exempt; listings, cards and detail pages must never name it.
+  .replace(/Goo-net dealer stock/g, '');
+ok(!main.includes('function JapanStockPage'), 'the retired JapanStockPage component stays deleted');
+ok(!SOURCE_NAME.test(publicCopy), 'the public app copy never names the source');
 ok(!/Goo-?\s?net/i.test(html), 'index.html copy never names the source');
 ok(!/Goo-?\s?net/i.test(llms), 'public/llms.txt never names the source');
 ok(!/Goo-?\s?net/i.test(robots), 'public/robots.txt never names the source');
 ok(!/Goo-?\s?net/i.test(sitemap), 'the sitemap never names the source');
 ok(!/Goo-?\s?net/i.test(seo), 'meta titles/descriptions never name the source');
-ok(/LIVE JAPAN DEALER STOCK/.test(japanStock), 'the Japan dealer stock kicker reads as Japan stock, not as the source');
+ok(/Japan Stock/.test(main), 'the inventory grouping labels imported cars as Japan stock, not as the source');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

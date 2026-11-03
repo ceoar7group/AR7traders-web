@@ -167,7 +167,6 @@ const en = {
   'footer.explore': 'EXPLORE',
   'footer.company': 'COMPANY',
   'footer.inventory': 'Inventory',
-  'footer.japanStock': 'Japan dealer stock',
   'footer.auction': 'Auction access',
   'footer.machinery': 'Machinery & equipment',
   'footer.services': 'Services',

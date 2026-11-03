@@ -184,7 +184,14 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
             <li><Settings2/> Attachments and specifications can be changed to your requirement</li>
           </ul>
           <div className="mch-detail-actions">
-            <button className="primary" type="button" onClick={onQuote}>Request a quotation <ArrowRight/></button>
+            <button className="primary" type="button" aria-haspopup="dialog"
+              onClick={() => onQuote({ kind: 'machinery-offer', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref })}>
+              Make an offer <ArrowRight/>
+            </button>
+            <button className="outline-btn" type="button" aria-haspopup="dialog"
+              onClick={() => onQuote({ kind: 'machinery', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref })}>
+              Request a quotation
+            </button>
             <button className="mch-chat" type="button" onClick={onChat} aria-label={`Ask about the ${machine.name} on WhatsApp`}><MessageCircle/></button>
           </div>
           <p className="mch-detail-note">

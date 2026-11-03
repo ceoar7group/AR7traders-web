@@ -1270,7 +1270,18 @@ export default function CrmApp() {
         : `Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
       await loadAll();
     } catch (e) {
-      setNotice(e.message);
+      // A failed crawl now carries a structured `failure` report. Render the
+      // whole picture — which page, timeout vs blocked, what the relay did,
+      // whether the relay runs keyless, and the suggested owner action — so
+      // "This operation was aborted" never again stands alone as the answer.
+      const f = e.body?.failure;
+      setNotice(f ? [
+        e.message,
+        `Direct: ${f.timedOut ? 'timed out' : f.directStatus ? 'HTTP ' + f.directStatus : (f.directError || 'failed')}${f.retried ? ' (retried once)' : ''}`,
+        `Relay: ${f.relayAttempted ? (f.relayError || (f.relayStatus ? 'HTTP ' + f.relayStatus : 'failed')) : 'not attempted'} · key ${f.relayKey || '?'}`,
+        f.fallbackTried ? `Fallback page 1: ${f.fallbackError || 'also failed'}` : null,
+        f.failCount > 1 ? `This page has failed ${f.failCount} run(s) in a row.` : null
+      ].filter(Boolean).join(' — ') : e.message);
     } finally {
       setSyncing(false);
     }
@@ -2758,6 +2769,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
     ['goonet_max_delist_per_run', 'Delist checks per run', 'How many existing cars are verified per run'],
     ['goonet_weekly_delist_limit', 'Weekly delist limit', 'Max older cars the weekly maintenance removes'],
     ['goonet_weekly_promote_limit', 'Weekly auto-promote limit', 'Max fresh cars promoted to the website per week'],
+    ['goonet_max_promote_per_run', 'Auto-promote per run', 'Max fresh imports each run copies onward (blank = same as max new cars)'],
     ['goonet_jpy_usd_rate', 'JPY → USD rate', 'Used for estimated US prices']
   ];
 
@@ -2797,9 +2809,19 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
               </label>
             ))}
             <label className="crm-check-field">
-              <span>Auto-promote fresh cars to the website each week</span>
+              <span>Auto-promote passing imports (each run + weekly sweep)</span>
               <input type="checkbox" checked={(settingsForm?.goonet_auto_promote ?? 'true') === 'true'} disabled={!isAdmin}
                 onChange={e => setSettingsForm(v => ({ ...v, goonet_auto_promote: e.target.checked ? 'true' : 'false' }))} />
+            </label>
+            <label>
+              Auto-promote destination
+              <select value={settingsForm?.goonet_auto_promote_target ?? 'both'} disabled={!isAdmin}
+                onChange={e => setSettingsForm(v => ({ ...v, goonet_auto_promote_target: e.target.value }))}>
+                <option value="both">Website + CRM inventory (both)</option>
+                <option value="listings">Website only</option>
+                <option value="vehicles">CRM inventory only</option>
+              </select>
+              <small>Where a passing import is copied the moment it lands</small>
             </label>
           </div>
           <footer>

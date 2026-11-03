@@ -159,10 +159,10 @@ ok(document.querySelector('.site'), 'the site shell renders');
 const ROUTES = [
   ['/', 'Cars from Japan'],
   ['/inventory', 'inv-toolbar'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],   // retired page: resolves to the merged /inventory list
   ['/services', 'AR7 SERVICE'],
   ['/machinery', 'Machines sourced from China'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],
   ['/brands', 'brands'],
   ['/tools', 'Calculator'],
   ['/auction', 'AUCTION'],
@@ -182,7 +182,7 @@ const ROUTES = [
   ['/account', 'AR7'],
   ['/studio', 'AR7'],
   ['/portal', 'portal-demo'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],
   ['/crm', 'crm-'],
   ['/inventory', 'inv-toolbar'],
   ['/services', 'AR7 SERVICE']
@@ -205,12 +205,16 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   if (invBtn) {
     await act(async () => { invBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
     ok(invBtn.getAttribute('aria-expanded') === 'true', 'clicking Inventory sets aria-expanded');
+    // /japan-stock is retired: the dropdown carries no link to it any more,
+    // and imported dealer cars live in All Inventory.
     const jpLink = [...document.querySelectorAll('.inventory-panel a')].find(a => (a.textContent || '').trim() === 'Japan dealer stock');
-    ok(!!jpLink, 'Japan dealer stock is in the Inventory dropdown');
-    if (jpLink) {
-      await act(async () => { jpLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
-      ok(location.pathname === '/japan-stock' || document.body.textContent.includes('LIVE JAPAN DEALER STOCK'),
-        'clicking Japan dealer stock lands on the Japan dealer stock page');
+    ok(!jpLink, 'the retired Japan dealer stock page is no longer linked from the Inventory dropdown');
+    const invLink = [...document.querySelectorAll('.inventory-panel a')].find(a => (a.textContent || '').trim() === 'All Inventory');
+    ok(!!invLink, 'All Inventory is in the Inventory dropdown');
+    if (invLink) {
+      await act(async () => { invLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+      ok(location.pathname === '/inventory' || document.body.innerHTML.includes('inv-toolbar'),
+        'clicking All Inventory lands on the merged inventory page');
     }
     await act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     ok(invBtn.getAttribute('aria-expanded') === 'false', 'Escape closes the Inventory panel');

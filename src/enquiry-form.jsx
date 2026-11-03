@@ -11,6 +11,8 @@ const SOURCE = {
   auction: 'Auction access',
   vehicle: 'Vehicle enquiry',
   machinery: 'Machinery enquiry',
+  'vehicle-offer': 'Vehicle offer',
+  'machinery-offer': 'Machinery offer',
 };
 
 const COPY = {
@@ -46,6 +48,22 @@ const COPY = {
     successTitle: 'Quotation request received.',
     successBody: 'Your request has been saved. Our machinery desk will contact you with availability and a quotation.',
   },
+  'vehicle-offer': {
+    kicker: 'MAKE AN OFFER',
+    title: 'Make an offer on this vehicle.',
+    body: 'Name your price and our team will negotiate with you directly. An offer is a starting point for the conversation — it is never charged or accepted automatically.',
+    submit: 'Send my offer',
+    successTitle: 'Offer received.',
+    successBody: 'Your offer has been saved as a negotiation request. Our team will contact you to agree the final price — nothing is accepted or charged automatically.',
+  },
+  'machinery-offer': {
+    kicker: 'MAKE AN OFFER',
+    title: 'Make an offer on this machine.',
+    body: 'Name your price and our machinery desk will negotiate with you directly. An offer is a starting point for the conversation — it is never charged or accepted automatically.',
+    submit: 'Send my offer',
+    successTitle: 'Offer received.',
+    successBody: 'Your offer has been saved as a negotiation request. Our machinery desk will contact you to agree the final price — nothing is accepted or charged automatically.',
+  },
 };
 
 function copyFor(kind, t) {
@@ -80,6 +98,7 @@ export function EnquiryForm({ kind = 'contact', initialValues = {}, onSuccess, o
   const { t } = useLang();
   const uid = useId().replace(/:/g, '');
   const copy = copyFor(kind, t);
+  const isOffer = kind === 'vehicle-offer' || kind === 'machinery-offer';
   const formRef = useRef(null);
   const successRef = useRef(null);
   const busyRef = useRef(false);
@@ -107,7 +126,9 @@ export function EnquiryForm({ kind = 'contact', initialValues = {}, onSuccess, o
     if (busyRef.current) return;
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form).entries());
-    const nextErrors = validateLead(values, { requireEmail: true });
+    // Offers are phone-first: email stays optional (but must be valid when
+    // given), exactly like the API boundary.
+    const nextErrors = validateLead(values, { requireEmail: !isOffer });
     setErrors(nextErrors);
     setApiError('');
     if (Object.keys(nextErrors).length) {
@@ -181,8 +202,8 @@ export function EnquiryForm({ kind = 'contact', initialValues = {}, onSuccess, o
         </Field>
 
         <div className="enquiry-row">
-          <Field id={fieldId('email')} label={t('enq.email')} required error={errors.email}>
-            {props => <input {...props} name="email" required type="email" maxLength={200} autoComplete="email" inputMode="email" placeholder="you@email.com" defaultValue={initialValues.email || ''} onChange={() => clearError('email')} />}
+          <Field id={fieldId('email')} label={t('enq.email')} required={!isOffer} optional={isOffer} error={errors.email}>
+            {props => <input {...props} name="email" required={!isOffer} type="email" maxLength={200} autoComplete="email" inputMode="email" placeholder="you@email.com" defaultValue={initialValues.email || ''} onChange={() => clearError('email')} />}
           </Field>
           <Field id={fieldId('phone')} label="Contact phone number" required error={errors.phone} hint="Include your country code if you can, for example +92 300 1234567.">
             {props => <input {...props} name="phone" required type="tel" inputMode="tel" autoComplete="tel" maxLength={40} placeholder="+92 300 1234567" defaultValue={initialValues.phone || ''} onChange={() => clearError('phone')} />}
@@ -198,10 +219,20 @@ export function EnquiryForm({ kind = 'contact', initialValues = {}, onSuccess, o
               </select>
             )}
           </Field>
-          <Field id={fieldId('vehicle_interest')} label={kind === 'machinery' ? 'Machine you need' : t('enq.vehicle')} optional>
-            {props => <input {...props} name="vehicle_interest" maxLength={180} autoComplete="off" placeholder={kind === 'machinery' ? 'e.g. 20-ton excavator' : t('enq.vehiclePlaceholder')} defaultValue={initialValues.vehicle_interest || ''} />}
+          <Field id={fieldId('vehicle_interest')} label={isOffer ? (kind === 'machinery-offer' ? 'Machine' : 'Vehicle') : kind === 'machinery' ? 'Machine you need' : t('enq.vehicle')} optional>
+            {props => <input {...props} name="vehicle_interest" maxLength={180} autoComplete="off" placeholder={kind === 'machinery' || kind === 'machinery-offer' ? 'e.g. 20-ton excavator' : t('enq.vehiclePlaceholder')} defaultValue={initialValues.vehicle_interest || ''} />}
           </Field>
         </div>
+
+        {isOffer && (
+          <>
+            <input type="hidden" name="stock_ref" value={initialValues.stock_ref || ''} />
+            <Field id={fieldId('offer_amount')} label="Your offer (USD)" optional error={errors.offer_amount}
+              hint="A starting point for negotiation — nothing is accepted or charged automatically.">
+              {props => <input {...props} name="offer_amount" inputMode="decimal" maxLength={12} autoComplete="off" placeholder="e.g. 12500" defaultValue={initialValues.offer_amount || ''} onChange={() => clearError('offer_amount')} />}
+            </Field>
+          </>
+        )}
 
         <Field id={fieldId('message')} label={kind === 'contact' ? 'How can we help?' : 'Your message'} optional>
           {props => <textarea {...props} name="message" rows={4} maxLength={2000} autoComplete="off" placeholder={kind === 'contact' ? 'Tell us about the vehicle, machinery, or service you need.' : 'Share your question, budget, destination port, or timing.'} defaultValue={initialValues.message || ''} />}

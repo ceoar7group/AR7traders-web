@@ -179,6 +179,82 @@ await goto('/inventory/AR7-26001');
   fill(dialog.querySelector('form'));
   await submit(dialog.querySelector('form'));
   ok(leadCalls.at(-1).source === 'Vehicle enquiry', 'vehicle enquiry is tagged distinctly in the lead payload');
+  await act(async () => { dialog.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
+  await flush();
+}
+
+process.stdout.write('\nMake an offer — a persisted negotiation lead, never auto-acceptance\n');
+{
+  const offerBtn = [...document.querySelectorAll('button')].find(b => /Make an offer/.test(b.textContent));
+  ok(!!offerBtn, 'the vehicle detail page carries a primary "Make an offer" action');
+  await click(offerBtn);
+  const dialog = document.querySelector('[role="dialog"]');
+  ok(!!dialog && /Make an offer on this vehicle/.test(dialog.textContent), 'the offer dialog is labelled as an offer');
+  ok(/never charged or accepted automatically/i.test(dialog.textContent), 'the dialog says an offer is negotiation, not automatic acceptance');
+  ok(/Rolls-Royce Ghost/.test(dialog.querySelector('[name="vehicle_interest"]').value), 'the offer keeps the vehicle context');
+  ok(dialog.querySelector('[name="stock_ref"]').value === 'AR7-26001', 'the stock reference travels with the offer');
+  ok(dialog.querySelector('[name="phone"]').required, 'an offer requires a contact phone');
+  ok(!dialog.querySelector('[name="email"]').required, 'email stays optional for phone-first offer buyers');
+
+  const form = dialog.querySelector('form');
+  const amount = form.querySelector('[name="offer_amount"]');
+  ok(!!amount && amount.inputMode === 'decimal', 'the offer amount field uses numeric input semantics');
+  fill(form);
+  setValue(amount, 'twenty grand');
+  const before = leadCalls.length;
+  await submit(form);
+  ok(leadCalls.length === before, 'a non-numeric offer amount blocks submission on the client');
+  ok(form.querySelector('[name="offer_amount"]').getAttribute('aria-invalid') === 'true', 'the bad amount is flagged accessibly');
+  ok(!document.querySelector('.enquiry-success'), 'a blocked offer never shows success');
+
+  setValue(form.querySelector('[name="offer_amount"]'), '18500');
+  await submit(form);
+  ok(leadCalls.length === before + 1, 'a valid offer submits exactly once');
+  const payload = leadCalls.at(-1);
+  ok(payload.source === 'Vehicle offer', 'the offer is tagged with the Vehicle offer source');
+  ok(payload.offer_amount === '18500' && payload.stock_ref === 'AR7-26001', 'the payload carries the amount and the stock reference');
+  ok(document.querySelector('.enquiry-success') && /negotiation request/i.test(document.body.textContent), 'success copy repeats that the offer is a negotiation request');
+  const dlg = document.querySelector('[role="dialog"]');
+  await act(async () => { dlg.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
+  await flush();
+}
+
+process.stdout.write('\nChat widget — leave your number becomes a persisted lead\n');
+{
+  const floatBtn = document.querySelector('.aw-float');
+  ok(!!floatBtn, 'the chat toggle is present');
+  await click(floatBtn);
+  const leadChip = [...document.querySelectorAll('.aw-lead-row button')].find(b => /Leave your number/.test(b.textContent));
+  ok(!!leadChip, 'the chat panel offers "Leave your number"');
+  await click(leadChip);
+  const leadForm = document.querySelector('.aw-lead-form');
+  ok(!!leadForm, 'the call-back mini form opens');
+  const before = leadCalls.length;
+  setValue(leadForm.querySelector('[name="leadname"]'), 'Fixture Buyer');
+  setValue(leadForm.querySelector('[name="leadphone"]'), '123');
+  await submit(leadForm);
+  ok(leadCalls.length === before && !!document.querySelector('.aw-lead-err'), 'an invalid phone is blocked with a visible error');
+  setValue(leadForm.querySelector('[name="leadphone"]'), '+92 300 1234567');
+  await submit(leadForm);
+  ok(leadCalls.length === before + 1, 'a valid call-back request submits once');
+  ok(leadCalls.at(-1).source === 'Chat lead' && leadCalls.at(-1).phone === '+92 300 1234567', 'the chat lead carries the Chat lead source and the phone');
+  ok(/your number is with the team/i.test(document.querySelector('.aw-body').textContent), 'the visitor sees an honest confirmation only after persistence');
+  await click(floatBtn);
+}
+
+process.stdout.write('\nFooter stock alerts — a real lead path, not a silent mailto\n');
+{
+  const newsForm = document.querySelector('.footer-news-form');
+  ok(!!newsForm, 'the footer stock-alerts form renders');
+  setValue(newsForm.querySelector('[name="email"]'), 'fixture@example.test');
+  await submit(newsForm);
+  const dialog = document.querySelector('[role="dialog"]');
+  ok(!!dialog, 'submitting the footer email opens the enquiry dialog instead of a mailto');
+  ok(dialog.querySelector('[name="email"]').value === 'fixture@example.test', 'the typed email is carried into the dialog');
+  ok(/Stock alerts signup/.test(dialog.querySelector('[name="vehicle_interest"]').value), 'the dialog is pre-filled as a stock-alerts signup');
+  ok(dialog.querySelector('[name="phone"]').required, 'the alerts signup still requires a phone so the lead is contactable');
+  await act(async () => { dialog.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
+  await flush();
 }
 
 process.stdout.write('\nMobile/accessibility contracts\n');

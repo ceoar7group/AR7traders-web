@@ -1,6 +1,7 @@
 import React, {useEffect, useImperativeHandle, useRef, useState} from 'react';
-import {MessageCircle, X, Send} from 'lucide-react';
+import {MessageCircle, X, Send, Phone} from 'lucide-react';
 import {getSettings} from './site-settings.js';
+import {validateLead} from './lead-validation.js';
 
 // ---------------------------------------------------------------------------
 // On-site AI assistant — a floating chat for buyers.
@@ -59,6 +60,21 @@ const WIDGET_CSS = `
 .aw-foot button{flex:none;width:40px;height:40px;border-radius:12px;border:0;cursor:pointer;
   background:#0b5c3d;color:#fff;display:grid;place-items:center}
 .aw-foot button:disabled{opacity:.45;cursor:default}
+.aw-lead-row{display:flex;justify-content:flex-start;padding:0 14px 8px;background:#f4f7f4}
+.aw-lead-row button{border:1px solid #cfdbd2;background:#fff;color:#0b5c3d;border-radius:999px;
+  padding:6px 12px;font:600 12px Manrope,system-ui,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.aw-lead-row button:hover{border-color:#0b5c3d}
+.aw-lead-form{display:flex;flex-direction:column;gap:8px;padding:10px;background:#fff;border-top:1px solid #e7ece7}
+.aw-lead-form input{height:40px;border-radius:12px;border:1px solid #d5ded5;padding:0 14px;
+  font:inherit;font-size:13.5px;color:#14231c;background:#f7faf7;outline:none}
+.aw-lead-form input:focus{border-color:#0b5c3d;box-shadow:0 0 0 3px rgba(11,92,61,.12)}
+.aw-lead-form input[aria-invalid="true"]{border-color:#b4332a}
+.aw-lead-err{margin:0;font-size:12px;color:#b4332a}
+.aw-lead-actions{display:flex;gap:8px}
+.aw-lead-actions button{flex:1;height:38px;border-radius:12px;border:0;cursor:pointer;font:600 13px Manrope,system-ui,sans-serif}
+.aw-lead-actions .go{background:#0b5c3d;color:#fff}
+.aw-lead-actions .no{background:#eef2ee;color:#2c3a31}
+.aw-lead-actions button:disabled{opacity:.45;cursor:default}
 @media (max-width:480px){.aw-float{right:16px;bottom:88px}.aw-panel{right:16px;bottom:152px}}
 @media (prefers-reduced-motion:reduce){
   .aw-panel{animation:none}
@@ -72,6 +88,13 @@ export function ChatWidget({ref}) {
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  // "Leave your number" — turns a chat visit into a persisted CRM lead, but
+  // ONLY when the visitor explicitly asks for a call back. Nothing about the
+  // conversation is sent; just the name and number they type here.
+  const [leadMode, setLeadMode] = useState(false);
+  const [leadDone, setLeadDone] = useState(false);
+  const [leadBusy, setLeadBusy] = useState(false);
+  const [leadErr, setLeadErr] = useState('');
   const bodyRef = useRef(null);
   const inputRef = useRef(null);
   const toggleRef = useRef(null);
@@ -139,6 +162,36 @@ export function ChatWidget({ref}) {
     }
   }
 
+  async function submitLead(e) {
+    e.preventDefault();
+    if (leadBusy) return;
+    const form = e.currentTarget;
+    const name = (form.elements.leadname?.value || '').trim();
+    const phone = (form.elements.leadphone?.value || '').trim();
+    const errors = validateLead({ name, phone });
+    if (errors.name || errors.phone) { setLeadErr(errors.name || errors.phone); return; }
+    setLeadBusy(true);
+    setLeadErr('');
+    try {
+      const r = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, source: 'Chat lead', vehicle_interest: 'Chat — call back requested' })
+      });
+      const j = await r.json().catch(() => ({}));
+      // Success only after the API confirms a persisted id — never before.
+      if (!r.ok || j.ok !== true || !j.id) throw new Error(j.error || 'Could not save your number.');
+      setLeadMode(false);
+      setLeadDone(true);
+      setMsgs(m => [...m, { role: 'assistant', content: 'Thanks ' + name + " — your number is with the team and a real person will call you back. If it's urgent, WhatsApp us any time." }]);
+    } catch (err) {
+      // Keep the typed values in the form for retry; log nothing personal.
+      setLeadErr(err.message || 'Could not save your number. Please try again or WhatsApp us.');
+    } finally {
+      setLeadBusy(false);
+    }
+  }
+
   return <>
     <style>{WIDGET_CSS}</style>
     {open && (
@@ -164,10 +217,29 @@ export function ChatWidget({ref}) {
           ))}
           {busy && <div className="aw-msg bot aw-typing" aria-label="Assistant is typing"><span /><span /><span /></div>}
         </div>
-        <form className="aw-foot" onSubmit={send}>
-          <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder="Type your question…" aria-label="Message the assistant" disabled={busy} maxLength={2000} />
-          <button type="submit" disabled={busy || !input.trim()} aria-label="Send message"><Send size={15} /></button>
-        </form>
+        {!leadMode && !leadDone && (
+          <div className="aw-lead-row">
+            <button type="button" onClick={() => { setLeadErr(''); setLeadMode(true); }}>
+              <Phone size={13} /> Leave your number — we call you back
+            </button>
+          </div>
+        )}
+        {leadMode ? (
+          <form className="aw-lead-form" onSubmit={submitLead} noValidate aria-label="Leave your number for a call back">
+            <input name="leadname" placeholder="Your name" aria-label="Your name" autoComplete="name" maxLength={120} required aria-invalid={leadErr && /name/i.test(leadErr) ? 'true' : undefined} />
+            <input name="leadphone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Phone with country code, e.g. +92 300 1234567" aria-label="Your phone number" maxLength={40} required aria-invalid={leadErr && /phone/i.test(leadErr) ? 'true' : undefined} />
+            {leadErr && <p className="aw-lead-err" role="alert">{leadErr}</p>}
+            <div className="aw-lead-actions">
+              <button type="button" className="no" onClick={() => setLeadMode(false)} disabled={leadBusy}>Back to chat</button>
+              <button type="submit" className="go" disabled={leadBusy}>{leadBusy ? 'Saving…' : 'Request call back'}</button>
+            </div>
+          </form>
+        ) : (
+          <form className="aw-foot" onSubmit={send}>
+            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder="Type your question…" aria-label="Message the assistant" disabled={busy} maxLength={2000} />
+            <button type="submit" disabled={busy || !input.trim()} aria-label="Send message"><Send size={15} /></button>
+          </form>
+        )}
       </div>
     )}
     <button
