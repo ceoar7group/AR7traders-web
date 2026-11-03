@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T10:59:52.061Z",
+  "generatedAt": "2026-11-03T20:21:51.448Z",
   "summary": {
     "total": 18,
     "pass": 18,
@@ -25,14 +25,14 @@
       "area": "health",
       "name": "Crawler shell has content",
       "status": "pass",
-      "detail": "index.html carries an H1 (16.0 KB)",
+      "detail": "index.html carries an H1 (15.7 KB)",
       "fix": "Check index.html — the pre-render feeds every crawler"
     },
     {
       "area": "health",
       "name": "Sitemap has no noindex or staff URLs",
       "status": "pass",
-      "detail": "47 URL(s) in the sitemap",
+      "detail": "46 URL(s) in the sitemap",
       "fix": "Remove staff and transactional paths from public/sitemap.xml"
     },
     {
