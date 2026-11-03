@@ -534,6 +534,23 @@ export default async function handler(req, res, injected) {
     const weeklyDelistLimit = num(s.goonet_weekly_delist_limit, 5);
     const weeklyPromoteLimit = num(s.goonet_weekly_promote_limit, 2);
     const autoPromote = bool(s.goonet_auto_promote, true);
+    // Where a passing import goes the moment it lands: the public website
+    // (site_listings), the CRM inventory (vehicles), or both. 'both' is the
+    // default so a valid scrape surfaces on the all-cars page AND in the CRM
+    // without a manual promote step. Unknown values fall back to 'both'
+    // rather than silently promoting nowhere.
+    const autoPromoteTarget = (() => {
+      const v = String(s.goonet_auto_promote_target || 'both').trim().toLowerCase();
+      return ['listings', 'vehicles', 'both'].includes(v) ? v : 'both';
+    })();
+    // Per-run promotion bound — defaults to the import bound, since a run can
+    // never need to promote more fresh rows than it just inserted. 0 is a
+    // legitimate value ("import only, promote nothing"), so num()'s >0 rule
+    // does not apply here.
+    const runPromoteLimit = (() => {
+      const n = Number(s.goonet_max_promote_per_run);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n) : maxNew;
+    })();
     const baseUrl = s.goonet_search_url || DEFAULT_SEARCH_URL;
     const bookmark = Math.max(1, num(s.goonet_bookmark_page, 1));
 
@@ -920,6 +937,40 @@ export default async function handler(req, res, injected) {
           + 'press "Copy parser diagnostic" for the saved markup sample.';
       }
       report.diagnostics = thinRunDiag;
+    }
+
+    // ---- 2b. Promote THIS RUN's fresh imports straight to the site --------
+    // A car that passes the quality gate should not sit in the provenance
+    // table waiting for the weekly sweep — it flows on to the public website
+    // and/or the CRM inventory in the same run, bounded by runPromoteLimit
+    // and the run budget. The imported_at >= run-start filter is deliberate:
+    // rows imported on earlier runs (the unpromoted backlog) are an owner
+    // decision and are never swept up by automation here. The promoted flag
+    // is only written by promoteTo* AFTER the copy lands, and both helpers
+    // upsert by stock number, so a re-run can never create duplicates.
+    if (autoPromote && imported > 0 && runPromoteLimit > 0 && !overBudget()) {
+      const runStartedAt = new Date(start).toISOString();
+      const { data: freshRows } = await db.from('japan_dealer_stock')
+        .select('*').eq('available', true).eq('promoted', 'none')
+        .gte('imported_at', runStartedAt)
+        .order('quality_score', { ascending: false }).limit(runPromoteLimit);
+      for (const row of freshRows || []) {
+        if (overBudget()) break;
+        let copied = false;
+        if (autoPromoteTarget === 'listings' || autoPromoteTarget === 'both') {
+          // Keep the in-memory flag in step so the second copy upgrades the
+          // row to 'both' instead of downgrading it to a single destination.
+          const step = promoteToListings(db, row, actor + ' (auto-promote)')
+            .then(r => { row.promoted = r.promoted; });
+          if (await carryOn(report, step, row)) copied = true;
+        }
+        if (autoPromoteTarget === 'vehicles' || autoPromoteTarget === 'both') {
+          const step = promoteToInventory(db, row, actor + ' (auto-promote)')
+            .then(r => { row.promoted = r.promoted; });
+          if (await carryOn(report, step, row)) copied = true;
+        }
+        if (copied) report.promoted++;
+      }
     }
 
     // ---- 3. Delist check on a few existing cars ---------------------------

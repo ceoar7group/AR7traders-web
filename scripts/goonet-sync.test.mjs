@@ -700,5 +700,111 @@ const settings13e = Object.fromEntries(db13.tables.site_settings.map(r => [r.key
 ok(res13e.statusCode === 200 && settings13e.goonet_fetch_fail_count === '0',
   'a successful read of the bookmarked page clears the failure counter');
 
+// ---- Fourteenth run: a passing import flows straight to the site ----------
+// P3 (2026-11-03): japan_dealer_stock stays the provenance table, but a car
+// that passes the quality gate is promoted in the SAME run — to the public
+// website and the CRM inventory (goonet_auto_promote_target, default 'both'),
+// bounded by goonet_max_promote_per_run. Rows imported on EARLIER runs (the
+// unpromoted backlog) are an owner decision and must never be swept up.
+const healthyFetch = () => {
+  global.fetch = async (url) => {
+    const u = String(url);
+    if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+    if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+    if (u.includes('/usedcar/')) return { ok: true, status: 200, text: async () => listingHtml };
+    return { ok: false, status: 404, text: async () => '' };
+  };
+};
+// Settings that keep the weekly sweeps quiet so only the per-run path acts.
+const promoteSeed = extra => seedSettings
+  .concat([
+    ['goonet_last_weekly_delist', new Date().toISOString()],
+    ['goonet_last_weekly_promote', new Date().toISOString()]
+  ], extra)
+  .map(([key, value]) => ({ key, value }));
+const backlogRow = () => ({
+  id: 'backlog-1', goonet_id: 'BACKLOG1', stock_no: 'BACKLOG1',
+  make: 'Toyota', model: 'Aqua', year: 2018, available: true, promoted: 'none',
+  goonet_url: 'https://www.goo-net.com/usedcar/spread/goo/15/BACKLOG1.html',
+  last_seen_at: new Date().toISOString(), imported_at: '2026-01-01T00:00:00Z',
+  quality_score: 99
+});
+
+resetFetchState();
+healthyFetch();
+const db14 = memDb();
+db14.tables.site_settings = promoteSeed([]);
+db14.tables.japan_dealer_stock = [backlogRow()];
+const res14 = fakeRes();
+await handler(req, res14, { db: db14.db });
+
+const fresh14 = (db14.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+const listing14 = (db14.tables.site_listings || []).filter(r => r.stock_no === fresh14?.stock_no);
+const vehicle14 = (db14.tables.vehicles || []).filter(r => r.stock_no === fresh14?.stock_no);
+const backlog14 = db14.tables.japan_dealer_stock.find(r => r.id === 'backlog-1');
+
+ok(res14.statusCode === 200 && res14.body?.inserted >= 1, `auto-promote: the run imported (inserted ${res14.body?.inserted})`);
+ok(res14.body?.promoted >= 1, `auto-promote: the report counts the same-run promotion (promoted ${res14.body?.promoted})`);
+ok(fresh14?.promoted === 'both', `auto-promote: the fresh row is marked 'both' (got '${fresh14?.promoted}')`);
+ok(listing14.length === 1, `auto-promote: exactly one website listing was published (got ${listing14.length})`);
+ok(vehicle14.length === 1, `auto-promote: exactly one CRM inventory row was created (got ${vehicle14.length})`);
+ok(listing14[0]?.published === true, 'auto-promote: the website copy is published');
+ok(backlog14?.promoted === 'none', 'auto-promote: the unpromoted BACKLOG row from an earlier run is left alone');
+ok(!(db14.tables.site_listings || []).some(r => r.stock_no === 'BACKLOG1')
+  && !(db14.tables.vehicles || []).some(r => r.stock_no === 'BACKLOG1'),
+  'auto-promote: no backlog copy reaches the website or the inventory without owner approval');
+
+// Second pass over the same listing: the already-imported car is recognised,
+// never re-imported, and still appears exactly ONCE in each destination.
+resetFetchState();
+healthyFetch();
+const res14b = fakeRes();
+await handler(req, res14b, { db: db14.db });
+ok((db14.tables.japan_dealer_stock || []).filter(r => r.goonet_id === '988026081900208975001').length === 1,
+  'auto-promote rerun: the known car is not re-imported into provenance');
+ok((db14.tables.site_listings || []).filter(r => r.stock_no === fresh14?.stock_no).length === 1
+  && (db14.tables.vehicles || []).filter(r => r.stock_no === fresh14?.stock_no).length === 1,
+  'auto-promote rerun: the car still appears exactly once in each destination (no duplicates)');
+
+// Target 'listings': the copy goes to the website only, and the provenance
+// flag says exactly that.
+resetFetchState();
+healthyFetch();
+const db14c = memDb();
+db14c.tables.site_settings = promoteSeed([['goonet_auto_promote_target', 'listings']]);
+db14c.tables.japan_dealer_stock = [];
+const res14c = fakeRes();
+await handler(req, res14c, { db: db14c.db });
+const fresh14c = (db14c.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+ok(fresh14c?.promoted === 'listings', `target listings: the row is marked 'listings' (got '${fresh14c?.promoted}')`);
+ok((db14c.tables.vehicles || []).length === 0, 'target listings: the CRM inventory is untouched');
+ok((db14c.tables.site_listings || []).some(r => r.stock_no === fresh14c?.stock_no), 'target listings: the website copy exists');
+
+// Auto-promote switched OFF: imports land in provenance and stay there.
+resetFetchState();
+healthyFetch();
+const db14d = memDb();
+db14d.tables.site_settings = promoteSeed([['goonet_auto_promote', 'false']]).filter(r => r.key !== 'goonet_auto_promote' || r.value === 'false');
+db14d.tables.japan_dealer_stock = [];
+const res14d = fakeRes();
+await handler(req, res14d, { db: db14d.db });
+const fresh14d = (db14d.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+ok(res14d.body?.inserted >= 1 && fresh14d?.promoted === 'none',
+  'auto-promote off: the import lands but is not promoted');
+ok((db14d.tables.site_listings || []).length === 0 && (db14d.tables.vehicles || []).length === 0,
+  'auto-promote off: neither destination is written');
+
+// Per-run bound of 0: same as off for the promotion step, import unaffected.
+resetFetchState();
+healthyFetch();
+const db14e = memDb();
+db14e.tables.site_settings = promoteSeed([['goonet_max_promote_per_run', '0']]);
+db14e.tables.japan_dealer_stock = [];
+const res14e = fakeRes();
+await handler(req, res14e, { db: db14e.db });
+const fresh14e = (db14e.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+ok(res14e.body?.inserted >= 1 && fresh14e?.promoted === 'none' && (db14e.tables.site_listings || []).length === 0,
+  'goonet_max_promote_per_run 0: the bound is respected — import yes, promotion no');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
