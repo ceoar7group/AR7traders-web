@@ -1,0 +1,56 @@
+/* Shared enquiry form: ordinary contact, auction access, vehicle and machinery.
+   Loaded with the form chunk so the first paint does not pay for dialog-only
+   markup. Labels stay readable at phone sizes; inputs use 16px to avoid iOS
+   zoom-on-focus. */
+.enquiry-form-wrap{min-width:0}
+.enquiry-heading{margin-bottom:22px}
+.enquiry-heading h2{font:700 clamp(28px,4vw,40px)/1.1 Manrope,sans-serif;letter-spacing:-1.4px;margin:10px 0 12px}
+.enquiry-heading p{color:var(--muted);font-size:14px;line-height:1.65;margin:0}
+.enquiry-form{display:grid;gap:16px;margin-top:20px}
+.enquiry-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.enquiry-field{display:grid;gap:7px;min-width:0}
+.enquiry-field label{display:block;color:var(--ink);font:700 12px/1.4 Manrope,sans-serif;letter-spacing:.02em}
+.enquiry-required{color:var(--green-text);font-weight:700}
+.enquiry-optional{color:var(--muted);font-weight:500}
+.enquiry-form input,.enquiry-form select,.enquiry-form textarea{
+  width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--ink);font:500 16px/1.4 Manrope,sans-serif;
+  padding:11px 13px;outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.enquiry-form input,.enquiry-form select{min-height:48px;height:48px}
+.enquiry-form textarea{min-height:112px;resize:vertical}
+.enquiry-form input:focus,.enquiry-form select:focus,.enquiry-form textarea:focus{
+  border-color:var(--gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 22%,transparent);
+}
+.enquiry-field.has-error input,.enquiry-field.has-error select,.enquiry-field.has-error textarea{border-color:#b42318}
+.enquiry-hint{color:var(--muted);font-size:12px;line-height:1.5}
+.enquiry-field-error{color:#b42318;font-size:12px;font-weight:600;line-height:1.5}
+.enquiry-alert{border:1px solid #edc0bc;background:#f8e1df;color:#8f2d27;border-radius:10px;padding:12px 14px;font-size:13px;font-weight:600;line-height:1.5}
+.enquiry-submit{width:100%;min-height:48px;justify-content:center;margin-top:2px}
+.enquiry-submit[disabled]{opacity:.65;cursor:wait}
+.enquiry-privacy{display:flex;align-items:center;justify-content:center;gap:7px;color:var(--muted);font-size:12px;line-height:1.5;text-align:center}
+.enquiry-privacy svg{width:14px;height:14px;flex:none}
+.enquiry-hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
+.enquiry-success{text-align:center;padding:28px 8px;outline:none}
+.enquiry-success-icon{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:0 auto;background:#d9eee3;color:var(--green-text)}
+.enquiry-success-icon svg{width:30px;height:30px}
+.enquiry-success h3{font:700 28px/1.2 Manrope,sans-serif;letter-spacing:-1px;margin:18px 0 10px}
+.enquiry-success p{color:var(--muted);font-size:14px;line-height:1.65;max-width:440px;margin:0 auto 20px}
+.enquiry-loading{border:1px solid var(--line);border-radius:14px;padding:28px;color:var(--muted);font-size:14px;text-align:center}
+.enquiry-backdrop{align-items:center;overflow:auto}
+.enquiry-modal{max-height:calc(100dvh - 32px);overflow:auto;padding:38px}
+.enquiry-modal h2{font-size:clamp(26px,4vw,34px)}
+.enquiry-dialog-body{color:var(--muted);font-size:14px;line-height:1.6;margin:8px 0 0}
+.enquiry-modal .enquiry-form{margin-top:22px}
+[data-theme="dark"] .enquiry-required{color:#8fd6ae}
+[data-theme="dark"] .enquiry-alert{background:#43201d;border-color:#7f3932;color:#ffd7d2}
+[data-theme="dark"] .enquiry-field-error{color:#ffb4ab}
+@media(max-width:650px){
+  .enquiry-row{grid-template-columns:1fr}
+  .enquiry-modal{padding:30px 18px 22px;max-height:calc(100dvh - 16px)}
+  .enquiry-backdrop{padding:8px}
+  .enquiry-heading h2{font-size:30px}
+}
+@media(prefers-reduced-motion:reduce){
+  .enquiry-form input,.enquiry-form select,.enquiry-form textarea{transition:none}
+}

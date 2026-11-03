@@ -18,6 +18,42 @@ import { runScraper, SCRAPER_ORIGIN, SCRAPER_CATEGORIES } from '../api/_machiner
 import { toRow, planImport, applyImport } from '../api/_machinery-import.js';
 import { toPublic } from '../api/_machinery.js';
 
+// In-memory lead store for the local preview. The REAL /api/leads handler
+// validates and writes here; no Supabase project, Resend account, or production
+// enquiry is touched. Reset by restarting the dev server.
+const DEV_LEADS = { leads: [], activities: [], site_settings: [], site_listings: [] };
+function devLeadDb() {
+  return {
+    from(table) {
+      const rows = DEV_LEADS[table] || (DEV_LEADS[table] = []);
+      return {
+        select() { return { then: resolve => resolve({ data: rows, error: null }) }; },
+        insert(record) {
+          const row = { id: globalThis.crypto.randomUUID(), created_at: new Date().toISOString(), ...record };
+          rows.push(row);
+          const result = { data: row, error: null };
+          return {
+            select: () => ({ single: async () => result }),
+            then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
+          };
+        },
+      };
+    },
+  };
+}
+function readDevJson(req, res, done) {
+  let raw = '';
+  req.on('data', chunk => {
+    raw += chunk;
+    if (raw.length > 65536) { res.statusCode = 413; res.end(JSON.stringify({ error: 'Request body too large' })); req.destroy(); }
+  });
+  req.on('end', () => {
+    if (res.writableEnded) return;
+    try { done(JSON.parse(raw || '{}')); }
+    catch { res.statusCode = 400; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ error: 'Invalid request body' })); }
+  });
+}
+
 let STOCK = [];
 try {
   // Imported a day apart from each other, newest first, like real runs.
@@ -235,6 +271,22 @@ export function devApiMock() {
   return {
     name: 'ar7-dev-api-mock',
     configureServer(server) {
+      // Ordinary contact/enquiry submissions run through the real API handler
+      // against memory. Notifications are explicitly disabled in this preview.
+      server.middlewares.use('/api/leads', (req, res, next) => {
+        if (req.method !== 'POST') return next();
+        readDevJson(req, res, async body => {
+          if (body?.action === 'chat') return next();
+          const { default: handler } = await import('../api/leads.js');
+          const adapter = {
+            status(code) { res.statusCode = code; return this; },
+            setHeader(name, value) { res.setHeader(name, value); return this; },
+            end(payload) { res.end(payload); },
+          };
+          await handler({ method: 'POST', body, headers: {} }, adapter, { db: devLeadDb(), notify: false });
+        });
+      });
+
       server.middlewares.use('/api/goonet-stock', (req, res, next) => {
         res.setHeader('Content-Type', 'application/json');
         const actionFromQuery = new URL(req.url, 'http://localhost').searchParams.get('action');

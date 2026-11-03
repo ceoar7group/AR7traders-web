@@ -113,7 +113,7 @@ const machinerySrc = fs.readFileSync(path.join(ROOT, 'src/machinery.jsx'), 'utf8
 const SCREENS = [
   ['home hero', 'src/main.jsx', mainSrc, 'hero.h1a'],
   ['inventory toolbar', 'src/main.jsx', mainSrc, 'inv.searchPlaceholder'],
-  ['enquiry form', 'src/main.jsx', mainSrc, 'enq.h2'],
+  ['enquiry form', 'src/enquiry-form.jsx', fs.readFileSync(path.join(ROOT, 'src/enquiry-form.jsx'), 'utf8'), 'enq.h2'],
   ['contact block', 'src/main.jsx', mainSrc, 'contact.getInTouch'],
   ['footer', 'src/main.jsx', mainSrc, 'footer.subscribe'],
   ['machinery "tell us the machine"', 'src/machinery.jsx', machinerySrc, 'machinery.tellUs']

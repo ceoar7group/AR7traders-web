@@ -89,5 +89,12 @@ export default async function handler(req,res,injected={}){
    return send(res,200,{ok:true})
   }
   return send(res,405,{error:'Method not allowed'})
- }catch(e){console.error(e);return send(res,e.status||500,{error:e.message||'CRM request failed'})}
+ }catch(e){
+  // Never log the raw database error: constraint/row messages can carry a
+  // customer's phone, email or name. The browser gets a stable 5xx message;
+  // operators get only the stage and a non-personal code.
+  const status=e.status||500;
+  console.error('crm request failed',{method:String(req.method||'').slice(0,10),entity:String(req.query?.entity||'').slice(0,24),code:String(e.code||status).slice(0,40)});
+  return send(res,status,{error:status>=500?'CRM request failed. Please try again.':(e.message||'CRM request failed')})
+ }
 }

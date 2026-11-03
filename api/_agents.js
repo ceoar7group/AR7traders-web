@@ -88,6 +88,51 @@ export function sanitiseUntrusted(value, { maxLength = 4000 } = {}) {
 /** The migration that creates the AI Growth tables. */
 export const AI_GROWTH_MIGRATION_FILE = 'supabase/MIGRATION-2026-10-ai-growth.sql';
 
+/** Every relation the orchestrator needs. The migration is additive, but a
+ * partial install (or the wrong Supabase project) must be reported as such —
+ * not discovered halfway through a run after a lease/run row was written. */
+export const AI_GROWTH_TABLES = Object.freeze([
+  'ai_agents', 'ai_agent_runs', 'ai_agent_locks',
+  'ai_agent_drafts', 'ai_agent_messages', 'ai_provider_usage',
+]);
+export const AI_GROWTH_SCHEMA_RELOAD = "select pg_notify('pgrst', 'reload schema');";
+
+export function classifyAiStorageFailure(error) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || error?.details || '');
+  if (code === 'PGRST205' || code === 'PGRST204' || code === '42P01' || /could not find the table|relation .* does not exist|in the schema cache/i.test(message)) {
+    return { state: 'missing-tables', code: code || null, message,
+      ownerAction: `Apply ${AI_GROWTH_MIGRATION_FILE} in the production Supabase project, then run ${AI_GROWTH_SCHEMA_RELOAD}. If the tables already exist, verify Vercel and the workflow target the same project before reloading PostgREST.` };
+  }
+  if (code === '42501' || /permission denied|not authorized/i.test(message)) {
+    return { state: 'permission', code, message,
+      ownerAction: 'The function is not reaching Supabase with the service role. Check SUPABASE_SERVICE_ROLE_KEY and table grants; do not add public policies.' };
+  }
+  return { state: 'unreachable', code: code || null, message,
+    ownerAction: 'Check SUPABASE_URL / VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the deployment environment, then retry the read-only diagnostic.' };
+}
+
+/** Read-only preflight for the scheduled runner and dashboard. */
+export async function aiGrowthStorageStatus(db) {
+  const tables = {};
+  for (const table of AI_GROWTH_TABLES) {
+    try {
+      let query = db.from(table).select('*');
+      if (typeof query?.limit === 'function') query = query.limit(1);
+      const { error } = await query;
+      tables[table] = error ? { ok: false, ...classifyAiStorageFailure(error) } : { ok: true, state: 'ready' };
+    } catch (error) {
+      tables[table] = { ok: false, ...classifyAiStorageFailure(error) };
+    }
+  }
+  const failed = Object.entries(tables).filter(([, v]) => !v.ok);
+  const ok = failed.length === 0;
+  const state = ok ? 'ready' : failed.some(([, v]) => v.state === 'missing-tables') ? 'missing-tables' : failed[0][1].state;
+  return { ok, state, tables, migration: AI_GROWTH_MIGRATION_FILE, schemaReload: AI_GROWTH_SCHEMA_RELOAD,
+    missingTables: failed.filter(([, v]) => v.state === 'missing-tables').map(([k]) => k),
+    ownerAction: ok ? null : failed[0][1].ownerAction };
+}
+
 const SETTING_DEFAULTS = {
   ai_growth_enabled: 'true',
   ai_growth_emergency_stop: 'false',
@@ -113,8 +158,9 @@ export async function readAgents(db) {
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   } catch (e) {
-    throw Object.assign(new Error(`${e.message || 'AI agent configuration is unreadable'} — apply ${AI_GROWTH_MIGRATION_FILE} in Supabase → SQL Editor.`), {
-      status: 503, state: 'missing-tables', ownerAction: `Apply ${AI_GROWTH_MIGRATION_FILE} in Supabase → SQL Editor, then run: select pg_notify('pgrst','reload schema');`
+    const storage = classifyAiStorageFailure(e);
+    throw Object.assign(new Error(`${storage.message || 'AI agent configuration is unreadable'} — ${storage.ownerAction}`), {
+      status: 503, state: storage.state, ownerAction: storage.ownerAction, storage
     });
   }
 }
@@ -1064,6 +1110,7 @@ export async function cancelRun(db, runId, actor, { reason = '' } = {}) {
  * bounded, read-only call.
  */
 export async function growthOverview(db, { limit = 25 } = {}) {
+  const storage = await aiGrowthStorageStatus(db);
   const settings = await agentSettings(db);
   const out = {
     readOnly: true,
@@ -1078,8 +1125,14 @@ export async function growthOverview(db, { limit = 25 } = {}) {
     providerConfigured: geminiConfigured(process.env),
     providerModel: geminiModelFor('seo', {}),
     agents: [], runs: [], drafts: [], locks: [], usage: [],
-    note: 'Read-only overview. Drafts are proposals: nothing here has been published, sent or posted.'
+    note: 'Read-only overview. Drafts are proposals: nothing here has been published, sent or posted.',
+    storage
   };
+  if (!storage.ok) {
+    out.error = `AI Growth storage is ${storage.state}.`;
+    out.ownerAction = storage.ownerAction;
+    return out;
+  }
   try {
     const agents = await readAgents(db);
     out.agents = agents.map(a => ({ ...a, label: AGENT_LABELS[a.agent] || a.agent }));
@@ -1126,6 +1179,11 @@ export async function runScheduledAgents(db, { env = process.env, fetch: fetchIm
   const results = [];
   if (asBool(settings.ai_growth_emergency_stop, false)) {
     return { job: 'agents', state: 'emergency-stop', results: [], note: 'Emergency stop is on; no agent was run.' };
+  }
+  const storage = await aiGrowthStorageStatus(db);
+  if (!storage.ok) {
+    return { job: 'agents', state: 'not-configured', results: [], storage,
+      ownerAction: storage.ownerAction, note: `AI Growth storage is ${storage.state}; no agent was run.` };
   }
   let configs = [];
   try { configs = await readAgents(db); }

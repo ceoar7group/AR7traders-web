@@ -177,21 +177,52 @@ const normUrl = u => String(u || '').trim().toLowerCase().replace(/[?#].*$/, '')
 // The run
 // ---------------------------------------------------------------------------
 
-async function defaultFetch(url, { timeoutMs = SCRAPER_FETCH_TIMEOUT_MS } = {}) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: { 'user-agent': SCRAPER_UA, accept: 'text/html,application/xhtml+xml' }
-    });
-    return { ok: res.ok, status: res.status, text: res.ok ? await res.text() : '', networkError: false };
-  } catch (e) {
-    return { ok: false, status: 0, text: '', networkError: true, error: e.message };
-  } finally {
-    clearTimeout(timer);
+/** Bounded, polite retry for transient transport/server failures only.
+ * 401/403/429 and captcha/bot gates are NOT retried or bypassed. The caller's
+ * deadline caps both the per-attempt timeout and the backoff, so a retry can
+ * never push a preview past the serverless budget. */
+export async function fetchWithRetry(url, {
+  timeoutMs = SCRAPER_FETCH_TIMEOUT_MS,
+  retries = 2,
+  backoffMs = 500,
+  deadline = Infinity,
+  now = Date.now,
+  sleep = ms => new Promise(r => setTimeout(r, ms)),
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const maxAttempts = Math.max(1, Math.min(3, Number(retries) + 1 || 1));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const remaining = deadline - now();
+    if (remaining <= 0) return { ok: false, status: 0, text: '', networkError: true, error: 'Run time budget exhausted', attempts: attempt };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(timeoutMs, remaining)));
+    let transient = false;
+    try {
+      const res = await fetchImpl(url, {
+        signal: ctrl.signal,
+        redirect: 'follow',
+        headers: { 'user-agent': SCRAPER_UA, accept: 'text/html,application/xhtml+xml' },
+      });
+      transient = res.status >= 500 && res.status <= 599;
+      if (res.ok || !transient || attempt === maxAttempts - 1) {
+        return { ok: res.ok, status: res.status, text: res.ok ? await res.text() : '', networkError: false, attempts: attempt + 1 };
+      }
+    } catch (error) {
+      if (attempt === maxAttempts - 1) {
+        return { ok: false, status: 0, text: '', networkError: true, error: error.message, attempts: attempt + 1 };
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+    const wait = Math.min(backoffMs * (2 ** attempt), Math.max(0, deadline - now()));
+    if (wait <= 0) return { ok: false, status: 0, text: '', networkError: true, error: 'Run time budget exhausted', attempts: attempt + 1 };
+    await sleep(wait);
   }
+  return { ok: false, status: 0, text: '', networkError: true, error: 'Retry budget exhausted', attempts: maxAttempts };
+}
+
+async function defaultFetch(url, options = {}) {
+  return fetchWithRetry(url, options);
 }
 
 /** Which category pages this run crawls. A known name → that one page; an
@@ -275,7 +306,7 @@ export async function runScraper(db, {
     }
     if (fetchCount > 0) await sleep(delayMs);
     fetchCount++;
-    return doFetch(url, { timeoutMs: Math.max(1, Math.min(SCRAPER_FETCH_TIMEOUT_MS, deadline - now())) });
+    return doFetch(url, { timeoutMs: Math.max(1, Math.min(SCRAPER_FETCH_TIMEOUT_MS, deadline - now())), deadline, now });
   }
 
   // ---- robots.txt per host, cached, fail-closed -----------------------------

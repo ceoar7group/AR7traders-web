@@ -28,6 +28,7 @@ import {
   approveDraft, executeDraft, cancelDraft, cancelRun, growthOverview,
   draftDetail, runScheduledAgents
 } from '../api/_agents.js';
+import { aiGrowthStorageStatus, AI_GROWTH_TABLES, classifyAiStorageFailure } from '../api/_agents.js';
 import { classifyGeminiFailure, OWNER_ACTION } from '../api/_gemini-errors.js';
 import { geminiGenerate } from '../api/_gemini.js';
 
@@ -684,6 +685,28 @@ say('\n-- the provider client: bounded, honest, and never a paid fallback --');
   }
   ok(!/enable billing/i.test(OWNER_ACTION['quota-exhausted'].replace(/do not enable billing[^.]*/, '')),
     'the quota action never tells the owner to start paying to hide an error');
+}
+
+
+say('\n-- AI Growth storage preflight names partial migrations before a run writes --');
+{
+  const ready = await aiGrowthStorageStatus(fakeDb());
+  ok(ready.ok && ready.state === 'ready' && ready.missingTables.length === 0, 'all six AI relations are probed read-only when present');
+  ok(AI_GROWTH_TABLES.length === 6, 'the preflight covers exactly the six migration relations');
+
+  const partial = fakeDb({}, { failTable: 'ai_agent_drafts' });
+  const status = await aiGrowthStorageStatus(partial);
+  ok(!status.ok && status.state === 'missing-tables' && status.missingTables.includes('ai_agent_drafts'), 'a missing drafts table is reported even when ai_agents exists');
+  const scheduled = await runScheduledAgents(partial, { env: {}, fetch: async () => { throw new Error('no provider call expected'); } });
+  ok(scheduled.state === 'not-configured' && scheduled.results.length === 0, 'the scheduled runner stops before leasing or running an agent');
+  ok((partial.tables.ai_agent_runs || []).length === 0 && (partial.tables.ai_agent_locks || []).length === 0, 'the partial-schema preflight writes no run or lease row');
+  ok(/MIGRATION-2026-10-ai-growth\.sql/.test(scheduled.ownerAction || ''), 'the owner action names the exact AI migration');
+
+  const overview = await growthOverview(partial);
+  ok(overview.storage && !overview.storage.ok && /missing-tables/.test(overview.error || ''), 'the desk overview surfaces the same partial-schema diagnosis');
+
+  const permission = classifyAiStorageFailure({ code: '42501', message: 'permission denied for table ai_agents' });
+  ok(permission.state === 'permission' && /service role/i.test(permission.ownerAction), 'a permission failure is not mislabelled as a missing migration');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

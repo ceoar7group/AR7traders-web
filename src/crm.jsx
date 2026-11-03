@@ -294,7 +294,7 @@ const SITE_ENTITIES = ['listings', 'routes', 'articles'];
 const OPT = {
   countries: ['Pakistan', 'UAE', 'Kenya', 'Tanzania', 'United Kingdom', 'New Zealand', 'Australia', 'USA', 'South Africa', 'Ghana', 'Nigeria', 'Egypt', 'Jordan', 'Qatar', 'Saudi Arabia', 'Bangladesh', 'Sri Lanka', 'Japan', 'Other'],
   leadStatus: ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'],
-  leadSource: ['Website', 'WhatsApp', 'Referral', 'Instagram', 'Facebook', 'YouTube', 'Walk-in', 'Other'],
+  leadSource: ['Website', 'Website contact', 'Website signup', 'Auction access', 'Vehicle enquiry', 'Machinery enquiry', 'WhatsApp', 'Referral', 'Instagram', 'Facebook', 'YouTube', 'Walk-in', 'Other'],
   customerStatus: ['active', 'vip', 'dormant', 'blocked'],
   vehicleStatus: ['available', 'reserved', 'sold', 'in_preparation', 'in_transit', 'auction_watch'],
   listingStatus: ['In Stock', 'New Arrival', 'Auction', 'Reserved', 'Sold'],

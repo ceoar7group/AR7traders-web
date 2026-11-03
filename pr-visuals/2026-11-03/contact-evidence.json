@@ -1,0 +1,180 @@
+{
+  "base": "http://127.0.0.1:5173",
+  "generatedAt": "2026-11-03T09:13:17.877Z",
+  "viewports": {
+    "desktop-1440x900": {
+      "checks": [
+        {
+          "name": "one direct contact form, no auction dialog",
+          "ok": true,
+          "detail": "{\"forms\":1,\"dialogs\":0,\"phoneRequired\":true,\"phoneType\":\"tel\",\"phoneAutocomplete\":\"tel\",\"phoneLabel\":\"Contact phone number (required)\",\"scrollWidth\":1440,\"innerWidth\":1440}"
+        },
+        {
+          "name": "phone required with tel semantics",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "phone label is clear and required",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "no horizontal overflow",
+          "ok": true,
+          "detail": "1440/1440"
+        },
+        {
+          "name": "empty submit blocks with accessible phone error",
+          "ok": true,
+          "detail": "{\"invalid\":\"true\",\"success\":false,\"alert\":true}"
+        },
+        {
+          "name": "success only after the dev API persists the lead",
+          "ok": true,
+          "detail": "[201]"
+        },
+        {
+          "name": "success resets the form (no personal data left on screen)",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "success state has no horizontal overflow",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "auction CTA exists",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "auction dialog is distinct and phone-required",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "Escape closes the auction dialog",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "no product page errors",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "consoleErrors": [
+        "WebSocket connection to 'ws://127.0.0.1:443/?token=aB5lvSYQjAJ1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+        "[vite] failed to connect to websocket (Error: WebSocket closed without opened.). ",
+        "WebSocket connection to 'ws://127.0.0.1:443/?token=aB5lvSYQjAJ1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+        "[vite] failed to connect to websocket (Error: WebSocket closed without opened.). ",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED"
+      ],
+      "pageErrors": [
+        "WebSocket closed without opened.",
+        "WebSocket closed without opened."
+      ],
+      "leadPosts": [
+        201
+      ],
+      "consoleErrorCount": 8,
+      "productConsoleErrorCount": 0,
+      "devTransportNoiseCount": 8
+    },
+    "mobile-390x844": {
+      "checks": [
+        {
+          "name": "one direct contact form, no auction dialog",
+          "ok": true,
+          "detail": "{\"forms\":1,\"dialogs\":0,\"phoneRequired\":true,\"phoneType\":\"tel\",\"phoneAutocomplete\":\"tel\",\"phoneLabel\":\"Contact phone number (required)\",\"scrollWidth\":390,\"innerWidth\":390}"
+        },
+        {
+          "name": "phone required with tel semantics",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "phone label is clear and required",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "no horizontal overflow",
+          "ok": true,
+          "detail": "390/390"
+        },
+        {
+          "name": "empty submit blocks with accessible phone error",
+          "ok": true,
+          "detail": "{\"invalid\":\"true\",\"success\":false,\"alert\":true}"
+        },
+        {
+          "name": "success only after the dev API persists the lead",
+          "ok": true,
+          "detail": "[201]"
+        },
+        {
+          "name": "success resets the form (no personal data left on screen)",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "success state has no horizontal overflow",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "mobile controls avoid iOS zoom and meet touch height",
+          "ok": true,
+          "detail": "{\"fontSize\":16,\"height\":54}"
+        },
+        {
+          "name": "auction CTA exists",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "auction dialog is distinct and phone-required",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "Escape closes the auction dialog",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "name": "no product page errors",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "consoleErrors": [
+        "WebSocket connection to 'ws://127.0.0.1:443/?token=aB5lvSYQjAJ1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+        "[vite] failed to connect to websocket (Error: WebSocket closed without opened.). ",
+        "WebSocket connection to 'ws://127.0.0.1:443/?token=aB5lvSYQjAJ1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+        "[vite] failed to connect to websocket (Error: WebSocket closed without opened.). ",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED",
+        "Failed to load resource: net::ERR_CONNECTION_CLOSED"
+      ],
+      "pageErrors": [
+        "WebSocket closed without opened.",
+        "WebSocket closed without opened."
+      ],
+      "leadPosts": [
+        201
+      ],
+      "consoleErrorCount": 8,
+      "productConsoleErrorCount": 0,
+      "devTransportNoiseCount": 8
+    }
+  },
+  "failures": 0
+}

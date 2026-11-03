@@ -452,7 +452,7 @@ export default async function handler(req, res, injected) {
       });
     } catch (e) {
       console.error('agents job failed', e);
-      return send(res, e.state === 'missing-tables' ? 503 : 500, {
+      return send(res, ['missing-tables', 'permission', 'unreachable'].includes(e.state) ? 503 : 500, {
         error: 'AI Growth run failed', details: e.message, state: e.state || null,
         ownerAction: e.ownerAction || null
       });

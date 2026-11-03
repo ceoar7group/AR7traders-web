@@ -13,6 +13,7 @@ import {useSettings, waLink} from './site-settings.js';
 import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
 import {linkClick} from './routing.js';
 import './portal.css';
+import { validateLead } from './lead-validation.js';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
 const nice  = s => s ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(s)) : '—';
@@ -125,13 +126,18 @@ function SignupForm({settings,onDone}){
   e.preventDefault();
   const f=new FormData(e.target);
   const email=f.get('email'),password=f.get('password');
+  const values=Object.fromEntries(f.entries());
+  const errors=validateLead(values,{requireEmail:true});
+  if(Object.keys(errors).length){setErr(errors[Object.keys(errors)[0]]);return}
   setBusy(true);setErr('');
   try{
-   // The enquiry reaches the sales team either way, so nobody is lost if
-   // account creation is not switched on yet.
-   await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({name:f.get('name'),email,phone:f.get('phone'),
-       country:f.get('country'),vehicle_interest:f.get('vehicle')||'',source:'Website signup'})}).catch(()=>{});
+   // Save the enquiry before claiming the desk has the buyer's details. A
+   // failed lead write must not be hidden behind a successful account screen.
+   const leadResponse=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({name:values.name,email,phone:values.phone,
+       country:values.country,vehicle_interest:values.vehicle||'',source:'Website signup'})});
+   const leadResult=await leadResponse.json().catch(()=>({}));
+   if(!leadResponse.ok||leadResult.ok!==true||!leadResult.id)throw new Error(leadResult.error||'We could not save your enquiry. Please try again or contact us directly.');
    if(supabase){
     const {error}=await supabase.auth.signUp({email,password,
       options:{data:{full_name:f.get('name'),account_type:'customer'},
@@ -156,7 +162,7 @@ function SignupForm({settings,onDone}){
   <label>EMAIL<input name="email" required type="email" placeholder="you@email.com"/></label>
   <div className="form-row">
    <label>COUNTRY<select name="country" defaultValue="Pakistan"><option>Pakistan</option><option>UAE</option><option>Kenya</option><option>United Kingdom</option><option>Tanzania</option><option>Other</option></select></label>
-   <label>WHATSAPP<input name="phone" placeholder="+92 300 0000000"/></label>
+   <label>CONTACT PHONE (required)<input name="phone" required type="tel" inputMode="tel" autoComplete="tel" maxLength={40} placeholder="+92 300 0000000"/></label>
   </div>
   <label>PASSWORD<input name="password" required type="password" minLength={8} placeholder="At least 8 characters"/></label>
   <label>VEHICLE YOU WANT<input name="vehicle" placeholder="e.g. Toyota Land Cruiser 2022"/></label>

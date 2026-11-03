@@ -332,5 +332,23 @@ say('\n7) the code defaults match the database seed');
   }
 }
 
+
+say('\n8) CRM server failures do not log customer details');
+{
+  const secret = '+923001234567';
+  const db = { from: () => ({ select: () => ({ order: () => ({ limit: async () => ({ data: null, error: { code: '23505', message: `duplicate key value violates unique constraint: phone=${secret}` } }) }) }) }) };
+  const logs = [];
+  const realError = console.error;
+  console.error = (...args) => logs.push(args.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '));
+  const res = fakeRes();
+  try {
+    await crm({ method: 'GET', query: { entity: 'leads' }, headers: { authorization: 'Bearer ok' } }, res, { db, getUser: userFor('a1', 'admin'), permsFor });
+  } finally { console.error = realError; }
+  ok(res.statusCode === 500, 'a database failure is still a 500');
+  ok(!JSON.stringify(res.body).includes(secret), 'the browser response does not echo the row-level error');
+  ok(!logs.join('\n').includes(secret), 'the server log does not contain the customer phone from the error');
+  ok(logs.join('\n').includes('crm request failed'), 'the server log keeps a privacy-safe stage marker');
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
