@@ -1270,7 +1270,18 @@ export default function CrmApp() {
         : `Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
       await loadAll();
     } catch (e) {
-      setNotice(e.message);
+      // A failed crawl now carries a structured `failure` report. Render the
+      // whole picture — which page, timeout vs blocked, what the relay did,
+      // whether the relay runs keyless, and the suggested owner action — so
+      // "This operation was aborted" never again stands alone as the answer.
+      const f = e.body?.failure;
+      setNotice(f ? [
+        e.message,
+        `Direct: ${f.timedOut ? 'timed out' : f.directStatus ? 'HTTP ' + f.directStatus : (f.directError || 'failed')}${f.retried ? ' (retried once)' : ''}`,
+        `Relay: ${f.relayAttempted ? (f.relayError || (f.relayStatus ? 'HTTP ' + f.relayStatus : 'failed')) : 'not attempted'} · key ${f.relayKey || '?'}`,
+        f.fallbackTried ? `Fallback page 1: ${f.fallbackError || 'also failed'}` : null,
+        f.failCount > 1 ? `This page has failed ${f.failCount} run(s) in a row.` : null
+      ].filter(Boolean).join(' — ') : e.message);
     } finally {
       setSyncing(false);
     }

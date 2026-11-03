@@ -1065,11 +1065,18 @@ async function rawFetch(url, { timeoutMs, maxBytes, headers }) {
       headersUsed: Object.keys(headers)
     };
   } catch (e) {
+    // An AbortError here is OUR timer firing, not goo-net refusing: the
+    // request ran past `timeoutMs` and was cancelled. Name it a timeout so
+    // callers can tell "too slow" apart from "blocked" — the raw message
+    // ("This operation was aborted") used to surface verbatim and read like
+    // a mysterious crash instead of the timeout it is.
+    const timedOut = e.name === 'AbortError' || /abort/i.test(e.message || '');
     return {
       ok: false, status: 0, html: '', truncated: false,
       byteLength: 0, charLength: 0, charset: null, charsetSource: null,
-      replacements: 0,
-      durationMs: Date.now() - start, error: e.message,
+      replacements: 0, timedOut,
+      durationMs: Date.now() - start,
+      error: timedOut ? `timed out after ${timeoutMs}ms (no answer from the server)` : e.message,
       headersUsed: Object.keys(headers)
     };
   } finally {
@@ -1078,7 +1085,10 @@ async function rawFetch(url, { timeoutMs, maxBytes, headers }) {
 }
 
 // Warm up once: hit the homepage like a browser would so we pick up the
-// session cookies goo-net expects on the following search request.
+// session cookies goo-net expects on the following search request. The
+// warm-up runs on its OWN small budget — it must never silently consume the
+// listing fetch's allowance (a slow homepage used to eat up to 4s of wall
+// time before the listing request even started).
 async function warmUp(timeoutMs) {
   if (warmedUp) return;
   warmedUp = true;
@@ -1124,8 +1134,8 @@ function fetchMeta(from) {
   };
 }
 
-export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing' } = {}) {
-  if (isGoonetUrl(url)) await warmUp(timeoutMs);
+export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing', warmUpMs = 2500 } = {}) {
+  if (isGoonetUrl(url)) await warmUp(Math.min(warmUpMs, timeoutMs));
   const cookieToSend = cookie || cookieJar || DEFAULT_COOKIE;
   const headers = browserHeaders(url, cookieToSend);
   const direct = await rawFetch(url, { timeoutMs, maxBytes, headers });
@@ -1187,8 +1197,16 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
       }
       networkDiag.relayAttempted = true;
       networkDiag.relayDiagnostics = relayPage;
+      // The failure report must explain BOTH legs, not just the direct one:
+      // "direct timed out AND the relay answered 500" is a different owner
+      // action than "direct timed out and no relay was even tried".
+      networkDiag.relayStatus = relayed.status ?? 0;
+      networkDiag.relayError = relayed.error || (relayed.ok ? 'answered with a stub page' : 'HTTP ' + relayed.status);
+      networkDiag.relayTimedOut = relayed.timedOut === true;
     }
-    return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', meta: fetchMeta(direct), diagnostics: networkDiag };
+    networkDiag.timedOut = direct.timedOut === true;
+    networkDiag.relayKey = relayApiKey() ? 'configured' : 'free (no key)';
+    return { ok: false, status: 0, html: '', error: direct.error, timedOut: direct.timedOut === true, via: 'direct', meta: fetchMeta(direct), diagnostics: networkDiag };
   }
 
   const directPage = pageDiagnostics(direct.html, direct);
@@ -1260,6 +1278,27 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     directDiagnostics: directPage,
     diagnostics: { ...diagnostics, directDiagnostics: directPage }
   };
+}
+
+// Classify a failed listing fetch so the importer can pick the right
+// recovery — and the right words. Four states, four different owner actions:
+//   • timeout — OUR timer cancelled a request that ran too long. Transient:
+//     a bounded retry or a fallback page is worth one attempt.
+//   • network — DNS/TLS/socket failure before any HTTP answer. Transient too.
+//   • http-5xx — goo-net answered but with a server error. Transient.
+//   • blocked — 403/429: goo-net refused this host on purpose. NOT transient;
+//     retrying hammers a gate that will not open (the relay attempt inside
+//     fetchPage is the only sanctioned way around it, and it already ran).
+// Returns null when the fetch did not fail (ok, or a 404 the caller handles).
+export function classifyListingFailure(fetched) {
+  if (!fetched || fetched.ok || fetched.status === 404) return null;
+  const status = fetched.status || 0;
+  if (status === 403 || status === 429) return { kind: 'blocked', transient: false };
+  const timedOut = fetched.timedOut === true || /abort|timed out/i.test(String(fetched.error || ''));
+  if (timedOut) return { kind: 'timeout', transient: true };
+  if (status >= 500) return { kind: 'http-' + status, transient: true };
+  if (status === 0) return { kind: 'network', transient: true };
+  return { kind: 'http-' + status, transient: false };
 }
 
 // A delisted goo-net page is either an HTTP 404 or the live "this vehicle was

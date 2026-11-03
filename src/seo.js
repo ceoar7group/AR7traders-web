@@ -28,7 +28,7 @@ const PAGE_LABELS = {
   inventory: 'Vehicle Inventory', auction: 'Auction Bidding', services: 'Export Services',
   brands: 'Brands We Export', destinations: 'Shipping Destinations', tools: 'Import Cost Calculator',
   world: 'Global Network', howbuy: 'How to Buy', news: 'News & Guides', about: 'About',
-  reviews: 'Reviews', faq: 'FAQ', contact: 'Contact', 'japan-stock': 'Japan Dealer Stock',
+  reviews: 'Reviews', faq: 'FAQ', contact: 'Contact',
   shipping: 'Shipping', machinery: 'Machinery & Equipment'
 };
 
@@ -95,8 +95,6 @@ export const PAGE_SEO = {
                 'Track bids, shipments, documents and payments in the AR7 Traders client portal.'],
   machinery:   ['Construction Machinery for Export | AR7 Traders',
                 'Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers, inspected and shipped to your port. Indicative FOB prices.'],
-  'japan-stock': ['Japan Dealer Stock | Fresh Japan Imports — AR7 Traders',
-                'Hand-picked dealer stock from Japan: fresh arrivals with verified photos, full specs and export pricing, updated regularly.'],
   crm:         ['AR7 Traders Staff CRM', 'Internal operations console for AR7 Traders staff: leads, customers, quotes, shipments and approvals.'],
   studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.'],
   seo:         ['SEO Desk | AR7 Traders', 'Staff-only SEO audit desk: the same checks the AR7 SEO agent runs, on the live page.']
@@ -353,7 +351,7 @@ const OG_SET = {
 // are noindex and fall back to the default image.
 export const PAGE_OG = {
   home: OG_DEFAULT,
-  inventory: OG_SET.inventory, brands: OG_SET.inventory, 'japan-stock': OG_SET.inventory,
+  inventory: OG_SET.inventory, brands: OG_SET.inventory,
   auction: OG_SET.auction, services: OG_SET.auction, howbuy: OG_SET.auction,
   shipping: OG_SET.shipping, destinations: OG_SET.shipping, world: OG_SET.shipping,
   faq: OG_SET.help, news: OG_SET.help, reviews: OG_SET.help,

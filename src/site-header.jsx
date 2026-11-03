@@ -69,8 +69,7 @@ export function NavDropdown({label, panel, className, routeKey, children}) {
 // Inventory dropdown items
 const INVENTORY_LINKS = [
   [CarFront, 'All Inventory', 'inventory'],
-  [Wrench, 'Machinery & equipment', 'machinery'],
-  [Layers, 'Japan dealer stock', 'japan-stock']
+  [Wrench, 'Machinery & equipment', 'machinery']
 ];
 
 // More dropdown items - organized and duplicates removed.

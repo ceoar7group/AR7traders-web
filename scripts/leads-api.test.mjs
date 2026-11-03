@@ -143,6 +143,50 @@ for (const phone of ['+92 300 1234567', '+44 7347 132624', '0300 1234567', '(020
   const { res, tables } = await post({ name: 'Fixture Buyer', phone: '0300 1234567', source: 'Staff admin' });
   ok(res.statusCode === 201 && tables.leads[0].source === 'Website', 'an unknown source cannot spoof an internal lead source');
 }
+
+say('\napi/leads.js — offers (negotiation requests, never price acceptance)');
+{
+  const { res, tables } = await post({
+    name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer',
+    vehicle_interest: '2021 Toyota Harrier (AR7-1042)', stock_ref: 'AR7-1042', offer_amount: '18500',
+    message: 'Can you do this for Karachi delivery?'
+  });
+  ok(res.statusCode === 201 && res.body.ok === true && res.body.id === 'lead-1', 'a vehicle offer persists as a lead with a confirmed id');
+  ok(tables.leads[0].source === 'Vehicle offer', 'the Vehicle offer source is on the allowlist');
+  ok(tables.leads[0].budget === 18500, 'the offer amount is stored in the existing budget column');
+  ok(tables.leads[0].notes.includes('Offer: USD 18,500') && tables.leads[0].notes.includes('negotiation request'),
+    'the notes say the offer is a negotiation request, never an accepted price');
+  ok(tables.leads[0].notes.includes('Stock reference: AR7-1042'), 'the stock reference reaches CRM notes');
+  ok(tables.leads[0].vehicle_interest.includes('AR7-1042'), 'the stock context stays in vehicle_interest');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Machinery offer', stock_ref: 'AR7-MC-003', offer_amount: 42000 });
+  ok(res.statusCode === 201 && tables.leads[0].source === 'Machinery offer' && tables.leads[0].budget === 42000,
+    'a machinery offer persists with its source and amount');
+  ok(tables.leads[0].email === null, 'an offer without an email is accepted — phone-first buyers');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer', offer_amount: '-500' });
+  ok(res.statusCode === 400 && res.body.field === 'offer_amount' && tables.leads.length === 0,
+    'a negative offer amount is refused before persistence');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer', offer_amount: 'twenty grand' });
+  ok(res.statusCode === 400 && res.body.field === 'offer_amount' && tables.leads.length === 0,
+    'a non-numeric offer amount is refused before persistence');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer' });
+  ok(res.statusCode === 201 && tables.leads[0].budget === null, 'an offer without an amount is still a valid negotiation lead');
+}
+{
+  const { res, tables } = await post({ name: 'Chat Visitor', phone: '+92 300 1234567', source: 'Chat lead', vehicle_interest: 'Chat — call back requested' });
+  ok(res.statusCode === 201 && tables.leads[0].source === 'Chat lead', 'a chat call-back request persists with the Chat lead source');
+}
+{
+  const { res, tables } = await post({ name: 'Alert Signup', phone: '+92 300 1234567', email: 'fixture@example.test', source: 'Stock alerts', vehicle_interest: 'Stock alerts signup' });
+  ok(res.statusCode === 201 && tables.leads[0].source === 'Stock alerts', 'a stock-alerts signup persists with its own source');
+}
 {
   const { res, tables, logs } = await post({ name: 'Fixture Buyer', email: 'fixture@example.test', phone: '+92 300 1234567' }, {}, { leads: { code: '42501', message: 'permission denied for fixture@example.test +92 300 1234567' } });
   ok(res.statusCode === 503 && res.body.ok !== true && tables.leads.length === 0, 'a database permission failure is never reported as sent');

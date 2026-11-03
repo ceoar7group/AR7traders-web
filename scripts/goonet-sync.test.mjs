@@ -526,5 +526,179 @@ ok(diagRes.statusCode === 200 && String(diagRes.body?.sample || '').length > 0 &
   && diagRes.body?.run === 'parseMiss',
   'GET /api/goonet-stock?action=diag serves the stored sample to an admin');
 
+// ---- Tenth run: the direct listing fetch ABORTS, the relay rescues it ------
+// The live incident of 2026-11: the bookmarked deep page
+// (…/usedcar/index-30.html) never answered, the direct request was cancelled
+// by our own timer, and the run died with an opaque 502 ("This operation was
+// aborted") without ever trying anything else. A connection that never
+// completed must earn the same relay attempt as a bot stub.
+resetFetchState();
+const abortError = () => { const e = new Error('This operation was aborted'); e.name = 'AbortError'; throw e; };
+const db10 = memDb();
+const deepSettings = seedSettings
+  .filter(([k]) => k !== 'goonet_search_url' && k !== 'goonet_bookmark_page')
+  .concat([['goonet_search_url', 'https://www.goo-net.com/usedcar/'], ['goonet_bookmark_page', '30']]);
+db10.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db10.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('/usedcar/index-30.html')) abortError();
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res10 = fakeRes();
+await handler(req, res10, { db: db10.db });
+const settings10 = Object.fromEntries(db10.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res10.statusCode === 200, 'direct abort + relay success: the run completes (not a 502)');
+eq(res10.body?.via, 'relay', 'direct abort + relay success: the report says the page came via relay');
+ok(res10.body?.inserted >= 1, `direct abort + relay success: cars import through the quality gates (inserted ${res10.body?.inserted})`);
+ok(Number(settings10.goonet_bookmark_page) === 31, 'direct abort + relay success: the relayed read of the bookmarked page advances the bookmark');
+
+// ---- Eleventh run: direct aborts AND relay aborts → fallback page 1 --------
+// Both legs of the bookmarked fetch die. The run must make ONE bounded retry,
+// then read page 1 of the fallback search instead — and hold the bookmark,
+// because the bookmarked page itself was never read.
+resetFetchState();
+const db11 = memDb();
+db11.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db11.tables.japan_dealer_stock = [];
+const calls11 = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  calls11.push(u);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('/usedcar/index-30.html')) abortError();   // direct AND relay (the relay URL embeds it)
+  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res11 = fakeRes();
+await handler(req, res11, { db: db11.db });
+const settings11 = Object.fromEntries(db11.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res11.statusCode === 200, 'abort + abort + fallback: the run completes');
+ok(res11.body?.fallbackUsed === true && String(res11.body?.fallbackUrl || '').includes('price--100'),
+  'abort + abort + fallback: the report names the fallback page that was read');
+ok(res11.body?.inserted >= 1, `abort + abort + fallback: cars import from the fallback page (inserted ${res11.body?.inserted})`);
+ok(Number(settings11.goonet_bookmark_page) === 30,
+  'abort + abort + fallback: the bookmark is HELD — a fallback read proves nothing about page 30');
+ok(calls11.filter(u => u.includes('/usedcar/index-30.html') && !u.startsWith('https://r.jina.ai/')).length === 2,
+  'abort + abort + fallback: exactly one bounded retry of the bookmarked page (2 direct attempts total)');
+ok(String(res11.body?.note || '').includes('held on page 30'),
+  'abort + abort + fallback: the note says the bookmark was held');
+
+// ---- Twelfth run: goo-net answers 403 → NO retry, NO fallback --------------
+// A 403/429 is the gate refusing on purpose. The only sanctioned attempt is
+// the single relay try inside fetchPage; the importer must not add a retry
+// storm or hammer the fallback search from the same blocked host.
+resetFetchState();
+const db12 = memDb();
+db12.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db12.tables.japan_dealer_stock = [];
+const calls12 = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  calls12.push(u);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) return { ok: false, status: 500, text: async () => '' };
+  return { ok: false, status: 403, text: async () => '<html><body>セキュリティによるアクセス制限</body></html>' };
+};
+
+const res12 = fakeRes();
+await handler(req, res12, { db: db12.db });
+const settings12 = Object.fromEntries(db12.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res12.statusCode === 502 && res12.body?.failure?.kind === 'blocked',
+  '403 run: reported as blocked, not as a timeout or crash');
+ok(calls12.filter(u => u.includes('/usedcar/index-30.html') && !u.startsWith('https://r.jina.ai/')).length === 1,
+  '403 run: the blocked page is fetched exactly once — no retry storm');
+ok(!calls12.some(u => u.includes('price--100')),
+  '403 run: the fallback search is never hammered from a blocked host');
+ok(Number(settings12.goonet_bookmark_page) === 30, '403 run: the bookmark is held');
+ok(String(res12.body?.error || '').includes('Do not retry'),
+  '403 run: the error tells the owner not to retry in a loop');
+
+// ---- Thirteenth run: EVERYTHING times out — diagnosable, bounded, counted --
+// Direct, relay and fallback all abort. The response must classify the state
+// as a timeout (never the raw "This operation was aborted"), report both
+// legs and the fallback, hold the bookmark, and count consecutive failures
+// of the same page so a stuck bookmark surfaces an owner action.
+resetFetchState();
+const db13 = memDb();
+db13.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db13.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  abortError();
+};
+
+const res13 = fakeRes();
+await handler(req, res13, { db: db13.db });
+const settings13 = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+const f13 = res13.body?.failure || {};
+
+ok(res13.statusCode === 502 && f13.kind === 'timeout', 'all-timeout run: classified as a timeout, not a crash');
+ok(!String(res13.body?.error || '').includes('This operation was aborted'),
+  'all-timeout run: the raw abort message never reaches the owner');
+ok(String(res13.body?.error || '').includes('timed out')
+  && String(res13.body?.error || '').includes('index-30.html')
+  && String(res13.body?.error || '').includes('held on page 30'),
+  'all-timeout run: the error names the page, the timeout, and the held bookmark');
+ok(f13.retried === true && f13.relayAttempted === true && f13.fallbackTried === true,
+  'all-timeout run: the report shows retry, relay and fallback were all attempted');
+ok(typeof f13.relayError === 'string' && f13.relayKey === 'free (no key)',
+  'all-timeout run: relay error and relay key state are reported');
+ok(Number(settings13.goonet_bookmark_page) === 30, 'all-timeout run: the bookmark is held');
+ok(settings13.goonet_fetch_fail_count === '1' && settings13.goonet_fetch_fail_page === '30',
+  'all-timeout run: the consecutive-failure counter starts');
+
+// Two more failing runs on the same page → the report escalates to the owner.
+resetFetchState();
+const res13b = fakeRes();
+await handler(req, res13b, { db: db13.db });
+resetFetchState();
+const res13c = fakeRes();
+await handler(req, res13c, { db: db13.db });
+const settings13c = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(settings13c.goonet_fetch_fail_count === '3', 'stuck bookmark: three failures on page 30 are counted');
+ok(String(res13c.body?.failure?.suggestedAction || '').includes('Reset the bookmark'),
+  'stuck bookmark: after repeated failures the report names the owner action');
+
+// With the EXPLICIT setting on, the next failure auto-resets to page 1.
+db13.tables.site_settings.push({ key: 'goonet_auto_reset_bookmark', value: 'true' });
+resetFetchState();
+const res13d = fakeRes();
+await handler(req, res13d, { db: db13.db });
+const settings13d = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res13d.body?.failure?.bookmarkReset === true && settings13d.goonet_bookmark_page === '1',
+  'stuck bookmark: auto-reset to page 1 happens ONLY under the explicit goonet_auto_reset_bookmark setting');
+
+// And a later successful read of the bookmarked page clears the counter.
+resetFetchState();
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  if (u.includes('/usedcar/')) return { ok: true, status: 200, text: async () => listingHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+const res13e = fakeRes();
+await handler(req, res13e, { db: db13.db });
+const settings13e = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+ok(res13e.statusCode === 200 && settings13e.goonet_fetch_fail_count === '0',
+  'a successful read of the bookmarked page clears the failure counter');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

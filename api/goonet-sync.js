@@ -23,7 +23,7 @@ import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
-  GATE_PAGE_BYTES, relayApiKey,
+  GATE_PAGE_BYTES, relayApiKey, classifyListingFailure,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
@@ -538,10 +538,99 @@ export default async function handler(req, res, injected) {
     const bookmark = Math.max(1, num(s.goonet_bookmark_page, 1));
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------
+    //
+    // The fetch can fail four different ways, and each gets its own bounded
+    // recovery (this used to be one opaque 502 — "Could not fetch … This
+    // operation was aborted" — that pinned the importer to a page forever):
+    //   timeout / network / 5xx → one retry after a short backoff, then one
+    //     fallback fetch of page 1 of the fallback search (within budget).
+    //   403/429 (blocked)       → NO retry, NO fallback. fetchPage already
+    //     tried the relay once; hammering the gate only makes it stickier.
+    // The bookmark NEVER advances on any recovery path, so no page is skipped.
     const pageUrl = listingPageUrlFor(baseUrl, bookmark);
-    const fetched = await fetchPage(pageUrl, { timeoutMs: 7000 });
-    if (!fetched.ok && fetched.status !== 404) {
-      return send(res, 502, { error: 'Could not fetch ' + pageUrl + (fetched.error ? ' — ' + fetched.error : '') });
+    let fetched = await fetchPage(pageUrl, { timeoutMs: 7000 });
+    let failure = classifyListingFailure(fetched);
+    let retried = false;
+    if (failure && failure.transient && !overBudget()) {
+      retried = true;
+      await new Promise(r => setTimeout(r, 600));   // one bounded backoff — not a storm
+      fetched = await fetchPage(pageUrl, { timeoutMs: 7000 });
+      failure = classifyListingFailure(fetched);
+    }
+    let fallbackUsed = false, fallbackUrl = null, fallbackError = null, fetchedBeforeFallbackKind = null;
+    if (failure && failure.transient && !overBudget()) {
+      fallbackUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, 1);
+      if (fallbackUrl !== pageUrl) {
+        const fb = await fetchPage(fallbackUrl, { timeoutMs: 7000 });
+        if (!classifyListingFailure(fb) && fb.status !== 404) {
+          fetchedBeforeFallbackKind = failure.kind;
+          fetched = fb;
+          fallbackUsed = true;
+          failure = null;
+        } else {
+          fallbackError = fb.error || ('HTTP ' + fb.status);
+        }
+      }
+    }
+    if (failure) {
+      // Stuck-bookmark protection: count consecutive failures of the SAME
+      // page so the report can say "this is not a one-off" and name the
+      // owner action. The optional auto-reset only fires when the owner has
+      // explicitly set goonet_auto_reset_bookmark=true in site_settings.
+      const prevFailPage = String(s.goonet_fetch_fail_page || '');
+      const prevCount = Number(s.goonet_fetch_fail_count) || 0;
+      const failCount = (prevFailPage === String(bookmark) ? prevCount : 0) + 1;
+      await setSetting(db, 'goonet_fetch_fail_page', String(bookmark));
+      await setSetting(db, 'goonet_fetch_fail_count', String(failCount));
+      const autoReset = bool(s.goonet_auto_reset_bookmark, false);
+      let bookmarkReset = false;
+      if (autoReset && failCount >= 3 && bookmark > 1) {
+        await setSetting(db, 'goonet_bookmark_page', '1');
+        await setSetting(db, 'goonet_fetch_fail_count', '0');
+        bookmarkReset = true;
+      }
+      const d = fetched.diagnostics || {};
+      const relayAttempted = d.relayAttempted === true;
+      const stuck = failCount >= 3;
+      const suggestedAction = bookmarkReset
+        ? 'The bookmark was auto-reset to page 1 (goonet_auto_reset_bookmark is on) — run the import again.'
+        : failure.kind === 'blocked'
+          ? 'goo-net is refusing this host (HTTP ' + fetched.status + '). Do not retry in a loop — wait, or point goonet_search_url at a search this host can read.'
+          : stuck
+            ? 'Page ' + bookmark + ' has now failed ' + failCount + ' run(s) in a row. Reset the bookmark to page 1 (CRM → Japan dealer stock → Reset bookmark), or point goonet_search_url at a narrower search such as ' + DEFAULT_SEARCH_URL + '.'
+            : 'This looks transient — retry later. If it keeps failing on the same page, reset the bookmark from CRM → Japan dealer stock.';
+      const kindLabel = failure.kind === 'timeout' ? 'timed out (no answer within 7s)'
+        : failure.kind === 'blocked' ? 'was refused (HTTP ' + fetched.status + ')'
+        : failure.kind.startsWith('http-') ? 'answered with a server error (HTTP ' + fetched.status + ')'
+        : 'could not be reached (network failure)';
+      return send(res, 502, {
+        error: 'The listing page ' + kindLabel + ': ' + pageUrl
+          + '. The bookmark was held on page ' + bookmark + ' so no pages were skipped. ' + suggestedAction,
+        failure: {
+          kind: failure.kind,
+          pageUrl,
+          bookmarkHeldOn: bookmark,
+          bookmarkReset,
+          failCount,
+          directStatus: fetched.status ?? 0,
+          directError: fetched.error || null,
+          timedOut: fetched.timedOut === true || d.timedOut === true,
+          retried,
+          relayAttempted,
+          relayStatus: d.relayStatus ?? null,
+          relayError: d.relayError || (relayAttempted ? 'relay did not return a readable page' : 'not attempted'),
+          relayKey: relayApiKey() ? 'configured' : 'free (no key)',
+          fallbackTried: !!fallbackUrl,
+          fallbackUrl,
+          fallbackError,
+          suggestedAction
+        }
+      });
+    }
+    // A readable answer clears the consecutive-failure counter (only when the
+    // bookmarked page itself was read — a fallback read proves nothing about it).
+    if (!fallbackUsed && Number(s.goonet_fetch_fail_count) > 0) {
+      await setSetting(db, 'goonet_fetch_fail_count', '0');
     }
     if (fetched.status === 404) {
       report.note = 'Listing page not found (maybe the search URL changed). Reset the bookmark from CRM → Japan dealer stock.';
@@ -549,14 +638,16 @@ export default async function handler(req, res, injected) {
       await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
       return send(res, 200, report);
     }
-    let page = parseListingPage(fetched.html, pageUrl);
+    const parsedUrl = fallbackUsed ? fallbackUrl : pageUrl;
+    let page = parseListingPage(fetched.html, parsedUrl);
     let usedFetch = fetched;
 
     // Rescue: the bookmarked search can come back (nearly) empty — retry the
-    // same bookmark page against a wider, always-populated search.
-    if (page.cars.length < 2) {
+    // same bookmark page against a wider, always-populated search. (Skipped
+    // when the run already fell back to the fallback search's page 1.)
+    if (page.cars.length < 2 && !fallbackUsed) {
       const rescueUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, bookmark);
-      if (rescueUrl !== pageUrl) {
+      if (rescueUrl !== pageUrl && !overBudget()) {
         const rescue = await fetchPage(rescueUrl, { timeoutMs: 7000 });
         if (rescue.ok) {
           const rescuePage = parseListingPage(rescue.html, rescueUrl);
@@ -570,6 +661,13 @@ export default async function handler(req, res, injected) {
 
     if (usedFetch.via === 'relay') {
       report.note = 'goo-net blocked the direct request (bot protection) — page fetched via relay.';
+    }
+    if (fallbackUsed) {
+      report.fallbackUsed = true;
+      report.fallbackUrl = fallbackUrl;
+      report.note = 'The bookmarked page ' + pageUrl + ' could not be read (' + (fetchedBeforeFallbackKind || 'transient failure')
+        + (retried ? ', retried once' : '') + ') — this run read page 1 of the fallback search instead. '
+        + 'The bookmark was held on page ' + bookmark + '.';
     }
 
     report.page = bookmark;
@@ -762,7 +860,10 @@ export default async function handler(req, res, injected) {
     // An AI-fallback run read the page through the LLM, not the parser — the
     // parser may still be missing cards beyond the extraction window, so the
     // bookmark stays held exactly like a plain parse miss.
-    const advance = page.cars.length >= 2 && !llmUsed;
+    // A fallback-search run never read the bookmarked page at all, so the
+    // bookmark must stay exactly where it is — advancing it would skip the
+    // page that failed without ever importing from it.
+    const advance = page.cars.length >= 2 && !llmUsed && !fallbackUsed;
     const nextBookmark = advance ? bookmark + 1 : bookmark;
     await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
     await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
