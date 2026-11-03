@@ -52,7 +52,7 @@ const ROUTES = {
   '/': ['AR7 Traders', 'hero'],
   '/inventory': ['Find your next', 'inv-toolbar'],
   '/inventory?make=Toyota': ['inv-toolbar', 'brand-context-card'],
-  '/japan-stock': ['japan-stock-page', 'LIVE JAPAN DEALER STOCK'],
+  '/japan-stock': ['inv-toolbar'],   // retired page — resolves to the merged /inventory
   '/auction': ['inner-page'],
   '/services': ['inner-page'],
   '/brands': ['inner-page'],
@@ -406,7 +406,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(home.includes('nav-drop-panel brands-panel'), 'the Brands dropdown panel is in the markup');
   ok(home.includes('nav-drop-panel inventory-panel'), 'the Inventory dropdown panel is in the markup');
   ok(home.includes('Calculators'), 'Calculators is reachable from the More menu');
-  ok(home.includes('/japan-stock'), 'Japan dealer stock is linked in the Inventory dropdown');
+  ok(!home.includes('/japan-stock'), 'the retired /japan-stock page is not linked anywhere on the home page');
 }
 
 // ---- honest public claims ----------------------------------------------------

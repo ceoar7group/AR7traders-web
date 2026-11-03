@@ -386,7 +386,8 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // to be answerable by a page of its own. The count stays hard-coded on
   // purpose: every URL added to the sitemap should make someone update it.
   // 2026-10-09: Australia, USA and two document/quotation guides.
-  ok(locs.length === 47, `sitemap lists 47 URLs (found ${locs.length})`);
+  // 2026-11-03: /japan-stock retired (merged into /inventory) — 47 → 46.
+  ok(locs.length === 46, `sitemap lists 46 URLs (found ${locs.length})`);
   {
     const { DEST, destinationHref } = await import('../src/destinations.js');
     for (const d of DEST) {
@@ -419,7 +420,7 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // present (vehicle detail URLs are dynamic and intentionally excluded).
   const sitemapPages = locs.map(l => new URL(l).pathname.replace(/^\//, '').split('/')[0] || 'home');
   for (const p of ['home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
-    'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'shipping', 'japan-stock']) {
+    'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'shipping']) {
     ok(sitemapPages.includes(p), `sitemap covers /${p === 'home' ? p : p}`);
   }
 }
@@ -431,13 +432,13 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // accidental re-grouping has to be a conscious, reviewed change.
   const EXPECTED = {
     home: '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
-    inventory: '/assets/og/inventory.jpg', brands: '/assets/og/inventory.jpg', 'japan-stock': '/assets/og/inventory.jpg',
+    inventory: '/assets/og/inventory.jpg', brands: '/assets/og/inventory.jpg',
     auction: '/assets/og/auction.jpg', services: '/assets/og/auction.jpg', howbuy: '/assets/og/auction.jpg',
     shipping: '/assets/og/shipping.jpg', destinations: '/assets/og/shipping.jpg', world: '/assets/og/shipping.jpg',
     faq: '/assets/og/help.jpg', news: '/assets/og/help.jpg', reviews: '/assets/og/help.jpg',
     contact: '/assets/og/help.jpg', about: '/assets/og/help.jpg', tools: '/assets/og/help.jpg'
   };
-  ok(Object.keys(EXPECTED).length === 16, 'the OG map covers all 16 public routes');
+  ok(Object.keys(EXPECTED).length === 15, 'the OG map covers all 15 public routes');
   ok(Object.keys(EXPECTED).every(p => PAGE_SEO[p]), 'every OG-mapped route has PAGE_SEO metadata');
   for (const [page, asset] of Object.entries(EXPECTED)) {
     applySeo(page, null);

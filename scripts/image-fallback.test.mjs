@@ -120,8 +120,14 @@ ok(/imageFallback\(e\)/.test(crm), 'src/crm.jsx chains it into its own imgFallba
 // The existing onError handlers must not fight the retry.
 ok(/hasRetried\(e\.currentTarget\)/.test(main) || true,
   'src/main.jsx guards its own onError handlers');
-ok((main.match(/hasRetried\(e\.currentTarget\)/g) || []).length >= 3,
+// 2026-11-03: JapanStockPage retired (merged into /inventory) — its guarded
+// onError handler went with it, leaving the two on the vehicle detail gallery.
+// Every other onError in main.jsx delegates to logoOnError, which guards
+// itself via dataset.logoFb.
+ok((main.match(/hasRetried\(e\.currentTarget\)/g) || []).length >= 2,
   'src/main.jsx guards every onError handler that rewrites a src');
+ok(!/onError=\{e=>/.test(main.replace(/onError=\{e=>\{if\(hasRetried\(e\.currentTarget\)\)/g, '').replace(/onError=\{e=>\{if\(hasRetried\(e\.currentTarget\)\|\|/g, '')),
+  'no unguarded inline onError handler rewrites a src in src/main.jsx');
 
 // ── 5. the retry itself: once, and only once ──────────────────────────────
 console.log('\n-- the retry fires once and only once --');

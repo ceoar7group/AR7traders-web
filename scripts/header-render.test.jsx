@@ -86,12 +86,12 @@ ok(renderToString(<NavDropdown label="X" panel="p">child</NavDropdown>).includes
 const invPanel = (html.split('nav-drop-panel inventory-panel')[1] || '').split('nav-brands')[0];
 ok(invPanel.includes('>All Inventory</span>'), 'All Inventory is in the Inventory dropdown');
 ok(invPanel.includes('href="/inventory"'), 'All Inventory points at /inventory');
-ok(invPanel.includes('>Japan dealer stock</span>'), 'Japan dealer stock is in the Inventory dropdown');
-ok(invPanel.includes('href="/japan-stock"'), 'Japan dealer stock points at /japan-stock');
+// /japan-stock is retired (merged into /inventory) — the dropdown must not
+// link to it, or the header would resurrect the duplicate inventory surface.
+ok(!invPanel.includes('japan-stock'), 'the retired /japan-stock page is not linked from the Inventory dropdown');
 
 // ---- active-page highlight ----------------------------------------------
 ok(render({ page: 'inventory' }).includes('nav-inventory'), 'the Inventory dropdown is present');
-ok(render({ page: 'japan-stock' }).includes('nav-inventory'), 'the Inventory dropdown is present on japan-stock page');
 ok(render({ page: 'inventory', makeFilter: 'Toyota' }).includes('class=" current" href="/cars/toyota"'), 'the filtered brand is marked current');
 ok(!render({ page: 'inventory', vehicleId: '43' }).includes('class=" current" href="/inventory"'), 'a vehicle deep link does not highlight the inventory tab');
 ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reaches the nav');

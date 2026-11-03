@@ -40,4 +40,16 @@ assert.deepEqual(
 );
 assert.equal(parseRoute({ pathname: '/seo' }).page, 'seo', '/seo must resolve to the SEO desk');
 
+// ---- /japan-stock is retired (merged into /inventory) ----------------------
+// The SPA rewrite must NOT serve it (otherwise the server would answer 200 on
+// a retired URL) and a permanent redirect must carry old links to /inventory.
+assert.ok(!matches.test('/japan-stock'), '/japan-stock must no longer be served by the SPA rewrite');
+const redirects = config.redirects || [];
+const jp = redirects.find(r => r.source === '/japan-stock');
+assert.ok(jp, 'vercel.json must carry a /japan-stock redirect');
+assert.equal(jp.destination, '/inventory', 'the /japan-stock redirect must point at /inventory');
+assert.equal(jp.permanent, true, 'the /japan-stock redirect must be permanent (308)');
+assert.equal(parseRoute({ pathname: '/japan-stock' }).page, 'inventory',
+  'client-side /japan-stock must resolve to the merged inventory page');
+
 console.log(`Vercel SPA rewrite covers ${requiredPaths.length} client and deep-link paths.`);

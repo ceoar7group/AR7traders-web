@@ -6,7 +6,7 @@
 //   • appears in /inventory (in the Japan inventory group, not showroom)
 //   • is searchable/filterable like any other car
 //   • opens the full detail page (/inventory/<stock>) with specs, CIF and Save
-//   • appears on /japan-stock
+//   • appears in the merged /inventory (and /japan-stock redirects there)
 //   • never renders the source's name or a link back to it
 // and that promoted / parked rows are not rendered as imported cars at all.
 import { JSDOM } from 'jsdom';
@@ -185,10 +185,10 @@ ok(!text().includes('Chassis no.'), 'no chassis number is fabricated for the imp
 ok(!text().includes('Auction venue'), 'no auction venue is fabricated for the imported car');
 ok(!text().includes('Interior'), 'no interior is fabricated for the imported car');
 
-console.log('\n-- /japan-stock shows the same imported cars --');
+console.log('\n-- /japan-stock redirects to the merged inventory --');
 await goto('/japan-stock');
-ok(text().includes('CX-30'), 'the imported car is on the Japan dealer stock page');
-ok(text().includes('1001974A30260726W001') || text().includes('Mazda'), 'its stock number/make is shown');
+ok(document.body.innerHTML.includes('inv-toolbar'), 'the retired /japan-stock URL lands on the inventory list');
+ok(text().includes('CX-30'), 'the imported car is in the merged all-cars inventory');
 ok(!text().includes('Vezel Hybrid Z'), 'the parked row stays hidden there too');
 
 console.log('\n-- no source naming anywhere in the rendered app --');

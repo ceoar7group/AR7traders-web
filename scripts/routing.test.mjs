@@ -1,7 +1,7 @@
 import {
   parseRoute, parseNavTarget, hrefFor, hrefFromTarget, canonicalHref,
   findCar, carRef, carSlug, hashFor, writeLocation, makeFrom, inventoryHref,
-  LAST_VEHICLE_KEY
+  LAST_VEHICLE_KEY, PAGES, PAGE_REDIRECTS
 } from '../src/routing.js';
 
 let failed = 0;
@@ -183,6 +183,14 @@ ok(findCar(cars, carSlug(cars[0]))?.id === 'uuid-43', 'find by slug');
 ok(carRef(cars[0]) === '0710232A30260801W001', 'prefer stock number in the URL');
 ok(carRef(cars[1]) === '1', 'fall back to id when no stock number');
 ok(!findCar(cars, 'missing'), 'unknown ref returns null — do not silently pick another car');
+
+// ---- retired page redirects -----------------------------------------------
+// /japan-stock merged into /inventory: both the path and the legacy hash form
+// must resolve to the inventory page, never to a dead route.
+ok(parseRoute({ pathname: '/japan-stock', hash: '', search: '' }).page === 'inventory', '/japan-stock resolves to inventory');
+ok(parseRoute({ pathname: '/', hash: '#/japan-stock', search: '' }).page === 'inventory', '#/japan-stock resolves to inventory');
+ok(PAGE_REDIRECTS['japan-stock'] === 'inventory', 'PAGE_REDIRECTS maps japan-stock to inventory');
+ok(![...PAGES].includes('japan-stock'), 'japan-stock is no longer a registered page');
 
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');
 process.exit(failed ? 1 : 0);
