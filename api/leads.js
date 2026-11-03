@@ -1,5 +1,6 @@
 import {adminClient,send} from './_supabase.js';
 import {askLlm, llmConfigured} from '../scripts/goonet-core.mjs';
+import {validateLead, leadFromRequest} from '../src/lead-validation.js';
 
 // guardian:public-endpoint — deliberate, and the only one on the site.
 // Public enquiry endpoint — the only unauthenticated write on the site, so
@@ -20,9 +21,25 @@ import {askLlm, llmConfigured} from '../scripts/goonet-core.mjs';
 // new lead also triggers a Resend e-mail. Fire-and-forget on purpose — the
 // 201 goes out immediately and a mail failure can never block or fail the
 // form.
-const MAX={name:120,email:200,phone:40,country:80,vehicle_interest:180,message:2000,history_item:500};
-const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX={message:2000,history_item:500};
 const cut=(v,max)=>String(v??'').trim().slice(0,max);
+
+// Privacy-safe diagnostics: never log the request body, validation values,
+// Supabase error details, or a provider response. Only a fixed stage and a
+// standard error code reach the server log.
+function logLeadFailure(stage,error){
+ const raw=String(error?.code||'');
+ const code=/^[A-Z0-9_]{1,32}$/.test(raw)?raw:'UNKNOWN';
+ console.error('lead submission failed',{stage,code});
+}
+function publicFailure(error){
+ const code=String(error?.code||'');
+ const configured=/environment is not configured/i.test(String(error?.message||''));
+ const unavailable=configured||['PGRST205','PGRST204','42P01','42703','42501','08006','08001','57014'].includes(code);
+ return {status:unavailable?503:500,error:unavailable
+  ?'The enquiry service is temporarily unavailable. Please try again or contact us directly.'
+  :'Your enquiry could not be saved. Please try again or contact us directly.'};
+}
 
 // Owner-confirmed defaults (src/site-settings.js PUBLIC_CONTACTS) — used only
 // if the site_settings rows are missing, so the playbook always names a real
@@ -86,45 +103,62 @@ async function chatReply({message,history,settings,db}){
     json:false,maxTokens:400,timeoutMs:20000
    });
    if(r.text&&r.text.trim())return{reply:r.text.trim().slice(0,4000),source:'gemini'};
-  }catch(e){console.error('chat LLM failed, falling back to playbook',e.message)}
+  }catch(e){console.error('chat LLM failed, falling back to playbook',{state:String(e?.state||'error').slice(0,40)})}
  }
  return{reply:playbook(message,settings),source:'playbook'};
 }
 
-// Optional instant lead e-mail via Resend. Fire-and-forget: the caller never
-// awaits this, so the 201 is never blocked or failed by the mail provider.
-// Without RESEND_API_KEY or LEAD_NOTIFY_TO it is a silent no-op.
-function notifyLead(lead){
+// Optional instant lead e-mail via Resend. The lead is already persisted
+// before this runs. We await a bounded attempt (serverless can freeze a
+// fire-and-forget promise after the response), but a mail outage never turns a
+// saved enquiry into a failed submission. No personal detail is logged.
+async function notifyLead(lead){
  const key=String(process.env.RESEND_API_KEY||'').trim();
  const to=String(process.env.LEAD_NOTIFY_TO||'').trim();
- if(!key||!to)return;
+ if(!key||!to)return 'not-configured';
  const from=String(process.env.LEAD_FROM||'').trim()||'AR7 Traders <onboarding@resend.dev>';
  const subject='New website lead: '+lead.name;
  const lines=[
   'Name: '+lead.name,
   lead.email?'Email: '+lead.email:null,
-  lead.phone?'Phone: '+lead.phone:null,
+  'Phone: '+lead.phone,
   'Country: '+lead.country,
   lead.budget?('Budget: $'+lead.budget):null,
   'Looking for: '+lead.vehicle_interest,
+  lead.notes?lead.notes:null,
   'Source: '+(lead.source||'Website')
  ].filter(Boolean).join('\n');
- fetch('https://api.resend.com/emails',{
-  method:'POST',
-  headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
-  body:JSON.stringify({from,to,subject,text:lines,html:'<pre style="font-family:inherit;white-space:pre-wrap">'+lines.replace(/</g,'&lt;')+'</pre>'})
- }).catch(e=>console.error('lead notify failed',e.message));
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),3000);
+ try{
+  const response=await fetch('https://api.resend.com/emails',{
+   method:'POST',
+   headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
+   body:JSON.stringify({from,to,subject,text:lines,html:'<pre style="font-family:inherit;white-space:pre-wrap">'+lines.replace(/</g,'&lt;')+'</pre>'}),
+   signal:controller.signal
+  });
+  if(!response.ok){console.error('lead notification failed',{stage:'notify',code:'HTTP_'+response.status});return 'failed';}
+  return 'sent';
+ }catch(error){
+  console.error('lead notification failed',{stage:'notify',code:error?.name==='AbortError'?'TIMEOUT':'NETWORK'});
+  return 'failed';
+ }finally{clearTimeout(timer);}
 }
 
 // `injected` ({db}) is a test hook; Vercel always calls (req, res).
 export default async function handler(req,res,injected={}){
  if(req.method!=='POST')return send(res,405,{error:'Method not allowed'});
  try{
-  const b=req.body||{};if(b.website)return send(res,200,{ok:true});
-  const db=injected.db||adminClient();
+  let b=req.body||{};
+  if(typeof b==='string'){try{b=JSON.parse(b||'{}')}catch{return send(res,400,{error:'Invalid request body'})}}
+  if(!b||typeof b!=='object'||Array.isArray(b))return send(res,400,{error:'Invalid request body'});
+  // A filled honeypot is not a persisted enquiry. Never answer with a fake
+  // success that a browser could render as "sent".
+  if(b.website)return send(res,400,{error:'Your enquiry could not be submitted. Please try again or contact us directly.'});
 
   // ---- On-site assistant chat ---------------------------------------------
   if(b.action==='chat'){
+   const db=injected.db||adminClient();
    const message=cut(b.message,MAX.message);
    if(!message)return send(res,400,{error:'Message is required'});
    const history=Array.isArray(b.history)?b.history.slice(-8).map(h=>({
@@ -137,18 +171,30 @@ export default async function handler(req,res,injected={}){
   }
 
   // ---- Enquiry form ---------------------------------------------------------
-  const name=cut(b.name,MAX.name),email=cut(b.email,MAX.email),phone=cut(b.phone,MAX.phone);
-  if(name.length<2||(!email&&!phone))return send(res,400,{error:'Name and email or phone are required'});
-  if(email&&!EMAIL_RE.test(email))return send(res,400,{error:'Please enter a valid email address'});
-  const budget=Number(b.budget);
-  const safeBudget=Number.isFinite(budget)&&budget>0?budget:null;
-  const payload={name,email:email||null,phone:phone||null,
-   country:cut(b.country,MAX.country)||'Other',
-   vehicle_interest:cut(b.vehicle_interest??b.vehicle,MAX.vehicle_interest)||'General enquiry',
-   source:'Website',status:'new',budget:safeBudget};
-  const {data,error}=await db.from('leads').insert(payload).select('id').single();if(error)throw error;
-  await db.from('activities').insert({action:`New website lead: ${name}`,actor:'Website',entity_type:'lead',entity_id:data.id});
-  notifyLead(payload); // fire-and-forget — the 201 below never waits for mail
-  return send(res,201,{ok:true,id:data.id})
- }catch(e){console.error(e);return send(res,500,{error:'Unable to submit enquiry'})}
+  // Phone is mandatory for every public lead, including auction/vehicle/
+  // machinery dialogs and account signup. Email stays optional at the API
+  // boundary for phone-first buyers, but must be valid when supplied.
+  const errors=validateLead(b);
+  if(Object.keys(errors).length){
+   const field=Object.keys(errors)[0];
+   return send(res,400,{error:errors[field],field});
+  }
+  const payload=leadFromRequest(b);
+  const db=injected.db||adminClient();
+  const {data,error}=await db.from('leads').insert(payload).select('id').single();
+  if(error){logLeadFailure('lead-insert',error);const failure=publicFailure(error);return send(res,failure.status,{error:failure.error})}
+  if(!data?.id){logLeadFailure('lead-insert',{code:'NO_ID'});return send(res,500,{error:'Your enquiry could not be saved. Please try again or contact us directly.'})}
+  // The activity row is an audit convenience, not the lead itself. If it
+  // fails, the persisted lead still counts and the buyer gets an honest 201.
+  try{
+   const {error:activityError}=await db.from('activities').insert({action:'New website enquiry',actor:'Website',entity_type:'lead',entity_id:data.id});
+   if(activityError)logLeadFailure('activity-insert',activityError);
+  }catch(error){logLeadFailure('activity-insert',error)}
+  const notification=injected.notify===false?'not-configured':await notifyLead(payload);
+  return send(res,201,{ok:true,id:data.id,notification})
+ }catch(e){
+  logLeadFailure('request',e);
+  const failure=publicFailure(e);
+  return send(res,failure.status,{error:failure.error})
+ }
 }

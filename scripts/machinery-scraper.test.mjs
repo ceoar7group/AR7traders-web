@@ -30,6 +30,7 @@ const {
   runScraper, SCRAPER_CATEGORIES, SCRAPER_ORIGIN, SCRAPER_UA,
   MAX_SCRAPER_MACHINES, SCRAPER_DELAY_MS, ROBOTS_BLOCKED
 } = await import('../api/_machinery-scraper.js');
+const { fetchWithRetry } = await import('../api/_machinery-scraper.js');
 
 // ---- fixtures ---------------------------------------------------------------
 
@@ -575,6 +576,44 @@ say('\n-- purge-stale is a gated write on the same desk --');
   await api(req('POST', { machinery: 'purge-stale' }, { olderThanDays: 14, remove: true }), removed, { db, ...asUser(ADMIN) });
   ok(removed.json().deleted.length === 1 && db._tables.machinery.length === 1,
     `remove:true deletes only the parked row (${removed.json().deleted.join(',')})`);
+}
+
+say('\n-- bounded retry/backoff respects blocks and the run deadline --');
+{
+  const sleeps = [];
+  let calls = 0;
+  const retried = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    retries: 2, backoffMs: 500, sleep: async ms => { sleeps.push(ms); },
+    fetchImpl: async () => {
+      calls++;
+      if (calls < 3) return { ok: false, status: 503, text: async () => '' };
+      return { ok: true, status: 200, text: async () => '<html>ok</html>' };
+    },
+  });
+  ok(retried.ok && retried.attempts === 3 && calls === 3, 'a transient 5xx is retried at most twice and then succeeds');
+  ok(JSON.stringify(sleeps) === JSON.stringify([500, 1000]), 'backoff is bounded and exponential');
+
+  let blockedCalls = 0;
+  const blocked = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    sleep: async () => { throw new Error('must not sleep'); },
+    fetchImpl: async () => { blockedCalls++; return { ok: false, status: 403, text: async () => '' }; },
+  });
+  ok(!blocked.ok && blocked.status === 403 && blockedCalls === 1 && blocked.attempts === 1, 'a 403 bot/permission block is not retried or bypassed');
+
+  let limitedCalls = 0;
+  const limited = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    sleep: async () => { throw new Error('must not sleep'); },
+    fetchImpl: async () => { limitedCalls++; return { ok: false, status: 429, text: async () => '' }; },
+  });
+  ok(!limited.ok && limited.status === 429 && limitedCalls === 1, 'a 429 rate limit is surfaced, not hammered');
+
+  let clock = 0;
+  const deadline = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    deadline: 600, now: () => clock, backoffMs: 500,
+    sleep: async ms => { clock += ms; },
+    fetchImpl: async () => ({ ok: false, status: 503, text: async () => '' }),
+  });
+  ok(!deadline.ok && /budget/i.test(deadline.error || ''), 'the run deadline stops retry/backoff before the serverless budget is exceeded');
 }
 
 say('\n-- total run deadline keeps collected previews --');
