@@ -1,5 +1,18 @@
 # Goo-net dealer stock importer — how it works
 
+> **Source switch (2026-11-05): the importer now reads Goo-net EXCHANGE**
+> (`www.goo-net-exchange.com`), Goo-net's own English export portal — the
+> same cars, server-rendered in English with FOB prices. Probes from a
+> GitHub Actions runner proved the domestic `www.goo-net.com` silently drops
+> connections from datacenter IPs (raw TCP timeout, no HTTP answer), which
+> also starved every relay crawl — eight failed runs in a row. The exchange
+> answered the same runner **HTTP 200 in under a second**, needs no relay,
+> no cookie warm-up and no API key. A saved domestic
+> `goonet_search_url` (e.g. `/usedcar/price-100-300/`) is translated to the
+> equivalent exchange FOB search automatically; owner-pasted URLs from
+> either site still work in the CRM. The notes below about the domestic
+> site's bot gate are kept for history and for the (unused) legacy parser.
+
 This update adds a self-running **Goo-net (goo-net.com) importer** plus three
 things you asked for around it: a new **"Japan dealer stock"** page on the
 website, a **"Japan dealer stock"** manager in the CRM with buttons to move
@@ -569,6 +582,13 @@ the skip reasons; the scheduled workflow prints the full JSON):
   Environment Variables (no other change needed; redeploy once). The report's
   `relayKey` field says `configured` once the key is live. To use a different
   reader proxy entirely, set `GOONET_RELAY_URL` to its prefix.
+- `relayError` mentioning `Timeout was reached` means the relay itself could
+  not reach goo-net. A 2026-11-04 probe from a GitHub Actions runner proved
+  goo-net silently drops connections from foreign datacenter IPs (a raw TCP
+  timeout, no HTTP answer at all), which also kills the relay's default
+  crawl. The keyed relay therefore pins its proxy pool to Japan
+  (`X-Proxy: jp`; report field `relayProxy`). Override without a deploy via
+  `GOONET_RELAY_PROXY` (`auto`, another country code, or `off`).
 - `parseMiss: true` means goo-net answered fine but the card markup changed —
   that is a parser bug in `scripts/goonet-core.mjs`, not a blockade.
 - Skip reasons like `only 3 images (need 5+)` or `no/old year` mean the

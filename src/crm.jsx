@@ -2782,7 +2782,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   }
 
   const settingsFields = [
-    ['goonet_search_url', 'Goo-net search page', 'Newest-first listing to crawl, e.g. https://www.goo-net.com/usedcar/price-100-300/'],
+    ['goonet_search_url', 'Goo-net Exchange search page', 'Search results to crawl, e.g. https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search'],
     ['goonet_min_photos', 'Minimum photos (quality gate)', 'Cars with fewer good photos are skipped'],
     ['goonet_min_year', 'Oldest model year', 'Cars older than this year are skipped'],
     ['goonet_max_new_per_run', 'Max new cars per run', 'Small batches keep the site fast on free hosting'],

@@ -449,7 +449,7 @@ console.log('\n9) The importer survives a failed promotion (weekly auto-promote)
     let body = '', status = 200;
     if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
     else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; }
-    else if (u.includes('price--100')) body = listingHtml;
+    else if (u.includes('summary.php')) body = listingHtml; // the saved domestic search translates to the exchange
     else if (u.includes('/usedcar/spread/goo/')) body = detailHtml;
     else { body = '<html><body>ページが見つかりません</body></html>'; status = 404; }
     return { ok: status < 400, status, text: async () => body };

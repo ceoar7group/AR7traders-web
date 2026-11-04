@@ -23,7 +23,8 @@ import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
-  GATE_PAGE_BYTES, relayApiKey, classifyListingFailure, RELAY_TIMEOUT_MS,
+  GATE_PAGE_BYTES, relayApiKey, relayProxy, classifyListingFailure, RELAY_TIMEOUT_MS,
+  translateSearchUrl,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
@@ -528,7 +529,8 @@ export default async function handler(req, res, injected) {
     // relay runs with an API key. When a blocked report shows
     // relayKey: 'free (no key)', the keyless relay tier is the first suspect
     // — see GOONET-SYNC.md → "The importer is blocked every run".
-    via: 'direct', relayKey: relayApiKey() ? 'configured' : 'free (no key)'
+    via: 'direct', relayKey: relayApiKey() ? 'configured' : 'free (no key)',
+    relayProxy: relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)'
   };
 
   try {
@@ -557,7 +559,9 @@ export default async function handler(req, res, injected) {
       const n = Number(s.goonet_max_promote_per_run);
       return Number.isFinite(n) && n >= 0 ? Math.round(n) : maxNew;
     })();
-    const baseUrl = s.goonet_search_url || DEFAULT_SEARCH_URL;
+    // A pre-exchange goonet_search_url still points at the domestic site this
+    // host cannot reach; translate it to the equivalent exchange search.
+    const baseUrl = translateSearchUrl(s.goonet_search_url) || DEFAULT_SEARCH_URL;
     const bookmark = Math.max(1, num(s.goonet_bookmark_page, 1));
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------
@@ -660,6 +664,7 @@ export default async function handler(req, res, injected) {
           relayStatus: d.relayStatus ?? null,
           relayError: d.relayError || (relayAttempted ? 'relay did not return a readable page' : 'not attempted'),
           relayKey: relayApiKey() ? 'configured' : 'free (no key)',
+          relayProxy: relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)',
           fallbackTried: !!fallbackUrl,
           fallbackUrl,
           fallbackError,
