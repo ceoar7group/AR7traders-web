@@ -1136,7 +1136,7 @@ export function relayProxy() {
 // The one place relay request headers are built. Exported so the machinery
 // scraper's relay fallback sends exactly the same, tuned request instead of
 // growing its own slightly-different copy.
-export function relayRequestHeaders({ userAgent = UA } = {}) {
+export function relayRequestHeaders({ userAgent = UA, engine = null } = {}) {
   const relayHeaders = {
     'User-Agent': userAgent,
     'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
@@ -1152,8 +1152,8 @@ export function relayRequestHeaders({ userAgent = UA } = {}) {
     'X-Respond-Timing': 'html',
     'X-With-Links-Summary': 'false'
   };
-  const engine = relayEngine();
-  if (engine) relayHeaders['X-Engine'] = engine;
+  const chosenEngine = engine ?? relayEngine();
+  if (chosenEngine) relayHeaders['X-Engine'] = chosenEngine;
   // An API key lifts the relay off the rate-limited keyless tier. It is only
   // ever sent to the relay host itself (rawFetch headers are caller-built).
   const key = relayApiKey();
@@ -1169,9 +1169,41 @@ export function relayRequestHeaders({ userAgent = UA } = {}) {
   return relayHeaders;
 }
 
+// How long the fast first rung of the relay ladder may take, and the least
+// time worth spending on the browser rung. The plain-HTTP engine answers (or
+// is refused) within a few seconds; whatever it does not use is handed to the
+// browser rung.
+export const RELAY_FAST_ATTEMPT_MS = 6000;
+export const RELAY_BROWSER_MIN_MS = 3000;
+
+// The relay ladder. Production walked us here one rung at a time:
+//   • browser-ish engines (the pre-#89 default) queued for headless Chrome
+//     and ate the whole 20s budget — four straight timeouts;
+//   • the plain-HTTP engine (curl) answers FAST, but goo-net serves a no-JS
+//     fetch nothing real, so the relay refuses with HTTP 422 in seconds.
+// Neither rung alone reads goo-net. Both together can: try the fast engine
+// first, and when it is refused, spend the ~17s it saved on one browser
+// attempt — which now also rides the proxy pool, the cache tolerance and the
+// snapshot-at-first-HTML timing that the old browser attempts never had.
+// Both rungs are reported, so a failure reads "fast engine: HTTP 422 —
+// browser engine: …" instead of hiding half the story.
 async function relayFetch(url, { timeoutMs, maxBytes }) {
-  const relayed = await rawFetch(relayBaseUrl() + url, { timeoutMs, maxBytes, headers: relayRequestHeaders() });
-  return { relayed, relayPage: pageDiagnostics(relayed.html, relayed) };
+  const firstEngine = relayEngine();
+  const canClimb = Boolean(firstEngine) && firstEngine !== 'browser';
+  const firstBudget = canClimb ? Math.min(RELAY_FAST_ATTEMPT_MS, timeoutMs) : timeoutMs;
+  const started = Date.now();
+  const first = await rawFetch(relayBaseUrl() + url, { timeoutMs: firstBudget, maxBytes, headers: relayRequestHeaders() });
+  if (first.ok || !canClimb) return { relayed: first, relayPage: pageDiagnostics(first.html, first) };
+  const remaining = timeoutMs - (Date.now() - started);
+  const firstNote = `fast engine: ${first.error || 'HTTP ' + first.status}`;
+  if (remaining < RELAY_BROWSER_MIN_MS) {
+    first.error = firstNote + ' — no time left for the browser engine';
+    return { relayed: first, relayPage: pageDiagnostics(first.html, first) };
+  }
+  const second = await rawFetch(relayBaseUrl() + url, { timeoutMs: remaining, maxBytes, headers: relayRequestHeaders({ engine: 'browser' }) });
+  if (!second.ok) second.error = `${firstNote} — browser engine: ${second.error || 'HTTP ' + second.status}`;
+  else second.engineTrail = firstNote;
+  return { relayed: second, relayPage: pageDiagnostics(second.html, second) };
 }
 
 // The byte/encoding facts for the response a caller actually parsed. Kept as

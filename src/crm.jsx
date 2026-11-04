@@ -2446,9 +2446,9 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       {entity === 'machinery' && onPublish && onUnpublish && (
                         row.published === false
                           ? <button className="crm-btn-publish" onClick={() => onPublish(row)} title="Put this machine back on the website (confirmation required)" type="button"><Globe size={13} /> Publish</button>
-                          : <button className="crm-del" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time (confirmation required)." type="button"><Ban size={13} /> Unpublish</button>
+                          : <button className="crm-del crm-del-labeled" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time (confirmation required)." type="button"><Ban size={13} /> Unpublish</button>
                       )}
-                      {entity === 'machinery' && onArchive && row.status !== 'Archived' && <button className="crm-del crm-archive-action" onClick={() => onArchive(row)} title="Archive and unpublish this canonical machine record (confirmation required)" type="button"><Archive size={13} /> Archive</button>}
+                      {entity === 'machinery' && onArchive && row.status !== 'Archived' && <button className="crm-del crm-del-labeled crm-archive-action" onClick={() => onArchive(row)} title="Archive and unpublish this canonical machine record (confirmation required)" type="button"><Archive size={13} /> Archive</button>}
                       {onEdit && <button onClick={() => onEdit(row)} type="button">Edit</button>}
                       {onDelete && <button className="crm-del" title="Delete record (confirmation required)" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
                       </>}
