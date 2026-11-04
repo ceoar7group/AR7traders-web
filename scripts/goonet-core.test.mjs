@@ -13,7 +13,7 @@ import {
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
   BRAND_MAP, MODEL_MAP,
   countSpreadLinks, countDomCarLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
-  relayBaseUrl, relayApiKey, relayEngine, relayProxy, relayRequestHeaders,
+  relayBaseUrl, relayApiKey, relayEngine, relayProxy, relayRequestHeaders, relayFailureReason,
   llmConfigured, extractCardsWithLlm, markupSample, EVIDENCE_SAMPLE_BYTES,
   rawYen, priceTextToYen,
   FALLBACK_SEARCH_URL, JINA_RELAY, UA,
@@ -452,6 +452,26 @@ ok(calls.some(c => c.url.startsWith(JINA_RELAY)), 'the relay really was called b
 eq(r.diagnostics.relayError, 'fast engine: HTTP 500 — browser engine: HTTP 500',
   'the failure names BOTH rungs of the relay ladder');
 
+// 7a2) the relay's refusal body is read, not discarded: Jina's 422 carries
+//      the actual reason as JSON, and the owner notice must show it.
+eq(relayFailureReason(JSON.stringify({ readableMessage: 'AssertionFailureError: the crawler could not read the page' })),
+  'AssertionFailureError: the crawler could not read the page', 'a JSON readableMessage is surfaced verbatim');
+eq(relayFailureReason('{"message":"quota exhausted"}'), 'quota exhausted', 'plain message fields work too');
+eq(relayFailureReason('<html><body>Service unavailable</body></html>'), 'Service unavailable', 'an HTML body is tag-stripped');
+eq(relayFailureReason(''), '', 'an empty body stays empty');
+ok(relayFailureReason('x'.repeat(500)).length <= 160, 'the reason is capped to one notice-sized line');
+
+resetFetchState();
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return { status: 422, body: JSON.stringify({ readableMessage: 'AssertionFailureError: target denied' }), contentType: 'application/json' };
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+eq(r.diagnostics.relayError,
+  'fast engine: HTTP 422 (AssertionFailureError: target denied) — browser engine: HTTP 422 (AssertionFailureError: target denied)',
+  'both rungs report the relay-stated reason, not a bare status code');
+
 // 7b) the relay engine ladder: goo-net refuses the fast no-JS engine with a
 //     422, so the relay climbs to the browser engine with the time it saved.
 //     This is the exact production failure of 2026-11-04 ("Relay: HTTP 422").
@@ -526,10 +546,15 @@ eq(relayEngine(), '', 'GOONET_RELAY_ENGINE=off sends no engine preference');
 eq(relayRequestHeaders()['X-Engine'], undefined, 'and the header disappears accordingly');
 delete process.env.GOONET_RELAY_ENGINE;
 eq(relayProxy(), 'auto', 'relay proxy defaults to the auto pool');
+eq(relayProxy('jp'), 'jp', 'callers can pass their own fallback (goo-net pins jp — the 2026-11-04 probe proved its geo-fence)');
 process.env.GOONET_RELAY_PROXY = 'jp';
 eq(relayProxy(), 'jp', 'GOONET_RELAY_PROXY can pin a proxy country');
+process.env.GOONET_RELAY_PROXY = 'us';
+eq(relayProxy('jp'), 'us', 'the env knob beats any caller fallback — tuning stays deploy-free');
+process.env.GOONET_RELAY_PROXY = 'jp';
 process.env.JINA_API_KEY = 'k';
 eq(relayRequestHeaders()['X-Proxy'], 'jp', 'a pinned proxy country rides into the keyed headers');
+eq(relayRequestHeaders({ proxy: 'auto' })['X-Proxy'], 'auto', 'a per-call proxy override wins (machinery keeps auto while goo-net pins jp)');
 process.env.GOONET_RELAY_PROXY = 'off';
 eq(relayRequestHeaders()['X-Proxy'], undefined, 'GOONET_RELAY_PROXY=off keeps proxy routing out even with a key');
 delete process.env.GOONET_RELAY_PROXY;
@@ -548,7 +573,7 @@ calls = mockFetch(u => {
 r = await fetchPage(listUrl, { timeoutMs: 2000 });
 const keyedRelay = calls.find(c => c.url.startsWith(JINA_RELAY));
 eq(keyedRelay.headers['Authorization'], 'Bearer jina_secret_123', 'the relay call carries the configured API key');
-eq(keyedRelay.headers['X-Proxy'], 'auto', 'a keyed relay routes through the rotating proxy pool (goo-net stonewalls relay IPs)');
+eq(keyedRelay.headers['X-Proxy'], 'jp', 'the goo-net relay pins the Japan proxy pool (goo-net drops foreign datacenter connections — probe 2026-11-04)');
 eq(r.via, 'relay', 'a keyed relay still replaces a stub listing');
 delete process.env.JINA_API_KEY;
 

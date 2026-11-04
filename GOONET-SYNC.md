@@ -569,6 +569,13 @@ the skip reasons; the scheduled workflow prints the full JSON):
   Environment Variables (no other change needed; redeploy once). The report's
   `relayKey` field says `configured` once the key is live. To use a different
   reader proxy entirely, set `GOONET_RELAY_URL` to its prefix.
+- `relayError` mentioning `Timeout was reached` means the relay itself could
+  not reach goo-net. A 2026-11-04 probe from a GitHub Actions runner proved
+  goo-net silently drops connections from foreign datacenter IPs (a raw TCP
+  timeout, no HTTP answer at all), which also kills the relay's default
+  crawl. The keyed relay therefore pins its proxy pool to Japan
+  (`X-Proxy: jp`; report field `relayProxy`). Override without a deploy via
+  `GOONET_RELAY_PROXY` (`auto`, another country code, or `off`).
 - `parseMiss: true` means goo-net answered fine but the card markup changed —
   that is a parser bug in `scripts/goonet-core.mjs`, not a blockade.
 - Skip reasons like `only 3 images (need 5+)` or `no/old year` mean the

@@ -23,7 +23,7 @@ import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
-  GATE_PAGE_BYTES, relayApiKey, classifyListingFailure, RELAY_TIMEOUT_MS,
+  GATE_PAGE_BYTES, relayApiKey, relayProxy, classifyListingFailure, RELAY_TIMEOUT_MS,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
@@ -528,7 +528,8 @@ export default async function handler(req, res, injected) {
     // relay runs with an API key. When a blocked report shows
     // relayKey: 'free (no key)', the keyless relay tier is the first suspect
     // — see GOONET-SYNC.md → "The importer is blocked every run".
-    via: 'direct', relayKey: relayApiKey() ? 'configured' : 'free (no key)'
+    via: 'direct', relayKey: relayApiKey() ? 'configured' : 'free (no key)',
+    relayProxy: relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)'
   };
 
   try {
@@ -660,6 +661,7 @@ export default async function handler(req, res, injected) {
           relayStatus: d.relayStatus ?? null,
           relayError: d.relayError || (relayAttempted ? 'relay did not return a readable page' : 'not attempted'),
           relayKey: relayApiKey() ? 'configured' : 'free (no key)',
+          relayProxy: relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)',
           fallbackTried: !!fallbackUrl,
           fallbackUrl,
           fallbackError,

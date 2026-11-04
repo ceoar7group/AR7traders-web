@@ -1125,18 +1125,28 @@ export function relayEngine() {
 }
 
 // Which proxy pool the relay should fetch through (keyed-tier feature).
-// 'auto' lets the relay pick; a country code (e.g. 'jp') pins it — useful if
-// goo-net turns out to geo-filter. GOONET_RELAY_PROXY overrides without a
-// deploy; 'off' disables proxy routing entirely.
-export function relayProxy() {
-  const v = String(process.env.GOONET_RELAY_PROXY ?? 'auto').trim().toLowerCase();
+// 'auto' lets the relay pick; a country code (e.g. 'jp') pins it.
+// GOONET_RELAY_PROXY overrides without a deploy; 'off' disables proxy
+// routing entirely.
+//
+// Callers pass the fallback that suits THEIR target. The 2026-11-04 probe
+// from a GitHub Actions runner settled why that matters for goo-net: a
+// direct fetch never even got a TCP answer (connection timed out after 30s),
+// and the relay's keyless crawl was refused with "Request failed: Timeout
+// was reached" — goo-net silently drops connections from foreign datacenter
+// IPs. 'auto' lets the relay pick any exit, which is how production kept
+// timing out WITH a key configured; pinning 'jp' is the one routing that
+// matches goo-net's geo-fence. made-in-china has no such fence and keeps
+// 'auto' (its scraper works today — leave it alone).
+export function relayProxy(fallback = 'auto') {
+  const v = String(process.env.GOONET_RELAY_PROXY ?? fallback).trim().toLowerCase();
   return (v === '' || v === 'off' || v === 'none') ? '' : v;
 }
 
 // The one place relay request headers are built. Exported so the machinery
 // scraper's relay fallback sends exactly the same, tuned request instead of
 // growing its own slightly-different copy.
-export function relayRequestHeaders({ userAgent = UA, engine = null } = {}) {
+export function relayRequestHeaders({ userAgent = UA, engine = null, proxy = null } = {}) {
   const relayHeaders = {
     'User-Agent': userAgent,
     'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
@@ -1163,8 +1173,8 @@ export function relayRequestHeaders({ userAgent = UA, engine = null } = {}) {
     // sites stonewall datacenter IPs (goo-net: repeated 20s production
     // timeouts; made-in-china: a flat 403); the proxy pool exists for exactly
     // this and is a keyed-tier feature, hence inside the key guard.
-    const proxy = relayProxy();
-    if (proxy) relayHeaders['X-Proxy'] = proxy;
+    const chosenProxy = proxy ?? relayProxy();
+    if (chosenProxy) relayHeaders['X-Proxy'] = chosenProxy;
   }
   return relayHeaders;
 }
@@ -1187,21 +1197,49 @@ export const RELAY_BROWSER_MIN_MS = 3000;
 // snapshot-at-first-HTML timing that the old browser attempts never had.
 // Both rungs are reported, so a failure reads "fast engine: HTTP 422 —
 // browser engine: …" instead of hiding half the story.
+// Why did the relay refuse? Its error answers carry the reason in the BODY —
+// a JSON object with a readableMessage ("AssertionFailureError: …") — and we
+// were throwing that body away, leaving the owner staring at a bare
+// "HTTP 422" for days. This digs the sentence out (JSON first, then a
+// tag-stripped text fallback) and caps it to one notice-sized line.
+export function relayFailureReason(body) {
+  const text = String(body || '').trim();
+  if (!text) return '';
+  try {
+    const parsed = JSON.parse(text);
+    const msg = parsed.readableMessage || parsed.message || parsed.error || parsed.name || '';
+    if (msg) return String(msg).replace(/\s+/g, ' ').slice(0, 160);
+  } catch { /* not JSON — fall through to plain text */ }
+  const plain = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return plain.slice(0, 160);
+}
+
+function describeRelayAnswer(attempt) {
+  if (attempt.error) return attempt.error;
+  const reason = relayFailureReason(attempt.html);
+  return 'HTTP ' + attempt.status + (reason ? ` (${reason})` : '');
+}
+
 async function relayFetch(url, { timeoutMs, maxBytes }) {
   const firstEngine = relayEngine();
   const canClimb = Boolean(firstEngine) && firstEngine !== 'browser';
   const firstBudget = canClimb ? Math.min(RELAY_FAST_ATTEMPT_MS, timeoutMs) : timeoutMs;
   const started = Date.now();
-  const first = await rawFetch(relayBaseUrl() + url, { timeoutMs: firstBudget, maxBytes, headers: relayRequestHeaders() });
-  if (first.ok || !canClimb) return { relayed: first, relayPage: pageDiagnostics(first.html, first) };
+  // goo-net geo-fences: pin the proxy pool to Japan (see relayProxy above).
+  const proxy = relayProxy('jp');
+  const first = await rawFetch(relayBaseUrl() + url, { timeoutMs: firstBudget, maxBytes, headers: relayRequestHeaders({ proxy }) });
+  if (first.ok || !canClimb) {
+    if (!first.ok && !first.error) first.error = describeRelayAnswer(first);
+    return { relayed: first, relayPage: pageDiagnostics(first.html, first) };
+  }
   const remaining = timeoutMs - (Date.now() - started);
-  const firstNote = `fast engine: ${first.error || 'HTTP ' + first.status}`;
+  const firstNote = `fast engine: ${describeRelayAnswer(first)}`;
   if (remaining < RELAY_BROWSER_MIN_MS) {
     first.error = firstNote + ' — no time left for the browser engine';
     return { relayed: first, relayPage: pageDiagnostics(first.html, first) };
   }
-  const second = await rawFetch(relayBaseUrl() + url, { timeoutMs: remaining, maxBytes, headers: relayRequestHeaders({ engine: 'browser' }) });
-  if (!second.ok) second.error = `${firstNote} — browser engine: ${second.error || 'HTTP ' + second.status}`;
+  const second = await rawFetch(relayBaseUrl() + url, { timeoutMs: remaining, maxBytes, headers: relayRequestHeaders({ engine: 'browser', proxy }) });
+  if (!second.ok) second.error = `${firstNote} — browser engine: ${describeRelayAnswer(second)}`;
   else second.engineTrail = firstNote;
   return { relayed: second, relayPage: pageDiagnostics(second.html, second) };
 }
@@ -1306,6 +1344,9 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     }
     networkDiag.timedOut = direct.timedOut === true;
     networkDiag.relayKey = relayApiKey() ? 'configured' : 'free (no key)';
+    // Which proxy pool the relay was asked to ride — the 2026-11-04 probe
+    // showed goo-net geo-fences, so 'jp' vs 'auto' is a diagnosis-grade fact.
+    networkDiag.relayProxy = relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)';
     return { ok: false, status: 0, html: '', error: direct.error, timedOut: direct.timedOut === true, via: 'direct', meta: fetchMeta(direct), diagnostics: networkDiag };
   }
 
