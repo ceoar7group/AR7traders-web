@@ -392,8 +392,11 @@ ok(r.directDiagnostics.stub === true, 'relay result reports the direct diagnosti
 const relayCall = calls.find(c => c.url.startsWith(JINA_RELAY));
 eq(relayCall.url, JINA_RELAY + listUrl, 'relay fetches the same url');
 eq(relayCall.headers['X-Return-Format'], 'html', 'relay asks for html');
-eq(relayCall.headers['X-No-Cache'], 'true', 'relay bypasses cache');
+eq(relayCall.headers['X-Cache-Tolerance'], '900', 'relay accepts a recent cached crawl instead of forcing a cold one');
+ok(!relayCall.headers['X-No-Cache'], 'relay no longer discards the cache (that forced a 20s cold crawl every run)');
+eq(relayCall.headers['X-Respond-Timing'], 'html', 'relay snapshots the raw HTML without waiting for render/network-idle');
 eq(relayCall.headers['X-With-Links-Summary'], 'false', 'relay skips the links summary');
+ok(!relayCall.headers['X-Proxy'], 'proxy routing is a keyed-tier feature: not requested without a key');
 ok(!relayCall.headers['Cookie'], 'goo-net cookies are not leaked to the relay host');
 
 // 3) relay no better → keep the direct response
@@ -478,6 +481,7 @@ calls = mockFetch(u => {
 r = await fetchPage(listUrl, { timeoutMs: 2000 });
 const keyedRelay = calls.find(c => c.url.startsWith(JINA_RELAY));
 eq(keyedRelay.headers['Authorization'], 'Bearer jina_secret_123', 'the relay call carries the configured API key');
+eq(keyedRelay.headers['X-Proxy'], 'auto', 'a keyed relay routes through the rotating proxy pool (goo-net stonewalls relay IPs)');
 eq(r.via, 'relay', 'a keyed relay still replaces a stub listing');
 delete process.env.JINA_API_KEY;
 
