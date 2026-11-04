@@ -806,5 +806,40 @@ const fresh14e = (db14e.tables.japan_dealer_stock || []).find(r => r.goonet_id =
 ok(res14e.body?.inserted >= 1 && fresh14e?.promoted === 'none' && (db14e.tables.site_listings || []).length === 0,
   'goonet_max_promote_per_run 0: the bound is respected — import yes, promotion no');
 
+// ---- Fifteenth run: a SLOW relay (slower than the old 7s ceiling) ---------
+// The 2026-11-04 production incident: goo-net black-holed the direct request
+// (reads as a timeout) and r.jina.ai — key configured, perfectly willing —
+// was cancelled by OUR OWN 7s timer on every leg. The relay renders the page
+// and routinely needs 10–20s, so fetchPage now gives the listing relay leg
+// RELAY_TIMEOUT_MS (20s). This run's relay answers after 8.5s: under the old
+// timer it died as "timed out after 7000ms"; now it must rescue the run.
+resetFetchState();
+const db15 = memDb();
+db15.tables.site_settings = promoteSeed([]);
+db15.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) {
+    await new Promise(r => setTimeout(r, 8500));   // slower than the old 7s ceiling
+    return { ok: true, status: 200, text: async () => listingHtml };
+  }
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  if (u.includes('/usedcar/')) { const e = new Error('This operation was aborted'); e.name = 'AbortError'; throw e; }
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res15 = fakeRes();
+await handler(req, res15, { db: db15.db });
+const settings15 = Object.fromEntries(db15.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res15.statusCode === 200, 'slow relay: the run completes');
+eq(res15.body?.via, 'relay', 'slow relay: the page came via relay (not cancelled at 7s)');
+ok(res15.body?.inserted >= 1, `slow relay: cars import through the quality gates (inserted ${res15.body?.inserted})`);
+ok(Number(settings15.goonet_bookmark_page) === 2, 'slow relay: a relayed read of the bookmarked page advances the bookmark');
+ok(settings15.goonet_fetch_fail_count === undefined || settings15.goonet_fetch_fail_count === '0',
+  'slow relay: no failure is counted for a run the relay rescued');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
