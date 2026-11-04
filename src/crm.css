@@ -3031,6 +3031,10 @@ html[data-crm-theme="light"] .crm-shell,
   box-shadow: 0 5px 14px var(--crm-gold-glow);
 }
 .crm-row-actions .crm-del { border-radius: 999px; width: 30px; height: 30px; padding: 0; display: inline-grid; place-items: center; margin-right: 0; }
+/* The 30px circle above is for ICON-ONLY delete buttons. Machinery's
+   Unpublish/Archive carry a text label on the same class; squeezing their
+   words into the circle smeared them across the neighbouring buttons. */
+.crm-row-actions .crm-del.crm-del-labeled { width: auto; height: auto; min-height: 30px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px; }
 
 /* Editor / modal footers: gold primary CTA, quiet cancel */
 .crm-editor footer {

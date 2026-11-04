@@ -449,6 +449,52 @@ r = await fetchPage(listUrl, { timeoutMs: 2000 });
 ok(!r.ok && r.status === 0, 'an unreachable goo-net still reports a failed fetch');
 ok(r.diagnostics.relayAttempted === true, 'the report records that the relay was tried');
 ok(calls.some(c => c.url.startsWith(JINA_RELAY)), 'the relay really was called before giving up');
+eq(r.diagnostics.relayError, 'fast engine: HTTP 500 — browser engine: HTTP 500',
+  'the failure names BOTH rungs of the relay ladder');
+
+// 7b) the relay engine ladder: goo-net refuses the fast no-JS engine with a
+//     422, so the relay climbs to the browser engine with the time it saved.
+//     This is the exact production failure of 2026-11-04 ("Relay: HTTP 422").
+resetFetchState();
+let relayHits = [];
+calls = mockFetch((u, opts) => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) {
+    relayHits.push((opts.headers || {})['X-Engine']);
+    return relayHits.length === 1 ? { status: 422 } : { body: realHtml };
+  }
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+ok(r.ok && r.via === 'relay', 'a 422-refused fast engine is rescued by the browser rung');
+eq(relayHits, ['curl', 'browser'], 'the ladder tries the fast engine first, then the browser');
+ok(r.html.includes('年式'), 'the browser rung page is what the caller parses');
+
+// 7c) a short relay budget leaves no room to climb — one rung, honest story
+resetFetchState();
+relayHits = [];
+calls = mockFetch((u, opts) => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) { relayHits.push((opts.headers || {})['X-Engine']); return { status: 422 }; }
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000, relayTimeoutMs: 2000 });
+eq(relayHits, ['curl'], 'with 2s of relay budget only the fast rung runs');
+ok(String(r.diagnostics.relayError).includes('no time left for the browser engine'),
+  'the report says why the browser rung was skipped');
+
+// 7d) GOONET_RELAY_ENGINE=browser makes the browser the one and only rung
+resetFetchState();
+process.env.GOONET_RELAY_ENGINE = 'browser';
+relayHits = [];
+calls = mockFetch((u, opts) => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) { relayHits.push((opts.headers || {})['X-Engine']); return { body: realHtml }; }
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+ok(r.ok && r.via === 'relay' && String(relayHits) === 'browser', 'a pinned browser engine is used directly, no ladder');
+delete process.env.GOONET_RELAY_ENGINE;
 
 // 8) allowRelay: false (delist checks) must not dial the relay on a dead socket
 resetFetchState();
