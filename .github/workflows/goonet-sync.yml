@@ -26,7 +26,10 @@ jobs:
           URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}"
           # -L follows the site's canonical-domain redirect (www.ar7traders.com → ar7traders.com;
           # the apex is canonical — all canonical/og:url/sitemap URLs use https://ar7traders.com)
-          CODE=$(curl -sSL -m 60 -o /tmp/goonet-sync.json -w "%{http_code}" "$URL")
+          # -m 100: the run itself is budgeted (~60s worst case now that the
+          # relay leg waits up to 20s) and the function's maxDuration is 90s —
+          # the old -m 60 could cut the wait on a run that was still finishing.
+          CODE=$(curl -sSL -m 100 -o /tmp/goonet-sync.json -w "%{http_code}" "$URL")
           echo "HTTP status: $CODE"
           echo "Response:"
           cat /tmp/goonet-sync.json

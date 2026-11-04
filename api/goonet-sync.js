@@ -23,11 +23,11 @@ import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
-  GATE_PAGE_BYTES, relayApiKey, classifyListingFailure,
+  GATE_PAGE_BYTES, relayApiKey, classifyListingFailure, RELAY_TIMEOUT_MS,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
-export const config = { maxDuration: 60 };
+export const config = { maxDuration: 90 };
 
 // Vercel Hobby runs this function for up to `maxDuration` (60s, set below).
 // The budget is split: a hard stop for the whole run, and a separate allowance
@@ -35,6 +35,12 @@ export const config = { maxDuration: 60 };
 // the request — the listing fetch (up to 7s) plus a relay or rescue fetch could
 // consume all of it, so the import loop began already over budget and the run
 // reported `inserted: 0` even though goo-net had been read perfectly.
+// 2026-11-04: the relay leg is now patient (RELAY_TIMEOUT_MS, 20s — r.jina.ai
+// renders the page and routinely needs 10–20s; our old 7s timer cancelled a
+// willing relay on every leg). Worst all-timeout case: warm-up ~2.5s +
+// first fetch (7s direct + 20s relay) + one direct-only retry (7s) + fallback
+// (7s direct + remaining-budget relay) ≈ 60s, then every later step is gated
+// by overBudget(). maxDuration 90 leaves room for the DB writes after that.
 const RUN_BUDGET_MS = 45000;      // hard stop for the whole run
 const IMPORT_BUDGET_MS = 30000;   // the import loop's own allowance
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -571,14 +577,31 @@ export default async function handler(req, res, injected) {
     if (failure && failure.transient && !overBudget()) {
       retried = true;
       await new Promise(r => setTimeout(r, 600));   // one bounded backoff — not a storm
-      fetched = await fetchPage(pageUrl, { timeoutMs: 7000 });
+      // Direct only: the first attempt already gave the relay its patient
+      // 20s try. Re-waiting on the same relay back-to-back buys nothing the
+      // fallback fetch below (which still carries a relay leg) does not.
+      const firstDiag = fetched.diagnostics || {};
+      fetched = await fetchPage(pageUrl, { timeoutMs: 7000, allowRelay: false });
+      // The retry carries no relay leg, so without this the failure report
+      // would claim "relay: not attempted" about a run whose FIRST attempt
+      // did try (and time out on) the relay. Keep the first attempt's relay
+      // evidence on the final diagnostics.
+      if (fetched.diagnostics && firstDiag.relayAttempted && !fetched.diagnostics.relayAttempted) {
+        for (const k of ['relayAttempted', 'relayStatus', 'relayError', 'relayTimedOut', 'relayDiagnostics']) {
+          if (firstDiag[k] !== undefined) fetched.diagnostics[k] = firstDiag[k];
+        }
+      }
       failure = classifyListingFailure(fetched);
     }
     let fallbackUsed = false, fallbackUrl = null, fallbackError = null, fetchedBeforeFallbackKind = null;
     if (failure && failure.transient && !overBudget()) {
       fallbackUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, 1);
       if (fallbackUrl !== pageUrl) {
-        const fb = await fetchPage(fallbackUrl, { timeoutMs: 7000 });
+        // The fallback's relay leg gets whatever patience is left: at least
+        // the old 7s ceiling, at most the full RELAY_TIMEOUT_MS, bounded so
+        // the response still lands inside maxDuration with room to spare.
+        const fallbackRelayMs = Math.max(7000, Math.min(RELAY_TIMEOUT_MS, (RUN_BUDGET_MS + 15000) - (Date.now() - start) - 7000));
+        const fb = await fetchPage(fallbackUrl, { timeoutMs: 7000, relayTimeoutMs: fallbackRelayMs });
         if (!classifyListingFailure(fb) && fb.status !== 404) {
           fetchedBeforeFallbackKind = failure.kind;
           fetched = fb;

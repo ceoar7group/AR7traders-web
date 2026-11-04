@@ -1134,7 +1134,20 @@ function fetchMeta(from) {
   };
 }
 
-export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing', warmUpMs = 2500 } = {}) {
+// The relay needs more patience than goo-net itself. r.jina.ai RENDERS the
+// page before answering, and a heavy listing grid routinely takes 10–20s —
+// the 2026-11-04 production run proved it: direct black-holed (bot gate
+// dropping packets reads as a timeout), and the relay, key configured and
+// perfectly willing, was cancelled by OUR OWN 7s timer on every leg. One
+// patient relay attempt inside the run budget beats three impatient ones.
+export const RELAY_TIMEOUT_MS = 20000;
+
+export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing', warmUpMs = 2500, relayTimeoutMs = null } = {}) {
+  // Listing fetches get the patient relay by default; detail fetches keep the
+  // caller's timeout (the import loop fetches several per run on its own
+  // 30s allowance — six 20s relay waits there would stall the whole batch).
+  // Callers can always override, e.g. to cap by their remaining run budget.
+  const relayWait = relayTimeoutMs ?? (purpose === 'listing' ? Math.max(timeoutMs, RELAY_TIMEOUT_MS) : timeoutMs);
   if (isGoonetUrl(url)) await warmUp(Math.min(warmUpMs, timeoutMs));
   const cookieToSend = cookie || cookieJar || DEFAULT_COOKIE;
   const headers = browserHeaders(url, cookieToSend);
@@ -1170,7 +1183,7 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     // direct socket was refused never even tried the relay and imported nothing.
     const networkDiag = { ...diagnostics, fallbackUsed: true, directDiagnostics: pageDiagnostics('') };
     if (allowRelay && isGoonetUrl(url)) {
-      const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
+      const { relayed, relayPage } = await relayFetch(url, { timeoutMs: relayWait, maxBytes });
       if (relayed.ok && !looksLikeStub(relayed.html)) {
         const relayMeta = fetchMeta(relayed);
         return {
@@ -1230,7 +1243,7 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     && ((purpose !== 'detail' && looksLikeStub(direct.html)) || gateStubbedDetail);
 
   if (shouldRelay) {
-    const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
+    const { relayed, relayPage } = await relayFetch(url, { timeoutMs: relayWait, maxBytes });
     // Only trust the relay when it genuinely saw more than we did: more cars
     // for a listing page; for a gate-stubbed detail page, a bigger body with
     // no gate wording (mergeCardAndDetail still refuses anything that does
