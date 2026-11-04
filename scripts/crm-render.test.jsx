@@ -56,7 +56,7 @@ setGlobal('fetch', (url, options = {}) => {
 const React = (await import('react')).default;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { default: CrmApp, MachineryImportPanel } = await import('../src/crm.jsx');
+const { default: CrmApp, MachineryImportPanel, uniqueCarCount } = await import('../src/crm.jsx');
 
 let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
@@ -86,6 +86,23 @@ const clickText = async (selector, text) => {
 say('\nCRM boots');
 ok(!!document.querySelector('.crm-shell'), 'the CRM shell mounts in demo mode');
 ok(document.querySelector('.crm-side nav button'), 'the sidebar renders its tabs');
+
+// ---- the Cars badge counts cars, not table rows ------------------------------
+// Live incident 2026-11-04: after every imported car was promoted to BOTH the
+// CRM inventory and the website, the sidebar added the two tables (141 + 167)
+// and told the owner he had 308 cars. A car on both surfaces shares its
+// stock_no and must count once.
+say('\nThe Cars badge counts cars, not table rows');
+{
+  const vehicles = [{ stock_no: 'A1' }, { stock_no: 'B2' }, { stock_no: '' }];
+  const listings = [{ stock_no: 'A1' }, { stock_no: 'C3' }, {}];
+  eq(uniqueCarCount(vehicles, listings), 5, 'a car on both surfaces is counted once');
+  eq(uniqueCarCount([], listings), 3, 'website-only listings all count');
+  eq(uniqueCarCount(vehicles, []), 3, 'inventory-only vehicles all count');
+  eq(uniqueCarCount(null, null), 0, 'missing tables count zero, not crash');
+  eq(uniqueCarCount([{ stock_no: ' a1 ' }], [{ stock_no: 'A1' }]), 1, 'stock numbers match case- and space-insensitively');
+  eq(uniqueCarCount([{}, {}], [{}, {}]), 4, 'rows with no stock number cannot be matched and count as their own car');
+}
 
 // ---- every sidebar tab renders ---------------------------------------------
 say('\nEvery sidebar tab renders');

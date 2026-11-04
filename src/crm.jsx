@@ -158,6 +158,26 @@ const PHOTO_PRESETS = [
   }
 ];
 
+// One car, one count. Since imported cars are promoted to BOTH the CRM
+// inventory and the website, summing the two tables counted every promoted car
+// twice (141 + 167 = 308 for ~170 real cars). Cars on both surfaces share a
+// stock_no, so the real total is every CRM vehicle plus only the website
+// listings whose stock number the inventory does not already hold. Listings
+// without a stock number cannot be matched and count as their own car.
+export function uniqueCarCount(vehicles, listings) {
+  const held = new Set();
+  for (const v of (vehicles || [])) {
+    const ref = String(v?.stock_no || '').trim().toLowerCase();
+    if (ref) held.add(ref);
+  }
+  let webOnly = 0;
+  for (const l of (listings || [])) {
+    const ref = String(l?.stock_no || '').trim().toLowerCase();
+    if (!ref || !held.has(ref)) webOnly++;
+  }
+  return (vehicles || []).length + webOnly;
+}
+
 export function extractPhotos(item) {
   if (!item) return [];
   if (Array.isArray(item.images) && item.images.length) return item.images.filter(Boolean);
@@ -1498,8 +1518,8 @@ export default function CrmApp() {
               <span>{label}</span>
               {id === 'leads' && <em>{(rows.leads || []).filter(x => x.status === 'new').length}</em>}
               {id === 'vehicles' && (
-                <span className="crm-nav-count" title={`${(rows.vehicles || []).length} CRM inventory · ${(rows.listings || []).length} website`}>
-                  {(rows.vehicles || []).length + (rows.listings || []).length}
+                <span className="crm-nav-count" title={`${uniqueCarCount(rows.vehicles, rows.listings)} cars · ${(rows.vehicles || []).length} in CRM inventory · ${(rows.listings || []).length} on the website`}>
+                  {uniqueCarCount(rows.vehicles, rows.listings)}
                 </span>
               )}
               {id === 'goonet' && <span className="crm-nav-count">{(rows.goonet || []).filter(x => x.available !== false).length}</span>}

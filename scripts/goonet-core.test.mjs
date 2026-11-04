@@ -13,7 +13,7 @@ import {
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
   BRAND_MAP, MODEL_MAP,
   countSpreadLinks, countDomCarLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
-  relayBaseUrl, relayApiKey,
+  relayBaseUrl, relayApiKey, relayEngine, relayProxy, relayRequestHeaders,
   llmConfigured, extractCardsWithLlm, markupSample, EVIDENCE_SAMPLE_BYTES,
   rawYen, priceTextToYen,
   FALLBACK_SEARCH_URL, JINA_RELAY, UA,
@@ -395,6 +395,7 @@ eq(relayCall.headers['X-Return-Format'], 'html', 'relay asks for html');
 eq(relayCall.headers['X-Cache-Tolerance'], '900', 'relay accepts a recent cached crawl instead of forcing a cold one');
 ok(!relayCall.headers['X-No-Cache'], 'relay no longer discards the cache (that forced a 20s cold crawl every run)');
 eq(relayCall.headers['X-Respond-Timing'], 'html', 'relay snapshots the raw HTML without waiting for render/network-idle');
+eq(relayCall.headers['X-Engine'], 'curl', 'relay uses the plain-HTTP engine, never the headless-browser render queue');
 eq(relayCall.headers['X-With-Links-Summary'], 'false', 'relay skips the links summary');
 ok(!relayCall.headers['X-Proxy'], 'proxy routing is a keyed-tier feature: not requested without a key');
 ok(!relayCall.headers['Cookie'], 'goo-net cookies are not leaked to the relay host');
@@ -469,6 +470,26 @@ eq(relayBaseUrl(), JINA_RELAY, 'relay base falls back once the override is unset
 process.env.GOONET_RELAY_KEY = 'alt_key';
 eq(relayApiKey(), 'alt_key', 'GOONET_RELAY_KEY is picked up too');
 delete process.env.GOONET_RELAY_KEY;
+
+// 9b) relay engine / proxy knobs: sensible defaults, env-overridable, 'off' silences them
+eq(relayEngine(), 'curl', 'relay engine defaults to the fast plain-HTTP path');
+process.env.GOONET_RELAY_ENGINE = 'browser';
+eq(relayEngine(), 'browser', 'GOONET_RELAY_ENGINE can send the relay back to the browser engine');
+process.env.GOONET_RELAY_ENGINE = 'off';
+eq(relayEngine(), '', 'GOONET_RELAY_ENGINE=off sends no engine preference');
+eq(relayRequestHeaders()['X-Engine'], undefined, 'and the header disappears accordingly');
+delete process.env.GOONET_RELAY_ENGINE;
+eq(relayProxy(), 'auto', 'relay proxy defaults to the auto pool');
+process.env.GOONET_RELAY_PROXY = 'jp';
+eq(relayProxy(), 'jp', 'GOONET_RELAY_PROXY can pin a proxy country');
+process.env.JINA_API_KEY = 'k';
+eq(relayRequestHeaders()['X-Proxy'], 'jp', 'a pinned proxy country rides into the keyed headers');
+process.env.GOONET_RELAY_PROXY = 'off';
+eq(relayRequestHeaders()['X-Proxy'], undefined, 'GOONET_RELAY_PROXY=off keeps proxy routing out even with a key');
+delete process.env.GOONET_RELAY_PROXY;
+delete process.env.JINA_API_KEY;
+eq(relayRequestHeaders({ userAgent: 'AR7-Test/1.0' })['User-Agent'], 'AR7-Test/1.0',
+  'callers (the machinery scraper) can present their own honest user agent to the relay');
 
 // 10) the relay call carries the API key when one is configured
 resetFetchState();

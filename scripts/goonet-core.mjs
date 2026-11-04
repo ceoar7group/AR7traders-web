@@ -1111,34 +1111,66 @@ async function warmUp(timeoutMs) {
 // importer dedupes by goonet_id anyway.
 export const RELAY_CACHE_TOLERANCE_S = 900;
 
-async function relayFetch(url, { timeoutMs, maxBytes }) {
+// Which fetching engine the relay should use. The default used to be left to
+// the relay ('auto'), which routes tough pages into a headless-browser render
+// queue — and that queue is what kept eating the whole 20s budget (production
+// timed out with no answer at all). Every page this project reads is
+// server-rendered and parsed with regexes over the raw markup, so the relay's
+// lightweight plain-HTTP engine ('curl') is all we need, and it answers in
+// seconds instead of queueing. GOONET_RELAY_ENGINE overrides it without a
+// deploy ('browser'/'auto' to go back, 'off' to send no preference).
+export function relayEngine() {
+  const v = String(process.env.GOONET_RELAY_ENGINE ?? 'curl').trim().toLowerCase();
+  return (v === '' || v === 'off' || v === 'none' || v === 'default') ? '' : v;
+}
+
+// Which proxy pool the relay should fetch through (keyed-tier feature).
+// 'auto' lets the relay pick; a country code (e.g. 'jp') pins it — useful if
+// goo-net turns out to geo-filter. GOONET_RELAY_PROXY overrides without a
+// deploy; 'off' disables proxy routing entirely.
+export function relayProxy() {
+  const v = String(process.env.GOONET_RELAY_PROXY ?? 'auto').trim().toLowerCase();
+  return (v === '' || v === 'off' || v === 'none') ? '' : v;
+}
+
+// The one place relay request headers are built. Exported so the machinery
+// scraper's relay fallback sends exactly the same, tuned request instead of
+// growing its own slightly-different copy.
+export function relayRequestHeaders({ userAgent = UA } = {}) {
   const relayHeaders = {
-    'User-Agent': UA,
+    'User-Agent': userAgent,
     'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
     'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
     'X-Return-Format': 'html',
     // Accept a recent cached copy instead of demanding a cold crawl each time
     // (X-No-Cache would do the latter — see RELAY_CACHE_TOLERANCE_S above).
     'X-Cache-Tolerance': String(RELAY_CACHE_TOLERANCE_S),
-    // Snapshot as soon as the HTML document exists. Goo-net listing pages are
-    // server-rendered and our parser is a regex over the raw markup, so there
-    // is nothing to gain from the relay waiting for scripts, images or
+    // Snapshot as soon as the HTML document exists. The pages are
+    // server-rendered and our parsers are regexes over the raw markup, so
+    // there is nothing to gain from the relay waiting for scripts, images or
     // network-idle — that wait is exactly what was eating the 20s budget.
     'X-Respond-Timing': 'html',
     'X-With-Links-Summary': 'false'
   };
+  const engine = relayEngine();
+  if (engine) relayHeaders['X-Engine'] = engine;
   // An API key lifts the relay off the rate-limited keyless tier. It is only
   // ever sent to the relay host itself (rawFetch headers are caller-built).
   const key = relayApiKey();
   if (key) {
     relayHeaders['Authorization'] = 'Bearer ' + key;
-    // Route the relay's own fetch through its rotating proxy pool. Goo-net
-    // appears to stonewall the relay's datacenter IPs (four straight 20s
-    // production timeouts); the proxy pool exists for exactly this and is a
-    // keyed-tier feature, hence inside the key guard.
-    relayHeaders['X-Proxy'] = 'auto';
+    // Route the relay's own fetch through its rotating proxy pool. The target
+    // sites stonewall datacenter IPs (goo-net: repeated 20s production
+    // timeouts; made-in-china: a flat 403); the proxy pool exists for exactly
+    // this and is a keyed-tier feature, hence inside the key guard.
+    const proxy = relayProxy();
+    if (proxy) relayHeaders['X-Proxy'] = proxy;
   }
-  const relayed = await rawFetch(relayBaseUrl() + url, { timeoutMs, maxBytes, headers: relayHeaders });
+  return relayHeaders;
+}
+
+async function relayFetch(url, { timeoutMs, maxBytes }) {
+  const relayed = await rawFetch(relayBaseUrl() + url, { timeoutMs, maxBytes, headers: relayRequestHeaders() });
   return { relayed, relayPage: pageDiagnostics(relayed.html, relayed) };
 }
 
