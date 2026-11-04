@@ -1,75 +1,37 @@
-====================================================
-== goo-net DIRECT from this runner
-curl failed: curl: (28) Connection timed out after 30000 milliseconds
-000 0B 30.000670s
-====================================================
-== SAVE exchange search -> probe-exchange-search.html
-answer: 200 18259B 0.348597s https://www.goo-net-exchange.com/usedcars/
-bytes on disk: 139659
-====================================================
-== SAVE exchange results page -> probe-exchange-results.html
-answer: 200 28636B 0.783482s https://www.goo-net-exchange.com/php/search/summary.php?year_min=2018&search_type=year_search
-bytes on disk: 297401
-====================================================
-== SAVE exchange brand page -> probe-exchange-brand.html
-answer: 200 18214B 0.481157s https://www.goo-net-exchange.com/usedcars/TOYOTA/
-bytes on disk: 222995
-candidate detail links:
-/usedcars/TOYOTA/RAIZE/700071023230260905001/
-/usedcars/TOYOTA/ROOMY/700070592930261029023/
-/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/
-/usedcars/TOYOTA/RAV4/700070592930261027010/
-/usedcars/TOYOTA/YARIS_CROSS/700070798530261029003/
-====================================================
-== SAVE exchange first detail -> probe-exchange-detail.html
-answer: 200 25425B 0.642054s https://www.goo-net-exchange.com/usedcars/TOYOTA/RAIZE/700071023230260905001/
-bytes on disk: 320160
-(JINA_API_KEY secret present: keyed probes enabled)
-====================================================
-== relay, default engine
-answer: 422 677B 24.464905s
-spread links: 0
-body head:
-{"data":null,"cause":{"log":["  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\""],"name":"TimeoutError"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to goto https://www.goo-net.com: TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\"\n","readableMessage":"AssertionFailureError: Failed to goto https://www.go
-====================================================
-== relay, curl engine
-answer: 422 197B 3.213541s
-spread links: 0
-body head:
-{"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
-====================================================
-== relay, browser engine
-answer: 422 677B 15.219357s
-spread links: 0
-body head:
-{"data":null,"cause":{"log":["  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\""],"name":"TimeoutError"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to goto https://www.goo-net.com: TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\"\n","readableMessage":"AssertionFailureError: Failed to goto https://www.go
-====================================================
-== relay, curl + proxy auto
-answer: 422 197B 6.370810s
-spread links: 0
-body head:
-{"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
-====================================================
-== relay, browser + proxy auto
-answer: 422 499B 6.301116s
-spread links: 0
-body head:
-{"data":null,"cause":{"cause":{"code":28},"code":503,"name":"ServiceBadApproachError","status":50305,"message":"Request failed: Timeout was reached","readableMessage":"ServiceBadApproachError: Request failed: Timeout was reached"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to side load with allocated proxy: Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Failed to side load with allocated proxy: Request failed: Timeout was reached"}
-====================================================
-== relay, curl + proxy jp
-answer: 402 323B 0.286374s
-spread links: 0
-body head:
-{"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
-====================================================
-== relay, browser + proxy jp
-answer: 402 323B 0.306674s
-spread links: 0
-body head:
-{"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
-====================================================
-== relay, PRODUCTION headers (curl + jp + cache-tolerance + html-timing)
-answer: 402 323B 0.179054s
-spread links: 0
-body head:
-{"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
+== page 1 (year_min=2018) ==
+answer: 200 28633B 0.963634s https://www.goo-net-exchange.com/php/search/summary.php?year_min=2018&search_type=year_search
+cards: 20
+ids: 700070109330261031001 700070454330261029002 700070592930261027003 700070592930261027007 700070592930261027010 700070592930261029004 700070592930261029009 700070592930261029018 700070592930261029020 700070592930261029022 700070592930261029023 700070592930261029025 700070592930261030002 700070752130261027001 700070752130261027003 700070798530261027005 700070798530261029003 700071023230260905001 7000
+jpy prices: 
+== page 2 via GET offset=20 ==
+answer: 200 28364B 0.917195s https://www.goo-net-exchange.com/php/search/summary.php?year_min=2018&search_type=year_search&offset=20
+cards: 16
+ids: 700070592930260808002 700070752130260906001 700070752130261027002 700070752130261027004 700070752130261101001 700070752130261101002 700071014330261031002 700071023230261027001 700071023230261027008 700071023230261027009 700071023230261027011 700071023230261027012 700071023230261027013 975026103100901425001 975026110200901425002 975026110200901425003 
+jpy prices: 
+== page 2 via GET offset=20&page=2 ==
+answer: 200 28374B 0.769640s https://www.goo-net-exchange.com/php/search/summary.php?year_min=2018&search_type=year_search&offset=20&page=2
+cards: 16
+ids: 700070592930260808002 700070752130260906001 700070752130261027002 700070752130261027004 700070752130261101001 700070752130261101002 700071014330261031002 700071023230261027001 700071023230261027008 700071023230261027009 700071023230261027011 700071023230261027012 700071023230261027013 975026103100901425001 975026110200901425002 975026110200901425003 
+jpy prices: 
+== price filter GET, JPY 1,000,000-3,000,000 ==
+answer: 200 28445B 0.705691s https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&radio_currency=JPY&search_type=price_search
+cards: 19
+ids: 700070109330261031001 700070109330261031014 700070454330261029002 700070592930261027003 700070592930261027007 700070592930261029004 700070592930261029020 700070592930261029023 700070592930261029025 700070752130260906001 700070752130261027003 700070752130261027004 700070752130261101001 700070752130261101002 700070798530261027005 700071023230260905001 700071023230260911002 700071023230261027011 7000
+jpy prices: 
+== price filter GET, plain price1/price2 ==
+answer: 200 28438B 0.517363s https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search
+cards: 19
+ids: 700070109330261031001 700070109330261031014 700070454330261029002 700070592930261027003 700070592930261027007 700070592930261029004 700070592930261029020 700070592930261029023 700070592930261029025 700070752130260906001 700070752130261027003 700070752130261027004 700070752130261101001 700070752130261101002 700070798530261027005 700071023230260905001 700071023230260911002 700071023230261027011 7000
+jpy prices: 
+== bogus detail url (what does a dead listing answer?) ==
+answer: 404 36981B 0.763179s https://www.goo-net-exchange.com/usedcars/TOYOTA/RAIZE/700000000000000000001/
+dead body head:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      
