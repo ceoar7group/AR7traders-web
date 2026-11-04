@@ -1227,6 +1227,7 @@ console.log('\n-- exchange: detail page parses English specs + JSON-LD --');
   eq(d.tr, 'AT', 'transmission');
   eq(d.col, 'WHITE II', 'colour');
   eq(d.repair_history, 'No', 'No Repair → No');
+  eq(d.body, 'SUV', 'body comes from the curated model map, English pass (the exchange prints no body row)');
   eq(d.location, 'Hyogo', 'location');
   eq(d.price_jpy, 2971800, 'price from the JSON-LD offer');
   eq(d.image, 'https://picture1.goo-net.com/7000710232/30260905/J/70007102323026090500100.jpg', 'JSON-LD cover first');
@@ -1239,6 +1240,41 @@ console.log('\n-- exchange: detail page parses English specs + JSON-LD --');
   eq(merged.photo_count, 3, 'merge keeps the richer gallery');
   const gate = qualityScore({ ...merged, images: [1,2,3,4,5].map(i => `https://picture1.goo-net.com/071/0710232/J/0710232A30260905W0010${i}.jpg`) }, { minPhotos: 5 });
   ok(gate.pass, 'a complete exchange car passes the quality gate (no condition rating is forgiven): ' + gate.reasons.join(', '));
+}
+
+console.log('\n-- exchange: body type is derived, never left to a missing row --');
+{
+  // The 2026-11-04 production run read the exchange perfectly and then
+  // skipped all 17 cars with "missing fields: body" — the exchange, like the
+  // domestic site (GOONET-SYNC.md fix #5), prints no body-type row, and
+  // bodyForModel only knew the Japanese model names. The English pass:
+  eq(bodyForModel('TOYOTA RAIZE Z'), 'SUV', 'Raize reads as SUV from the curated map’s own English name');
+  eq(bodyForModel('Toyota Yaris Cross Z'), 'SUV', 'Yaris Cross is SUV — longest match wins');
+  eq(bodyForModel('Toyota Yaris G'), 'Hatchback', 'plain Yaris stays a hatchback');
+  eq(bodyForModel('Toyota Roomy'), 'MPV', 'exchange-era additions cover common exports the map lacked');
+  eq(bodyForModel('Suzuki Jimny Nomade'), 'SUV', 'Jimny Nomade (the 1.5L 5-door) is SUV, not Kei');
+  eq(bodyForModel('Suzuki Jimny XC'), 'Kei', 'the kei Jimny stays Kei');
+  eq(bodyForModel('Suzuki Solio'), 'MPV', 'Solio resolves (the map used to misspell it "Sonio")');
+  eq(bodyForModel('Toyota Dyna'), 'Truck', 'work vehicles classify');
+  eq(bodyForModel('Toyota Vanguard'), null, 'word boundaries: Vanguard is never read as a van');
+  eq(bodyForModel('Some Convertible Thing'), 'Convertible', 'generic body words still classify');
+  eq(bodyForModel('Completely Unknown Model'), null, 'an unknown model stays null — skipped honestly, never guessed');
+
+  // Kei backstop: a kei car IS a ≤660cc engine (Japanese law, not a guess).
+  const keiDetail = exchangeDetailHtml
+    .replace(/RAIZE/g, 'MISTERIO').replace(/Raize/g, 'Misterio')
+    .replace('<dd>1200cc</dd>', '<dd>660cc</dd>')
+    .replace(/TOYOTA RAIZE Z/g, 'TOYOTA MISTERIO Z');
+  const kd = parseDetailPage(keiDetail, 'https://www.goo-net-exchange.com/usedcars/TOYOTA/MISTERIO/700071023230260905001/');
+  eq(kd.body, 'Kei', 'an unknown model with a 660cc engine is a kei car by definition');
+
+  // End to end: a merged exchange car carries every required import field.
+  const card = parseListingPage(exchangeListingHtml).cars[0];
+  const detail = parseDetailPage(exchangeDetailHtml, card.url);
+  const merged = mergeCardAndDetail(card, detail);
+  const required = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
+  eq(required.filter(f => !merged[f] || merged[f] === 'Unknown').join(','), '',
+    'no required field is missing — the "missing fields: body" skip storm cannot recur for mapped models');
 }
 
 console.log('\n-- exchange: owner-pasted URLs and delisting --');

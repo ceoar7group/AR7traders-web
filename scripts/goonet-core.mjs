@@ -182,7 +182,7 @@ export const MODEL_MAP = {
   'Ｑ７': ['Q7', 'SUV'], 'レヴォーグ': ['Levorg', 'Wagon'], 'インプレッサ': ['Impreza', 'Sedan'],
   'フォレスター': ['Forester', 'SUV'], 'アウトランダー': ['Outlander', 'SUV'],
   'エクリプスクロス': ['Eclipse Cross', 'SUV'], 'デリカ': ['Delica', 'MPV'],
-  'ソリオ': ['Sonio', 'MPV'], 'フリード': ['Freed', 'MPV'], 'シエンタ': ['Sienta', 'MPV'],
+  'ソリオ': ['Solio', 'MPV'], 'フリード': ['Freed', 'MPV'], 'シエンタ': ['Sienta', 'MPV'],
   'ジャスティ': ['Justy', 'Kei'], 'タント': ['Tanto', 'Kei'], 'ｅ－Ｋ': ['eK', 'Kei'],
   'デイズ': ['Dayz', 'Kei'], 'ルークス': ['Roox', 'Kei'], 'サクラ': ['Sakura', 'Kei'],
   'リーフ': ['Leaf', 'Hatchback'], 'ＭＧ４': ['MG4', 'Hatchback'],
@@ -339,13 +339,55 @@ export function detectFuel(text) {
 // Longest match wins, mirroring detectModel. Returns null for unknown models —
 // an unknown body must stay null so the required-fields gate skips the car
 // rather than importing a guess.
+// English model names the exchange prints that the curated MODEL_MAP does
+// not carry (yet): the common export models seen on live exchange pages.
+// Same curation discipline as MODEL_MAP — a name only enters this list with
+// a body type that is true of every generation sold under it.
+const EN_BODY_HINTS = {
+  'jimny nomade': 'SUV', 'jimny sierra': 'SUV',
+  'roomy': 'MPV', 'thor': 'MPV', 'tank': 'MPV', 'esquire': 'MPV', 'granace': 'MPV',
+  'passo': 'Hatchback', 'vitz': 'Hatchback', 'boon': 'Hatchback', 'mazda2': 'Hatchback', 'mazda3': 'Hatchback',
+  'c-hr': 'SUV', 'juke': 'SUV', 'kicks': 'SUV', 'cr-v': 'SUV', 'xbee': 'SUV', 'ignis': 'SUV',
+  'crown crossover': 'SUV', 'crown sport': 'SUV', 'zr-v': 'SUV', 'wr-v': 'SUV', 'yaris cross': 'SUV',
+  'hiace': 'Van', 'regiusace': 'Van', 'probox': 'Van', 'succeed': 'Van', 'caravan': 'Van', 'nv200': 'Van',
+  'hilux': 'Pickup', 'triton': 'Pickup',
+  'dyna': 'Truck', 'canter': 'Truck', 'elf': 'Truck', 'atlas': 'Truck',
+  'carry': 'Kei', 'hijet': 'Kei', 'every': 'Kei', 'n-van': 'Kei', 'acty': 'Kei', 'sambar': 'Kei',
+  'taft': 'Kei', 'wake': 'Kei', 'canbus': 'Kei', 'n-wgn': 'Kei', 'pleo': 'Kei', 'lapin': 'Kei',
+  'mira e:s': 'Kei', 'ekwagon': 'Kei', 'ek wagon': 'Kei', 'ek cross': 'Kei', 'cast': 'Kei'
+};
+
+// Generic body words a title/model can carry outright. Word-bounded so
+// "Vanguard" never reads as a van and "Busan" never as a bus.
+const BODY_WORDS = [
+  ['convertible', 'Convertible'], ['cabriolet', 'Convertible'], ['spider', 'Convertible'],
+  ['roadster', 'Coupe'], ['coupe', 'Coupe'],
+  ['wagon', 'Wagon'], ['touring', 'Wagon'],
+  ['truck', 'Truck'], ['dump', 'Truck'], ['bus', 'Bus'], ['van', 'Van'],
+  ['hatchback', 'Hatchback'], ['sedan', 'Sedan'], ['suv', 'SUV']
+];
+
 export function bodyForModel(text) {
   const s = String(text || '');
   let best = null;
   for (const [jp, [, body]] of Object.entries(MODEL_MAP)) {
     if (s.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, body };
   }
-  return best ? best.body : null;
+  if (best) return best.body;
+  // English pass (the exchange prints English titles): the curated map's own
+  // English names first, then the exchange-era additions. Longest match wins,
+  // so "Yaris Cross" (SUV) can never be shadowed by "Yaris" (Hatchback).
+  const flat = s.toLowerCase().replace(/[\u3000]/g, ' ').replace(/\s+/g, ' ');
+  const wordHit = (name) => new RegExp('(?:^|[^a-z0-9])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|[^a-z0-9])').test(flat);
+  for (const [en, body] of Object.entries(MODEL_MAP).map(([, [en, body]]) => [en.toLowerCase(), body])
+    .concat(Object.entries(EN_BODY_HINTS))
+    .sort((a, b) => b[0].length - a[0].length)) {
+    if (wordHit(en)) return body;
+  }
+  for (const [word, body] of BODY_WORDS) {
+    if (wordHit(word)) return body;
+  }
+  return null;
 }
 
 export function detectModel(title, make) {
@@ -1962,6 +2004,13 @@ export function parseExchangeDetailPage(html, url) {
   const col = spec['Color'] || (ld && ld.color) || null;
   const repairRaw = spec['Repaired'] || spec['Repair History'] || '';
   const repair = repairRaw ? (/no/i.test(repairRaw) ? 'No' : 'Yes') : null;
+  // Body type: the exchange prints no body row (same gap the domestic site
+  // had — GOONET-SYNC.md fix #5), so it comes from the curated model map
+  // (English pass included). One definitional backstop: a kei car IS an
+  // engine of 660cc or less — Japanese law, not a guess.
+  const ccNum = Number(String(spec['Displacement'] || '').replace(/[^0-9]/g, ''));
+  const body = bodyForModel([model, title].filter(Boolean).join(' '))
+    || (ccNum > 0 && ccNum <= 660 ? 'Kei' : null);
   const location = ((s.match(/alt="Location"[^>]*>\s*([^<]{2,60})</) || [])[1] || '')
     .replace(/\s+/g, ' ').replace(/\s*Japan\s*$/i, '').trim() || null;
 
@@ -1984,7 +2033,7 @@ export function parseExchangeDetailPage(html, url) {
     year,
     km,
     fuel,
-    body: bodyForModel(title || ''),
+    body,
     st,
     drv,
     eng,
