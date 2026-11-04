@@ -116,13 +116,24 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [zoom, photos.length]);
+  const crumbLink = (href, onClickPath) => e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(onClickPath ?? href);
+  };
   return <section className="inner-page machinery-page mch-detail-page">
     <div className="shell page-content">
-      <a className="back-btn" href={back} onClick={e => {
-        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        navigate(back);
-      }}>
+      {/* The visible twin of the BreadcrumbList JSON-LD this page already
+          publishes — a buyer always sees where they are and has a one-tap
+          way back to the type catalogue or the whole desk. */}
+      <nav className="mch-crumbs" aria-label="Breadcrumb">
+        <a href="/machinery" onClick={crumbLink('/machinery')}>Machinery</a>
+        <span aria-hidden="true">/</span>
+        <a href={back} onClick={crumbLink(back)}>{machine.type}</a>
+        <span aria-hidden="true">/</span>
+        <b aria-current="page">{machine.ref}</b>
+      </nav>
+      <a className="back-btn" href={back} onClick={crumbLink(back)}>
         <ArrowLeft size={14}/> Back to {machine.type}
       </a>
 
@@ -192,7 +203,7 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
               onClick={() => onQuote({ kind: 'machinery', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref })}>
               Request a quotation
             </button>
-            <button className="mch-chat" type="button" onClick={onChat} aria-label={`Ask about the ${machine.name} on WhatsApp`}><MessageCircle/></button>
+            <button className="mch-chat" type="button" onClick={onChat} title="Chat with the machinery desk" aria-label={`Ask about the ${machine.name} on WhatsApp`}><MessageCircle/></button>
           </div>
           <p className="mch-detail-note">
             Photos show the unit offered, not a library shot. The quotation confirms the final price, the specification
