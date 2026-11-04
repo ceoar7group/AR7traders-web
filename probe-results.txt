@@ -1,0 +1,23 @@
+====================================================
+== goo-net DIRECT from this runner
+curl failed: curl: (28) Connection timed out after 30002 milliseconds
+000 0B 30.002473s
+(no JINA_API_KEY secret: keyless relay tier, no proxy probes)
+====================================================
+== relay, default engine
+answer: 422 197B 3.333760s
+spread links: 0
+body head:
+{"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
+====================================================
+== relay, curl engine
+answer: 422 197B 3.239439s
+spread links: 0
+body head:
+{"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
+====================================================
+== relay, browser engine
+answer: 401 345B 0.771418s
+spread links: 0
+body head:
+{"data":null,"code":401,"name":"AuthenticationRequiredError","status":40103,"message":"Authentication is required to use this feature (Browser rendered HTML). Please provide a valid API key.","readableMessage":"AuthenticationRequiredError: Authentication is required to use this feature (Browser rendered HTML). Please provide a valid API key."}
