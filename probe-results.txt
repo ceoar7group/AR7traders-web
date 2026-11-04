@@ -1,23 +1,53 @@
 ====================================================
 == goo-net DIRECT from this runner
 curl failed: curl: (28) Connection timed out after 30002 milliseconds
-000 0B 30.002473s
-(no JINA_API_KEY secret: keyless relay tier, no proxy probes)
+000 0B 30.002389s
+(JINA_API_KEY secret present: keyed probes enabled)
 ====================================================
 == relay, default engine
-answer: 422 197B 3.333760s
+answer: 422 677B 24.599419s
 spread links: 0
 body head:
-{"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
+{"data":null,"cause":{"log":["  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\""],"name":"TimeoutError"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to goto https://www.goo-net.com: TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\"\n","readableMessage":"AssertionFailureError: Failed to goto https://www.go
 ====================================================
 == relay, curl engine
-answer: 422 197B 3.239439s
+answer: 422 197B 3.189359s
 spread links: 0
 body head:
 {"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
 ====================================================
 == relay, browser engine
-answer: 401 345B 0.771418s
+answer: 422 677B 15.312926s
 spread links: 0
 body head:
-{"data":null,"code":401,"name":"AuthenticationRequiredError","status":40103,"message":"Authentication is required to use this feature (Browser rendered HTML). Please provide a valid API key.","readableMessage":"AuthenticationRequiredError: Authentication is required to use this feature (Browser rendered HTML). Please provide a valid API key."}
+{"data":null,"cause":{"log":["  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\""],"name":"TimeoutError"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to goto https://www.goo-net.com: TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\"\n","readableMessage":"AssertionFailureError: Failed to goto https://www.go
+====================================================
+== relay, curl + proxy auto
+answer: 422 197B 6.176117s
+spread links: 0
+body head:
+{"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
+====================================================
+== relay, browser + proxy auto
+answer: 422 499B 6.215880s
+spread links: 0
+body head:
+{"data":null,"cause":{"cause":{"code":28},"code":503,"name":"ServiceBadApproachError","status":50305,"message":"Request failed: Timeout was reached","readableMessage":"ServiceBadApproachError: Request failed: Timeout was reached"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to side load with allocated proxy: Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Failed to side load with allocated proxy: Request failed: Timeout was reached"}
+====================================================
+== relay, curl + proxy jp
+answer: 402 323B 0.217277s
+spread links: 0
+body head:
+{"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
+====================================================
+== relay, browser + proxy jp
+answer: 402 323B 0.160772s
+spread links: 0
+body head:
+{"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
+====================================================
+== relay, PRODUCTION headers (curl + jp + cache-tolerance + html-timing)
+answer: 402 323B 0.278146s
+spread links: 0
+body head:
+{"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
