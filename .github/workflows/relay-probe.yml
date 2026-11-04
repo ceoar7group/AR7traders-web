@@ -9,6 +9,11 @@
 name: relay-probe
 on:
   workflow_dispatch: {}
+  # workflow_dispatch only registers once the file reaches the default
+  # branch; the push trigger lets the probe run from a working branch too.
+  push:
+    paths:
+      - '.github/workflows/relay-probe.yml'
 
 jobs:
   probe:
