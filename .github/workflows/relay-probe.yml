@@ -59,7 +59,7 @@ jobs:
           save "exchange search"        probe-exchange-search.html  "https://www.goo-net-exchange.com/usedcars/"
           save "exchange results page"  probe-exchange-results.html "https://www.goo-net-exchange.com/php/search/summary.php?year_min=2018&search_type=year_search"
           save "exchange brand page"    probe-exchange-brand.html   "https://www.goo-net-exchange.com/usedcars/TOYOTA/"
-          DETAIL=$(grep -oE 'href="[^"]*/usedcars/[^"]+\.html[^"]*"' probe-exchange-results.html probe-exchange-brand.html | head -5 | sed 's/^[^:]*:href="//; s/"$//')
+          DETAIL=$(grep -oE 'href="/usedcars/[A-Z0-9_]+/[A-Z0-9_]+/[0-9]+/"' probe-exchange-results.html | head -5 | sed 's/^href="//; s/"$//')
           echo "candidate detail links:"; echo "$DETAIL"
           FIRST=$(echo "$DETAIL" | head -1)
           case "$FIRST" in
