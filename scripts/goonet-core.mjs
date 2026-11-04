@@ -1102,19 +1102,42 @@ async function warmUp(timeoutMs) {
 // Fetch `url` through the free reader relay. Used whenever this host cannot
 // read goo-net itself — either because goo-net answered with its bot-gate stub
 // or because the connection failed at the network level.
+// How stale a relay-cached copy may be before we insist on a fresh crawl.
+// Production showed the relay repeatedly timing out at 20s while we sent
+// X-No-Cache, which forced the slowest cold-crawl path on every run AND
+// discarded the copy the relay likely finished (and cached) moments after our
+// client gave up. A quarter-hour tolerance lets the next run collect that
+// finished crawl instantly; listings don't move faster than that, and the
+// importer dedupes by goonet_id anyway.
+export const RELAY_CACHE_TOLERANCE_S = 900;
+
 async function relayFetch(url, { timeoutMs, maxBytes }) {
   const relayHeaders = {
     'User-Agent': UA,
     'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
     'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
     'X-Return-Format': 'html',
-    'X-No-Cache': 'true',
+    // Accept a recent cached copy instead of demanding a cold crawl each time
+    // (X-No-Cache would do the latter — see RELAY_CACHE_TOLERANCE_S above).
+    'X-Cache-Tolerance': String(RELAY_CACHE_TOLERANCE_S),
+    // Snapshot as soon as the HTML document exists. Goo-net listing pages are
+    // server-rendered and our parser is a regex over the raw markup, so there
+    // is nothing to gain from the relay waiting for scripts, images or
+    // network-idle — that wait is exactly what was eating the 20s budget.
+    'X-Respond-Timing': 'html',
     'X-With-Links-Summary': 'false'
   };
   // An API key lifts the relay off the rate-limited keyless tier. It is only
   // ever sent to the relay host itself (rawFetch headers are caller-built).
   const key = relayApiKey();
-  if (key) relayHeaders['Authorization'] = 'Bearer ' + key;
+  if (key) {
+    relayHeaders['Authorization'] = 'Bearer ' + key;
+    // Route the relay's own fetch through its rotating proxy pool. Goo-net
+    // appears to stonewall the relay's datacenter IPs (four straight 20s
+    // production timeouts); the proxy pool exists for exactly this and is a
+    // keyed-tier feature, hence inside the key guard.
+    relayHeaders['X-Proxy'] = 'auto';
+  }
   const relayed = await rawFetch(relayBaseUrl() + url, { timeoutMs, maxBytes, headers: relayHeaders });
   return { relayed, relayPage: pageDiagnostics(relayed.html, relayed) };
 }
