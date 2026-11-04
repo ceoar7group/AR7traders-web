@@ -57,8 +57,9 @@ jobs:
             echo "bytes on disk: $(wc -c < "$out")"
           }
           save "exchange search"        probe-exchange-search.html  "https://www.goo-net-exchange.com/usedcars/"
-          save "exchange price search"  probe-exchange-price.html   "https://www.goo-net-exchange.com/usedcars/price/"
-          DETAIL=$(grep -oE 'href="[^"]*/usedcars/[^"]+\.html[^"]*"' probe-exchange-search.html | head -5 | sed 's/^href="//; s/"$//')
+          save "exchange results page"  probe-exchange-results.html "https://www.goo-net-exchange.com/php/search/summary.php?year_min=2018&search_type=year_search"
+          save "exchange brand page"    probe-exchange-brand.html   "https://www.goo-net-exchange.com/usedcars/TOYOTA/"
+          DETAIL=$(grep -oE 'href="[^"]*/usedcars/[^"]+\.html[^"]*"' probe-exchange-results.html probe-exchange-brand.html | head -5 | sed 's/^[^:]*:href="//; s/"$//')
           echo "candidate detail links:"; echo "$DETAIL"
           FIRST=$(echo "$DETAIL" | head -1)
           case "$FIRST" in
