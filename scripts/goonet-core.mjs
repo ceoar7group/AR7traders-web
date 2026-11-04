@@ -23,11 +23,25 @@
 
 export const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-export const DEFAULT_SEARCH_URL = 'https://www.goo-net.com/usedcar/price-100-300/';
+// The importer reads goo-net's ENGLISH export portal (Goo-net Exchange), not
+// the domestic site. The 2026-11-04 probes from a GitHub Actions runner
+// settled why: www.goo-net.com silently DROPS connections from datacenter
+// IPs (a raw TCP timeout — no HTTP answer at all), which also starves every
+// relay crawl; www.goo-net-exchange.com answered the same runner 200 in under
+// a second, fully server-rendered, and is literally built for overseas
+// buyers — the same cars, in English, with FOB prices.
+export const EXCHANGE_HOST = 'www.goo-net-exchange.com';
+export const EXCHANGE_BASE = 'https://www.goo-net-exchange.com';
+// Cards per results page on the exchange (`limit` hidden field).
+export const EXCHANGE_PAGE_SIZE = 20;
+// Same ¥1,000,000–3,000,000 band the old domestic default (price-100-300)
+// asked for, in the exchange's FOB-price parameters.
+export const DEFAULT_SEARCH_URL = EXCHANGE_BASE + '/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search';
 
 // Wider, always-populated search used as a rescue when the bookmarked search
-// URL returns (almost) no cards.
-export const FALLBACK_SEARCH_URL = 'https://www.goo-net.com/usedcar/price--100/';
+// URL returns (almost) no cards. Mirrors the old domestic fallback
+// (price--100 = anything under ¥1,000,000).
+export const FALLBACK_SEARCH_URL = EXCHANGE_BASE + '/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search';
 
 // Free reader relay. goo-net serves datacenter IPs (Vercel, CI) a stub page
 // with no car data; the relay fetches the very same URL from a residential-ish
@@ -393,7 +407,11 @@ export function formatEngine(text) {
 }
 
 export function extractStockFromUrl(url) {
-  const m = String(url || '').match(/([A-Za-z0-9]+)\.html/);
+  const s = String(url || '');
+  // Exchange detail URLs: /usedcars/<MAKE>/<MODEL>/<digits>/
+  const ex = s.match(/\/usedcars\/[A-Z0-9_-]+\/[A-Z0-9_-]+\/(\d{12,})\/?/i);
+  if (ex) return ex[1];
+  const m = s.match(/([A-Za-z0-9]+)\.html/);
   return m ? m[1] : null;
 }
 
@@ -412,7 +430,7 @@ export function detailUrlFor(stock) {
 // approved Goo-net host exactly. The fetch is then rebuilt from the stock id
 // we parsed, so a query string or fragment can never ride along.
 // ---------------------------------------------------------------------------
-export const GOONET_CAR_HOSTS = ['www.goo-net.com', 'goo-net.com'];
+export const GOONET_CAR_HOSTS = ['www.goo-net.com', 'goo-net.com', EXCHANGE_HOST, 'goo-net-exchange.com'];
 
 export function parseGoonetCarUrl(input) {
   const raw = String(input == null ? '' : input).trim();
@@ -432,8 +450,15 @@ export function parseGoonetCarUrl(input) {
   if (!GOONET_CAR_HOSTS.includes(host)) {
     return { ok: false, reason: 'only Goo-net vehicle pages are accepted (host was ' + (host || 'empty') + ')' };
   }
+  // Exchange detail pages: /usedcars/<MAKE>/<MODEL>/<digits>/ — the URL is
+  // rebuilt from the parsed segments, so nothing extra can ride along.
+  const ex = u.pathname.match(/^\/usedcars\/([A-Z0-9_-]+)\/([A-Z0-9_-]+)\/(\d{12,})\/?$/i);
+  if (ex && (host === EXCHANGE_HOST || host === 'goo-net-exchange.com')) {
+    const stock = ex[3];
+    return { ok: true, stock, url: `${EXCHANGE_BASE}/usedcars/${ex[1].toUpperCase()}/${ex[2].toUpperCase()}/${stock}/`, input: raw };
+  }
   const m = u.pathname.match(/^\/usedcar\/spread\/goo\/\d+\/([0-9A-Za-z_-]+)\.html\/?$/);
-  if (!m) return { ok: false, reason: 'not a Goo-net vehicle detail page (/usedcar/spread/goo/<n>/<id>.html)' };
+  if (!m) return { ok: false, reason: 'not a Goo-net vehicle detail page (/usedcar/spread/goo/<n>/<id>.html or goo-net-exchange.com/usedcars/<make>/<model>/<id>/)' };
   const stock = m[1];
   if (stock.length < 8) return { ok: false, reason: 'stock id "' + stock + '" is too short to be a Goo-net vehicle id' };
   return { ok: true, stock, url: detailUrlFor(stock), input: raw };
@@ -649,6 +674,16 @@ export function resetFetchState() {
 function isGoonetUrl(url) {
   try { return new URL(String(url)).hostname === GOONET_HOST; }
   catch { return false; }
+}
+
+// Exchange URLs skip the domestic warm-up/cookie dance (the English portal
+// answers datacenter IPs plainly) but still earn the relay fallback when a
+// direct fetch fails at the network level.
+function isExchangeUrl(url) {
+  try {
+    const h = new URL(String(url)).hostname;
+    return h === EXCHANGE_HOST || h === 'goo-net-exchange.com';
+  } catch { return false; }
 }
 
 function collectCookies(res) {
@@ -942,14 +977,27 @@ export function countDomCarLinks(html) {
   return new Set(scanCarLinks(html).dom.map(a => a.stock)).size;
 }
 
+// Distinct cars an EXCHANGE page links to: /usedcars/<MAKE>/<MODEL>/<id>/
+// anchors. The exchange equivalent of countSpreadLinks.
+const EXCHANGE_CARD_LINK_RE = /href="(?:https?:\/\/www\.goo-net-exchange\.com)?\/usedcars\/([A-Z0-9_]+)\/([A-Z0-9_]+)\/(\d{12,})\/?"/g;
+export function countExchangeCarLinks(html) {
+  const s = String(html || '');
+  const ids = new Set();
+  const re = new RegExp(EXCHANGE_CARD_LINK_RE.source, 'g');
+  let m;
+  while ((m = re.exec(s))) ids.add(m[3]);
+  return ids.size;
+}
+
 // True when the HTML we got back is not a real listing page.
 //
 // The car-link count is the only hard signal: a page that links 2+ distinct
 // cars can be read, whatever fine print it also contains. Gate wording is used
 // for diagnostics (and by the caller to name the blocker), never to overrule
-// results that are plainly there.
+// results that are plainly there. Exchange card links count the same as
+// domestic spread links — a page reading either way is real.
 export function looksLikeStub(html) {
-  return countSpreadLinks(html) < 2;
+  return countSpreadLinks(html) < 2 && countExchangeCarLinks(html) < 2;
 }
 
 // Which bot-gate phrases this HTML contains, if any. Empty for a real page.
@@ -969,6 +1017,7 @@ export function pageDiagnostics(html, meta = null) {
   return {
     contentLength: s.length,
     spreadLinks: countSpreadLinks(s),
+    exchangeCarLinks: countExchangeCarLinks(s),
     domCarLinks: new Set(links.dom.map(a => a.stock)).size,
     scriptCarLinks: new Set(links.occurrences.filter(o => o.inScript).map(o => o.stock)).size,
     jsonLdCars: structured.length,
@@ -1307,7 +1356,7 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     // same relay attempt. This used to return immediately, so an importer whose
     // direct socket was refused never even tried the relay and imported nothing.
     const networkDiag = { ...diagnostics, fallbackUsed: true, directDiagnostics: pageDiagnostics('') };
-    if (allowRelay && isGoonetUrl(url)) {
+    if (allowRelay && (isGoonetUrl(url) || isExchangeUrl(url))) {
       const { relayed, relayPage } = await relayFetch(url, { timeoutMs: relayWait, maxBytes });
       if (relayed.ok && !looksLikeStub(relayed.html)) {
         const relayMeta = fetchMeta(relayed);
@@ -1367,7 +1416,7 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     && (direct.html || '').length < GATE_PAGE_BYTES
     && directPage.gateMarkers.length > 0;
 
-  const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404
+  const shouldRelay = allowRelay && (isGoonetUrl(url) || isExchangeUrl(url)) && direct.status !== 404
     && ((purpose !== 'detail' && looksLikeStub(direct.html)) || gateStubbedDetail);
 
   if (shouldRelay) {
@@ -1474,8 +1523,157 @@ export function extractCarImages(html) {
 
 const PIC_RE = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
 
+// ---------------------------------------------------------------------------
+// Goo-net EXCHANGE parsing — the English export portal's server-rendered
+// markup. Captured live 2026-11-04 (probe-exchange-*.html on the working
+// branch): cards are <a class="spread_link_new_tab" href="/usedcars/<MAKE>/
+// <MODEL>/<21 digits>/"> blocks with an <h3 class="title">, a location line,
+// an FOB price in JPY, and a <ul class="details"> of year.month / colour /
+// mileage / displacement / steering / transmission.
+// ---------------------------------------------------------------------------
+
+// 'MERCEDES_BENZ' → 'Mercedes-Benz', 'ALFA_ROMEO' → 'Alfa Romeo',
+// 'TOYOTA' → 'Toyota', 'BMW' → 'BMW'. The EN brand map wins when it knows
+// the name, so exchange makes match the names the rest of the site uses.
+export function makeFromExchangeSlug(slug) {
+  const words = String(slug || '').split(/[_\s]+/).filter(Boolean);
+  if (!words.length) return null;
+  const pretty = words.map(w => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join(' ');
+  for (const [key, value] of Object.entries(EN_BRAND_MAP)) {
+    if (key.toLowerCase().replace(/[^a-z0-9]/g, '') === pretty.toLowerCase().replace(/[^a-z0-9]/g, '')) return value;
+  }
+  return pretty;
+}
+
+// 'JIMNY_NOMADE' → 'Jimny Nomade'. The URL slug IS the model (the exchange
+// routes by it), so it always wins; detectModel's token fallback would just
+// echo the title ("TOYOTA RAIZE") and is never wanted here.
+export function modelFromExchangeSlug(slug) {
+  const words = String(slug || '').split(/[_\s]+/).filter(Boolean);
+  if (!words.length) return null;
+  // Words carrying a digit are badge names and stay verbatim (RAV4, CX 5,
+  // 86); short words too (GT, RS); everything else is title-cased.
+  const pretty = words.map(w => (/\d/.test(w) || w.length <= 2 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join(' ');
+  // Prefer the site's own spelling when the model map knows this name
+  // (N BOX → N-BOX, CX 5 → CX-5), so exchange rows match the seed data.
+  for (const [, [en]] of Object.entries(MODEL_MAP)) {
+    if (en.toLowerCase().replace(/[^a-z0-9]/g, '') === pretty.toLowerCase().replace(/[^a-z0-9]/g, '')) return en;
+  }
+  return pretty;
+}
+
+// FOB price on a card/detail: "¥2,971,800" next to currency-jpy, or the
+// embedded currency JSON ('{"USD":"$18,858","JPY":"\u00a52,971,800"}').
+function exchangeYen(segment) {
+  let m = segment.match(/currency-jpy">\s*(?:¥|&yen;|\\u00a5)?([\d,]{4,})/);
+  if (!m) m = segment.match(/"JPY":"(?:\\u00a5|¥|&yen;)?([\d,]{4,})"/);
+  if (!m) return null;
+  const n = Number(m[1].replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+const EXCHANGE_FUEL = {
+  GASOLINE: 'Petrol', PETROL: 'Petrol', DIESEL: 'Diesel', HYBRID: 'Hybrid',
+  ELECTRIC: 'Electric', EV: 'Electric', LPG: 'LPG', OTHER: 'Other'
+};
+
+function parseExchangeDetails(liTexts) {
+  const out = { year: null, km: null, eng: null, st: null, tr: null, col: null };
+  for (const t of liTexts) {
+    const text = t.trim();
+    if (!text) continue;
+    const ym = text.match(/^((?:19|20)\d{2})\.\d{2}$/);
+    if (ym) { out.year = Number(ym[1]); continue; }
+    if (/km/i.test(text) && /\d/.test(text)) { out.km = out.km ?? kmToNumber(text); continue; }
+    if (/^\d[\d,]*\s*cc$/i.test(text)) { out.eng = out.eng ?? formatEngine(text.replace(/,/g, '')); continue; }
+    if (/^(right|left)$/i.test(text)) { out.st = /left/i.test(text) ? 'LHD' : 'RHD'; continue; }
+    if (/^(AT|MT|CVT|SAT|MTA|AMT|DCT)$/i.test(text)) { out.tr = text.toUpperCase(); continue; }
+    if (!out.col && /^[A-Za-z][A-Za-z0-9 .\-]{1,30}$/.test(text)) out.col = text;
+  }
+  return out;
+}
+
+export function parseExchangeListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
+  const s = String(html || '');
+  const re = new RegExp(EXCHANGE_CARD_LINK_RE.source, 'g');
+  const marks = [];
+  const seen = new Set();
+  let m;
+  while ((m = re.exec(s))) {
+    if (seen.has(m[3])) continue;
+    seen.add(m[3]);
+    marks.push({ makeSlug: m[1], modelSlug: m[2], stock: m[3], pos: m.index });
+  }
+  const cars = [];
+  for (let i = 0; i < marks.length; i++) {
+    const mark = marks[i];
+    const end = i + 1 < marks.length ? marks[i + 1].pos : Math.min(s.length, mark.pos + 8000);
+    const segment = s.slice(mark.pos, end);
+    const title = ((segment.match(/<h3[^>]*class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/h3>/) || [])[1] || '')
+      .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || null;
+    const location = ((segment.match(/<p[^>]*class="[^"]*location[^"]*"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || '')
+      .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').replace(/\s*Japan\s*$/i, '').trim() || null;
+    const image = (segment.match(/(?:data-src|src)="(https:\/\/picture1\.goo-net\.com\/[^"]+?\.(?:jpg|jpeg|png))"/) || [])[1] || null;
+    const priceJpy = exchangeYen(segment);
+    const detailsBlock = (segment.match(/<ul[^>]*class="[^"]*details[^"]*"[^>]*>([\s\S]*?)<\/ul>/) || [])[1] || '';
+    const liTexts = [...detailsBlock.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)]
+      .map(x => x[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+    const d = parseExchangeDetails(liTexts);
+    const make = makeFromExchangeSlug(mark.makeSlug) || detectMake(title || '') || 'Unknown';
+    const model = modelFromExchangeSlug(mark.modelSlug);
+    if (!title && !priceJpy) continue;
+    cars.push({
+      goonet_id: mark.stock,
+      stock_no: mark.stock,
+      make,
+      model,
+      title,
+      url: `${EXCHANGE_BASE}/usedcars/${mark.makeSlug}/${mark.modelSlug}/${mark.stock}/`,
+      year: d.year,
+      km: d.km,
+      price_jpy: priceJpy,
+      price_usd: yenToUsd(priceJpy),
+      price: usdText(yenToUsd(priceJpy)),
+      image,
+      images: image ? [image] : [],
+      photo_count: image ? 1 : 0,
+      tr: d.tr,
+      eng: d.eng,
+      st: d.st,
+      col: d.col,
+      ext_rating: null,
+      int_rating: null,
+      repair_history: null,
+      location,
+      grade: null
+    });
+  }
+  // Pagination: the results form carries the full match count; 20 cards per
+  // page. Capped so a six-figure total can never send the bookmark into the
+  // hundreds of thousands.
+  const total = Number((s.match(/name="total"\s+value="(\d+)"/) || [])[1] || 0);
+  const pages = total > 0 ? Math.min(500, Math.ceil(total / EXCHANGE_PAGE_SIZE)) : (cars.length ? 2 : 1);
+  return {
+    cars,
+    pagination: { total: pages },
+    diagnostics: {
+      parseStatus: cars.length ? 'success' : 'no_cards_matched',
+      cardCount: cars.length,
+      domCards: cars.length,
+      structuredCandidates: 0,
+      structuredCards: 0,
+      domCarLinks: seen.size,
+      cardSource: 'exchange',
+      fallbackTemplate: cars.length === 0
+    }
+  };
+}
+
 export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
   const s = String(html || '');
+  // Exchange markup is unmistakable (card links /usedcars/<MAKE>/<MODEL>/<id>/)
+  // and shares nothing with the domestic parser's segmentation.
+  if (countExchangeCarLinks(s) > 0) return parseExchangeListingPage(s, baseUrl);
   if (!s.trim()) {
     return {
       cars: [],
@@ -1700,8 +1898,119 @@ function parseCardRegion(s, prevPos, mark, nextPos, baseUrl) {
 // ---------------------------------------------------------------------------
 // Detail page parsing — full specs + complete photo gallery.
 // ---------------------------------------------------------------------------
+// The exchange detail page: dt/dd spec pairs in English, a schema.org
+// Product JSON-LD block (name / image / color / brand / JPY price), and a
+// full /J/ photo gallery on picture1.goo-net.com.
+export function exchangeCarImages(html, stock) {
+  const s = String(html || '');
+  const id = String(stock || '');
+  // A 21-digit exchange stock id is <dealer:10><car:8><seq:3>; the car's own
+  // photos carry the 8-digit car segment in their filename. Without it the
+  // page's "recommended cars" strip would donate other cars' photos.
+  const carSeg = id.length >= 18 ? id.slice(10, 18) : null;
+  const out = [];
+  const re = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\/J\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const u = m[0];
+    if (carSeg && !u.includes(carSeg)) continue;
+    if (!out.includes(u)) out.push(u);
+  }
+  // Gallery order: the cover (…00100.jpg, old-style path) first, then the
+  // W-numbered shots in page order.
+  return out.slice(0, 40);
+}
+
+export function parseExchangeDetailPage(html, url) {
+  const s = String(html || '');
+  const stock = extractStockFromUrl(url);
+
+  // schema.org Product block — deterministic name/image/colour/brand/price.
+  let ld = null;
+  for (const m of s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+    try {
+      const data = JSON.parse(m[1]);
+      if (data && data['@type'] === 'Product') { ld = data; break; }
+    } catch { /* tolerate other blocks */ }
+  }
+
+  // dt/dd spec pairs ("Month/Year" → "06.2026", "Mileage" → "5 km", …).
+  const spec = {};
+  for (const m of s.matchAll(/<dt[^>]*>\s*([\s\S]{1,60}?)\s*<\/dt>\s*<dd[^>]*>([\s\S]{0,300}?)<\/dd>/g)) {
+    const key = m[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const value = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (key && value && !(key in spec)) spec[key] = value;
+  }
+
+  const h1 = (s.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1];
+  const title = (h1 ? stripTags(h1).replace(/\s+/g, ' ').trim() : '') || (ld && ld.name) || null;
+
+  const slugs = String(url || '').match(/\/usedcars\/([A-Z0-9_-]+)\/([A-Z0-9_-]+)\/\d/i);
+  const make = (slugs && makeFromExchangeSlug(slugs[1]))
+    || (ld && ld.brand && makeFromExchangeSlug(String(ld.brand.name || '').replace(/\s+/g, '_').toUpperCase()))
+    || detectMake(title || '') || null;
+  const model = modelFromExchangeSlug(slugs ? slugs[2] : '');
+
+  const year = Number((String(spec['Month/Year'] || '').match(/(19|20)\d{2}/) || [])[0]) || null;
+  const km = kmToNumber(spec['Mileage']);
+  const fuelRaw = String(spec['Fuel'] || '').toUpperCase().replace(/[^A-Z]/g, '');
+  const fuel = EXCHANGE_FUEL[fuelRaw] || (spec['Fuel'] ? spec['Fuel'][0].toUpperCase() + spec['Fuel'].slice(1).toLowerCase() : null);
+  const st = spec['Steering'] ? (/left/i.test(spec['Steering']) ? 'LHD' : 'RHD') : null;
+  const drv = spec['Drive System'] ? spec['Drive System'].slice(0, 8) : null;
+  const eng = formatEngine(String(spec['Displacement'] || '').replace(/,/g, ''));
+  const tr = spec['Transmission'] ? spec['Transmission'].toUpperCase().slice(0, 12) : null;
+  const col = spec['Color'] || (ld && ld.color) || null;
+  const repairRaw = spec['Repaired'] || spec['Repair History'] || '';
+  const repair = repairRaw ? (/no/i.test(repairRaw) ? 'No' : 'Yes') : null;
+  const location = ((s.match(/alt="Location"[^>]*>\s*([^<]{2,60})</) || [])[1] || '')
+    .replace(/\s+/g, ' ').replace(/\s*Japan\s*$/i, '').trim() || null;
+
+  const priceJpy = (() => {
+    const n = ld && ld.offers ? Number(ld.offers.price) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+    return exchangeYen(s);
+  })();
+
+  const images = exchangeCarImages(s, stock);
+  const cover = (ld && typeof ld.image === 'string' && /^https:\/\/picture1\.goo-net\.com\//.test(ld.image)) ? ld.image : null;
+  if (cover && !images.includes(cover)) images.unshift(cover);
+
+  return {
+    goonet_id: stock,
+    make,
+    model,
+    title,
+    url,
+    year,
+    km,
+    fuel,
+    body: bodyForModel(title || ''),
+    st,
+    drv,
+    eng,
+    seats: seatsNumber(spec['Capacity'] || spec['Seats'] || ''),
+    tr,
+    col,
+    repair_history: repair,
+    location,
+    ext_rating: null,
+    int_rating: null,
+    price_jpy: priceJpy || null,
+    price_usd: yenToUsd(priceJpy),
+    price: usdText(yenToUsd(priceJpy)),
+    image: images[0] || null,
+    images,
+    photo_count: images.length
+  };
+}
+
 export function parseDetailPage(html, url) {
   const s = String(html || '');
+  // The exchange's English detail markup has its own parser; the URL names
+  // the host, and the markup itself carries the exchange's asset host.
+  if (isExchangeUrl(url) || s.includes('goo-net-exchange.com/common/')) {
+    return parseExchangeDetailPage(s, url);
+  }
   const text = stripTags(s).replace(/\s+/g, ' ');
   const stock = extractStockFromUrl(url) || detectMake(s) ? extractStockFromUrl(url) : null;
 
@@ -1990,9 +2299,44 @@ export function colourAfter(text, label = '車体色', opts = {}) {
 
 
 export function listingPageUrlFor(baseUrl, page) {
-  const clean = String(baseUrl || DEFAULT_SEARCH_URL).replace(/index-\d+\.html$/, '');
+  const base = String(baseUrl || DEFAULT_SEARCH_URL);
+  // Exchange results paginate by GET offset (20 cards per page — verified
+  // live 2026-11-04: offset=20 returned the next, different 20 cards).
+  if (base.includes('/php/search/summary.php')) {
+    try {
+      const u = new URL(base);
+      u.searchParams.delete('offset');
+      if (page > 1) u.searchParams.set('offset', String((page - 1) * EXCHANGE_PAGE_SIZE));
+      return u.toString();
+    } catch { return base; }
+  }
+  const clean = base.replace(/index-\d+\.html$/, '');
   if (page <= 1) return clean;
   return clean.replace(/\/$/, '') + '/index-' + page + '.html';
+}
+
+// A goonet_search_url saved before the exchange switch still points at the
+// domestic site this host cannot reach. Translate the one shape the setting
+// ever took — /usedcar/price-<min>-<max>/ in 万円 — into the equivalent
+// exchange FOB search, so the switch needs no owner action. Anything else on
+// the domestic host falls back to the default exchange search; exchange URLs
+// and empty values pass through untouched.
+export function translateSearchUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  let u;
+  try { u = new URL(raw); } catch { return raw; }
+  const host = u.hostname.toLowerCase();
+  if (host !== 'www.goo-net.com' && host !== 'goo-net.com') return raw;
+  const m = u.pathname.match(/\/usedcar\/price-(\d*)-(\d*)\/?/);
+  if (m && (m[1] || m[2])) {
+    const p = new URLSearchParams();
+    if (m[1]) p.set('b_to_b_price_min', String(Number(m[1]) * 10000));
+    if (m[2]) p.set('b_to_b_price_max', String(Number(m[2]) * 10000));
+    p.set('search_type', 'price_search');
+    return EXCHANGE_BASE + '/php/search/summary.php?' + p.toString();
+  }
+  return DEFAULT_SEARCH_URL;
 }
 
 // ---------------------------------------------------------------------------

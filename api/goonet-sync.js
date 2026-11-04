@@ -24,6 +24,7 @@ import {
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
   GATE_PAGE_BYTES, relayApiKey, relayProxy, classifyListingFailure, RELAY_TIMEOUT_MS,
+  translateSearchUrl,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
@@ -558,7 +559,9 @@ export default async function handler(req, res, injected) {
       const n = Number(s.goonet_max_promote_per_run);
       return Number.isFinite(n) && n >= 0 ? Math.round(n) : maxNew;
     })();
-    const baseUrl = s.goonet_search_url || DEFAULT_SEARCH_URL;
+    // A pre-exchange goonet_search_url still points at the domestic site this
+    // host cannot reach; translate it to the equivalent exchange search.
+    const baseUrl = translateSearchUrl(s.goonet_search_url) || DEFAULT_SEARCH_URL;
     const bookmark = Math.max(1, num(s.goonet_bookmark_page, 1));
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------

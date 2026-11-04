@@ -154,7 +154,7 @@ global.fetch = async (url) => {
   else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; }
   else if (u.includes('/usedcar/spread/goo/15/988026062900208975002')) { body = notFoundHtml; }
   else if (u.includes('/usedcar/spread/goo/15/988026081900208975001')) { body = detailHtml; }
-  else if (u.includes('price--100')) { body = listingHtml; }
+  else if (u.includes('summary.php')) { body = listingHtml; }
   else if (u.includes('/usedcar/spread/goo/')) { body = detailHtml; }
   else { status = 404; }
   return { ok: status < 400, status, text: async () => body };
@@ -192,11 +192,14 @@ ok(inserted[0]?.quality_score > 0, 'inserted car has a quality score');
 ok(delistedOld?.available === false, 'delisted car marked unavailable');
 ok(Number(settings.goonet_bookmark_page) === 2, 'bookmark advanced to page 2');
 ok(fetchCalls.length >= 3, 'fetch was called for listing + detail + delist check');
-ok(fetchCalls.some(u => u.includes('price--100')), 'the listing page was fetched');
-ok(fetchCalls[0] === 'https://www.goo-net.com/', 'the run warms up a cookie jar against goo-net first');
+ok(fetchCalls.some(u => u.includes('summary.php')), 'the listing page was fetched');
+ok(fetchCalls[0].includes('summary.php'), 'the exchange listing needs no warm-up — the first call is the listing itself');
+ok(fetchCalls.indexOf('https://www.goo-net.com/') > 0
+  && fetchCalls.indexOf('https://www.goo-net.com/') < fetchCalls.findIndex(u => u.includes('/usedcar/spread/goo/')),
+  'the cookie jar is still warmed against goo-net before the first domestic detail fetch');
 ok(activities.length >= 1, 'activity log written');
 ok(activities.some(a => String(a.action || '').includes('Delisted')), 'delist logged');
-ok(!fetchCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net.com/usedcar/price--100/'),
+ok(!fetchCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search'),
   'no relay needed when goo-net answers with a real listing page');
 ok(!fetchCalls.some(u => u.startsWith('https://r.jina.ai/') && u.includes('988026062900208975002')),
   'delist checks never go through the relay');
@@ -227,7 +230,7 @@ const res2 = fakeRes();
 await handler(req, res2, { db: db2.db });
 
 ok(res2.statusCode === 200, 'stub run still responds 200');
-ok(relayCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net.com/usedcar/price--100/'),
+ok(relayCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search'),
   'the stub listing page was re-fetched through the relay');
 ok(res2.body?.cardsSeen >= 2, 'relayed page yields real cards instead of the 1-card stub');
 ok(res2.body?.note === 'goo-net blocked the direct request (bot protection) — page fetched via relay.',
@@ -259,7 +262,7 @@ global.fetch = async (url) => {
   let body = '', status = 200;
   if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
   else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; } // relay unavailable
-  else if (u.includes('/usedcar/')) body = gatedStubHtml;                    // every page is the stub
+  else if (u.includes('/usedcar/') || u.includes('summary.php')) body = gatedStubHtml; // every page is the stub
   else body = '<html><body>goo-net</body></html>';
   return { ok: status < 400, status, text: async () => body };
 };
@@ -338,7 +341,7 @@ global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
   if (u.startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => listingHtml };
-  if (u.includes('price--100')) {
+  if (u.includes('summary.php')) {
     await sleep(8300);                       // a slow, stubbed first answer
     return { ok: true, status: 200, text: async () => '<html><body>セキュリティ</body></html>' };
   }
@@ -375,7 +378,7 @@ const detailUrls6 = [];
 global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => noTitleListing };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => noTitleListing };
   if (u.includes('/usedcar/spread/goo/')) { detailUrls6.push(u); return { ok: true, status: 200, text: async () => detailHtml }; }
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -411,7 +414,7 @@ global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
   if (u.startsWith('https://r.jina.ai/')) { relayCalls7.push(u); return { ok: true, status: 200, text: async () => detailHtml }; }
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
   return { ok: true, status: 200, text: async () => gateStub7 };   // every detail page is gated
 };
 
@@ -458,7 +461,7 @@ global.fetch = async (url) => {
     llmCalls8.push(u);
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: llmCardsReply }] } }] }) };
   }
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => llmListingPage };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => llmListingPage };
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -492,7 +495,7 @@ global.fetch = async (url) => {
   const u = String(url);
   fetchCalls9.push(u);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => llmListingPage };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => llmListingPage };
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -538,6 +541,11 @@ const db10 = memDb();
 const deepSettings = seedSettings
   .filter(([k]) => k !== 'goonet_search_url' && k !== 'goonet_bookmark_page')
   .concat([['goonet_search_url', 'https://www.goo-net.com/usedcar/'], ['goonet_bookmark_page', '30']]);
+// The saved domestic non-price search translates to the default exchange
+// search; its page 30 is the offset=580 URL, and the fallback search is the
+// only URL carrying b_to_b_price_max=1000000.
+const BOOKMARKED_PAGE = 'offset=580';
+const FALLBACK_MARK = 'b_to_b_price_max=1000000&search_type=price_search';
 db10.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
 db10.tables.japan_dealer_stock = [];
 
@@ -545,7 +553,7 @@ global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
   if (u.startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => listingHtml };
-  if (u.includes('/usedcar/index-30.html')) abortError();
+  if (u.includes(BOOKMARKED_PAGE)) abortError();
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -573,8 +581,8 @@ global.fetch = async (url) => {
   const u = String(url);
   calls11.push(u);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
-  if (u.includes('/usedcar/index-30.html')) abortError();   // direct AND relay (the relay URL embeds it)
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes(BOOKMARKED_PAGE)) abortError();   // direct AND relay (the relay URL embeds it)
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -584,12 +592,12 @@ await handler(req, res11, { db: db11.db });
 const settings11 = Object.fromEntries(db11.tables.site_settings.map(r => [r.key, r.value]));
 
 ok(res11.statusCode === 200, 'abort + abort + fallback: the run completes');
-ok(res11.body?.fallbackUsed === true && String(res11.body?.fallbackUrl || '').includes('price--100'),
+ok(res11.body?.fallbackUsed === true && String(res11.body?.fallbackUrl || '').includes(FALLBACK_MARK),
   'abort + abort + fallback: the report names the fallback page that was read');
 ok(res11.body?.inserted >= 1, `abort + abort + fallback: cars import from the fallback page (inserted ${res11.body?.inserted})`);
 ok(Number(settings11.goonet_bookmark_page) === 30,
   'abort + abort + fallback: the bookmark is HELD — a fallback read proves nothing about page 30');
-ok(calls11.filter(u => u.includes('/usedcar/index-30.html') && !u.startsWith('https://r.jina.ai/')).length === 2,
+ok(calls11.filter(u => u.includes(BOOKMARKED_PAGE) && !u.startsWith('https://r.jina.ai/')).length === 2,
   'abort + abort + fallback: exactly one bounded retry of the bookmarked page (2 direct attempts total)');
 ok(String(res11.body?.note || '').includes('held on page 30'),
   'abort + abort + fallback: the note says the bookmark was held');
@@ -618,9 +626,9 @@ const settings12 = Object.fromEntries(db12.tables.site_settings.map(r => [r.key,
 
 ok(res12.statusCode === 502 && res12.body?.failure?.kind === 'blocked',
   '403 run: reported as blocked, not as a timeout or crash');
-ok(calls12.filter(u => u.includes('/usedcar/index-30.html') && !u.startsWith('https://r.jina.ai/')).length === 1,
+ok(calls12.filter(u => u.includes(BOOKMARKED_PAGE) && !u.startsWith('https://r.jina.ai/')).length === 1,
   '403 run: the blocked page is fetched exactly once — no retry storm');
-ok(!calls12.some(u => u.includes('price--100')),
+ok(!calls12.some(u => u.includes(FALLBACK_MARK)),
   '403 run: the fallback search is never hammered from a blocked host');
 ok(Number(settings12.goonet_bookmark_page) === 30, '403 run: the bookmark is held');
 ok(String(res12.body?.error || '').includes('Do not retry'),
@@ -651,7 +659,7 @@ ok(res13.statusCode === 502 && f13.kind === 'timeout', 'all-timeout run: classif
 ok(!String(res13.body?.error || '').includes('This operation was aborted'),
   'all-timeout run: the raw abort message never reaches the owner');
 ok(String(res13.body?.error || '').includes('timed out')
-  && String(res13.body?.error || '').includes('index-30.html')
+  && String(res13.body?.error || '').includes(BOOKMARKED_PAGE)
   && String(res13.body?.error || '').includes('held on page 30'),
   'all-timeout run: the error names the page, the timeout, and the held bookmark');
 ok(f13.retried === true && f13.relayAttempted === true && f13.fallbackTried === true,
@@ -691,7 +699,7 @@ global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
-  if (u.includes('/usedcar/')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
   return { ok: false, status: 404, text: async () => '' };
 };
 const res13e = fakeRes();
@@ -711,7 +719,7 @@ const healthyFetch = () => {
     const u = String(url);
     if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
     if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
-    if (u.includes('/usedcar/')) return { ok: true, status: 200, text: async () => listingHtml };
+    if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
     return { ok: false, status: 404, text: async () => '' };
   };
 };
@@ -826,7 +834,7 @@ global.fetch = async (url) => {
     return { ok: true, status: 200, text: async () => listingHtml };
   }
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
-  if (u.includes('/usedcar/')) { const e = new Error('This operation was aborted'); e.name = 'AbortError'; throw e; }
+  if (u.includes('summary.php')) { const e = new Error('This operation was aborted'); e.name = 'AbortError'; throw e; }
   return { ok: false, status: 404, text: async () => '' };
 };
 
