@@ -29,67 +29,38 @@ jobs:
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
         run: |
           exec > >(tee probe-results.txt) 2>&1
-          URL="https://www.goo-net.com/usedcar/price-100-300/"
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-          probe () {
-            name="$1"; shift
-            echo "===================================================="
-            echo "== $name"
-            body=$(mktemp)
-            meta=$(curl -sS --compressed -m 30 -o "$body" -w '%{http_code} %{size_download}B %{time_total}s' "$@" 2>&1) || { echo "curl failed: $meta"; rm -f "$body"; return 0; }
-            echo "answer: $meta"
-            echo "spread links: $(grep -o '/usedcar/spread/' "$body" | wc -l)"
-            echo "body head:"
-            head -c 500 "$body" | tr -d '\0'; echo
-            rm -f "$body"
+          BASE="https://www.goo-net-exchange.com"
+          fetchx () { # url outfile
+            curl -sS --compressed -L -m 30 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$2" -w 'answer: %{http_code} %{size_download}B %{time_total}s %{url_effective}\n' "$1"
           }
-          probe "goo-net DIRECT from this runner" -A "$UA" -H "Accept-Language: ja,en;q=0.8" "$URL"
-          # goo-net's ENGLISH export portal answers datacenter IPs with a fast
-          # 200 (previous run). Now capture FULL pages so the parser work can
-          # happen against real markup: the search page, a price-filtered
-          # search, and whatever the first car detail link on it points at.
-          save () {
-            name="$1"; out="$2"; shift 2
-            echo "===================================================="
-            echo "== SAVE $name -> $out"
-            meta=$(curl -sS --compressed -L -m 30 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$out" -w '%{http_code} %{size_download}B %{time_total}s %{url_effective}' "$@" 2>&1) || { echo "curl failed: $meta"; return 0; }
-            echo "answer: $meta"
-            echo "bytes on disk: $(wc -c < "$out")"
+          cards () { # file — print the card ids and JPY prices this page carries
+            grep -oE 'href="/usedcars/[A-Z0-9_]+/[A-Z0-9_]+/[0-9]+/"' "$1" | grep -oE '[0-9]{15,}' | sort -u > /tmp/ids.txt
+            echo "cards: $(wc -l < /tmp/ids.txt)"
+            echo "ids: $(head -c 400 /tmp/ids.txt | tr '\n' ' ')"
+            echo "jpy prices: $(grep -oE 'class="price currency-jpy">\xc2\xa5[0-9,]+' "$1" | grep -oE '[0-9,]+$' | head -20 | tr '\n' ' ')"
           }
-          save "exchange search"        probe-exchange-search.html  "https://www.goo-net-exchange.com/usedcars/"
-          save "exchange results page"  probe-exchange-results.html "https://www.goo-net-exchange.com/php/search/summary.php?year_min=2018&search_type=year_search"
-          save "exchange brand page"    probe-exchange-brand.html   "https://www.goo-net-exchange.com/usedcars/TOYOTA/"
-          DETAIL=$(grep -oE 'href="/usedcars/[A-Z0-9_]+/[A-Z0-9_]+/[0-9]+/"' probe-exchange-results.html | head -5 | sed 's/^href="//; s/"$//')
-          echo "candidate detail links:"; echo "$DETAIL"
-          FIRST=$(echo "$DETAIL" | head -1)
-          case "$FIRST" in
-            http*) : ;;
-            /*) FIRST="https://www.goo-net-exchange.com$FIRST" ;;
-            "") FIRST="" ;;
-          esac
-          if [ -n "$FIRST" ]; then save "exchange first detail" probe-exchange-detail.html "$FIRST"; fi
-          if [ -n "$JINA_API_KEY" ]; then
-            echo "(JINA_API_KEY secret present: keyed probes enabled)"
-            AUTH="Authorization: Bearer $JINA_API_KEY"
-          else
-            echo "(no JINA_API_KEY secret: keyless relay tier, no proxy probes)"
-            AUTH="X-Probe: keyless"
-          fi
-          probe "relay, default engine"            -H "$AUTH" -H "X-Return-Format: html" "https://r.jina.ai/$URL"
-          probe "relay, curl engine"               -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" "https://r.jina.ai/$URL"
-          probe "relay, browser engine"            -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: browser" "https://r.jina.ai/$URL"
-          if [ -n "$JINA_API_KEY" ]; then
-            probe "relay, curl + proxy auto"       -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" -H "X-Proxy: auto" "https://r.jina.ai/$URL"
-            probe "relay, browser + proxy auto"    -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: browser" -H "X-Proxy: auto" "https://r.jina.ai/$URL"
-            probe "relay, curl + proxy jp"         -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" -H "X-Proxy: jp" "https://r.jina.ai/$URL"
-            probe "relay, browser + proxy jp"      -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: browser" -H "X-Proxy: jp" "https://r.jina.ai/$URL"
-            # Exactly what production sends after PR #92: the full tuned
-            # header set from relayRequestHeaders() with the jp pin.
-            probe "relay, PRODUCTION headers (curl + jp + cache-tolerance + html-timing)" \
-              -A "$UA" -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" -H "X-Proxy: jp" \
-              -H "Accept-Language: ja,en-US;q=0.9,en;q=0.8" -H "X-Cache-Tolerance: 900" \
-              -H "X-Respond-Timing: html" -H "X-With-Links-Summary: false" "https://r.jina.ai/$URL"
-          fi
+          echo "== page 1 (year_min=2018) =="
+          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search" page1.html
+          cards page1.html
+          echo "== page 2 via GET offset=20 =="
+          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search&offset=20" page2.html
+          cards page2.html
+          echo "== page 2 via GET offset=20&page=2 =="
+          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search&offset=20&page=2" page2b.html
+          cards page2b.html
+          echo "== price filter GET, JPY 1,000,000-3,000,000 =="
+          fetchx "$BASE/php/search/summary.php?price1=1000000&price2=3000000&radio_currency=JPY&search_type=price_search" price-jpy.html
+          cards price-jpy.html
+          echo "== price filter GET, plain price1/price2 =="
+          fetchx "$BASE/php/search/summary.php?price1=1000000&price2=3000000&search_type=price_search" price-plain.html
+          cards price-plain.html
+          echo "== bogus detail url (what does a dead listing answer?) =="
+          fetchx "$BASE/usedcars/TOYOTA/RAIZE/700000000000000000001/" dead.html
+            echo "dead body head:"; head -c 400 dead.html | tr -d '\0'; echo
+          cp page2.html probe-exchange-page2.html
+          cp price-jpy.html probe-exchange-pricejpy.html
+          cp dead.html probe-exchange-dead.html
       # The sandbox driving this session cannot download Actions logs (they
       # live on a blob host outside its egress allowlist), so the results are
       # committed to the branch where a plain `git fetch` can read them.
