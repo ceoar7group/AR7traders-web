@@ -44,12 +44,29 @@ jobs:
             rm -f "$body"
           }
           probe "goo-net DIRECT from this runner" -A "$UA" -H "Accept-Language: ja,en;q=0.8" "$URL"
-          # goo-net's ENGLISH export portal — built for overseas buyers, so it
-          # may not carry the domestic site's datacenter-IP blockade at all.
-          XURL="https://www.goo-net-exchange.com/usedcars/"
-          probe "goo-net-EXCHANGE direct (search page)" -L -A "$UA" -H "Accept-Language: en-US,en;q=0.9" "$XURL"
-          probe "goo-net-EXCHANGE direct (top page)"    -L -A "$UA" -H "Accept-Language: en-US,en;q=0.9" "https://www.goo-net-exchange.com/"
-          probe "goo-net-EXCHANGE via relay, curl engine" -H "X-Return-Format: html" -H "X-Engine: curl" "https://r.jina.ai/$XURL"
+          # goo-net's ENGLISH export portal answers datacenter IPs with a fast
+          # 200 (previous run). Now capture FULL pages so the parser work can
+          # happen against real markup: the search page, a price-filtered
+          # search, and whatever the first car detail link on it points at.
+          save () {
+            name="$1"; out="$2"; shift 2
+            echo "===================================================="
+            echo "== SAVE $name -> $out"
+            meta=$(curl -sS --compressed -L -m 30 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$out" -w '%{http_code} %{size_download}B %{time_total}s %{url_effective}' "$@" 2>&1) || { echo "curl failed: $meta"; return 0; }
+            echo "answer: $meta"
+            echo "bytes on disk: $(wc -c < "$out")"
+          }
+          save "exchange search"        probe-exchange-search.html  "https://www.goo-net-exchange.com/usedcars/"
+          save "exchange price search"  probe-exchange-price.html   "https://www.goo-net-exchange.com/usedcars/price/"
+          DETAIL=$(grep -oE 'href="[^"]*/usedcars/[^"]+\.html[^"]*"' probe-exchange-search.html | head -5 | sed 's/^href="//; s/"$//')
+          echo "candidate detail links:"; echo "$DETAIL"
+          FIRST=$(echo "$DETAIL" | head -1)
+          case "$FIRST" in
+            http*) : ;;
+            /*) FIRST="https://www.goo-net-exchange.com$FIRST" ;;
+            "") FIRST="" ;;
+          esac
+          if [ -n "$FIRST" ]; then save "exchange first detail" probe-exchange-detail.html "$FIRST"; fi
           if [ -n "$JINA_API_KEY" ]; then
             echo "(JINA_API_KEY secret present: keyed probes enabled)"
             AUTH="Authorization: Bearer $JINA_API_KEY"
@@ -80,7 +97,7 @@ jobs:
         run: |
           git config user.name "relay-probe"
           git config user.email "relay-probe@users.noreply.github.com"
-          git add probe-results.txt
+          git add probe-results.txt probe-exchange-*.html 2>/dev/null || git add probe-results.txt
           git commit -m "relay-probe: results $(date -u +%FT%TZ)" || echo "nothing to commit"
           git pull --rebase origin "${GITHUB_REF_NAME}" || true
           git push origin "HEAD:${GITHUB_REF_NAME}"
