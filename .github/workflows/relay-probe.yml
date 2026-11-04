@@ -1,0 +1,52 @@
+# A diagnostic probe, dispatched by hand, that measures what this repo's
+# scraper can only guess at from inside Vercel: what goo-net and the Jina
+# relay ACTUALLY answer, from a network we can read the logs of. Each probe
+# prints status / size / seconds, the first bytes of the body, and how many
+# /usedcar/spread/ links (real car cards) the answer carries.
+#
+# Add the repo secret JINA_API_KEY to unlock the keyed-tier probes (proxy
+# pool); without it the relay probes run on the keyless tier.
+name: relay-probe
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe goo-net and the relay
+        env:
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+        run: |
+          URL="https://www.goo-net.com/usedcar/price-100-300/"
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          probe () {
+            name="$1"; shift
+            echo "===================================================="
+            echo "== $name"
+            body=$(mktemp)
+            meta=$(curl -sS --compressed -m 30 -o "$body" -w '%{http_code} %{size_download}B %{time_total}s' "$@" 2>&1) || { echo "curl failed: $meta"; rm -f "$body"; return 0; }
+            echo "answer: $meta"
+            echo "spread links: $(grep -o '/usedcar/spread/' "$body" | wc -l)"
+            echo "body head:"
+            head -c 500 "$body" | tr -d '\0'; echo
+            rm -f "$body"
+          }
+          probe "goo-net DIRECT from this runner" -A "$UA" -H "Accept-Language: ja,en;q=0.8" "$URL"
+          if [ -n "$JINA_API_KEY" ]; then
+            echo "(JINA_API_KEY secret present: keyed probes enabled)"
+            AUTH="Authorization: Bearer $JINA_API_KEY"
+          else
+            echo "(no JINA_API_KEY secret: keyless relay tier, no proxy probes)"
+            AUTH="X-Probe: keyless"
+          fi
+          probe "relay, default engine"            -H "$AUTH" -H "X-Return-Format: html" "https://r.jina.ai/$URL"
+          probe "relay, curl engine"               -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" "https://r.jina.ai/$URL"
+          probe "relay, browser engine"            -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: browser" "https://r.jina.ai/$URL"
+          if [ -n "$JINA_API_KEY" ]; then
+            probe "relay, curl + proxy auto"       -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" -H "X-Proxy: auto" "https://r.jina.ai/$URL"
+            probe "relay, browser + proxy auto"    -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: browser" -H "X-Proxy: auto" "https://r.jina.ai/$URL"
+            probe "relay, curl + proxy jp"         -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" -H "X-Proxy: jp" "https://r.jina.ai/$URL"
+            probe "relay, browser + proxy jp"      -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: browser" -H "X-Proxy: jp" "https://r.jina.ai/$URL"
+          fi
