@@ -1,98 +1,63 @@
 ====================================================
 == goo-net DIRECT from this runner
-curl failed: curl: (28) Connection timed out after 30001 milliseconds
-000 0B 30.001187s
+curl failed: curl: (28) Connection timed out after 30002 milliseconds
+000 0B 30.002112s
 ====================================================
-== goo-net-EXCHANGE direct (search page)
-answer: 200 18255B 0.759045s
-spread links: 0
-body head:
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-WN5Q4T36');</script>
-    <!-- End Google Tag Manager 
+== SAVE exchange search -> probe-exchange-search.html
+answer: 200 18255B 0.086301s https://www.goo-net-exchange.com/usedcars/
+bytes on disk: 139659
 ====================================================
-== goo-net-EXCHANGE direct (top page)
-answer: 200 20157B 0.576726s
-spread links: 0
-body head:
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-WN5Q4T36');</script>
-    <!-- End Google Tag Manager 
-====================================================
-== goo-net-EXCHANGE via relay, curl engine
-answer: 200 16982B 0.814728s
-spread links: 0
-body head:
-<html lang="en">
-<head>
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-WN5Q4T36');</script>
-    <!-- End Google Tag Manager -->
-    <meta ch
+== SAVE exchange price search -> probe-exchange-price.html
+answer: 404 37113B 0.519972s https://www.goo-net-exchange.com/usedcars/price/
+bytes on disk: 37113
+candidate detail links:
+
 (JINA_API_KEY secret present: keyed probes enabled)
 ====================================================
 == relay, default engine
-answer: 422 677B 24.281296s
+answer: 422 677B 24.154200s
 spread links: 0
 body head:
 {"data":null,"cause":{"log":["  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\""],"name":"TimeoutError"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to goto https://www.goo-net.com: TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\"\n","readableMessage":"AssertionFailureError: Failed to goto https://www.go
 ====================================================
 == relay, curl engine
-answer: 422 197B 3.605137s
+answer: 422 197B 3.153163s
 spread links: 0
 body head:
 {"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
 ====================================================
 == relay, browser engine
-answer: 422 677B 15.120436s
+answer: 422 677B 15.131698s
 spread links: 0
 body head:
 {"data":null,"cause":{"log":["  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\""],"name":"TimeoutError"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to goto https://www.goo-net.com: TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"https://www.goo-net.com/usedcar/price-100-300/\", waiting until \"networkidle\"\n","readableMessage":"AssertionFailureError: Failed to goto https://www.go
 ====================================================
 == relay, curl + proxy auto
-answer: 422 197B 6.278184s
+answer: 422 197B 6.451358s
 spread links: 0
 body head:
 {"data":null,"code":422,"name":"AssertionFailureError","status":42206,"message":"Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Request failed: Timeout was reached"}
 ====================================================
 == relay, browser + proxy auto
-answer: 422 499B 6.125868s
+answer: 422 499B 6.118330s
 spread links: 0
 body head:
 {"data":null,"cause":{"cause":{"code":28},"code":503,"name":"ServiceBadApproachError","status":50305,"message":"Request failed: Timeout was reached","readableMessage":"ServiceBadApproachError: Request failed: Timeout was reached"},"code":422,"name":"AssertionFailureError","status":42206,"message":"Failed to side load with allocated proxy: Request failed: Timeout was reached","readableMessage":"AssertionFailureError: Failed to side load with allocated proxy: Request failed: Timeout was reached"}
 ====================================================
 == relay, curl + proxy jp
-answer: 402 323B 0.115671s
+answer: 402 323B 0.166547s
 spread links: 0
 body head:
 {"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
 ====================================================
 == relay, browser + proxy jp
-answer: 402 323B 0.129757s
+answer: 402 323B 0.261450s
 spread links: 0
 body head:
 {"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
 ====================================================
 == relay, PRODUCTION headers (curl + jp + cache-tolerance + html-timing)
-answer: 402 323B 0.119781s
+answer: 402 323B 0.107746s
 spread links: 0
 body head:
 {"data":null,"code":402,"name":"TierFeatureConstraintError","status":40202,"message":"Your current plan does not support this feature (Proxy allocation). Please upgrade your plan.","readableMessage":"TierFeatureConstraintError: Your current plan does not support this feature (Proxy allocation). Please upgrade your plan."}
