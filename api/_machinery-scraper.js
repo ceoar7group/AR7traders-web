@@ -35,6 +35,7 @@
 
 import { previewMachine, toRow, findExisting } from './_machinery-import.js';
 import { machinerySettings, readMachineryRows } from './_machinery.js';
+import { relayBaseUrl, relayApiKey, relayRequestHeaders, RELAY_TIMEOUT_MS } from '../scripts/goonet-core.mjs';
 
 /** The honest identity the importer already uses elsewhere. */
 export const SCRAPER_UA = 'AR7Traders-Import/1.0 (+https://ar7traders.com)';
@@ -177,11 +178,47 @@ const normUrl = u => String(u || '').trim().toLowerCase().replace(/[?#].*$/, '')
 // The run
 // ---------------------------------------------------------------------------
 
-/** Bounded, polite retry for transient transport/server failures only.
- * 401/403/429 and captcha/bot gates are NOT retried or bypassed. The caller's
- * deadline caps both the per-attempt timeout and the backoff, so a retry can
- * never push a preview past the serverless budget. */
-export async function fetchWithRetry(url, {
+/** Bounded, polite retry for transient transport/server failures only, plus
+ * ONE relay rescue for IP-reputation walls. Direct attempts never retry
+ * 401/403/429 or captcha/bot gates. But 2026-11-04 the marketplace started
+ * answering a flat 403 to every request from Vercel's egress IPs — the same
+ * datacenter-IP wall goo-net raised against the car importer, on pages it
+ * serves to any real visitor. The cure is also the same: when the direct
+ * fetch comes back blocked (401/403/429) or dead and a relay key is
+ * configured, the page is fetched once through the reader relay the car
+ * importer already uses (keyed, rotating proxy pool, plain-HTTP engine).
+ * robots.txt is still honoured BEFORE any page is fetched, the pacing between
+ * fetches is unchanged, and the honest user agent is what the relay is shown.
+ * The caller's deadline caps every timeout, so no rescue can push a preview
+ * past the serverless budget. */
+export async function fetchWithRetry(url, options = {}) {
+  const direct = await directFetchWithRetry(url, options);
+  if (direct.ok) return direct;
+  const blocked = direct.status === 401 || direct.status === 403 || direct.status === 429;
+  if (!blocked && !direct.networkError) return direct; // 404s etc. are honest answers, not walls
+  const key = relayApiKey();
+  if (!key) return { ...direct, relaySkipped: 'no relay key configured' };
+  const { deadline = Infinity, now = Date.now, fetchImpl = globalThis.fetch } = options;
+  const remaining = deadline - now();
+  if (remaining <= 0) return direct;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(RELAY_TIMEOUT_MS, remaining)));
+  try {
+    const res = await fetchImpl(relayBaseUrl() + url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: relayRequestHeaders({ userAgent: SCRAPER_UA }),
+    });
+    if (!res.ok) return { ...direct, relayError: `the relay answered ${res.status}` };
+    return { ok: true, status: res.status, text: await res.text(), networkError: false, attempts: direct.attempts + 1, via: 'relay', directStatus: direct.status };
+  } catch (error) {
+    return { ...direct, relayError: `the relay failed (${error.message})` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function directFetchWithRetry(url, {
   timeoutMs = SCRAPER_FETCH_TIMEOUT_MS,
   retries = 2,
   backoffMs = 500,
@@ -223,6 +260,15 @@ export async function fetchWithRetry(url, {
 
 async function defaultFetch(url, options = {}) {
   return fetchWithRetry(url, options);
+}
+
+/** One honest sentence about why a page could not be read, including what the
+ *  relay rescue did (or why it never ran). */
+export function describeFetchFailure(page) {
+  let base = page.networkError ? `network error${page.error ? ': ' + page.error : ''}` : 'the site answered ' + page.status;
+  if (page.relayError) base += ` — ${page.relayError}`;
+  else if (page.relaySkipped) base += ` — ${page.relaySkipped}`;
+  return base;
 }
 
 /** Which category pages this run crawls. A known name → that one page; an
@@ -346,7 +392,7 @@ export async function runScraper(db, {
     }
     const page = await pacedFetch(catUrl);
     if (!page.ok) {
-      warnings.push(`Category "${cat.key}" could not be read (${page.networkError ? 'network error' : 'the site answered ' + page.status}).`);
+      warnings.push(`Category "${cat.key}" could not be read (${describeFetchFailure(page)}).`);
       continue;
     }
     const found = extractProductLinks(page.text, catUrl);
@@ -376,7 +422,7 @@ export async function runScraper(db, {
 
     const page = await pacedFetch(link);
     if (!page.ok) {
-      warnings.push(`Could not read ${link} (${page.networkError ? 'network error' : 'the site answered ' + page.status}).`);
+      warnings.push(`Could not read ${link} (${describeFetchFailure(page)}).`);
       continue;
     }
     stats.fetched++;

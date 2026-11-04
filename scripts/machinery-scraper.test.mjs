@@ -30,7 +30,7 @@ const {
   runScraper, SCRAPER_CATEGORIES, SCRAPER_ORIGIN, SCRAPER_UA,
   MAX_SCRAPER_MACHINES, SCRAPER_DELAY_MS, ROBOTS_BLOCKED
 } = await import('../api/_machinery-scraper.js');
-const { fetchWithRetry } = await import('../api/_machinery-scraper.js');
+const { fetchWithRetry, describeFetchFailure } = await import('../api/_machinery-scraper.js');
 
 // ---- fixtures ---------------------------------------------------------------
 
@@ -598,7 +598,8 @@ say('\n-- bounded retry/backoff respects blocks and the run deadline --');
     sleep: async () => { throw new Error('must not sleep'); },
     fetchImpl: async () => { blockedCalls++; return { ok: false, status: 403, text: async () => '' }; },
   });
-  ok(!blocked.ok && blocked.status === 403 && blockedCalls === 1 && blocked.attempts === 1, 'a 403 bot/permission block is not retried or bypassed');
+  ok(!blocked.ok && blocked.status === 403 && blockedCalls === 1 && blocked.attempts === 1, 'a 403 block is not hammered with direct retries');
+  ok(blocked.relaySkipped === 'no relay key configured', 'without a relay key a 403 stays a 403, and says why');
 
   let limitedCalls = 0;
   const limited = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
@@ -614,6 +615,66 @@ say('\n-- bounded retry/backoff respects blocks and the run deadline --');
     fetchImpl: async () => ({ ok: false, status: 503, text: async () => '' }),
   });
   ok(!deadline.ok && /budget/i.test(deadline.error || ''), 'the run deadline stops retry/backoff before the serverless budget is exceeded');
+}
+
+say('\n-- a datacenter-IP wall is rescued once through the keyed relay --');
+{
+  // 2026-11-04: made-in-china.com answered a flat 403 to Vercel's egress IPs
+  // on pages it serves to any browser. With a relay key configured, that one
+  // page is re-fetched through the same keyed reader relay the car importer
+  // uses — after robots.txt allowed it, with the honest UA shown to the relay.
+  process.env.JINA_API_KEY = 'relay_test_key';
+  const catUrl = 'https://www.made-in-china.com/manufacturers/used-excavator.html';
+  const seen = [];
+  const walled = async (url, opts = {}) => {
+    seen.push({ url: String(url), headers: opts.headers || {} });
+    if (String(url).startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => '<html>category</html>' };
+    return { ok: false, status: 403, text: async () => '' };
+  };
+  const rescued = await fetchWithRetry(catUrl, { sleep: async () => { throw new Error('must not sleep'); }, fetchImpl: walled });
+  ok(rescued.ok && rescued.via === 'relay' && rescued.directStatus === 403, 'a 403-walled page is rescued through the relay');
+  ok(rescued.text === '<html>category</html>', 'the relayed HTML is what the caller parses');
+  const relayCall = seen.find(c => c.url.startsWith('https://r.jina.ai/'));
+  ok(relayCall && relayCall.url === 'https://r.jina.ai/' + catUrl, 'the relay is asked for the same url');
+  ok(relayCall.headers['Authorization'] === 'Bearer relay_test_key', 'the relay call carries the key');
+  ok(relayCall.headers['X-Proxy'] === 'auto', 'and routes through the rotating proxy pool');
+  ok(relayCall.headers['X-Engine'] === 'curl', 'with the plain-HTTP engine, never the render queue');
+  ok(relayCall.headers['User-Agent'] === SCRAPER_UA, 'the honest machinery user agent is what the relay is shown');
+  ok(seen.filter(c => c.url.startsWith('https://r.jina.ai/')).length === 1, 'the relay is tried exactly once');
+
+  const relayDown = await fetchWithRetry(catUrl, {
+    sleep: async () => {},
+    fetchImpl: async url => String(url).startsWith('https://r.jina.ai/')
+      ? { ok: false, status: 451, text: async () => '' }
+      : { ok: false, status: 403, text: async () => '' },
+  });
+  ok(!relayDown.ok && relayDown.status === 403 && relayDown.relayError === 'the relay answered 451',
+    'a failed relay keeps the honest 403 and records what the relay said');
+  ok(describeFetchFailure(relayDown) === 'the site answered 403 — the relay answered 451',
+    'the operator warning carries both halves of the story');
+
+  let relayAsked = 0;
+  const notFound = await fetchWithRetry(catUrl, {
+    sleep: async () => {},
+    fetchImpl: async url => {
+      if (String(url).startsWith('https://r.jina.ai/')) relayAsked++;
+      return { ok: false, status: 404, text: async () => '' };
+    },
+  });
+  ok(!notFound.ok && notFound.status === 404 && relayAsked === 0, 'a 404 is an honest answer, never relayed');
+
+  let relayAfterDeadline = 0;
+  const spent = await fetchWithRetry(catUrl, {
+    deadline: 100, now: () => 100, sleep: async () => {},
+    fetchImpl: async url => { if (String(url).startsWith('https://r.jina.ai/')) relayAfterDeadline++; return { ok: false, status: 403, text: async () => '' }; },
+  });
+  ok(!spent.ok && relayAfterDeadline === 0, 'an exhausted run budget leaves no room for a relay attempt');
+  delete process.env.JINA_API_KEY;
+
+  ok(describeFetchFailure({ ok: false, status: 403, relaySkipped: 'no relay key configured' })
+    === 'the site answered 403 — no relay key configured', 'a keyless 403 tells the operator what is missing');
+  ok(describeFetchFailure({ ok: false, status: 0, networkError: true, error: 'socket hang up' })
+    === 'network error: socket hang up', 'network failures still read honestly');
 }
 
 say('\n-- total run deadline keeps collected previews --');
