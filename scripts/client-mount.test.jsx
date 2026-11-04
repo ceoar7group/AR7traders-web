@@ -330,6 +330,26 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(!!document.querySelector('.mch-detail-page'), 'and still renders a machine detail page');
   }
 
+  // The detail page's enquiry buttons must actually open the dialog — the
+  // owner reported "Request a quotation" doing nothing in production
+  // (2026-11-04; a stale-deploy chunk failure). This pins the happy path end
+  // to end: click → enquiry dialog with the machinery copy.
+  await goto(path);
+  ok(!!document.querySelector('.mch-crumbs'),
+    'the machine page shows a breadcrumb trail (Machinery / type / ref)');
+  const quoteBtn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Request a quotation');
+  ok(!!quoteBtn, 'the detail page offers a Request a quotation button');
+  if (quoteBtn) {
+    await act(async () => { quoteBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    await act(async () => { await new Promise(r => setTimeout(r, 250)); });
+    ok(!!document.querySelector('.modal-backdrop'), 'clicking it opens the enquiry dialog');
+    ok(document.body.textContent.includes('Request a machinery quotation'),
+      'and the dialog carries the machinery-desk copy, not the generic contact form');
+    const closeBtn = document.querySelector('.modal-x');
+    if (closeBtn) await act(async () => { closeBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    ok(!document.querySelector('.modal-backdrop'), 'the dialog closes cleanly');
+  }
+
   // Ctrl/Cmd-click must NOT be hijacked: that is how a buyer opens a machine
   // in a new tab. The handler leaves the event alone.
   await goto('/machinery');

@@ -1169,6 +1169,13 @@ footer [id] {
   .hero .hero-cta .ghost-btn:hover {
     transform: none;
   }
+
+  .mch-photo img,
+  .mch-card:hover .mch-photo > a img,
+  .mch-card:hover .mch-photo > button img {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1270,6 +1277,12 @@ footer [id] {
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform .35s ease;
+}
+
+.mch-card:hover .mch-photo > a img,
+.mch-card:hover .mch-photo > button img {
+  transform: scale(1.04);
 }
 
 .mch-type {

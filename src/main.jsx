@@ -13,27 +13,54 @@ import './detail-responsive.css';
 // above the fold — the hero has its own lightweight visual and the header has
 // the world-time ribbon. Loading network.jsx on demand keeps it out of the
 // first paint. `Flag` moved to src/flag.jsx precisely so this module could go.
-const Globe = React.lazy(() =>
-  import('./network.jsx').then(m => ({ default: m.WorldPage })));
-const BigGlobe = React.lazy(() =>
-  import('./network.jsx').then(m => ({ default: m.BigNetworkGlobe })));
+// Every deploy renames the hashed chunk files. A tab that loaded the site
+// BEFORE a deploy then fails its dynamic import the first time the visitor
+// opens a lazy feature — the enquiry dialog, the machinery page — and the
+// click looks simply dead (the owner reported exactly that on the machinery
+// "Request a quotation" button, hours after three production deploys). One
+// reload fetches the fresh HTML with the new chunk names; the sessionStorage
+// latch stops a genuinely broken network from looping the reload forever,
+// and a successful load clears the latch for the next deploy.
+const lazyRetry = (load, name) => React.lazy(() => {
+  const key = 'ar7-chunk-reload-' + name;
+  return load().then(m => {
+    try { sessionStorage.removeItem(key); } catch { /* storage may be off */ }
+    return m;
+  }).catch(err => {
+    let latched = false;
+    try {
+      latched = sessionStorage.getItem(key) === '1';
+      if (!latched) sessionStorage.setItem(key, '1');
+    } catch { /* storage may be off */ }
+    if (!latched && typeof window !== 'undefined') {
+      window.location.reload();
+      return new Promise(() => {}); // the reload is the resolution
+    }
+    throw err;
+  });
+});
+
+const Globe = lazyRetry(() =>
+  import('./network.jsx').then(m => ({ default: m.WorldPage })), 'world');
+const BigGlobe = lazyRetry(() =>
+  import('./network.jsx').then(m => ({ default: m.BigNetworkGlobe })), 'globe');
 // The CRM is only reached from the /crm route, so load it on demand
 // instead of shipping it to every visitor.
-const CrmApp = React.lazy(() => import('./crm.jsx'));
+const CrmApp = lazyRetry(() => import('./crm.jsx'), 'crm');
 // The customer account area is only reached from /account.
-const CustomerAccount = React.lazy(() =>
-  import('./customer-portal.jsx').then(m => ({ default: m.CustomerAccountPage })));
+const CustomerAccount = lazyRetry(() =>
+  import('./customer-portal.jsx').then(m => ({ default: m.CustomerAccountPage })), 'account');
 // The /reviews showcase and its 12 buyer stories are only reached from /reviews.
-const ReviewsShowcase = React.lazy(() => import('./reviews.jsx'));
+const ReviewsShowcase = lazyRetry(() => import('./reviews.jsx'), 'reviews');
 // The machinery desk is its own page (and its own CSS chunk), reached from
 // /machinery, the Inventory menu and the home teaser.
-const MachineryPage = React.lazy(() => import('./machinery.jsx').then(m => ({ default: m.MachineryPage })));
-const EnquiryForm = React.lazy(() => import('./enquiry-form.jsx').then(m => ({ default: m.EnquiryForm })));
-const EnquiryDialog = React.lazy(() => import('./enquiry-form.jsx').then(m => ({ default: m.EnquiryDialog })));
+const MachineryPage = lazyRetry(() => import('./machinery.jsx').then(m => ({ default: m.MachineryPage })), 'machinery');
+const EnquiryForm = lazyRetry(() => import('./enquiry-form.jsx').then(m => ({ default: m.EnquiryForm })), 'enquiry-form');
+const EnquiryDialog = lazyRetry(() => import('./enquiry-form.jsx').then(m => ({ default: m.EnquiryDialog })), 'enquiry-dialog');
 // 2026-10-08: the six market pages are a route-level screen like the machinery
 // desk, so their markup stays out of the first-load bundle — a visitor on the
 // home page never downloads a page about Mombasa.
-const DestinationPage = React.lazy(() => import('./destination-page.jsx').then(m => ({ default: m.DestinationPage })));
+const DestinationPage = lazyRetry(() => import('./destination-page.jsx').then(m => ({ default: m.DestinationPage })), 'destination');
 import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
 import { Flag } from './flag.jsx';
 import { ChatWidget } from './ChatWidget.jsx';
