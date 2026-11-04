@@ -15,15 +15,20 @@ on:
     paths:
       - '.github/workflows/relay-probe.yml'
 
+permissions:
+  contents: write
+
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - name: Probe goo-net and the relay
         env:
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
         run: |
+          exec > >(tee probe-results.txt) 2>&1
           URL="https://www.goo-net.com/usedcar/price-100-300/"
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
           probe () {
@@ -55,3 +60,15 @@ jobs:
             probe "relay, curl + proxy jp"         -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: curl" -H "X-Proxy: jp" "https://r.jina.ai/$URL"
             probe "relay, browser + proxy jp"      -H "$AUTH" -H "X-Return-Format: html" -H "X-Engine: browser" -H "X-Proxy: jp" "https://r.jina.ai/$URL"
           fi
+      # The sandbox driving this session cannot download Actions logs (they
+      # live on a blob host outside its egress allowlist), so the results are
+      # committed to the branch where a plain `git fetch` can read them.
+      - name: Commit the results to the branch
+        if: always()
+        run: |
+          git config user.name "relay-probe"
+          git config user.email "relay-probe@users.noreply.github.com"
+          git add probe-results.txt
+          git commit -m "relay-probe: results $(date -u +%FT%TZ)" || echo "nothing to commit"
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git push origin "HEAD:${GITHUB_REF_NAME}"
