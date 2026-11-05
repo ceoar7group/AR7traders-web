@@ -1,17 +1,18 @@
-== round 2b: remaining showroom replacement detail pages ==
-answer: 200 22801B 20.998735s https://www.goo-net-exchange.com/usedcars/LEXUS/ES/404026092409730980002/
-answer: 404 37091B 36.846686s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_250/975026062901001276002/
-answer: 404 37081B 8.398127s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_70/975026102800530145001/
-curl: (28) Operation timed out after 60002 milliseconds with 0 bytes received
-answer: 000 0B 60.002492s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026032400402076001/
-FAILED: https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026032400402076001/
-answer: 404 37071B 6.973996s https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD_HYBRID/700030207230261102002/
-answer: 404 37031B 9.365318s https://www.goo-net-exchange.com/usedcars/NISSAN/FAIRLADY_Z/988026103100206860001/
-answer: 200 25272B 39.289397s https://www.goo-net-exchange.com/usedcars/HONDA/ODYSSEY_HYBRID/700070135930261004001/
-curl: (28) Operation timed out after 60002 milliseconds with 0 bytes received
-answer: 000 0B 60.002197s https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
+== round 2c: replacements for the sold/timed-out picks ==
+curl: (28) Operation timed out after 90002 milliseconds with 0 bytes received
+answer: 000 0B 90.002883s https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
 FAILED: https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
-answer: 200 23925B 15.987932s https://www.goo-net-exchange.com/usedcars/TOYOTA/HIACE_WAGON/975026103100901425001/
+answer: 200 25183B 35.409854s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026110200706968003/
+answer: 200 25563B 28.852825s https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD/700070592930261029018/
+curl: (28) Operation timed out after 90002 milliseconds with 0 bytes received
+answer: 000 0B 90.002097s https://www.goo-net-exchange.com/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/
+FAILED: https://www.goo-net-exchange.com/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/
+answer: 200 25253B 72.805206s https://www.goo-net-exchange.com/usedcars/TOYOTA/HILUX_SURF/975026110200706968001/
+curl: (28) Operation timed out after 90002 milliseconds with 0 bytes received
+answer: 000 0B 90.002342s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_70/975026092700402076002/
+FAILED: https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_70/975026092700402076002/
+answer: 200 25403B 9.464231s https://www.goo-net-exchange.com/usedcars/TOYOTA/HARRIER/700070135930261030001/
+answer: 200 25460B 14.505034s https://www.goo-net-exchange.com/usedcars/TOYOTA/HIACE_VAN/975026102700402794001/
 probe-d-01-lexus-gx.html: 36941B
 probe-d-02-lexus-rx.html: 192418B
 probe-d-03-lexus-nx.html: 195498B
@@ -23,3 +24,8 @@ probe-d-09-alphard.html: 37071B
 probe-d-10-fairlady.html: 37031B
 probe-d-11-odyssey.html: 323931B
 probe-d-13-hiace.html: 298720B
+probe-d-14-prado.html: 320648B
+probe-d-15-alphard.html: 324850B
+probe-d-17-surf.html: 322946B
+probe-d-19-harrier.html: 323001B
+probe-d-20-hiacevan.html: 326799B
