@@ -1128,7 +1128,7 @@ export default function CrmApp() {
     if (DEMO) { setNotice('Stock sync needs the live database — it is disabled in demo mode.'); return; }
     const ok = window.confirm(
       'Sync the public website stock to the latest seed?\n\n' +
-      'All seed cars (12 real showroom picks + the Goo-net imports) will be published with their photo galleries.\n' +
+      'All seed cars (18 real showroom picks + the Goo-net imports) will be published with their photo galleries.\n' +
       'Cars imported by the Goo-net sync are left untouched. Any OTHER car not in the seed will be hidden (published=false — you can re-publish it later from this tab).'
     );
     if (!ok) return;

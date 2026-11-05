@@ -165,7 +165,7 @@ function FounderStat({variant,delay=0}){
  </div>;
 }
 
-// The 12 showroom cars are REAL hyper/luxury vehicles captured live from the
+// The 18 showroom cars are REAL hyper/luxury vehicles captured live from the
 // dealer-stock exchange on 2026-11-05 (owner request: the showroom should be
 // real luxury stock, like the demo supercars it replaces). Each entry carries
 // its dealer stock code and a hotlinked gallery (first 12 photos bundled; the
@@ -271,13 +271,33 @@ const enrichCar=(c,i)=>{
  // body type (generic), but auction venue, arrival date, chassis, interior and
  // equipment are EVIDENCE — fabricating them for real inventory would be
  // inventing facts, so they stay absent when the data does not carry them.
- c.doors=DOORS[c.body]||4;return c};
-// The showroom is the curated seed collection (bundle ids 1-12, extended as
+ c.doors=DOORS[c.body]||4;return applyShowroomHero(c)};
+// The showroom is the curated seed collection (bundle ids 1-18, extended as
 // the seed grows). After hydration the DB rows carry uuid ids and honest body
 // types, so membership is decided by stock number, captured here before the
 // hydrate step replaces the array contents.
 const SHOWROOM_STOCKS=new Set(cars.filter(c=>Number(c.id)<=18&&c.stock_no).map(c=>String(c.stock_no)));
 export const isShowroomCar=c=>!!c&&!isImportedCar(c)&&(['Luxury','Supercar','Hypercar'].includes(c.body)||Number(c.id)<=12||SHOWROOM_STOCKS.has(String(c.stock_no||'')));
+// AR7-branded showroom heroes: studio scenes generated for the curated
+// collection, keyed by stock number so they survive hydration. The hero leads
+// the gallery; the real dealer photographs follow it unchanged.
+const SHOWROOM_HEROES={
+ '0508888A30261013W003':'/assets/showroom/hero-01.webp',
+ '0201053A30261031W001':'/assets/showroom/hero-02.webp',
+ '0508888A30261019W003':'/assets/showroom/hero-03.webp',
+ '0200160A30261023W003':'/assets/showroom/hero-04.webp',
+ '0520284A30260812W002':'/assets/showroom/hero-05.webp',
+ '9731113A30260816W001':'/assets/showroom/hero-06.webp',
+ '0200160A30261016W001':'/assets/showroom/hero-07.webp',
+ '0508888A30261103W001':'/assets/showroom/hero-08.webp',
+ '0201053A30261102W002':'/assets/showroom/hero-09.webp',
+ '0710232A30260926W001':'/assets/showroom/hero-10.webp'
+};
+const applyShowroomHero=c=>{
+ const h=c&&SHOWROOM_HEROES[String(c.stock_no||'')];
+ if(h){c.image=h;if(Array.isArray(c.images)&&c.images[0]!==h)c.images=[h,...c.images.filter(u=>u!==h)];}
+ return c};
+cars.forEach(applyShowroomHero);
 const contentListeners=new Set();
 let contentHydrated=false;
 export const onContentChange=fn=>{contentListeners.add(fn);return()=>contentListeners.delete(fn)};
@@ -327,10 +347,9 @@ async function hydrateSiteContent(){
 }
 if(typeof window!=='undefined')hydrateSiteContent();
 
-const VEHICLE_GALLERIES={
- 11:[1,2,3,4,5].map(n=>`/assets/gallery/audi-r8-v10-${String(n).padStart(2,'0')}.webp`),
- 12:[1,2,3,4,5].map(n=>`/assets/gallery/lexus-lc-500-${String(n).padStart(2,'0')}.webp`)
-};
+// Model-keyed legacy galleries retired: every curated car now carries its own
+// verified photo set, so an id collision could never show the wrong vehicle.
+const VEHICLE_GALLERIES={};
 // Never mix photographs from different vehicles. Uses custom vehicle photo gallery
 // configured via CRM when present, otherwise verified model galleries or cover image.
 const galleryFor=c=>{
@@ -1203,7 +1222,7 @@ export function App(){
    <MotionShowcase navigate={navigate}/>
 
    <section className="inventory shell section" id="inventory" onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
-    <div className="section-head"><div><div className="kicker">PREMIUM JAPAN STOCK</div><h2>Flagships in the<br/><em>showroom.</em></h2></div><p>Land Cruiser to Lexus — every showroom car is a real vehicle in Japan with live export pricing. The slide keeps running through live stock.</p></div>
+    <div className="section-head"><div><div className="kicker">PREMIUM JAPAN STOCK</div><h2>Flagships in the<br/><em>showroom.</em></h2></div><p>Ferrari to Century — every showroom car is a real vehicle in Japan with live export pricing. The slide keeps running through live stock.</p></div>
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> Search vehicles <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
       <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{c.status||'In Stock'}</span><span role="button" tabIndex={0} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">Grade <b>{c.grade}</b></span>:null}</div>

@@ -27,9 +27,11 @@ const ROOTS = ['src', 'scripts', 'public', 'supabase', 'api', 'crm-preview'];
 const EXT = /\.(jsx?|mjs|css|html|txt|xml|json|md|sql)$/i;
 // Ratcheted 2.5 → 3.0 MB on 2026-10-03: the China machinery desk added seven
 // catalogue photos (~500 KB total, each well under the 200 KB per-file cap).
-// The car site itself still sits at ~2.31 MB, so keep this number honest —
-// raise it only for real new media, never for build artefacts.
-const MAX_PUBLIC_BYTES = 4.0 * 1000 * 1000;
+// Ratcheted 4.0 → 5.5 MB on 2026-11-06: the curated showroom gained 18
+// AR7-branded hero scenes (assets/showroom/hero-*.webp, ~75 KB each). Keep
+// this number honest — raise it only for real new media, never for build
+// artefacts.
+const MAX_PUBLIC_BYTES = 5.5 * 1000 * 1000;
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;
@@ -99,7 +101,10 @@ console.log('\n-- template-built gallery paths resolve --');
 const main = read('src/main.jsx');
 const galleryBlock = main.slice(main.indexOf('const VEHICLE_GALLERIES'), main.indexOf('const galleryFor'));
 const templates = [...galleryBlock.matchAll(/`(\/assets\/[^`]+)`/g)].map(m => m[1]);
-ok(templates.length >= 2, 'src/main.jsx still builds model galleries from templates');
+// The model-keyed template galleries were retired on 2026-11-06 (every
+// curated car now ships its own photo set), so zero templates is a valid
+// state — but any template that remains must still resolve on disk.
+ok(templates.length === 0 || templates.length >= 2, `model gallery templates are retired or complete (${templates.length})`);
 for (const tpl of templates) {
   const paths = [1, 2, 3, 4, 5].map(n =>
     tpl.replace(/\$\{String\(n\)\.padStart\(2,'0'\)\}/, String(n).padStart(2, '0'))
