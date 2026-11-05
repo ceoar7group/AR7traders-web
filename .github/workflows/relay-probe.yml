@@ -17,45 +17,21 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: download galleries and build contact sheets
+      - name: download hero source frames
         run: |
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
           node --input-type=module > /tmp/dl.txt <<'EOF'
           import { readFileSync } from 'fs';
           const seed = JSON.parse(readFileSync('src/site-content.seed.json', 'utf8'));
           for (const car of seed.listings.filter(x => Number(x.id) <= 18)) {
-            (car.images || []).forEach((u, i) => console.log(car.id + ' ' + i + ' ' + u));
+            console.log(String(car.id).padStart(2, '0') + ' ' + car.images[0]);
           }
           EOF
-          wc -l /tmp/dl.txt
-          mkdir -p /tmp/cars
-          while read -r id idx url; do
-            mkdir -p "/tmp/cars/$id"
-            printf '%s\n' "curl -sS -m 40 -A '$UA' -o /tmp/cars/$id/$(printf %02d "$idx").jpg '$url' || true"
-          done < /tmp/dl.txt > /tmp/jobs.sh
-          xargs -d '\n' -P 8 -I CMD bash -c CMD < /tmp/jobs.sh || true
-          mkdir -p probe-shots/thumbs
-          for d in /tmp/cars/*; do
-            id=$(basename "$d")
-            pid=$(printf %02d "$id")
-            [ -f "$d/00.jpg" ] && cp "$d/00.jpg" "probe-shots/cover-$pid.jpg"
-          done
-          npm install --no-save sharp > /dev/null 2>&1
-          node --input-type=module <<'EOF2'
-          import { readdirSync, mkdirSync } from 'fs';
-          import sharp from 'sharp';
-          mkdirSync('probe-shots/thumbs', { recursive: true });
-          const base = '/tmp/cars';
-          for (const id of readdirSync(base)) {
-            const pid = String(id).padStart(2, '0');
-            for (const f of readdirSync(base + '/' + id)) {
-              try {
-                await sharp(base + '/' + id + '/' + f).resize({ width: 220 }).jpeg({ quality: 62 }).toFile('probe-shots/thumbs/' + pid + '-' + f);
-              } catch { /* skip broken download */ }
-            }
-          }
-          EOF2
-          du -sh probe-shots
+          mkdir -p probe-shots/hero-src
+          while read -r id url; do
+            curl -sS -m 40 -A "$UA" -o "probe-shots/hero-src/$id.jpg" "$url" || true
+          done < /tmp/dl.txt
+          ls -la probe-shots/hero-src
       - name: commit results
         run: |
           git config user.name 'relay-probe'
