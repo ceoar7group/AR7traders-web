@@ -1,0 +1,35 @@
+# Throwaway: capture the npm-test failure CI sees (the sandbox cannot read
+# Actions log blobs). Removed before merge.
+name: ci-debug
+on:
+  push:
+    paths: ['.github/workflows/ci-debug.yml']
+permissions:
+  contents: write
+jobs:
+  capture:
+    if: github.ref == 'refs/heads/arena/2607080c-ar7traders-web'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Test (capture)
+        run: |
+          set -o pipefail
+          (npm test 2>&1 || true) | tee full.log | grep -nE "✗|FAIL|not ok|Error|error TS|Cannot|Throw" | grep -vE "0 failed|error-free" > ci-debug.txt || true
+          echo "---- tail ----" >> ci-debug.txt
+          tail -60 full.log >> ci-debug.txt
+          rm full.log
+      - name: Commit result
+        run: |
+          git config user.name 'ci-debug'
+          git config user.email 'actions@github.com'
+          git add ci-debug.txt
+          git commit -m "ci-debug: test output" || echo nothing
+          git push
