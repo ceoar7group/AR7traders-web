@@ -26,28 +26,30 @@ jobs:
             echo "answer: $ans $1" | tee -a probe-results.txt
           }
           f () { fetchx "$1" "$2" || echo "FAILED: $1" | tee -a probe-results.txt; sleep 2; }
-          echo "== round L1: luxury discovery ==" | tee -a probe-results.txt
-          # price-band searches: >= ¥15M (hyper) and ¥8-15M (luxury)
-          f "$BASE/php/search/summary.php?b_to_b_price_min=15000000&search_type=price_search" probe-l-sum15m.html
-          f "$BASE/php/search/summary.php?b_to_b_price_min=8000000&b_to_b_price_max=15000000&search_type=price_search" probe-l-sum8to15.html
-          # model landings for luxury staples
-          f "$BASE/usedcars/NISSAN/GT_R/" probe-l-gtr.html
-          f "$BASE/usedcars/LEXUS/LC/" probe-l-lexus-lc.html
-          f "$BASE/usedcars/PORSCHE/911/" probe-l-911.html
-          f "$BASE/usedcars/MERCEDES_BENZ/S_CLASS/" probe-l-sclass.html
-          f "$BASE/usedcars/BMW/7_SERIES/" probe-l-7series.html
-          f "$BASE/usedcars/TOYOTA/CENTURY/" probe-l-century.html
-          f "$BASE/usedcars/LEXUS/LX/" probe-l-lexus-lx.html
-          f "$BASE/usedcars/TOYOTA/LAND_CRUISER_300/" probe-l-lc300.html
-          # make landings (no cards, but they list the model slugs + counts)
-          f "$BASE/usedcars/FERRARI/" probe-l-ferrari.html
-          f "$BASE/usedcars/LAMBORGHINI/" probe-l-lambo.html
-          f "$BASE/usedcars/ROLLS_ROYCE/" probe-l-rolls.html
-          f "$BASE/usedcars/BENTLEY/" probe-l-bentley.html
-          f "$BASE/usedcars/MCLAREN/" probe-l-mclaren.html
-          f "$BASE/usedcars/ASTON_MARTIN/" probe-l-aston.html
-          f "$BASE/usedcars/MASERATI/" probe-l-maserati.html
-          for x in probe-l-*.html; do
+          echo "== round L2: luxury details + exotic model landings ==" | tee -a probe-results.txt
+          d () { f "https://www.goo-net-exchange.com/usedcars/$1/" "$2"; }
+          d "LEXUS/LC/700071008430261103001"            probe-m-01-lc500h.html
+          d "LEXUS/LC/700020016030261016001"            probe-m-02-lc500c.html
+          d "PORSCHE/911/700020016030261023003"         probe-m-03-911gts.html
+          d "PORSCHE/911/700020016030261018005"         probe-m-04-911s.html
+          d "PORSCHE/911/700050052030261101002"         probe-m-05-911cab.html
+          d "BMW/7_SERIES/700055087130261027001"        probe-m-06-740i.html
+          d "TOYOTA/CENTURY/700050888830261103001"      probe-m-07-century.html
+          d "LEXUS/LX/700020105330261102002"            probe-m-08-lx600.html
+          d "LEXUS/LX/700102059530261031003"            probe-m-09-lx600b.html
+          d "LAND_ROVER/DEFENDER/700071023230260926001" probe-m-10-defender.html
+          d "BMW/X6/700020336120261022005"              probe-m-11-x6.html
+          d "AUDI/R8/700973111330261103001"             probe-m-12-r8.html
+          d "TOYOTA/SUPRA/700055181130261031001"        probe-m-13-supra.html
+          d "FERRARI/360"                               probe-m-14-f360.html
+          d "FERRARI/296GTB"                            probe-m-15-f296.html
+          d "LAMBORGHINI/HURACAN"                       probe-m-16-huracan.html
+          d "MCLAREN/720S"                              probe-m-17-720s.html
+          d "BENTLEY/CONTINENTAL"                       probe-m-18-conti.html
+          d "ASTON_MARTIN/DB11"                         probe-m-19-db11.html
+          d "MASERATI/GHIBLI"                           probe-m-20-ghibli.html
+          d "ROLLSROYCE"                                probe-m-21-rolls.html
+          for x in probe-m-*.html; do
             echo "$x: $(wc -c <"$x")B $(grep -o '[0-9]\{21\}' "$x" | sort -u | wc -l) ids" | tee -a probe-results.txt
           done
       - name: commit results
