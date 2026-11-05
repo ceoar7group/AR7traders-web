@@ -24,7 +24,7 @@ import {
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
   GATE_PAGE_BYTES, relayApiKey, relayProxy, classifyListingFailure, RELAY_TIMEOUT_MS,
-  translateSearchUrl,
+  translateSearchUrl, parseCarKeyword,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
@@ -559,10 +559,36 @@ export default async function handler(req, res, injected) {
       const n = Number(s.goonet_max_promote_per_run);
       return Number.isFinite(n) && n >= 0 ? Math.round(n) : maxNew;
     })();
+    // ---- On-demand keyword search ("Toyota Alphard 2020") -----------------
+    // The CRM can ask for ONE specific car instead of the configured search.
+    // The keyword becomes the exchange's make/model landing URL (the only
+    // server-rendered search the exchange has — free_word is ignored and
+    // maker_search answers 500, probed live 2026-11-05). Keyword runs are
+    // guests: they read page 1 of their own search, never touch the stored
+    // bookmark, and never fall back to the generic search (importing random
+    // cheap cars when someone asked for a Land Cruiser is worse than a clean
+    // "nothing found").
+    const keyword = String(
+      (req.body && typeof req.body === 'object' && (req.body.keyword ?? req.body.search)) ||
+      req.query?.keyword || ''
+    ).trim().slice(0, 120);
+    let kw = null;
+    if (keyword) {
+      kw = parseCarKeyword(keyword);
+      if (!kw) {
+        return send(res, 400, { error: `Could not recognize a car in "${keyword}". Try make + model, with an optional year — e.g. "Toyota Alphard 2020", "Lexus RX", "jimny".` });
+      }
+      if (!kw.modelSlug) {
+        return send(res, 400, { error: `"${keyword}" names a make but no model — the exchange only lists cars under make + model. Add the model, e.g. "${keyword} Alphard".` });
+      }
+      report.keyword = keyword;
+      report.keywordSearch = kw.url;
+    }
+
     // A pre-exchange goonet_search_url still points at the domestic site this
     // host cannot reach; translate it to the equivalent exchange search.
-    const baseUrl = translateSearchUrl(s.goonet_search_url) || DEFAULT_SEARCH_URL;
-    const bookmark = Math.max(1, num(s.goonet_bookmark_page, 1));
+    const baseUrl = kw ? kw.url : (translateSearchUrl(s.goonet_search_url) || DEFAULT_SEARCH_URL);
+    const bookmark = kw ? 1 : Math.max(1, num(s.goonet_bookmark_page, 1));
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------
     //
@@ -598,7 +624,7 @@ export default async function handler(req, res, injected) {
       failure = classifyListingFailure(fetched);
     }
     let fallbackUsed = false, fallbackUrl = null, fallbackError = null, fetchedBeforeFallbackKind = null;
-    if (failure && failure.transient && !overBudget()) {
+    if (failure && failure.transient && !kw && !overBudget()) {
       fallbackUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, 1);
       if (fallbackUrl !== pageUrl) {
         // The fallback's relay leg gets whatever patience is left: at least
@@ -617,6 +643,15 @@ export default async function handler(req, res, injected) {
       }
     }
     if (failure) {
+      if (kw) {
+        // A keyword run is a guest: its failure must not touch the scheduled
+        // crawl's stuck-bookmark counters, and its page is always page 1 of
+        // its own search — there is no bookmark to reset.
+        return send(res, 502, {
+          error: `The exchange did not answer the search for "${keyword}" (` + (failure.kind || 'fetch failed') + '). Try again in a minute.',
+          keyword, keywordSearch: kw.url
+        });
+      }
       // Stuck-bookmark protection: count consecutive failures of the SAME
       // page so the report can say "this is not a one-off" and name the
       // owner action. The optional auto-reset only fires when the owner has
@@ -674,10 +709,15 @@ export default async function handler(req, res, injected) {
     }
     // A readable answer clears the consecutive-failure counter (only when the
     // bookmarked page itself was read — a fallback read proves nothing about it).
-    if (!fallbackUsed && Number(s.goonet_fetch_fail_count) > 0) {
+    if (!fallbackUsed && !kw && Number(s.goonet_fetch_fail_count) > 0) {
       await setSetting(db, 'goonet_fetch_fail_count', '0');
     }
     if (fetched.status === 404) {
+      if (kw) {
+        report.note = `The exchange has no listing page for "${keyword}" (` + kw.url + ' answered 404). The model may not be exported under that name.';
+        report.page = 1;
+        return send(res, 200, report);
+      }
       report.note = 'Listing page not found (maybe the search URL changed). Reset the bookmark from CRM → Japan dealer stock.';
       report.page = bookmark;
       await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
@@ -690,7 +730,7 @@ export default async function handler(req, res, injected) {
     // Rescue: the bookmarked search can come back (nearly) empty — retry the
     // same bookmark page against a wider, always-populated search. (Skipped
     // when the run already fell back to the fallback search's page 1.)
-    if (page.cars.length < 2 && !fallbackUsed) {
+    if (page.cars.length < 2 && !fallbackUsed && !kw) {
       const rescueUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, bookmark);
       if (rescueUrl !== pageUrl && !overBudget()) {
         const rescue = await fetchPage(rescueUrl, { timeoutMs: 7000 });
@@ -718,6 +758,10 @@ export default async function handler(req, res, injected) {
     report.page = bookmark;
     report.cardsSeen = page.cars.length;
     report.via = usedFetch.via || 'direct';
+    if (kw) {
+      report.note = `On-demand search: "${keyword}" → ` + kw.url
+        + (page.cars.length ? ` — ${page.cars.length} match(es) on page 1.` : ' — the exchange lists no cars for this search right now.');
+    }
 
     // ---- Why did we see (almost) no cards? --------------------------------
     // Two unrelated failures look identical in the counts, and telling them
@@ -845,7 +889,10 @@ export default async function handler(req, res, injected) {
         report.skipped.push(`${card.stock_no}: detail fetch failed`);
         continue;
       }
-      const q = qualityScore(car, { minPhotos, minYear });
+      // An explicit year in the keyword outranks the standing oldest-year
+      // rule: the owner who types "Hilux Surf 1997" has already decided.
+      const effectiveMinYear = (kw && kw.yearMin && kw.yearMin < minYear) ? kw.yearMin : minYear;
+      const q = qualityScore(car, { minPhotos, minYear: effectiveMinYear });
       if (!q.pass) {
         report.rejected++;
         report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.reasons.join(', ')})`);
@@ -861,6 +908,16 @@ export default async function handler(req, res, injected) {
         report.rejected++;
         report.skipped.push(`${card.stock_no}: only ${car.images?.length || 0} images (need ${minPhotos}+)`);
         continue;
+      }
+
+      // A keyword with a year (or range) means exactly that: "Alphard 2020"
+      // must not import a 2014. The landing URL cannot carry years, so the
+      // filter runs here on the parsed car.
+      if (kw && (kw.yearMin || kw.yearMax) && car.year) {
+        if ((kw.yearMin && car.year < kw.yearMin) || (kw.yearMax && car.year > kw.yearMax)) {
+          report.skipped.push(`${card.stock_no}: ${car.year} is outside the requested ${kw.yearMin === kw.yearMax ? kw.yearMin : kw.yearMin + '–' + kw.yearMax}`);
+          continue;
+        }
       }
 
       // Verify all required fields
@@ -908,9 +965,9 @@ export default async function handler(req, res, injected) {
     // A fallback-search run never read the bookmarked page at all, so the
     // bookmark must stay exactly where it is — advancing it would skip the
     // page that failed without ever importing from it.
-    const advance = page.cars.length >= 2 && !llmUsed && !fallbackUsed;
+    const advance = !kw && page.cars.length >= 2 && !llmUsed && !fallbackUsed;
     const nextBookmark = advance ? bookmark + 1 : bookmark;
-    await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
+    if (!kw) await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
     await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
     report.bookmarkAdvanced = advance;
 

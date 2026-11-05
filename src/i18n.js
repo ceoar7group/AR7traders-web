@@ -96,15 +96,17 @@ const en = {
   // together they are the whole first impression: what we sell, how to search
   // it, how to ask, how to reach us, the footer that stays on every page, and
   // the machinery desk's "tell us the machine" fallback.
-  'hero.eyebrow': 'Japan auctions · China machinery',
-  'hero.h1a': 'Cars from Japan,',
-  'hero.h1b': 'machines from China.',
-  'hero.lead': "Verified cars from Japan's leading auctions, and excavators, loaders and trucks sourced from trusted Chinese factories — inspected, priced to your port, and delivered",
+  'hero.eyebrow': 'Japan auctions · China cars & machinery',
+  'hero.h1a': 'Cars from Japan & China,',
+  'hero.h1b': 'machinery for every market.',
+  'hero.lead': "Verified right-hand-drive cars from Japan's leading auctions, left-hand-drive cars from trusted Chinese suppliers, and heavy machinery from vetted factories — inspected, priced to your port, and delivered",
   'hero.leadEm': 'anywhere in the world',
   'hero.explore': 'Explore vehicles',
   'hero.browseMachinery': 'Browse machinery',
   'hero.howBidding': 'See how bidding works',
   'hero.scrollCue': 'SCROLL TO DISCOVER',
+  'hero.searchPlaceholder': 'Search our stock — Alphard, Prado, Jimny…',
+  'hero.searchBtn': 'Search',
 
   // ---- Inventory toolbar ---------------------------------------------------
   'inv.kicker': 'LIVE JAPAN STOCK',

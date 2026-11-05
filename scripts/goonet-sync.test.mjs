@@ -849,5 +849,63 @@ ok(Number(settings15.goonet_bookmark_page) === 2, 'slow relay: a relayed read of
 ok(settings15.goonet_fetch_fail_count === undefined || settings15.goonet_fetch_fail_count === '0',
   'slow relay: no failure is counted for a run the relay rescued');
 
+// ---- Sixteenth run: on-demand keyword search --------------------------------
+// "Toyota Alphard" must crawl the exchange's make/model landing (the only
+// server-rendered search it has), import through the same gate, and leave
+// the scheduled crawl's bookmark exactly where it was.
+console.log('\n-- on-demand keyword search --');
+{
+  resetFetchState();
+  const kwCalls = [];
+  global.fetch = async (url) => {
+    const u = String(url);
+    kwCalls.push(u);
+    if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+    if (u.includes('/usedcars/TOYOTA/ALPHARD/')) return { ok: true, status: 200, text: async () => listingHtml };
+    if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+    if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
+    return { ok: false, status: 404, text: async () => '' };
+  };
+  const dbK = memDb();
+  dbK.tables.site_settings = promoteSeed([]);
+  const reqK = { method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'Toyota Alphard' } };
+  const resK = fakeRes();
+  await handler(reqK, resK, { db: dbK.db });
+  const setK = Object.fromEntries(dbK.tables.site_settings.map(r => [r.key, r.value]));
+  ok(resK.statusCode === 200, 'keyword run responded 200');
+  ok(kwCalls[0] === 'https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD/',
+    'the keyword became the exchange model landing URL and was fetched first');
+  ok(resK.body?.keyword === 'Toyota Alphard' && String(resK.body?.keywordSearch || '').includes('/usedcars/TOYOTA/ALPHARD/'),
+    'the report names the keyword and the search it ran');
+  ok((resK.body?.inserted || 0) >= 1, 'keyword run imported through the same gate');
+  ok(String(setK.goonet_bookmark_page) === '1' && resK.body?.bookmarkAdvanced === false,
+    'the scheduled crawl bookmark was not touched by the keyword run');
+  ok(!kwCalls.some(u => u.includes('b_to_b_price_max=1000000')),
+    'a keyword run never falls back to the generic cheap search');
+  ok(String(resK.body?.note || '').includes('On-demand search'), 'the note explains this was an on-demand search');
+
+  // A year in the keyword filters the matches: the fixture car is a 2014.
+  resetFetchState();
+  const db2020 = memDb();
+  db2020.tables.site_settings = promoteSeed([]);
+  const res2020 = fakeRes();
+  await handler({ method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'Toyota Alphard 2020' } }, res2020, { db: db2020.db });
+  ok(res2020.statusCode === 200 && (res2020.body?.inserted || 0) === 0,
+    'a 2020 keyword imports nothing from a page of 2014 cars');
+  ok((res2020.body?.skipped || []).some(x => String(x).includes('outside the requested 2020')),
+    'the year mismatch is named in the skip reasons');
+
+  // Honest refusals: gibberish and make-only both explain themselves.
+  resetFetchState();
+  const resBad = fakeRes();
+  await handler({ method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'xyzzy blargh' } }, resBad, { db: memDb().db });
+  ok(resBad.statusCode === 400 && String(resBad.body?.error || '').includes('Could not recognize'),
+    'an unrecognizable keyword answers 400 with guidance');
+  const resMake = fakeRes();
+  await handler({ method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'toyota' } }, resMake, { db: memDb().db });
+  ok(resMake.statusCode === 400 && String(resMake.body?.error || '').includes('Add the model'),
+    'a make-only keyword asks for the model (the exchange has no make-only search)');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

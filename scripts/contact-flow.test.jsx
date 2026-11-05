@@ -168,13 +168,13 @@ await goto('/auction');
   await flush();
   ok(!document.querySelector('[role="dialog"]'), 'Escape closes the auction dialog');
 }
-await goto('/inventory/AR7-26001');
+await goto('/inventory/0541555A30261029W001');
 {
   const enquire = [...document.querySelectorAll('button')].find(b => /Enquire now/.test(b.textContent));
   await click(enquire);
   const dialog = document.querySelector('[role="dialog"]');
   ok(!!dialog && /Enquire about this vehicle/.test(dialog.textContent), 'vehicle enquiry is labelled as a vehicle enquiry, not auction access');
-  ok(/Rolls-Royce Ghost/.test(dialog.querySelector('[name="vehicle_interest"]').value), 'vehicle enquiry keeps the stock context');
+  ok(/Lexus LS 500h/.test(dialog.querySelector('[name="vehicle_interest"]').value), 'vehicle enquiry keeps the stock context');
   ok(dialog.querySelector('[name="phone"]').required, 'vehicle enquiry requires a phone');
   fill(dialog.querySelector('form'));
   await submit(dialog.querySelector('form'));
@@ -191,8 +191,8 @@ process.stdout.write('\nMake an offer — a persisted negotiation lead, never au
   const dialog = document.querySelector('[role="dialog"]');
   ok(!!dialog && /Make an offer on this vehicle/.test(dialog.textContent), 'the offer dialog is labelled as an offer');
   ok(/never charged or accepted automatically/i.test(dialog.textContent), 'the dialog says an offer is negotiation, not automatic acceptance');
-  ok(/Rolls-Royce Ghost/.test(dialog.querySelector('[name="vehicle_interest"]').value), 'the offer keeps the vehicle context');
-  ok(dialog.querySelector('[name="stock_ref"]').value === 'AR7-26001', 'the stock reference travels with the offer');
+  ok(/Lexus LS 500h/.test(dialog.querySelector('[name="vehicle_interest"]').value), 'the offer keeps the vehicle context');
+  ok(dialog.querySelector('[name="stock_ref"]').value === '0541555A30261029W001', 'the stock reference travels with the offer');
   ok(dialog.querySelector('[name="phone"]').required, 'an offer requires a contact phone');
   ok(!dialog.querySelector('[name="email"]').required, 'email stays optional for phone-first offer buyers');
 
@@ -212,7 +212,7 @@ process.stdout.write('\nMake an offer — a persisted negotiation lead, never au
   ok(leadCalls.length === before + 1, 'a valid offer submits exactly once');
   const payload = leadCalls.at(-1);
   ok(payload.source === 'Vehicle offer', 'the offer is tagged with the Vehicle offer source');
-  ok(payload.offer_amount === '18500' && payload.stock_ref === 'AR7-26001', 'the payload carries the amount and the stock reference');
+  ok(payload.offer_amount === '18500' && payload.stock_ref === '0541555A30261029W001', 'the payload carries the amount and the stock reference');
   ok(document.querySelector('.enquiry-success') && /negotiation request/i.test(document.body.textContent), 'success copy repeats that the offer is a negotiation request');
   const dlg = document.querySelector('[role="dialog"]');
   await act(async () => { dlg.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });

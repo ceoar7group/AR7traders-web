@@ -354,7 +354,17 @@ const EN_BODY_HINTS = {
   'dyna': 'Truck', 'canter': 'Truck', 'elf': 'Truck', 'atlas': 'Truck',
   'carry': 'Kei', 'hijet': 'Kei', 'every': 'Kei', 'n-van': 'Kei', 'acty': 'Kei', 'sambar': 'Kei',
   'taft': 'Kei', 'wake': 'Kei', 'canbus': 'Kei', 'n-wgn': 'Kei', 'pleo': 'Kei', 'lapin': 'Kei',
-  'mira e:s': 'Kei', 'ekwagon': 'Kei', 'ek wagon': 'Kei', 'ek cross': 'Kei', 'cast': 'Kei'
+  'mira e:s': 'Kei', 'ekwagon': 'Kei', 'ek wagon': 'Kei', 'ek cross': 'Kei', 'cast': 'Kei',
+  // Premium/export additions (2026-11-05, with the on-demand keyword search).
+  // Lexus two-letter names are make-qualified: a bare word-bounded 'is' or
+  // 'rx' would hit ordinary words and Mazda's RX-8. Titles carry the make
+  // ("LEXUS RX RX350 F SPORT"), so the qualified key always lands.
+  'lexus rx': 'SUV', 'lexus nx': 'SUV', 'lexus gx': 'SUV', 'lexus lx': 'SUV', 'lexus ux': 'SUV',
+  'lexus ls': 'Sedan', 'lexus is': 'Sedan', 'lexus es': 'Sedan', 'lexus gs': 'Sedan',
+  'lexus lc': 'Coupe', 'lexus rc': 'Coupe', 'lexus ct': 'Hatchback', 'lexus lm': 'MPV',
+  'land cruiser': 'SUV', 'hilux surf': 'SUV', 'fj cruiser': 'SUV',
+  'x-trail': 'SUV', 'outlander': 'SUV', 'forester': 'SUV', 'outback': 'SUV', 'escudo': 'SUV',
+  'odyssey': 'MPV', 'fairlady': 'Coupe', 'gt-r': 'Coupe', 'supra': 'Coupe', 'skyline': 'Sedan'
 };
 
 // Generic body words a title/model can carry outright. Word-bounded so
@@ -1950,12 +1960,17 @@ export function exchangeCarImages(html, stock) {
   // photos carry the 8-digit car segment in their filename. Without it the
   // page's "recommended cars" strip would donate other cars' photos.
   const carSeg = id.length >= 18 ? id.slice(10, 18) : null;
+  // Second live scheme (seen 2026-11-05, e.g. a Hiace with 166 shots): the
+  // dealer-code path /090/0901425/J/0901425A… embeds the car segment with
+  // its leading zero dropped. Without this variant the parser saw 1 photo
+  // and the quality gate skipped a car that actually has a full gallery.
+  const carSegAlt = carSeg ? carSeg.replace(/^0+/, '') : null;
   const out = [];
   const re = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\/J\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
   let m;
   while ((m = re.exec(s))) {
     const u = m[0];
-    if (carSeg && !u.includes(carSeg)) continue;
+    if (carSeg && !u.includes(carSeg) && !(carSegAlt && carSegAlt.length >= 6 && u.includes(carSegAlt))) continue;
     if (!out.includes(u)) out.push(u);
   }
   // Gallery order: the cover (…00100.jpg, old-style path) first, then the
@@ -2350,8 +2365,9 @@ export function colourAfter(text, label = '車体色', opts = {}) {
 export function listingPageUrlFor(baseUrl, page) {
   const base = String(baseUrl || DEFAULT_SEARCH_URL);
   // Exchange results paginate by GET offset (20 cards per page — verified
-  // live 2026-11-04: offset=20 returned the next, different 20 cards).
-  if (base.includes('/php/search/summary.php')) {
+  // live 2026-11-04 on summary.php and 2026-11-05 on the make/model landing
+  // /usedcars/TOYOTA/ALPHARD/?offset=20, which returned the next 18 cards).
+  if (base.includes('/php/search/summary.php') || base.includes(EXCHANGE_HOST)) {
     try {
       const u = new URL(base);
       u.searchParams.delete('offset');
@@ -2386,6 +2402,179 @@ export function translateSearchUrl(url) {
     return EXCHANGE_BASE + '/php/search/summary.php?' + p.toString();
   }
   return DEFAULT_SEARCH_URL;
+}
+
+// ---------------------------------------------------------------------------
+// On-demand keyword search ("Toyota Alphard 2020", "jimny", "lexus rx").
+//
+// The exchange has NO working free-word GET search — probed live 2026-11-05:
+// summary.php?free_word=alphard returns the same generic card list as no
+// filter at all, and search_type=maker_search answers HTTP 500. What DOES
+// work is the make/model landing path, fully server-rendered with the same
+// card markup parseListingPage already reads:
+//   /usedcars/TOYOTA/ALPHARD/        → 20 Alphards (verified live)
+//   /usedcars/TOYOTA/                → make-only landing
+// So a keyword is translated into that path via a curated catalogue of the
+// models the exchange actually lists. Slug rule (verified against live
+// hrefs: YARIS_CROSS, LAND_CRUISER_250, FAIRLADY_Z, ALPHARD_HYBRID,
+// JIMNY_NOMADE, HILUX_SURF): uppercase, non-alphanumerics become "_".
+// Years in the keyword don't travel in the URL (the landing takes none) —
+// the sync run filters parsed cards by them instead.
+export const EXCHANGE_MAKE_ALIASES = {
+  'toyota': 'TOYOTA', 'lexus': 'LEXUS', 'nissan': 'NISSAN', 'honda': 'HONDA',
+  'mazda': 'MAZDA', 'suzuki': 'SUZUKI', 'subaru': 'SUBARU',
+  'daihatsu': 'DAIHATSU', 'mitsubishi': 'MITSUBISHI', 'isuzu': 'ISUZU',
+  'hino': 'HINO', 'mercedes benz': 'MERCEDES_BENZ', 'mercedes': 'MERCEDES_BENZ',
+  'benz': 'MERCEDES_BENZ', 'bmw': 'BMW', 'audi': 'AUDI',
+  'volkswagen': 'VOLKSWAGEN', 'vw': 'VOLKSWAGEN', 'volvo': 'VOLVO',
+  'porsche': 'PORSCHE', 'land rover': 'LAND_ROVER', 'range rover': 'LAND_ROVER',
+  'jaguar': 'JAGUAR', 'jeep': 'JEEP', 'mini': 'MINI', 'peugeot': 'PEUGEOT',
+  'renault': 'RENAULT', 'fiat': 'FIAT'
+};
+
+// make slug → the model names buyers actually ask for on that make. Names
+// double as display labels; the slug is derived from the name.
+export const EXCHANGE_MODEL_CATALOGUE = {
+  TOYOTA: ['Alphard', 'Alphard Hybrid', 'Vellfire', 'Voxy', 'Noah', 'Esquire',
+    'Sienta', 'Roomy', 'Tank', 'Raize', 'Yaris', 'Yaris Cross', 'Vitz',
+    'Passo', 'Aqua', 'Prius', 'Prius Alpha', 'Corolla', 'Corolla Axio',
+    'Corolla Fielder', 'Corolla Cross', 'Corolla Sport', 'Camry', 'Crown',
+    'Crown Sport', 'Mark X', 'Allion', 'Premio', 'Harrier', 'Harrier Hybrid',
+    'RAV4', 'C-HR', 'Land Cruiser', 'Land Cruiser 60', 'Land Cruiser 70',
+    'Land Cruiser 80', 'Land Cruiser 100', 'Land Cruiser 200',
+    'Land Cruiser 250', 'Land Cruiser 300', 'Land Cruiser Prado',
+    'FJ Cruiser', 'Hilux', 'Hilux Surf', 'Hiace Van', 'Hiace Wagon',
+    'Regiusace Van', 'Probox', 'Succeed', 'Dyna', 'Coaster', 'Estima',
+    'Wish', 'Porte', 'Ractis', 'Rush', 'Vanguard', 'Supra', '86', 'Century',
+    'Granace', 'Avanza', 'Fortuner'],
+  NISSAN: ['Note', 'March', 'Serena', 'Elgrand', 'X-Trail', 'Juke', 'Kicks',
+    'Dayz', 'Dayz Roox', 'Roox', 'Moco', 'Skyline', 'Fuga', 'Cima',
+    'Fairlady Z', 'GT-R', 'Leaf', 'Sylphy', 'Teana', 'Tiida', 'Cube',
+    'NV200 Vanette', 'Caravan', 'Civilian', 'Atlas', 'Wingroad', 'AD',
+    'Safari', 'Patrol', 'Murano', 'Dualis', 'Lafesta'],
+  HONDA: ['Fit', 'Fit Hybrid', 'Vezel', 'Grace', 'Freed', 'Stepwgn',
+    'Odyssey', 'Odyssey Hybrid', 'Shuttle', 'Civic', 'Civic Type R',
+    'Accord', 'CR-V', 'ZR-V', 'WR-V', 'Insight', 'N-BOX', 'N-WGN', 'N-ONE',
+    'N-VAN', 'Acty', 'Vamos', 'Legend', 'S660', 'S2000', 'Stream',
+    'Crossroad'],
+  MAZDA: ['Demio', 'Mazda2', 'Mazda3', 'Mazda6', 'Axela', 'Atenza', 'CX-3',
+    'CX-30', 'CX-5', 'CX-60', 'CX-8', 'Premacy', 'Biante', 'MPV',
+    'Roadster', 'RX-7', 'RX-8', 'Bongo Van', 'Carol', 'Flair', 'Scrum',
+    'Titan'],
+  SUZUKI: ['Alto', 'Alto Lapin', 'Wagon R', 'Wagon R Smile', 'Spacia',
+    'Hustler', 'Every', 'Every Wagon', 'Carry', 'Jimny', 'Jimny Sierra',
+    'Jimny Nomade', 'Swift', 'Swift Sport', 'Solio', 'Ignis', 'Baleno',
+    'Escudo', 'SX4', 'Xbee', 'Palette', 'MR Wagon', 'Cervo'],
+  SUBARU: ['Impreza', 'WRX', 'Legacy', 'Levorg', 'Forester', 'Outback',
+    'XV', 'BRZ', 'Sambar', 'Stella', 'Pleo', 'Chiffon', 'Exiga'],
+  DAIHATSU: ['Mira', 'Move', 'Move Canbus', 'Tanto', 'Taft', 'Wake', 'Cast',
+    'Copen', 'Rocky', 'Terios', 'Terios Kid', 'Hijet Truck', 'Hijet Cargo',
+    'Atrai', 'Thor', 'Boon'],
+  MITSUBISHI: ['eK Wagon', 'eK Cross', 'eK Space', 'Pajero', 'Pajero Mini',
+    'Outlander', 'Eclipse Cross', 'RVR', 'Delica', 'Delica Mini', 'Lancer',
+    'Lancer Evolution', 'Mirage', 'Minicab', 'Triton'],
+  LEXUS: ['LS', 'LX', 'GX', 'RX', 'NX', 'UX', 'ES', 'IS', 'GS', 'CT', 'LC',
+    'RC', 'LM'],
+  ISUZU: ['Elf', 'Forward', 'Giga', 'Bighorn', 'D-Max', 'MU-X'],
+  HINO: ['Dutro', 'Ranger', 'Profia'],
+  MERCEDES_BENZ: ['A-Class', 'B-Class', 'C-Class', 'E-Class', 'S-Class',
+    'G-Class', 'V-Class', 'GLA', 'GLB', 'GLC', 'GLE', 'GLS', 'CLA', 'CLS',
+    'SL', 'AMG GT'],
+  BMW: ['1 Series', '2 Series', '3 Series', '4 Series', '5 Series',
+    '7 Series', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'Z4', 'M2', 'M3',
+    'M4', 'M5'],
+  AUDI: ['A1', 'A3', 'A4', 'A5', 'A6', 'A8', 'Q2', 'Q3', 'Q5', 'Q7', 'TT'],
+  VOLKSWAGEN: ['Golf', 'Polo', 'Tiguan', 'Passat', 'Beetle', 'Touareg'],
+  PORSCHE: ['911', 'Cayenne', 'Macan', 'Panamera', 'Boxster', 'Cayman'],
+  LAND_ROVER: ['Range Rover', 'Range Rover Sport', 'Range Rover Evoque',
+    'Range Rover Velar', 'Defender', 'Discovery'],
+  JEEP: ['Wrangler', 'Grand Cherokee', 'Cherokee', 'Compass', 'Renegade'],
+  VOLVO: ['V40', 'V60', 'V90', 'XC40', 'XC60', 'XC90', 'S60', 'S90']
+};
+
+export const modelSlug = name =>
+  String(name || '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+// " cr-v " and "CR-V" must meet in the middle: lowercase, non-alphanumerics
+// to single spaces, so matching is insensitive to hyphens/dots/case.
+const kwNorm = s => ' ' + String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+
+// What buyers type → what the catalogue calls it. Applied on the normalized
+// text, guarded so an already-full name is never double-expanded.
+// [what they typed, what it means, ...phrases that veto the expansion]
+const KEYWORD_NICKNAMES = [
+  ['landcruiser', 'land cruiser'],
+  ['prado', 'land cruiser prado'],
+  ['surf', 'hilux surf'],
+  ['hiace', 'hiace van', 'hiace van', 'hiace wagon'],
+  ['regiusace', 'regiusace van'],
+  ['gtr', 'gt r'],
+  ['nbox', 'n box'],
+  ['nvan', 'n van'],
+  ['crv', 'cr v'],
+  ['chr', 'c hr'],
+  ['xtrail', 'x trail'],
+  ['vellfire hybrid', 'vellfire'],
+  ['stepwagon', 'stepwgn']
+];
+
+export function parseCarKeyword(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return null;
+  let norm = kwNorm(raw);
+  for (const [from, to, ...vetoes] of KEYWORD_NICKNAMES) {
+    const blocked = [to, ...vetoes].some(v => norm.includes(' ' + v + ' '));
+    if (!blocked && norm.includes(' ' + from + ' ')) {
+      norm = norm.replace(' ' + from + ' ', ' ' + to + ' ');
+    }
+  }
+
+  // Years: every plausible 4-digit year in the text. One year means exactly
+  // that year; two or more bound the range.
+  const years = (norm.match(/\b(19[5-9]\d|20[0-4]\d)\b/g) || []).map(Number);
+  const yearMin = years.length ? Math.min(...years) : null;
+  const yearMax = years.length ? Math.max(...years) : null;
+  for (const y of years) norm = norm.replace(' ' + y + ' ', ' ');
+
+  // Make: longest alias wins ("land rover" before "mini" could ever misfire).
+  let makeSlug = null;
+  for (const alias of Object.keys(EXCHANGE_MAKE_ALIASES).sort((a, b) => b.length - a.length)) {
+    if (norm.includes(' ' + alias + ' ')) {
+      makeSlug = EXCHANGE_MAKE_ALIASES[alias];
+      norm = norm.replace(' ' + alias + ' ', ' ');
+      break;
+    }
+  }
+
+  // Model: longest name wins ("Land Cruiser Prado" beats "Land Cruiser",
+  // "Alphard Hybrid" beats "Alphard"). When a make was named, its own
+  // catalogue is searched first; otherwise the model announces the make.
+  const makesToSearch = makeSlug
+    ? [makeSlug, ...Object.keys(EXCHANGE_MODEL_CATALOGUE).filter(m => m !== makeSlug)]
+    : Object.keys(EXCHANGE_MODEL_CATALOGUE);
+  let modelName = null, modelMake = null;
+  for (const mk of makesToSearch) {
+    for (const name of (EXCHANGE_MODEL_CATALOGUE[mk] || [])) {
+      const n = kwNorm(name);
+      if (norm.includes(n) && (!modelName || n.length > kwNorm(modelName).length)) {
+        modelName = name; modelMake = mk;
+      }
+    }
+    if (modelName && mk === makeSlug) break; // a hit on the named make is final
+  }
+  if (modelName) makeSlug = modelMake;
+  if (!makeSlug) return null; // nothing recognizable — the caller explains
+
+  const url = EXCHANGE_BASE + '/usedcars/' + makeSlug + '/'
+    + (modelName ? modelSlug(modelName) + '/' : '');
+  return {
+    url, makeSlug,
+    modelName: modelName || null,
+    modelSlug: modelName ? modelSlug(modelName) : null,
+    yearMin, yearMax,
+    label: [makeSlug.replace(/_/g, ' '), modelName, yearMin && yearMax && yearMin !== yearMax
+      ? yearMin + '–' + yearMax : (yearMin || '')].filter(Boolean).join(' ').trim()
+  };
 }
 
 // ---------------------------------------------------------------------------

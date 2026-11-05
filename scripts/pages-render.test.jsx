@@ -163,14 +163,14 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const relatedLinks = [...related.matchAll(/<a[^>]+href="(\/inventory\/[^\"]+)"[^>]*>/g)];
   const relatedImages = [...related.matchAll(/<img[^>]*loading="lazy"[^>]*decoding="async"[^>]*width="\d+"[^>]*height="\d+"[^>]*alt="[^"]+"[^>]*>/g)];
   ok(relatedLinks.length > 0 && relatedLinks.length <= 3,
-    '/inventory/AR7-26001 renders up to three related vehicle links');
-  ok(relatedLinks.every(([, href]) => href !== '/inventory/AR7-26001'),
-    'related stock excludes the current Rolls-Royce Ghost');
+    'a vehicle detail page renders up to three related vehicle links');
+  ok(relatedLinks.every(([, href]) => href !== '/inventory/' + stock),
+    'related stock excludes the current vehicle');
   ok(relatedImages.length === relatedLinks.length,
     'each related vehicle image is lazy, async-decoded, dimensioned and described with carAlt');
   const relatedText = related.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-  ok(related.includes('href="/inventory?make=Rolls-Royce"') && relatedText.includes('Browse all Rolls-Royce stock'),
-    'related stock links to all Rolls-Royce inventory');
+  ok(related.includes('href="/inventory?make=' + CARS[0].make + '"') && relatedText.includes('Browse all ' + CARS[0].make + ' stock'),
+    'related stock links to all same-make inventory');
 }
 {
   // ---- vehicle detail action stack: Enquire now + WhatsApp + Chat Now + Save / Copy link ----
@@ -462,7 +462,7 @@ function checkFounderStat(html, variant, where) {
     'the machinery desk is still one click away from the hero');
   ok(!/<button class="primary"[^>]*>Explore/.test(home),
     'the primary CTA is no longer a JS button with no href');
-  ok(home.includes('Cars from Japan') && home.includes('machines from China'), 'the hero headline states the scope of work: cars from Japan, machines from China');
+  ok(home.includes('Cars from Japan &amp; China') && home.includes('machinery for every market'), 'the hero headline states the scope of work: cars from Japan and China, machinery for every market');
   ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
   ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
   ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');
@@ -527,11 +527,11 @@ function checkFounderStat(html, variant, where) {
   ok(stockLabel(null) === '', 'a missing car renders no label');
   const home = await renderPage('/');
   ok(!home.includes('LOT 51') && !home.includes('LOT 28149'), 'homepage dashboard shows no fabricated LOT numbers');
-  ok(home.includes('Stock AR7-26'), 'homepage dashboard labels cars by stock reference');
+  ok(home.includes('Stock ' + CARS[0].stock_no), 'homepage dashboard labels cars by stock reference');
   ok(home.includes('dash-demo-chip') && home.includes('DEMO'), 'homepage dashboard is visibly labelled as a demo');
   const auction = await renderPage('/auction');
   ok(!auction.includes('LOT 3821'), 'auction preview shows no invented lot numbers');
-  ok(auction.includes('Stock AR7-26'), 'auction preview labels cars by stock reference');
+  ok(auction.includes('Stock ' + CARS[0].stock_no), 'auction preview labels cars by stock reference');
   ok(auction.includes('AUCTION LOTS \u00b7 SAMPLE'), 'auction preview panel is visibly labelled SAMPLE');
 }
 

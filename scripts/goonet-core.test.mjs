@@ -24,7 +24,8 @@ import {
   parseGoonetCarUrl, parseGoonetCarUrls, GOONET_CAR_HOSTS,
   DEFAULT_SEARCH_URL, EXCHANGE_BASE, EXCHANGE_HOST, EXCHANGE_PAGE_SIZE,
   countExchangeCarLinks, parseExchangeListingPage, parseExchangeDetailPage,
-  makeFromExchangeSlug, modelFromExchangeSlug, exchangeCarImages, translateSearchUrl
+  makeFromExchangeSlug, modelFromExchangeSlug, exchangeCarImages, translateSearchUrl,
+  parseCarKeyword, modelSlug
 } from './goonet-core.mjs';
 import { legacyEncoder, byteResponse } from './legacy-jp.mjs';
 
@@ -1275,6 +1276,34 @@ console.log('\n-- exchange: body type is derived, never left to a missing row --
   const required = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
   eq(required.filter(f => !merged[f] || merged[f] === 'Unknown').join(','), '',
     'no required field is missing — the "missing fields: body" skip storm cannot recur for mapped models');
+}
+
+console.log('\n-- on-demand keyword → exchange search URL --');
+{
+  const B = 'https://www.goo-net-exchange.com';
+  const u = q => parseCarKeyword(q)?.url || null;
+  eq(u('Toyota Alphard 2020'), B + '/usedcars/TOYOTA/ALPHARD/', 'make + model + year → model landing');
+  eq(parseCarKeyword('Toyota Alphard 2020').yearMin, 2020, 'a single year bounds both ends');
+  eq(parseCarKeyword('prado 2018 2022').yearMax, 2022, 'two years make a range');
+  eq(u('prado'), B + '/usedcars/TOYOTA/LAND_CRUISER_PRADO/', 'nicknames expand (prado → Land Cruiser Prado)');
+  eq(u('jimny'), B + '/usedcars/SUZUKI/JIMNY/', 'a model alone announces its make');
+  eq(u('alphard hybrid'), B + '/usedcars/TOYOTA/ALPHARD_HYBRID/', 'longest model name wins');
+  eq(u('hiace wagon'), B + '/usedcars/TOYOTA/HIACE_WAGON/', 'hiace wagon is not rewritten to the van');
+  eq(u('hiace'), B + '/usedcars/TOYOTA/HIACE_VAN/', 'bare hiace means the van everyone exports');
+  eq(u('honda cr-v'), B + '/usedcars/HONDA/CR_V/', 'hyphens normalize into the slug underscore');
+  eq(u('mercedes e-class'), B + '/usedcars/MERCEDES_BENZ/E_CLASS/', 'european makes resolve');
+  eq(u('fairlady z'), B + '/usedcars/NISSAN/FAIRLADY_Z/', 'multi-word slugs match the live href shape');
+  eq(u('toyota'), B + '/usedcars/TOYOTA/', 'make-only yields the make landing (the API asks for a model)');
+  eq(parseCarKeyword('toyota')?.modelSlug, null, 'make-only carries no model slug');
+  eq(parseCarKeyword('random words here'), null, 'gibberish is refused, not guessed');
+  eq(modelSlug('Land Cruiser 250'), 'LAND_CRUISER_250', 'slug rule matches the live hrefs');
+  // Model landings paginate by GET offset exactly like summary.php —
+  // verified live 2026-11-05: /usedcars/TOYOTA/ALPHARD/?offset=20 returned
+  // the next, different cards.
+  eq(listingPageUrlFor(B + '/usedcars/TOYOTA/ALPHARD/', 2), B + '/usedcars/TOYOTA/ALPHARD/?offset=20',
+    'model landing page 2 → ?offset=20');
+  eq(listingPageUrlFor(B + '/usedcars/TOYOTA/ALPHARD/', 1), B + '/usedcars/TOYOTA/ALPHARD/',
+    'model landing page 1 is the bare landing');
 }
 
 console.log('\n-- exchange: owner-pasted URLs and delisting --');
