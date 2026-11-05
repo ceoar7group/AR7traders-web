@@ -1128,7 +1128,7 @@ export default function CrmApp() {
     if (DEMO) { setNotice('Stock sync needs the live database — it is disabled in demo mode.'); return; }
     const ok = window.confirm(
       'Sync the public website stock to the latest seed?\n\n' +
-      'The 25 seed cars (12 showroom + 13 Goo-net) will be published with their photo galleries.\n' +
+      'All seed cars (12 real showroom picks + the Goo-net imports) will be published with their photo galleries.\n' +
       'Any car in the database that is NOT in the seed will be hidden (published=false — you can re-publish it later from this tab).'
     );
     if (!ok) return;
@@ -1730,7 +1730,7 @@ export default function CrmApp() {
                     className="crm-sync"
                     onClick={syncWebsiteStock}
                     disabled={syncing}
-                    title="Make the public website stock match the latest seed (25 cars: 12 showroom + 13 Goo-net). Cars not in the seed are hidden, not deleted."
+                    title="Make the public website stock match the latest seed (all real cars: 12 showroom picks + the Goo-net imports). Cars not in the seed are hidden, not deleted."
                    type="button">
                     <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock'}
                   </button>

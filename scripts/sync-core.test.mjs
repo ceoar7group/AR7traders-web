@@ -59,12 +59,14 @@ function makeDb(tables) {
   };
 }
 
-// The live DB as of 2026-08-26: the old 42-car import, all published, no galleries.
+// A simulated live DB: 42 published rows without galleries. The first 12 carry
+// the seed's own showroom stock numbers (a prior sync of the same cars), the
+// rest are stale AR7-26013+ rows from the old import.
 function oldImport() {
   const rows = [];
   for (let i = 1; i <= OLD_IMPORT; i++) {
     rows.push({
-      id: 'old-' + i, stock_no: 'AR7-26' + String(i).padStart(3, '0'),
+      id: 'old-' + i, stock_no: i <= SHOWROOM ? seed[i - 1].stock_no : 'AR7-26' + String(i).padStart(3, '0'),
       make: 'Toyota', model: 'Old Car ' + i, year: 2020, km: '100',
       fuel: 'Petrol', body: 'SUV', price: '$10,000',
       image: '/assets/old-' + i + '.jpg', images: null, gallery: null,
@@ -108,8 +110,8 @@ console.log(`\n1) old ${OLD_IMPORT}-car import → seed sync (default: hide stal
 
   check(`table has ${OLD_IMPORT + GOONET} rows (${OLD_IMPORT} old + ${GOONET} new, nothing deleted — reversible)`, after.length === OLD_IMPORT + GOONET, 'got ' + after.length);
   check(`exactly ${TOTAL} published cars`, published.length === TOTAL, 'got ' + published.length);
-  check('first 12 published are showroom AR7-26001–26012',
-    published.slice(0, SHOWROOM).every((r, i) => r.stock_no === 'AR7-26' + String(i + 1).padStart(3, '0')),
+  check('first 12 published are the seed showroom cars in order',
+    published.slice(0, SHOWROOM).every((r, i) => r.stock_no === seed[i].stock_no),
     published.slice(0, SHOWROOM).map(r => r.stock_no).join(','));
   check('published cars carry the seed galleries', published.every(r => Array.isArray(r.images) && r.images.length > 0));
   console.log('    summary: ' + summarize(plan, done));

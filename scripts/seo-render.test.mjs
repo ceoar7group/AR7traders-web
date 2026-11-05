@@ -51,8 +51,8 @@ const jpegSize = (buf) => {
 
 // ---- home -----------------------------------------------------------------
 applySeo('home', null);
-ok(document.title.includes('Japanese Car Exporter'), 'home title is the exporter headline');
-ok(meta('meta[name="description"]')?.includes('Auction-sourced'), 'home description meta is set');
+ok(document.title.includes('Car Exporter from Japan & China'), 'home title is the Japan & China exporter headline');
+ok(meta('meta[name="description"]')?.includes('Japanese auctions'), 'home description meta is set');
 ok(!meta('meta[name="description"]')?.includes('35+'), 'home description no longer claims 35+ countries');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/', 'home canonical is the root URL');
 ok(meta('meta[name="robots"]')?.startsWith('index,follow'), 'home is indexable');
