@@ -1,18 +1,8 @@
-== round 2c: replacements for the sold/timed-out picks ==
-curl: (28) Operation timed out after 90002 milliseconds with 0 bytes received
-answer: 000 0B 90.002883s https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
-FAILED: https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
-answer: 200 25183B 35.409854s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026110200706968003/
-answer: 200 25563B 28.852825s https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD/700070592930261029018/
-curl: (28) Operation timed out after 90002 milliseconds with 0 bytes received
-answer: 000 0B 90.002097s https://www.goo-net-exchange.com/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/
-FAILED: https://www.goo-net-exchange.com/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/
-answer: 200 25253B 72.805206s https://www.goo-net-exchange.com/usedcars/TOYOTA/HILUX_SURF/975026110200706968001/
-curl: (28) Operation timed out after 90002 milliseconds with 0 bytes received
-answer: 000 0B 90.002342s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_70/975026092700402076002/
-FAILED: https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_70/975026092700402076002/
-answer: 200 25403B 9.464231s https://www.goo-net-exchange.com/usedcars/TOYOTA/HARRIER/700070135930261030001/
-answer: 200 25460B 14.505034s https://www.goo-net-exchange.com/usedcars/TOYOTA/HIACE_VAN/975026102700402794001/
+== round 2d: the last picks, with one retry each ==
+answer: 200 25237B 2.513855s https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
+answer: 200 25382B 4.594042s https://www.goo-net-exchange.com/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/
+answer: 200 25458B 5.161802s https://www.goo-net-exchange.com/usedcars/TOYOTA/YARIS_CROSS/700070798530261029003/
+answer: 200 25309B 2.904613s https://www.goo-net-exchange.com/usedcars/TOYOTA/ROOMY/700070592930261029023/
 probe-d-01-lexus-gx.html: 36941B
 probe-d-02-lexus-rx.html: 192418B
 probe-d-03-lexus-nx.html: 195498B
@@ -23,9 +13,13 @@ probe-d-07-lc70.html: 37081B
 probe-d-09-alphard.html: 37071B
 probe-d-10-fairlady.html: 37031B
 probe-d-11-odyssey.html: 323931B
+probe-d-12-rav4.html: 320966B
 probe-d-13-hiace.html: 298720B
 probe-d-14-prado.html: 320648B
 probe-d-15-alphard.html: 324850B
+probe-d-16-jimny.html: 324081B
 probe-d-17-surf.html: 322946B
 probe-d-19-harrier.html: 323001B
 probe-d-20-hiacevan.html: 326799B
+probe-d-21-yariscross.html: 324694B
+probe-d-22-roomy.html: 321872B
