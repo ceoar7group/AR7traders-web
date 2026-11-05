@@ -1,16 +1,25 @@
-== round 2: model landing pagination + make-only landing ==
-answer: 200 28413B 16.627685s https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD/?offset=20
-cards: 18
-ids: 700070082830261027009 700070135930261030007 700070135930261101001 700070667130260823002 700070667130260831004 700070798530260831004 700070798530261027003 700070798530261027006 700070798530261027007 700071003030261027004 700071003030261027005 700071003030261027007 700071003030261027008 700071003030261101002 700071003030261101004 700071006630261027001 700071006630261027003 975026110100520231001 
-jpy prices: 
-answer: 200 15435B 14.779752s https://www.goo-net-exchange.com/usedcars/NISSAN/
-cards: 0
-ids: 
-jpy prices: 
-== round 2: the 12 showroom replacement detail pages ==
-answer: 404 36941B 29.036192s https://www.goo-net-exchange.com/usedcars/LEXUS/GX/404026091009730980002/
-answer: 200 22673B 15.603842s https://www.goo-net-exchange.com/usedcars/LEXUS/RX/404026100809730980001/
-answer: 200 22871B 10.318033s https://www.goo-net-exchange.com/usedcars/LEXUS/NX/404026102909730980001/
-answer: 200 25180B 13.393750s https://www.goo-net-exchange.com/usedcars/LEXUS/LS/700054155530261029001/
-curl: (28) Operation timed out after 30002 milliseconds with 0 bytes received
-answer: 000 0B 30.002874s https://www.goo-net-exchange.com/usedcars/LEXUS/ES/404026092409730980002/
+== round 2b: remaining showroom replacement detail pages ==
+answer: 200 22801B 20.998735s https://www.goo-net-exchange.com/usedcars/LEXUS/ES/404026092409730980002/
+answer: 404 37091B 36.846686s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_250/975026062901001276002/
+answer: 404 37081B 8.398127s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_70/975026102800530145001/
+curl: (28) Operation timed out after 60002 milliseconds with 0 bytes received
+answer: 000 0B 60.002492s https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026032400402076001/
+FAILED: https://www.goo-net-exchange.com/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026032400402076001/
+answer: 404 37071B 6.973996s https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD_HYBRID/700030207230261102002/
+answer: 404 37031B 9.365318s https://www.goo-net-exchange.com/usedcars/NISSAN/FAIRLADY_Z/988026103100206860001/
+answer: 200 25272B 39.289397s https://www.goo-net-exchange.com/usedcars/HONDA/ODYSSEY_HYBRID/700070135930261004001/
+curl: (28) Operation timed out after 60002 milliseconds with 0 bytes received
+answer: 000 0B 60.002197s https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
+FAILED: https://www.goo-net-exchange.com/usedcars/TOYOTA/RAV4/700070592930261027010/
+answer: 200 23925B 15.987932s https://www.goo-net-exchange.com/usedcars/TOYOTA/HIACE_WAGON/975026103100901425001/
+probe-d-01-lexus-gx.html: 36941B
+probe-d-02-lexus-rx.html: 192418B
+probe-d-03-lexus-nx.html: 195498B
+probe-d-04-lexus-ls.html: 305259B
+probe-d-05-lexus-es.html: 194581B
+probe-d-06-lc250.html: 37091B
+probe-d-07-lc70.html: 37081B
+probe-d-09-alphard.html: 37071B
+probe-d-10-fairlady.html: 37031B
+probe-d-11-odyssey.html: 323931B
+probe-d-13-hiace.html: 298720B
