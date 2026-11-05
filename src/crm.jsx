@@ -1267,11 +1267,14 @@ export default function CrmApp() {
   }
 
   // Trigger one importer run (admin) — same code the scheduled cron calls.
-  async function runGoonetSync() {
+  async function runGoonetSync(maybeKeyword) {
     if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in demo mode.'); return; }
+    // The Run button passes its click event; only a real string is a keyword.
+    const keyword = typeof maybeKeyword === 'string' ? maybeKeyword.trim() : '';
     setSyncing(true);
     try {
-      const r = await call('/api/goonet-sync', session.access_token, { method: 'POST' });
+      const r = await call('/api/goonet-sync', session.access_token,
+        { method: 'POST', ...(keyword ? { body: JSON.stringify({ keyword }) } : {}) });
       const skipped = r.skipped?.length ? ` · skipped ${r.skipped.length}` : '';
       // The skip reasons ARE the diagnosis ("only 2 images (need 5+)",
       // "missing fields: fuel, body", "detail fetch failed"…). Show the first
@@ -1285,9 +1288,10 @@ export default function CrmApp() {
       const detail = why.length ? ' — ' + why.join(' — ') : '';
       // A blocked run must not read like a clean one: the report's own note
       // says the bookmark was held, so no pages were silently skipped.
+      const label = r.keyword ? `Search "${r.keyword}"` : 'Importer run';
       setNotice(r.blocked
         ? `Importer blocked by goo-net — page ${r.page || '?'} gave ${r.cardsSeen ?? 0} card(s), nothing imported.${skipped} ${r.note || ''}`.trim()
-        : `Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
+        : `${label} finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
       await loadAll();
     } catch (e) {
       // A failed crawl now carries a structured `failure` report. Render the
@@ -2688,6 +2692,9 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
+  // On-demand importer search ("Toyota Alphard 2020") — submitted to the same
+  // /api/goonet-sync run, which searches the exchange for that car only.
+  const [findQuery, setFindQuery] = useState('');
   const isAdmin = profile?.role === 'admin';
 
   // "Where has this car already been copied to?" is answered from the actual
@@ -2817,6 +2824,21 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
           )}
         </div>
       </div>
+
+      {isAdmin && (
+        <form className="crm-goonet-ondemand" onSubmit={e => { e.preventDefault(); const q = findQuery.trim(); if (q && !syncing) onRun(q); }}>
+          <label>
+            <Search size={14} />
+            <input value={findQuery} onChange={e => setFindQuery(e.target.value)} disabled={syncing}
+              placeholder='Find a specific car on Goo-net Exchange — e.g. "Toyota Alphard 2020", "Lexus RX", "jimny", "prado 2018 2022"' />
+          </label>
+          <button className="crm-sync" type="submit" disabled={syncing || !findQuery.trim()}
+            title="Search the exchange for this car only and import the matches through the same quality gate">
+            <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Searching…' : 'Search & import'}
+          </button>
+          <small>Searches only this car (make + model, optional year or range) and imports matches through the normal quality gate. The scheduled crawl and its bookmark are untouched.</small>
+        </form>
+      )}
 
       {showSettings && (
         <form className="crm-settings-form crm-goonet-settings" onSubmit={saveSettings}>

@@ -105,6 +105,8 @@ const en = {
   'hero.browseMachinery': 'Browse machinery',
   'hero.howBidding': 'See how bidding works',
   'hero.scrollCue': 'SCROLL TO DISCOVER',
+  'hero.searchPlaceholder': 'Search our stock — Alphard, Prado, Jimny…',
+  'hero.searchBtn': 'Search',
 
   // ---- Inventory toolbar ---------------------------------------------------
   'inv.kicker': 'LIVE JAPAN STOCK',

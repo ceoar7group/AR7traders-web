@@ -832,7 +832,7 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  const signedIn=!!cust.session;
  const [,contentTick]=useReducer(x=>x+1,0);
  useEffect(()=>onContentChange(()=>contentTick()),[]);
- const [query,setQuery]=useState(''),[body,setBody]=useState('All'),[make,setMake]=useState(initialMake||'All'),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState('All'),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(DEST[0][1]),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false);
+ const [query,setQuery]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState('All'),[make,setMake]=useState(initialMake||'All'),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState('All'),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(DEST[0][1]),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false);
  // The header's Brands dropdown drives this filter through the URL, so the
  // select must follow the route (and stay put when changed by hand or while
  // inspecting a vehicle from a filtered list).
@@ -1163,6 +1163,14 @@ export function App(){
           destinations are these two buttons, and the machinery teaser below
           carries the China desk. */}
       <div className="hero-cta"><PageLink className="primary" to="inventory" navigate={navigate}>{t('hero.explore')} <ArrowRight/></PageLink><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink></div>
+      {/* Quick search: hands the text to the inventory screen through
+          sessionStorage (no new URL shape, so the SEO routing is untouched)
+          and navigates. The inventory search box picks it up on mount. */}
+      <form className="hero-search" role="search" onSubmit={e=>{e.preventDefault();const v=(e.currentTarget.elements.hq?.value||'').trim();try{sessionStorage.setItem('ar7-inv-q',v)}catch{/* storage may be off */}navigate('inventory')}}>
+        <Search aria-hidden="true"/>
+        <input name="hq" placeholder={t('hero.searchPlaceholder')} aria-label={t('hero.searchPlaceholder')} autoComplete="off"/>
+        <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
+      </form>
       <div className="hero-quick"><button className="text-btn" onClick={()=>setEnquiry({kind:'auction'})} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
       <FounderStat variant="hero" delay={900}/>
     </div>
@@ -1175,7 +1183,7 @@ export function App(){
    <MotionShowcase navigate={navigate}/>
 
    <section className="inventory shell section" id="inventory" onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
-    <div className="section-head"><div><div className="kicker">LUXURY & SUPER SPORT</div><h2>Treasures in the<br/><em>showroom.</em></h2></div><p>Rolls-Royce to Bugatti — plus verified Japan stock for every market. The slide keeps running through live stock.</p></div>
+    <div className="section-head"><div><div className="kicker">PREMIUM JAPAN STOCK</div><h2>Flagships in the<br/><em>showroom.</em></h2></div><p>Land Cruiser to Lexus — every showroom car is a real vehicle in Japan with live export pricing. The slide keeps running through live stock.</p></div>
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> Search vehicles <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
       <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{c.status||'In Stock'}</span><span role="button" tabIndex={0} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span><span className="grade">Grade <b>{c.grade}</b></span></div>
@@ -1187,8 +1195,8 @@ export function App(){
 
    <section className="mch-teaser shell section" id="machinery">
     <div className="mch-teaser-head">
-     <div><div className="kicker">CHINA MACHINERY · NEW DESK</div><h2>Excavators, loaders<br/><em>&amp; trucks.</em></h2></div>
-     <p>Heavy equipment sourced to order from vetted Chinese suppliers — the same inspection, documentation and shipping desk that moves our cars.</p>
+     <div><div className="kicker">CHINA DESK · LHD CARS &amp; MACHINERY</div><h2>LHD cars, excavators<br/><em>&amp; trucks.</em></h2></div>
+     <p>Left-hand-drive cars and heavy equipment sourced to order from vetted Chinese suppliers — the same inspection, documentation and shipping desk that moves our Japan cars.</p>
     </div>
     {/* One machine per type, and only ones we actually have a photograph of —
         the teaser is the first thing a visitor sees, so it never opens with a
@@ -1202,7 +1210,7 @@ export function App(){
         <div className="mch-foot"><div><small>INDICATIVE FOB</small>{(()=>{const offer=stockDiscountFor(liveDiscounts,'machine',m.ref);const p=priceWithOffer(listPriceUSD(m),offer?.percent||0);return p.hasOffer?<span className="mch-price-row"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span>:<b>{fmt(p.now)}</b>})()}</div><PageLink className="mch-teaser-link" to={machineHref(m)} navigate={navigate}>Details <ArrowRight/></PageLink></div>
       </div>
     </article>)}</div>
-    <div className="mch-teaser-foot"><PageLink className="primary" to="machinery" navigate={navigate}>Browse all machinery <ArrowRight/></PageLink><p className="mch-teaser-note">{MACHINERY_NOTE}</p></div>
+    <div className="mch-teaser-foot"><PageLink className="primary" to="machinery" navigate={navigate}>Browse all machinery <ArrowRight/></PageLink><button className="ghost-btn" type="button" onClick={()=>setEnquiry({kind:'vehicle',vehicle_interest:'Left-hand-drive car from China',message:'I am looking for a left-hand-drive car from your China desk. '})}>Request an LHD car <ArrowRight/></button><p className="mch-teaser-note">{MACHINERY_NOTE}</p></div>
    </section>
 
    <section className="world section"><div className="world-map"><DeferredBigGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">GLOBAL REACH, LOCAL CARE</div><h2>Japan to <em>everywhere.</em></h2><p>We ship through trusted carriers to ports worldwide. Spin the globe — tap Japan to browse stock, or any country for its market guide.</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>Explore destinations <ArrowRight/></PageLink></div></section>

@@ -338,3 +338,17 @@ html,body{overflow-x:clip}
 .car-main.is-machine .car-dots i.active{background:var(--gold2)}
 .car-dots i.machine{width:14px;border-radius:3px}
 .car-counter svg{width:13px}
+
+/* ---- Hero quick search (2026-11-05) ------------------------------------
+   One pill under the CTA row: icon, free-text input, gold submit. It hands
+   the text to the inventory screen, so it must read as "search the stock",
+   not as a newsletter field. */
+.hero-search{display:flex;align-items:center;gap:10px;margin-top:18px;max-width:520px;padding:6px 6px 6px 16px;border-radius:999px;border:1px solid color-mix(in srgb,var(--gold,#c9a35c) 35%,transparent);background:color-mix(in srgb,var(--panel,#101418) 82%,transparent);backdrop-filter:blur(6px);transition:border-color .2s,box-shadow .2s}
+.hero-search:focus-within{border-color:var(--gold,#c9a35c);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c9a35c) 18%,transparent)}
+.hero-search>svg{width:17px;height:17px;flex:none;opacity:.55}
+.hero-search input{flex:1;min-width:0;background:transparent;border:0;outline:none;color:inherit;font:inherit;padding:8px 0}
+.hero-search input::placeholder{opacity:.55}
+.hero-search button{display:inline-flex;align-items:center;gap:6px;flex:none;border:0;cursor:pointer;border-radius:999px;padding:9px 18px;font:inherit;font-weight:600;color:#161309;background:linear-gradient(135deg,var(--gold,#c9a35c),#e5c98a);transition:transform .15s,box-shadow .2s}
+.hero-search button:hover{transform:translateY(-1px);box-shadow:0 6px 18px -6px var(--gold,#c9a35c)}
+.hero-search button svg{width:15px;height:15px}
+@media (max-width:640px){.hero-search{max-width:none}.hero-search button span{display:none}}

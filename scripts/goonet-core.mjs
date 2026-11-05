@@ -2350,8 +2350,9 @@ export function colourAfter(text, label = '車体色', opts = {}) {
 export function listingPageUrlFor(baseUrl, page) {
   const base = String(baseUrl || DEFAULT_SEARCH_URL);
   // Exchange results paginate by GET offset (20 cards per page — verified
-  // live 2026-11-04: offset=20 returned the next, different 20 cards).
-  if (base.includes('/php/search/summary.php')) {
+  // live 2026-11-04 on summary.php and 2026-11-05 on the make/model landing
+  // /usedcars/TOYOTA/ALPHARD/?offset=20, which returned the next 18 cards).
+  if (base.includes('/php/search/summary.php') || base.includes(EXCHANGE_HOST)) {
     try {
       const u = new URL(base);
       u.searchParams.delete('offset');
