@@ -34,15 +34,28 @@ jobs:
             printf '%s\n' "curl -sS -m 40 -A '$UA' -o /tmp/cars/$id/$(printf %02d "$idx").jpg '$url' || true"
           done < /tmp/dl.txt > /tmp/jobs.sh
           xargs -d '\n' -P 8 -I CMD bash -c CMD < /tmp/jobs.sh || true
-          mkdir -p probe-shots
+          mkdir -p probe-shots/thumbs
           for d in /tmp/cars/*; do
             id=$(basename "$d")
             pid=$(printf %02d "$id")
-            ( cd "$d" && montage -label '%f' ./*.jpg -tile 5x -geometry 220x146+2+2 -quality 72 "/tmp/montage-$pid.jpg" ) || true
-            [ -f "/tmp/montage-$pid.jpg" ] && mv "/tmp/montage-$pid.jpg" "probe-shots/montage-$pid.jpg"
             [ -f "$d/00.jpg" ] && cp "$d/00.jpg" "probe-shots/cover-$pid.jpg"
           done
-          ls -la probe-shots | head -45
+          npm install --no-save sharp > /dev/null 2>&1
+          node --input-type=module <<'EOF2'
+          import { readdirSync, mkdirSync } from 'fs';
+          import sharp from 'sharp';
+          mkdirSync('probe-shots/thumbs', { recursive: true });
+          const base = '/tmp/cars';
+          for (const id of readdirSync(base)) {
+            const pid = String(id).padStart(2, '0');
+            for (const f of readdirSync(base + '/' + id)) {
+              try {
+                await sharp(base + '/' + id + '/' + f).resize({ width: 220 }).jpeg({ quality: 62 }).toFile('probe-shots/thumbs/' + pid + '-' + f);
+              } catch { /* skip broken download */ }
+            }
+          }
+          EOF2
+          du -sh probe-shots
       - name: commit results
         run: |
           git config user.name 'relay-probe'
