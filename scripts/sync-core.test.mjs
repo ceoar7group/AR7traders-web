@@ -11,7 +11,7 @@ import {computePlan, applyPlan, summarize} from './sync-core.mjs';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const seed = JSON.parse(readFileSync(path.join(dir, '../src/site-content.seed.json'), 'utf8')).listings;
 
-const SHOWROOM = 12;                       // showroom block size (sort_order 1–12)
+const SHOWROOM = 18;                       // showroom block size (the seed's curated collection)
 const TOTAL = seed.length;                 // all seed cars
 const GOONET = TOTAL - SHOWROOM;           // Japan-stock cars in the seed
 const OLD_IMPORT = 42;                     // simulated stale "old import" row count
