@@ -39,30 +39,25 @@ jobs:
             echo "ids: $(head -c 600 /tmp/ids.txt | tr '\n' ' ')"
             echo "jpy prices: $(grep -oE 'class="price currency-jpy">\xc2\xa5[0-9,]+' "$1" | grep -oE '[0-9,]+$' | head -24 | tr '\n' ' ')"
           }
-          echo "== the JS that drives the search form (param names live here) =="
-          fetchx "$BASE/build/assets/ajax_search-BCE-JsqM.js" probe-x-ajax-search.js
-          fetchx "$BASE/build/assets/summary-CBeYHeYA.js" probe-x-summary.js
-          echo "== homepage (its search form markup) =="
-          fetchx "$BASE/" probe-x-home.html
-          echo "== free word candidates =="
-          fetchx "$BASE/php/search/summary.php?free_word=alphard&search_type=free_word_search" probe-x-fw1.html
-          cards probe-x-fw1.html
-          fetchx "$BASE/php/search/summary.php?free_word=alphard" probe-x-fw2.html
-          cards probe-x-fw2.html
-          echo "== maker / model candidates =="
-          fetchx "$BASE/php/search/summary.php?maker_cd=TOYOTA&search_type=maker_search" probe-x-mk1.html
-          cards probe-x-mk1.html
-          fetchx "$BASE/usedcars/TOYOTA/ALPHARD/" probe-x-model-landing.html
-          cards probe-x-model-landing.html
-          echo "== premium band 5M-30M JPY (showroom replacement stock) p1 =="
-          fetchx "$BASE/php/search/summary.php?b_to_b_price_min=5000000&b_to_b_price_max=30000000&search_type=price_search" probe-x-prem1.html
-          cards probe-x-prem1.html
-          echo "== premium band p2 (offset=20) =="
-          fetchx "$BASE/php/search/summary.php?b_to_b_price_min=5000000&b_to_b_price_max=30000000&search_type=price_search&offset=20" probe-x-prem2.html
-          cards probe-x-prem2.html
-          echo "== upper-mid band 3M-5M JPY p1 =="
-          fetchx "$BASE/php/search/summary.php?b_to_b_price_min=3000000&b_to_b_price_max=5000000&search_type=price_search" probe-x-prem3.html
-          cards probe-x-prem3.html
+          echo "== round 2: model landing pagination + make-only landing =="
+          fetchx "$BASE/usedcars/TOYOTA/ALPHARD/?offset=20" probe-x-alphard-p2.html
+          cards probe-x-alphard-p2.html
+          fetchx "$BASE/usedcars/NISSAN/" probe-x-brand-landing.html
+          cards probe-x-brand-landing.html
+          echo "== round 2: the 12 showroom replacement detail pages =="
+          fetchx "$BASE/usedcars/LEXUS/GX/404026091009730980002/" probe-d-01-lexus-gx.html
+          fetchx "$BASE/usedcars/LEXUS/RX/404026100809730980001/" probe-d-02-lexus-rx.html
+          fetchx "$BASE/usedcars/LEXUS/NX/404026102909730980001/" probe-d-03-lexus-nx.html
+          fetchx "$BASE/usedcars/LEXUS/LS/700054155530261029001/" probe-d-04-lexus-ls.html
+          fetchx "$BASE/usedcars/LEXUS/ES/404026092409730980002/" probe-d-05-lexus-es.html
+          fetchx "$BASE/usedcars/TOYOTA/LAND_CRUISER_250/975026062901001276002/" probe-d-06-lc250.html
+          fetchx "$BASE/usedcars/TOYOTA/LAND_CRUISER_70/975026102800530145001/" probe-d-07-lc70.html
+          fetchx "$BASE/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026032400402076001/" probe-d-08-prado.html
+          fetchx "$BASE/usedcars/TOYOTA/ALPHARD_HYBRID/700030207230261102002/" probe-d-09-alphard.html
+          fetchx "$BASE/usedcars/NISSAN/FAIRLADY_Z/988026103100206860001/" probe-d-10-fairlady.html
+          fetchx "$BASE/usedcars/HONDA/ODYSSEY_HYBRID/700070135930261004001/" probe-d-11-odyssey.html
+          fetchx "$BASE/usedcars/TOYOTA/RAV4/700070592930261027010/" probe-d-12-rav4.html
+          for f in probe-d-*.html; do echo "$f: $(wc -c < "$f")B $(grep -c 'Vehicle Price' "$f" || true)"; done
       # The sandbox driving this session cannot download Actions logs (they
       # live on a blob host outside its egress allowlist), so the results are
       # committed to the branch where a plain `git fetch` can read them.
@@ -71,7 +66,7 @@ jobs:
         run: |
           git config user.name "relay-probe"
           git config user.email "relay-probe@users.noreply.github.com"
-          git add probe-results.txt probe-x-*
+          git add probe-results.txt probe-x-* probe-d-*
           git commit -m "relay-probe: results $(date -u +%FT%TZ)" || echo "nothing to commit"
           git pull --rebase origin "${GITHUB_REF_NAME}" || true
           git push origin "HEAD:${GITHUB_REF_NAME}"

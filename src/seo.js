@@ -59,8 +59,8 @@ export function brandSeo(make) {
 }
 
 export const PAGE_SEO = {
-  home:        ['Japanese Car Exporter | Cars & Machinery | AR7 Traders',
-                'Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price.'],
+  home:        ['Car Exporter from Japan & China | Cars & Machinery | AR7 Traders',
+                'RHD cars from Japanese auctions, LHD cars from trusted Chinese suppliers and heavy machinery from vetted factories — inspected, documented and shipped to your port with one clear price.'],
   inventory:   ['Japanese Cars for Export | Live Stock | AR7 Traders',
                 'Browse verified Japanese vehicles ready for export: Toyota, Nissan, Honda, Lexus, Mercedes and more, with mileage, grade and shipping cost to your port.'],
   auction:     ['Japan Car Auction Access | Bid With AR7 Traders',

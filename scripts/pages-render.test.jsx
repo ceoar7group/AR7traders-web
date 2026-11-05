@@ -462,7 +462,7 @@ function checkFounderStat(html, variant, where) {
     'the machinery desk is still one click away from the hero');
   ok(!/<button class="primary"[^>]*>Explore/.test(home),
     'the primary CTA is no longer a JS button with no href');
-  ok(home.includes('Cars from Japan') && home.includes('machines from China'), 'the hero headline states the scope of work: cars from Japan, machines from China');
+  ok(home.includes('Cars from Japan &amp; China') && home.includes('machinery for every market'), 'the hero headline states the scope of work: cars from Japan and China, machinery for every market');
   ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
   ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
   ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');

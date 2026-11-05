@@ -519,7 +519,7 @@ function HeroVisual({navigate,discounts}){
    {/* The rotating card is a link preview, not a document section, but it does show
        real headings for each vehicle — so the hero gets its own screen-reader heading
        and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
-   <h2 className="sr-only">Japan cars, China machinery</h2>
+   <h2 className="sr-only">Japan &amp; China cars, heavy machinery</h2>
   <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.href,navigate)}>
    <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
    <div className="image-shade"/>
