@@ -1,0 +1,66 @@
+4471:ok  : logoOnError survives a null target
+5114:  ✓ src/main.jsx guards its own onError handlers
+5115:  ✓ src/main.jsx guards every onError handler that rewrites a src
+5116:  ✓ no unguarded inline onError handler rewrites a src in src/main.jsx
+5330:Error: ENOENT: no such file or directory, open '/home/runner/work/AR7traders-web/AR7traders-web/.github/workflows/relay-probe.yml'
+---- tail ----
+dist/assets/machinery-Sr8RE1mv.css         22.90 kB │ gzip:  5.04 kB
+dist/assets/crm-D-EV-JuW.css              140.95 kB │ gzip: 22.94 kB
+dist/assets/index-B-zNWZQO.css            191.87 kB │ gzip: 37.48 kB
+dist/assets/check-CDK4sM7p.js               0.11 kB │ gzip:  0.13 kB
+dist/assets/wallet-CnxdAmuH.js              0.58 kB │ gzip:  0.33 kB
+dist/assets/rolldown-runtime-WkwZ5CU-.js    0.59 kB │ gzip:  0.36 kB
+dist/assets/sparkles-DSE0UfSX.js            0.90 kB │ gzip:  0.46 kB
+dist/assets/arrow-right-DwIpFpOj.js         1.53 kB │ gzip:  0.87 kB
+dist/assets/sitemap-helpers-CDPqmfNY.js     1.53 kB │ gzip:  0.77 kB
+dist/assets/destination-page-mC8MfAK4.js    5.64 kB │ gzip:  1.88 kB
+dist/assets/enquiry-form-DVWadrgW.js       11.16 kB │ gzip:  3.85 kB
+dist/assets/network-C1bMlhgo.js            16.45 kB │ gzip:  5.95 kB
+dist/assets/customer-portal-B8TKt4fG.js    19.86 kB │ gzip:  5.39 kB
+dist/assets/machinery-fvuJENjx.js          25.61 kB │ gzip:  7.29 kB
+dist/assets/reviews-DrpVZCl_.js            32.88 kB │ gzip: 10.99 kB
+dist/assets/i18n-dicts-DRA5jz7C.js         95.75 kB │ gzip: 29.52 kB
+dist/assets/crm-DeNq-cZl.js               111.50 kB │ gzip: 32.58 kB
+dist/assets/vendor-react-CfTEFQET.js      189.52 kB │ gzip: 59.58 kB
+dist/assets/index-DKFh071I.js             305.52 kB │ gzip: 84.31 kB
+
+[32m✓ built in 467ms[39m
+
+> ar7-traders@2.0.0 prerender
+> esbuild scripts/prerender-guides.jsx --bundle --platform=node --format=esm --packages=external --jsx=automatic --outfile=node_modules/.tmp/prerender-guides.mjs && node node_modules/.tmp/prerender-guides.mjs
+
+
+  node_modules/.tmp/prerender-guides.mjs  73.0kb
+
+⚡ Done in 6ms
+Prerendered 8 destination pages and 6 guides.
+Indexing follow-up: 14 HTML routes, sync health and editorial cadence pass.
+
+> ar7-traders@2.0.0 test:seo-automation
+> node scripts/seo-automation.test.mjs
+
+SEO automation: provider contracts, validation, review-only content, permission checks, keyword provenance and idempotent crawl repairs passed.
+
+> ar7-traders@2.0.0 test:workflows
+> node scripts/workflow-contracts.test.mjs
+
+node:fs:440
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open '/home/runner/work/AR7traders-web/AR7traders-web/.github/workflows/relay-probe.yml'
+    at readFileSync (node:fs:440:20)
+    at read (file:///home/runner/work/AR7traders-web/AR7traders-web/scripts/workflow-contracts.test.mjs:34:21)
+    at file:///home/runner/work/AR7traders-web/AR7traders-web/scripts/workflow-contracts.test.mjs:43:57
+    at Array.map (<anonymous>)
+    at file:///home/runner/work/AR7traders-web/AR7traders-web/scripts/workflow-contracts.test.mjs:43:44
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/home/runner/work/AR7traders-web/AR7traders-web/.github/workflows/relay-probe.yml'
+}
+
+Node.js v22.23.4
