@@ -354,7 +354,17 @@ const EN_BODY_HINTS = {
   'dyna': 'Truck', 'canter': 'Truck', 'elf': 'Truck', 'atlas': 'Truck',
   'carry': 'Kei', 'hijet': 'Kei', 'every': 'Kei', 'n-van': 'Kei', 'acty': 'Kei', 'sambar': 'Kei',
   'taft': 'Kei', 'wake': 'Kei', 'canbus': 'Kei', 'n-wgn': 'Kei', 'pleo': 'Kei', 'lapin': 'Kei',
-  'mira e:s': 'Kei', 'ekwagon': 'Kei', 'ek wagon': 'Kei', 'ek cross': 'Kei', 'cast': 'Kei'
+  'mira e:s': 'Kei', 'ekwagon': 'Kei', 'ek wagon': 'Kei', 'ek cross': 'Kei', 'cast': 'Kei',
+  // Premium/export additions (2026-11-05, with the on-demand keyword search).
+  // Lexus two-letter names are make-qualified: a bare word-bounded 'is' or
+  // 'rx' would hit ordinary words and Mazda's RX-8. Titles carry the make
+  // ("LEXUS RX RX350 F SPORT"), so the qualified key always lands.
+  'lexus rx': 'SUV', 'lexus nx': 'SUV', 'lexus gx': 'SUV', 'lexus lx': 'SUV', 'lexus ux': 'SUV',
+  'lexus ls': 'Sedan', 'lexus is': 'Sedan', 'lexus es': 'Sedan', 'lexus gs': 'Sedan',
+  'lexus lc': 'Coupe', 'lexus rc': 'Coupe', 'lexus ct': 'Hatchback', 'lexus lm': 'MPV',
+  'land cruiser': 'SUV', 'hilux surf': 'SUV', 'fj cruiser': 'SUV',
+  'x-trail': 'SUV', 'outlander': 'SUV', 'forester': 'SUV', 'outback': 'SUV', 'escudo': 'SUV',
+  'odyssey': 'MPV', 'fairlady': 'Coupe', 'gt-r': 'Coupe', 'supra': 'Coupe', 'skyline': 'Sedan'
 };
 
 // Generic body words a title/model can carry outright. Word-bounded so
@@ -1950,12 +1960,17 @@ export function exchangeCarImages(html, stock) {
   // photos carry the 8-digit car segment in their filename. Without it the
   // page's "recommended cars" strip would donate other cars' photos.
   const carSeg = id.length >= 18 ? id.slice(10, 18) : null;
+  // Second live scheme (seen 2026-11-05, e.g. a Hiace with 166 shots): the
+  // dealer-code path /090/0901425/J/0901425A… embeds the car segment with
+  // its leading zero dropped. Without this variant the parser saw 1 photo
+  // and the quality gate skipped a car that actually has a full gallery.
+  const carSegAlt = carSeg ? carSeg.replace(/^0+/, '') : null;
   const out = [];
   const re = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\/J\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
   let m;
   while ((m = re.exec(s))) {
     const u = m[0];
-    if (carSeg && !u.includes(carSeg)) continue;
+    if (carSeg && !u.includes(carSeg) && !(carSegAlt && carSegAlt.length >= 6 && u.includes(carSegAlt))) continue;
     if (!out.includes(u)) out.push(u);
   }
   // Gallery order: the cover (…00100.jpg, old-style path) first, then the

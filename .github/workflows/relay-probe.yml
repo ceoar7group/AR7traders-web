@@ -31,7 +31,7 @@ jobs:
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
           BASE="https://www.goo-net-exchange.com"
           fetchx () { # url outfile
-            curl -sS --compressed -L -m 90 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$2" -w 'answer: %{http_code} %{size_download}B %{time_total}s %{url_effective}\n' "$1"
+            curl -sS --compressed -L -m 120 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$2" -w 'answer: %{http_code} %{size_download}B %{time_total}s %{url_effective}\n' "$1"
           }
           cards () { # file — print the card ids and JPY prices this page carries
             grep -oE 'href="/usedcars/[A-Z0-9_]+/[A-Z0-9_]+/[0-9]+/"' "$1" | grep -oE '[0-9]{15,}' | sort -u > /tmp/ids.txt
@@ -39,19 +39,17 @@ jobs:
             echo "ids: $(head -c 600 /tmp/ids.txt | tr '\n' ' ')"
             echo "jpy prices: $(grep -oE 'class="price currency-jpy">\xc2\xa5[0-9,]+' "$1" | grep -oE '[0-9,]+$' | head -24 | tr '\n' ' ')"
           }
-          echo "== round 2c: replacements for the sold/timed-out picks =="
-          # 5 of the first 12 picks were already SOLD (the exchange turns
-          # stock over in hours) and 2 timed out at 60s. Fresher ids, 90s
-          # patience, failures survived.
-          fetchd () { fetchx "$1" "$2" || echo "FAILED: $1"; sleep 2; }
+          echo "== round 2d: the last picks, with one retry each =="
+          # The exchange is slow right now (some pages take >90s); each URL
+          # gets up to two patient attempts.
+          fetchd () {
+            fetchx "$1" "$2" || true; sleep 3
+            [ -s "$2" ] || { echo "retrying: $1"; fetchx "$1" "$2" || echo "FAILED: $1"; sleep 3; }
+          }
           fetchd "$BASE/usedcars/TOYOTA/RAV4/700070592930261027010/" probe-d-12-rav4.html
-          fetchd "$BASE/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026110200706968003/" probe-d-14-prado.html
-          fetchd "$BASE/usedcars/TOYOTA/ALPHARD/700070592930261029018/" probe-d-15-alphard.html
           fetchd "$BASE/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/" probe-d-16-jimny.html
-          fetchd "$BASE/usedcars/TOYOTA/HILUX_SURF/975026110200706968001/" probe-d-17-surf.html
-          fetchd "$BASE/usedcars/TOYOTA/LAND_CRUISER_70/975026092700402076002/" probe-d-18-lc70.html
-          fetchd "$BASE/usedcars/TOYOTA/HARRIER/700070135930261030001/" probe-d-19-harrier.html
-          fetchd "$BASE/usedcars/TOYOTA/HIACE_VAN/975026102700402794001/" probe-d-20-hiacevan.html
+          fetchd "$BASE/usedcars/TOYOTA/YARIS_CROSS/700070798530261029003/" probe-d-21-yariscross.html
+          fetchd "$BASE/usedcars/TOYOTA/ROOMY/700070592930261029023/" probe-d-22-roomy.html
           for f in probe-d-*.html; do echo "$f: $(wc -c < "$f")B"; done
       # The sandbox driving this session cannot download Actions logs (they
       # live on a blob host outside its egress allowlist), so the results are
