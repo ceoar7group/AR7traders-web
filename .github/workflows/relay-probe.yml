@@ -31,7 +31,7 @@ jobs:
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
           BASE="https://www.goo-net-exchange.com"
           fetchx () { # url outfile
-            curl -sS --compressed -L -m 30 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$2" -w 'answer: %{http_code} %{size_download}B %{time_total}s %{url_effective}\n' "$1"
+            curl -sS --compressed -L -m 60 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$2" -w 'answer: %{http_code} %{size_download}B %{time_total}s %{url_effective}\n' "$1"
           }
           cards () { # file — print the card ids and JPY prices this page carries
             grep -oE 'href="/usedcars/[A-Z0-9_]+/[A-Z0-9_]+/[0-9]+/"' "$1" | grep -oE '[0-9]{15,}' | sort -u > /tmp/ids.txt
@@ -39,25 +39,21 @@ jobs:
             echo "ids: $(head -c 600 /tmp/ids.txt | tr '\n' ' ')"
             echo "jpy prices: $(grep -oE 'class="price currency-jpy">\xc2\xa5[0-9,]+' "$1" | grep -oE '[0-9,]+$' | head -24 | tr '\n' ' ')"
           }
-          echo "== round 2: model landing pagination + make-only landing =="
-          fetchx "$BASE/usedcars/TOYOTA/ALPHARD/?offset=20" probe-x-alphard-p2.html
-          cards probe-x-alphard-p2.html
-          fetchx "$BASE/usedcars/NISSAN/" probe-x-brand-landing.html
-          cards probe-x-brand-landing.html
-          echo "== round 2: the 12 showroom replacement detail pages =="
-          fetchx "$BASE/usedcars/LEXUS/GX/404026091009730980002/" probe-d-01-lexus-gx.html
-          fetchx "$BASE/usedcars/LEXUS/RX/404026100809730980001/" probe-d-02-lexus-rx.html
-          fetchx "$BASE/usedcars/LEXUS/NX/404026102909730980001/" probe-d-03-lexus-nx.html
-          fetchx "$BASE/usedcars/LEXUS/LS/700054155530261029001/" probe-d-04-lexus-ls.html
-          fetchx "$BASE/usedcars/LEXUS/ES/404026092409730980002/" probe-d-05-lexus-es.html
-          fetchx "$BASE/usedcars/TOYOTA/LAND_CRUISER_250/975026062901001276002/" probe-d-06-lc250.html
-          fetchx "$BASE/usedcars/TOYOTA/LAND_CRUISER_70/975026102800530145001/" probe-d-07-lc70.html
-          fetchx "$BASE/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026032400402076001/" probe-d-08-prado.html
-          fetchx "$BASE/usedcars/TOYOTA/ALPHARD_HYBRID/700030207230261102002/" probe-d-09-alphard.html
-          fetchx "$BASE/usedcars/NISSAN/FAIRLADY_Z/988026103100206860001/" probe-d-10-fairlady.html
-          fetchx "$BASE/usedcars/HONDA/ODYSSEY_HYBRID/700070135930261004001/" probe-d-11-odyssey.html
-          fetchx "$BASE/usedcars/TOYOTA/RAV4/700070592930261027010/" probe-d-12-rav4.html
-          for f in probe-d-*.html; do echo "$f: $(wc -c < "$f")B $(grep -c 'Vehicle Price' "$f" || true)"; done
+          echo "== round 2b: remaining showroom replacement detail pages =="
+          # The exchange slowed to 10-30s per page mid-run last time and one
+          # curl timeout aborted the whole step (bash -e). Each fetch now
+          # survives failure and waits patiently.
+          fetchd () { fetchx "$1" "$2" || echo "FAILED: $1"; sleep 2; }
+          fetchd "$BASE/usedcars/LEXUS/ES/404026092409730980002/" probe-d-05-lexus-es.html
+          fetchd "$BASE/usedcars/TOYOTA/LAND_CRUISER_250/975026062901001276002/" probe-d-06-lc250.html
+          fetchd "$BASE/usedcars/TOYOTA/LAND_CRUISER_70/975026102800530145001/" probe-d-07-lc70.html
+          fetchd "$BASE/usedcars/TOYOTA/LAND_CRUISER_PRADO/975026032400402076001/" probe-d-08-prado.html
+          fetchd "$BASE/usedcars/TOYOTA/ALPHARD_HYBRID/700030207230261102002/" probe-d-09-alphard.html
+          fetchd "$BASE/usedcars/NISSAN/FAIRLADY_Z/988026103100206860001/" probe-d-10-fairlady.html
+          fetchd "$BASE/usedcars/HONDA/ODYSSEY_HYBRID/700070135930261004001/" probe-d-11-odyssey.html
+          fetchd "$BASE/usedcars/TOYOTA/RAV4/700070592930261027010/" probe-d-12-rav4.html
+          fetchd "$BASE/usedcars/TOYOTA/HIACE_WAGON/975026103100901425001/" probe-d-13-hiace.html
+          for f in probe-d-*.html; do echo "$f: $(wc -c < "$f")B"; done
       # The sandbox driving this session cannot download Actions logs (they
       # live on a blob host outside its egress allowlist), so the results are
       # committed to the branch where a plain `git fetch` can read them.
