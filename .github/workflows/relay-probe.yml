@@ -26,31 +26,16 @@ jobs:
             echo "answer: $ans $1" | tee -a probe-results.txt
           }
           f () { fetchx "$1" "$2" || echo "FAILED: $1" | tee -a probe-results.txt; sleep 2; }
-          echo "== round L2: luxury details + exotic model landings ==" | tee -a probe-results.txt
+          echo "== round L3: hyper-car details ==" | tee -a probe-results.txt
           d () { f "https://www.goo-net-exchange.com/usedcars/$1/" "$2"; }
-          d "LEXUS/LC/700071008430261103001"            probe-m-01-lc500h.html
-          d "LEXUS/LC/700020016030261016001"            probe-m-02-lc500c.html
-          d "PORSCHE/911/700020016030261023003"         probe-m-03-911gts.html
-          d "PORSCHE/911/700020016030261018005"         probe-m-04-911s.html
-          d "PORSCHE/911/700050052030261101002"         probe-m-05-911cab.html
-          d "BMW/7_SERIES/700055087130261027001"        probe-m-06-740i.html
-          d "TOYOTA/CENTURY/700050888830261103001"      probe-m-07-century.html
-          d "LEXUS/LX/700020105330261102002"            probe-m-08-lx600.html
-          d "LEXUS/LX/700102059530261031003"            probe-m-09-lx600b.html
-          d "LAND_ROVER/DEFENDER/700071023230260926001" probe-m-10-defender.html
-          d "BMW/X6/700020336120261022005"              probe-m-11-x6.html
-          d "AUDI/R8/700973111330261103001"             probe-m-12-r8.html
-          d "TOYOTA/SUPRA/700055181130261031001"        probe-m-13-supra.html
-          d "FERRARI/360"                               probe-m-14-f360.html
-          d "FERRARI/296GTB"                            probe-m-15-f296.html
-          d "LAMBORGHINI/HURACAN"                       probe-m-16-huracan.html
-          d "MCLAREN/720S"                              probe-m-17-720s.html
-          d "BENTLEY/CONTINENTAL"                       probe-m-18-conti.html
-          d "ASTON_MARTIN/DB11"                         probe-m-19-db11.html
-          d "MASERATI/GHIBLI"                           probe-m-20-ghibli.html
-          d "ROLLSROYCE"                                probe-m-21-rolls.html
-          for x in probe-m-*.html; do
-            echo "$x: $(wc -c <"$x")B $(grep -o '[0-9]\{21\}' "$x" | sort -u | wc -l) ids" | tee -a probe-results.txt
+          d "FERRARI/296GTB/700050888830261013003"       probe-h-01-296gtb.html
+          d "FERRARI/360/700020105330261101001"          probe-h-02-f360.html
+          d "LAMBORGHINI/HURACAN/700020105330261031001"  probe-h-03-huracan.html
+          d "MCLAREN/720S/700050888830261019003"         probe-h-04-720s.html
+          d "BENTLEY/CONTINENTAL/700052028430260812002"  probe-h-05-conti.html
+          d "ASTON_MARTIN/DB11/700973111330260816001"    probe-h-06-db11.html
+          for x in probe-h-*.html; do
+            echo "$x: $(wc -c <"$x")B" | tee -a probe-results.txt
           done
       - name: commit results
         run: |
