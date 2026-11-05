@@ -231,7 +231,7 @@ export function WorldPage({navigate}){
     </article>
     <article className="net-panel">
      <h3>Sample activity feed <i className="live-dot"/></h3>
-     <ul>{[['now','Lot 38214 won — Toyota Land Cruiser Prado'],['6m','Vessel departed Yokohama · AR7-260184'],['14m','Inspection photos uploaded — Lexus LS 500h'],['31m','Auction sheet translated — Toyota Alphard'],['1h','Freight booked Karachi · AR7-260191'],['2h','New lot — Suzuki Jimny Nomade · USS Tokyo'],['3h','CIF quote sent — Hiace Wagon to Jebel Ali'],['5h','Deposit received · UK buyer']].map(x=><li key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></li>)}</ul>
+     <ul>{[['now','Lot 38214 won — Porsche 911 Carrera GTS'],['6m','Vessel departed Yokohama · AR7-260184'],['14m','Inspection photos uploaded — Ferrari 296 GTB'],['31m','Auction sheet translated — Toyota Century'],['1h','Freight booked Karachi · AR7-260191'],['2h','New lot — Lamborghini Huracan · USS Tokyo'],['3h','CIF quote sent — Lexus LX 600 to Jebel Ali'],['5h','Deposit received · UK buyer']].map(x=><li key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></li>)}</ul>
     </article>
    </div>
   </div>

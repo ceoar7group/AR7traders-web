@@ -3,10 +3,10 @@
 //   scripts/sync-site-listings.mjs  → CLI, run from a terminal
 //   api/site-sync.js                → CRM one-click button, runs on Vercel
 //
-// Purpose: make Supabase `site_listings` match src/site-content.seed.json
-// exactly, i.e. the real stock of 25 cars:
-//   • 12 showroom cars (AR7-26001–AR7-26012, with photo galleries)
-//   • 13 authentic Goo-net cars (long numeric stock numbers)
+// Purpose: make the SEED cars in Supabase `site_listings` match
+// src/site-content.seed.json exactly (12 real showroom cars + the seed's
+// Goo-net cars, all with photo galleries). Rows the Goo-net importer manages
+// are protected via `protectedStocks` and never touched.
 //
 // Rules:
 //   • seed cars missing from the database are INSERTED
@@ -47,7 +47,13 @@ function sameValue(key, a, b) {
 
 // Compare seed vs current database rows and produce a change plan.
 // Pure function — safe for --dry-run.
-export function computePlan(seedListings, dbRows, { hardDelete = false } = {}) {
+// `protectedStocks`: stock numbers managed by another system (the Goo-net
+// importer promotes its cars into site_listings too). The seed knows nothing
+// about them, so without this guard a seed sync would hide the entire
+// imported inventory — which is exactly what happened on 2026-11-05 (162
+// live cars went dark). Protected rows are never unpublished or deleted.
+export function computePlan(seedListings, dbRows, { hardDelete = false, protectedStocks = null } = {}) {
+  const protect = protectedStocks instanceof Set ? protectedStocks : new Set(protectedStocks || []);
   const byStock = new Map();
   for (const r of dbRows || []) byStock.set(String(r.stock_no), r);
 
@@ -71,12 +77,13 @@ export function computePlan(seedListings, dbRows, { hardDelete = false } = {}) {
     }
   });
 
-  const stale = (dbRows || []).filter(r => !seedStocks.has(String(r.stock_no)));
+  const stale = (dbRows || []).filter(r => !seedStocks.has(String(r.stock_no)) && !protect.has(String(r.stock_no)));
+  const protectedCount = (dbRows || []).filter(r => !seedStocks.has(String(r.stock_no)) && protect.has(String(r.stock_no))).length;
   // Only rows that are still published need to be flipped.
   const toUnpublish = hardDelete ? [] : stale.filter(r => r.published !== false);
   const toDelete = hardDelete ? stale : [];
 
-  return { toInsert, toUpdate, unchanged, toUnpublish, toDelete, staleCount: stale.length, seedStocks };
+  return { toInsert, toUpdate, unchanged, toUnpublish, toDelete, staleCount: stale.length, protectedCount, seedStocks };
 }
 
 // Execute a plan against a Supabase client. Throws on the first failure so
@@ -124,5 +131,6 @@ export function summarize(plan, done) {
   ];
   if (plan.toDelete.length) parts.push(plan.toDelete.length + ' deleted (not in seed)');
   else if (plan.toUnpublish.length) parts.push(plan.toUnpublish.length + ' hidden (published=false, not in seed)');
+  if (plan.protectedCount) parts.push(plan.protectedCount + ' importer-managed cars left untouched');
   return parts.join(', ');
 }
