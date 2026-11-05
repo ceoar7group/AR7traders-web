@@ -1129,7 +1129,7 @@ export default function CrmApp() {
     const ok = window.confirm(
       'Sync the public website stock to the latest seed?\n\n' +
       'All seed cars (12 real showroom picks + the Goo-net imports) will be published with their photo galleries.\n' +
-      'Any car in the database that is NOT in the seed will be hidden (published=false — you can re-publish it later from this tab).'
+      'Cars imported by the Goo-net sync are left untouched. Any OTHER car not in the seed will be hidden (published=false — you can re-publish it later from this tab).'
     );
     if (!ok) return;
     setSyncing(true);
@@ -1730,7 +1730,7 @@ export default function CrmApp() {
                     className="crm-sync"
                     onClick={syncWebsiteStock}
                     disabled={syncing}
-                    title="Make the public website stock match the latest seed (all real cars: 12 showroom picks + the Goo-net imports). Cars not in the seed are hidden, not deleted."
+                    title="Make the seed cars on the public website match the latest seed. Imported Japan-stock cars are never touched; other cars not in the seed are hidden, not deleted."
                    type="button">
                     <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock'}
                   </button>

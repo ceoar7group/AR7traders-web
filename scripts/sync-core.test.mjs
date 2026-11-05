@@ -126,6 +126,38 @@ console.log(`\n1) old ${OLD_IMPORT}-car import → seed sync (default: hide stal
   check('already-hidden rows are not re-updated', plan3.toUnpublish.length === 0);
 }
 
+// ---- 1b. importer-managed rows are protected ---------------------------------
+// 2026-11-05 incident: the importer promotes its cars into site_listings with
+// their own stock numbers; a seed sync hid all 162 of them. The guard: rows
+// whose stock_no is in `protectedStocks` are never unpublished or deleted.
+console.log('\n1b) importer-managed rows survive the sync');
+{
+  const rows = oldImport();
+  const importer = [...Array(5)].map((_, i) => ({
+    id: 'imp-' + i, stock_no: '070000' + i + 'A30261101W00' + i,
+    make: 'Toyota', model: 'Imported ' + i, year: 2024, km: '10,000',
+    fuel: 'Petrol', body: 'SUV', price: '$20,000',
+    image: 'x.jpg', images: ['x.jpg'], grade: null, status: 'In Stock',
+    location: 'Chiba', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5,
+    col: 'White', st: 'RHD', published: true, sort_order: 100 + i
+  }));
+  const protectedStocks = new Set(importer.map(r => r.stock_no));
+  const all = rows.concat(importer);
+  const planGuarded = computePlan(seed, all, {hardDelete: false, protectedStocks});
+  check('protected rows are never unpublished',
+    planGuarded.toUnpublish.every(r => !protectedStocks.has(String(r.stock_no))));
+  check('protected row count is reported', planGuarded.protectedCount === importer.length,
+    'got ' + planGuarded.protectedCount);
+  check('summary names the untouched importer cars',
+    summarize(planGuarded, null).includes(importer.length + ' importer-managed cars left untouched'));
+  const planDelete = computePlan(seed, all, {hardDelete: true, protectedStocks});
+  check('hard-delete also spares protected rows',
+    planDelete.toDelete.every(r => !protectedStocks.has(String(r.stock_no))));
+  const planUnguarded = computePlan(seed, all, {hardDelete: false});
+  check('without the guard the importer rows WOULD be hidden (the incident)',
+    planUnguarded.toUnpublish.some(r => protectedStocks.has(String(r.stock_no))));
+}
+
 // ---- 2. hard-delete mode -----------------------------------------------------
 console.log('\n2) --hard-delete: stale rows are removed');
 {
