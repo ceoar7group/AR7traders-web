@@ -4,8 +4,9 @@
 # prints status / size / seconds, the first bytes of the body, and how many
 # /usedcar/spread/ links (real car cards) the answer carries.
 #
-# Add the repo secret JINA_API_KEY to unlock the keyed-tier probes (proxy
-# pool); without it the relay probes run on the keyless tier.
+# 2026-11-05 mission: (a) discover the exchange's keyword / make-model search
+# URL format for the on-demand scraper, (b) capture premium price-band pages
+# to source real cars that replace the demo showroom supercars.
 name: relay-probe
 on:
   workflow_dispatch: {}
@@ -24,9 +25,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Probe goo-net and the relay
-        env:
-          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+      - name: Probe the exchange search formats and premium stock
         run: |
           exec > >(tee probe-results.txt) 2>&1
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
@@ -37,27 +36,33 @@ jobs:
           cards () { # file — print the card ids and JPY prices this page carries
             grep -oE 'href="/usedcars/[A-Z0-9_]+/[A-Z0-9_]+/[0-9]+/"' "$1" | grep -oE '[0-9]{15,}' | sort -u > /tmp/ids.txt
             echo "cards: $(wc -l < /tmp/ids.txt)"
-            echo "ids: $(head -c 400 /tmp/ids.txt | tr '\n' ' ')"
-            echo "jpy prices: $(grep -oE 'class="price currency-jpy">\xc2\xa5[0-9,]+' "$1" | grep -oE '[0-9,]+$' | head -20 | tr '\n' ' ')"
+            echo "ids: $(head -c 600 /tmp/ids.txt | tr '\n' ' ')"
+            echo "jpy prices: $(grep -oE 'class="price currency-jpy">\xc2\xa5[0-9,]+' "$1" | grep -oE '[0-9,]+$' | head -24 | tr '\n' ' ')"
           }
-          echo "== page 1 (year_min=2018) =="
-          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search" page1.html
-          cards page1.html
-          echo "== page 2 via GET offset=20 =="
-          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search&offset=20" page2.html
-          cards page2.html
-          echo "== page 2 via GET offset=20&page=2 =="
-          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search&offset=20&page=2" page2b.html
-          cards page2b.html
-          echo "== price filter GET, JPY 1,000,000-3,000,000 =="
-          fetchx "$BASE/php/search/summary.php?price1=1000000&price2=3000000&radio_currency=JPY&search_type=price_search" price-jpy.html
-          cards price-jpy.html
-          echo "== price filter GET, plain price1/price2 =="
-          fetchx "$BASE/php/search/summary.php?price1=1000000&price2=3000000&search_type=price_search" price-plain.html
-          cards price-plain.html
-          echo "== bogus detail url (what does a dead listing answer?) =="
-          fetchx "$BASE/usedcars/TOYOTA/RAIZE/700000000000000000001/" dead.html
-            echo "dead body head:"; head -c 400 dead.html | tr -d '\0'; echo
+          echo "== the JS that drives the search form (param names live here) =="
+          fetchx "$BASE/build/assets/ajax_search-BCE-JsqM.js" probe-x-ajax-search.js
+          fetchx "$BASE/build/assets/summary-CBeYHeYA.js" probe-x-summary.js
+          echo "== homepage (its search form markup) =="
+          fetchx "$BASE/" probe-x-home.html
+          echo "== free word candidates =="
+          fetchx "$BASE/php/search/summary.php?free_word=alphard&search_type=free_word_search" probe-x-fw1.html
+          cards probe-x-fw1.html
+          fetchx "$BASE/php/search/summary.php?free_word=alphard" probe-x-fw2.html
+          cards probe-x-fw2.html
+          echo "== maker / model candidates =="
+          fetchx "$BASE/php/search/summary.php?maker_cd=TOYOTA&search_type=maker_search" probe-x-mk1.html
+          cards probe-x-mk1.html
+          fetchx "$BASE/usedcars/TOYOTA/ALPHARD/" probe-x-model-landing.html
+          cards probe-x-model-landing.html
+          echo "== premium band 5M-30M JPY (showroom replacement stock) p1 =="
+          fetchx "$BASE/php/search/summary.php?b_to_b_price_min=5000000&b_to_b_price_max=30000000&search_type=price_search" probe-x-prem1.html
+          cards probe-x-prem1.html
+          echo "== premium band p2 (offset=20) =="
+          fetchx "$BASE/php/search/summary.php?b_to_b_price_min=5000000&b_to_b_price_max=30000000&search_type=price_search&offset=20" probe-x-prem2.html
+          cards probe-x-prem2.html
+          echo "== upper-mid band 3M-5M JPY p1 =="
+          fetchx "$BASE/php/search/summary.php?b_to_b_price_min=3000000&b_to_b_price_max=5000000&search_type=price_search" probe-x-prem3.html
+          cards probe-x-prem3.html
       # The sandbox driving this session cannot download Actions logs (they
       # live on a blob host outside its egress allowlist), so the results are
       # committed to the branch where a plain `git fetch` can read them.
@@ -66,7 +71,7 @@ jobs:
         run: |
           git config user.name "relay-probe"
           git config user.email "relay-probe@users.noreply.github.com"
-          git add probe-results.txt
+          git add probe-results.txt probe-x-*
           git commit -m "relay-probe: results $(date -u +%FT%TZ)" || echo "nothing to commit"
           git pull --rebase origin "${GITHUB_REF_NAME}" || true
           git push origin "HEAD:${GITHUB_REF_NAME}"
