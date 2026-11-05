@@ -33,7 +33,7 @@ jobs:
             mkdir -p "/tmp/cars/$id"
             printf '%s\n' "curl -sS -m 40 -A '$UA' -o /tmp/cars/$id/$(printf %02d "$idx").jpg '$url' || true"
           done < /tmp/dl.txt > /tmp/jobs.sh
-          xargs -P 8 -I CMD bash -c CMD < /tmp/jobs.sh
+          xargs -d '\n' -P 8 -I CMD bash -c CMD < /tmp/jobs.sh || true
           mkdir -p probe-shots
           for d in /tmp/cars/*; do
             id=$(basename "$d")
