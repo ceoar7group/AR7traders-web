@@ -306,7 +306,15 @@ const SHOWROOM_HEROES={
 // dealer photographs follow unchanged.
 const SHOWROOM_ANGLES={
  '0508888A30261013W003':'/assets/showroom/angle-01.webp',
- '0201053A30261031W001':'/assets/showroom/angle-02.webp'
+ '0201053A30261031W001':'/assets/showroom/angle-02.webp',
+ '0508888A30261019W003':'/assets/showroom/angle-03.webp',
+ '0200160A30261023W003':'/assets/showroom/angle-04.webp',
+ '9731113A30260816W001':'/assets/showroom/angle-06.webp',
+ '0200160A30261016W001':'/assets/showroom/angle-07.webp',
+ '0508888A30261103W001':'/assets/showroom/angle-08.webp',
+ '0201053A30261102W002':'/assets/showroom/angle-09.webp',
+ '9731113A30261103W001':'/assets/showroom/angle-11.webp',
+ '0551811A30261031W001':'/assets/showroom/angle-12.webp'
 };
 const applyShowroomHero=c=>{
  const key=String(c&&c.stock_no||'');
