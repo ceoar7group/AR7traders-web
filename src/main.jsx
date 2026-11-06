@@ -291,7 +291,15 @@ const SHOWROOM_HEROES={
  '0200160A30261016W001':'/assets/showroom/hero-07.webp',
  '0508888A30261103W001':'/assets/showroom/hero-08.webp',
  '0201053A30261102W002':'/assets/showroom/hero-09.webp',
- '0710232A30260926W001':'/assets/showroom/hero-10.webp'
+ '0710232A30260926W001':'/assets/showroom/hero-10.webp',
+ '9731113A30261103W001':'/assets/showroom/hero-11.webp',
+ '0551811A30261031W001':'/assets/showroom/hero-12.webp',
+ '0710084A30261103W001':'/assets/showroom/hero-13.webp',
+ '0200160A30261018W005':'/assets/showroom/hero-14.webp',
+ '0500520A30261101W002':'/assets/showroom/hero-15.webp',
+ '0550871A30261027W001':'/assets/showroom/hero-16.webp',
+ '0203361A20261022W005':'/assets/showroom/hero-17.webp',
+ '0201053A30261101W001':'/assets/showroom/hero-18.webp'
 };
 const applyShowroomHero=c=>{
  const h=c&&SHOWROOM_HEROES[String(c.stock_no||'')];

@@ -202,8 +202,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // Measured 481.36 kB raw / 142.07 kB gzip.
 // 2026-10-09: two missing market copy sets and two substantive buyer guides
 // share the existing synchronous SEO/news data. No new first-load library.
+// Ratcheted 488 → 498 kB raw on 2026-11-06: the curated showroom grew from 12
+// to 18 real cars (six bundled spec records with 12-photo gallery URL lists
+// each, ~8 kB of data, no new library). Measured 495.90 kB raw; gzip stays
+// inside the unchanged 145 kB budget.
 const BUDGET_GZIP = 145 * 1024;
-const BUDGET_RAW = 488 * 1024;
+const BUDGET_RAW = 498 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
