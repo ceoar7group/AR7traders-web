@@ -314,8 +314,11 @@ const SHOWROOM_ANGLES={
  '0200160A30261016W001':'/assets/showroom/angle-07.webp',
  '0508888A30261103W001':'/assets/showroom/angle-08.webp',
  '0201053A30261102W002':'/assets/showroom/angle-09.webp',
+ '0710232A30260926W001':'/assets/showroom/angle-10.webp',
  '9731113A30261103W001':'/assets/showroom/angle-11.webp',
  '0551811A30261031W001':'/assets/showroom/angle-12.webp',
+ '0710084A30261103W001':'/assets/showroom/angle-13.webp',
+ '0500520A30261101W002':'/assets/showroom/angle-15.webp',
  '0201053A30261101W001':'/assets/showroom/angle-18.webp'
 };
 const applyShowroomHero=c=>{

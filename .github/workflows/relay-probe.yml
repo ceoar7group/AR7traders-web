@@ -1,69 +1,72 @@
-# Relay probe: GitHub runners can reach the photo CDN while the sandbox
-# cannot. Round S5 (2026-11-06): fetch the remaining four chosen
-# second-angle frames (cars 05, 10, 13, 15) at full resolution. Restored to the main
-# version before the PR is merged.
+# A diagnostic probe, dispatched by hand, that measures what this repo's
+# scraper can only guess at from inside Vercel: what goo-net and the Jina
+# relay ACTUALLY answer, from a network we can read the logs of. Each probe
+# prints status / size / seconds, the first bytes of the body, and how many
+# /usedcar/spread/ links (real car cards) the answer carries.
+#
+# Add the repo secret JINA_API_KEY to unlock the keyed-tier probes (proxy
+# pool); without it the relay probes run on the keyless tier.
 name: relay-probe
 on:
   workflow_dispatch: {}
+  # workflow_dispatch only registers once the file reaches the default
+  # branch; the push trigger lets the probe run from a working branch too.
   push:
-    paths: ['.github/workflows/relay-probe.yml']
+    paths:
+      - '.github/workflows/relay-probe.yml'
+
 permissions:
   contents: write
+
 jobs:
   probe:
-    if: github.ref == 'refs/heads/arena/f6184ee1-ar7traders-web'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: fetch frames
+      - name: Probe goo-net and the relay
+        env:
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
         run: |
-          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-          node --input-type=module > /tmp/full.txt <<'EOF'
-          import { readFileSync } from 'fs';
-          const seed = JSON.parse(readFileSync('src/site-content.seed.json', 'utf8'));
-          const picks = { 5:23, 10:16, 13:27, 15:16 };
-          for (const car of seed.listings.filter(x => picks[x.id])) {
-            console.log(String(car.id).padStart(2, '0') + ' ' + car.images[picks[car.id]]);
+          exec > >(tee probe-results.txt) 2>&1
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          BASE="https://www.goo-net-exchange.com"
+          fetchx () { # url outfile
+            curl -sS --compressed -L -m 30 -A "$UA" -H "Accept-Language: en-US,en;q=0.9" -o "$2" -w 'answer: %{http_code} %{size_download}B %{time_total}s %{url_effective}\n' "$1"
           }
-          EOF
-          node --input-type=module > /tmp/deep.txt <<'EOF'
-          import { readFileSync } from 'fs';
-          const seed = JSON.parse(readFileSync('src/site-content.seed.json', 'utf8'));
-          const ranges = {};
-          for (const car of seed.listings.filter(x => ranges[x.id])) {
-            const [a, b] = ranges[car.id];
-            for (let i = a; i < Math.min(b, car.images.length); i++) {
-              console.log(String(car.id).padStart(2, '0') + ' ' + i + ' ' + car.images[i]);
-            }
+          cards () { # file — print the card ids and JPY prices this page carries
+            grep -oE 'href="/usedcars/[A-Z0-9_]+/[A-Z0-9_]+/[0-9]+/"' "$1" | grep -oE '[0-9]{15,}' | sort -u > /tmp/ids.txt
+            echo "cards: $(wc -l < /tmp/ids.txt)"
+            echo "ids: $(head -c 400 /tmp/ids.txt | tr '\n' ' ')"
+            echo "jpy prices: $(grep -oE 'class="price currency-jpy">\xc2\xa5[0-9,]+' "$1" | grep -oE '[0-9,]+$' | head -20 | tr '\n' ' ')"
           }
-          EOF
-          mkdir -p probe-shots/angle-src /tmp/deep
-          while read -r id url; do
-            curl -sS -m 40 -A "$UA" -o "probe-shots/angle-src/$id.jpg" "$url" || true
-          done < /tmp/full.txt
-          while read -r id idx url; do
-            mkdir -p "/tmp/deep/$id"
-            curl -sS -m 40 -A "$UA" -o "/tmp/deep/$id/$idx.jpg" "$url" || true
-          done < /tmp/deep.txt
-          npm install --no-save sharp > /dev/null 2>&1
-          node --input-type=module <<'EOF2'
-          import { readdirSync, mkdirSync } from 'fs';
-          import sharp from 'sharp';
-          mkdirSync('probe-shots/thumbs3', { recursive: true });
-          for (const id of readdirSync('/tmp/deep')) {
-            for (const f of readdirSync('/tmp/deep/' + id)) {
-              try {
-                await sharp('/tmp/deep/' + id + '/' + f).resize({ width: 240 }).jpeg({ quality: 65 }).toFile('probe-shots/thumbs3/' + id + '-' + f.padStart(6, '0'));
-              } catch { /* skip broken download */ }
-            }
-          }
-          EOF2
-          du -sh probe-shots
-      - name: commit results
+          echo "== page 1 (year_min=2018) =="
+          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search" page1.html
+          cards page1.html
+          echo "== page 2 via GET offset=20 =="
+          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search&offset=20" page2.html
+          cards page2.html
+          echo "== page 2 via GET offset=20&page=2 =="
+          fetchx "$BASE/php/search/summary.php?year_min=2018&search_type=year_search&offset=20&page=2" page2b.html
+          cards page2b.html
+          echo "== price filter GET, JPY 1,000,000-3,000,000 =="
+          fetchx "$BASE/php/search/summary.php?price1=1000000&price2=3000000&radio_currency=JPY&search_type=price_search" price-jpy.html
+          cards price-jpy.html
+          echo "== price filter GET, plain price1/price2 =="
+          fetchx "$BASE/php/search/summary.php?price1=1000000&price2=3000000&search_type=price_search" price-plain.html
+          cards price-plain.html
+          echo "== bogus detail url (what does a dead listing answer?) =="
+          fetchx "$BASE/usedcars/TOYOTA/RAIZE/700000000000000000001/" dead.html
+            echo "dead body head:"; head -c 400 dead.html | tr -d '\0'; echo
+      # The sandbox driving this session cannot download Actions logs (they
+      # live on a blob host outside its egress allowlist), so the results are
+      # committed to the branch where a plain `git fetch` can read them.
+      - name: Commit the results to the branch
+        if: always()
         run: |
-          git config user.name 'relay-probe'
-          git config user.email 'actions@github.com'
-          git add probe-shots
-          git commit -m "relay-probe: S5 angle frames" || echo nothing
-          git push
+          git config user.name "relay-probe"
+          git config user.email "relay-probe@users.noreply.github.com"
+          git add probe-results.txt
+          git commit -m "relay-probe: results $(date -u +%FT%TZ)" || echo "nothing to commit"
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
+          git push origin "HEAD:${GITHUB_REF_NAME}"
