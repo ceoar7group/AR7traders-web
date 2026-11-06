@@ -1,8 +1,8 @@
 # Relay probe: GitHub runners can reach the photo CDN while the sandbox
-# cannot. Round S3 (2026-11-06): fetch thumbnails of gallery frames 1-8 for
-# each of the 18 showroom cars (frame 0 is the cover) so a second exterior
-# angle can be chosen per car, plus the chosen frames at full resolution in a
-# later round. Restored to the main version before the PR is merged.
+# cannot. Round S4 (2026-11-06): fetch the chosen second-angle frames at full
+# resolution for 13 showroom cars, plus deeper gallery thumbnails for the five
+# cars whose exterior frames sit beyond position 8. Restored to the main
+# version before the PR is merged.
 name: relay-probe
 on:
   workflow_dispatch: {}
@@ -17,32 +17,45 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: fetch candidate frames
+      - name: fetch frames
         run: |
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-          node --input-type=module > /tmp/dl.txt <<'EOF'
+          node --input-type=module > /tmp/full.txt <<'EOF'
           import { readFileSync } from 'fs';
           const seed = JSON.parse(readFileSync('src/site-content.seed.json', 'utf8'));
-          for (const car of seed.listings.filter(x => Number(x.id) <= 18)) {
-            car.images.slice(1, 9).forEach((u, i) => {
-              console.log(String(car.id).padStart(2, '0') + ' ' + (i + 1) + ' ' + u);
-            });
+          const picks = { 1:6, 2:2, 3:6, 4:3, 6:2, 7:2, 8:2, 9:2, 11:5, 12:1, 14:5, 16:6, 18:1 };
+          for (const car of seed.listings.filter(x => picks[x.id])) {
+            console.log(String(car.id).padStart(2, '0') + ' ' + car.images[picks[car.id]]);
           }
           EOF
-          mkdir -p /tmp/cars
+          node --input-type=module > /tmp/deep.txt <<'EOF'
+          import { readFileSync } from 'fs';
+          const seed = JSON.parse(readFileSync('src/site-content.seed.json', 'utf8'));
+          const ranges = { 5:[16,34], 10:[9,18], 13:[26,36], 15:[9,21], 17:[9,17] };
+          for (const car of seed.listings.filter(x => ranges[x.id])) {
+            const [a, b] = ranges[car.id];
+            for (let i = a; i < Math.min(b, car.images.length); i++) {
+              console.log(String(car.id).padStart(2, '0') + ' ' + i + ' ' + car.images[i]);
+            }
+          }
+          EOF
+          mkdir -p probe-shots/angle-src /tmp/deep
+          while read -r id url; do
+            curl -sS -m 40 -A "$UA" -o "probe-shots/angle-src/$id.jpg" "$url" || true
+          done < /tmp/full.txt
           while read -r id idx url; do
-            mkdir -p "/tmp/cars/$id"
-            curl -sS -m 40 -A "$UA" -o "/tmp/cars/$id/$idx.jpg" "$url" || true
-          done < /tmp/dl.txt
+            mkdir -p "/tmp/deep/$id"
+            curl -sS -m 40 -A "$UA" -o "/tmp/deep/$id/$idx.jpg" "$url" || true
+          done < /tmp/deep.txt
           npm install --no-save sharp > /dev/null 2>&1
           node --input-type=module <<'EOF2'
           import { readdirSync, mkdirSync } from 'fs';
           import sharp from 'sharp';
-          mkdirSync('probe-shots/thumbs2', { recursive: true });
-          for (const id of readdirSync('/tmp/cars')) {
-            for (const f of readdirSync('/tmp/cars/' + id)) {
+          mkdirSync('probe-shots/thumbs3', { recursive: true });
+          for (const id of readdirSync('/tmp/deep')) {
+            for (const f of readdirSync('/tmp/deep/' + id)) {
               try {
-                await sharp('/tmp/cars/' + id + '/' + f).resize({ width: 240 }).jpeg({ quality: 65 }).toFile('probe-shots/thumbs2/' + id + '-' + f);
+                await sharp('/tmp/deep/' + id + '/' + f).resize({ width: 240 }).jpeg({ quality: 65 }).toFile('probe-shots/thumbs3/' + id + '-' + f.padStart(6, '0'));
               } catch { /* skip broken download */ }
             }
           }
@@ -53,5 +66,5 @@ jobs:
           git config user.name 'relay-probe'
           git config user.email 'actions@github.com'
           git add probe-shots
-          git commit -m "relay-probe: S3 candidate frames" || echo nothing
+          git commit -m "relay-probe: S4 angle frames" || echo nothing
           git push
