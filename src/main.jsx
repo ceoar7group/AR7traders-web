@@ -301,9 +301,24 @@ const SHOWROOM_HEROES={
  '0203361A20261022W005':'/assets/showroom/hero-17.webp',
  '0201053A30261101W001':'/assets/showroom/hero-18.webp'
 };
+// Second showroom angle per car (rear/opposite three-quarter staged in a
+// different area of the same venue). Slots in right after the hero; the real
+// dealer photographs follow unchanged.
+const SHOWROOM_ANGLES={
+ '0508888A30261013W003':'/assets/showroom/angle-01.webp',
+ '0201053A30261031W001':'/assets/showroom/angle-02.webp'
+};
 const applyShowroomHero=c=>{
- const h=c&&SHOWROOM_HEROES[String(c.stock_no||'')];
- if(h){c.image=h;if(Array.isArray(c.images)&&c.images[0]!==h)c.images=[h,...c.images.filter(u=>u!==h)];}
+ const key=String(c&&c.stock_no||'');
+ const h=c&&SHOWROOM_HEROES[key];
+ if(h){
+  c.image=h;
+  const a=SHOWROOM_ANGLES[key];
+  if(Array.isArray(c.images)){
+   const lead=a?[h,a]:[h];
+   c.images=[...lead,...c.images.filter(u=>!lead.includes(u))];
+  }
+ }
  return c};
 cars.forEach(applyShowroomHero);
 const contentListeners=new Set();

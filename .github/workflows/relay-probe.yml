@@ -1,7 +1,6 @@
 # Relay probe: GitHub runners can reach the photo CDN while the sandbox
-# cannot. Round S4 (2026-11-06): fetch the chosen second-angle frames at full
-# resolution for 13 showroom cars, plus deeper gallery thumbnails for the five
-# cars whose exterior frames sit beyond position 8. Restored to the main
+# cannot. Round S5 (2026-11-06): fetch the remaining four chosen
+# second-angle frames (cars 05, 10, 13, 15) at full resolution. Restored to the main
 # version before the PR is merged.
 name: relay-probe
 on:
@@ -23,7 +22,7 @@ jobs:
           node --input-type=module > /tmp/full.txt <<'EOF'
           import { readFileSync } from 'fs';
           const seed = JSON.parse(readFileSync('src/site-content.seed.json', 'utf8'));
-          const picks = { 1:6, 2:2, 3:6, 4:3, 6:2, 7:2, 8:2, 9:2, 11:5, 12:1, 14:5, 16:6, 18:1 };
+          const picks = { 5:23, 10:16, 13:27, 15:16 };
           for (const car of seed.listings.filter(x => picks[x.id])) {
             console.log(String(car.id).padStart(2, '0') + ' ' + car.images[picks[car.id]]);
           }
@@ -31,7 +30,7 @@ jobs:
           node --input-type=module > /tmp/deep.txt <<'EOF'
           import { readFileSync } from 'fs';
           const seed = JSON.parse(readFileSync('src/site-content.seed.json', 'utf8'));
-          const ranges = { 5:[16,34], 10:[9,18], 13:[26,36], 15:[9,21], 17:[9,17] };
+          const ranges = {};
           for (const car of seed.listings.filter(x => ranges[x.id])) {
             const [a, b] = ranges[car.id];
             for (let i = a; i < Math.min(b, car.images.length); i++) {
@@ -66,5 +65,5 @@ jobs:
           git config user.name 'relay-probe'
           git config user.email 'actions@github.com'
           git add probe-shots
-          git commit -m "relay-probe: S4 angle frames" || echo nothing
+          git commit -m "relay-probe: S5 angle frames" || echo nothing
           git push
