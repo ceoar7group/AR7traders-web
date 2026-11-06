@@ -27,11 +27,14 @@ const ROOTS = ['src', 'scripts', 'public', 'supabase', 'api', 'crm-preview'];
 const EXT = /\.(jsx?|mjs|css|html|txt|xml|json|md|sql)$/i;
 // Ratcheted 2.5 → 3.0 MB on 2026-10-03: the China machinery desk added seven
 // catalogue photos (~500 KB total, each well under the 200 KB per-file cap).
+// Ratcheted 5.5 → 7.0 MB on 2026-11-06: each showroom car gained a second
+// venue angle (angle-NN.webp, ~80 KB apiece) staged in the AR7 flagship
+// showroom, slotting in right after the hero in the gallery.
 // Ratcheted 4.0 → 5.5 MB on 2026-11-06: the curated showroom gained 18
 // AR7-branded hero scenes (assets/showroom/hero-*.webp, ~75 KB each). Keep
 // this number honest — raise it only for real new media, never for build
 // artefacts.
-const MAX_PUBLIC_BYTES = 5.5 * 1000 * 1000;
+const MAX_PUBLIC_BYTES = 7.0 * 1000 * 1000;
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;
