@@ -78,11 +78,13 @@ const when = value => {
   catch { return '—'; }
 };
 
-export default function AiGrowth({ token, canWrite = false, notify = () => {}, navigate = null, goDesk = null, siteCars = [] }) {
+export default function AiGrowth({ token, canWrite = false, notify = () => {}, navigate = null, goDesk = null, siteCars = [], initialWorkspace = 'overview' }) {
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
-  const [workspace, setWorkspace] = useState('overview');
+  // Growth studio's "Start here" cards can land directly on a workspace
+  // (e.g. History & undo) instead of making the operator find the tab.
+  const [workspace, setWorkspace] = useState(initialWorkspace || 'overview');
   const [detail, setDetail] = useState(null);
   const [providerTest, setProviderTest] = useState(null);
   const [mode, setMode] = useState('dry-run');

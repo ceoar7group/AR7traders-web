@@ -15,8 +15,10 @@ import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
 import { updateSettingsCache } from './site-settings.js';
-import SeoDesk from './seo-desk.jsx';
-import AiGrowth from './ai-growth.jsx';
+// 2026-11-07: the SEO desk and AI Growth merged into ONE sidebar tab — the
+// Growth studio — because operating them as two tabs confused the owner.
+// GrowthHub renders both desks unchanged behind a plain-language front door.
+import GrowthHub from './growth-hub.jsx';
 import { MACHINES, MACHINE_TYPES, listPriceUSD, machineYearText } from './machinery-data.js';
 import { buildDiscountStockRows } from './stock-discount-catalogue.js';
 import { RIGHTS } from './machinery-source.js';
@@ -264,11 +266,12 @@ const tabs = [
   ['people', 'People & payroll', Briefcase],
   ['settings', 'Website settings', Settings],
   ['offers', 'Price offers', Percent],
-  ['seo', 'SEO desk', Search],
-  // The three growth agents (Lead Gen & CRM, SEO Engine, Social Media) run
-  // from this one desk. It is grouped with the other automation tabs because a
-  // scheduled run and a manual run go through exactly the same orchestrator.
-  ['agents', 'AI Growth', Bot],
+  // ONE growth tab (2026-11-07): the SEO desk and the AI Growth agents are
+  // two views of the same job — be found, convert, repeat — so they live in
+  // one "Growth studio" with a Start-here view for non-technical operators.
+  // The old tab ids 'seo' and 'agents' still navigate here (deep links from
+  // the Offers view, Guardian and the Upgrade Advisor keep working).
+  ['seo', 'Growth studio', Search],
   ['guardian', 'Site guardian', ShieldCheck],
   ['activities', 'Activity log', Activity]
 ];
@@ -1658,7 +1661,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'SEO desk', agents: 'AI Growth' };
+  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'Growth studio', agents: 'Growth studio' };
   // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
   // activeEntity picks which set the panel, the toolbar and the editor work on.
   const activeEntity = tab === 'vehicles' ? carSub : tab;
@@ -1778,16 +1781,20 @@ export default function CrmApp() {
           <PeopleView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
         ) : tab === 'offers' ? (
           <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} rows={rows} onOpenSeo={() => setTab('seo')} />
-        ) : tab === 'seo' ? (
-          <SeoDesk token={session.access_token} canPublish={hasPerm(perms, profile?.role, 'site.write')} canPromote={hasPerm(perms, profile?.role, 'settings.write')} notify={setNotice} liveCars={rows.listings || []} />
-        ) : tab === 'agents' ? (
-          <AiGrowth
+        ) : tab === 'seo' || tab === 'agents' ? (
+          // One Growth studio for both old tab ids. key={tab} remounts on a
+          // deep link (goDesk('agents') from the Upgrade Advisor) so the hub
+          // opens on the right view instead of whatever was left open.
+          <GrowthHub
+            key={tab}
             token={session.access_token}
+            canPublish={hasPerm(perms, profile?.role, 'site.write')}
+            canPromote={hasPerm(perms, profile?.role, 'settings.write')}
             canWrite={hasPerm(perms, profile?.role, 'site.write')}
             notify={setNotice}
-            navigate={setTab}
             goDesk={setTab}
-            siteCars={rows.listings || []}
+            liveCars={rows.listings || []}
+            initialView={tab === 'agents' ? 'agents' : 'start'}
           />
         ) : tab === 'guardian' ? (
           <GuardianView notify={setNotice} onOpenSeo={() => setTab('seo')} />

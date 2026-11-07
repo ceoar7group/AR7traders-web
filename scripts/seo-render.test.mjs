@@ -202,7 +202,10 @@ ok(jsonld('machinery-faq-jsonld') === null, 'machinery FAQ markup does not ride 
 for (const a of NEWS) {
   const slug = articleSlug(a);
   applySeo('news', slug);
-  ok(document.title === `${a.title} | AR7 Traders`, `/news/${slug} gets its own title`);
+  // 2026-11-07: the brand suffix is conditional (dropped past 60 chars so
+  // Google shows the full title) — src/news-data.js articleSeo.
+  const expectedTitle = `${a.title} | AR7 Traders`.length > 60 ? a.title : `${a.title} | AR7 Traders`;
+  ok(document.title === expectedTitle, `/news/${slug} gets its own title`);
   ok(meta('meta[name="description"]') === a.ex, `/news/${slug} gets its own description`);
   ok(document.head.querySelector('link[rel="canonical"]')?.href === `https://ar7traders.com/news/${slug}`,
     `/news/${slug} canonical points at the guide URL`);
