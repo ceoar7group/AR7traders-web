@@ -205,3 +205,15 @@
 .ma-alert-actions .outline-btn svg{width:14px;height:14px}
 .ma-alert-actions .outline-btn.danger{color:#b4443c;border-color:color-mix(in srgb,#b4443c 40%,var(--line))}
 .ma-alert-actions .outline-btn.danger:hover{background:color-mix(in srgb,#b4443c 10%,var(--card))}
+
+/* ===== 2026-11-08: saved cars (synced favourites) ================ */
+.ma-favs .ma-muted { margin: 4px 0 14px; }
+.ma-fav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ma-fav-chips .outline-btn {
+  font-size: 13px;
+  padding: 7px 14px;
+}

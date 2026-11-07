@@ -114,7 +114,9 @@ function fakeDb(rows) {
           if (q._delete) { calls.deletes.push({ table, id: q._filters.id }); return resolve({ error: null }); }
           if (q._count) return resolve({ count: rows.filter(r => r.auth_user_id === q._filters.auth_user_id).length });
           let data = rows.filter(r => Object.entries(q._filters).every(([k, v]) => r[k] === v));
-          if (table !== 'saved_searches') data = [];
+          // 2026-11-08: saved_favourites shares this fake (the ?favourites
+          // routes live on the same function); other tables stay empty.
+          if (table !== 'saved_searches' && table !== 'saved_favourites') data = [];
           if (q._single) return resolve(data[0] ? { data: data[0], error: null } : { data: null, error: { message: 'not found' } });
           return resolve({ data, error: null });
         }
@@ -226,6 +228,56 @@ const user = { id: 'u1', email: 'buyer@example.com' };
 {
   const r = await call('GET', { query: { searches: '1' }, db: fakeDb([]) });
   ok(r.status === 401, 'no token, no searches (401)');
+}
+
+/* ---------- ?favourites routes (2026-11-08) ------------------------------- */
+
+console.log('\n-- /api/my-account?favourites routes --');
+
+{
+  const r = await call('GET', { query: { favourites: '1' }, db: fakeDb([]) });
+  ok(r.status === 401, 'no token, no favourites (401)');
+}
+{
+  const r = await call('GET', { query: { favourites: '1' }, user, db: fakeDb([]) });
+  ok(r.status === 200 && Array.isArray(r.json.refs) && r.json.refs.length === 0,
+    'GET with no row yet returns an empty refs array');
+}
+{
+  const rows = [{ id: 'f1', auth_user_id: 'u1', refs: ['LC250', 'GONE99'] }];
+  const r = await call('GET', { query: { favourites: '1' }, user, db: fakeDb(rows) });
+  ok(r.status === 200 && r.json.refs.join() === 'LC250,GONE99',
+    'GET returns the stored refs, including ones no longer in stock');
+}
+{
+  const db = fakeDb([]);
+  const r = await call('PUT', { query: { favourites: '1' }, user, db,
+    body: { refs: ['LC250', ' LC250 ', '', 'PRIUS17', 42, null] } });
+  ok(r.status === 200 && r.json.refs.join() === 'LC250,PRIUS17,42',
+    'PUT dedupes, trims and drops empty refs before storing');
+  const ins = db.calls.inserts[0];
+  ok(ins && ins.table === 'saved_favourites' && ins.payload.auth_user_id === 'u1',
+    'first PUT inserts a row bound to the auth user');
+}
+{
+  const rows = [{ id: 'f1', auth_user_id: 'u1', refs: ['OLD1'] }];
+  const db = fakeDb(rows);
+  const r = await call('PUT', { query: { favourites: '1' }, user, db,
+    body: { refs: ['LC250'] } });
+  ok(r.status === 200 && db.calls.updates.length === 1
+    && db.calls.updates[0].table === 'saved_favourites'
+    && db.calls.updates[0].patch.refs.join() === 'LC250',
+    'a later PUT updates the existing row in place (one row per user)');
+}
+{
+  const db = fakeDb([]);
+  const flood = Array.from({ length: 300 }, (_, i) => 'REF' + i);
+  const r = await call('PUT', { query: { favourites: '1' }, user, db, body: { refs: flood } });
+  ok(r.status === 200 && r.json.refs.length === 200, 'refs are capped at 200 per user');
+}
+{
+  const r = await call('DELETE', { query: { favourites: '1' }, user, db: fakeDb([]) });
+  ok(r.status === 405, 'unsupported methods on ?favourites answer 405');
 }
 
 console.log('\n-- ?alerts=run guard --');

@@ -233,11 +233,14 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // expansion tripled the destination guides (8 → 27 markets of real route
 // copy + 19 vector flags) and every stock card gained WhatsApp/offer
 // actions. This is deliberate first-load content, not dependency creep.
-const BUDGET_GZIP = 153 * 1024;
+// Ratcheted 153 → 154 kB gzip on 2026-11-08 (3): account-synced favourites
+// (pull/merge/push effects in the app shell). Actual: 153.33 kB gzip.
+const BUDGET_GZIP = 154 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
-const BUDGET_RAW = 532 * 1024;
+// 2026-11-08 (3): 532 → 533 kB raw for the favourites sync (actual 532.23).
+const BUDGET_RAW = 533 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
