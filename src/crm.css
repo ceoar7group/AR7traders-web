@@ -1248,6 +1248,16 @@ html[data-crm-theme="light"] .crm-shell,
   border-color: var(--crm-gold);
   color: var(--crm-gold);
 }
+/* The delete chip rides in the same action row as the 36px buttons; matching
+   its height keeps the row visually level. */
+.vcard-actions .crm-del {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.vcard-actions .btn-edit {
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
 
 /* --- Leads Grid --- */
 .crm-lead-grid {
