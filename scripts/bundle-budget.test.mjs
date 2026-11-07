@@ -226,8 +226,11 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // Ratcheted 506 → 509 kB raw / 146 → 147 kB gzip on 2026-11-07: the brand
 // cards gained an IO-gated stock slideshow, the inventory showcase gained
 // drag/arrows, and the hero slides gained srcset (owner's UI round).
-const BUDGET_GZIP = 147 * 1024;
-const BUDGET_RAW = 509 * 1024;
+// Ratcheted 509 → 513 kB raw / 147 → 148 kB gzip on 2026-11-07 (later the
+// same day): saved searches & stock alerts — the shared criteria matcher
+// (src/saved-search.js) and the inventory's SaveSearchBar.
+const BUDGET_GZIP = 148 * 1024;
+const BUDGET_RAW = 513 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -280,11 +283,14 @@ for (const file of entryCss) {
 // brand-pulse strip (glass panel + mobile side-scroll) and the stock-alert
 // bar in src/extra-pages.css, ~2 kB. CRM-only styles (scout, advisor) ship
 // in the lazy chunks. Measured 196.89 kB raw / 38.13 kB gzip.
-const CSS_BUDGET_GZIP = 39 * 1024;
+// CSS ratcheted 39 → 40 kB gzip / 202 → 204 kB raw on 2026-11-07: the
+// save-search panel (extra-pages.css) and the account page's saved-search
+// cards (portal.css).
+const CSS_BUDGET_GZIP = 40 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
-const CSS_BUDGET_RAW = 202 * 1024;
+const CSS_BUDGET_RAW = 204 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
