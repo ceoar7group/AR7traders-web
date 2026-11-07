@@ -1079,25 +1079,6 @@ footer [id] {
     transform: none;
   }
 
-  .hero .hero-visual .hero-stack {
-    border-radius: 15px;
-  }
-
-  .hero .hero-visual .car-float-title {
-    left: 14px;
-    bottom: 40px;
-    max-width: 74%;
-  }
-
-  .hero .hero-visual .car-float-title h3 {
-    font: 700 15px/1.15 Manrope;
-    margin: 8px 0 2px;
-  }
-
-  .hero .hero-visual .car-float-title p {
-    font-size: 9.5px;
-  }
-
   .hero .hero-visual .car-dots {
     top: 12px;
     right: 12px;
@@ -1128,10 +1109,6 @@ footer [id] {
     aspect-ratio: 16 / 10;
     max-height: 300px;
     border-radius: 18px;
-  }
-
-  .hero .hero-visual .car-float-title h3 {
-    font-size: 14px;
   }
 
   .hero .hero-facts {
@@ -1898,5 +1875,318 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   .nav-wrap .navlinks.open::before {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* ===========================================================================
+   2026-11-08 (2): PHONE BAR OVERFLOW FIX (owner screenshot, ar7traders.com)
+   The 2026-11-07 gold search button and the language pill joined a ≤639px bar
+   that was already full: brand + orb + search + EN pill + USD pill + theme +
+   burger ≈ 450px on a 412px phone — the USD pill was clipped at the edge and
+   the THEME TOGGLE AND THE BURGER ITSELF sat off-screen. The bar now carries
+   exactly what a phone needs — brand · search · language · currency · burger —
+   and every dropped control keeps a labelled home: dark mode lives in the
+   burger panel ("Dark mode" row), the 360° orb's world page is in the menu.
+   =========================================================================== */
+@media (max-width: 639px) {
+  .nav-wrap .brand-group .nav-orb {
+    display: none;
+  }
+
+  /* The only .icon-btn still visible at this width is the theme toggle
+     (studio drops at 1023px, the account icon at 699px). */
+  .nav-wrap .nav-actions .icon-btn {
+    display: none;
+  }
+
+  .nav-wrap .nav-actions .lang-btn {
+    height: 34px;
+    padding: 0 8px 0 4px;
+    gap: 4px;
+  }
+
+  .nav-wrap .nav-actions .lang-btn .lang-chev {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  /* Globe icon only — the open panel still shows every language by name. */
+  .nav-wrap .nav-actions .lang-btn {
+    padding: 0 5px 0 4px;
+  }
+
+  .nav-wrap .nav-actions .lang-btn .lang-code {
+    display: none;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-chev {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .nav-wrap .nav-actions .nav-search {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nav-wrap .nav-actions .lang-btn {
+    height: 32px;
+  }
+}
+
+/* ===========================================================================
+   2026-11-08 (3): LANDING SHOWROOM STAGE (owner request, screenshots)
+   The home hero's flat cross-fade card is replaced by the inventory page's
+   3D showroom stage — centre car large, neighbours peeking from the dark
+   green showroom behind it. Differences from the inventory stage, on
+   purpose:
+     • the stage lives INSIDE the hero card frame (overflow hidden), so the
+       side cars can never overlap the hero copy or anything else;
+     • it is BIGGER than the old photo card at every width (owner request);
+     • photographs render whole — object-fit:contain over a blurred copy of
+       themselves — never cropped by the frame;
+     • the prev/next pair is restyled to match: dark glass, gold hairline,
+       glow on hover, press-down on :active.
+   The pinned `.hero-visual` grid in styles.css and the pinned
+   `.hero-carousel-controls` block above are untouched; everything here is a
+   later override layer.
+   =========================================================================== */
+.hero .hero-visual {
+  height: clamp(460px, min(71vh, 55vw), 680px);
+}
+
+.hero-stage {
+  display: block;
+  border-width: 0;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(213, 176, 100, .10), transparent 55%),
+    linear-gradient(155deg, #02301d, #0a4a2d 48%, #022416);
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.hero-stage:active {
+  cursor: grabbing;
+}
+
+.hero-stage .hero-slide {
+  position: absolute;
+  left: 50%;
+  /* Vertically centred in the zone above the 52px floor rail (dots+counter):
+     top/bottom pin the zone, auto block margins centre the card in it, and
+     the card's own height comes from its showroom-landscape aspect ratio. */
+  top: 0;
+  bottom: 52px;
+  margin-top: auto;
+  margin-bottom: auto;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  max-height: calc(100% - 64px);
+  width: min(80%, 680px);
+  margin-left: max(-340px, -40%);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #06281a;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, .45);
+  color: #fff;
+  text-decoration: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  will-change: transform, opacity, filter;
+  transition: transform .7s cubic-bezier(.22, .8, .26, 1), opacity .7s, filter .7s;
+}
+
+.hero-stage .hero-slide img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transform: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.hero-stage .hero-slide .hero-slide-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px) brightness(.72) saturate(1.08);
+  transform: scale(1.22);
+}
+
+.hero-stage .hero-slide-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 48px 18px 14px;
+  background: linear-gradient(0deg, rgba(2, 20, 11, .9), rgba(2, 20, 11, .42) 55%, transparent);
+  text-align: left;
+}
+
+.hero-stage .hero-slide-tag {
+  font: 700 8.5px/1 Manrope;
+  letter-spacing: 2px;
+  background: var(--gold);
+  color: #fff;
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+
+.hero-stage .hero-slide-cap b {
+  font: 700 clamp(15px, 1.5vw, 21px)/1.15 Manrope;
+}
+
+.hero-stage .hero-slide-cap small {
+  font-size: 11px;
+  color: #d9e6dd;
+  opacity: .88;
+}
+
+.hero-stage .hero-slide:not(.active) .hero-slide-cap {
+  opacity: .35;
+}
+
+/* Dot rail + counter move to the showroom floor strip under the slides. */
+.hero-stage .car-dots {
+  top: auto;
+  right: auto;
+  left: 50%;
+  bottom: 17px;
+  transform: translateX(-50%);
+  gap: 7px;
+  z-index: 12;
+}
+
+.hero-stage .car-dots i {
+  cursor: pointer;
+}
+
+.hero-stage .car-counter {
+  z-index: 12;
+  right: 14px;
+  bottom: 12px;
+}
+
+/* Premium prev/next, matching the inventory stage arrows. The pinned base
+   block above keeps its 42px definition; this layer restyles on top. */
+.hero .hero-carousel-controls {
+  padding-inline: 10px;
+}
+
+.hero .hero-carousel-controls button {
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(213, 176, 100, .5);
+  background: linear-gradient(160deg, rgba(6, 40, 26, .9), rgba(2, 20, 11, .86));
+  color: #f4ead2;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .14);
+}
+
+.hero .hero-carousel-controls button:hover {
+  background: linear-gradient(160deg, #0b4a2e, #06281a);
+  border-color: var(--gold);
+  color: #fff;
+  transform: scale(1.07);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .4), 0 0 0 4px rgba(213, 176, 100, .16);
+}
+
+.hero .hero-carousel-controls button:active {
+  transform: scale(.93);
+}
+
+.hero .hero-carousel-controls button svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* Stacked layout (≤1000px): the stage keeps the bigger presence the owner
+   asked for — wider box, taller ratio than the old 16/10 photo card. */
+@media (max-width: 1000px) {
+  .hero .hero-visual {
+    width: min(760px, 100%);
+  }
+
+  .hero .hero-visual .car-main.hero-stage {
+    aspect-ratio: 16 / 10.5;
+    height: auto;
+    max-height: min(64vh, 540px);
+    border-width: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero .hero-visual .car-main.hero-stage {
+    aspect-ratio: 4 / 3.1;
+    max-height: 420px;
+    border-radius: 20px;
+  }
+
+  .hero-stage .hero-slide {
+    width: 84%;
+    margin-left: -42%;
+    bottom: 46px;
+    aspect-ratio: 16 / 10.8;
+    max-height: calc(100% - 60px);
+    border-radius: 16px;
+  }
+
+  .hero-stage .hero-slide-cap {
+    padding: 36px 13px 11px;
+  }
+
+  .hero-stage .hero-slide-cap b {
+    font-size: 15px;
+  }
+
+  .hero-stage .hero-slide-cap small {
+    font-size: 10px;
+  }
+
+  .hero-stage .car-dots {
+    bottom: 14px;
+    gap: 5px;
+  }
+
+  .hero .hero-carousel-controls {
+    padding-inline: 7px;
+  }
+
+  .hero .hero-carousel-controls button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* The pinned ≤650px rule above parks the arrows near the TOP of the old flat
+   photo card (whose caption filled the bottom-left). On the stage the caption
+   lives inside the centre card and the bottom strip is the dot rail, so the
+   pair returns to the true vertical centre of the photo area. */
+@media (max-width: 650px) {
+  .hero .hero-carousel-controls {
+    align-self: center;
+    margin-top: -26px; /* half the 52px floor rail: centred on the CARS */
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage .hero-slide {
+    transition: none !important;
+  }
+
+  .hero .hero-carousel-controls button:active {
+    transform: none !important;
   }
 }

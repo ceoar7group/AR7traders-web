@@ -276,7 +276,11 @@ function InvShowcase({picks,onOpen}){
  },[paused,n]);
  if(!n)return null;
  const go=d=>setIdx(i=>(i+d+n)%n);
- const down=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;dragRef.current={x:e.clientX};setPaused(true)};
+ // 2026-11-08 (owner: arrows "a bit glitchy"): a press that starts ON the
+ // arrow or a dot must never arm the drag — before, pressing an arrow with a
+ // 5px hand wobble counted as a swipe AND a click, so the stage jumped two
+ // cars at once.
+ const down=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(e.target.closest('.inv-stage-arrow,.inv-stage-dots'))return;dragRef.current={x:e.clientX};setPaused(true)};
  const up=e=>{const d=dragRef.current;dragRef.current=null;if(!d)return;
   const dx=e.clientX-d.x;
   if(Math.abs(dx)>40){swipedRef.current=true;go(dx<0?1:-1)}};
@@ -286,12 +290,16 @@ function InvShowcase({picks,onOpen}){
   {picks.map((c,i)=>{
    let off=(i-idx+n)%n;if(off>n/2)off-=n;
    const a=Math.abs(off);
+   // transition:none while hidden (a>1): a card wrapping from far-left to
+   // far-right used to animate ACROSS the whole stage behind the centre car —
+   // the "glitch" the owner saw when clicking the arrows quickly.
    return <button key={c.id} type="button" className={'inv-slide'+(off===0?' active':'')}
-    style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>1?0:1-a*.25,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.3,.4)})`:'none',pointerEvents:a>1?'none':'auto'}}
+    style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>1?0:1-a*.25,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.3,.4)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
     onClick={()=>off===0?onOpen(c):setIdx(i)} tabIndex={a>1?-1:0}
     aria-label={off===0?`Open ${c.make} ${c.model}`:`Show ${c.make} ${c.model}`}>
+    <span className="inv-slide-bg" style={{backgroundImage:`url("${c.image}")`}} aria-hidden="true"/>
     <img src={c.image} alt={carAlt(c)} loading={i<3?'eager':'lazy'} decoding="async" width="520" height="300"/>
-    <span><b>{c.make} {c.model}</b><small>{c.year} · {c.km} km</small></span>
+    <span className="inv-slide-cap"><b>{c.make} {c.model}</b><small>{c.year} · {c.km} km</small></span>
    </button>;
   })}
   <button type="button" className="inv-stage-arrow prev" aria-label="Previous car" onClick={()=>go(-1)}><ChevronLeft/></button>
@@ -743,8 +751,18 @@ function HeroVisual({navigate,discounts}){
  const auctionIdx=Math.floor(elapsed/4.6)%heroAuctions.length;
  const routeIdx=Math.floor(elapsed/5.6)%heroRoutes.length;
  const c=slides[activeIndex]||slides[0];
- const heroImages=c ? [c, slides[(activeIndex+1)%slides.length]]
-  .filter((x,i,a)=>x && a.findIndex(y=>y?.id===x.id)===i) : [];
+ // 2026-11-08 (owner request): the flat cross-fade photo card is retired — the
+ // home hero now runs the same 3D showroom stage as the inventory hero, which
+ // the owner judged "more modern and premium". Slides keep real hrefs: the
+ // CENTRE card is a true link to its vehicle/machinery page, side cards rotate
+ // themselves to centre first. Drag/swipe matches InvShowcase, and a real drag
+ // must never fire the slide's click underneath it.
+ const total=slides.length;
+ const jumpTo=i=>moveSlide(((i-activeIndex)%total+total)%total);
+ const dragRef=useRef(null),swipedRef=useRef(false);
+ const dragDown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(e.target.closest('.car-dots,.car-counter'))return;dragRef.current={x:e.clientX}};
+ const dragUp=e=>{const d=dragRef.current;dragRef.current=null;if(!d)return;const dx=e.clientX-d.x;if(Math.abs(dx)>40){swipedRef.current=true;moveSlide(dx<0?1:-1)}};
+ const dragClick=e=>{if(swipedRef.current){swipedRef.current=false;e.preventDefault();e.stopPropagation()}};
  const auction=heroAuctions[auctionIdx];
  const route=heroRoutes[routeIdx];
  const remaining=(auctionEnds.current[auctionIdx]-Date.now())/1000;
@@ -754,24 +772,36 @@ function HeroVisual({navigate,discounts}){
        real headings for each vehicle — so the hero gets its own screen-reader heading
        and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
    <h2 className="sr-only">Japan &amp; China cars, heavy machinery</h2>
-  <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.href,navigate)}>
-   {/* 2026-11-07 PageSpeed: the hero slides shipped at 1268px for a ~741px
-       box. Local showroom shots now carry a 760w variant via srcset so phones
-       and the Lighthouse viewport download roughly half the bytes. */}
-   <div className="hero-stack">{heroImages.map((x,n)=>{
+  <div className={'hero-card car-main hero-stage'+(c.kind==='machine'?' is-machine':'')}
+   onPointerDown={dragDown} onPointerUp={dragUp} onPointerCancel={()=>{dragRef.current=null}} onClickCapture={dragClick}>
+   {slides.map((x,i)=>{
+     let off=(i-activeIndex+total)%total;if(off>total/2)off-=total;
+     const a=Math.abs(off);
+     // 2026-11-07 PageSpeed carried over: local showroom shots keep their 760w
+     // srcset variant. Far slides (a>2) mount as empty dark cards — they are
+     // invisible (opacity 0) and mounting all 11 photographs at once would
+     // wreck the hero's LCP; each slide loads one rotation step before it can
+     // become visible. The blurred backdrop + object-fit:contain pair means a
+     // 4:3 machine photo is shown WHOLE instead of brutally cropped (owner:
+     // "some stock pics are not fitted well in the frame").
      const resp=/^\/assets\/showroom\/hero-0[1-8]\.webp$/.test(x.image||'');
-     return <img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image}
-       srcSet={resp?`${x.image.replace('.webp','-760.webp')} 760w, ${x.image} 1268w`:undefined}
-       sizes={resp?'(max-width:900px) 94vw, 46vw':undefined}
-       alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>;
-   })}</div>
-   <div className="image-shade"/>
-   <div className="car-float-title" key={activeIndex}>
-    <span>{c.tag}</span><h3>{c.title}</h3><p>{c.meta}</p>
-   </div>
-   <div className="car-dots">{slides.map((x,n)=><i key={x.id} className={(x.kind==='machine'?'machine ':'')+(n===activeIndex?'active':'')}/>)}</div>
-   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {activeIndex+1}/{slides.length} · {c.kind==='machine'?'China machinery desk':'rotating stock'}</div>
-  </a>
+     return <a key={x.id} href={x.href}
+      className={'hero-slide'+(off===0?' active':'')}
+      style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.35,.45)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
+      tabIndex={a>1?-1:0} aria-hidden={a>1||undefined}
+      onClick={e=>{if(off!==0){e.preventDefault();jumpTo(i)}else linkClick(x.href,navigate)(e)}}
+      aria-label={off===0?`Open ${x.title}`:`Show ${x.title}`}>
+      {a<=2&&<span className="hero-slide-bg" style={{backgroundImage:`url("${x.image}")`}} aria-hidden="true"/>}
+      {a<=2&&<img src={x.image} width="820" height="550"
+        srcSet={resp?`${x.image.replace('.webp','-760.webp')} 760w, ${x.image} 1268w`:undefined}
+        sizes={resp?'(max-width:900px) 80vw, 36vw':undefined}
+        alt={x.alt} loading={a<=1?'eager':'lazy'} fetchPriority={off===0?'high':'low'} decoding="async"/>}
+      <span className="hero-slide-cap"><span className="hero-slide-tag">{x.tag}</span><b>{x.title}</b><small>{x.meta}</small></span>
+     </a>;
+   })}
+   <div className="car-dots">{slides.map((x,i)=><i key={x.id} className={(x.kind==='machine'?'machine ':'')+(i===activeIndex?'active':'')} onClick={()=>jumpTo(i)} role="button" tabIndex={-1} aria-label={'Show slide '+(i+1)}/>)}</div>
+   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {activeIndex+1}/{total} · {c.kind==='machine'?'China machinery desk':'rotating stock'}</div>
+  </div>
   <div className="hero-carousel-controls">
    <button type="button" onClick={()=>moveSlide(-1)} aria-label="Prev"><ChevronLeft/></button>
    <button type="button" onClick={()=>moveSlide(1)} aria-label="Next"><ChevronRight/></button>

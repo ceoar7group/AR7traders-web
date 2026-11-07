@@ -240,7 +240,11 @@ const BUDGET_GZIP = 154 * 1024;
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
 // 2026-11-08 (3): 532 → 533 kB raw for the favourites sync (actual 532.23).
-const BUDGET_RAW = 533 * 1024;
+// 2026-11-08 (4): 533 → 534 kB raw — the home hero swaps its flat cross-fade
+// card for the inventory-style 3D showroom stage (per-slide links, drag/swipe,
+// blur-fill frames) and the inventory stage gains the same drag-guard fixes.
+// Actual: 533.56 kB raw; gzip stayed inside its 154 kB budget (153.64).
+const BUDGET_RAW = 534 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -298,7 +302,11 @@ for (const file of entryCss) {
 // cards (portal.css).
 // 2026-11-08: 40 → 41 kB gzip for the burger-menu refresh (clean bar below
 // 900px, dimmed backdrop, tablet drawer, 48px rows). Actual: 40.13 kB gzip.
-const CSS_BUDGET_GZIP = 41 * 1024;
+// 2026-11-08 (2): 41 → 42 kB gzip for the landing showroom stage + premium
+// stage arrows + the phone-bar overflow fix. The dead cross-fade rules
+// (.hero-stack, .car-float-title, .image-shade) were pruned to offset part
+// of it. Actual: 41.06 kB gzip.
+const CSS_BUDGET_GZIP = 42 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
@@ -307,7 +315,11 @@ const CSS_BUDGET_GZIP = 41 * 1024;
 // touch targets on card actions/pager, stacked CRM bulk bar, my-account
 // breakpoints (which had none) and the iOS focus-zoom fix (16px inputs on
 // phones). Actual after the change: 206.09 kB raw; gzip stayed in budget.
-const CSS_BUDGET_RAW = 208 * 1024;
+// 2026-11-08 (3): 208 → 213 kB raw — the landing showroom stage (hero-stage
+// slides, blur-fill frames, premium arrows at two breakpoints) plus the
+// phone-bar overflow fix; ~1.3 kB of dead cross-fade hero rules pruned from
+// styles.css/landing-v2.css/site-layout.css. Actual: 211.71 kB raw.
+const CSS_BUDGET_RAW = 213 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
