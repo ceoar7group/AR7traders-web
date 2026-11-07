@@ -25,9 +25,21 @@ import { useStockDiscounts, barRows, campaignIsLive } from './offers.js';
 
 const DISMISS_KEY = 'ar7-promo-dismissed';
 const OFFER_DISMISS_KEY = 'ar7-price-offer-dismissed';
+// Last measured bar height. The promo answer arrives over the network, and on
+// every page view the bar used to mount AFTER first paint — pushing the nav,
+// the hero and everything else down (PageSpeed CLS culprits `nav.shell` and
+// `section.hero.shell`, 2026-11-07). Re-reserving the previous visit's height
+// before first paint makes the bar appear in already-reserved space.
+const HEIGHT_KEY = 'ar7-promo-h';
 
 export function PromoBar({ navigate }) {
   const [promo, setPromo] = useState(null);
+  useState(() => {   // runs once, synchronously, before the browser paints
+    try {
+      const h = parseInt(localStorage.getItem(HEIGHT_KEY) || '', 10);
+      if (h > 0 && h < 200) document.documentElement.style.setProperty('--promo-h', h + 'px');
+    } catch { /* private mode: first paint reserves nothing, as before */ }
+  });
   const [hidden, setHidden] = useState(false);
   const [offerHidden, setOfferHidden] = useState(false);
   const settings = useSettings();
@@ -90,8 +102,10 @@ export function PromoBar({ navigate }) {
     if (campaign || offerLine) {
       const h = document.querySelector('.promo-bar')?.offsetHeight || 44;
       root.style.setProperty('--promo-h', h + 'px');
+      try { localStorage.setItem(HEIGHT_KEY, String(h)); } catch { /* ignore */ }
     } else {
       root.style.setProperty('--promo-h', '0px');
+      try { localStorage.removeItem(HEIGHT_KEY); } catch { /* ignore */ }
     }
     return () => root.style.setProperty('--promo-h', '0px');
   }, [promo?.id, hidden, currentStockRow?.id, offerHidden, campaign?.id, offerLine?.id]);

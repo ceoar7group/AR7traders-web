@@ -117,41 +117,30 @@
   border-radius: 11px;
 }
 
-/* Global search trigger (⌘K). A labelled pill on wide screens, collapsing to
-   a plain icon as the bar tightens; the overlay is a lazy chunk (main.jsx). */
+/* Global search trigger (⌘K). 2026-11-07 redesign: a compact gold icon
+   button at every width — the old labelled pill + kbd hint crowded the bar.
+   The overlay is still a lazy chunk (main.jsx), Ctrl+K still opens it. */
 .nav-wrap .nav-search {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--card);
-  color: var(--muted);
-  font: 600 12px Manrope, sans-serif;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--gold), color-mix(in srgb, var(--gold) 62%, #7a5d1d));
+  color: #1b1405;
   cursor: pointer;
-  transition: border-color .2s, color .2s;
+  box-shadow: 0 5px 14px rgba(176,138,48,.28);
+  transition: transform .2s, box-shadow .2s, filter .2s;
 }
-.nav-wrap .nav-search:hover { border-color: var(--gold); color: var(--ink); }
-.nav-wrap .nav-search svg { width: 15px; height: 15px; flex: none; }
-.nav-wrap .nav-search kbd {
-  font: 700 9.5px Manrope, sans-serif;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 2px 5px;
-  letter-spacing: .3px;
-}
-@media (max-width: 1279px) {
-  .nav-wrap .nav-search kbd { display: none; }
-}
-@media (max-width: 1100px) {
-  .nav-wrap .nav-search { width: 40px; padding: 0; justify-content: center; }
-  .nav-wrap .nav-search .nav-search-hint { display: none; }
-}
+.nav-wrap .nav-search:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(176,138,48,.4); filter: brightness(1.05); }
+.nav-wrap .nav-search:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.nav-wrap .nav-search svg { width: 16px; height: 16px; flex: none; stroke-width: 2.4; }
 @media (max-width: 639px) {
-  .nav-wrap .nav-search { width: 34px; height: 34px; border-radius: 10px; }
-  .nav-wrap .nav-search svg { width: 16px; }
+  .nav-wrap .nav-search { width: 34px; height: 34px; }
+  .nav-wrap .nav-search svg { width: 15px; height: 15px; }
 }
 
 /* The burger only exists below 900px — the bar carries the whole menu above
