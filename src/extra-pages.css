@@ -18,13 +18,30 @@
 .inv-stage-dots{position:absolute;left:50%;transform:translateX(-50%);bottom:-8px;display:flex;gap:7px;z-index:12}
 .inv-stage-dots i{width:7px;height:7px;border-radius:50%;background:#ffffff38;cursor:pointer;transition:.25s}
 .inv-stage-dots i.on{background:var(--gold);transform:scale(1.25)}
-.inv-brand-pulse{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px;padding-bottom:10px;position:relative;z-index:2}
-.inv-brand-pulse button{display:flex;align-items:center;gap:8px;background:#ffffff10;border:1px solid #ffffff22;border-radius:999px;padding:6px 12px 6px 8px;color:#fff;cursor:pointer;font:600 11px Manrope;transition:.25s}
+/* 2026-11-08 UI pass: the chips used to free-wrap into two ragged rows that
+   floated against the hero with no anchor (and collided visually with the
+   showcase). They now live in one labelled glass strip: label on the left,
+   chips in a tidy row that wraps evenly on desktop and side-scrolls on
+   phones instead of stacking tall. */
+.inv-brand-pulse{display:flex;align-items:center;gap:16px;margin-top:30px;padding:10px 14px;background:#ffffff0a;border:1px solid #ffffff17;border-radius:16px;position:relative;z-index:2;backdrop-filter:blur(4px)}
+.inv-brand-label{display:grid;justify-items:start;gap:1px;flex:none;font:800 10px Manrope;letter-spacing:1.6px;color:#e9d9ae;padding:0 14px 0 4px;border-right:1px solid #ffffff1c}
+.inv-brand-label em{font-style:normal;font:700 8.5px Manrope;letter-spacing:1.6px;color:#9db8a9}
+.inv-brand-label svg{width:14px;height:14px;color:var(--gold);margin-bottom:2px}
+.inv-brand-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.inv-brand-pulse button{display:flex;align-items:center;gap:8px;height:34px;background:#ffffff10;border:1px solid #ffffff22;border-radius:999px;padding:0 5px 0 8px;color:#fff;cursor:pointer;font:600 11px Manrope;transition:.25s;white-space:nowrap;flex:none}
 .inv-brand-pulse button:hover{background:#ffffff1f;transform:translateY(-1px)}
 .inv-brand-pulse button.on{background:var(--gold);border-color:var(--gold)}
 .inv-brand-pulse button.on,.inv-brand-pulse button.on b{color:#07130c}
-.inv-brand-pulse img{width:30px;height:18px;object-fit:contain;background:#fff;border-radius:5px;padding:1px}
-.inv-brand-pulse b{font:800 11px Manrope;background:#00000026;border-radius:999px;padding:2px 8px;color:var(--gold)}
+.inv-brand-pulse button.on b{background:#0000001f}
+.inv-brand-pulse img{width:30px;height:18px;object-fit:contain;background:#fff;border-radius:5px;padding:1px;flex:none}
+.inv-brand-pulse b{font:800 11px Manrope;background:#00000026;border-radius:999px;padding:3px 8px;color:var(--gold);min-width:26px;text-align:center}
+.inv-brand-pulse button>span:first-child{padding-left:4px}
+@media(max-width:900px){
+  .inv-brand-pulse{gap:10px;padding:10px 12px}
+  .inv-brand-label{display:none}
+  .inv-brand-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .inv-brand-chips::-webkit-scrollbar{display:none}
+}
 /* Inventory pagination */
 .pp-select{display:flex;align-items:center;gap:6px;color:var(--muted)}
 .pp-select select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:4px 6px;font:700 11px Manrope;cursor:pointer}
@@ -53,3 +70,12 @@
 .recent-strip-row b{font:700 11.5px Manrope;white-space:nowrap}
 .recent-strip-row small{font-size:10px;color:var(--muted);white-space:nowrap}
 @media(max-width:640px){.recent-strip{flex-direction:column;align-items:flex-start;gap:8px}.recent-strip-row{width:100%}}
+
+/* Stock-alert capture bar under the inventory grid (2026-11-08): one more
+   way a browsing visitor becomes a lead without hunting for the contact page. */
+.stock-alert-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:26px 0 0;padding:18px 22px;background:var(--deep);color:#fff;border-radius:16px}
+.stock-alert-copy{display:grid;gap:3px;min-width:0}
+.stock-alert-copy b{font:700 16px Manrope;letter-spacing:-.3px}
+.stock-alert-copy span{font-size:12px;color:#b7cbbf;line-height:1.5}
+.stock-alert-bar .primary{flex:none}
+@media(max-width:640px){.stock-alert-bar{flex-direction:column;align-items:flex-start;gap:12px}}

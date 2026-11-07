@@ -25,8 +25,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bot, Play, Pause, Square, ShieldAlert, Check, X, RefreshCw, Sparkles,
   AlertTriangle, Clock, ListChecks, Users, Search, Megaphone, Download,
-  Copy, ExternalLink, Ban, Eye, KeyRound, Wifi, WifiOff, CircleSlash, Send
+  Copy, ExternalLink, Ban, Eye, KeyRound, Wifi, WifiOff, CircleSlash, Send,
+  Lightbulb, ArrowUpRight
 } from 'lucide-react';
+import { buildUpgradeSuggestions, buildUpgradeBrief } from './upgrade-advisor.js';
+import { MACHINES } from './machinery-data.js';
+import { getPublishedNews } from './news-data.js';
+import { getSettings } from './site-settings.js';
 import { RowActions } from './row-actions.jsx';
 
 const AGENT_META = {
@@ -72,7 +77,7 @@ const when = value => {
   catch { return '—'; }
 };
 
-export default function AiGrowth({ token, canWrite = false, notify = () => {}, navigate = null }) {
+export default function AiGrowth({ token, canWrite = false, notify = () => {}, navigate = null, goDesk = null, siteCars = [] }) {
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -250,10 +255,14 @@ export default function AiGrowth({ token, canWrite = false, notify = () => {}, n
       )}
 
       <div className="crm-subtabs ai-tabs" role="tablist" aria-label="AI Growth areas">
-        {[['overview', 'Overview'], ['leads', 'Lead workspace'], ['seo', 'SEO workspace'], ['social', 'Social workspace']].map(([id, label]) => (
+        {[['overview', 'Overview'], ['leads', 'Lead workspace'], ['seo', 'SEO workspace'], ['social', 'Social workspace'], ['advisor', 'Upgrade advisor']].map(([id, label]) => (
           <button key={id} role="tab" aria-selected={workspace === id} className={workspace === id ? 'active' : ''} onClick={() => setWorkspace(id)} type="button">{label}</button>
         ))}
       </div>
+
+      {workspace === 'advisor' && (
+        <UpgradeAdvisor token={token} canWrite={canWrite} notify={notify} agents={agents} act={act} busy={busy} goDesk={goDesk} siteCars={siteCars} />
+      )}
 
       {workspace === 'overview' && (
         <>
@@ -649,5 +658,98 @@ function AgentWorkspace({ agent, drafts, onOpen, onApprove, onReject, onExecute,
         ))}
       </ul>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Upgrade Advisor (2026-11-08) — the "agent that suggests upgrades".
+   Every suggestion is computed from data the CRM already holds (stock,
+   guides, machinery, promo settings, agent configs) by the pure logic in
+   src/upgrade-advisor.js. Approval semantics are honest:
+     • items with a safe in-CRM action get a one-click Apply (e.g. enabling an
+       agent in review mode via the existing config endpoint);
+     • items that belong to another desk get an "Open desk" jump;
+     • code-level items are collected into a written brief to paste into an
+       Arena coding session — the website deploys from GitHub, so code changes
+       always arrive as a reviewed pull request, never a silent self-edit.
+   --------------------------------------------------------------------------- */
+function UpgradeAdvisor({ token, canWrite, notify, agents, act, busy, goDesk, siteCars = [] }) {
+  const [keywordSource, setKeywordSource] = useState(null);
+  const [selected, setSelected] = useState({});
+  const [briefCopied, setBriefCopied] = useState(false);
+
+  // One cheap call to learn whether keyword research runs on real GSC data.
+  useEffect(() => {
+    let alive = true;
+    callApi(token, '/api/site-content?seo=keywords', { method: 'POST', body: {} })
+      .then(out => { if (alive) setKeywordSource(out?.source || null); })
+      .catch(() => { if (alive) setKeywordSource(null); });
+    return () => { alive = false; };
+  }, [token]);
+
+  const suggestions = useMemo(() => buildUpgradeSuggestions({
+    cars: siteCars, machines: MACHINES, articles: getPublishedNews(),
+    settings: getSettings(), agents, keywordSource
+  }), [agents, keywordSource, siteCars]);
+
+  const DESK_LABEL = { seo: 'SEO desk', vehicles: 'Cars', machinery: 'Machinery desk', agents: 'AI Growth' };
+
+  const copyBrief = async () => {
+    const chosen = suggestions.filter(s => selected[s.id]);
+    const brief = buildUpgradeBrief(chosen.length ? chosen : suggestions);
+    try { await navigator.clipboard.writeText(brief); }
+    catch {
+      const area = document.createElement('textarea');
+      area.value = brief; document.body.appendChild(area); area.select();
+      document.execCommand('copy'); area.remove();
+    }
+    setBriefCopied(true); setTimeout(() => setBriefCopied(false), 2500);
+    notify('Upgrade brief copied — paste it into your Arena coding session and the developer agent implements it as a pull request.');
+  };
+
+  return (
+    <section className="crm-panel ai-advisor" aria-label="Upgrade advisor">
+      <div className="ai-advisor-head">
+        <div>
+          <h3><Lightbulb size={16} /> {suggestions.length ? `${suggestions.length} suggestion(s), highest impact first` : 'Nothing to suggest right now'}</h3>
+          <p className="crm-hint">
+            Computed from your live stock, guides, machinery, campaign settings and agent configs — re-checked every time this tab opens.
+            Safe actions apply with one click; desk work jumps to the right desk; code work exports as a brief for the developer agent.
+          </p>
+        </div>
+        <button type="button" onClick={copyBrief} disabled={!suggestions.length}>
+          {briefCopied ? <><Check size={13} /> Brief copied</> : <><Copy size={13} /> Copy upgrade brief</>}
+        </button>
+      </div>
+      {!suggestions.length && (
+        <p className="crm-hint">Every check passes: recent guide, photographed stock, live campaign, agents enabled. New data can surface new suggestions.</p>
+      )}
+      <ul className="ai-advisor-list">
+        {suggestions.map(s => (
+          <li key={s.id} className={'ai-advisor-item impact-' + s.impact}>
+            <label className="ai-advisor-pick" title="Include in the copied brief">
+              <input type="checkbox" checked={!!selected[s.id]} onChange={e => setSelected(cur => ({ ...cur, [s.id]: e.target.checked }))} />
+            </label>
+            <div className="ai-advisor-body">
+              <b>{s.title} <em className={'ai-impact ' + s.impact}>{s.impact.toUpperCase()}</em></b>
+              <small><b>Why:</b> {s.why}</small>
+              <small><b>How:</b> {s.how}</small>
+            </div>
+            <div className="ai-advisor-actions">
+              {s.apply && canWrite && (
+                <button type="button" disabled={!!busy} onClick={() => act(s.apply.label, s.apply.path, { method: 'POST', body: s.apply.body })}>
+                  <Check size={13} /> {s.apply.label}
+                </button>
+              )}
+              {s.desk && goDesk && (
+                <button type="button" onClick={() => goDesk(s.desk)}>
+                  <ArrowUpRight size={13} /> Open {DESK_LABEL[s.desk] || s.desk}
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

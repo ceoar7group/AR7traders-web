@@ -15,7 +15,7 @@
 // It is a staff route: noindex, and never linked from the public nav.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Save, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2 } from 'lucide-react';
+import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Save, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2, Sparkles, BookOpenCheck, ClipboardList } from 'lucide-react';
 import { auditDocument, summarise } from './seo-audit.js';
 import { applySeo, BASE } from './seo.js';
 import { staticAuditRoutes, publicLandingRoutes } from './seo-routes.js';
@@ -23,6 +23,9 @@ import { SITE_CANONICAL_ORIGIN, canonicalSiteUrl, isStaffNoindexPath, sitemapLoc
 import { NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH, getPublishedNews, getNewsCategories, setPublishedNews } from './news-data.js';
 import { updateSettingsCache } from './site-settings.js';
 import { campaignIsLive } from './offers.js';
+import { buildTopicIdeas, buildUpgradeReport } from './seo-topic-scout.js';
+import { MACHINES } from './machinery-data.js';
+import { DEST } from './destinations.js';
 import './seo-desk.css';
 
 const ROUTES = [
@@ -138,7 +141,7 @@ export function sitemapBlock(slug, { today = new Date().toISOString().slice(0, 1
     '  </url>';
 }
 
-export default function SeoDesk({ navigate, token, canPublish = false, canPromote = false, notify = () => {} }) {
+export default function SeoDesk({ navigate, token, canPublish = false, canPromote = false, notify = () => {}, liveCars = [] }) {
   const categories = getNewsCategories();
   const [sitemapUrls, setSitemapUrls] = useState([]);
   const [robots, setRobots] = useState('');
@@ -669,6 +672,78 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     finally { setPublishBusy(false); }
   };
 
+  // ---- Topic Scout (2026-11-08) --------------------------------------------
+  // Business-tied topic suggestions with catalogue-derived facts. Clicking
+  // "Approve & publish" IS the human approval step: the desk generates the
+  // draft from those facts, validates it with the same rules the manual
+  // creator uses, saves it, and publishes it in one run — UNLESS the provider
+  // flags anything for editorial verification, in which case it stops at an
+  // unpublished draft and says why.
+  const [scoutBusy, setScoutBusy] = useState(null);
+  const [scoutLog, setScoutLog] = useState({});
+  const scoutTopics = useMemo(
+    () => buildTopicIdeas({ cars: liveCars, machines: MACHINES, dests: DEST, published: articles }),
+    [articles, liveCars]);
+
+  const runTopicAutopilot = async topic => {
+    if (!canPublish || !token) { notify('Your role cannot publish website guides. Ask a website editor.'); return; }
+    setScoutBusy(topic.id);
+    const log = (state, detail, extra = {}) => setScoutLog(cur => ({ ...cur, [topic.id]: { state, detail, ...extra } }));
+    try {
+      log('generating', 'Drafting from the catalogue facts via the AI provider…');
+      const out = await seoWorkflow('generate', 'POST', { topic: topic.title, facts: topic.facts.join('\n'), kind: topic.kind || 'guide', sources: [] });
+      const draftForm = { title: out.title || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: out.body };
+      const { errors, slug } = validateGuide(draftForm, articles);
+      if (Object.keys(errors).length) throw new Error('The generated draft failed validation: ' + Object.values(errors).join(' '));
+      const needsReview = /\[EDITOR REVIEW:/i.test(draftForm.body || '');
+      const article = buildArticle(draftForm, slug);
+      const nextOrder = Math.min(0, ...editorArticles.map(a => Number(a.sort_order) || 0)) - 1;
+      log('saving', 'Draft passed validation — saving…');
+      const saveResponse = await fetch('/api/site-content?entity=articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: article.title, category: article.cat, date: article.date,
+          read_min: article.min, image: article.img, excerpt: article.ex, body: article.body,
+          published: false, sort_order: nextOrder })
+      });
+      const saved = await saveResponse.json().catch(() => ({}));
+      if (!saveResponse.ok) throw new Error(saved.error || `Draft save failed (${saveResponse.status}).`);
+      if (needsReview) {
+        await refreshArticleList();
+        log('draft', 'Saved as an UNPUBLISHED draft: the AI flagged details that need editorial verification. Open it in the drafts list below, resolve the [EDITOR REVIEW] note, then publish.');
+        notify(`Draft saved (not published): ${article.title} — it needs an editorial check first.`);
+        return;
+      }
+      log('publishing', 'Publishing to /news/' + slug + '…');
+      const publishResponse = await fetch('/api/site-content?entity=articles', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: saved.id, published: true })
+      });
+      const publishResult = await publishResponse.json().catch(() => ({}));
+      if (!publishResponse.ok) throw new Error(publishResult.error || `Publication failed (${publishResponse.status}) — the article is saved as a draft.`);
+      await refreshArticleList();
+      log('published', 'Live and in the news sitemap.', { url: BASE + '/news/' + encodeURIComponent(slug) });
+      notify(`Guide published from approved topic: ${article.title}`);
+    } catch (error) {
+      log('failed', (error.message || 'The run failed.') + ' Nothing was published.');
+      notify(error.message || 'Topic autopilot failed — nothing was published.');
+    } finally { setScoutBusy(null); }
+  };
+
+  // Copyable audit upgrade report, built from the finished live crawl.
+  const [reportCopied, setReportCopied] = useState(false);
+  const copyUpgradeReport = async () => {
+    const report = buildUpgradeReport(liveCrawl.rows, { origin: SITE_CANONICAL_ORIGIN });
+    try { await navigator.clipboard.writeText(report); }
+    catch {
+      const area = document.createElement('textarea');
+      area.value = report; document.body.appendChild(area); area.select();
+      document.execCommand('copy'); area.remove();
+    }
+    setReportCopied(true); setTimeout(() => setReportCopied(false), 2500);
+  };
+
   const saveCampaign = async e => {
     e?.preventDefault?.();
     if (!canPromote || !token) { notify('Your role cannot publish campaign banners. Ask a settings administrator.'); return; }
@@ -734,6 +809,54 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       </div>
 
       <div className="shell page-content seo-desk-content">
+        <section className="seo-card seo-howto" aria-label="How this desk works">
+          <details>
+            <summary><BookOpenCheck size={16}/> How this desk works — the 4-step loop</summary>
+            <ol>
+              <li><b>1 · Audit.</b> "Run full crawl" fetches every public page the sitemaps list and runs the same checks Google cares about (title, description, canonical, structured data, images). Each page gets a score and named failures with fixes.</li>
+              <li><b>2 · Report.</b> When the crawl finishes, "Copy upgrade report" produces a prioritised report split into what you can fix from this desk and what needs a code change — paste that second half into your Arena coding session and the developer agent does it.</li>
+              <li><b>3 · Publish.</b> Topic Scout (below) suggests article topics built from your live stock and markets. Approving one generates, validates and publishes the guide in a single run — fresh indexed pages are the single biggest lever this desk has.</li>
+              <li><b>4 · Submit.</b> "Request indexing" tells Google about new and changed pages instead of waiting for it to wander by. Re-run the crawl after publishing to verify.</li>
+            </ol>
+            <p className="seo-muted">Rhythm that works: one approved topic per week, a crawl after every publish, and the report to your developer whenever the code section is non-empty.</p>
+          </details>
+        </section>
+
+        <section className="seo-card seo-topic-scout" aria-label="Topic scout">
+          <div className="seo-hub-title"><Sparkles size={18}/><div><h2>Topic Scout</h2><p>Article topics proposed from your live stock, machinery catalogue and shipping markets — with the verified facts the AI draft is allowed to use. <b>Approve &amp; publish</b> runs the whole pipeline: generate → validate → save → publish. If the AI flags anything for editorial checking, the run stops at an unpublished draft instead.</p></div></div>
+          {scoutTopics.length === 0 && <p className="seo-muted">Every current suggestion already exists as a published guide. New stock, markets or machinery will generate new topics.</p>}
+          <ul className="seo-scout-list">
+            {scoutTopics.map(topic => {
+              const state = scoutLog[topic.id];
+              return (
+                <li key={topic.id} className={'seo-scout-topic' + (state ? ' is-' + state.state : '')}>
+                  <div className="seo-scout-main">
+                    <b>{topic.title}</b>
+                    <small>{topic.cat} · {topic.why}</small>
+                    <details><summary>{topic.facts.length} verified facts the draft may use</summary><ul>{topic.facts.map((fact, i) => <li key={i}>{fact}</li>)}</ul></details>
+                    {state && <span className={'seo-scout-state ' + state.state} role="status">
+                      {state.state === 'published' ? <Check size={13}/> : state.state === 'failed' ? <AlertTriangle size={13}/> : <RefreshCw size={13} className="seo-spin"/>}
+                      {state.detail}
+                      {state.url && <> <a href={state.url} target="_blank" rel="noopener noreferrer">Open the live page <ExternalLink size={12}/></a></>}
+                    </span>}
+                  </div>
+                  <div className="seo-scout-actions">
+                    <button type="button" className="gold-btn" disabled={!canPublish || !token || scoutBusy !== null || state?.state === 'published'}
+                      onClick={() => runTopicAutopilot(topic)}>
+                      {scoutBusy === topic.id ? <><RefreshCw size={14} className="seo-spin"/> Working…</> : state?.state === 'published' ? <><Check size={14}/> Published</> : <><Send size={14}/> Approve &amp; publish</>}
+                    </button>
+                    <button type="button" className="seo-mini-action" disabled={scoutBusy !== null}
+                      onClick={() => { setCreating(true); setActiveDraftId(null); setCreated(null); setDraftReviewed(false); setDraftFacts(topic.facts.join('\n')); setForm({ title: topic.title, cat: topic.cat, img: topic.img, desc: '', body: '' }); notify('Topic loaded into the draft creator below for manual editing.'); }}>
+                      Edit manually instead
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {!canPublish && <small className="seo-muted">Your role can review topics but cannot publish guides.</small>}
+        </section>
+
         <section className="seo-card" aria-label="Keyword research automation">
           <h2>Keyword opportunities</h2>
           <p>Research real Search Console queries when connected, plus catalogue-based topic ideas. No invented search volumes.</p>
@@ -1015,6 +1138,16 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
             </div>
           )}
           {liveCrawl.sourceErrors?.length > 0 && <ul className="seo-workflow-error-list">{liveCrawl.sourceErrors.map((error, i) => <li key={i}>{error}</li>)}</ul>}
+
+          {liveCrawl.rows.length > 0 && (liveCrawl.state === 'complete' || liveCrawl.state === 'complete_with_warnings') && (
+            <div className="seo-report-bar" role="group" aria-label="Audit upgrade report">
+              <ClipboardList size={16}/>
+              <span><b>Upgrade report ready.</b> Prioritised fixes from this crawl, split into what this desk can do and what needs a code change — paste the code section into your Arena session and the developer agent implements it.</span>
+              <button type="button" className="gold-btn" onClick={copyUpgradeReport}>
+                {reportCopied ? <><Check size={14}/> Report copied</> : <><Copy size={14}/> Copy upgrade report</>}
+              </button>
+            </div>
+          )}
 
           {liveCrawl.rows.length > 0 && (
             <div className="seo-crawl-results">
