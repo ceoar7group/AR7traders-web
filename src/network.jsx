@@ -208,7 +208,7 @@ export function WorldPage({navigate}){
    <BigNetworkGlobe navigate={navigate}/>
   </div>
   <div className="shell">
-   <div className="section-head"><div><div className="kicker">DEMO ROUTES</div><h2>From Japan to<br/><em>your port.</em></h2></div><p>Eight demo lanes with estimated transit. Click any card to open that market's guide.</p></div>
+   <div className="section-head"><div><div className="kicker">FEATURED ROUTES</div><h2>From Japan to<br/><em>your port.</em></h2></div><p>Eight featured lanes with estimated transit — 27 market guides in total. Click any card to open that market's guide.</p></div>
    <div className="markets-grid">
     {MARKETS.map(m=><a className="mkt-card" key={m.name} href="/destinations" onClick={linkClick('destinations',navigate)}>
      <span className="mkt-flag"><Flag c={m.name} w={36} h={23}/></span>

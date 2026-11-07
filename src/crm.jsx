@@ -2351,6 +2351,12 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
   const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState(defaultViewMode);
   const [chipFilter, setChipFilter] = useState('all');
+  // 2026-11-08: bulk lead actions — ids ticked on the lead cards. A bar
+  // appears while anything is selected: move every ticked lead to a stage
+  // or schedule their next follow-up in one go (each change goes through
+  // the same quickPatch/permission path as a single edit).
+  const [bulkSel, setBulkSel] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
   // Per-lead AI assist: { lead, loading, data, error }. The modal only shows
   // what the server returned — drafts for a person to copy, never a send.
   const [assist, setAssist] = useState(null);
@@ -2368,6 +2374,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
   useEffect(() => {
     setChipFilter('all');
     setSort(null);
+    setBulkSel([]); // 2026-11-08: a selection never survives a tab switch
   }, [entity]);
 
   // Status chips (vehicles + listings): one chip per status present in the
@@ -2468,8 +2475,37 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
     // warning; the "Next" row schedules the following touch separately, so
     // the two actions can never be confused.
     const followDone = (x, next) => onQuickPatch(x, { next_follow_up: next });
+    // 2026-11-08: bulk bar helpers. Applies the patch lead-by-lead through
+    // onQuickPatch so permissions, offline mode and notices all behave
+    // exactly as they do for a single-card edit.
+    const pickedLeads = rows.filter(x => bulkSel.includes(x.id));
+    const togglePick = x => setBulkSel(v => v.includes(x.id) ? v.filter(i => i !== x.id) : [...v, x.id]);
+    const bulkApply = async patch => {
+      if (bulkBusy || !onQuickPatch || !pickedLeads.length) return;
+      setBulkBusy(true);
+      try { for (const x of pickedLeads) await onQuickPatch(x, patch); }
+      finally { setBulkBusy(false); setBulkSel([]); }
+    };
     return (
       <div className="crm-lead-wrap">
+        {onQuickPatch && bulkSel.length > 0 && (
+          <div className="crm-bulk-bar" role="region" aria-label="Bulk lead actions">
+            <b>{bulkSel.length} lead{bulkSel.length > 1 ? 's' : ''} selected</b>
+            <label>Move to stage
+              <select disabled={bulkBusy} value="" onChange={e => { if (e.target.value) bulkApply({ status: e.target.value }); }}>
+                <option value="" disabled>Choose…</option>
+                {(statusOptions || []).map(o => <option key={o} value={o}>{pretty(o)}</option>)}
+              </select>
+            </label>
+            <span className="crm-bulk-follow">Follow-up
+              <button disabled={bulkBusy} onClick={() => bulkApply({ next_follow_up: addDays(3) })} type="button">+3 days</button>
+              <button disabled={bulkBusy} onClick={() => bulkApply({ next_follow_up: addDays(7) })} type="button">+1 week</button>
+              <button disabled={bulkBusy} onClick={() => bulkApply({ next_follow_up: null })} type="button">Mark done</button>
+            </span>
+            <button className="crm-bulk-clear" disabled={bulkBusy} onClick={() => setBulkSel([])} type="button">Clear</button>
+            {bulkBusy && <em>Updating…</em>}
+          </div>
+        )}
         <div className="crm-chips">
           {[['all', 'All'], ['overdue', 'Overdue'], ['new', 'New'], ['open', 'In progress'], ['won', 'Won'], ['lost', 'Lost']].map(([id, label]) => (
             <button key={id} className={'crm-chip ' + (leadFilter === id ? 'active' : '') + (id === 'overdue' && counts.overdue > 0 ? ' alert' : '')} onClick={() => setChipFilter(id)} type="button">
@@ -2482,9 +2518,10 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
         ) : (
           <div className="crm-lead-grid">
             {leadRows.map(x => (
-              <article key={x.id}>
+              <article key={x.id} className={bulkSel.includes(x.id) ? 'is-picked' : ''}>
                 <div>
                   <span>{(x.name || '?').slice(0, 2).toUpperCase()}</span>
+                  {onQuickPatch && <input type="checkbox" className="crm-bulk-pick" title="Select for bulk actions" aria-label={'Select lead ' + (x.name || '')} checked={bulkSel.includes(x.id)} onChange={() => togglePick(x)} />}
                   {onQuickPatch && statusOptions ? statusPicker(x, x.status) : <em className={'crm-status ' + statusClass(x.status)}>{pretty(x.status)}</em>}
                 </div>
                 <h3>{x.name}</h3>

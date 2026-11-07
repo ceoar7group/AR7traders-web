@@ -234,7 +234,10 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // copy + 19 vector flags) and every stock card gained WhatsApp/offer
 // actions. This is deliberate first-load content, not dependency creep.
 const BUDGET_GZIP = 153 * 1024;
-const BUDGET_RAW = 531 * 1024;
+// 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
+// when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
+// Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
+const BUDGET_RAW = 532 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

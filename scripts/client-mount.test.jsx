@@ -173,7 +173,8 @@ const ROUTES = [
   ['/faq', 'POPULAR QUESTIONS'],
   ['/about', 'ABOUT'],
   ['/contact', 'Contact'],
-  ['/destinations', 'DEMO ROUTE CALCULATOR'],
+  // 2026-11-08: the hub's kicker dropped the word "demo" from visible copy.
+  ['/destinations', 'ROUTE FINDER'],
   // 2026-10-08: each market has its own page; mounting it must show that
   // market's H1, not the hub's picker.
   ['/destinations/kenya', 'Import a used car from Japan to Kenya'],
