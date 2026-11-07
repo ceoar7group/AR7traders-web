@@ -1,6 +1,6 @@
 # AR7 Traders — backlink plan
 
-Generated: 2026-11-07T00:39:39.991Z
+Generated: 2026-10-04T10:25:09.992Z
 
 - Prospects on the list: **80**
 - Contacted: **0**
@@ -207,6 +207,6 @@ AR7 Traders · https://ar7traders.com
 
 ## Pages that should earn links by themselves
 
-- 21 indexable routes plus 12 machinery listings and 14 language options.
+- 22 indexable routes plus 12 machinery listings and 14 language options.
 - A concrete, quotable data piece ("what 200 importers asked us for in 2026") is the single
   most reliable way to earn links without asking. Build one from CRM data.
