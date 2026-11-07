@@ -18,9 +18,6 @@
    file only carries the motion layer. There is no inset any more — the photo
    fills the grid row and the facts row sits underneath it in flow. */
 .car-main{cursor:pointer}
-.hero-stack{position:absolute;inset:0;overflow:hidden}
-.hero-stack img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.10);transition:opacity .6s ease,transform 5.5s linear;pointer-events:none}
-.hero-stack img.active{opacity:1;transform:scale(1)}
 .car-float-title{left:28px;bottom:56px;max-width:66%;animation:titleSwap .6s both}
 .car-float-title span{font-size:8px;padding:5px 8px}
 .car-float-title h3{font:700 22px/1.12 Manrope;margin:10px 0 3px;letter-spacing:-.5px}
@@ -196,7 +193,6 @@ html,body{overflow-x:clip}
 /* ---------- PERFORMANCE: no loops for reduced-motion users ---------- */
 @media (prefers-reduced-motion: reduce){
  .orbit-ring,.orbiter,.imover,.iglobe-sheen:before,.iglobe-halo,.igate,.moving-car,.moving-ship,.ticker>div,.car-float-title{animation:none!important}
- .hero-stack img{transition:opacity .6s ease}
 }
 
 /* ---------- responsive ---------- */
@@ -214,9 +210,6 @@ html,body{overflow-x:clip}
  .float-label.japan{right:2px}
  .float-label.shipment{left:2px}
  .car-main{border-radius:20px}
- .car-float-title{left:18px;bottom:38px;max-width:64%}
- .car-float-title h3{font-size:16px}
- .car-float-title p{font-size:10px}
  .car-counter{display:none}
  .car-dots{top:12px;right:12px}
  .float-label.japan{right:-6px;top:38px}

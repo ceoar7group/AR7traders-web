@@ -119,3 +119,56 @@
 .save-search-actions{display:flex;gap:10px;align-items:center}
 .save-search-actions .outline-btn{color:#fff;border-color:#ffffff3d}
 @media(max-width:640px){.save-search-row{flex-direction:column;align-items:stretch}.save-search-check{padding-bottom:0}}
+
+/* ============================================================
+   2026-11-08 — INVENTORY SHOWROOM STAGE POLISH (owner feedback)
+   1. "Arrows feel glitchy": they sat half off the stage (-6px) over the
+      captions, and a wobbly press doubled as a swipe (fixed in main.jsx).
+      They are now fully inside the stage, vertically centred on the CARS
+      (not the whole box), and read as premium controls: dark glass, gold
+      hairline, soft glow on hover, press-down on :active.
+   2. "Some stock pics are not fitted well in the frame": photographs are no
+      longer cropped by object-fit:cover — each slide shows the WHOLE photo
+      (contain) over a blurred, darkened copy of itself, so a 4:3 auction
+      shot fills the widescreen frame without losing the car.
+   ============================================================ */
+.inv-slide img{position:relative;z-index:1;object-fit:contain}
+.inv-slide>.inv-slide-bg{position:absolute;left:0;top:0;right:0;bottom:0;display:block;padding:0;
+  background-size:cover;background-position:center;
+  filter:blur(20px) brightness(.72) saturate(1.08);transform:scale(1.22)}
+.inv-slide>span.inv-slide-cap{z-index:2}
+.inv-stage-arrow{
+  width:44px;height:44px;
+  border:1px solid rgba(213,176,100,.5);
+  background:linear-gradient(160deg,rgba(6,40,26,.92),rgba(2,20,11,.88));
+  color:#f2e7cf;
+  box-shadow:0 10px 26px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.14);
+  transition:transform .22s cubic-bezier(.2,.8,.3,1),border-color .22s,box-shadow .22s,background .22s,color .22s;
+}
+.inv-stage-arrow:hover{
+  background:linear-gradient(160deg,#0b4a2e,#06281a);
+  border-color:var(--gold);color:#fff;
+  transform:translateY(-50%) scale(1.08);
+  box-shadow:0 14px 30px rgba(0,0,0,.45),0 0 0 4px rgba(213,176,100,.16);
+}
+.inv-stage-arrow:active{transform:translateY(-50%) scale(.92)}
+.inv-stage-arrow svg{width:19px;height:19px;stroke-width:2.4px}
+/* Centre the pair on the slides (top 6px + 252px tall → middle at 132px),
+   not on the stage box — at 50% of the 296px stage they clipped the caption. */
+.inv-stage-arrow.prev,.inv-stage-arrow.next{top:132px}
+.inv-stage-arrow.prev{left:10px}
+.inv-stage-arrow.next{right:10px}
+.inv-stage-dots{bottom:-12px;gap:8px}
+.inv-stage-dots i{width:8px;height:8px;border:1px solid transparent}
+.inv-stage-dots i:hover{background:#ffffff66}
+@media(max-width:900px){
+  .inv-stage-arrow{width:40px;height:40px}
+  /* slides are 200px tall from top 6px at this width → middle at 106px */
+  .inv-stage-arrow.prev,.inv-stage-arrow.next{top:106px}
+  .inv-stage-arrow.prev{left:6px}
+  .inv-stage-arrow.next{right:6px}
+}
+@media(prefers-reduced-motion:reduce){
+  .inv-slide,.inv-stage-arrow{transition:none!important}
+  .inv-stage-arrow:hover{transform:translateY(-50%)!important}
+}
