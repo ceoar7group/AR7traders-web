@@ -1748,6 +1748,7 @@ export default function CrmApp() {
               onManagePhotos={canWrite(activeEntity) ? row => setPhotoTarget({ entity: activeEntity, row }) : null}
               onViewGallery={row => setGalleryView(row)}
               onQuickPatch={canWrite(activeEntity) ? (row, patch) => quickPatch(activeEntity, row, patch) : null}
+              onAiAssist={activeEntity === 'leads' && canWrite('leads') ? row => call('/api/crm?entity=leads&ai=assist', session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id }) }) : null}
               statusOptions={configs[activeEntity]?.statusOptions}
               query={query}
               onClearSearch={() => setQuery('')}
@@ -2097,10 +2098,82 @@ function imgFallback(e) {
   el.src = '/assets/ar7-mark.png';
 }
 
-export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish, onArchive, onAddToDesk }) {
+// AI assist modal for one lead: readiness score with its evidence, matching
+// published stock, and outreach drafts to COPY — there is no send button on
+// purpose. The server note explains honestly whether Gemini or the
+// deterministic rules wrote the drafts.
+function AiAssistModal({ assist, onClose }) {
+  const { lead, loading, data, error } = assist;
+  const [copied, setCopied] = useState(null);
+  const copy = async (what, text) => {
+    try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(null), 1600); } catch {}
+  };
+  const waHref = data && lead.phone
+    ? 'https://wa.me/' + String(lead.phone).replace(/\D/g, '') + '?text=' + encodeURIComponent(data.drafts.whatsapp)
+    : null;
+  const mailHref = data && lead.email
+    ? 'mailto:' + lead.email + '?subject=' + encodeURIComponent(data.drafts.email_subject) + '&body=' + encodeURIComponent(data.drafts.email_body)
+    : null;
+  return (
+    <div className="crm-modal-bg" onMouseDown={onClose}>
+      <div className="crm-ai-modal" onMouseDown={e => e.stopPropagation()}>
+        <header>
+          <div>
+            <small><Sparkles size={13} /> AI ASSIST · DRAFTS ONLY — NOTHING IS SENT</small>
+            <h2>{lead.name || 'Lead'}</h2>
+          </div>
+          {data && <em className={'crm-ai-provider ' + data.provider}>{data.provider === 'gemini' ? 'Gemini draft' : 'Rule-based draft'}</em>}
+          <button onClick={onClose} type="button" aria-label="Close"><X /></button>
+        </header>
+        {loading && <div className="crm-ai-busy"><RefreshCw className="spin" /> Scoring the lead and drafting outreach…</div>}
+        {error && <div className="crm-ai-error"><ShieldAlert /> {error}</div>}
+        {data && <div className="crm-ai-body">
+          <section className="crm-ai-score">
+            <div className="crm-ai-score-num"><b>{data.score.score}</b><span>/10</span><small>follow-up priority</small></div>
+            <ul>
+              {(data.score.evidence || []).map((e, i) => <li key={i} className="plus">+{e.points} {e.reason}</li>)}
+              {(data.score.missing || []).slice(0, 3).map((m, i) => <li key={'m' + i} className="miss">missing: {m}</li>)}
+            </ul>
+          </section>
+          {data.sanitised?.flags?.length > 0 && <p className="crm-ai-flag"><ShieldAlert size={13} /> Instruction-like text was removed from the customer message before drafting.</p>}
+          <section>
+            <h3>Matching published stock</h3>
+            {data.cars.matches.length === 0 && data.machines.matches.length === 0
+              ? <p className="crm-ai-note">{data.cars.note}</p>
+              : <ul className="crm-ai-stock">
+                  {data.cars.matches.map(m => <li key={m.stock_no || m.name}><a href={m.href} target="_blank" rel="noreferrer">{m.name} <ExternalLink size={11} /></a><span>{m.priceUsd ? 'USD ' + Math.round(m.priceUsd).toLocaleString('en-US') + ' FOB (indicative)' : 'price on request'}{m.location ? ' · ' + m.location : ''}</span><small>{m.reason}</small></li>)}
+                  {data.machines.matches.map(m => <li key={m.ref}><a href={m.href} target="_blank" rel="noreferrer">{m.name} <ExternalLink size={11} /></a><span>{m.priceUsd ? 'USD ' + Math.round(m.priceUsd).toLocaleString('en-US') + ' FOB (indicative)' : 'price on request'}</span><small>{m.reason}</small></li>)}
+                </ul>}
+          </section>
+          <section>
+            <div className="crm-ai-draft-head"><h3>E-mail draft</h3><div>{mailHref && <a className="crm-ai-act" href={mailHref}><Mail size={13} /> Open in e-mail</a>}<button className="crm-ai-act" onClick={() => copy('email', 'Subject: ' + data.drafts.email_subject + '\n\n' + data.drafts.email_body)} type="button"><Copy size={13} /> {copied === 'email' ? 'Copied!' : 'Copy'}</button></div></div>
+            <p className="crm-ai-subject">{data.drafts.email_subject}</p>
+            <pre>{data.drafts.email_body}</pre>
+          </section>
+          <section>
+            <div className="crm-ai-draft-head"><h3>WhatsApp draft</h3><div>{waHref && <a className="crm-ai-act" href={waHref} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Open in WhatsApp</a>}<button className="crm-ai-act" onClick={() => copy('wa', data.drafts.whatsapp)} type="button"><Copy size={13} /> {copied === 'wa' ? 'Copied!' : 'Copy'}</button></div></div>
+            <pre>{data.drafts.whatsapp}</pre>
+          </section>
+          {data.note && <p className="crm-ai-note">{data.note}</p>}
+          <p className="crm-ai-disclaimer">{data.disclaimer} {data.score.disclaimer}</p>
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish, onArchive, onAddToDesk, onAiAssist }) {
   const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState(defaultViewMode);
   const [chipFilter, setChipFilter] = useState('all');
+  // Per-lead AI assist: { lead, loading, data, error }. The modal only shows
+  // what the server returned — drafts for a person to copy, never a send.
+  const [assist, setAssist] = useState(null);
+  const runAssist = async lead => {
+    setAssist({ lead, loading: true });
+    try { setAssist({ lead, data: await onAiAssist(lead) }); }
+    catch (e) { setAssist({ lead, error: e.message || 'AI assist failed' }); }
+  };
   const [sort, setSort] = useState(null); // { key, dir: 'asc' | 'desc' }
   const leadFilter = chipFilter; // shared chip state, named for the leads branch below
   const isVehicleType = entity === 'vehicles' || entity === 'listings';
@@ -2262,6 +2335,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                 <footer>
                   <a href={'mailto:' + x.email} title="Send email"><Mail /></a>
                   <a href={'https://wa.me/' + (x.phone || '').replace(/\D/g, '')} target="_blank" rel="noreferrer" title="Chat on WhatsApp"><MessageCircle /></a>
+                  {onAiAssist && <button className="crm-ai-btn" title="Score this lead and draft outreach with AI" onClick={() => runAssist(x)} type="button"><Sparkles /> AI assist</button>}
                   <button onClick={() => onEdit(x)} type="button">Open lead <ChevronRight /></button>
                   {onDelete && <button className="crm-del" title="Delete lead" onClick={() => onDelete(x)} type="button"><Trash2 /></button>}
                 </footer>
@@ -2269,6 +2343,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
             ))}
           </div>
         )}
+        {assist && <AiAssistModal assist={assist} onClose={() => setAssist(null)} />}
       </div>
     );
   }
