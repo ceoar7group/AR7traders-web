@@ -1203,3 +1203,38 @@ html[data-theme=dark] .card-wa{color:#4ade80}
 .card-offer:hover{background:var(--gold);border-color:var(--gold);color:#fff}
 .card-offer svg{width:14px;height:14px;flex:none}
 .portal-list .card-actions{display:none}
+
+/* ===== 2026-11-08: responsive polish — card actions & touch targets ====
+   Phones: WhatsApp + Make-offer become a 2-up grid of full-width 44px
+   buttons (comfortable thumb targets) with Compare beneath; the open
+   arrow and pager controls grow to 44px. Tablets/laptops: slightly
+   tighter padding so all three actions stay on one row inside the
+   narrower 2- and 3-column card grids. */
+@media(max-width:650px){
+ .card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .card-actions .card-wa,.card-actions .card-offer{width:100%;height:44px;font-size:12px}
+ .card-actions .cmp-chip{grid-column:1/-1;width:100%;justify-content:center;height:40px}
+ .car-bottom .card-open{width:44px;height:44px}
+ .inv-pager button{min-width:44px;height:44px}
+}
+@media(min-width:651px) and (max-width:1000px){
+ .card-wa,.card-offer{padding:0 10px;font-size:10.5px}
+ .cmp-chip{padding:0 10px}
+}
+@media(min-width:1001px) and (max-width:1366px){
+ .card-wa,.card-offer{padding:0 10px}
+ .cmp-chip{padding:0 11px}
+}
+
+/* ===== 2026-11-08: stop iOS focus-zoom on form fields ============
+   Safari zooms the whole page when a focused input's font is under
+   16px. On phones every text-entry control steps up to 16px so the
+   viewport stays put while typing (buttons/labels unaffected). */
+@media(max-width:650px){
+ .modal input,.modal select,
+ .account-form-wrap input,.account-form-wrap select,
+ .contact-grid input,.contact-grid textarea,
+ .inv-toolbar input,.inv-toolbar select,
+ .pp-select select,
+ .footer-news-field input{font-size:16px}
+}
