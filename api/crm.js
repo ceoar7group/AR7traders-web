@@ -50,6 +50,18 @@ export default async function handler(req,res,injected={}){
   const entity=String(req.query.entity||'');
   if(entity==='me')return send(res,200,profile);
   if(!entities[entity])return send(res,400,{error:'Unknown CRM entity'});
+  // AI assist for one lead: score + stock matches + outreach drafts.
+  // Drafts only — nothing is sent, nothing is stored on the lead. Requires
+  // leads.write because the output is outreach material, not a read-only view.
+  if(entity==='leads'&&String(req.query.ai||'')==='assist'){
+   if(req.method!=='POST')return send(res,405,{error:'Method not allowed'});
+   await assertPerm(profile,WRITE_PERM.leads,injected);
+   const id=req.body?.id;if(!id)return send(res,400,{error:'Lead id is required'});
+   const {leadAssist}=injected.leadAssist?{leadAssist:injected.leadAssist}:await import('./_lead-assist.js');
+   const result=await leadAssist(db,id,{env:injected.env||process.env,fetch:injected.fetch||globalThis.fetch});
+   await db.from('activities').insert({action:'AI assist drafted outreach for a lead',actor:profile.full_name,entity_type:'lead',entity_id:id,created_by:user.id});
+   return send(res,200,result)
+  }
   if(req.method==='GET'){
    const {data,error}=await db.from(entities[entity]).select('*').order(entity==='tasks'?'due_date':'created_at',{ascending:false}).limit(500);if(error)throw error;return send(res,200,data||[])
   }

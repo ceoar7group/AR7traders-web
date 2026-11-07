@@ -206,8 +206,13 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // to 18 real cars (six bundled spec records with 12-photo gallery URL lists
 // each, ~8 kB of data, no new library). Measured 495.90 kB raw; gzip stays
 // inside the unchanged 145 kB budget.
+// Ratcheted 498 → 503 kB raw on 2026-11-07: inventory pagination (numbered
+// Pager + per-page selector) and the hero motion showcase with brand-count
+// chips replaced the lazy globe on /inventory — plain React in main.jsx,
+// ~2 kB minified, no new library. Measured 500.10 kB raw; gzip stays inside
+// the unchanged 145 kB budget.
 const BUDGET_GZIP = 145 * 1024;
-const BUDGET_RAW = 498 * 1024;
+const BUDGET_RAW = 503 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -247,8 +252,12 @@ for (const file of entryCss) {
 // public first paint is unchanged. Measured 189.29 kB raw / 36.72 kB gzip.
 // Ratcheted 37 → 38 kB gzip / 190 → 192 kB raw on 2026-10-05 for the
 // fixed header, resized hero callouts and responsive founder-stat corrections.
+// Ratcheted 192 → 194 kB raw on 2026-11-07 (gzip unchanged at 38): the
+// inventory hero showcase + brand-pulse chips + numbered pager styles
+// (src/extra-pages.css, ~2.3 kB) and the CRM per-lead AI-assist modal
+// (src/crm.css, ~2.4 kB — a staff-tool surface). Measured 192.50 kB raw.
 const CSS_BUDGET_GZIP = 38 * 1024;
-const CSS_BUDGET_RAW = 192 * 1024;
+const CSS_BUDGET_RAW = 194 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
