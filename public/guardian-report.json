@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T18:39:17.132Z",
+  "generatedAt": "2026-11-07T20:37:38.973Z",
   "summary": {
     "total": 18,
     "pass": 17,
@@ -18,7 +18,7 @@
       "area": "health",
       "name": "Internal links resolve",
       "status": "pass",
-      "detail": "16 page(s) checked; every asset link and every route resolves",
+      "detail": "35 page(s) checked; every asset link and every route resolves",
       "fix": "Open the listed file and correct the href"
     },
     {
@@ -32,7 +32,7 @@
       "area": "health",
       "name": "Sitemap has no noindex or staff URLs",
       "status": "pass",
-      "detail": "49 URL(s) in the sitemap",
+      "detail": "68 URL(s) in the sitemap",
       "fix": "Remove staff and transactional paths from public/sitemap.xml"
     },
     {
@@ -123,14 +123,14 @@
       "area": "seo",
       "name": "One H1 per page",
       "status": "pass",
-      "detail": "16 page(s) carry exactly one H1",
+      "detail": "35 page(s) carry exactly one H1",
       "fix": "The shared page shell renders the H1 — check the route does not add a second"
     },
     {
       "area": "seo",
       "name": "Canonical on every page",
       "status": "pass",
-      "detail": "16 page(s) canonical",
+      "detail": "35 page(s) canonical",
       "fix": "Add the route to PAGE_SEO in src/seo.js"
     }
   ]
