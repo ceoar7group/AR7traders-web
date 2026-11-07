@@ -428,6 +428,10 @@ const enrichCar=(c,i)=>{
 // hydrate step replaces the array contents.
 const SHOWROOM_STOCKS=new Set(cars.filter(c=>Number(c.id)<=18&&c.stock_no).map(c=>String(c.stock_no)));
 export const isShowroomCar=c=>!!c&&!isImportedCar(c)&&(['Luxury','Supercar','Hypercar'].includes(c.body)||Number(c.id)<=12||SHOWROOM_STOCKS.has(String(c.stock_no||'')));
+// 2026-11-08 owner audit: hero-06/10/12 + angle-09/16 were re-staged (garbled
+// AR7 signage, and the LX600 rear was squeezed). /assets/* ships with a
+// 1-year immutable Cache-Control, so the corrected files carry a -v2 name —
+// NEVER overwrite a showroom file in place or cached visitors keep the old one.
 // AR7-branded showroom heroes: studio scenes generated for the curated
 // collection, keyed by stock number so they survive hydration. The hero leads
 // the gallery; the real dealer photographs follow it unchanged.
@@ -437,13 +441,13 @@ const SHOWROOM_HEROES={
  '0508888A30261019W003':'/assets/showroom/hero-03.webp',
  '0200160A30261023W003':'/assets/showroom/hero-04.webp',
  '0520284A30260812W002':'/assets/showroom/hero-05.webp',
- '9731113A30260816W001':'/assets/showroom/hero-06.webp',
+ '9731113A30260816W001':'/assets/showroom/hero-06-v2.webp',
  '0200160A30261016W001':'/assets/showroom/hero-07.webp',
  '0508888A30261103W001':'/assets/showroom/hero-08.webp',
  '0201053A30261102W002':'/assets/showroom/hero-09.webp',
- '0710232A30260926W001':'/assets/showroom/hero-10.webp',
+ '0710232A30260926W001':'/assets/showroom/hero-10-v2.webp',
  '9731113A30261103W001':'/assets/showroom/hero-11.webp',
- '0551811A30261031W001':'/assets/showroom/hero-12.webp',
+ '0551811A30261031W001':'/assets/showroom/hero-12-v2.webp',
  '0710084A30261103W001':'/assets/showroom/hero-13.webp',
  '0200160A30261018W005':'/assets/showroom/hero-14.webp',
  '0500520A30261101W002':'/assets/showroom/hero-15.webp',
@@ -463,14 +467,14 @@ const SHOWROOM_ANGLES={
  '9731113A30260816W001':'/assets/showroom/angle-06.webp',
  '0200160A30261016W001':'/assets/showroom/angle-07.webp',
  '0508888A30261103W001':'/assets/showroom/angle-08.webp',
- '0201053A30261102W002':'/assets/showroom/angle-09.webp',
+ '0201053A30261102W002':'/assets/showroom/angle-09-v2.webp',
  '0710232A30260926W001':'/assets/showroom/angle-10.webp',
  '9731113A30261103W001':'/assets/showroom/angle-11.webp',
  '0551811A30261031W001':'/assets/showroom/angle-12.webp',
  '0710084A30261103W001':'/assets/showroom/angle-13.webp',
  '0200160A30261018W005':'/assets/showroom/angle-14.webp',
  '0500520A30261101W002':'/assets/showroom/angle-15.webp',
- '0550871A30261027W001':'/assets/showroom/angle-16.webp',
+ '0550871A30261027W001':'/assets/showroom/angle-16-v2.webp',
  '0201053A30261101W001':'/assets/showroom/angle-18.webp'
 };
 const applyShowroomHero=c=>{
@@ -785,7 +789,7 @@ function HeroVisual({navigate,discounts}){
      // with the window biased below centre so the selling dealer's signage
      // above the car is cut away; MACHINE slides keep blur-fill contain so a
      // tall machine is never cropped. See .hero-slide/.is-machine CSS.
-     const resp=/^\/assets\/showroom\/hero-0[1-8]\.webp$/.test(x.image||'');
+     const resp=/^\/assets\/showroom\/hero-0[1-8](?:-v2)?\.webp$/.test(x.image||'');
      return <a key={x.id} href={x.href}
       className={'hero-slide'+(off===0?' active':'')+(x.kind==='machine'?' is-machine':'')}
       style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.35,.45)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
@@ -1541,12 +1545,16 @@ export function App(){
  const openEnquiry=(context={})=>{const safe=context&&typeof context==='object'&&!('nativeEvent' in context)?context:{};setEnquiry({kind:'contact',...safe});};
  if(page==='crm')return <React.Suspense fallback={<div className="empty-state"><Monitor/><h3>Loading the CRM…</h3><p>Fetching your workspace.</p></div>}><CrmApp/></React.Suspense>;
  return <div className="site">
+  {/* 2026-11-08 audit: keyboard/screen-reader users get a skip link past the
+      header + promo bar straight to the page content (WCAG 2.4.1). Plain
+      anchor to the in-page #main landmark — no router involvement. */}
+  <a className="skip-link" href="#main">Skip to content</a>
   <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={BRANDS()} vehicleCount={cars.length}
     menu={menu} setMenu={setMenu} dark={dark} setDark={cycleTheme} theme={theme} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
     promo={<PromoBar navigate={navigate}/>} onOpenSearch={()=>setSearchOpen(true)}
     ribbon={<WorldTimeRibbon/>} orb={<InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/>}/>
 
-  <main className={'page page-' + page}>
+  <main id="main" className={'page page-' + page}>
    {page==='home'?<>
    <section className="hero shell" id="home">
     <div className="hero-copy reveal">

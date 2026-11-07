@@ -218,3 +218,9 @@ a.car-card .fav{cursor:pointer}
 .hero{min-height:0;height:auto;max-height:none}
 @media(max-width:1000px){.hero{min-height:0;height:auto;max-height:none}}
 @media(max-width:650px){.hero{min-height:0}.hero-visual{height:auto;gap:10px}}
+
+/* 2026-11-08 audit: skip link for keyboard & screen-reader users (WCAG 2.4.1).
+   Hidden off-screen until focused; jumps focus past the fixed header straight
+   to the #main landmark. Uses top/left longhand (no inset) deliberately. */
+.skip-link{position:fixed;top:10px;left:10px;z-index:300;transform:translateY(-300%);background:var(--green);color:#fff;font:700 13px Manrope,sans-serif;padding:13px 18px;border-radius:10px;text-decoration:none;box-shadow:var(--shadow);transition:transform .2s}
+.skip-link:focus,.skip-link:focus-visible{transform:translateY(0);outline:2px solid var(--gold);outline-offset:2px}

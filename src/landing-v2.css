@@ -315,7 +315,9 @@ html,body{overflow-x:clip}
    Written to the `promo` setting from CRM → SEO desk → Campaign launchpad;
    public/promo.json remains the static fallback. Dismissible, and removes
    itself when the campaign's end date passes. */
-.promo-bar{background:linear-gradient(90deg,var(--green),#075b36 55%,var(--green));color:#eaf4ee;border-bottom:1px solid #ffffff1a;z-index:60}
+/* 2026-11-08 audit: the mid-stop was hardcoded emerald (#075b36) and leaked
+   green into the blue & gold theme — derive it from --green instead. */
+.promo-bar{background:linear-gradient(90deg,var(--green),color-mix(in srgb,var(--green) 86%,#fff) 55%,var(--green));color:#eaf4ee;border-bottom:1px solid #ffffff1a;z-index:60}
 .promo-bar-inner{display:flex;align-items:center;gap:12px;min-height:44px;padding:7px 0;font-size:12.5px}
 .promo-tag{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#ffffff1f;color:var(--gold2);flex:none}
 .promo-sub{color:#b9d3c6;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
