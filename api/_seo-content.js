@@ -81,16 +81,37 @@ export function validateDraft(raw) {
 // way on every model, so those are NOT retried on a fallback.
 const FALLBACK_STATES = new Set(['provider-unavailable', 'timeout', 'model-unavailable', 'rate-limited', 'empty-output']);
 
-async function generateWithGemini({ system, user, env, fetchImpl, feature = 'seo', model = null }) {
+// The WHOLE model chain must finish inside api/site-content.js's
+// maxDuration (60s), or Vercel kills the function and the operator sees a
+// bare 504 with no explanation — which is exactly what happened to a Topic
+// Scout run on 2026-11-07. Budget: ~40s for generation, leaving ~20s of
+// headroom for body parsing, validation and the response itself.
+const GENERATION_BUDGET_MS = 40000;
+// Per-model request timeout. One attempt per model: when a chain of fallback
+// models exists, moving to the NEXT model is the retry — re-asking an
+// overloaded model (3 × 30s) is how the budget got blown in the first place.
+const PER_MODEL_TIMEOUT_MS = 18000;
+// Don't start a model that can't realistically finish.
+const MIN_MODEL_WINDOW_MS = 6000;
+
+export async function generateWithGemini({ system, user, env, fetchImpl, feature = 'seo', model = null, now = Date.now }) {
   // 2026-11-07: a Topic Scout run died with "Gemini returned HTTP 503" because
   // only ONE model was ever tried. GEMINI_FALLBACK_MODELS existed but nothing
-  // used it. Now the primary is tried first (with its own bounded retries),
-  // then each fallback model — same prompt, same validation.
+  // used it. Now the primary is tried first, then each fallback model — same
+  // prompt, same validation — all inside one strict time budget (see above).
   const chain = [...new Set([model || geminiModelFor(feature, { env }), ...GEMINI_FALLBACK_MODELS])];
+  const deadline = now() + GENERATION_BUDGET_MS;
   let lastError = null;
+  const tried = [];
   for (const candidate of chain) {
+    const remaining = deadline - now();
+    if (remaining < MIN_MODEL_WINDOW_MS) break; // out of budget — fail honestly, not with a 504
+    tried.push(candidate);
     try {
-      const out = await geminiGenerate(user, { env, fetch: fetchImpl, system, json: true, feature, model: candidate });
+      const out = await geminiGenerate(user, {
+        env, fetch: fetchImpl, system, json: true, feature, model: candidate,
+        maxAttempts: 1, timeoutMs: Math.min(PER_MODEL_TIMEOUT_MS, remaining)
+      });
       return { raw: out.text, model: out.model, usage: out.usage, provider: 'gemini',
         fallbackUsed: candidate !== chain[0] ? candidate : null };
     } catch (e) {
@@ -99,7 +120,7 @@ async function generateWithGemini({ system, user, env, fetchImpl, feature = 'seo
     }
   }
   if (lastError) {
-    lastError.message = `${lastError.message} Tried ${chain.length} model(s): ${chain.join(', ')}.`;
+    lastError.message = `${lastError.message} Tried ${tried.length} model(s): ${tried.join(', ')}.`;
     throw lastError;
   }
   throw Object.assign(new Error('No Gemini model available'), { status: 502, state: 'provider-unavailable' });

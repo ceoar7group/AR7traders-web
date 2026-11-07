@@ -15,7 +15,7 @@
 //     with too few internal links.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { generateEditorialDraft } from '../api/_seo-content.js';
+import { generateEditorialDraft, generateWithGemini } from '../api/_seo-content.js';
 import { GEMINI_DEFAULT_MODEL, GEMINI_FALLBACK_MODELS } from '../api/_gemini.js';
 import { articleSeo, NEWS } from '../src/news-data.js';
 import { PAGE_SEO } from '../src/seo.js';
@@ -59,6 +59,33 @@ say('\n1) Gemini model fallback — the 503/overload path has a plan B');
     { env: { GEMINI_API_KEY: 'k' }, fetch: async () => notFound() }).then(() => null, e => e);
   ok(allDown && new RegExp(`Tried ${1 + GEMINI_FALLBACK_MODELS.length} model\\(s\\)`).test(allDown.message),
     'when every model fails, the error names the whole chain that was tried');
+}
+
+say('\n1b) The chain fits inside the serverless time limit — no more bare 504s');
+{
+  // 2026-11-07: Approve & publish returned "SEO workflow failed (504)" —
+  // Vercel killed api/site-content.js at maxDuration 60s while the chain was
+  // still retrying an overloaded model (worst case was ~5 minutes). Pins:
+  // ONE attempt per model (the next model IS the retry), and a hard budget
+  // that stops starting new models when time is nearly gone.
+  const overloaded = () => ({ ok: false, status: 503, json: async () => ({ error: { status: 'UNAVAILABLE', message: 'The model is overloaded.' } }) });
+
+  const calls = [];
+  const err = await generateEditorialDraft({ topic: 'Buying a used Toyota from Japan', facts: FACTS, kind: 'guide', sources: [] },
+    { env: { GEMINI_API_KEY: 'k' }, fetch: async url => { calls.push(String(url)); return overloaded(); } }).then(() => null, e => e);
+  ok(calls.length === 1 + GEMINI_FALLBACK_MODELS.length,
+    `a 503 gets ONE attempt per model (${calls.length} calls for ${1 + GEMINI_FALLBACK_MODELS.length} models) — no same-model retry storm`);
+  ok(err && err.state === 'provider-unavailable', 'the final error still reports the provider outage honestly');
+
+  // Simulated clock: every model "takes" 30s. The budget (40s) must stop the
+  // chain instead of letting it run past the function's 60s execution limit.
+  let clock = 0;
+  const slowErr = await generateWithGemini({
+    system: 's', user: 'u', env: { GEMINI_API_KEY: 'k' }, now: () => clock,
+    fetchImpl: async () => { clock += 30000; return overloaded(); }
+  }).then(() => null, e => e);
+  ok(slowErr && /Tried 2 model\(s\)/.test(slowErr.message),
+    'when models are slow, the budget stops the chain early (2 tried, not 3) — the function answers before Vercel kills it');
 }
 
 say('\n2) The scout-strippable boilerplate stays a stable contract');
