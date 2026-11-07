@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-07T17:08:17.209Z",
+  "generatedAt": "2026-11-07T18:39:17.132Z",
   "summary": {
     "total": 18,
-    "pass": 18,
+    "pass": 17,
     "warn": 0,
-    "fail": 0
+    "fail": 1
   },
   "checks": [
     {
@@ -53,7 +53,7 @@
       "area": "security",
       "name": "No secrets in the client source",
       "status": "pass",
-      "detail": "51 source file(s) scanned",
+      "detail": "52 source file(s) scanned",
       "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
     },
     {
@@ -73,8 +73,8 @@
     {
       "area": "security",
       "name": "API functions check permission",
-      "status": "pass",
-      "detail": "12 function(s) checked",
+      "status": "fail",
+      "detail": "api/my-account.js",
       "fix": "Call the shared permission helper before writing"
     },
     {
