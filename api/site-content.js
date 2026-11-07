@@ -80,6 +80,11 @@ import { runScraper } from './_machinery-scraper.js';
 // Search Console and IndexNow share this function, preserving the 12-function
 // Vercel limit. The workflow is staff-only and records submissions in activities.
 import { handleSeoWorkflow } from './_seo-workflows.js';
+// Automation history + undo: a shared module dispatched on ?activity=list|undo
+// (same 12-function-cap pattern as ?seo= and ?agents=). Every write this file
+// makes to the public website is also snapshotted there so an administrator
+// can undo it later from CRM → AI Growth → History.
+import { handleActivity, logAutomation } from './_activity.js';
 // The AI Growth agents. Another shared module: the orchestrator, the three
 // agents, the run/draft store and the approval gate all live in api/_agents.js
 // and are dispatched here on ?agents=<action>, so the dashboard, the scheduler
@@ -935,6 +940,25 @@ export default async function handler(req, res, injected = {}) {
   const agentAction = String(req.query.agents || '');
   if (agentAction) return agentDispatch(req, res, agentAction, injected);
 
+  // ---- Automation history & undo: ?activity=list|undo (staff; undo is
+  // admin-only, enforced inside handleActivity).
+  const activityAction = String(req.query.activity || '');
+  if (activityAction) {
+    const db = injected.db || adminClient();
+    let auth;
+    try {
+      auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+    } catch (error) {
+      return send(res, error.status || 401, {error: error.message || 'Unauthorized'});
+    }
+    try {
+      await assertSiteWrite(auth.profile, injected);
+    } catch (error) {
+      return send(res, error.status || 403, {error: error.message || 'Not allowed'});
+    }
+    return handleActivity(req, res, activityAction, {db, auth});
+  }
+
   // ---- Machinery desk: ?machinery=list|create|update|delete|publish|
   // unpublish|archive. Dispatched here rather than in its own file so the
   // deployment stays at 12 Serverless Functions.
@@ -991,6 +1015,14 @@ export default async function handler(req, res, injected = {}) {
     return send(res, e.status || 403, {error: e.message || 'Not allowed'});
   }
 
+  // Who/what performed this change, for the undo-capable history. The desks
+  // pass ?via= so Topic Scout's one-click publishes read differently from a
+  // person editing in the News desk. Unknown values fall back to the generic
+  // desk label rather than being trusted verbatim.
+  const VIA = {'topic-scout': 'topic-scout', 'seo-desk': 'seo-desk', 'news-desk': 'news-desk'};
+  const via = VIA[String(req.query.via || '')] || 'website-desk';
+  const label = row => row?.title || row?.name || [row?.make, row?.model].filter(Boolean).join(' ') || `${entity.slice(0, -1)} ${String(row?.id || '').slice(0, 8)}`;
+
   if (req.method === 'POST') {
     const payload = clean(entity, req.body);
     const {data, error} = await db.from(table).insert(payload).select().single();
@@ -999,11 +1031,21 @@ export default async function handler(req, res, injected = {}) {
       action: `Created website ${entity.slice(0, -1)}`,
       actor: auth.user.email, entity_type: 'site_' + entity, entity_id: data.id
     });
+    await logAutomation(db, {
+      actor: auth.user.email, source: via,
+      action: entity === 'articles' ? (data.published ? 'article-publish' : 'article-create') : 'content-create',
+      summary: entity === 'articles'
+        ? (data.published ? `Published the article “${label(data)}” to the website` : `Created the unpublished draft “${label(data)}”`)
+        : `Created website ${entity.slice(0, -1)} “${label(data)}”`,
+      entityType: table, entityId: data.id, before: null, after: data, undoKind: 'delete-row'
+    });
     return send(res, 200, data);
   }
 
   if (req.method === 'PATCH') {
     if (!req.body?.id) return send(res, 400, {error: 'Missing id'});
+    // Snapshot the row BEFORE the change — this is what undo restores.
+    const {data: beforeRow} = await db.from(table).select('*').eq('id', req.body.id).maybeSingle();
     const payload = {...clean(entity, req.body), updated_at: new Date().toISOString()};
     const {data, error} = await db.from(table).update(payload).eq('id', req.body.id).select().single();
     if (error) return send(res, 500, {error: error.message});
@@ -1011,18 +1053,38 @@ export default async function handler(req, res, injected = {}) {
       action: `Updated website ${entity.slice(0, -1)}`,
       actor: auth.user.email, entity_type: 'site_' + entity, entity_id: data.id
     });
+    const wasPublished = beforeRow?.published === true, isPublished = data.published === true;
+    await logAutomation(db, {
+      actor: auth.user.email, source: via,
+      action: entity === 'articles' && wasPublished !== isPublished
+        ? (isPublished ? 'article-publish' : 'article-unpublish')
+        : 'content-update',
+      summary: entity === 'articles' && wasPublished !== isPublished
+        ? (isPublished ? `Published the article “${label(data)}” to the website` : `Unpublished the article “${label(data)}” from the website`)
+        : `Updated website ${entity.slice(0, -1)} “${label(data)}”`,
+      entityType: table, entityId: data.id, before: beforeRow || null, after: data,
+      undoKind: beforeRow ? 'restore-row' : null
+    });
     return send(res, 200, data);
   }
 
   if (req.method === 'DELETE') {
     const id = req.query.id;
     if (!id) return send(res, 400, {error: 'Missing id'});
+    // Snapshot first: undo of a deletion re-inserts this exact row.
+    const {data: beforeRow} = await db.from(table).select('*').eq('id', id).maybeSingle();
     const {error} = await db.from(table).delete().eq('id', id);
     if (error) return send(res, 500, {error: error.message});
     // Unlike api/crm.js, deletions ARE audited here.
     await db.from('activities').insert({
       action: `Deleted website ${entity.slice(0, -1)}`,
       actor: auth.user.email, entity_type: 'site_' + entity, entity_id: id
+    });
+    await logAutomation(db, {
+      actor: auth.user.email, source: via, action: 'content-delete',
+      summary: `Deleted website ${entity.slice(0, -1)} “${label(beforeRow || {id})}”`,
+      entityType: table, entityId: id, before: beforeRow || null, after: null,
+      undoKind: beforeRow ? 'restore-row' : null
     });
     return send(res, 200, {ok: true});
   }

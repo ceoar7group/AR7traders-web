@@ -3,7 +3,11 @@
 @media(max-width:650px){.extra-head{min-height:560px}.service-panel{padding:28px}.demo-strip{grid-template-columns:1fr 1fr;gap:20px}.demo-strip div{border:0}.destination-picker{grid-template-columns:1fr}.destination-grid,.review-grid{grid-template-columns:1fr}.portal-demo{grid-template-columns:1fr}.portal-demo aside{display:grid;grid-template-columns:repeat(4,1fr);padding:10px}.portal-demo aside img,.portal-demo aside small{display:none}.portal-demo aside button{text-align:center;padding:0;font-size:8px}.portal-demo>.portal-main{padding:15px}.portal-list{grid-template-columns:1fr}.portal-car img{width:90px}.portal-car strong{display:none}.track-line{margin:45px 5px 0}.detail-gallery>div{grid-template-columns:repeat(5,1fr)}.detail-gallery>div button img{height:55px}}
 
 /* Inventory hero — motion car showcase + live brand counts (replaces globe) */
-.inv-hero{min-height:0;padding-bottom:30px}
+/* 2026-11-07 fix: .page-hero.mini is display:flex (row), so the hero-grid
+   shell and the brand strip shell were laid out SIDE BY SIDE — the strip
+   floated right and overlapped the showcase. Stack the hero vertically. */
+.inv-hero{min-height:0;padding-bottom:34px;flex-direction:column;justify-content:center}
+.inv-hero>.shell{width:min(1240px,calc(100% - 64px))}
 .inv-hero:after{font-size:200px;bottom:-70px}
 .inv-hero-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:44px;align-items:center;padding-top:26px}
 .inv-hero-copy h1{font-size:clamp(38px,4.6vw,62px);letter-spacing:-2.5px;margin:14px 0 12px}

@@ -275,7 +275,7 @@ function InvShowcase({picks,onOpen}){
    let off=(i-idx+n)%n;if(off>n/2)off-=n;
    const a=Math.abs(off);
    return <button key={c.id} type="button" className={'inv-slide'+(off===0?' active':'')}
-    style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>2?0:1-a*.22,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.3,.4)})`:'none',pointerEvents:a>2?'none':'auto'}}
+    style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>1?0:1-a*.25,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.3,.4)})`:'none',pointerEvents:a>1?'none':'auto'}}
     onClick={()=>off===0?onOpen(c):setIdx(i)} tabIndex={a>1?-1:0}
     aria-label={off===0?`Open ${c.make} ${c.model}`:`Show ${c.make} ${c.model}`}>
     <img src={c.image} alt={carAlt(c)} loading={i<3?'eager':'lazy'} decoding="async" width="520" height="300"/>

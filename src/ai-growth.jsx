@@ -26,9 +26,10 @@ import {
   Bot, Play, Pause, Square, ShieldAlert, Check, X, RefreshCw, Sparkles,
   AlertTriangle, Clock, ListChecks, Users, Search, Megaphone, Download,
   Copy, ExternalLink, Ban, Eye, KeyRound, Wifi, WifiOff, CircleSlash, Send,
-  Lightbulb, ArrowUpRight
+  Lightbulb, ArrowUpRight, History, RotateCcw
 } from 'lucide-react';
 import { buildUpgradeSuggestions, buildUpgradeBrief } from './upgrade-advisor.js';
+import { describeEntry, groupByDay } from './activity-log.js';
 import { MACHINES } from './machinery-data.js';
 import { getPublishedNews } from './news-data.js';
 import { getSettings } from './site-settings.js';
@@ -255,13 +256,17 @@ export default function AiGrowth({ token, canWrite = false, notify = () => {}, n
       )}
 
       <div className="crm-subtabs ai-tabs" role="tablist" aria-label="AI Growth areas">
-        {[['overview', 'Overview'], ['leads', 'Lead workspace'], ['seo', 'SEO workspace'], ['social', 'Social workspace'], ['advisor', 'Upgrade advisor']].map(([id, label]) => (
+        {[['overview', 'Overview'], ['leads', 'Lead workspace'], ['seo', 'SEO workspace'], ['social', 'Social workspace'], ['advisor', 'Upgrade advisor'], ['history', 'History & undo']].map(([id, label]) => (
           <button key={id} role="tab" aria-selected={workspace === id} className={workspace === id ? 'active' : ''} onClick={() => setWorkspace(id)} type="button">{label}</button>
         ))}
       </div>
 
       {workspace === 'advisor' && (
         <UpgradeAdvisor token={token} canWrite={canWrite} notify={notify} agents={agents} act={act} busy={busy} goDesk={goDesk} siteCars={siteCars} />
+      )}
+
+      {workspace === 'history' && (
+        <HistoryPanel token={token} notify={notify} />
       )}
 
       {workspace === 'overview' && (
@@ -750,6 +755,94 @@ function UpgradeAdvisor({ token, canWrite, notify, agents, act, busy, goDesk, si
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   History & undo (2026-11-07, owner's requirement): everything the SEO desk,
+   Topic Scout and the AI Growth agents publish or change is recorded in
+   automation_log (api/_activity.js), and an administrator can undo any entry
+   from here — undo restores the exact row state from before the action, and
+   the undo itself is recorded, so the trail is complete in both directions.
+   Presentation logic is pure (src/activity-log.js) and unit-tested.
+   --------------------------------------------------------------------------- */
+function HistoryPanel({ token, notify }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState('');
+
+  const load = useCallback(async () => {
+    try { setError(''); setData(await callApi(token, '/api/site-content?activity=list')); }
+    catch (e) { setError(e.message || 'Could not load the history.'); }
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
+
+  const undo = async entry => {
+    const d = describeEntry(entry, { isAdmin: data?.isAdmin });
+    if (!d.canUndo || !window.confirm(d.confirmText)) return;
+    setBusyId(entry.id);
+    try {
+      await callApi(token, '/api/site-content?activity=undo', { method: 'POST', body: { id: entry.id } });
+      notify('Undone — the previous state is back, and the undo itself is now in the history.');
+      await load();
+    } catch (e) {
+      notify(e.message || 'Undo failed — nothing was changed.');
+    } finally { setBusyId(''); }
+  };
+
+  const entries = data?.entries || [];
+  const groups = groupByDay(entries);
+
+  return (
+    <section className="crm-panel ai-history" aria-label="Automation history and undo">
+      <div className="ai-history-head">
+        <div>
+          <h3><History size={16} /> Everything automation did, newest first</h3>
+          <p className="crm-hint">
+            Each time the SEO desk publishes, Topic Scout saves a guide, or an agent changes something,
+            one line lands here automatically. If something should not have happened,
+            {data?.isAdmin ? ' press Undo — the previous version comes back exactly as it was.' : ' an administrator can press Undo to bring the previous version back.'}
+          </p>
+        </div>
+        <button type="button" onClick={load}><RefreshCw size={13} /> Refresh</button>
+      </div>
+
+      {error && <p className="crm-error" role="alert">{error}</p>}
+      {data?.storage && !data.storage.ok && (
+        <p className="crm-hint ai-history-setup" role="alert"><AlertTriangle size={13} /> {data.storage.ownerAction}</p>
+      )}
+      {data && !entries.length && !error && (!data.storage || data.storage.ok !== false) && (
+        <p className="crm-hint">Nothing recorded yet. The next publish, agent run or settings change will appear here on its own.</p>
+      )}
+
+      {groups.map(group => (
+        <div key={group.label} className="ai-history-day">
+          <h4>{group.label}</h4>
+          <ul className="ai-history-list">
+            {group.entries.map(entry => {
+              const d = describeEntry(entry, { isAdmin: data?.isAdmin });
+              return (
+                <li key={entry.id} className={'ai-history-item state-' + d.state}>
+                  <div className="ai-history-body">
+                    <b>{entry.summary}</b>
+                    <small><em className="ai-history-badge">{d.badge}</em> · {entry.actor} · {d.when}</small>
+                    {d.note && <small className="ai-history-note">{d.state === 'undone' ? <RotateCcw size={11} /> : null} {d.note}</small>}
+                  </div>
+                  <div className="ai-history-actions">
+                    {d.state === 'undoable' && d.canUndo && (
+                      <button type="button" disabled={busyId === entry.id} onClick={() => undo(entry)}>
+                        <RotateCcw size={13} /> {busyId === entry.id ? 'Undoing…' : d.undoLabel}
+                      </button>
+                    )}
+                    {d.state === 'record' && <span className="ai-history-record">record only</span>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
     </section>
   );
 }

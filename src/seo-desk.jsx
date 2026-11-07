@@ -625,7 +625,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       const payload = {title: article.title, category: article.cat, date: existingDraft?.date || article.date,
         read_min: article.min, image: article.img, excerpt: article.ex, body: article.body,
         published: false, sort_order: nextOrder, ...(activeDraftId ? {id: activeDraftId} : {})};
-      const response = await fetch('/api/site-content?entity=articles', {
+      const response = await fetch('/api/site-content?entity=articles&via=seo-desk', {
         method: activeDraftId ? 'PATCH' : 'POST',
         headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
         body: JSON.stringify(payload)
@@ -655,7 +655,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     if (!window.confirm(`Publish the reviewed guide “${created.article.title}” at /news/${created.slug}? It will become public and enter the dynamic news sitemap. Confirm that every factual claim and its source have been reviewed.`)) return;
     setPublishBusy(true);
     try {
-      const response = await fetch('/api/site-content?entity=articles', {
+      const response = await fetch('/api/site-content?entity=articles&via=seo-desk', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
         body: JSON.stringify({id: created.id, published: true})
@@ -699,7 +699,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       const article = buildArticle(draftForm, slug);
       const nextOrder = Math.min(0, ...editorArticles.map(a => Number(a.sort_order) || 0)) - 1;
       log('saving', 'Draft passed validation — saving…');
-      const saveResponse = await fetch('/api/site-content?entity=articles', {
+      const saveResponse = await fetch('/api/site-content?entity=articles&via=topic-scout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ title: article.title, category: article.cat, date: article.date,
@@ -715,7 +715,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
         return;
       }
       log('publishing', 'Publishing to /news/' + slug + '…');
-      const publishResponse = await fetch('/api/site-content?entity=articles', {
+      const publishResponse = await fetch('/api/site-content?entity=articles&via=topic-scout', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ id: saved.id, published: true })
@@ -819,6 +819,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
               <li><b>4 · Submit.</b> "Request indexing" tells Google about new and changed pages instead of waiting for it to wander by. Re-run the crawl after publishing to verify.</li>
             </ol>
             <p className="seo-muted">Rhythm that works: one approved topic per week, a crawl after every publish, and the report to your developer whenever the code section is non-empty.</p>
+            <p className="seo-muted"><b>Safety net:</b> everything this desk publishes or changes is recorded in AI Growth → History &amp; undo. If something should not have gone live, an administrator can undo it there and the previous version comes back exactly as it was.</p>
           </details>
         </section>
 
