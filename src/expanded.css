@@ -321,7 +321,7 @@ html[data-theme=dark] .detail-cta--chat svg{color:var(--gold2)}
 .moving-plane svg{position:absolute;width:24px;color:var(--gold);filter:drop-shadow(0 3px 6px #0005);animation:planeFly 16s linear infinite}
 @keyframes planeFly{0%{left:-40px;top:12px}45%{top:4px}100%{left:104%;top:12px}}
 .moving-car.convoy{animation:drive 19s linear infinite;bottom:34px;opacity:.75;z-index:1}
-.moving-car.convoy svg{width:36px;height:25px;background:#0d5c3c}
+.moving-car.convoy svg{width:36px;height:25px;background:var(--forest)} /* 2026-11-08 audit: follow the active theme */
 .moving-car.convoy span{display:none}
 .moving-car:before,.moving-car:after{content:'';position:absolute;bottom:-4px;width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at center,#e3b04b 1.5px,#14171f 2.5px);border:1.5px solid #d7d7cf66;animation:wheelSpin .55s linear infinite}
 .moving-car:before{left:5px}
@@ -815,12 +815,14 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
   border:1px solid #ffffff55!important;
   border-radius:15px!important;
   padding:0!important;
-  background:linear-gradient(145deg,#0c5c3beF,#032c1beF)!important;
+  /* 2026-11-08 audit: was hardcoded emerald — now follows the active theme
+     (emerald in light/dark, navy in blue & gold). */
+  background:linear-gradient(145deg,color-mix(in srgb,var(--forest) 94%,transparent),color-mix(in srgb,var(--deep) 94%,transparent))!important;
   color:#fff!important;
   display:grid!important;
   place-items:center!important;
   cursor:pointer!important;
-  box-shadow:0 12px 30px #0008,0 0 0 5px #032c1b35;
+  box-shadow:0 12px 30px #0008,0 0 0 5px color-mix(in srgb,var(--deep) 21%,transparent);
   backdrop-filter:blur(12px);
   transition:transform .2s ease,background .2s ease,border-color .2s ease;
 }

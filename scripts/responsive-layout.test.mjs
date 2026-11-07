@@ -118,7 +118,12 @@ assert.match(layoutCss, /\.hero \{\s*min-height: 0;[\s\S]*?max-height: none;\s*p
 assert.match(pagesCss, /@media\(max-width:650px\)\{\.page-hero\{padding-top:var\(--hero-lead\)\}/);
 assert.match(layoutCss, /scroll-padding-top: calc\(var\(--head-h\) \+ 14px\)/);
 assert.match(currencyCss, /@media\s*\(max-width:\s*899px\)/);
-assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/lux\/rolls-royce-ghost\.webp\"\s+fetchpriority=\"high\"/);
+// 2026-11-08 audit: the home hero is the showroom stage, so the high-priority
+// preload must point at its real first slide (hero-01, with the same
+// srcset/sizes as the stage <img>) — not the retired lux/ card photo.
+assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/showroom\/hero-01\.webp\"[^>]*fetchpriority=\"high\"/);
+assert.match(html, /imagesrcset=\"\/assets\/showroom\/hero-01-760\.webp 760w[^"]*\"/);
+assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+\/assets\/lux\//);
 assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+used-japanese-cars-auction-export-toyota/);
 assert.match(main, /DeferredBigGlobe/);
 // 2026-11-08: the hero became the showroom stage (PR #111) — the guard's
