@@ -1779,13 +1779,15 @@ export default function CrmApp() {
         ) : tab === 'offers' ? (
           <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} rows={rows} onOpenSeo={() => setTab('seo')} />
         ) : tab === 'seo' ? (
-          <SeoDesk token={session.access_token} canPublish={hasPerm(perms, profile?.role, 'site.write')} canPromote={hasPerm(perms, profile?.role, 'settings.write')} notify={setNotice} />
+          <SeoDesk token={session.access_token} canPublish={hasPerm(perms, profile?.role, 'site.write')} canPromote={hasPerm(perms, profile?.role, 'settings.write')} notify={setNotice} liveCars={rows.listings || []} />
         ) : tab === 'agents' ? (
           <AiGrowth
             token={session.access_token}
             canWrite={hasPerm(perms, profile?.role, 'site.write')}
             notify={setNotice}
             navigate={setTab}
+            goDesk={setTab}
+            siteCars={rows.listings || []}
           />
         ) : tab === 'guardian' ? (
           <GuardianView notify={setNotice} onOpenSeo={() => setTab('seo')} />

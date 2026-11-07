@@ -4497,3 +4497,30 @@ html[data-crm-theme="light"] .crm-shell,
 .crm-palette-item>svg:last-child{width:13px;height:13px;color:var(--crm-muted);flex:none}
 .crm-palette-none{padding:18px 12px;font:600 11.5px var(--crm-font);color:var(--crm-muted);text-align:center}
 @media(max-width:700px){.crm-kbtn kbd{display:none}.crm-bell-panel{right:-60px;width:min(330px,calc(100vw - 32px))}}
+
+/* ---------------------------------------------------------------------------
+   Upgrade Advisor tab in AI Growth (2026-11-08).
+   --------------------------------------------------------------------------- */
+.ai-advisor{display:grid;gap:14px}
+.ai-advisor-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+.ai-advisor-head h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font:700 14px var(--crm-font);color:var(--crm-ink)}
+.ai-advisor-head h3 svg{color:var(--crm-gold)}
+.ai-advisor-head>button{flex:none;white-space:nowrap}
+.ai-advisor-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.ai-advisor-item{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--crm-border);border-radius:12px;background:var(--crm-panel-sub);padding:12px 14px}
+.ai-advisor-item.impact-high{border-left:3px solid var(--crm-danger)}
+.ai-advisor-item.impact-medium{border-left:3px solid var(--crm-gold)}
+.ai-advisor-item.impact-low{border-left:3px solid var(--crm-ok)}
+.ai-advisor-pick{flex:none;padding-top:2px}
+.ai-advisor-pick input{width:15px;height:15px;accent-color:var(--crm-gold);cursor:pointer}
+.ai-advisor-body{flex:1;min-width:0;display:grid;gap:4px}
+.ai-advisor-body>b{font:700 12.5px var(--crm-font);color:var(--crm-ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ai-advisor-body small{font:500 11px var(--crm-font);color:var(--crm-muted);line-height:1.55}
+.ai-advisor-body small b{color:var(--crm-ink);font-weight:700}
+.ai-impact{font:800 8.5px var(--crm-font);font-style:normal;letter-spacing:.8px;border-radius:999px;padding:3px 8px}
+.ai-impact.high{background:var(--crm-danger-bg);color:var(--crm-danger);border:1px solid var(--crm-danger-border)}
+.ai-impact.medium{background:var(--crm-status-bg);color:var(--crm-gold);border:1px solid var(--crm-border)}
+.ai-impact.low{background:var(--crm-ok-bg);color:var(--crm-ok);border:1px solid var(--crm-ok-border)}
+.ai-advisor-actions{display:grid;gap:6px;flex:none}
+.ai-advisor-actions button{white-space:nowrap}
+@media(max-width:700px){.ai-advisor-item{flex-wrap:wrap}.ai-advisor-actions{grid-auto-flow:column}.ai-advisor-head{flex-direction:column}}

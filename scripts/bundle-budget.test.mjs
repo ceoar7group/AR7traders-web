@@ -217,8 +217,14 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // and the legal pages themselves are lazy chunks (global-search.jsx,
 // legal.jsx) and cost first-load nothing. Measured 502.95 kB raw /
 // 145.12 kB gzip.
+// Ratcheted 504 → 506 kB raw on 2026-11-08 (gzip unchanged at 146): the
+// restructured inventory brand-pulse strip (label + chips row) and the
+// stock-alert capture bar under the inventory grid — plain React in
+// main.jsx, ~1 kB minified. The Topic Scout, upgrade report and Upgrade
+// Advisor all live in the lazy CRM chunk and cost first-load nothing.
+// Measured 504.81 kB raw / 145.60 kB gzip.
 const BUDGET_GZIP = 146 * 1024;
-const BUDGET_RAW = 504 * 1024;
+const BUDGET_RAW = 506 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -267,8 +273,12 @@ for (const file of entryCss) {
 // ~2.1 kB). The search overlay and legal-page styles ship in their lazy
 // chunks (global-search.css, legal.css) and cost first-load nothing.
 // Measured 194.21 kB raw / 37.71 kB gzip.
-const CSS_BUDGET_GZIP = 38 * 1024;
-const CSS_BUDGET_RAW = 196 * 1024;
+// Ratcheted 196 → 198 kB raw / 38 → 39 kB gzip on 2026-11-08: the labelled
+// brand-pulse strip (glass panel + mobile side-scroll) and the stock-alert
+// bar in src/extra-pages.css, ~2 kB. CRM-only styles (scout, advisor) ship
+// in the lazy chunks. Measured 196.89 kB raw / 38.13 kB gzip.
+const CSS_BUDGET_GZIP = 39 * 1024;
+const CSS_BUDGET_RAW = 198 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
