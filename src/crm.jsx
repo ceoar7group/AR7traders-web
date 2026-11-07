@@ -1187,7 +1187,7 @@ export default function CrmApp() {
   useEffect(() => {
     if (DEMO) {
       setSession({ access_token: 'demo', user: { email: 'admin@ar7traders.com' } });
-      setProfile({ full_name: 'Demo Administrator', role: 'admin' });
+      setProfile({ full_name: 'Offline Administrator', role: 'admin' });
       setLoading(false);
       return;
     }
@@ -1292,7 +1292,7 @@ export default function CrmApp() {
   // One-click stock sync (admin only): makes the public website's car list
   // match the latest seed. Cars not in the seed are hidden, never deleted.
   async function syncWebsiteStock() {
-    if (DEMO) { setNotice('Stock sync needs the live database — it is disabled in demo mode.'); return; }
+    if (DEMO) { setNotice('Stock sync needs the live database — it is disabled in offline mode.'); return; }
     const ok = window.confirm(
       'Sync the public website stock to the latest seed?\n\n' +
       'All seed cars (18 real showroom picks + the Goo-net imports) will be published with their photo galleries.\n' +
@@ -1375,13 +1375,13 @@ export default function CrmApp() {
           demoWrite('goonet', next);
           setRows(v => ({ ...v, goonet: next }));
           setNotice(wasThere
-            ? `${row.make} ${row.model} is already in ${prettyTarget} — its details were refreshed (demo)`
-            : `Added ${row.make} ${row.model} to ${prettyTarget} (demo)`);
+            ? `${row.make} ${row.model} is already in ${prettyTarget} — its details were refreshed (offline)`
+            : `Added ${row.make} ${row.model} to ${prettyTarget} (offline)`);
         } else if (action === 'delist') {
           const next = (rows.goonet || []).map(x => x.id === row.id ? { ...x, available: false, delisted_at: new Date().toISOString() } : x);
           demoWrite('goonet', next);
           setRows(v => ({ ...v, goonet: next }));
-          setNotice(`Delisted ${label} (demo)`);
+          setNotice(`Delisted ${label} (offline)`);
         }
         return;
       }
@@ -1435,7 +1435,7 @@ export default function CrmApp() {
 
   // Trigger one importer run (admin) — same code the scheduled cron calls.
   async function runGoonetSync(maybeKeyword) {
-    if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in demo mode.'); return; }
+    if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in offline mode.'); return; }
     // The Run button passes its click event; only a real string is a keyword.
     const keyword = typeof maybeKeyword === 'string' ? maybeKeyword.trim() : '';
     setSyncing(true);
@@ -1483,7 +1483,7 @@ export default function CrmApp() {
   // served by GET /api/goonet-stock?action=diag). Pasting that exact markup is
   // how scripts/goonet-core.mjs gets fixed against what the site really sent.
   async function copyGoonetDiag() {
-    if (DEMO) { setNotice('The parser diagnostic needs the live database — disabled in demo mode.'); return; }
+    if (DEMO) { setNotice('The parser diagnostic needs the live database — disabled in offline mode.'); return; }
     try {
       const r = await call('/api/goonet-stock?action=diag', session.access_token);
       if (!r.sample) { setNotice('No parser diagnostic stored — the importer last read the page successfully.'); return; }
@@ -1514,7 +1514,7 @@ export default function CrmApp() {
   // "Run import now" then re-crawls from the first listing page instead of the
   // page where the crawler last stopped.
   async function resetGoonetBookmark() {
-    if (DEMO) { setNotice('The Goo-net bookmark reset needs the live database — disabled in demo mode.'); return; }
+    if (DEMO) { setNotice('The Goo-net bookmark reset needs the live database — disabled in offline mode.'); return; }
     if (!window.confirm('Reset the Goo-net importer bookmark to page 1?\n\nAlready-imported cars are skipped automatically, so no duplicates are created. Use this when the bookmark is stuck on an old page or the search URL changed.')) return;
     try {
       const r = await call('/api/goonet-stock?action=reset_bookmark', session.access_token, { method: 'POST', body: JSON.stringify({ action: 'reset_bookmark' }) });
@@ -3903,7 +3903,7 @@ function ProfileModal({ who, token, profile, perms, notify, onClose, onChanged }
     setErr('');
     try {
       if (self) {
-        if (!supabase || DEMO) throw new Error('Password changes are not available in demo mode');
+        if (!supabase || DEMO) throw new Error('Password changes are not available in offline mode');
         const { error } = await supabase.auth.updateUser({ password: pw });
         if (error) throw error;
       } else {
@@ -5546,7 +5546,7 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
         // In demo mode there is no live database: report what a real confirm
         // would have written and ask the parent to reload its local rows.
         const names = list.slice(0, 3).map(m => m.name).join(', ');
-        notify(`Imported ${list.length} machine(s) — ${names}${list.length > 3 ? '…' : ''} — published and on the website (demo mode)`);
+        notify(`Imported ${list.length} machine(s) — ${names}${list.length > 3 ? '…' : ''} — published and on the website (offline mode)`);
         setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
         onImported && onImported();
         return;
@@ -5654,7 +5654,7 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
       </button>
       {visibilityAudit && <section className="crm-scraper-result" aria-label="Stored machinery visibility">
         <b>{visibilityAudit.total} stored · {visibilityAudit.imported} imported · {visibilityAudit.published} published · {visibilityAudit.hiddenImported} hidden imports</b>
-        <p>This reads the database, not the built-in demo catalogue. A preview alone does not save anything. Review unpublished rows below; archived rows are never restored automatically.</p>
+        <p>This reads the database, not the built-in sample catalogue. A preview alone does not save anything. Review unpublished rows below; archived rows are never restored automatically.</p>
         <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported || storageBlocked} title={blockedTitle} onClick={async () => {
           if (!window.confirm('Publish all valid Available imported machines currently hidden? Archived, sold, reserved and invalid rows are excluded. Up to 100 records per run.')) return;
           setAuditBusy(true);

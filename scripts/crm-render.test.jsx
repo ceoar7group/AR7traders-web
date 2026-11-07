@@ -586,7 +586,9 @@ say('\\nMachinery scraper review and explicit confirmation');
   confirmButton = [...host.querySelectorAll('.crm-import-actions button')].find(button => /confirm import/i.test(button.textContent));
   if (confirmButton) await act(async () => { confirmButton.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
   ok(confirmations.length === 2 && imported === 1, 'accepting the confirmation proceeds through the demo-mode confirmation path');
-  ok(notices.some(message => /published.*demo mode/i.test(message)), 'the UI reports the demo publication state explicitly');
+  // 2026-11-08: the owner asked for the word "demo" to disappear from the UI;
+  // the offline-mode notice now says "offline mode" instead.
+  ok(notices.some(message => /published.*offline mode/i.test(message)), 'the UI reports the offline publication state explicitly');
   await act(async () => { panelRoot.unmount(); });
   host.remove();
 }

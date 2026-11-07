@@ -198,10 +198,10 @@ export function WorldPage({navigate}){
    <div className="world-copy">
     <div className="kicker">AR7 GLOBAL EXPORT NETWORK</div>
     <h1>Where AR7<br/><em>ships.</em></h1>
-    <p>Spin the globe. Every gold route is a live AR7 demo lane from Japan to the world's ports — <b>click Japan</b> to browse the inventory, or press any country to open its market guide.</p>
+    <p>Spin the globe. Every gold route is a sample AR7 lane from Japan to the world's ports — <b>click Japan</b> to browse the inventory, or press any country to open its market guide.</p>
     <div className="world-cta"><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>Browse inventory <ArrowRight/></a><a className="outline-btn" href="/destinations" onClick={linkClick('destinations',navigate)}>Market guides</a></div>
     <div className="world-stats">
-     {[['08','Demo routes'],['6','Market guides'],['24/7','Portal access'],['100%','Cost transparency']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
+     {[['27','Market guides'],['30+','Ports of discharge'],['24/7','Portal access'],['100%','Cost transparency']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
     </div>
    </div>
    <div className="hero-orb world-hero-orb"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
@@ -224,7 +224,7 @@ export function WorldPage({navigate}){
    <div className="net-grid">
     <div className="net-stats">{[[Ship,'RoRo','Sea freight'],[CarFront,'Docs','Handled end to end'],[Gavel,'Auction','+ dealer sourcing'],[BadgeCheck,'1','Accountable team']].map(x=>{const I=x[0];return <div key={x[2]}><i><I/></i><b>{x[1]}</b><span>{x[2]}</span></div>})}</div>
     <article className="net-panel">
-     <h3>Demo sailing schedule</h3>
+     <h3>Sample sailing schedule</h3>
      <table><thead><tr><th>Vessel</th><th>Route</th><th>ETA</th><th>Status</th></tr></thead><tbody>
       {[['AR7 VALIANT','Yokohama → Karachi','Aug 29','At sea'],['GOLDEN PIONEER','Kobe → Jebel Ali','Sep 02','Loaded'],['PACIFIC TRADER','Nagoya → Mombasa','Sep 05','Loading'],['EVER GLORY','Tokyo → Southampton','Sep 11','Booking'],['MSC ARIA','Yokohama → Auckland','Sep 14','Booking'],['STELLAR LADY','Osaka → Sydney','Sep 18','Booking']].map(x=><tr key={x[0]}><td><b>{x[0]}</b></td><td>{x[1]}</td><td>{x[2]}</td><td><span className={"st "+x[3].toLowerCase().replace(' ','')}>{x[3]}</span></td></tr>)}
      </tbody></table>

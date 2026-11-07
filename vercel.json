@@ -6,6 +6,82 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/destinations/qatar",
+      "destination": "/destinations/qatar/index.html"
+    },
+    {
+      "source": "/destinations/oman",
+      "destination": "/destinations/oman/index.html"
+    },
+    {
+      "source": "/destinations/malta",
+      "destination": "/destinations/malta/index.html"
+    },
+    {
+      "source": "/destinations/cyprus",
+      "destination": "/destinations/cyprus/index.html"
+    },
+    {
+      "source": "/destinations/ireland",
+      "destination": "/destinations/ireland/index.html"
+    },
+    {
+      "source": "/destinations/mongolia",
+      "destination": "/destinations/mongolia/index.html"
+    },
+    {
+      "source": "/destinations/bangladesh",
+      "destination": "/destinations/bangladesh/index.html"
+    },
+    {
+      "source": "/destinations/sri-lanka",
+      "destination": "/destinations/sri-lanka/index.html"
+    },
+    {
+      "source": "/destinations/papua-new-guinea",
+      "destination": "/destinations/papua-new-guinea/index.html"
+    },
+    {
+      "source": "/destinations/fiji",
+      "destination": "/destinations/fiji/index.html"
+    },
+    {
+      "source": "/destinations/guyana",
+      "destination": "/destinations/guyana/index.html"
+    },
+    {
+      "source": "/destinations/trinidad-and-tobago",
+      "destination": "/destinations/trinidad-and-tobago/index.html"
+    },
+    {
+      "source": "/destinations/jamaica",
+      "destination": "/destinations/jamaica/index.html"
+    },
+    {
+      "source": "/destinations/botswana",
+      "destination": "/destinations/botswana/index.html"
+    },
+    {
+      "source": "/destinations/dr-congo",
+      "destination": "/destinations/dr-congo/index.html"
+    },
+    {
+      "source": "/destinations/mozambique",
+      "destination": "/destinations/mozambique/index.html"
+    },
+    {
+      "source": "/destinations/zimbabwe",
+      "destination": "/destinations/zimbabwe/index.html"
+    },
+    {
+      "source": "/destinations/zambia",
+      "destination": "/destinations/zambia/index.html"
+    },
+    {
+      "source": "/destinations/uganda",
+      "destination": "/destinations/uganda/index.html"
+    },
+    {
       "source": "/news/comparing-fob-and-cif-vehicle-quotations",
       "destination": "/news/comparing-fob-and-cif-vehicle-quotations/index.html"
     },

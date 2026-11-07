@@ -1187,3 +1187,19 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
 .landing-links a{font:700 11px Manrope;color:var(--ink);border:1px solid var(--line);background:var(--card);border-radius:99px;padding:6px 12px;text-decoration:none;transition:.22s}
 .landing-links a:hover{border-color:var(--gold);color:var(--green-text);transform:translateY(-2px)}
 @media(prefers-reduced-motion:reduce){.landing-links a,.landing-links a:hover{transition:none;transform:none}}
+
+/* 2026-11-08 card redesign (owner direction): the lower half of every stock
+   card became an action zone — spec pills and a framed price plate are in
+   styles.css; below are the per-car WhatsApp and Make-offer buttons that sit
+   beside the Compare chip. Hidden in the tiny portal preview list. */
+.card-actions{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.card-actions>button{flex:1 1 auto;justify-content:center}
+.card-wa,.card-offer{display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:39px;padding:0 12px;border-radius:10px;font:700 11px Manrope;letter-spacing:.3px;cursor:pointer;transition:background .18s,color .18s,border-color .18s,box-shadow .18s}
+.card-wa{border:1px solid color-mix(in srgb,#1fa855 42%,var(--line));background:color-mix(in srgb,#25d366 9%,var(--card));color:#108a44}
+html[data-theme=dark] .card-wa{color:#4ade80}
+.card-wa:hover{background:#1fa855;border-color:#1fa855;color:#fff}
+.card-wa svg{width:14px;height:14px;flex:none}
+.card-offer{border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));background:color-mix(in srgb,var(--gold) 9%,var(--card));color:var(--gold)}
+.card-offer:hover{background:var(--gold);border-color:var(--gold);color:#fff}
+.card-offer svg{width:14px;height:14px;flex:none}
+.portal-list .card-actions{display:none}

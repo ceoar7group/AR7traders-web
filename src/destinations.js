@@ -80,6 +80,112 @@ export const DEST = [
     'USA', 'Los Angeles', '28–36 days', 'Kei trucks · 4Runner', 1400,
     'Check the exact manufacture date and vehicle specification with a US import specialist before purchase. NHTSA safety eligibility and EPA emissions eligibility are separate requirements. Do not assume a Japanese-market car or kei truck is road-legal merely because it can be shipped.',
     'Your customs broker confirms the invoice, Bill of Lading, Japanese Export Certificate and applicable NHTSA and EPA declarations for US Customs and Border Protection. State title and registration requirements must be checked separately before committing to a vehicle.'
+  ],
+
+  // -------------------------------------------------------------------------
+  // Market expansion (owner direction 2026-11-08): the routes below are the
+  // established used-vehicle lanes out of Japan that the first eight markets
+  // left uncovered — East & Southern Africa, the Caribbean, the Pacific,
+  // South Asia, the Gulf and the RHD corners of Europe. Same rules as above:
+  // transit windows are planning figures, freight baselines feed the demo
+  // calculators only, and no duty rate is ever quoted — where a market gates
+  // imports behind a licence or an age rule, the copy says "confirm before
+  // purchase" instead of promising eligibility.
+  // -------------------------------------------------------------------------
+  [
+    'Uganda', 'Mombasa (transit to Kampala)', '30–38 days', 'Harrier · Premio · Hiace', 1250,
+    'Our Japan desk verifies the first-registration year against current Ugandan rules, books the UNBS pre-export roadworthiness inspection (JEVIC) at the export yard, and arranges RoRo space to Mombasa with onward bonded transit toward Kampala.',
+    'Your clearing agent presents the roadworthiness certificate, Original Bill of Lading and Japanese Export Certificate to the Uganda Revenue Authority for the bonded movement from Mombasa. Import duty, the environmental levy and registration fees are assessed by URA.'
+  ],
+  [
+    'Zambia', 'Dar es Salaam (transit to Lusaka)', '32–40 days', 'Vitz · Fit · Noah', 1350,
+    'We confirm chassis and engine numbers against the Export Certificate, book the ZABS pre-export roadworthiness inspection in Japan, and load RoRo to Dar es Salaam for bonded road transit to Lusaka or the Copperbelt.',
+    'The inspection certificate, Original Bill of Lading and commercial invoice travel ahead by courier so your agent can clear with the Zambia Revenue Authority and arrange the transit bond. All duties and taxes are assessed by ZRA at entry.'
+  ],
+  [
+    'Zimbabwe', 'Dar es Salaam (transit to Harare)', '32–42 days', 'Fit · Vitz · Hilux', 1350,
+    'We photograph the car at the export yard, confirm the de-registration paperwork, and book RoRo to Dar es Salaam with bonded carriage to Harare or Bulawayo — confirming any current pre-shipment inspection requirement with your clearing agent before loading.',
+    'Your agent lodges the Original Bill of Lading, Japanese Export Certificate and invoice with ZIMRA for the transit entry and final clearance. Duty, surtax and registration charges are calculated by Zimbabwean authorities.'
+  ],
+  [
+    'Mozambique', 'Maputo / Beira', '28–35 days', 'Vitz · Demio · Hiace', 1300,
+    'Mozambique-bound cars complete the required pre-shipment inspection in Japan before loading; we verify the chassis number against the Export Certificate and book RoRo or container space to Maputo or Beira.',
+    'The inspection certificate, Original Bill of Lading and invoice are couriered ahead for clearance with Mozambique Customs. Duties and taxes are assessed by the Autoridade Tributária at the port.'
+  ],
+  [
+    'DR Congo', 'Dar es Salaam (transit to Lubumbashi)', '35–45 days', 'Hiace · Land Cruiser · Canter', 1400,
+    'We prepare the export paperwork with French translations where requested, and book RoRo to Dar es Salaam with bonded road carriage toward Lubumbashi and the Katanga mining region.',
+    'Your clearing agent files the Original Bill of Lading, Japanese Export Certificate and invoice with DGDA customs at the border post. All duties and taxes are assessed by Congolese authorities.'
+  ],
+  [
+    'Botswana', 'Durban / Walvis Bay (transit to Gaborone)', '35–45 days', 'Hilux · Fortuner · Corolla', 1450,
+    'Botswana-bound cars ship RoRo to Durban or Walvis Bay and move under customs bond by road to Gaborone or Francistown; we confirm the transit routing with your clearing agent before the vessel is booked.',
+    'BURS assesses customs duty and VAT when the bond is closed in Botswana. The Original Bill of Lading, Japanese Export Certificate and invoice are couriered ahead so the transit documents can be prepared before arrival.'
+  ],
+  [
+    'Jamaica', 'Kingston', '40–50 days', 'Fielder · Axio · Probox', 1800,
+    'Before any purchase we ask you to confirm your Trade Board import licence and the current vehicle-age limit — then our Japan desk sources the car, photographs it at the yard and books container or RoRo space to Kingston.',
+    'Your licensed customs broker presents the import licence, Original Bill of Lading, Japanese Export Certificate and invoice to the Jamaica Customs Agency. Duties, fees and registration are assessed by Jamaican authorities.'
+  ],
+  [
+    'Trinidad & Tobago', 'Port of Spain', '42–52 days', 'Aqua · Fielder · Raize', 1850,
+    'We confirm the car fits the current import-licence and age rules with your broker before purchase, then arrange inspection photographs and container or RoRo space to Port of Spain.',
+    'The Customs and Excise Division processes the entry against the import licence, Original Bill of Lading and Japanese Export Certificate. Motor vehicle tax, VAT and duty are assessed by Trinidad and Tobago authorities.'
+  ],
+  [
+    'Guyana', 'Georgetown', '45–55 days', 'Premio · Allion · Spacio', 1900,
+    'We verify the first-registration year — Guyana taxes by age band — photograph the car at the export yard and book container space to Georgetown, usually via Caribbean transshipment.',
+    'Your broker lodges the Original Bill of Lading, Japanese Export Certificate and invoice with the Guyana Revenue Authority, which assesses all duties and taxes at entry.'
+  ],
+  [
+    'Fiji', 'Suva / Lautoka', '18–25 days', 'Prius · Aqua · Hiace', 1100,
+    'Fiji-bound cars get pre-export biosecurity cleaning in Japan, and we confirm the current LTA age and standards rules for the exact car before purchase, then book RoRo to Suva or Lautoka.',
+    'Biosecurity inspection and customs clearance happen at the Fijian port; the Fiji Revenue and Customs Service assesses duty and VAT, and LTA handles inspection and registration.'
+  ],
+  [
+    'Papua New Guinea', 'Port Moresby / Lae', '20–28 days', 'Land Cruiser · Hilux · Dyna', 1300,
+    'We prepare underbody photographs and biosecurity cleaning in Japan, then book RoRo or container space on the Pacific services into Port Moresby or Lae.',
+    'PNG Customs Service processes the entry against the Original Bill of Lading, Japanese Export Certificate and invoice; duties and GST are assessed at the port, and registration follows locally.'
+  ],
+  [
+    'Sri Lanka', 'Colombo / Hambantota', '14–20 days', 'Wagon R · Alto · Prius', 850,
+    'Sri Lanka\u2019s import licensing changes frequently, so we confirm the current permit position for the exact model and year with your agent before any bid, then book RoRo space on the short Colombo lane.',
+    'Your clearing agent files the import licence, Original Bill of Lading and Japanese Export Certificate with Sri Lanka Customs, which assesses all duties and levies at entry.'
+  ],
+  [
+    'Bangladesh', 'Chattogram / Mongla', '16–22 days', 'Allion · Premio · X-Trail', 900,
+    'We verify the manufacturing year against the current Import Policy Order age limit with your C&F agent, arrange yard photographs and book RoRo or container space to Chattogram or Mongla.',
+    'Your C&F agent lodges the Original Bill of Lading, Japanese Export Certificate and invoice with Bangladesh Customs; duty, supplementary duty and VAT are assessed under the national tariff at entry.'
+  ],
+  [
+    'Mongolia', 'Tianjin (rail to Ulaanbaatar)', '30–40 days', 'Prius · Land Cruiser · Delica', 1600,
+    'Mongolia-bound cars normally ship by container to Tianjin and continue by rail to Ulaanbaatar under transit documents; we confirm the corridor and handover point with your forwarder before loading in Japan.',
+    'Mongolian Customs assesses duty, excise and VAT when the shipment clears at the border or in Ulaanbaatar; the Original Bill of Lading, Japanese Export Certificate and invoice travel ahead so the transit file is ready.'
+  ],
+  [
+    'Ireland', 'Dublin', '40–48 days', 'Jimny · Alphard · Roadster', 1550,
+    'We confirm odometer history on the de-registration paperwork, photograph the car in Japan and book container or RoRo space to Dublin, usually via a European transshipment hub.',
+    'Customs entry is filed with the Revenue Commissioners using our invoice and the Japanese Export Certificate, followed by VRT inspection, NCT where applicable, and Irish registration. Customs duty, VAT and VRT are assessed by Revenue.'
+  ],
+  [
+    'Cyprus', 'Limassol', '30–38 days', 'Vitz · Note · Serena', 1450,
+    'Cyprus drives on the left, so Japanese cars fit directly; we verify the registration paperwork, arrange photographs and book container or RoRo space to Limassol.',
+    'Your agent completes the EU import declaration with Cyprus Customs and Excise, then registration follows with the Road Transport Department. Duty, VAT and registration fees are assessed by Cypriot authorities.'
+  ],
+  [
+    'Malta', 'Valletta (Marsaxlokk)', '32–40 days', 'Jazz · Fit · N-Box', 1500,
+    'We confirm the odometer history and the vehicle details Malta\u2019s registration system uses, then book container space to the Malta Freeport with transshipment on the main east\u2013west services.',
+    'Malta Customs processes the EU import entry, and Transport Malta assesses the registration tax from the vehicle\u2019s details before Maltese plates are issued. All amounts are set by Maltese authorities.'
+  ],
+  [
+    'Oman', 'Sohar / Muscat', '16–22 days', 'Land Cruiser · Patrol · Lexus LX', 900,
+    'We confirm the exact specification with you — Oman registers left-hand-drive vehicles — then arrange inland transport to the export port and book RoRo or container space to Sohar.',
+    'Royal Oman Police Customs clears the car against the Original Bill of Lading, Japanese Export Certificate and invoice; duty and registration requirements are set by Omani authorities.'
+  ],
+  [
+    'Qatar', 'Hamad Port', '18–24 days', 'Land Cruiser · Prado · Lexus', 950,
+    'We confirm the left-hand-drive specification and the current vehicle-age rule with your clearing agent before purchase, then book RoRo or container space to Hamad Port.',
+    'The General Authority of Customs processes the entry using the Original Bill of Lading, Japanese Export Certificate and invoice; duty and registration with the Ministry of Interior are assessed in Qatar.'
   ]
 ];
 
@@ -156,6 +262,112 @@ export const DESTINATION_DOCS = {
     inspection: 'TBS pre-shipment roadworthiness inspection (EAA / JEVIC) at the Japanese export yard',
     docs: ['Inspection certificate', 'Original Bill of Lading', 'Export Certificate', 'Commercial invoice'],
     authority: 'Tanzania Revenue Authority'
+  },
+  // 2026-11-08 market expansion — same discipline as above: the docs listed
+  // are the ones each market's own arrival copy names, inspections only where
+  // the regime is firmly established, and gated markets state the licence or
+  // age check as an eligibility caveat instead of a promise.
+  Uganda: {
+    inspection: 'UNBS pre-export roadworthiness inspection (JEVIC), booked in Japan before loading',
+    docs: ['Roadworthiness certificate', 'Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Uganda Revenue Authority'
+  },
+  Zambia: {
+    inspection: 'ZABS pre-export roadworthiness inspection, booked in Japan before loading',
+    docs: ['Inspection certificate', 'Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Zambia Revenue Authority'
+  },
+  Zimbabwe: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Zimbabwe Revenue Authority (ZIMRA)'
+  },
+  Mozambique: {
+    inspection: 'Pre-shipment inspection for Mozambique customs, completed in Japan before loading',
+    docs: ['Inspection certificate', 'Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Mozambique Customs (Autoridade Tributária)'
+  },
+  'DR Congo': {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice (French translation on request)'],
+    authority: 'DGDA (Congolese customs)'
+  },
+  Botswana: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice', 'Customs bond transit documents, prepared by your clearing agent'],
+    authority: 'Botswana Unified Revenue Service'
+  },
+  Jamaica: {
+    inspection: null,
+    docs: ['Trade Board import licence (obtained by the buyer before shipment)', 'Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Jamaica Customs Agency',
+    eligibility: 'A Trade Board import licence and the current vehicle-age limit must be confirmed before buying or shipping.'
+  },
+  'Trinidad & Tobago': {
+    inspection: null,
+    docs: ['Import licence (obtained by the buyer before shipment)', 'Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Customs and Excise Division of Trinidad and Tobago',
+    eligibility: 'An import licence and the current vehicle-age limit must be confirmed before buying or shipping.'
+  },
+  Guyana: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Guyana Revenue Authority'
+  },
+  Fiji: {
+    inspection: 'Pre-export biosecurity cleaning in Japan',
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice', 'Biosecurity cleaning record'],
+    authority: 'Fiji Revenue and Customs Service',
+    eligibility: 'Confirm the current LTA age and standards rules for the exact car before purchase.'
+  },
+  'Papua New Guinea': {
+    inspection: 'Pre-export biosecurity cleaning in Japan',
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'PNG Customs Service'
+  },
+  'Sri Lanka': {
+    inspection: null,
+    docs: ['Import licence / permit (confirmed before purchase)', 'Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Sri Lanka Customs',
+    eligibility: 'Import permits and age rules change frequently — confirm the current licence position for the exact model before purchase.'
+  },
+  Bangladesh: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Bangladesh Customs (National Board of Revenue)',
+    eligibility: 'The current Import Policy Order age limit must be confirmed for the exact car before purchase.'
+  },
+  Mongolia: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice', 'Rail transit documents, prepared by your forwarder'],
+    authority: 'Mongolian Customs General Administration'
+  },
+  Ireland: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice', 'Customs entry and VRT booking, filed by your agent'],
+    authority: 'The Revenue Commissioners'
+  },
+  Cyprus: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Cyprus Customs and Excise'
+  },
+  Malta: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Malta Customs and Transport Malta'
+  },
+  Oman: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'Royal Oman Police Customs',
+    eligibility: 'Oman registers left-hand-drive vehicles — confirm the specification and any age rule before purchase.'
+  },
+  Qatar: {
+    inspection: null,
+    docs: ['Original Bill of Lading', 'Japanese Export Certificate', 'Commercial invoice'],
+    authority: 'General Authority of Customs (Qatar)',
+    eligibility: 'Qatar restricts older used imports — confirm the current vehicle-age rule for the exact car before purchase.'
   }
 };
 
