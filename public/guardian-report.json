@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T10:23:45.106Z",
+  "generatedAt": "2026-11-07T12:32:18.494Z",
   "summary": {
     "total": 18,
     "pass": 18,
@@ -25,14 +25,14 @@
       "area": "health",
       "name": "Crawler shell has content",
       "status": "pass",
-      "detail": "index.html carries an H1 (15.9 KB)",
+      "detail": "index.html carries an H1 (15.8 KB)",
       "fix": "Check index.html — the pre-render feeds every crawler"
     },
     {
       "area": "health",
       "name": "Sitemap has no noindex or staff URLs",
       "status": "pass",
-      "detail": "46 URL(s) in the sitemap",
+      "detail": "49 URL(s) in the sitemap",
       "fix": "Remove staff and transactional paths from public/sitemap.xml"
     },
     {
@@ -53,7 +53,7 @@
       "area": "security",
       "name": "No secrets in the client source",
       "status": "pass",
-      "detail": "45 source file(s) scanned",
+      "detail": "47 source file(s) scanned",
       "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
     },
     {
