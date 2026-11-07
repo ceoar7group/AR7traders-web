@@ -65,6 +65,8 @@ export const GUIDE_ASSETS = [
   '/assets/og/shipping.jpg'
 ];
 
+/** How many per-URL crawl rows show before "View full list" (problems first). */
+const CRAWL_PREVIEW_ROWS = 10;
 const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 const readMins = body => Math.max(2, Math.round(String(body).split(/\s+/).filter(Boolean).length / 200));
 const prettyLabel = value => String(value || '').replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase());
@@ -159,6 +161,23 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   const [connectorBusy, setConnectorBusy] = useState(false);
   const [liveCrawl, setLiveCrawl] = useState({state: 'idle', rows: [], done: 0, total: 0, sources: [], sourceErrors: []});
   const crawlController = useRef(null);
+  // Per-URL diagnostics start as a short, problems-first digest; the full
+  // 400+ row list is one click away (owner request, 2026-11-07).
+  const [crawlShowAll, setCrawlShowAll] = useState(false);
+  const crawlCounts = useMemo(() => {
+    let fail = 0, warn = 0, clean = 0;
+    for (const row of liveCrawl.rows) {
+      if ((row.fails || 0) > 0 || row.error) fail++;
+      else if ((row.warns || 0) > 0) warn++;
+      else clean++;
+    }
+    return { fail, warn, clean };
+  }, [liveCrawl.rows]);
+  const visibleCrawlRows = useMemo(() => {
+    const rank = row => ((row.fails || 0) > 0 || row.error) ? 0 : (row.warns || 0) > 0 ? 1 : 2;
+    const sorted = [...liveCrawl.rows].sort((a, b) => rank(a) - rank(b));
+    return crawlShowAll ? sorted : sorted.slice(0, CRAWL_PREVIEW_ROWS);
+  }, [liveCrawl.rows, crawlShowAll]);
   const [indexingPreview, setIndexingPreview] = useState(null);
   const [indexingBusy, setIndexingBusy] = useState(false);
   const [indexingResult, setIndexingResult] = useState(null);
@@ -744,8 +763,10 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       notify(`Guide published from approved topic: ${article.title}`);
     } catch (error) {
       // A 503 / overload is Google's side, not the operator's: say so, and say
-      // the one thing that actually helps — try again.
-      const transient = /503|overload|unavailable|timed? ?out|rate.?limit/i.test(error.message || '');
+      // the one thing that actually helps — try again. A 504/502 is the same
+      // story seen from Vercel's gateway (the function ran out of time while
+      // the provider was slow — observed 2026-11-07), so it gets the same copy.
+      const transient = /50[234]|overload|unavailable|gateway|timed? ?out|rate.?limit/i.test(error.message || '');
       const friendly = transient
         ? 'Google\u2019s AI was busy for a moment (it happens at peak times). Nothing was saved or published. Just press \u201cApprove & publish\u201d again \u2014 the desk now also tries two backup models automatically.'
         : (error.message || 'The run failed.') + ' Nothing was published.';
@@ -1176,8 +1197,17 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
           {liveCrawl.rows.length > 0 && (
             <div className="seo-crawl-results">
               <h3>Per-URL crawl diagnostics <small>{liveCrawl.rows.length} URL(s)</small></h3>
+              {/* 2026-11-07 (owner request): a 414-row dump was unreadable.
+                  Lead with the verdict, show only the rows that need eyes
+                  (problems first), and keep the full list behind one click. */}
+              <div className="seo-crawl-summary" role="status">
+                <span className="fail">{crawlCounts.fail} failing</span>
+                <span className="warn">{crawlCounts.warn} with warnings</span>
+                <span className="pass">{crawlCounts.clean} clean</span>
+                {crawlCounts.fail === 0 && crawlCounts.warn === 0 && <em>Everything passed — the list below is for reference only.</em>}
+              </div>
               <ul>
-                {liveCrawl.rows.map(row => (
+                {visibleCrawlRows.map(row => (
                   <li key={row.url} className={'seo-crawl-row ' + (row.state || 'unknown')}>
                     <div className="seo-crawl-row-head">
                       <div><b>{row.path || row.url}</b><small>{row.httpStatus ? `HTTP ${row.httpStatus}` : row.error || 'No HTTP response'}{row.score != null ? ` · ${row.score}/100 · ${row.fails} fail · ${row.warns} warn` : ''}{row.noindex ? ' · noindex — excluded' : ''}</small></div>
@@ -1195,6 +1225,14 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
                   </li>
                 ))}
               </ul>
+              {liveCrawl.rows.length > CRAWL_PREVIEW_ROWS && (
+                <div className="seo-crawl-more">
+                  {!crawlShowAll && <small>Showing the {visibleCrawlRows.length} most important of {liveCrawl.rows.length} — problems always sort first.</small>}
+                  <button type="button" className="seo-secondary-btn" onClick={() => setCrawlShowAll(v => !v)}>
+                    {crawlShowAll ? 'Show short list' : `View full list (${liveCrawl.rows.length} URLs)`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
