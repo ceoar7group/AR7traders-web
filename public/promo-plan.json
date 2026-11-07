@@ -1,23 +1,5 @@
 {
-  "generatedAt": "2026-11-07T18:36:53.404Z",
-  "guides": [
-    {
-      "id": "2026-11-guide-1",
-      "due": "2026-11-07",
-      "title": "Before bidding: checking Australian vehicle import eligibility",
-      "target": "/destinations",
-      "brief": "Confirm the applicable approval pathway with the Australian transport authority and buyer’s compliance specialist before purchase.",
-      "status": "review-required"
-    },
-    {
-      "id": "2026-11-guide-2",
-      "due": "2026-11-14",
-      "title": "Importing a Japanese car to the USA: eligibility before shipping",
-      "target": "/destinations",
-      "brief": "Verify federal safety, emissions and state registration requirements independently; do not promise every Japanese vehicle is eligible.",
-      "status": "review-required"
-    }
-  ],
+  "generatedAt": "2026-10-04T10:25:09.162Z",
   "campaigns": [
     {
       "id": "machinery-excavators",
