@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T13:40:01.133Z",
+  "generatedAt": "2026-11-07T14:09:41.124Z",
   "summary": {
     "total": 18,
     "pass": 18,
@@ -25,7 +25,7 @@
       "area": "health",
       "name": "Crawler shell has content",
       "status": "pass",
-      "detail": "index.html carries an H1 (15.8 KB)",
+      "detail": "index.html carries an H1 (16.0 KB)",
       "fix": "Check index.html — the pre-render feeds every crawler"
     },
     {
@@ -53,7 +53,7 @@
       "area": "security",
       "name": "No secrets in the client source",
       "status": "pass",
-      "detail": "50 source file(s) scanned",
+      "detail": "51 source file(s) scanned",
       "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
     },
     {
