@@ -13,7 +13,8 @@
 export const PAGES = new Set([
   'home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
   'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'account',
-  'portal', 'crm', 'studio', 'shipping', 'machinery', 'seo'
+  'portal', 'crm', 'studio', 'shipping', 'machinery', 'seo',
+  'privacy', 'cookies', 'terms'
 ]);
 
 // Pages that used to exist and now live elsewhere. /japan-stock was folded

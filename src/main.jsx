@@ -52,6 +52,11 @@ const CustomerAccount = lazyRetry(() =>
   import('./customer-portal.jsx').then(m => ({ default: m.CustomerAccountPage })), 'account');
 // The /reviews showcase and its 12 buyer stories are only reached from /reviews.
 const ReviewsShowcase = lazyRetry(() => import('./reviews.jsx'), 'reviews');
+// Legal pages (/privacy, /cookies, /terms) — policy text stays out of the
+// first-load bundle.
+const LegalPage = lazyRetry(() => import('./legal.jsx'), 'legal');
+// The ⌘K global search overlay loads the first time it opens.
+const GlobalSearch = lazyRetry(() => import('./global-search.jsx'), 'search');
 // The machinery desk is its own page (and its own CSS chunk), reached from
 // /machinery, the Inventory menu and the home teaser.
 const MachineryPage = lazyRetry(() => import('./machinery.jsx').then(m => ({ default: m.MachineryPage })), 'machinery');
@@ -937,6 +942,22 @@ function VehicleLightbox({selected,detailImage,detailGallery,zoomLevel,setZoomLe
 // pages, so returning before the hook list runs changes the hook count between
 // renders and React flags it ("Expected static flag was missing"). Page
 // selection happens in App's ternary, which swaps component types instead.
+/* "Recently viewed" strip on the inventory list — reads the trail the vehicle
+   pages write to localStorage (ar7-recent-views). Renders nothing until the
+   visitor has looked at two cars, so first visits never see an empty shell. */
+function RecentlyViewed({onOpen}){
+ const [refs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-recent-views')||'[]')}catch{return []}});
+ const items=refs.map(r=>findCar(cars,r)).filter(Boolean).slice(0,6);
+ if(items.length<2)return null;
+ return <div className="recent-strip" aria-label="Recently viewed vehicles">
+  <span className="recent-strip-label"><Clock3/> Recently viewed</span>
+  <div className="recent-strip-row">{items.map(c=><button key={c.id} type="button" onClick={()=>onOpen(c)} title={`${c.year} ${c.make} ${c.model}`}>
+   <img src={c.image} alt={carAlt(c)} width="72" height="48" loading="lazy" decoding="async"/>
+   <span><b>{c.make} {c.model}</b><small>{c.year} · {c.price}</small></span>
+  </button>)}</div>
+ </div>;
+}
+
 function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,initialMake,initialModel,destSlug}){
  const settings=useSettings();
  const discounts=useStockDiscounts();
@@ -961,6 +982,17 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  // makes so the make dropdown never reads "All" while the grid is filtered.
  useEffect(()=>{ if(initialModel) setMake('All'); },[initialModel]);
  const selected=page==='inventory'&&vehicleId?findCar(cars,vehicleId):null;
+ // Recently-viewed trail (functional storage, listed in /cookies): every
+ // vehicle page visit is remembered on this device so the inventory can offer
+ // a "pick up where you left off" strip.
+ useEffect(()=>{
+  if(!selected)return;
+  try{
+   const ref=carRef(selected);
+   const prev=JSON.parse(localStorage.getItem('ar7-recent-views')||'[]');
+   localStorage.setItem('ar7-recent-views',JSON.stringify([ref,...prev.filter(r=>r!==ref)].slice(0,8)));
+  }catch{/* storage may be off */}
+ },[selected]);
  const detailGallery=selected?galleryFor(selected):[];
  const detailImage=galleryImage||detailGallery[0];
  useEffect(()=>{ setGalleryImage(null); setZoomOpen(false); setZoomLevel(1); },[vehicleId]);
@@ -1016,6 +1048,7 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
 // One market's own page comes before the hub: /destinations/kenya is the URL a
 // search engine reaches, and it must not fall through to the picker.
 if(page==='destinations'&&destSlug)return <React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the market guide…</h3></div>}><DestinationPage dest={destinationBySlug(destSlug)} destSlug={destSlug} navigate={navigate} openAuction={openAuction} Link={PageLink} Related={RelatedStock} Flag={FLAG}/></React.Suspense>;
+if(['privacy','cookies','terms'].includes(page))return <React.Suspense fallback={<div className="empty-state"><LockKeyhole/><h3>Loading the policy…</h3></div>}><LegalPage type={page} navigate={navigate}/></React.Suspense>;
 if(['services','destinations','reviews','faq','portal'].includes(page))return <ExtraPage type={page} navigate={navigate} openAuction={openAuction}/>;
  if(['brands','howbuy','tools','news'].includes(page))return <ExtraPages2 type={page} navigate={navigate} openAuction={openAuction} articleSlug={page==='news'?vehicleId:null} discounts={discounts}/>;
  const makes=[...new Set(cars.map(c=>c.make))].sort();
@@ -1077,7 +1110,7 @@ if(['services','destinations','reviews','faq','portal'].includes(page))return <E
 // filters itself as a make/model landing page.
 const landingMake = (initialMake&&initialMake!=='All')?initialMake:null;
 const landingModel = (landingMake&&initialModel)?initialModel.replace(/\b\w/g,c=>c.toUpperCase()):null;
-if(page==='inventory')return <section className="inner-page"><div className="page-hero mini inv-hero"><div className="shell inv-hero-grid"><div className="inv-hero-copy"><div className="kicker">{landingMake?t('inv.kickerLanding'):t('inv.kicker')}</div><h1>{landingMake?<>{landingMake}{landingModel?' '+landingModel:''}<br/><em>{t('inv.h1Landing')}</em></>:<>{t('inv.h1a')} <em>{t('inv.h1b')}</em></>}</h1><p>{landingMake?`${list.length} ${landingModel||landingMake} ${list.length===1?t('inv.vehicle'):t('inv.vehicles')} ${t('inv.landingNote')}`:`${list.length} ${t('inv.stockNote')}`}</p></div><InvShowcase picks={cars.filter(isShowroom).filter(c=>c.image).slice(0,8)} onOpen={openVehicle}/></div><div className="shell inv-brand-pulse" role="group" aria-label="Live stock by brand"><button type="button" className={make==='All'?'on':''} onClick={()=>setMake('All')}><span>All brands</span><b>{cars.length}</b></button>{BRANDS().slice(0,9).map(b=><button key={b.name} type="button" className={make===b.name?'on':''} onClick={()=>{setMake(make===b.name?'All':b.name)}} title={'Show '+b.name+' stock'}><img loading="lazy" decoding="async" width="30" height="18" src={LOGO(b.name)} alt={b.name+' logo'} onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></button>)}</div></div><div className="shell page-content"><div className="inv-toolbar inv-toolbar-facets" role="search">
+if(page==='inventory')return <section className="inner-page"><div className="page-hero mini inv-hero"><div className="shell inv-hero-grid"><div className="inv-hero-copy"><div className="kicker">{landingMake?t('inv.kickerLanding'):t('inv.kicker')}</div><h1>{landingMake?<>{landingMake}{landingModel?' '+landingModel:''}<br/><em>{t('inv.h1Landing')}</em></>:<>{t('inv.h1a')} <em>{t('inv.h1b')}</em></>}</h1><p>{landingMake?`${list.length} ${landingModel||landingMake} ${list.length===1?t('inv.vehicle'):t('inv.vehicles')} ${t('inv.landingNote')}`:`${list.length} ${t('inv.stockNote')}`}</p></div><InvShowcase picks={cars.filter(isShowroom).filter(c=>c.image).slice(0,8)} onOpen={openVehicle}/></div><div className="shell inv-brand-pulse" role="group" aria-label="Live stock by brand"><button type="button" className={make==='All'?'on':''} onClick={()=>setMake('All')}><span>All brands</span><b>{cars.length}</b></button>{BRANDS().slice(0,9).map(b=><button key={b.name} type="button" className={make===b.name?'on':''} onClick={()=>{setMake(make===b.name?'All':b.name)}} title={'Show '+b.name+' stock'}><img loading="lazy" decoding="async" width="30" height="18" src={LOGO(b.name)} alt={b.name+' logo'} onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></button>)}</div></div><div className="shell page-content"><RecentlyViewed onOpen={openVehicle}/><div className="inv-toolbar inv-toolbar-facets" role="search">
  <label className="inv-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('inv.searchPlaceholder')} aria-label={t('inv.searchPlaceholder')}/></label>
  <div className="inv-facets">{facets.map(f=><label className="facet" key={f.k}><span>{f.k}</span><select value={f.v} onChange={e=>f.set(e.target.value)} aria-label={f.k+' filter'} disabled={f.dis}>{f.o.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>)}</div>
  <div className="inv-facet-foot">
@@ -1166,6 +1199,22 @@ function WorldTimeRibbon(){
  return <div className="world-time-ribbon" aria-label="Live international times"><div className="world-time-label"><Globe2/><span>WORLD TIME</span><i/></div><div className="world-time-viewport"><div className="world-time-track">{group('a')}{group('b',true)}</div></div></div>
 }
 
+/* Cookie / storage notice. The site sets no advertising cookies (Vercel Web
+   Analytics is cookieless), so this is an honest informational notice — not a
+   consent wall — linking to the full key-by-key list on /cookies. It renders
+   only after mount so prerendered HTML and the first paint never carry it. */
+function CookieNotice({navigate}){
+ const [show,setShow]=useState(false);
+ useEffect(()=>{try{if(localStorage.getItem('ar7-consent-v1')!=='1')setShow(true)}catch{/* storage off: nothing to remember, keep quiet */}},[]);
+ if(!show)return null;
+ const dismiss=()=>{try{localStorage.setItem('ar7-consent-v1','1')}catch{}setShow(false);};
+ return <div className="cookie-note" role="region" aria-label="Cookies and storage notice">
+  <LockKeyhole aria-hidden="true"/>
+  <p><b>No ad tracking here.</b> This site stores only functional preferences (language, currency, saved cars) on your device and uses cookieless analytics. <a href="/cookies" onClick={e=>{dismiss();linkClick('cookies',navigate)(e);}}>See the full list</a>.</p>
+  <button type="button" className="primary compact" onClick={dismiss}>Got it</button>
+ </div>;
+}
+
 export function App(){
  const [,forceContent]=useReducer(x=>x+1,0);
  const settings=useSettings();
@@ -1190,6 +1239,20 @@ export function App(){
  // reading it once at mount meant a click on a market rewrote the address bar
  // to /destinations and showed the hub instead of the page that was asked for.
  const [destRoute,setDestRoute]=useState(initialRoute.destSlug||null);
+ // ⌘K / Ctrl+K global search. The overlay itself is a lazy chunk; `/` also
+ // opens it when the visitor is not typing in a field.
+ const [searchOpen,setSearchOpen]=useState(false);
+ useEffect(()=>{
+  const onKey=e=>{
+   if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='k'){e.preventDefault();setSearchOpen(v=>!v);return;}
+   if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    const t=e.target,tag=(t&&t.tagName||'').toLowerCase();
+    if(tag!=='input'&&tag!=='textarea'&&tag!=='select'&&!(t&&t.isContentEditable)){e.preventDefault();setSearchOpen(true);}
+   }
+  };
+  window.addEventListener('keydown',onKey);
+  return()=>window.removeEventListener('keydown',onKey);
+ },[]);
  const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
@@ -1272,7 +1335,7 @@ export function App(){
  return <div className="site">
   <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={BRANDS()} vehicleCount={cars.length}
     menu={menu} setMenu={setMenu} dark={dark} setDark={setDark} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
-    promo={<PromoBar navigate={navigate}/>}
+    promo={<PromoBar navigate={navigate}/>} onOpenSearch={()=>setSearchOpen(true)}
     ribbon={<WorldTimeRibbon/>} orb={<InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/>}/>
 
   <main className={'page page-' + page}>
@@ -1391,12 +1454,16 @@ export function App(){
      <button className="footer-top-btn" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} type="button">{t('footer.backToTop')} <ArrowUpRight/></button>
     </div>
    </div>
-   <div className="shell footer-bottom"><span>{t('footer.copyright',{year:new Date().getFullYear()})}</span><span><a href="/faq" onClick={linkClick('faq',navigate)}>{t('footer.privacy')}</a> · <a href="/faq" onClick={linkClick('faq',navigate)}>{t('footer.terms')}</a> · <a href="/faq" onClick={linkClick('faq',navigate)}>{t('footer.exportPolicy')}</a></span><div className="footer-badges"><span><BadgeCheck/> {t('footer.verifiedStock')}</span><span><LockKeyhole/> {t('footer.trustSecure')}</span></div><b>AR7TRADERS.COM</b></div>
+   <div className="shell footer-bottom"><span>{t('footer.copyright',{year:new Date().getFullYear()})}</span><span><a href="/privacy" onClick={linkClick('privacy',navigate)}>{t('footer.privacy')}</a> · <a href="/cookies" onClick={linkClick('cookies',navigate)}>Cookies</a> · <a href="/terms" onClick={linkClick('terms',navigate)}>{t('footer.terms')}</a> · <a href="/terms" onClick={linkClick('terms',navigate)}>{t('footer.exportPolicy')}</a></span><div className="footer-badges"><span><BadgeCheck/> {t('footer.verifiedStock')}</span><span><LockKeyhole/> {t('footer.trustSecure')}</span></div><b>AR7TRADERS.COM</b></div>
   </footer>
 
   <WhatsAppButton/>
 
   <ChatWidget ref={chatRef}/>
+
+  <CookieNotice navigate={navigate}/>
+
+  {searchOpen&&<React.Suspense fallback={null}><GlobalSearch open={searchOpen} onClose={()=>setSearchOpen(false)} navigate={navigate}/></React.Suspense>}
 
   {enquiry&&<React.Suspense fallback={<div className="modal-backdrop"><div className="modal enquiry-loading" role="status">Loading enquiry form…</div></div>}><EnquiryDialog context={enquiry} onClose={()=>setEnquiry(null)}/></React.Suspense>}
  </div>
