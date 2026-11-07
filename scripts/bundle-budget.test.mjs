@@ -244,7 +244,9 @@ const BUDGET_GZIP = 154 * 1024;
 // card for the inventory-style 3D showroom stage (per-slide links, drag/swipe,
 // blur-fill frames) and the inventory stage gains the same drag-guard fixes.
 // Actual: 533.56 kB raw; gzip stayed inside its 154 kB budget (153.64).
-const BUDGET_RAW = 534 * 1024;
+// 2026-11-08 (5): 534 → 535 kB raw — third public theme (light/dark/blue
+// cycle) and the dealer-signage crop rules. Actual: 534.07 kB raw.
+const BUDGET_RAW = 535 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -319,7 +321,10 @@ const CSS_BUDGET_GZIP = 42 * 1024;
 // slides, blur-fill frames, premium arrows at two breakpoints) plus the
 // phone-bar overflow fix; ~1.3 kB of dead cross-fade hero rules pruned from
 // styles.css/landing-v2.css/site-layout.css. Actual: 211.71 kB raw.
-const CSS_BUDGET_RAW = 213 * 1024;
+// 2026-11-08 (4): 213 → 214 kB raw — the blue & gold theme layer (navy
+// variable set + overrides for the hard-coded emerald surfaces) and the
+// open-stage mask rules. Actual: 213.22 kB raw; gzip 41.47 in a 42 budget.
+const CSS_BUDGET_RAW = 214 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

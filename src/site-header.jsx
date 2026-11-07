@@ -6,7 +6,7 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {
   ArrowUpRight, Sun, Moon, Menu, X, ChevronDown, MessageCircle, Monitor,
-  UserPlus, UserCog, LogIn, CarFront, Globe2, Layers, Gavel, Calculator,
+  UserPlus, UserCog, LogIn, CarFront, Globe2, Layers, Gavel, Calculator, Gem,
   Wrench, Ship, MapPin, BookOpen, Newspaper, ClipboardCheck, BadgeCheck, Landmark, Mail, Search
 } from 'lucide-react';
 import { CurrencyDropdown } from './currency.jsx';
@@ -216,10 +216,17 @@ function useHeaderMetrics(ref, { hold, menu, routeKey }) {
 export function SiteHeader({
   page, vehicleId = null, makeFilter = null, brands = [], vehicleCount = 0,
   menu = false, setMenu = () => {}, dark = false, setDark = () => {},
+  theme = null,
   signedIn = false, navigate = () => {}, logoFor = () => '', ribbon = null, orb = null,
   promo = null, hold = true, onOpenSearch = null
 }) {
   const headRef = useRef(null);
+  // 2026-11-08: three public themes. The toggle cycles light → dark → blue &
+  // gold, and its icon/label always advertise the NEXT theme. When only the
+  // legacy boolean is supplied (older callers, tests) it still reads right.
+  const mode = theme || (dark ? 'dark' : 'light');
+  const themeIcon = mode === 'light' ? <Moon/> : mode === 'dark' ? <Gem/> : <Sun/>;
+  const themeLabel = mode === 'light' ? 'Dark mode' : mode === 'dark' ? 'Blue & gold' : 'Light mode';
   // 2026-11-08: while the burger menu is open the page behind it must not
   // scroll — the panel has its own scroller and a dimmed backdrop, so a
   // moving page underneath reads as a glitch on phones and tablets.
@@ -284,7 +291,7 @@ export function SiteHeader({
           even when the bar's icon row runs out of room. */}
       <div className="nav-panel-actions">
         <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? 'My account' : 'Sign in'}</a>
-        <button type="button" className="panel-theme" onClick={() => setDark(!dark)} aria-pressed={dark}>{dark ? <Sun/> : <Moon/>}{dark ? 'Light mode' : 'Dark mode'}</button>
+        <button type="button" className="panel-theme" onClick={() => setDark(!dark)} aria-pressed={dark}>{themeIcon}{themeLabel}</button>
       </div>
     </div>
     <div className="nav-actions">
@@ -299,7 +306,7 @@ export function SiteHeader({
       <LanguageSwitcher/>
           <CurrencyDropdown/>
       <a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio', navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a>
-      <button type="button" className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun/> : <Moon/>}</button>
+      <button type="button" className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme" title={'Switch to ' + themeLabel.toLowerCase()}>{themeIcon}</button>
       <a className="icon-btn portal-btn" href="/account" onClick={linkClick('account', navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a>
       <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>My account <UserCog/></> : <>Sign up <UserPlus/></>}</a>
       <button type="button" className="menu-btn" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-controls="ar7-public-menu" aria-label={menu ? 'Close menu' : 'Open menu'}>{menu ? <X/> : <Menu/>}</button>
