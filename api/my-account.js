@@ -1,16 +1,107 @@
 import {authClient,adminClient,send} from './_supabase.js';
+import {loadPublicStock,evaluateSearch,nextSeenRefs,runAlertSweep} from './_stock-alerts.js';
+import {normalizeCriteria,criteriaIsEmpty,defaultSearchName} from '../src/saved-search.js';
 
-// The signed-in CUSTOMER's own view: their orders, payments and balance.
+// The signed-in CUSTOMER's own view: their orders, payments and balance —
+// plus their saved searches / stock alerts (?searches) and the scheduled
+// alert sweep (?alerts=run, key-guarded). The saved-search routes live on
+// this function because the project sits at the Hobby plan's 12-function
+// limit (scripts/function-count.test.mjs).
+//
 // Deliberately separate from the staff APIs - a customer can only ever
 // see the record linked to their own auth user.
-export default async function handler(req,res){
+// `injected` ({db,user,stock,emailFn,now}) is a test hook; Vercel calls (req,res).
+export default async function handler(req,res,injected={}){
  try{
-  const header=req.headers.authorization||'';
-  const token=header.startsWith('Bearer ')?header.slice(7):'';
-  if(!token)return send(res,401,{error:'Please sign in'});
-  const ac=authClient();
-  const {data:u,error}=await ac.auth.getUser(token);
-  if(error||!u.user)return send(res,401,{error:'Please sign in'});
+  const query=req.query||{};
+
+  // ---- Scheduled stock-alert sweep (no user token; same key contract as
+  //      /api/goonet-sync, and triggered from the same nightly workflow) ----
+  if(query.alerts==='run'){
+   const expected=String(process.env.GOONET_SYNC_KEY||'');
+   const key=String(query.key||'');
+   if(!(expected&&key&&key===expected))return send(res,401,{error:'Missing or wrong sweep key'});
+   const db=injected.db||adminClient();
+   const result=await runAlertSweep(db,{stock:injected.stock,emailFn:injected.emailFn,now:injected.now});
+   return send(res,200,result);
+  }
+
+  let user=injected.user||null;
+  if(!user){
+   const header=req.headers.authorization||'';
+   const token=header.startsWith('Bearer ')?header.slice(7):'';
+   if(!token)return send(res,401,{error:'Please sign in'});
+   const ac=authClient();
+   const {data:u,error}=await ac.auth.getUser(token);
+   if(error||!u.user)return send(res,401,{error:'Please sign in'});
+   user=u.user;
+  }
+
+  // ---- Saved searches / stock alerts (scoped to the signed-in user) ------
+  if('searches' in query){
+   const db=injected.db||adminClient();
+   if(req.method==='GET'){
+    const {data:rows,error}=await db.from('saved_searches').select('*')
+      .eq('auth_user_id',user.id).order('created_at',{ascending:false});
+    if(error)return send(res,400,{error:error.message});
+    const stock=injected.stock||await loadPublicStock(db);
+    return send(res,200,{searches:(rows||[]).map(r=>{
+      const {matchRefs,newRefs}=evaluateSearch(r,stock);
+      return {id:r.id,name:r.name,criteria:r.criteria,email_alerts:r.email_alerts,
+        created_at:r.created_at,last_notified_at:r.last_notified_at,
+        matches:matchRefs.length,new_matches:newRefs.length,new_refs:newRefs.slice(0,12)};
+    })});
+   }
+   if(req.method==='POST'){
+    const criteria=normalizeCriteria(req.body?.criteria);
+    if(criteriaIsEmpty(criteria))
+      return send(res,400,{error:'Pick at least one filter before saving — an alert for every car would ping on all new stock.'});
+    const {count}=await db.from('saved_searches').select('id',{count:'exact',head:true})
+      .eq('auth_user_id',user.id);
+    if((count||0)>=10)return send(res,400,{error:'You already have 10 saved searches — delete one first.'});
+    // Seed seen_refs with everything that matches TODAY: an alert is about
+    // stock that arrives after you saved, not the cars already on screen.
+    const stock=injected.stock||await loadPublicStock(db);
+    const seed=evaluateSearch({criteria,seen_refs:[]},stock).matchRefs;
+    const name=String(req.body?.name||'').trim().slice(0,60)||defaultSearchName(criteria);
+    const {data:made,error}=await db.from('saved_searches').insert({
+      auth_user_id:user.id,email:user.email||null,name,criteria,
+      email_alerts:req.body?.email_alerts!==false,
+      seen_refs:nextSeenRefs({seen_refs:[]},seed)
+    }).select().single();
+    if(error)return send(res,400,{error:error.message});
+    return send(res,200,{search:{id:made.id,name:made.name,criteria:made.criteria,
+      email_alerts:made.email_alerts,created_at:made.created_at,
+      matches:seed.length,new_matches:0,new_refs:[]}});
+   }
+   if(req.method==='PATCH'){
+    const id=String(req.body?.id||query.id||'');
+    if(!id)return send(res,400,{error:'Which saved search?'});
+    const patch={updated_at:new Date().toISOString()};
+    if(typeof req.body?.email_alerts==='boolean')patch.email_alerts=req.body.email_alerts;
+    if(req.body?.ack===true){
+     const {data:row}=await db.from('saved_searches').select('*')
+       .eq('id',id).eq('auth_user_id',user.id).single();
+     if(!row)return send(res,404,{error:'Saved search not found'});
+     const stock=injected.stock||await loadPublicStock(db);
+     patch.seen_refs=nextSeenRefs(row,evaluateSearch(row,stock).matchRefs);
+    }
+    const {data:upd,error}=await db.from('saved_searches').update(patch)
+      .eq('id',id).eq('auth_user_id',user.id).select().single();
+    if(error)return send(res,400,{error:error.message});
+    return send(res,200,{ok:true,search:{id:upd.id,email_alerts:upd.email_alerts}});
+   }
+   if(req.method==='DELETE'){
+    const id=String(query.id||req.body?.id||'');
+    if(!id)return send(res,400,{error:'Which saved search?'});
+    const {error}=await db.from('saved_searches').delete()
+      .eq('id',id).eq('auth_user_id',user.id);
+    if(error)return send(res,400,{error:error.message});
+    return send(res,200,{ok:true});
+   }
+   res.setHeader('Allow','GET, POST, PATCH, DELETE');
+   return send(res,405,{error:'Method not allowed'});
+  }
 
   if(req.method==='PATCH'){
    const db0=adminClient();
@@ -19,7 +110,7 @@ export default async function handler(req,res){
    const country=req.body?.country===undefined?undefined:String(req.body.country).trim();
    if(name!==''&&name.length<2)
      return send(res,400,{error:'Please enter your full name (at least 2 characters)'});
-   let {data:cust}=await db0.from('customers').select('*').eq('auth_user_id',u.user.id).single();
+   let {data:cust}=await db0.from('customers').select('*').eq('auth_user_id',user.id).single();
    const patch={updated_at:new Date().toISOString()};
    if(name!=='')patch.name=name;
    if(phone!==undefined)patch.phone=phone;
@@ -27,7 +118,7 @@ export default async function handler(req,res){
    if(!cust){
     if(name==='')return send(res,400,{error:'Please enter your name'});
     const {data:made,error:mErr}=await db0.from('customers').insert({
-      ...patch, email:u.user.email, auth_user_id:u.user.id, portal_enabled:true
+      ...patch, email:user.email, auth_user_id:user.id, portal_enabled:true
     }).select().single();
     if(mErr)return send(res,400,{error:mErr.message});
     cust=made;
@@ -38,8 +129,8 @@ export default async function handler(req,res){
     if(upd)cust=upd;else Object.assign(cust,patch);
    }
    try{
-    await adminClient().auth.admin.updateUserById(u.user.id,{
-      user_metadata:{...(u.user.user_metadata||{}),full_name:name||u.user.user_metadata?.full_name}
+    await adminClient().auth.admin.updateUserById(user.id,{
+      user_metadata:{...(user.user_metadata||{}),full_name:name||user.user_metadata?.full_name}
     });
    }catch(e){console.error('metadata sync skipped',e.message)}
    return send(res,200,{customer:{id:cust.id,name:cust.name,email:cust.email,
@@ -47,19 +138,19 @@ export default async function handler(req,res){
   }
 
   const db=adminClient();
-  let {data:cust}=await db.from('customers').select('*').eq('auth_user_id',u.user.id).single();
+  let {data:cust}=await db.from('customers').select('*').eq('auth_user_id',user.id).single();
 
   // Someone who signed up on the website arrives with no link yet. If we
   // already hold a customer record with the same email - because staff added
   // them after a phone call, say - adopt it so their orders appear straight
   // away instead of looking lost. Matching on a confirmed email is safe:
   // Supabase has already proven they control that address.
-  if(!cust&&u.user.email){
+  if(!cust&&user.email){
    const {data:byEmail}=await db.from('customers').select('*')
-     .ilike('email',u.user.email).is('auth_user_id',null).limit(1);
+     .ilike('email',user.email).is('auth_user_id',null).limit(1);
    if(byEmail&&byEmail[0]){
     const {data:linked}=await db.from('customers')
-      .update({auth_user_id:u.user.id,portal_enabled:true})
+      .update({auth_user_id:user.id,portal_enabled:true})
       .eq('id',byEmail[0].id).select().single();
     cust=linked||byEmail[0];
    }

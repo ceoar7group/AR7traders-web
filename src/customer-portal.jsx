@@ -6,12 +6,13 @@
 import React, {useEffect, useState} from 'react';
 import {MessageCircle, Mail, LockKeyhole, ArrowRight, Check, LogIn, UserPlus,
                 BadgeCheck, CarFront, Wallet, ArrowLeftRight, ShieldCheck, X,
-        UserCog, KeyRound} from 'lucide-react';
+        UserCog, KeyRound, BellRing, BellOff, Trash2, Search} from 'lucide-react';
 import {supabase} from './supabase-client.js';
 import { useCustomerSession } from './customer-session.jsx';
 import {useSettings, waLink} from './site-settings.js';
 import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
-import {linkClick} from './routing.js';
+import {linkClick, inventoryHref} from './routing.js';
+import {describeCriteria, criteriaHref} from './saved-search.js';
 import './portal.css';
 import { validateLead } from './lead-validation.js';
 
@@ -36,9 +37,9 @@ function AccountGate({navigate}){
  const s=useSettings();
  return <section className="account-page">
   <div className="account-visual">
-   <img loading="lazy" decoding="async" src="/assets/japanese-car-auction-inspection-shipping-1.webp" alt="AR7 vehicle inspection in Japan" width="None" height="None"/>
+   <img loading="lazy" decoding="async" src="/assets/japanese-car-auction-inspection-shipping-1.webp" alt="AR7 vehicle inspection in Japan" width="820" height="550"/>
    <div className="account-overlay">
-    <img src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async" width="None" height="None"/>
+    <img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async" width="49" height="49"/>
     <div>
      <div className="kicker">AR7 BUYER ACCOUNT</div>
      <h2>Your direct line<br/>to Japan.</h2>
@@ -242,6 +243,8 @@ function MyAccount({session,navigate}){
      onSaved={()=>load().catch(()=>{})}/>}
    {panel==='password' && <PasswordPanel onClose={()=>setPanel(null)}/>}
 
+   <SavedSearches session={session} navigate={navigate}/>
+
    {!data.customer ? <div className="ma-empty">
      <span><CarFront/></span>
      <h2>Your account is ready.</h2>
@@ -290,6 +293,78 @@ function MyAccount({session,navigate}){
    </>}
   </div>
  </section>;
+}
+
+/* ---- saved searches & stock alerts -------------------------------- */
+// The buyer's standing orders: "tell me when a car like this lands". Rows
+// live in Supabase (saved_searches), scoped server-side to this auth user;
+// the nightly sweep (api/_stock-alerts.js) sends the e-mails. Here we list
+// them, show how many matches are NEW since the search last looked, and let
+// the buyer mute, delete or jump to the matching stock.
+function SavedSearches({session,navigate}){
+ const [rows,setRows]=useState(null),[err,setErr]=useState('');
+ const auth={Authorization:'Bearer '+session.access_token};
+ useEffect(()=>{let alive=true;
+  (async()=>{
+   try{
+    const r=await fetch('/api/my-account?searches=1',{headers:auth});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||'Could not load saved searches');
+    if(alive)setRows(j.searches||[]);
+   }catch(e){if(alive)setErr(e.message)}
+  })();
+  return()=>{alive=false};
+ },[session.access_token]);
+
+ async function toggle(s){
+  setRows(v=>v.map(x=>x.id===s.id?{...x,email_alerts:!s.email_alerts}:x));
+  await fetch('/api/my-account?searches=1',{method:'PATCH',
+    headers:{...auth,'Content-Type':'application/json'},
+    body:JSON.stringify({id:s.id,email_alerts:!s.email_alerts})}).catch(()=>{});
+ }
+ async function remove(s){
+  setRows(v=>v.filter(x=>x.id!==s.id));
+  await fetch('/api/my-account?searches=1&id='+encodeURIComponent(s.id),
+    {method:'DELETE',headers:auth}).catch(()=>{});
+ }
+ function view(s){
+  // Seeing the matches acknowledges them — the NEW badge resets server-side.
+  fetch('/api/my-account?searches=1',{method:'PATCH',
+    headers:{...auth,'Content-Type':'application/json'},
+    body:JSON.stringify({id:s.id,ack:true})}).catch(()=>{});
+  setRows(v=>v.map(x=>x.id===s.id?{...x,new_matches:0,new_refs:[]}:x));
+ }
+
+ if(err) return null; // the table may not be provisioned yet — never block the account
+ return <div className="ma-alerts">
+  <h2 className="ma-title"><BellRing/> Saved searches &amp; stock alerts</h2>
+  {rows===null ? <p className="ma-muted">Loading your alerts…</p>
+  : !rows.length ? <div className="ma-alerts-empty">
+     <p>Save a search from the inventory page and we&rsquo;ll e-mail you the moment matching stock lands in Japan.</p>
+     <a className="outline-btn" href="/inventory" onClick={linkClick('inventory',navigate)}><Search/> Browse inventory</a>
+    </div>
+  : <div className="ma-alert-grid">{rows.map(s=>{
+     const href=criteriaHref(s.criteria,inventoryHref);
+     return <article key={s.id} className={s.new_matches>0?'has-new':''}>
+      <header>
+       <b>{s.name}</b>
+       {s.new_matches>0&&<em className="ma-new">{s.new_matches} NEW</em>}
+      </header>
+      <div className="ma-alert-chips">{describeCriteria(s.criteria).map(c=><span key={c}>{c}</span>)}</div>
+      <small>{s.matches} matching {s.matches===1?'car':'cars'} in stock now
+        {s.email_alerts?' · e-mail alerts on':' · e-mail alerts off'}</small>
+      <div className="ma-alert-actions">
+       <a className="outline-btn" href={href} onClick={e=>{view(s);linkClick(href,navigate)(e)}}>View matches <ArrowRight/></a>
+       <button className="outline-btn" type="button" onClick={()=>toggle(s)}
+         title={s.email_alerts?'Pause e-mail alerts':'Resume e-mail alerts'}>
+        {s.email_alerts?<><BellOff/> Mute</>:<><BellRing/> Unmute</>}
+       </button>
+       <button className="outline-btn danger" type="button" onClick={()=>remove(s)}
+         title="Delete this saved search"><Trash2/></button>
+      </div>
+     </article>;
+    })}</div>}
+ </div>;
 }
 
 const COUNTRIES=['Pakistan','UAE','Kenya','United Kingdom','Tanzania','Other'];
