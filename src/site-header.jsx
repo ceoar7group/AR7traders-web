@@ -220,6 +220,15 @@ export function SiteHeader({
   promo = null, hold = true, onOpenSearch = null
 }) {
   const headRef = useRef(null);
+  // 2026-11-08: while the burger menu is open the page behind it must not
+  // scroll — the panel has its own scroller and a dimmed backdrop, so a
+  // moving page underneath reads as a glitch on phones and tablets.
+  useEffect(() => {
+    if (typeof document === 'undefined' || !menu) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [menu]);
   const routeKey = [page, vehicleId || '', makeFilter || ''].join('/');
   const away = useHeaderMetrics(headRef, { hold, menu, routeKey });
   // The bar is one line at every width (see src/site-layout.css). Above 900px

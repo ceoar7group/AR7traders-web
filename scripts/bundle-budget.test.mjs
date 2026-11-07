@@ -296,7 +296,9 @@ for (const file of entryCss) {
 // CSS ratcheted 39 → 40 kB gzip / 202 → 204 kB raw on 2026-11-07: the
 // save-search panel (extra-pages.css) and the account page's saved-search
 // cards (portal.css).
-const CSS_BUDGET_GZIP = 40 * 1024;
+// 2026-11-08: 40 → 41 kB gzip for the burger-menu refresh (clean bar below
+// 900px, dimmed backdrop, tablet drawer, 48px rows). Actual: 40.13 kB gzip.
+const CSS_BUDGET_GZIP = 41 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.

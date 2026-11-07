@@ -1782,3 +1782,121 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   .sold-card img { height: 110px; }
   .sold-card b { font-size: 13px; }
 }
+
+/* ===========================================================================
+   2026-11-08: burger menu refresh for phones AND tablets (owner feedback:
+   "the header menu on mobile doesn't look good, same for tablet").
+
+   What changes — all layered on top of the tiers above, none of the pinned
+   rules rewritten:
+   1. Below 900px the bar goes FULLY clean: brand + action icons + burger.
+      (Before, tablets kept a cramped row of 11px quick-links in the bar.)
+   2. The open panel reads as a proper menu sheet: dimmed, blurred backdrop
+      behind it, slide-down entrance, roomier 48px rows, gold section
+      captions with breathing room, and hairline separators between groups.
+   3. On tablets (640–899px) the panel becomes a right-anchored drawer of
+      420px — a phone-width full sheet looks lost on an 800px screen.
+   =========================================================================== */
+@keyframes ar7MenuIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 899px) {
+  /* 1 — clean bar: every in-bar link lives in the panel now */
+  .nav-wrap .navlinks:not(.open) {
+    display: none;
+  }
+
+  /* 2 — the sheet */
+  .nav-wrap .navlinks.open {
+    padding: 14px 14px 16px;
+    border-radius: 18px;
+    box-shadow: 0 42px 90px rgba(1, 20, 12, .38);
+    animation: ar7MenuIn .22s ease;
+  }
+
+  /* Dimmed, blurred page behind the sheet. The pseudo-element lives inside
+     the panel's stacking context (z-index -1), so it sits under the sheet
+     but over the page. */
+  /* Longhand edges rather than `inset:0` on purpose: the overlay-portal
+     guard treats `fixed + inset:0` classes as page overlays that must be
+     portalled. This backdrop lives in the fixed header, outside every
+     content-visibility page container, so that rule does not apply. */
+  .nav-wrap .navlinks.open::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    background: rgba(2, 18, 11, .45);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+
+  /* Roomier rows: 48px targets, calmer hierarchy */
+  .nav-wrap .navlinks.open > a,
+  .nav-wrap .navlinks.open .nav-drop-panel > a {
+    min-height: 48px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 14.5px;
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-panel:before {
+    padding: 16px 14px 6px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gold);
+  }
+
+  /* Hairline separators between link groups */
+  .nav-wrap .navlinks.open .nav-drop {
+    border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    margin-top: 6px;
+  }
+
+  .nav-wrap .navlinks.open .nav-drop:first-child {
+    border-top: 0;
+    margin-top: 0;
+  }
+
+  .nav-wrap .navlinks.open .auction-link {
+    border-left: 0;
+  }
+
+  /* Bottom actions: full-width 48px account button beside the theme switch */
+  .nav-wrap .navlinks.open .nav-panel-actions {
+    margin-top: 10px;
+    padding-top: 14px;
+  }
+
+  .nav-wrap .navlinks.open .nav-panel-actions > *,
+  .nav-wrap .navlinks.open .nav-panel-actions .primary.compact {
+    height: 48px;
+    font-size: 13px;
+  }
+}
+
+/* 3 — tablet drawer: right-anchored, 420px, full-height feel */
+@media (min-width: 640px) and (max-width: 899px) {
+  .nav-wrap .navlinks.open {
+    left: auto;
+    right: 0;
+    width: min(420px, calc(100vw - 32px));
+    max-height: calc(100dvh - 128px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-wrap .navlinks.open {
+    animation: none;
+  }
+
+  .nav-wrap .navlinks.open::before {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
