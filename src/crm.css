@@ -4651,3 +4651,20 @@ html[data-crm-theme="light"] .crm-shell,
   text-align: left;
 }
 .crm-backup-btn:hover { border-color: rgba(201, 163, 92, .55); color: #e8c98a; }
+
+/* ===== 2026-11-08: responsive polish — bulk bar on small screens =
+   The sticky bar becomes a stacked, full-width panel: stage select on
+   its own row, follow-up buttons wrap, Clear spans the bottom. */
+@media (max-width: 560px) {
+  .crm-bulk-bar {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .crm-bulk-bar label { justify-content: space-between; }
+  .crm-bulk-bar select { flex: 1; min-height: 40px; }
+  .crm-bulk-follow { flex-wrap: wrap; }
+  .crm-bulk-follow button { min-height: 36px; flex: 1 1 auto; }
+  .crm-bulk-clear { margin-left: 0; width: 100%; min-height: 40px; text-align: center; }
+}

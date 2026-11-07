@@ -301,7 +301,11 @@ const CSS_BUDGET_GZIP = 40 * 1024;
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
 // 204 → 206 kB raw on 2026-11-08: card action buttons + wider home sections.
-const CSS_BUDGET_RAW = 206 * 1024;
+// 2026-11-08 (2): 206 → 208 kB raw for the responsive polish pass — 44px
+// touch targets on card actions/pager, stacked CRM bulk bar, my-account
+// breakpoints (which had none) and the iOS focus-zoom fix (16px inputs on
+// phones). Actual after the change: 206.09 kB raw; gzip stayed in budget.
+const CSS_BUDGET_RAW = 208 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
