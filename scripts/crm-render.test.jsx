@@ -108,10 +108,12 @@ say('\nThe Cars badge counts cars, not table rows');
 say('\nEvery sidebar tab renders');
 // Inventory and Website cars merged into one "Cars" tab (2026-10): the two
 // record sets are sub-tabs inside the panel, pinned further down.
+// 2026-11-07: 'SEO desk' + the separate 'AI Growth' tab merged into ONE
+// 'Growth studio' tab (owner's request — two tabs confused operation).
 const TABS = ['Overview', 'Leads', 'Customers', 'Customer accounts', 'Cars', 'Profit & sourcing',
   'Japan dealer stock', 'Quotes', 'Shipments', 'Tasks', 'Shipping routes',
   'News & guides', 'Machinery desk', 'Approvals', 'Team & permissions', 'People & payroll', 'Website settings',
-  'Price offers', 'SEO desk', 'Site guardian', 'Activity log'];
+  'Price offers', 'Growth studio', 'Site guardian', 'Activity log'];
 for (const label of TABS) {
   const btn = await clickText('.crm-side nav button', label);
   if (!btn) { ok(false, `"${label}" tab is missing from the sidebar`); continue; }
@@ -131,11 +133,16 @@ for (const label of TABS) {
   }
 }
 
-say('\nSEO desk navigation remains singular and staff-only');
+say('\nGrowth navigation remains singular and staff-only');
 {
+  // 2026-11-07: label renamed 'SEO desk' → 'Growth studio' when the SEO desk
+  // and AI Growth merged into one tab. Still exactly one sidebar entry.
   const seoSidebar = [...document.querySelectorAll('.crm-side nav button')].filter(button =>
-    (button.querySelector(':scope > span')?.textContent || '').trim() === 'SEO desk');
-  ok(seoSidebar.length === 1, 'the primary SEO desk tab remains in the CRM sidebar');
+    (button.querySelector(':scope > span')?.textContent || '').trim() === 'Growth studio');
+  ok(seoSidebar.length === 1, 'the single Growth studio tab remains in the CRM sidebar');
+  ok(![...document.querySelectorAll('.crm-side nav button')].some(button =>
+    /^(SEO desk|AI Growth)$/.test((button.querySelector(':scope > span')?.textContent || '').trim())),
+    'the old separate SEO desk / AI Growth tabs are gone — merged, not duplicated');
   ok(!!document.querySelector('.crm-staff-tools small') && /STAFF TOOLS/.test(document.querySelector('.crm-staff-tools small').textContent),
     'the Staff Tools divider remains');
   ok(!document.querySelector('.crm-staff-tools a[href="/seo"]'), 'the duplicate shortcut below the divider is removed');

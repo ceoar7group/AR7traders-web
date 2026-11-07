@@ -4546,3 +4546,22 @@ html[data-crm-theme="light"] .crm-shell,
 .ai-history-actions button{white-space:nowrap}
 .ai-history-record{font:600 9.5px var(--crm-font);color:var(--crm-muted);letter-spacing:.5px}
 @media(max-width:700px){.ai-history-item{flex-wrap:wrap}.ai-history-head{flex-direction:column}}
+
+/* Growth studio — the merged SEO + AI Growth front door (2026-11-07).
+   Only --crm-* tokens, per scripts/crm-theme-vars.test.mjs. */
+.growth-hub{display:grid;gap:14px}
+.growth-hub-nav button{display:inline-flex;align-items:center;gap:7px}
+.growth-start{display:grid;gap:16px}
+.growth-start-head h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font:700 14px var(--crm-font);color:var(--crm-ink)}
+.growth-start-head h3 svg{color:var(--crm-gold)}
+.growth-start-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.growth-card{display:grid;gap:8px;align-content:start;border:1px solid var(--crm-border);border-radius:14px;background:var(--crm-panel-sub);padding:16px}
+.growth-card>svg{color:var(--crm-gold)}
+.growth-card b{font:700 13.5px var(--crm-font);color:var(--crm-ink)}
+.growth-card p{margin:0;font:500 11.5px var(--crm-font);color:var(--crm-muted);line-height:1.6}
+.growth-card small{display:inline-flex;align-items:flex-start;gap:5px;font:600 10px var(--crm-font);color:var(--crm-ok)}
+.growth-card small svg{flex:none;margin-top:1px}
+.growth-card button{justify-self:start;display:inline-flex;align-items:center;gap:6px;margin-top:2px}
+.growth-start-foot{border-top:1px solid var(--crm-border);padding-top:12px}
+.growth-start-foot b{color:var(--crm-ink)}
+@media(max-width:860px){.growth-start-grid{grid-template-columns:1fr}}

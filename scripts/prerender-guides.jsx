@@ -29,6 +29,17 @@ for (const dest of DEST) {
 for (const article of NEWS) {
   const slug = article.slug || articleSlug(article);
   emit('/news/' + slug, 'news', slug,
-    <article className="inner-page shell"><a href="/news">All buyer guides</a><h1>{article.title}</h1><p>{article.ex}</p>{String(article.body || '').split(/\n\n+/).map((p,i) => <p key={i}>{p}</p>)}<a href="/contact">Request a written quotation</a></article>);
+    <article className="inner-page shell"><a href="/news">All buyer guides</a><h1>{article.title}</h1><p>{article.ex}</p>{String(article.body || '').split(/\n\n+/).map((p,i) => <p key={i}>{p}</p>)}<a href="/contact">Request a written quotation</a>
+    {/* Keep-exploring block (2026-11-07 crawl report): guides had under 8
+        internal links, so crawlers hit a dead end instead of the catalogue.
+        These are the pages a guide reader actually goes to next. */}
+    <nav aria-label="Keep exploring"><h2>Keep exploring</h2><ul>
+      <li><a href="/cars/toyota">Used Toyota stock from Japan</a></li>
+      <li><a href="/auction">How the Japanese auctions work</a></li>
+      <li><a href="/machinery">Heavy machinery sourced from China</a></li>
+      <li><a href="/tools">Import duty & CIF calculators</a></li>
+      <li><a href="/services">Export services & inspection</a></li>
+      <li><a href="/faq">Buyer questions, answered</a></li>
+    </ul></nav></article>);
 }
 console.log(`Prerendered ${DEST.length} destination pages and ${NEWS.length} guides.`);

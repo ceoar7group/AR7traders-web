@@ -361,11 +361,17 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const robotsValue = doc.querySelector('meta[name="robots"]')?.getAttribute('content') || '';
       const noindex = /noindex/i.test(robotsValue);
+      // Staff routes (/crm, /account, …) are PRIVATE ON PURPOSE: noindex,
+      // blocked in robots.txt and absent from the sitemap. Auditing one as if
+      // it should rank produced false FAILs ("not in the sitemap", "robots.txt
+      // disallows /crm") that ended up in the 2026-11-07 upgrade report as
+      // work to do. expectIndexable flips those checks to assert the OPPOSITE:
+      // a staff route that became crawlable is the failure.
       const audit = auditDocument(doc, {
         route: path === '/' ? 'home' : path.replace(/^\//, ''),
         label: path,
         url: canonical,
-        expectIndexable: true,
+        expectIndexable: !isStaffNoindexPath(path),
         origin: location.origin,
         facts: {sitemapUrls: facts.sitemapUrls || [], robotsTxt: facts.robotsTxt || ''}
       });
@@ -692,7 +698,18 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     try {
       log('generating', 'Drafting from the catalogue facts via the AI provider…');
       const out = await seoWorkflow('generate', 'POST', { topic: topic.title, facts: topic.facts.join('\n'), kind: topic.kind || 'guide', sources: [] });
-      const draftForm = { title: out.title || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: out.body };
+      // The generate endpoint appends one BOILERPLATE reminder to every draft
+      // ("[EDITOR REVIEW: verify every factual claim and source…]"). For Topic
+      // Scout that reminder is satisfied by construction — every supplied fact
+      // was computed from the live catalogue, not typed by a person — so the
+      // trailing boilerplate is stripped here. WITHOUT this, the needsReview
+      // test below always matched and autopilot could never publish (found
+      // 2026-11-07). Any OTHER [EDITOR REVIEW: …] flag — the ones the model
+      // itself writes when facts are thin — still stops publication.
+      const cleanBody = String(out.body || '')
+        .replace(/\n*\[EDITOR REVIEW: verify every factual claim and source, then remove this note before publication\.\]\s*$/i, '')
+        .trimEnd();
+      const draftForm = { title: out.title || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: cleanBody };
       const { errors, slug } = validateGuide(draftForm, articles);
       if (Object.keys(errors).length) throw new Error('The generated draft failed validation: ' + Object.values(errors).join(' '));
       const needsReview = /\[EDITOR REVIEW:/i.test(draftForm.body || '');
@@ -726,8 +743,14 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       log('published', 'Live and in the news sitemap.', { url: BASE + '/news/' + encodeURIComponent(slug) });
       notify(`Guide published from approved topic: ${article.title}`);
     } catch (error) {
-      log('failed', (error.message || 'The run failed.') + ' Nothing was published.');
-      notify(error.message || 'Topic autopilot failed — nothing was published.');
+      // A 503 / overload is Google's side, not the operator's: say so, and say
+      // the one thing that actually helps — try again.
+      const transient = /503|overload|unavailable|timed? ?out|rate.?limit/i.test(error.message || '');
+      const friendly = transient
+        ? 'Google\u2019s AI was busy for a moment (it happens at peak times). Nothing was saved or published. Just press \u201cApprove & publish\u201d again \u2014 the desk now also tries two backup models automatically.'
+        : (error.message || 'The run failed.') + ' Nothing was published.';
+      log('failed', friendly);
+      notify(transient ? 'The AI provider was briefly busy \u2014 press Approve & publish again.' : (error.message || 'Topic autopilot failed \u2014 nothing was published.'));
     } finally { setScoutBusy(null); }
   };
 

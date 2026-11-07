@@ -15,7 +15,7 @@
 import { DEST, destinationHref } from '../src/destinations.js';
 import {
   geminiGenerate, geminiConfigured, geminiModelFor, geminiConnectionTest,
-  parseJsonLoose, GEMINI_DEFAULT_MODEL
+  parseJsonLoose, GEMINI_DEFAULT_MODEL, GEMINI_FALLBACK_MODELS
 } from './_gemini.js';
 
 const text = v => String(v ?? '').trim();
@@ -75,9 +75,34 @@ export function validateDraft(raw) {
   return draft;
 }
 
+// States where trying a DIFFERENT model can genuinely succeed: the primary
+// being overloaded (HTTP 503 → provider-unavailable), timing out, missing, or
+// per-model rate limits. A bad key or an exhausted daily quota fails the same
+// way on every model, so those are NOT retried on a fallback.
+const FALLBACK_STATES = new Set(['provider-unavailable', 'timeout', 'model-unavailable', 'rate-limited', 'empty-output']);
+
 async function generateWithGemini({ system, user, env, fetchImpl, feature = 'seo', model = null }) {
-  const out = await geminiGenerate(user, { env, fetch: fetchImpl, system, json: true, feature, model });
-  return { raw: out.text, model: out.model, usage: out.usage, provider: 'gemini' };
+  // 2026-11-07: a Topic Scout run died with "Gemini returned HTTP 503" because
+  // only ONE model was ever tried. GEMINI_FALLBACK_MODELS existed but nothing
+  // used it. Now the primary is tried first (with its own bounded retries),
+  // then each fallback model — same prompt, same validation.
+  const chain = [...new Set([model || geminiModelFor(feature, { env }), ...GEMINI_FALLBACK_MODELS])];
+  let lastError = null;
+  for (const candidate of chain) {
+    try {
+      const out = await geminiGenerate(user, { env, fetch: fetchImpl, system, json: true, feature, model: candidate });
+      return { raw: out.text, model: out.model, usage: out.usage, provider: 'gemini',
+        fallbackUsed: candidate !== chain[0] ? candidate : null };
+    } catch (e) {
+      lastError = e;
+      if (!FALLBACK_STATES.has(e?.state)) throw e;
+    }
+  }
+  if (lastError) {
+    lastError.message = `${lastError.message} Tried ${chain.length} model(s): ${chain.join(', ')}.`;
+    throw lastError;
+  }
+  throw Object.assign(new Error('No Gemini model available'), { status: 502, state: 'provider-unavailable' });
 }
 
 async function generateWithOpenAi({ system, user, env, fetchImpl }) {

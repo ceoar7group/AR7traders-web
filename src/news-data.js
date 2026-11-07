@@ -147,8 +147,13 @@ export function articleSeo(article) {
   const slug = articleSlug(article.title);
   const rawDesc = String(article.excerpt || article.ex || article.body || '').trim();
   const description = rawDesc.length > 160 ? rawDesc.slice(0, 157).trimEnd() + '…' : rawDesc;
+  // The brand suffix is a nicety, not a requirement: when it would push the
+  // <title> past Google's ~60-character display cutoff (2026-11-07 crawl
+  // flagged two long guide titles), the article title stands alone. The slug
+  // derives from article.title, so this never changes a URL.
+  const withBrand = `${article.title} | AR7 Traders`;
   return {
-    title: `${article.title} | AR7 Traders`,
+    title: withBrand.length > 60 ? article.title : withBrand,
     description,
     canonicalPath: `/news/${encodeURIComponent(slug)}`,
     ogImage: article.img || article.image || '/assets/og/auction.jpg',
