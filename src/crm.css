@@ -4524,3 +4524,25 @@ html[data-crm-theme="light"] .crm-shell,
 .ai-advisor-actions{display:grid;gap:6px;flex:none}
 .ai-advisor-actions button{white-space:nowrap}
 @media(max-width:700px){.ai-advisor-item{flex-wrap:wrap}.ai-advisor-actions{grid-auto-flow:column}.ai-advisor-head{flex-direction:column}}
+
+/* AI Growth — History & undo panel (2026-11-07). Only --crm-* tokens, per
+   scripts/crm-theme-vars.test.mjs. */
+.ai-history{display:grid;gap:14px}
+.ai-history-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+.ai-history-head h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font:700 14px var(--crm-font);color:var(--crm-ink)}
+.ai-history-head h3 svg{color:var(--crm-gold)}
+.ai-history-head>button{flex:none;white-space:nowrap}
+.ai-history-setup{display:flex;gap:8px;align-items:center;border:1px solid var(--crm-danger-border);background:var(--crm-danger-bg);color:var(--crm-danger);border-radius:10px;padding:10px 12px}
+.ai-history-day h4{margin:4px 0 8px;font:800 10px var(--crm-font);letter-spacing:1.2px;text-transform:uppercase;color:var(--crm-muted)}
+.ai-history-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ai-history-item{display:flex;gap:12px;align-items:center;border:1px solid var(--crm-border);border-radius:12px;background:var(--crm-panel-sub);padding:10px 14px}
+.ai-history-item.state-undone{opacity:.72}
+.ai-history-body{flex:1;min-width:0;display:grid;gap:3px}
+.ai-history-body>b{font:700 12.5px var(--crm-font);color:var(--crm-ink)}
+.ai-history-body small{font:500 10.5px var(--crm-font);color:var(--crm-muted)}
+.ai-history-badge{font:800 8.5px var(--crm-font);font-style:normal;letter-spacing:.8px;text-transform:uppercase;background:var(--crm-status-bg);border:1px solid var(--crm-border);border-radius:999px;padding:2px 7px;color:var(--crm-gold)}
+.ai-history-note{display:inline-flex;align-items:center;gap:5px;color:var(--crm-ok)}
+.ai-history-actions{flex:none;display:grid;gap:6px}
+.ai-history-actions button{white-space:nowrap}
+.ai-history-record{font:600 9.5px var(--crm-font);color:var(--crm-muted);letter-spacing:.5px}
+@media(max-width:700px){.ai-history-item{flex-wrap:wrap}.ai-history-head{flex-direction:column}}

@@ -36,6 +36,10 @@
 //     and record per-item failures instead of reporting false success.
 
 import { GoogleGeminiError, geminiGenerate, geminiConfigured, geminiModelFor, parseJsonLoose } from './_gemini.js';
+// Undo-capable history: every config change and every executed draft is
+// snapshotted to automation_log so an administrator can review and undo it
+// from CRM → AI Growth → History (api/_activity.js).
+import { logAutomation } from './_activity.js';
 
 export const AGENTS = ['leads', 'seo', 'social'];
 
@@ -175,9 +179,23 @@ export async function updateAgent(db, agent, patch, actor) {
   if ('max_runs_per_day' in next) next.max_runs_per_day = Math.max(0, Math.min(48, Math.round(Number(next.max_runs_per_day) || 0)));
   next.updated_at = new Date().toISOString();
   next.updated_by = actor?.full_name || actor?.email || 'CRM';
+  // Snapshot before the write: this is exactly what an admin undo restores.
+  const { data: beforeRow } = await db.from('ai_agents').select('*').eq('agent', agent).maybeSingle();
   const { data, error } = await db.from('ai_agents').update(next).eq('agent', agent).select('*').single();
   if (error) throw Object.assign(new Error(error.message), { status: 500 });
-  await audit(db, actor, `AI Growth: ${AGENT_LABELS[agent] || agent} updated (${Object.keys(next).filter(k => !['updated_at', 'updated_by'].includes(k)).join(', ')})`);
+  const changed = Object.keys(next).filter(k => !['updated_at', 'updated_by'].includes(k));
+  await audit(db, actor, `AI Growth: ${AGENT_LABELS[agent] || agent} updated (${changed.join(', ')})`);
+  const words = changed.map(k => {
+    if (k === 'enabled') return next.enabled === true || String(next.enabled) === 'true' ? 'switched ON' : 'switched OFF';
+    if (k === 'paused') return next.paused === true || String(next.paused) === 'true' ? 'paused' : 'resumed';
+    return `${k.replace(/_/g, ' ')} changed`;
+  });
+  await logAutomation(db, {
+    actor: actor?.full_name || actor?.email || 'CRM', source: 'ai-growth', action: 'agent-config',
+    summary: `${AGENT_LABELS[agent] || agent} agent ${words.join(', ')}`,
+    entityType: 'ai_agents', entityId: agent, before: beforeRow || null, after: data,
+    undoKind: beforeRow ? 'restore-row' : null
+  });
   return data;
 }
 
@@ -955,7 +973,9 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
       // wrapper silently made this lookup always "not found", so an agent draft
       // for an existing slug always inserted a second row and the published-
       // article conflict below could never fire. Caught by scripts/ai-growth.test.mjs.
-      const { data: existing } = await db.from('site_articles').select('id,published,slug').eq('slug', slug).maybeSingle();
+      // select('*'): the full row doubles as the undo snapshot in the history
+      // log below (restoring id,published,slug alone would lose the body).
+      const { data: existing } = await db.from('site_articles').select('*').eq('slug', slug).maybeSingle();
       const row = {
         slug, title: draft.title, excerpt: draft.meta?.excerpt || null,
         body: draft.body, category: draft.agent === 'seo' ? 'Guide' : 'News',
@@ -973,15 +993,27 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
         return { state: 'conflict', draft: { ...draft, status: 'awaiting_review' }, result: conflict };
       }
       if (existing?.id) {
-        const { error: e2 } = await db.from('site_articles').update(row).eq('id', existing.id);
+        const { data: updatedRow, error: e2 } = await db.from('site_articles').update(row).eq('id', existing.id).select('*').single();
         if (e2) throw Object.assign(new Error(e2.message), { status: 500 });
         result = { action: 'article-updated', slug, published: false, publishedBefore: false,
           note: 'Saved as an UNPUBLISHED draft in News & guides. Publishing is a separate, explicit action there.' };
+        await logAutomation(db, {
+          actor: `${AGENT_LABELS[draft.agent] || draft.agent} agent`, source: 'ai-growth', action: 'agent-article',
+          summary: `${AGENT_LABELS[draft.agent] || draft.agent} agent updated the unpublished draft “${draft.title || slug}”`,
+          entityType: 'site_articles', entityId: existing.id, before: existing, after: updatedRow || row,
+          undoKind: 'restore-row'
+        });
       } else {
-        const { error: e2 } = await db.from('site_articles').insert(row);
+        const { data: createdRow, error: e2 } = await db.from('site_articles').insert(row).select('*').single();
         if (e2) throw Object.assign(new Error(e2.message), { status: 500 });
         result = { action: 'article-created', slug, published: false,
           note: 'Created as an UNPUBLISHED draft. Review it in News & guides, then publish deliberately.' };
+        await logAutomation(db, {
+          actor: `${AGENT_LABELS[draft.agent] || draft.agent} agent`, source: 'ai-growth', action: 'agent-article',
+          summary: `${AGENT_LABELS[draft.agent] || draft.agent} agent created the unpublished draft “${draft.title || slug}”`,
+          entityType: 'site_articles', entityId: createdRow?.id || null, before: null, after: createdRow || row,
+          undoKind: createdRow?.id ? 'delete-row' : null
+        });
       }
     } else if (draft.kind === 'lead-reply') {
       const channel = draft.meta?.channel || 'whatsapp';
