@@ -392,7 +392,10 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // 2026-11-03: /japan-stock retired (merged into /inventory) — 47 → 46.
   // 2026-11-07: /privacy, /cookies and /terms — the footer's legal links now
   // reach real pages instead of /faq — 46 → 49.
-  ok(locs.length === 49, `sitemap lists 49 URLs (found ${locs.length})`);
+  // 2026-11-08: market expansion (owner direction) — 19 new destination
+  // guides (East/Southern Africa, Caribbean, Pacific, South Asia, Gulf,
+  // RHD Europe, Mongolia) — 49 → 68.
+  ok(locs.length === 68, `sitemap lists 68 URLs (found ${locs.length})`);
   {
     const { DEST, destinationHref } = await import('../src/destinations.js');
     for (const d of DEST) {

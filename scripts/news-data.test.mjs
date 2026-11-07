@@ -79,7 +79,8 @@ console.log('published site_articles hydration');
 }
 
 // DEST structure (7 fields per row, transit planning figure, no duty % quoted)
-ok(Array.isArray(DEST) && DEST.length === 8, `DEST has 8 destination markets (got ${DEST?.length})`);
+// 2026-11-08: market expansion (owner direction) grew the guides 8 -> 27.
+ok(Array.isArray(DEST) && DEST.length === 27, `DEST has 27 destination markets (got ${DEST?.length})`);
 for (const row of DEST) {
   ok(Array.isArray(row) && row.length === 7, `${row[0]} row has 7 fields ([country, port, transit, models, freight, whatToExpect, onArrival])`);
   ok(typeof row[5] === 'string' && row[5].length >= 60, `${row[0]} has a substantive "what to expect" guide`);

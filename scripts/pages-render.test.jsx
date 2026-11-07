@@ -65,6 +65,26 @@ const ROUTES = {
   '/destinations/australia': ['destination-page', 'Import a used car from Japan to Australia', 'Sydney'],
   '/destinations/usa': ['destination-page', 'Import a used car from Japan to USA', 'Los Angeles'],
   '/destinations/tanzania': ['destination-page', 'Import a used car from Japan to Tanzania', 'Dar es Salaam'],
+  // 2026-11-08 market expansion: 19 new destination guides.
+  '/destinations/uganda': ['destination-page', 'Import a used car from Japan to Uganda', 'Kampala'],
+  '/destinations/zambia': ['destination-page', 'Import a used car from Japan to Zambia', 'Lusaka'],
+  '/destinations/zimbabwe': ['destination-page', 'Import a used car from Japan to Zimbabwe', 'Harare'],
+  '/destinations/mozambique': ['destination-page', 'Import a used car from Japan to Mozambique', 'Maputo'],
+  '/destinations/dr-congo': ['destination-page', 'Import a used car from Japan to DR Congo', 'Lubumbashi'],
+  '/destinations/botswana': ['destination-page', 'Import a used car from Japan to Botswana', 'Gaborone'],
+  '/destinations/jamaica': ['destination-page', 'Import a used car from Japan to Jamaica', 'Kingston'],
+  '/destinations/trinidad-and-tobago': ['destination-page', 'Import a used car from Japan to Trinidad', 'Port of Spain'],
+  '/destinations/guyana': ['destination-page', 'Import a used car from Japan to Guyana', 'Georgetown'],
+  '/destinations/fiji': ['destination-page', 'Import a used car from Japan to Fiji', 'Suva'],
+  '/destinations/papua-new-guinea': ['destination-page', 'Import a used car from Japan to Papua New Guinea', 'Port Moresby'],
+  '/destinations/sri-lanka': ['destination-page', 'Import a used car from Japan to Sri Lanka', 'Colombo'],
+  '/destinations/bangladesh': ['destination-page', 'Import a used car from Japan to Bangladesh', 'Chattogram'],
+  '/destinations/mongolia': ['destination-page', 'Import a used car from Japan to Mongolia', 'Ulaanbaatar'],
+  '/destinations/ireland': ['destination-page', 'Import a used car from Japan to Ireland', 'Dublin'],
+  '/destinations/cyprus': ['destination-page', 'Import a used car from Japan to Cyprus', 'Limassol'],
+  '/destinations/malta': ['destination-page', 'Import a used car from Japan to Malta', 'Valletta'],
+  '/destinations/oman': ['destination-page', 'Import a used car from Japan to Oman', 'Sohar'],
+  '/destinations/qatar': ['destination-page', 'Import a used car from Japan to Qatar', 'Hamad'],
   '/tools': ['inner-page'],
   '/world': ['world-page'],
   '/howbuy': ['inner-page'],
@@ -99,7 +119,7 @@ const ROUTES = {
   '/studio': ['AR7'],
   // /portal is in PAGES and in the vercel.json rewrites, so it is a real
   // public route — it was the only one neither route suite visited.
-  '/portal': ['portal-demo', 'CLIENT PORTAL DEMO']
+  '/portal': ['portal-demo', 'CLIENT PORTAL PREVIEW'] // 2026-11-08: owner asked for the word "demo" to go; the tag is now PREVIEW
 };
 
 for (const [path, markers] of Object.entries(ROUTES)) {
@@ -473,7 +493,7 @@ function checkFounderStat(html, variant, where) {
   ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
   ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
   ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');
-  ok(home.includes('card-demo') && home.includes('>demo<'), 'both hero cards carry a visible demo tag');
+  ok(home.includes('card-demo') && home.includes('>sample<'), 'both hero cards carry a visible sample tag (was "demo" until the 2026-11-08 owner direction)');
   ok(heroCards.includes('Next auction \u00b7 ') && !heroCards.includes('SAMPLE'),
     'the hero auction chip describes the auction, without the word SAMPLE');
   ok(heroCards.includes('Shipping lane \u00b7 ') && /Lane|from|Yokohama|Kobe|Nagoya|Tokyo|Osaka/.test(heroCards),
@@ -535,7 +555,7 @@ function checkFounderStat(html, variant, where) {
   const home = await renderPage('/');
   ok(!home.includes('LOT 51') && !home.includes('LOT 28149'), 'homepage dashboard shows no fabricated LOT numbers');
   ok(home.includes('Stock ' + CARS[0].stock_no), 'homepage dashboard labels cars by stock reference');
-  ok(home.includes('dash-demo-chip') && home.includes('DEMO'), 'homepage dashboard is visibly labelled as a demo');
+  ok(home.includes('dash-demo-chip') && home.includes('PREVIEW'), 'homepage dashboard is visibly labelled as a preview (was DEMO until the 2026-11-08 owner direction)');
   const auction = await renderPage('/auction');
   ok(!auction.includes('LOT 3821'), 'auction preview shows no invented lot numbers');
   ok(auction.includes('Stock ' + CARS[0].stock_no), 'auction preview labels cars by stock reference');

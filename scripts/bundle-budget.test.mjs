@@ -229,8 +229,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // Ratcheted 509 → 513 kB raw / 147 → 148 kB gzip on 2026-11-07 (later the
 // same day): saved searches & stock alerts — the shared criteria matcher
 // (src/saved-search.js) and the inventory's SaveSearchBar.
-const BUDGET_GZIP = 148 * 1024;
-const BUDGET_RAW = 513 * 1024;
+// Ratcheted 513 → 531 kB raw / 148 → 153 kB gzip on 2026-11-08: the market
+// expansion tripled the destination guides (8 → 27 markets of real route
+// copy + 19 vector flags) and every stock card gained WhatsApp/offer
+// actions. This is deliberate first-load content, not dependency creep.
+const BUDGET_GZIP = 153 * 1024;
+const BUDGET_RAW = 531 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -290,7 +294,8 @@ const CSS_BUDGET_GZIP = 40 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
-const CSS_BUDGET_RAW = 204 * 1024;
+// 204 → 206 kB raw on 2026-11-08: card action buttons + wider home sections.
+const CSS_BUDGET_RAW = 206 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

@@ -1709,3 +1709,20 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   .cookie-note { flex-wrap: wrap; }
   .cookie-note button.primary.compact { margin-left: 28px; }
 }
+
+/* 2026-11-08 (owner direction): the home page had slack width around the two
+   stock sections — the cars slideshow and the machinery teaser now breathe
+   wider than the standard 1240px shell and carry taller photography, so the
+   vehicles read bigger on desktop without changing the 3-across rhythm. */
+.inventory.shell,
+.mch-teaser.shell {
+  width: min(1380px, calc(100% - 48px));
+}
+@media (min-width: 1001px) {
+  .inventory .car-image { height: 285px; }
+  .mch-teaser .mch-photo { height: 265px; }
+}
+@media (max-width: 650px) {
+  .inventory.shell,
+  .mch-teaser.shell { width: calc(100% - 32px); }
+}
