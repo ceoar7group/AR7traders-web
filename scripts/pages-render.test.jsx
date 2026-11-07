@@ -116,7 +116,9 @@ for (const [path, markers] of Object.entries(ROUTES)) {
 {
   const html = await renderPage('/inventory?make=Toyota');
   const start = html.indexOf('<div class="brand-context-card"');
-  const end = html.indexOf('<div class="logo-strip">', start);
+  // The brand strip moved into the inventory hero (brand-pulse chips), so the
+  // next structural block after the context card is now the body-type chips.
+  const end = html.indexOf('<div class="inv-chips">', start);
   const card = start >= 0 && end > start ? html.slice(start, end) : '';
   const cardText = card.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
   ok(!!card, '/inventory?make=Toyota renders its brand overview context card');
