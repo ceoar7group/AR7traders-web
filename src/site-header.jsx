@@ -239,7 +239,10 @@ export function SiteHeader({
     {ribbon}
     <nav className="nav shell">
     <div className="brand-group">
-      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async" width="None" height="None"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
+      {/* 2026-11-07: width/height were the literal strings "None" (invalid HTML,
+    no reserved box) and the 460px source PNG was 17KB for a 49px slot —
+    both flagged by PageSpeed. The 128px webp is 3KB. */}
+      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async" width="49" height="49"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div id="ar7-public-menu" className={'navlinks ' + (menu ? 'open' : '')}>
@@ -278,8 +281,11 @@ export function SiteHeader({
     <div className="nav-actions">
       {/* Global search (⌘K). One pill above 1100px, a plain icon below it —
           the overlay itself is a lazy chunk mounted by main.jsx. */}
+      {/* 2026-11-07 redesign (owner request): the wide "Search … Ctrl K" pill
+          took the room of two buttons. Now a compact gold icon button at every
+          width; Ctrl+K still works and the title still advertises it. */}
       {onOpenSearch && <button type="button" className="nav-search" onClick={onOpenSearch} aria-label="Search the site" title="Search cars, machinery and guides (Ctrl+K)">
-        <Search/><span className="nav-search-hint">Search</span><kbd>Ctrl K</kbd>
+        <Search/>
       </button>}
       <LanguageSwitcher/>
           <CurrencyDropdown/>

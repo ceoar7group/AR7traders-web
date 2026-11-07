@@ -223,8 +223,11 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // main.jsx, ~1 kB minified. The Topic Scout, upgrade report and Upgrade
 // Advisor all live in the lazy CRM chunk and cost first-load nothing.
 // Measured 504.81 kB raw / 145.60 kB gzip.
-const BUDGET_GZIP = 146 * 1024;
-const BUDGET_RAW = 506 * 1024;
+// Ratcheted 506 → 509 kB raw / 146 → 147 kB gzip on 2026-11-07: the brand
+// cards gained an IO-gated stock slideshow, the inventory showcase gained
+// drag/arrows, and the hero slides gained srcset (owner's UI round).
+const BUDGET_GZIP = 147 * 1024;
+const BUDGET_RAW = 509 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -278,7 +281,10 @@ for (const file of entryCss) {
 // bar in src/extra-pages.css, ~2 kB. CRM-only styles (scout, advisor) ship
 // in the lazy chunks. Measured 196.89 kB raw / 38.13 kB gzip.
 const CSS_BUDGET_GZIP = 39 * 1024;
-const CSS_BUDGET_RAW = 198 * 1024;
+// Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
+// search buttons (header + floating), the language pill and the metric-matched
+// Manrope fallback face.
+const CSS_BUDGET_RAW = 202 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
@@ -335,17 +341,20 @@ ok(!('compress' in vercel),
 
 // ---- fonts -----------------------------------------------------------------
 console.log('\n-- fonts --');
-// Only the two above-the-fold weights may be preloaded; the rest are fetched
-// when something actually uses them.
+// Only the above-the-fold weights may be preloaded; the rest are fetched when
+// something actually uses them. Re-ratcheted 2 → 4 on 2026-11-07 from a field
+// PageSpeed trace: the hero <h1> is weight 800 and the nav is 600/700, so the
+// browser discovered manrope-600/800 late via CSS and the swap landed 688ms
+// in — the longest critical chain on the page. 500 stays lazy on purpose.
 const fontPreloads = [...html.matchAll(/<link[^>]*rel="preload"[^>]*as="font"[^>]*href="([^"]+)"/g)].map(m => m[1]);
-ok(fontPreloads.length === 2,
-  `exactly two font faces are preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ')})`);
+ok(fontPreloads.length === 4,
+  `exactly four font faces are preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ')})`);
 ok(fontPreloads.every(f => /\/assets\/fonts\/[\w-]+\.woff2$/.test(f)),
   'every preloaded font is a self-hosted woff2');
-ok(fontPreloads.every(f => /(400|700)\.woff2$/.test(f)),
-  'the preloaded faces are the two above-the-fold weights (400 and 700)');
-ok(!/fonts\/(500|600|800)\.woff2/.test(html.match(/<head>[\s\S]*?<\/head>/)[0]),
-  'the 500/600/800 faces are not preloaded');
+ok(fontPreloads.every(f => /(400|600|700|800)\.woff2$/.test(f)),
+  'the preloaded faces are the above-the-fold weights (400, 600, 700, 800)');
+ok(!/fonts\/(500)\.woff2/.test(html.match(/<head>[\s\S]*?<\/head>/)[0]),
+  'the 500 face is not preloaded');
 
 // Every @font-face must swap, or the first paint blocks on the font.
 const cssFiles = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.css'));

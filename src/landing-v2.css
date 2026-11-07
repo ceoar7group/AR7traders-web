@@ -291,6 +291,21 @@ html,body{overflow-x:clip}
 .budget-head img{width:44px;height:26px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;padding:2px}
 .budget-head b{font:800 16px Manrope}
 .budget-head span{margin-left:auto;font-size:10px;color:var(--muted);font-weight:700}
+/* 2026-11-07: live stock slideshow inside each brand card (BudgetSlides in
+   main.jsx — IO-gated, one photo mounted at a time, reduced-motion aware). */
+.budget-shots{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:color-mix(in srgb,var(--green) 14%,var(--bg))}
+.budget-shots img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);transition:opacity .7s ease,transform 3.2s ease}
+.budget-shots img.on{opacity:1;transform:scale(1)}
+.budget-shot-cap{position:absolute;left:8px;bottom:7px;z-index:2;font:700 9.5px Manrope;letter-spacing:.3px;color:#fff;background:#02140bc9;border-radius:99px;padding:4px 9px;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.budget-shot-dots{position:absolute;right:9px;bottom:10px;z-index:2;display:flex;gap:4px}
+.budget-shot-dots i{width:5px;height:5px;border-radius:50%;background:#ffffff55;transition:.25s}
+.budget-shot-dots i.on{background:var(--gold);transform:scale(1.3)}
+.budget-years{font:700 10px Manrope;color:var(--muted)}
+.budget-cta{display:inline-flex;align-items:center;gap:6px;font:800 11px Manrope;color:var(--green-text);margin-top:auto}
+.budget-cta svg{width:13px;height:13px;transition:transform .25s}
+.budget-card:hover .budget-cta svg{transform:translateX(3px)}
+.budget-card:hover .budget-shots img.on{transform:scale(1.06)}
+@media(prefers-reduced-motion:reduce){.budget-shots img{transition:opacity .3s}.budget-card:hover .budget-shots img.on{transform:none}}
 .budget-models{display:flex;flex-wrap:wrap;gap:6px}
 .budget-models span{font:700 9.5px Manrope;color:var(--muted);border:1px solid var(--line);background:var(--bg);border-radius:99px;padding:4px 9px}
 .budget-range{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:3px}

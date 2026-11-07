@@ -119,11 +119,15 @@ export function LanguageSwitcher({ compact = false }) {
 
   return (
     <div className="lang-switch">
-      <button type="button" className="icon-btn lang-btn" aria-haspopup="listbox"
+      {/* 2026-11-07 redesign (owner request): a clear language pill — gold
+          globe chip + the language's own short code — instead of a plain
+          icon-box that read as "settings". Same panel, same behaviour. */}
+      <button type="button" className="lang-btn" aria-haspopup="listbox"
         aria-expanded={open} aria-label={`${t('nav.language')}: ${meta.native}`}
         title={`${t('nav.language')} — ${meta.label}`} onClick={() => setOpen(v => !v)}>
-        <Globe2/>
+        <i className="lang-globe" aria-hidden="true"><Globe2/></i>
         <span className="lang-code">{code.toUpperCase()}</span>
+        <svg className="lang-chev" aria-hidden="true" width="8" height="8" viewBox="0 0 10 10"><path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
       </button>
       {open && (
         <div className="lang-panel" role="listbox" aria-label={t('nav.language')}>

@@ -264,13 +264,24 @@ const Pager=({page,total,onGo})=>{
 function InvShowcase({picks,onOpen}){
  const [idx,setIdx]=useState(0),[paused,setPaused]=useState(false);
  const n=picks.length;
+ // 2026-11-07 (owner request): faster rotation, arrow buttons, and the stage
+ // can be dragged/swiped with the cursor or a finger. A real drag must not
+ // fire the slide's click, so the handled flag survives until click-capture.
+ const dragRef=React.useRef(null),swipedRef=React.useRef(false);
  useEffect(()=>{
   if(paused||n<2)return;
   try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch{}
-  const t=setInterval(()=>setIdx(i=>(i+1)%n),3400);return()=>clearInterval(t);
+  const t=setInterval(()=>setIdx(i=>(i+1)%n),2500);return()=>clearInterval(t);
  },[paused,n]);
  if(!n)return null;
- return <div className="inv-stage" onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={()=>setPaused(false)}>
+ const go=d=>setIdx(i=>(i+d+n)%n);
+ const down=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;dragRef.current={x:e.clientX};setPaused(true)};
+ const up=e=>{const d=dragRef.current;dragRef.current=null;if(!d)return;
+  const dx=e.clientX-d.x;
+  if(Math.abs(dx)>40){swipedRef.current=true;go(dx<0?1:-1)}};
+ const clickCapture=e=>{if(swipedRef.current){swipedRef.current=false;e.preventDefault();e.stopPropagation()}};
+ return <div className="inv-stage" onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={()=>setPaused(false)}
+  onPointerDown={down} onPointerUp={up} onPointerCancel={()=>{dragRef.current=null}} onClickCapture={clickCapture}>
   {picks.map((c,i)=>{
    let off=(i-idx+n)%n;if(off>n/2)off-=n;
    const a=Math.abs(off);
@@ -282,10 +293,41 @@ function InvShowcase({picks,onOpen}){
     <span><b>{c.make} {c.model}</b><small>{c.year} · {c.km} km</small></span>
    </button>;
   })}
+  <button type="button" className="inv-stage-arrow prev" aria-label="Previous car" onClick={()=>go(-1)}><ChevronLeft/></button>
+  <button type="button" className="inv-stage-arrow next" aria-label="Next car" onClick={()=>go(1)}><ChevronRight/></button>
   <div className="inv-stage-dots">{picks.map((c,i)=><i key={c.id} className={i===idx?'on':''} onClick={()=>setIdx(i)} role="button" tabIndex={-1} aria-label={'Slide '+(i+1)}/>)}</div>
  </div>;
 }
 const BRANDS=()=>{const m={};cars.forEach(c=>{(m[c.make]=m[c.make]||[]).push(c)});return Object.keys(m).sort((a,b)=>m[b].length-m[a].length).map(k=>({name:k,count:m[k].length,models:[...new Set(m[k].map(c=>c.model.split(' ')[0]))].slice(0,4)}))};
+// 2026-11-07 (owner request): each "Every brand. Every budget." card carries a
+// quiet slideshow of that brand's actual stock. Deliberately cheap: rotation
+// only runs while the card is on screen (IntersectionObserver) and each photo
+// is mounted only when its turn first comes, so an idle homepage downloads
+// one image per card, not five. Honours prefers-reduced-motion.
+function BudgetSlides({make}){
+ const shots=React.useMemo(()=>cars.filter(c=>c.make===make&&c.image).slice(0,4),[make]);
+ const [i,setI]=useState(0),[seen,setSeen]=useState(0),[vis,setVis]=useState(false);
+ const ref=React.useRef(null);
+ useEffect(()=>{
+  const el=ref.current;
+  if(!el||typeof IntersectionObserver==='undefined'){setVis(true);return}
+  const io=new IntersectionObserver(es=>setVis(es.some(e=>e.isIntersecting)),{rootMargin:'60px'});
+  io.observe(el);return()=>io.disconnect();
+ },[]);
+ useEffect(()=>{
+  if(!vis||shots.length<2)return;
+  try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch{}
+  const t=setInterval(()=>setI(v=>{const nx=(v+1)%shots.length;setSeen(s=>Math.max(s,nx));return nx}),2700);
+  return()=>clearInterval(t);
+ },[vis,shots.length]);
+ if(!shots.length)return null;
+ const cur=shots[i];
+ return <div className="budget-shots" ref={ref} aria-hidden="true">
+  {shots.map((c,k)=>k<=Math.max(seen,0)?<img key={c.id} className={k===i?'on':''} src={c.image} alt="" loading="lazy" decoding="async" width="400" height="225"/>:null)}
+  <span className="budget-shot-cap">{cur.model} · {cur.year}</span>
+  {shots.length>1&&<span className="budget-shot-dots">{shots.map((c,k)=><i key={c.id} className={k===i?'on':''}/>)}</span>}
+ </div>;
+}
 export const HOWBUY=[
  ['Tell us the car','Share make, model, year, budget and destination port. We shortlist stock and auction matches.','01','Our Japan export desk checks live auction schedules and dealer stock against your destination country’s age and compliance rules before sending you a shortlist.'],
  ['Get translated sheets','Full English summary of every auction sheet, with photos of flags and repair marks.','02','For auction lots, a Japan-based specialist translates the inspector’s handwritten notes, panel grades and interior marks into plain English; for dealer stock, we share the dealer condition notes and photo set.'],
@@ -643,7 +685,16 @@ function HeroVisual({navigate,discounts}){
        and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
    <h2 className="sr-only">Japan &amp; China cars, heavy machinery</h2>
   <a className={'hero-card car-main'+(c.kind==='machine'?' is-machine':'')} href={c.href} onClick={linkClick(c.href,navigate)}>
-   <div className="hero-stack">{heroImages.map((x,n)=><img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image} alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>)}</div>
+   {/* 2026-11-07 PageSpeed: the hero slides shipped at 1268px for a ~741px
+       box. Local showroom shots now carry a 760w variant via srcset so phones
+       and the Lighthouse viewport download roughly half the bytes. */}
+   <div className="hero-stack">{heroImages.map((x,n)=>{
+     const resp=/^\/assets\/showroom\/hero-0[1-8]\.webp$/.test(x.image||'');
+     return <img key={x.id} className={n===0?'active':''} width="820" height="550" src={x.image}
+       srcSet={resp?`${x.image.replace('.webp','-760.webp')} 760w, ${x.image} 1268w`:undefined}
+       sizes={resp?'(max-width:900px) 94vw, 46vw':undefined}
+       alt={x.alt} loading={n===0?'eager':'lazy'} fetchPriority={n===0?'high':'low'} decoding="async"/>;
+   })}</div>
    <div className="image-shade"/>
    <div className="car-float-title" key={activeIndex}>
     <span>{c.tag}</span><h3>{c.title}</h3><p>{c.meta}</p>
@@ -1320,7 +1371,9 @@ export function App(){
  const brandBudgets=BRANDS().slice(0,8).map(b=>{
   const bc=cars.filter(c=>c.make===b.name);
   const ps=bc.map(c=>carDiscountedUSD(c,liveDiscounts)).filter(v=>v>0);
-  return {...b,lo:ps.length?Math.min(...ps):0,hi:ps.length?Math.max(...ps):0};
+  const ys=bc.map(c=>parseInt(c.year,10)||0).filter(Boolean);
+  return {...b,lo:ps.length?Math.min(...ps):0,hi:ps.length?Math.max(...ps):0,
+   y0:ys.length?Math.min(...ys):0,y1:ys.length?Math.max(...ys):0};
  });
  const budgetBands=[['Under $15k','Kei cars, hatchbacks & first imports'],['$15k–$30k','Hybrids, family SUVs & sedans'],['$30k–$60k','Late-model premium & vans'],['$60k+','Luxury & super sport']];
  const navigate=(p,{scroll=true,replace=false}={})=>{
@@ -1408,7 +1461,7 @@ export function App(){
 
    <section className="brand-budgets shell section" id="budgets">
     <div className="section-head"><div><div className="kicker">BROWSE BY MAKE & BUDGET</div><h2>Every brand.<br/><em>Every budget.</em></h2></div><p>Popular Japanese models with live export price ranges — tap a make to open its stock.</p></div>
-    <div className="budget-grid">{brandBudgets.map(b=><a key={b.name} className="budget-card" href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)}><div className="budget-head"><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt="" onError={logoOnError}/><b>{b.name}</b><span>{b.count} {b.count===1?'car':'cars'}</span></div><div className="budget-models">{b.models.map(m=><span key={m}>{m}</span>)}</div><div className="budget-range"><small>EXPORT PRICE RANGE</small><b>{b.lo?fmt(Math.round(b.lo/100)*100)+' – '+fmt(Math.round(b.hi/100)*100):'On request'}</b></div></a>)}</div>
+    <div className="budget-grid">{brandBudgets.map(b=><a key={b.name} className="budget-card" href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)}><div className="budget-head"><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt="" onError={logoOnError}/><b>{b.name}</b><span>{b.count} {b.count===1?'car':'cars'}</span></div><BudgetSlides make={b.name}/><div className="budget-models">{b.models.map(m=><span key={m}>{m}</span>)}</div><div className="budget-range"><small>EXPORT PRICE RANGE</small><b>{b.lo?fmt(Math.round(b.lo/100)*100)+' – '+fmt(Math.round(b.hi/100)*100):'On request'}</b>{b.y0?<span className="budget-years">{b.y0===b.y1?b.y0:b.y0+' – '+b.y1} · ready to export</span>:null}</div><span className="budget-cta">Browse {b.name} stock <ArrowRight/></span></a>)}</div>
     <div className="budget-bands">{budgetBands.map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div>
    </section>
 
@@ -1458,6 +1511,11 @@ export function App(){
   </footer>
 
   <WhatsAppButton/>
+
+  {/* 2026-11-07 (owner request): a search button in the same floating stack
+      as WhatsApp and the chat — opens the same Ctrl+K overlay as the header. */}
+  <button type="button" className="search-float" onClick={()=>setSearchOpen(true)}
+    aria-label="Search cars, machinery and guides" title="Search (Ctrl+K)"><Search/></button>
 
   <ChatWidget ref={chatRef}/>
 
