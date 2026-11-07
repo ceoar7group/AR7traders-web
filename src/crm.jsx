@@ -584,6 +584,24 @@ function exportCsv(entity, rows) {
   URL.revokeObjectURL(url);
 }
 
+// 2026-11-08: whole-desk backup. Every table currently loaded in the CRM
+// (leads, customers, vehicles, listings, quotes, shipments, …) lands in ONE
+// dated JSON file, so the owner's backups cover data as well as code — the
+// code side is covered by the GitHub archive download.
+function exportAllJson(rows) {
+  const tables = {};
+  for (const [entity, list] of Object.entries(rows || {})) {
+    if (Array.isArray(list) && list.length) tables[entity] = list;
+  }
+  const payload = { exported_at: new Date().toISOString(), source: 'AR7 CRM', tables };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ar7-crm-backup-${todayKey()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * The machinery desk's demo data is the same twelve machines the public site
  * ships with, mapped into the CRM's shape. Demo mode therefore shows a real,
@@ -1700,6 +1718,11 @@ export default function CrmApp() {
         </nav>
         <div className="crm-staff-tools">
           <small>STAFF TOOLS</small>
+          {/* 2026-11-08: one-click data backup — everything the desk has
+              loaded, one dated JSON file. CSV per table stays on each tab. */}
+          <button type="button" className="crm-backup-btn" title="Download every loaded table as one JSON backup file" onClick={() => exportAllJson(rows)}>
+            <Download size={14} /> Data backup
+          </button>
         </div>
         <div className="crm-user">
           <button className="crm-user-open" onClick={() => setWho({ self: true })} title="Edit your profile" type="button">

@@ -6,7 +6,7 @@
 import React, {useEffect, useState} from 'react';
 import {MessageCircle, Mail, LockKeyhole, ArrowRight, Check, LogIn, UserPlus,
                 BadgeCheck, CarFront, Wallet, ArrowLeftRight, ShieldCheck, X,
-        UserCog, KeyRound, BellRing, BellOff, Trash2, Search} from 'lucide-react';
+        UserCog, KeyRound, BellRing, BellOff, Trash2, Search, Heart} from 'lucide-react';
 import {supabase} from './supabase-client.js';
 import { useCustomerSession } from './customer-session.jsx';
 import {useSettings, waLink} from './site-settings.js';
@@ -244,6 +244,7 @@ function MyAccount({session,navigate}){
    {panel==='password' && <PasswordPanel onClose={()=>setPanel(null)}/>}
 
    <SavedSearches session={session} navigate={navigate}/>
+   <SavedCars session={session} navigate={navigate}/>
 
    {!data.customer ? <div className="ma-empty">
      <span><CarFront/></span>
@@ -293,6 +294,31 @@ function MyAccount({session,navigate}){
    </>}
   </div>
  </section>;
+}
+
+/* ---- saved cars (favourites) --------------------------------------- */
+// 2026-11-08: the hearts from the public site, synced to this account
+// (saved_favourites, one row per user). Shown as quick links back into the
+// inventory. Renders nothing while empty or if the table isn't provisioned —
+// the account never blocks on it.
+function SavedCars({session,navigate}){
+ const [refs,setRefs]=useState(null);
+ useEffect(()=>{let alive=true;
+  fetch('/api/my-account?favourites=1',{headers:{Authorization:'Bearer '+session.access_token}})
+   .then(r=>r.ok?r.json():null)
+   .then(j=>{if(alive&&j&&Array.isArray(j.refs))setRefs(j.refs)})
+   .catch(()=>{});
+  return()=>{alive=false};
+ },[session.access_token]);
+ if(!refs||!refs.length)return null;
+ return <div className="ma-alerts ma-favs">
+  <h2 className="ma-title"><Heart/> Your saved cars</h2>
+  <p className="ma-muted">Hearted on the website — they follow your account on any device.</p>
+  <div className="ma-fav-chips">{refs.slice(0,30).map(ref=>{
+    const href='/inventory/'+encodeURIComponent(ref);
+    return <a key={ref} className="outline-btn" href={href} onClick={linkClick(href,navigate)}>{ref} <ArrowRight/></a>;
+  })}</div>
+ </div>;
 }
 
 /* ---- saved searches & stock alerts -------------------------------- */

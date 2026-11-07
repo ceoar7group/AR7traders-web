@@ -37,6 +37,37 @@ export default async function handler(req,res,injected={}){
    user=u.user;
   }
 
+  // ---- Saved favourites (2026-11-08, scoped to the signed-in user) -------
+  // One row per user holding the hearted stock references, so favourites
+  // follow the customer across devices. GET returns the array; PUT replaces
+  // it (last write wins — the client merges local + server before writing).
+  if('favourites' in query){
+   const db=injected.db||adminClient();
+   if(req.method==='GET'){
+    const {data:row}=await db.from('saved_favourites').select('*')
+      .eq('auth_user_id',user.id).single();
+    return send(res,200,{refs:Array.isArray(row?.refs)?row.refs:[]});
+   }
+   if(req.method==='PUT'){
+    const refs=[...new Set((Array.isArray(req.body?.refs)?req.body.refs:[])
+      .map(r=>String(r??'').trim()).filter(r=>r&&r.length<=64))].slice(0,200);
+    const {data:existing}=await db.from('saved_favourites').select('id')
+      .eq('auth_user_id',user.id).single();
+    if(existing?.id){
+     const {error}=await db.from('saved_favourites')
+       .update({refs,updated_at:new Date().toISOString()})
+       .eq('id',existing.id).eq('auth_user_id',user.id);
+     if(error)return send(res,400,{error:error.message});
+    }else{
+     const {error}=await db.from('saved_favourites')
+       .insert({auth_user_id:user.id,refs});
+     if(error)return send(res,400,{error:error.message});
+    }
+    return send(res,200,{refs});
+   }
+   return send(res,405,{error:'Method not allowed'});
+  }
+
   // ---- Saved searches / stock alerts (scoped to the signed-in user) ------
   if('searches' in query){
    const db=injected.db||adminClient();

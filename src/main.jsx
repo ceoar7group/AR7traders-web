@@ -1386,6 +1386,45 @@ export function App(){
  const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
  useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
+ // 2026-11-08: favourites follow the signed-in customer across devices.
+ // Pull the server copy once per sign-in (and again when stock hydrates, so
+ // refs can be mapped to live cars), merge it into the local hearts, then
+ // push changes back debounced. Server refs that do not match any currently
+ // listed car are preserved on write, so a favourite survives a re-import.
+ const favSync=useRef({server:null});
+ const [favTick,setFavTick]=useState(0);
+ useEffect(()=>onContentChange(()=>setFavTick(t=>t+1)),[]);
+ useEffect(()=>{
+  if(!customerSession){favSync.current.server=null;return}
+  let dead=false;
+  fetch('/api/my-account?favourites=1',{headers:{Authorization:'Bearer '+customerSession.access_token}})
+   .then(r=>r.ok?r.json():null)
+   .then(j=>{
+    if(dead||!j||!Array.isArray(j.refs))return;
+    favSync.current.server=j.refs;
+    const byRef=new Map(cars.map(c=>[carRef(c),c.id]));
+    const ids=j.refs.map(r=>byRef.get(r)).filter(x=>x!=null);
+    if(ids.length)setFavs(v=>{const merged=[...new Set([...v,...ids])];return merged.length===v.length?v:merged});
+   }).catch(()=>{});
+  return()=>{dead=true};
+ },[customerSession,favTick]);
+ useEffect(()=>{
+  if(!customerSession||favSync.current.server===null)return;
+  const t=setTimeout(()=>{
+   const server=favSync.current.server||[];
+   const byId=new Map(cars.map(c=>[c.id,carRef(c)]));
+   const known=new Set(cars.map(c=>carRef(c)));
+   const localRefs=favs.map(id=>byId.get(id)).filter(Boolean);
+   const keep=server.filter(r=>!known.has(r));
+   const refs=[...new Set([...localRefs,...keep])];
+   if(refs.slice().sort().join()===server.slice().sort().join())return;
+   fetch('/api/my-account?favourites=1',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+customerSession.access_token},body:JSON.stringify({refs})})
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{if(j&&Array.isArray(j.refs))favSync.current.server=j.refs})
+    .catch(()=>{});
+  },800);
+  return()=>clearTimeout(t);
+ },[favs,customerSession,favTick]);
   const machineOnRoute = page === 'machinery' && machineRoute.ref ? machineByRef(machineRoute.ref) : null;
  const destOnRoute = page === 'destinations' && destRoute ? destinationBySlug(destRoute) : null;
   // One published discount setting feeds cards, detail pages and JSON-LD.
