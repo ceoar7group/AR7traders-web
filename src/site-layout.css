@@ -117,6 +117,43 @@
   border-radius: 11px;
 }
 
+/* Global search trigger (⌘K). A labelled pill on wide screens, collapsing to
+   a plain icon as the bar tightens; the overlay is a lazy chunk (main.jsx). */
+.nav-wrap .nav-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--card);
+  color: var(--muted);
+  font: 600 12px Manrope, sans-serif;
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+.nav-wrap .nav-search:hover { border-color: var(--gold); color: var(--ink); }
+.nav-wrap .nav-search svg { width: 15px; height: 15px; flex: none; }
+.nav-wrap .nav-search kbd {
+  font: 700 9.5px Manrope, sans-serif;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 5px;
+  letter-spacing: .3px;
+}
+@media (max-width: 1279px) {
+  .nav-wrap .nav-search kbd { display: none; }
+}
+@media (max-width: 1100px) {
+  .nav-wrap .nav-search { width: 40px; padding: 0; justify-content: center; }
+  .nav-wrap .nav-search .nav-search-hint { display: none; }
+}
+@media (max-width: 639px) {
+  .nav-wrap .nav-search { width: 34px; height: 34px; border-radius: 10px; }
+  .nav-wrap .nav-search svg { width: 16px; }
+}
+
 /* The burger only exists below 900px — the bar carries the whole menu above
    that. Declared here so no earlier file can leave it on a wide screen. */
 .nav-wrap .menu-btn {
@@ -1650,4 +1687,36 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   .ticker>div {animation:none!important;transition:none!important}
   .route-strip .progress span {width:var(--route-progress)!important;transform:none!important;translate:none!important;rotate:none!important}
   .route-strip .route-ship {transform:translateX(50%)!important;translate:none!important;rotate:none!important}
+}
+
+/* ---------------------------------------------------------------------------
+   Cookie / storage notice (main.jsx CookieNotice). Appears once per device,
+   bottom-left so it never covers the WhatsApp / chat buttons bottom-right.
+   --------------------------------------------------------------------------- */
+.cookie-note {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 180;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: min(380px, calc(100vw - 36px));
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px #0007;
+  padding: 15px 16px;
+  animation: cookiePop .3s cubic-bezier(.2,.8,.3,1) both;
+}
+@keyframes cookiePop { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.cookie-note > svg { width: 17px; height: 17px; color: var(--gold); flex: none; margin-top: 2px; }
+.cookie-note p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.cookie-note p b { color: var(--ink); }
+.cookie-note p a { color: var(--green-text); font-weight: 700; }
+.cookie-note button.primary.compact { flex: none; height: 32px; padding: 0 13px; font-size: 11.5px; align-self: center; }
+@media (max-width: 480px) {
+  .cookie-note { flex-wrap: wrap; }
+  .cookie-note button.primary.compact { margin-left: 28px; }
 }

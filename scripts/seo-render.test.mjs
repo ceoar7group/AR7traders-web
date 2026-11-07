@@ -387,7 +387,9 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // purpose: every URL added to the sitemap should make someone update it.
   // 2026-10-09: Australia, USA and two document/quotation guides.
   // 2026-11-03: /japan-stock retired (merged into /inventory) — 47 → 46.
-  ok(locs.length === 46, `sitemap lists 46 URLs (found ${locs.length})`);
+  // 2026-11-07: /privacy, /cookies and /terms — the footer's legal links now
+  // reach real pages instead of /faq — 46 → 49.
+  ok(locs.length === 49, `sitemap lists 49 URLs (found ${locs.length})`);
   {
     const { DEST, destinationHref } = await import('../src/destinations.js');
     for (const d of DEST) {

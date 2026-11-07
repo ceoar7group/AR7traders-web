@@ -9,7 +9,7 @@ import {
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
   Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
-  ChevronDown, Percent, Bot, Stethoscope
+  ChevronDown, Percent, Bot, Stethoscope, Bell, CalendarClock, CornerDownLeft
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
@@ -981,6 +981,161 @@ export function refusedCandidateKeys(candidateRows, selectedKeys, refusedRows) {
   return keys;
 }
 
+/* ---------------------------------------------------------------------------
+   Notification bell (2026-11-07). A live "needs attention" list computed from
+   the records already loaded — no extra API call, no stored read-state:
+     • tasks past or at their due date that are not done
+     • brand-new leads, and leads whose follow-up date has arrived
+     • sent quotes past their validity date
+   Clicking an item jumps to the desk (and pre-fills the search where that
+   pins the exact record). */
+function CrmBell({ rows, go }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = e => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const today = new Date().toISOString().slice(0, 10);
+  const items = useMemo(() => {
+    const out = [];
+    for (const t of rows.tasks || []) {
+      if (t.status === 'done' || !t.due_date) continue;
+      if (t.due_date > today) continue;
+      out.push({
+        key: 'task-' + t.id, Icon: CalendarClock, tone: t.due_date < today ? 'danger' : 'warn',
+        text: t.title, sub: (t.due_date < today ? 'Overdue — was due ' : 'Due today — ') + t.due_date + (t.owner ? ' · ' + t.owner : ''),
+        tab: 'tasks', q: t.title
+      });
+    }
+    for (const l of rows.leads || []) {
+      if (l.status === 'new') {
+        out.push({
+          key: 'lead-new-' + l.id, Icon: Users, tone: 'ok',
+          text: 'New lead: ' + (l.name || 'Unnamed') + (l.country ? ' (' + l.country + ')' : ''),
+          sub: (l.vehicle_interest || 'No vehicle named') + (l.source ? ' · via ' + l.source : ''),
+          tab: 'leads', q: l.name
+        });
+      } else if (l.next_follow_up && l.next_follow_up <= today && !['won', 'lost', 'closed'].includes(String(l.status || ''))) {
+        out.push({
+          key: 'lead-fu-' + l.id, Icon: Clock3, tone: 'warn',
+          text: 'Follow up ' + (l.name || 'lead'),
+          sub: 'Planned for ' + l.next_follow_up + (l.assigned_to ? ' · ' + l.assigned_to : ''),
+          tab: 'leads', q: l.name
+        });
+      }
+    }
+    for (const q of rows.quotes || []) {
+      if (q.status !== 'sent' || !q.valid_until || q.valid_until > today) continue;
+      out.push({
+        key: 'quote-' + q.id, Icon: FileText, tone: 'danger',
+        text: 'Quote ' + (q.quote_no || '') + ' past validity',
+        sub: (q.customer_name || '') + ' · was valid until ' + q.valid_until,
+        tab: 'quotes', q: q.quote_no
+      });
+    }
+    return out;
+  }, [rows, today]);
+  return (
+    <div className="crm-bell-wrap" ref={ref}>
+      <button type="button" className={'crm-bell' + (open ? ' open' : '')} onClick={() => setOpen(v => !v)}
+        aria-label={items.length ? items.length + ' items need attention' : 'Nothing needs attention'}
+        aria-expanded={open} title="Needs attention: overdue tasks, new leads, expiring quotes">
+        <Bell />
+        {items.length > 0 && <i className="crm-bell-badge">{items.length > 9 ? '9+' : items.length}</i>}
+      </button>
+      {open && (
+        <div className="crm-bell-panel" role="menu" aria-label="Needs attention">
+          <div className="crm-bell-head"><b>Needs attention</b><span>{items.length === 0 ? 'All clear' : items.length + (items.length === 1 ? ' item' : ' items')}</span></div>
+          {items.length === 0 ? (
+            <div className="crm-bell-empty"><ShieldCheck /> No overdue tasks, no waiting leads, no expired quotes.</div>
+          ) : items.slice(0, 12).map(it => (
+            <button key={it.key} type="button" role="menuitem" className={'crm-bell-item tone-' + it.tone}
+              onClick={() => { setOpen(false); go(it.tab, it.q); }}>
+              <it.Icon />
+              <span><b>{it.text}</b><small>{it.sub}</small></span>
+              <ChevronRight />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Command palette (2026-11-07) — Ctrl/⌘+K anywhere in the CRM. Jump to any
+   desk by name, or straight to a lead / customer / car: picking a record
+   opens its desk with the search pre-filled to pin it. */
+function CrmPalette({ onClose, rows, go }) {
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(0);
+  const inputRef = useRef(null);
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 20); }, []);
+  const list = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const out = [];
+    for (const [id, label, Icon] of tabs) {
+      if (!needle || label.toLowerCase().includes(needle) || id.includes(needle)) {
+        out.push({ key: 'tab-' + id, Icon, text: label, sub: 'Open desk', tab: id, q: '' });
+      }
+    }
+    if (needle.length >= 2) {
+      for (const l of rows.leads || []) {
+        if (`${l.name} ${l.email} ${l.country} ${l.vehicle_interest}`.toLowerCase().includes(needle)) {
+          out.push({ key: 'lead-' + l.id, Icon: Users, text: l.name, sub: 'Lead · ' + (l.vehicle_interest || l.country || ''), tab: 'leads', q: l.name });
+        }
+      }
+      for (const c of rows.customers || []) {
+        if (`${c.name} ${c.email} ${c.country}`.toLowerCase().includes(needle)) {
+          out.push({ key: 'cust-' + c.id, Icon: UserRound, text: c.name, sub: 'Customer · ' + (c.country || ''), tab: 'customers', q: c.name });
+        }
+      }
+      for (const v of rows.vehicles || []) {
+        if (`${v.stock_no} ${v.make} ${v.model}`.toLowerCase().includes(needle)) {
+          out.push({ key: 'veh-' + v.id, Icon: CarFront, text: [v.year, v.make, v.model].filter(Boolean).join(' '), sub: 'Inventory · ' + (v.stock_no || ''), tab: 'vehicles', q: v.stock_no || v.model });
+        }
+      }
+    }
+    return out.slice(0, 14);
+  }, [q, rows]);
+  useEffect(() => { setSel(0); }, [q]);
+  const pick = it => { go(it.tab, it.q); onClose(); };
+  const onKey = e => {
+    if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, list.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSel(s => Math.max(s - 1, 0)); }
+    else if (e.key === 'Enter' && list[sel]) { e.preventDefault(); pick(list[sel]); }
+  };
+  return (
+    <div className="crm-palette-backdrop" onMouseDown={onClose} role="dialog" aria-modal="true" aria-label="Command palette">
+      <div className="crm-palette" onMouseDown={e => e.stopPropagation()}>
+        <label className="crm-palette-input">
+          <Search />
+          <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey}
+            placeholder="Jump to a desk, lead, customer or car…" aria-label="Command palette search" />
+          <kbd>ESC</kbd>
+        </label>
+        <div className="crm-palette-list">
+          {list.map((it, i) => (
+            <button key={it.key} type="button" className={'crm-palette-item' + (sel === i ? ' active' : '')}
+              onMouseEnter={() => setSel(i)} onClick={() => pick(it)}>
+              <it.Icon />
+              <span><b>{it.text}</b><small>{it.sub}</small></span>
+              {sel === i && <CornerDownLeft />}
+            </button>
+          ))}
+          {list.length === 0 && <div className="crm-palette-none">Nothing matches “{q.trim()}”.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CrmApp() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -1006,6 +1161,15 @@ export default function CrmApp() {
   const [storageReport, setStorageReport] = useState(null);
   const [storageBusy, setStorageBusy] = useState(false);
   const [theme, setTheme] = useState(() => lsGet('ar7-crm-theme') || 'emerald');
+  // Ctrl/⌘+K command palette — staff jump between 20+ desks all day.
+  const [palette, setPalette] = useState(false);
+  useEffect(() => {
+    const onKey = e => {
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setPalette(v => !v); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleThemeChange = newTheme => {
     setTheme(newTheme);
@@ -1586,6 +1750,10 @@ export default function CrmApp() {
               </button>
             </div>
 
+            <button type="button" className="crm-kbtn" onClick={() => setPalette(true)} title="Command palette (Ctrl+K)" aria-label="Open command palette">
+              <Search /><kbd>Ctrl K</kbd>
+            </button>
+            <CrmBell rows={rows} go={(t, q) => { setTab(t); setQuery(q || ''); }} />
             <div className="crm-live"><i /> LIVE OPS</div>
             <a className="crm-site" href="/" title="Return to public website">Website <ChevronRight /></a>
           </div>
@@ -1811,6 +1979,14 @@ export default function CrmApp() {
             const inVehicles = (rows.vehicles || []).some(x => x.id === r.id);
             setPhotoTarget({ entity: inGoonet ? 'goonet' : (inVehicles ? 'vehicles' : 'listings'), row: r });
           }}
+        />
+      )}
+
+      {palette && (
+        <CrmPalette
+          onClose={() => setPalette(false)}
+          rows={rows}
+          go={(t, q) => { setTab(t); setQuery(q || ''); }}
         />
       )}
     </div>

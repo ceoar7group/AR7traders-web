@@ -90,6 +90,11 @@ const ROUTES = {
   // Brand landing pages (the shape every /cars/... URL uses).
   '/cars/toyota': ['inner-page', 'Toyota', 'for export', 'landing-links'],
   '/cars/toyota/land-cruiser': ['inner-page', 'Land Cruiser', 'for export'],
+  // Legal pages (2026-11-07): real routes behind the footer links that used
+  // to point at /faq.
+  '/privacy': ['legal-page', 'Privacy', 'Supabase'],
+  '/cookies': ['legal-page', 'ar7-display-currency', 'Vercel Web Analytics'],
+  '/terms': ['legal-page', 'Export policy', 'subject to prior sale'],
   '/account': ['AR7'],
   '/studio': ['AR7'],
   // /portal is in PAGES and in the vercel.json rewrites, so it is a real

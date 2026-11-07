@@ -211,8 +211,14 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // chips replaced the lazy globe on /inventory — plain React in main.jsx,
 // ~2 kB minified, no new library. Measured 500.10 kB raw; gzip stays inside
 // the unchanged 145 kB budget.
-const BUDGET_GZIP = 145 * 1024;
-const BUDGET_RAW = 503 * 1024;
+// Ratcheted 503 → 504 kB raw / 145 → 146 kB gzip on 2026-11-07: the global
+// search trigger in the header, the Ctrl+K listener and the cookie notice —
+// plain React in main.jsx/site-header.jsx, ~1 kB minified. The search overlay
+// and the legal pages themselves are lazy chunks (global-search.jsx,
+// legal.jsx) and cost first-load nothing. Measured 502.95 kB raw /
+// 145.12 kB gzip.
+const BUDGET_GZIP = 146 * 1024;
+const BUDGET_RAW = 504 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -256,8 +262,13 @@ for (const file of entryCss) {
 // inventory hero showcase + brand-pulse chips + numbered pager styles
 // (src/extra-pages.css, ~2.3 kB) and the CRM per-lead AI-assist modal
 // (src/crm.css, ~2.4 kB — a staff-tool surface). Measured 192.50 kB raw.
+// Ratcheted 194 → 196 kB raw on 2026-11-07 (gzip unchanged at 38): the
+// header search pill and the one-time cookie notice (src/site-layout.css,
+// ~2.1 kB). The search overlay and legal-page styles ship in their lazy
+// chunks (global-search.css, legal.css) and cost first-load nothing.
+// Measured 194.21 kB raw / 37.71 kB gzip.
 const CSS_BUDGET_GZIP = 38 * 1024;
-const CSS_BUDGET_RAW = 194 * 1024;
+const CSS_BUDGET_RAW = 196 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

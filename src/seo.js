@@ -29,7 +29,8 @@ const PAGE_LABELS = {
   brands: 'Brands We Export', destinations: 'Shipping Destinations', tools: 'Import Cost Calculator',
   world: 'Global Network', howbuy: 'How to Buy', news: 'News & Guides', about: 'About',
   reviews: 'Reviews', faq: 'FAQ', contact: 'Contact',
-  shipping: 'Shipping', machinery: 'Machinery & Equipment'
+  shipping: 'Shipping', machinery: 'Machinery & Equipment',
+  privacy: 'Privacy Policy', cookies: 'Cookie Policy', terms: 'Terms & Export Policy'
 };
 
 // Only canonicalize makes we explicitly recognize. Keep the current catalogue
@@ -95,6 +96,12 @@ export const PAGE_SEO = {
                 'Track bids, shipments, documents and payments in the AR7 Traders client portal.'],
   machinery:   ['Construction Machinery for Export | AR7 Traders',
                 'Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers, inspected and shipped to your port. Indicative FOB prices.'],
+  privacy:     ['Privacy Policy | AR7 Traders',
+                'What AR7 Traders collects when you enquire or buy, where it is stored, how long we keep it and how to have it deleted.'],
+  cookies:     ['Cookie Policy | AR7 Traders',
+                'No advertising cookies, no cross-site tracking: every key this site stores on your device, listed and explained.'],
+  terms:       ['Terms & Export Policy | AR7 Traders',
+                'Prices, ordering, payment, shipping documents and the export compliance rules that govern buying a vehicle through AR7 Traders.'],
   crm:         ['AR7 Traders Staff CRM', 'Internal operations console for AR7 Traders staff: leads, customers, quotes, shipments and approvals.'],
   studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.'],
   seo:         ['SEO Desk | AR7 Traders', 'Staff-only SEO audit desk: the same checks the AR7 SEO agent runs, on the live page.']

@@ -37,3 +37,19 @@
 .inv-pager button:disabled{opacity:.35;cursor:default}
 .inv-pager>span{color:var(--muted);padding:0 2px}
 @media(max-width:900px){.inv-hero-grid{grid-template-columns:1fr;gap:26px}.inv-stage{height:240px}.inv-slide{height:200px}.results-line{flex-wrap:wrap;gap:8px}}
+
+/* ---------------------------------------------------------------------------
+   Recently-viewed strip on /inventory (main.jsx RecentlyViewed, 2026-11-07).
+   --------------------------------------------------------------------------- */
+.recent-strip{display:flex;align-items:center;gap:14px;margin:0 0 18px;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.recent-strip-label{display:inline-flex;align-items:center;gap:7px;font:800 10px Manrope;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;flex:none}
+.recent-strip-label svg{width:14px;height:14px;color:var(--gold)}
+.recent-strip-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.recent-strip-row::-webkit-scrollbar{display:none}
+.recent-strip-row button{display:flex;align-items:center;gap:9px;flex:none;border:1px solid var(--line);background:none;border-radius:10px;padding:5px 11px 5px 5px;cursor:pointer;color:inherit;transition:.2s}
+.recent-strip-row button:hover{border-color:var(--gold);transform:translateY(-1px)}
+.recent-strip-row img{width:56px;height:38px;object-fit:cover;border-radius:7px;background:#0d2419}
+.recent-strip-row span{display:grid;text-align:left}
+.recent-strip-row b{font:700 11.5px Manrope;white-space:nowrap}
+.recent-strip-row small{font-size:10px;color:var(--muted);white-space:nowrap}
+@media(max-width:640px){.recent-strip{flex-direction:column;align-items:flex-start;gap:8px}.recent-strip-row{width:100%}}

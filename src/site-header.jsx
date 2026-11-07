@@ -217,7 +217,7 @@ export function SiteHeader({
   page, vehicleId = null, makeFilter = null, brands = [], vehicleCount = 0,
   menu = false, setMenu = () => {}, dark = false, setDark = () => {},
   signedIn = false, navigate = () => {}, logoFor = () => '', ribbon = null, orb = null,
-  promo = null, hold = true
+  promo = null, hold = true, onOpenSearch = null
 }) {
   const headRef = useRef(null);
   const routeKey = [page, vehicleId || '', makeFilter || ''].join('/');
@@ -276,6 +276,11 @@ export function SiteHeader({
       </div>
     </div>
     <div className="nav-actions">
+      {/* Global search (⌘K). One pill above 1100px, a plain icon below it —
+          the overlay itself is a lazy chunk mounted by main.jsx. */}
+      {onOpenSearch && <button type="button" className="nav-search" onClick={onOpenSearch} aria-label="Search the site" title="Search cars, machinery and guides (Ctrl+K)">
+        <Search/><span className="nav-search-hint">Search</span><kbd>Ctrl K</kbd>
+      </button>}
       <LanguageSwitcher/>
           <CurrencyDropdown/>
       <a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio', navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a>
