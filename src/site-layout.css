@@ -1957,14 +1957,21 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   height: clamp(460px, min(71vh, 55vw), 680px);
 }
 
+/* 2026-11-08 (owner, round 2): the enclosed dark-green panel read as a "box".
+   The stage is now OPEN like the inventory hero — no backdrop, no frame, no
+   card shadow of its own; the side cars simply fade out at the edges through
+   a soft mask, so nothing is hard-cropped and nothing can overlap the hero
+   copy either. */
 .hero-stage {
   display: block;
   border-width: 0;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(213, 176, 100, .10), transparent 55%),
-    linear-gradient(155deg, #02301d, #0a4a2d 48%, #022416);
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
   touch-action: pan-y;
   cursor: grab;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
 }
 
 .hero-stage:active {
@@ -1998,16 +2005,27 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   transition: transform .7s cubic-bezier(.22, .8, .26, 1), opacity .7s, filter .7s;
 }
 
+/* 2026-11-08 (owner, round 2): many synced auction photos carry the selling
+   dealer's signage ABOVE the car. Car slides therefore crop with the window
+   biased BELOW centre (sign gone, car whole); machinery keeps the blur-fill
+   contain treatment from round 1, because machines are tall and cropping
+   them loses the machine itself. */
 .hero-stage .hero-slide img {
   position: relative;
   z-index: 1;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: 50% 62%;
   display: block;
   transform: none;
   pointer-events: none;
   -webkit-user-drag: none;
+}
+
+.hero-stage .hero-slide.is-machine img {
+  object-fit: contain;
+  object-position: center;
 }
 
 .hero-stage .hero-slide .hero-slide-bg {
@@ -2059,7 +2077,9 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   opacity: .35;
 }
 
-/* Dot rail + counter move to the showroom floor strip under the slides. */
+/* Dot rail + counter move to the floor strip under the slides. With the open
+   (panel-less) stage the dots sit on the PAGE background now, so they take
+   their colour from the theme ink instead of assuming a dark panel. */
 .hero-stage .car-dots {
   top: auto;
   right: auto;
@@ -2072,11 +2092,16 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
 
 .hero-stage .car-dots i {
   cursor: pointer;
+  background: color-mix(in srgb, var(--ink) 26%, transparent);
+}
+
+.hero-stage .car-dots i.active {
+  background: var(--gold);
 }
 
 .hero-stage .car-counter {
   z-index: 12;
-  right: 14px;
+  right: 32px; /* clear of the 28px edge fade mask */
   bottom: 12px;
 }
 
@@ -2189,4 +2214,77 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   .hero .hero-carousel-controls button:active {
     transform: none !important;
   }
+}
+
+/* ===========================================================================
+   2026-11-08 (5): THIRD PUBLIC THEME — "BLUE & GOLD" (owner request)
+   Deep navy + champagne gold. The header's theme button cycles
+   light → dark → blue & gold (src/main.jsx). Everything that reads the
+   theme variables recolours itself; the handful of hard-coded emerald
+   surfaces that matter visually (mini page heroes, the two showroom stages,
+   the primary button's hover flash) get explicit navy overrides below.
+   =========================================================================== */
+html[data-theme=blue] {
+  --green: #0d3f7e;
+  --green-text: #8fb9ff;
+  --deep: #071a3a;
+  --forest: #13509a;
+  --gold: #cfa953;
+  --gold2: #e7cf8a;
+  --ink: #eaf2fd;
+  --muted: #92a6c5;
+  --bg: #070e1c;
+  --card: #0c1a31;
+  --line: #1e3458;
+  --shadow: 0 25px 80px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+html[data-theme=blue] .primary:hover {
+  background: #11498d; /* styles.css hard-codes the emerald hover flash */
+}
+
+html[data-theme=blue] .page-hero.mini {
+  background: linear-gradient(125deg, var(--deep), #10488c);
+}
+
+html[data-theme=blue] .page-hero.split {
+  background: var(--deep);
+}
+
+html[data-theme=blue] .hero-stage .hero-slide,
+html[data-theme=blue] .inv-slide {
+  background: #0a1c3c;
+}
+
+html[data-theme=blue] .hero-stage .hero-slide-cap {
+  background: linear-gradient(0deg, rgba(3, 10, 26, .9), rgba(3, 10, 26, .42) 55%, transparent);
+}
+
+html[data-theme=blue] .inv-slide > span {
+  background: linear-gradient(0deg, #030c1ad9, transparent);
+}
+
+html[data-theme=blue] .inv-stage-arrow,
+html[data-theme=blue] .hero .hero-carousel-controls button {
+  background: linear-gradient(160deg, rgba(8, 24, 52, .92), rgba(3, 10, 26, .88));
+}
+
+html[data-theme=blue] .inv-stage-arrow:hover,
+html[data-theme=blue] .hero .hero-carousel-controls button:hover {
+  background: linear-gradient(160deg, #133f7e, #081a38);
+}
+
+html[data-theme=blue] .car-counter {
+  background: rgba(4, 14, 36, .55);
+}
+
+/* ---------------------------------------------------------------------------
+   2026-11-08 (5b): synced auction photographs often carry the selling
+   dealer's signboard ABOVE the car. Stock-card crops bias the visible window
+   below centre — the car stays whole, the signage leaves the frame.
+   Machinery cards (.mch-photo) are untouched.
+   --------------------------------------------------------------------------- */
+.car-image img {
+  object-position: 50% 58%;
 }

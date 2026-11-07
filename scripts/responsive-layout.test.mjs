@@ -121,7 +121,12 @@ assert.match(currencyCss, /@media\s*\(max-width:\s*899px\)/);
 assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/lux\/rolls-royce-ghost\.webp\"\s+fetchpriority=\"high\"/);
 assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+used-japanese-cars-auction-export-toyota/);
 assert.match(main, /DeferredBigGlobe/);
-assert.match(main, /loading=\{n===0\?'eager':'lazy'\}/);
+// 2026-11-08: the hero became the showroom stage (PR #111) — the guard's
+// intent is unchanged (only the lead photo may load eagerly), but the slide
+// variable is now the centre-offset `a`: eager for the visible trio, lazy
+// beyond, and slides further than a=2 do not mount an <img> at all.
+assert.match(main, /loading=\{a<=1\?'eager':'lazy'\}/);
+assert.match(main, /fetchPriority=\{off===0\?'high':'low'\}/);
 assert.match(main, /prefers-reduced-motion/);
 
 // 2026-10-07 hero rebuild: the photograph IS the card. `.hero-visual` is a

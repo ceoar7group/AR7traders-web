@@ -61,7 +61,7 @@ const STORAGE_ROWS = [
   ['ar7-lang', 'localStorage', 'Your chosen website language.', 'Until cleared'],
   ['ar7-display-currency', 'localStorage', 'Your chosen display currency.', 'Until cleared'],
   ['ar7-exchange-rates', 'localStorage', 'A cached copy of exchange rates so prices convert instantly.', 'Refreshed automatically'],
-  ['ar7-theme', 'localStorage', 'Light or dark mode preference.', 'Until cleared'],
+  ['ar7-theme', 'localStorage', 'Colour theme preference (light, dark, blue & gold).', 'Until cleared'],
   ['ar7-favs', 'localStorage', 'Vehicles you marked with the heart icon, on this device.', 'Until cleared'],
   ['ar7-inv-pp', 'localStorage', 'How many vehicles you show per inventory page.', 'Until cleared'],
   ['ar7-recent-q', 'localStorage', 'Your recent searches, shown when you reopen the search bar.', 'Until cleared'],

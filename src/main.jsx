@@ -781,12 +781,13 @@ function HeroVisual({navigate,discounts}){
      // srcset variant. Far slides (a>2) mount as empty dark cards — they are
      // invisible (opacity 0) and mounting all 11 photographs at once would
      // wreck the hero's LCP; each slide loads one rotation step before it can
-     // become visible. The blurred backdrop + object-fit:contain pair means a
-     // 4:3 machine photo is shown WHOLE instead of brutally cropped (owner:
-     // "some stock pics are not fitted well in the frame").
+     // become visible. Fit rules (2026-11-08, owner round 2): CAR slides crop
+     // with the window biased below centre so the selling dealer's signage
+     // above the car is cut away; MACHINE slides keep blur-fill contain so a
+     // tall machine is never cropped. See .hero-slide/.is-machine CSS.
      const resp=/^\/assets\/showroom\/hero-0[1-8]\.webp$/.test(x.image||'');
      return <a key={x.id} href={x.href}
-      className={'hero-slide'+(off===0?' active':'')}
+      className={'hero-slide'+(off===0?' active':'')+(x.kind==='machine'?' is-machine':'')}
       style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.35,.45)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
       tabIndex={a>1?-1:0} aria-hidden={a>1||undefined}
       onClick={e=>{if(off!==0){e.preventDefault();jumpTo(i)}else linkClick(x.href,navigate)(e)}}
@@ -1413,8 +1414,14 @@ export function App(){
   window.addEventListener('keydown',onKey);
   return()=>window.removeEventListener('keydown',onKey);
  },[]);
- const [dark,setDark]=useState(()=>{try{return localStorage.getItem('ar7-theme')==='dark'}catch{return false}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
- useEffect(()=>{ document.documentElement.dataset.theme=dark?'dark':'light'; try{localStorage.setItem('ar7-theme',dark?'dark':'light')}catch{} },[dark]);
+ // 2026-11-08 (owner request): a third public theme — "blue & gold" (deep
+ // navy + champagne gold) — joins light and dark. The header button cycles
+ // light → dark → blue; legacy localStorage values ('light'/'dark') read
+ // unchanged, so nobody's saved preference is lost.
+ const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('ar7-theme');return t==='dark'||t==='blue'?t:'light'}catch{return 'light'}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
+ const dark=theme!=='light';
+ const cycleTheme=()=>setTheme(t=>t==='light'?'dark':t==='dark'?'blue':'light');
+ useEffect(()=>{ document.documentElement.dataset.theme=theme; try{localStorage.setItem('ar7-theme',theme)}catch{} },[theme]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
  // 2026-11-08: favourites follow the signed-in customer across devices.
  // Pull the server copy once per sign-in (and again when stock hydrates, so
@@ -1535,7 +1542,7 @@ export function App(){
  if(page==='crm')return <React.Suspense fallback={<div className="empty-state"><Monitor/><h3>Loading the CRM…</h3><p>Fetching your workspace.</p></div>}><CrmApp/></React.Suspense>;
  return <div className="site">
   <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={BRANDS()} vehicleCount={cars.length}
-    menu={menu} setMenu={setMenu} dark={dark} setDark={setDark} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
+    menu={menu} setMenu={setMenu} dark={dark} setDark={cycleTheme} theme={theme} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
     promo={<PromoBar navigate={navigate}/>} onOpenSearch={()=>setSearchOpen(true)}
     ribbon={<WorldTimeRibbon/>} orb={<InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/>}/>
 
