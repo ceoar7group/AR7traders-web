@@ -2,6 +2,11 @@ import React, {useEffect, useRef, useState} from 'react';
 import { Ship, ArrowRight, CarFront, Gavel, BadgeCheck } from 'lucide-react';
 import { linkClick } from './routing.js';
 import { Flag } from './flag.jsx';
+// 2026-11-09 (owner request: "more realistic map"): the real world — Natural
+// Earth 110m land + country borders, pre-projected to this file's own
+// equirectangular space by scripts/build-world-land.mjs. network.jsx is a
+// lazy chunk, so the map data never touches the first-load budget.
+import { WORLD_LAND_PATH, WORLD_BORDER_PATH } from './world-land.js';
 import './network.css';
 export { Flag };
 
@@ -29,6 +34,21 @@ const MARKETS = [
  {name:'USA', port:'Los Angeles', lon:-118.2, lat:34.0, transit:'28–36 days', models:'Kei trucks · 4Runner'}
 ];
 const JP = {lon:138, lat:36};
+const CN = {lon:104, lat:35};
+
+/* 2026-11-09 (owner request): country flags straight on the map. Every entry
+   has a hand-drawn vector in flag.jsx; countries already carrying a full
+   market chip are filtered out at render time so nothing doubles up. */
+const FLAG_POINTS = [
+ ['Pakistan',69,30],['UAE',54.3,23.9],['Saudi Arabia',45,24],['Qatar',51.2,25.3],['Oman',56,21],
+ ['Kenya',37.8,0.4],['Tanzania',34.9,-6.4],['Uganda',32.3,1.3],['Zambia',27.8,-13.4],['Zimbabwe',29.9,-19],
+ ['Mozambique',35.5,-17.8],['DR Congo',23.6,-2.9],['Botswana',24.7,-22.3],
+ ['United Kingdom',-1.9,53.8],['Ireland',-8,53.2],['Germany',10.4,51.2],['France',2.2,46.6],
+ ['Russia',96,61.5],['Turkey',35.2,39],['Cyprus',33.2,35.1],['Malta',14.4,35.9],
+ ['Canada',-106,56],['USA',-100,39.8],['Jamaica',-77.3,18.1],['Guyana',-58.9,4.9],
+ ['India',78.9,21.5],['Sri Lanka',80.8,7.9],['Bangladesh',90.4,23.7],['Mongolia',103,46.9],
+ ['Australia',134,-25],['New Zealand',172.5,-42.5],['Fiji',178,-17.8],['Papua New Guinea',144,-6.5]
+];
 
 /* ---------------------------------------------------------------------------
    Live routes.
@@ -88,6 +108,43 @@ const LANDS = [
  [[173,-35],[176,-37],[178,-41],[175,-45],[172,-41]]
 ];
 const LAND_PATH = LANDS.map(p => 'M' + p.map(([lo,la]) => XY(lo, la).join(' ')).join(' L ') + ' Z').join(' ');
+void LAND_PATH; // superseded by WORLD_LAND_PATH; kept as an offline-readable reference of the coordinate system
+
+/* ---------------------------------------------------------------------------
+   2026-11-09: live day & night. The terminator is computed from the real
+   current time — solar declination from the day of the year, subsolar
+   longitude from UTC — and drawn as a translucent night polygon that tiles
+   with the map strip. Refreshed every 10 minutes while mounted, so the globe
+   always shows where on the network it is night RIGHT NOW.
+--------------------------------------------------------------------------- */
+const RAD = Math.PI / 180;
+function nightPathNow(){
+  const now = new Date();
+  const start = Date.UTC(now.getUTCFullYear(), 0, 0);
+  const doy = (now.getTime() - start) / 86400000;
+  const decl = -23.44 * Math.cos(RAD * 360 / 365 * (doy + 10)); // solar declination, deg
+  const utcH = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const sunLon = 180 - utcH * 15; // subsolar longitude, deg
+  const tanD = Math.tan(decl * RAD);
+  if (Math.abs(tanD) < 1e-4) return ''; // equinox minute — skip rather than divide by ~0
+  const pts = [];
+  for (let x = 0; x <= 1000; x += 20){
+    const lon = x / 1000 * 360 - 180;
+    const H = (lon - sunLon) * RAD;
+    const phi = Math.atan(-Math.cos(H) / tanD) / RAD; // terminator latitude
+    pts.push(x.toFixed(0) + ' ' + Y(phi).toFixed(1));
+  }
+  const poleY = decl > 0 ? Y(-90).toFixed(1) : Y(90).toFixed(1); // dark pole edge
+  return 'M' + pts.join('L') + 'L1000 ' + poleY + 'L0 ' + poleY + 'Z';
+}
+function useNightPath(){
+  const [d, setD] = useState(nightPathNow);
+  useEffect(() => {
+    const id = setInterval(() => setD(nightPathNow()), 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+  return d;
+}
 
 const JPX = X(JP.lon), JPY = Y(JP.lat);
 const arcFor = m => {
@@ -99,10 +156,19 @@ const arcFor = m => {
 
 function Seed({navigate}){
  const MARKETS = useMarkets();
+ const night = useNightPath();
  return <g className="wseg">
   <g className="wgrid">{Array.from({length:16},(_,i)=><line key={'v'+i} x1={i*62.5} y1="0" x2={i*62.5} y2="1000"/>)}</g>
   <g className="wgrid">{Array.from({length:8},(_,i)=><line key={'h'+i} x1="0" y1={125+i*93.75} x2="1000" y2={125+i*93.75}/>)}</g>
-  <path className="wland" d={LAND_PATH}/>
+  <path className="wland" d={WORLD_LAND_PATH}/>
+  <path className="wborder" d={WORLD_BORDER_PATH}/>
+  {night && <path className="wnight" d={night}/>}
+  {FLAG_POINTS.filter(f=>!MARKETS.some(m=>m.name===f[0])).map(f=>{const [x,y]=XY(f[1],f[2]);
+   return <g key={'fp'+f[0]} className="wflagpt" transform={`translate(${x},${y})`}>
+    <title>{f[0]}</title>
+    <rect className="wflag-frame" x="-11" y="-7.5" width="22" height="15" rx="3"/>
+    <Flag c={f[0]} w={18} h={11} x={-9} y={-5.5}/>
+   </g>})}
 
   {MARKETS.map((m,i)=>{const d=arcFor(m);
    return <g key={'r'+m.name}>
@@ -129,13 +195,23 @@ function Seed({navigate}){
    <g transform="translate(-104,-62)"><rect className="wjp-chip" rx="13" width="208" height="44"/><Flag c="Japan" w={17} h={11} x={13} y={16.5}/><text className="wjp-txt" x="116" y="28">AR7 TRADERS · JAPAN</text></g>
    <path className="wjp-pointer" d="M-7 -16 l-6 12 h12 z"/>
   </g>
+  {/* 2026-11-09: China is an AR7 origin too (LHD cars + machinery) — it gets
+      its own labelled chip, tapping through to the machinery desk. */}
+  <g className="wjp wcn" data-goto="machinery" transform={`translate(${X(CN.lon).toFixed(1)},${Y(CN.lat).toFixed(1)})`}>
+   <circle className="wjp-hit" r="40" fill="transparent"/><circle className="wjp-p1" r="9"/><circle className="wjp-p2" r="9"/><circle className="wjp-dot" r="7.5"/>
+   <g transform="translate(-98,-58)"><rect className="wjp-chip" rx="12" width="196" height="40"/><Flag c="China" w={16} h={10} x={12} y={15}/><text className="wjp-txt" x="106" y="25.5">AR7 · CHINA DESK</text></g>
+  </g>
  </g>}
 
 export function BigNetworkGlobe({navigate,compact}){
  const ref=useRef(null);
  useEffect(()=>{
   const el=ref.current; if(!el)return;
-  const st={rot:0,vel:0,drag:false,lx:0,ly:0,moved:false,sx:0,sy:0,upx:null,upy:null};
+  // 2026-11-09 (owner): the globe now pans vertically as well — st.lat slides
+  // the oversized map strip up/down (clamped to its 15% overhang each side)
+  // while st.rot keeps the endless 360 spin, so a drag in ANY direction moves
+  // the world the way a real globe would.
+  const st={rot:0,vel:0,lat:0,vlat:0,drag:false,lx:0,ly:0,moved:false,sx:0,sy:0,upx:null,upy:null};
   let raf=0,prev=performance.now(),visible=false,destroyed=false;
   const motionQuery=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)');
   let reduced=!!motionQuery?.matches;
@@ -145,13 +221,16 @@ export function BigNetworkGlobe({navigate,compact}){
   const apply=()=>{
    const w=el.offsetWidth||1;
    while(st.rot<=-w)st.rot+=w;while(st.rot>0)st.rot-=w;
+   const maxLat=(el.offsetHeight||1)*0.15; // the svg strip is 130% tall
+   st.lat=Math.max(-maxLat,Math.min(maxLat,st.lat));
    el.style.setProperty('--rot',st.rot.toFixed(2)+'px');
+   el.style.setProperty('--lat',st.lat.toFixed(2)+'px');
   };
   const loop=t=>{
    raf=0;
    if(destroyed||!visible||document.hidden)return;
    const dt=Math.min(t-prev,40);prev=t;
-   if(!st.drag&&!reduced){st.rot+=0.13*dt/16;st.rot+=st.vel*dt/16;st.vel*=Math.pow(0.92,dt/16);}
+   if(!st.drag&&!reduced){st.rot+=0.13*dt/16;st.rot+=st.vel*dt/16;st.vel*=Math.pow(0.92,dt/16);st.lat+=st.vlat*dt/16;st.vlat*=Math.pow(0.9,dt/16);}
    apply();
    schedule();
   };
@@ -171,7 +250,7 @@ export function BigNetworkGlobe({navigate,compact}){
   if(motionQuery?.addEventListener)motionQuery.addEventListener('change',onMotion);
   else motionQuery?.addListener?.(onMotion);
   const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;el.classList.add('dragging');schedule();if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){} };
-  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;st.rot+=dx;st.vel=dx*0.82;if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
+  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;st.rot+=dx;st.vel=dx*0.82;st.lat+=dy*0.62;st.vlat=dy*0.5;if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
   const up=()=>{if(!st.drag)return;st.drag=false;el.classList.remove('dragging');if(!st.moved&&st.upx!=null){const target=document.elementFromPoint(st.upx,st.upy);const g=target&&target.closest?target.closest('[data-goto]'):null;if(g&&navigate)navigate(g.getAttribute('data-goto'));}st.upx=st.upy=null;schedule();};
   el.addEventListener('pointerdown',dn);
   window.addEventListener('pointermove',mv,{passive:true});
@@ -184,11 +263,16 @@ export function BigNetworkGlobe({navigate,compact}){
   <div className="wsphere">
    <i className="wshade"/>
    <svg viewBox="0 0 3000 1000" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+     <linearGradient id="wlg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#f0c060"/><stop offset=".55" stopColor="#dca23a"/><stop offset="1" stopColor="#b9821f"/>
+     </linearGradient>
+    </defs>
     {[0,1,2].map(i=><g key={i} transform={`translate(${i*1000},0)`}><Seed navigate={navigate}/></g>)}
    </svg>
    <i className="wshine"/>
   </div>
-  <span className="drag-hint"><i/> DRAG TO ROTATE · CLICK JAPAN FOR INVENTORY</span>
+  <span className="drag-hint"><i/> DRAG ANY DIRECTION · LIVE DAY &amp; NIGHT · TAP JAPAN OR CHINA</span>
  </div>}
 
 export function WorldPage({navigate}){

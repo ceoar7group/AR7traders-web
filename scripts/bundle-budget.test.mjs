@@ -235,7 +235,10 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // actions. This is deliberate first-load content, not dependency creep.
 // Ratcheted 153 → 154 kB gzip on 2026-11-08 (3): account-synced favourites
 // (pull/merge/push effects in the app shell). Actual: 153.33 kB gzip.
-const BUDGET_GZIP = 154 * 1024;
+// 2026-11-09: 154 → 155 kB gzip — split day/night + blue&gold theme controls,
+// burger-sheet close row, and the TEMP hero-layout preview switcher (A/B/C).
+// Tighten back when the unused hero variants + switcher are deleted.
+const BUDGET_GZIP = 155 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -246,7 +249,11 @@ const BUDGET_GZIP = 154 * 1024;
 // Actual: 533.56 kB raw; gzip stayed inside its 154 kB budget (153.64).
 // 2026-11-08 (5): 534 → 535 kB raw — third public theme (light/dark/blue
 // cycle) and the dealer-signage crop rules. Actual: 534.07 kB raw.
-const BUDGET_RAW = 535 * 1024;
+// 2026-11-09: 535 → 537 kB raw — same additions as the gzip note above.
+// 2026-11-09 (later): 537 → 539 kB raw — six new vector flags (China, India,
+// Germany, Russia, France, Turkey) plus the world-map flag layer and the
+// China origin chip on the big globe.
+const BUDGET_RAW = 539 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -308,7 +315,7 @@ for (const file of entryCss) {
 // stage arrows + the phone-bar overflow fix. The dead cross-fade rules
 // (.hero-stack, .car-float-title, .image-shade) were pruned to offset part
 // of it. Actual: 41.06 kB gzip.
-const CSS_BUDGET_GZIP = 42 * 1024;
+const CSS_BUDGET_GZIP = 43 * 1024; // 2026-11-09: see raw note above
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
@@ -324,7 +331,11 @@ const CSS_BUDGET_GZIP = 42 * 1024;
 // 2026-11-08 (4): 213 → 214 kB raw — the blue & gold theme layer (navy
 // variable set + overrides for the hard-coded emerald surfaces) and the
 // open-stage mask rules. Actual: 213.22 kB raw; gzip 41.47 in a 42 budget.
-const CSS_BUDGET_RAW = 214 * 1024;
+// 2026-11-09: 214 → 219 kB raw (gzip 42 → 43) — mobile menu close row, split
+// theme buttons, and the TEMP A/B/C hero-layout variant layers in
+// landing-v2.css. Two of the three variants are deleted once the owner picks;
+// tighten this back then.
+const CSS_BUDGET_RAW = 219 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

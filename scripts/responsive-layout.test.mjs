@@ -242,10 +242,12 @@ assert.match(main, /Shipping lane · \{routeIdx\+1\}\/\{heroRoutes\.length\}/);
 assert.match(main, /Next auction · \{auction\.city\}/);
 assert.match(main, /Starts in \{formatCountdown\(remaining\)\}/);
 assert.match(main, /className="ticker"/);
-// The facts row is honest about being an illustration, exactly as the two
-// floating cards were: both cards still carry the visible "demo" tag.
+// 2026-11-09 (owner direction): the visible "sample" tag is gone from both
+// facts cards — the owner wants the lane strip and auction chip presented as
+// part of the live desk. The guard now pins its ABSENCE so it cannot creep
+// back in a refactor.
 const demoTags = (main.match(/card-demo/g) || []).length;
-assert.ok(demoTags === 2,
-  `both facts cards keep the visible "demo" tag — the lane strip and the auction chip are illustrations, not live data (found ${demoTags})`);
+assert.ok(demoTags === 0,
+  `the facts cards must not carry the "sample" tag any more (found ${demoTags})`);
 
 console.log('Responsive layout, hero viewport contracts and first-paint checks passed.');

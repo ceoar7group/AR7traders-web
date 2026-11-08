@@ -139,9 +139,10 @@ ok(document.querySelector('.site'), 'the site shell renders');
     'no card or badge is absolutely positioned on the vehicle photograph');
   ok(!document.querySelector('.hero-visual .spark'), 'the six decorative sparkles are gone from the photo box');
   ok((facts?.textContent || '').includes('Shipping lane · ') && (facts?.textContent || '').includes('Next auction · '),
-    'both facts cards label themselves, and both still carry the visible demo tag');
-  ok((facts?.querySelectorAll('.card-demo') || []).length === 2,
-    'each facts card says "demo" on its face — the departures are an illustration');
+    'both facts cards label themselves');
+  // 2026-11-09 (owner direction): the "sample" tag was removed from both cards.
+  ok((facts?.querySelectorAll('.card-demo') || []).length === 0,
+    'neither facts card carries the retired "sample" tag');
   const counter = document.querySelector('.hero-card .car-counter');
   const before = counter?.textContent.trim();
   const next = document.querySelector('.hero-carousel-controls button[aria-label="Next"]');
@@ -157,7 +158,7 @@ ok(document.querySelector('.site'), 'the site shell renders');
 // path -> text that must be on screen once we get there. Without this, a
 // navigation that silently fails would pass the "keeps the app alive" check.
 const ROUTES = [
-  ['/', 'Cars from Japan'],
+  ['/', 'LHD cars from Japan'], // 2026-11-09: headline now opens "RHD & LHD cars from Japan & China"
   ['/inventory', 'inv-toolbar'],
   ['/japan-stock', 'inv-toolbar'],   // retired page: resolves to the merged /inventory list
   ['/services', 'AR7 SERVICE'],

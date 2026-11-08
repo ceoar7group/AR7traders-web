@@ -489,11 +489,15 @@ function checkFounderStat(html, variant, where) {
     'the machinery desk is still one click away from the hero');
   ok(!/<button class="primary"[^>]*>Explore/.test(home),
     'the primary CTA is no longer a JS button with no href');
-  ok(home.includes('Cars from Japan &amp; China') && home.includes('machinery for every market'), 'the hero headline states the scope of work: cars from Japan and China, machinery for every market');
+  // 2026-11-09 (owner): the headline now carries both drive sides — "RHD & LHD
+  // cars from Japan & China" — so the pin checks that fuller scope statement.
+  ok(home.includes('RHD &amp; LHD cars from Japan &amp; China') && home.includes('machinery for every market'), 'the hero headline states the scope of work: RHD & LHD cars from Japan and China, machinery for every market');
   ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
   ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
   ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');
-  ok(home.includes('card-demo') && home.includes('>sample<'), 'both hero cards carry a visible sample tag (was "demo" until the 2026-11-08 owner direction)');
+  // 2026-11-09 (owner direction): the visible "sample" tag is retired from the
+  // hero facts cards; the guard now pins its absence.
+  ok(!home.includes('card-demo') && !home.includes('>sample<'), 'the hero facts cards no longer carry a sample/demo tag');
   ok(heroCards.includes('Next auction \u00b7 ') && !heroCards.includes('SAMPLE'),
     'the hero auction chip describes the auction, without the word SAMPLE');
   ok(heroCards.includes('Shipping lane \u00b7 ') && /Lane|from|Yokohama|Kobe|Nagoya|Tokyo|Osaka/.test(heroCards),

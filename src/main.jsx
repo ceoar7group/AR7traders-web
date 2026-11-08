@@ -532,7 +532,12 @@ async function hydrateSiteContent(){
   if(Array.isArray(dealer)&&dealer.length){
    mapped.push(...mapDealerRows(dealer).map((c,i)=>enrichCar({...c,image:c.image||'/assets/ar7-mark.png'},i)));
   }
-  if(mapped.length){cars.length=0;cars.push(...mapped);}
+  if(mapped.length){
+   cars.length=0;cars.push(...mapped);
+   // Refresh the "last live stock" snapshot (see the boot step below): capped
+   // and trimmed so it fits comfortably in localStorage.
+   try{localStorage.setItem('ar7-live-cars',JSON.stringify(mapped.slice(0,80).map(c=>({...c,images:Array.isArray(c.images)?c.images.slice(0,1):c.images}))))}catch{/* quota or storage off */}
+  }
   // Empty or failed → the built-in MACHINES fallback stands. The page must
   // never go blank because an API call was slow or the table is unprovisioned.
   hydrateMachines(machines);
@@ -541,7 +546,18 @@ async function hydrateSiteContent(){
  contentHydrated=true;
  contentListeners.forEach(fn=>{try{fn()}catch{}});
 }
-if(typeof window!=='undefined')hydrateSiteContent();
+// 2026-11-09 (owner): a car removed in the CRM must never resurface on the
+// website. The last successful live snapshot is cached in localStorage and
+// replaces the built-in showcase seed BEFORE first paint on return visits, so
+// the only cars on screen are the ones that were live most recently;
+// hydrateSiteContent() then refreshes both the page and the snapshot.
+if(typeof window!=='undefined'){
+ try{
+  const snap=JSON.parse(localStorage.getItem('ar7-live-cars')||'null');
+  if(Array.isArray(snap)&&snap.length){cars.length=0;cars.push(...snap.map((r,i)=>enrichCar(r,i)));}
+ }catch{/* storage may be off */}
+ hydrateSiteContent();
+}
 
 // Model-keyed legacy galleries retired: every curated car now carries its own
 // verified photo set, so an id collision could never show the wrong vehicle.
@@ -829,7 +845,7 @@ function HeroVisual({navigate,discounts}){
       uncovered photograph read as sensor noise, not as sparkle. */}
   <div className="hero-facts">
    <div className="route-strip"><div className="rotating-card-copy" key={routeIdx}>
-    <div className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span><i className="card-demo">sample</i></div>
+    <div className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></div>
     <div className="route-lane-row">
      <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
      <i className="lane-eta"><Clock3/> ETA {route.eta}</i>
@@ -841,7 +857,7 @@ function HeroVisual({navigate,discounts}){
     </div>
    </div></div>
    <div className="auction-chip"><div className="rotating-card-copy" key={auctionIdx}>
-    <div className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span><i className="card-demo">sample</i></div>
+    <div className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span></div>
     <b className="card-title">{auction.name}</b>
     <small className="card-meta card-countdown"><Clock3/> Starts in {formatCountdown(remaining)}</small>
     <div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div>
@@ -849,14 +865,29 @@ function HeroVisual({navigate,discounts}){
   </div>
  </div>}
 
-const globeSeg=(s)=><div className="imap" key={s}>
-  <span className="land l1"/><span className="land l2"/><span className="land l3"/><span className="land l4"/><span className="land l5"/>
+// 2026-11-09 (owner request): the orb globes draw the REAL world when the
+// generated Natural Earth path arrives. world-land.js is imported dynamically
+// so it lives in its own lazy chunk and never weighs on first load; until it
+// lands (or if it never does) the stylised gold blobs still render.
+let WORLD_LAND=null;
+const worldLandListeners=new Set();
+if(typeof window!=='undefined')import('./world-land.js').then(m=>{WORLD_LAND=m.WORLD_LAND_PATH;worldLandListeners.forEach(fn=>{try{fn()}catch{}})}).catch(()=>{});
+function useWorldLand(){
+ const [,bump]=useState(0);
+ useEffect(()=>{if(WORLD_LAND)return;const fn=()=>bump(n=>n+1);worldLandListeners.add(fn);return()=>worldLandListeners.delete(fn)},[]);
+ return WORLD_LAND;
+}
+const globeSeg=(s,land)=><div className="imap" key={s}>
+  {land
+   ?<svg className="iglobe-land" viewBox="0 125 1000 750" preserveAspectRatio="none" aria-hidden="true"><path d={land}/></svg>
+   :<><span className="land l1"/><span className="land l2"/><span className="land l3"/><span className="land l4"/><span className="land l5"/></>}
   <svg className="iglobe-routes" viewBox="0 0 360 360" preserveAspectRatio="none" fill="none" aria-hidden="true"><path className="arc a1" d="M-20 128 Q150 14 380 118"/><path className="arc a2" d="M-20 224 Q165 326 380 208"/><path className="arc a3" d="M60 62 Q200 208 340 58"/></svg>
   <span className="imover m1"><CarFront/></span><span className="imover m2"><Ship/></span><span className="imover m3"><CarFront/></span>
  </div>;
 
 function InteractiveGlobe({compact,lite,cls,onTap}){
  const ref=useRef(null);
+ const worldLand=useWorldLand();
  useEffect(()=>{
   const el=ref.current; if(!el)return;
   // Drag state. `x` spins the map strip horizontally (seamless, so the visitor
@@ -935,7 +966,7 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
   <div className="iglobe-halo"/><div className="iglobe-sphere">
    <i className="graticule g1"/><i className="graticule g2"/><i className="graticule g3"/><i className="graticule g4"/><i className="graticule g5"/>
    <div className="iglobe-face">
-    <div className="iglobe-maps">{[0,1,2].map(globeSeg)}</div>
+    <div className="iglobe-maps">{[0,1,2].map(s=>globeSeg(s,worldLand))}</div>
     <i className="iglobe-shine"/>
     <span className="iglobe-pin p1"/><span className="iglobe-pin p2"/><span className="iglobe-pin p3"/>
    </div>
@@ -1130,7 +1161,7 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  const signedIn=!!cust.session;
  const [,contentTick]=useReducer(x=>x+1,0);
  useEffect(()=>onContentChange(()=>contentTick()),[]);
- const [query,setQuery]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState('All'),[make,setMake]=useState(initialMake||'All'),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState('All'),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(DEST[0][1]),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false),[pageNo,setPageNo]=useState(1),[perPage,setPerPage]=useState(()=>{try{const v=Number(localStorage.getItem('ar7-inv-pp'));return [25,50,100].includes(v)?v:25}catch{return 25}});
+ const [query,setQuery]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-body')||'All';if(v!=='All')sessionStorage.removeItem('ar7-inv-body');return v}catch{return 'All'}}),[make,setMake]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-make');if(v){sessionStorage.removeItem('ar7-inv-make');return initialMake||v}return initialMake||'All'}catch{return initialMake||'All'}}),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState('All'),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(DEST[0][1]),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false),[pageNo,setPageNo]=useState(1),[perPage,setPerPage]=useState(()=>{try{const v=Number(localStorage.getItem('ar7-inv-pp'));return [25,50,100].includes(v)?v:25}catch{return 25}});
  // Any change to a filter facet starts the visitor back on page 1 — a page
  // number only makes sense inside the result set it was computed for.
  useEffect(()=>{setPageNo(1)},[query,body,make,fuel,priceF,yearF,kmF,sortF,modelF,trF,steerF]);
@@ -1429,6 +1460,11 @@ export function App(){
  const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('ar7-theme');return t==='dark'||t==='blue'?t:'light'}catch{return 'light'}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
  const dark=theme!=='light';
  const cycleTheme=()=>setTheme(t=>t==='light'?'dark':t==='dark'?'blue':'light');
+ // 2026-11-09: landing hero layout — the owner chose option C (the full-bleed
+ // inventory-style opening). Options A and B are kept as pure-CSS variants in
+ // landing-v2.css so the layout can be flipped later without a rebuild:
+ // open any page with ?hv=a or ?hv=b to preview them again.
+ const hv=(()=>{try{const q=new URLSearchParams(window.location.search).get('hv');return q==='a'||q==='b'?q:'c'}catch{return 'c'}})();
  useEffect(()=>{ document.documentElement.dataset.theme=theme; try{localStorage.setItem('ar7-theme',theme)}catch{} },[theme]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
  // 2026-11-08: favourites follow the signed-in customer across devices.
@@ -1554,13 +1590,13 @@ export function App(){
       anchor to the in-page #main landmark — no router involvement. */}
   <a className="skip-link" href="#main">Skip to content</a>
   <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={BRANDS()} vehicleCount={cars.length}
-    menu={menu} setMenu={setMenu} dark={dark} setDark={cycleTheme} theme={theme} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
+    menu={menu} setMenu={setMenu} dark={dark} setDark={cycleTheme} theme={theme} setTheme={setTheme} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
     promo={<PromoBar navigate={navigate}/>} onOpenSearch={()=>setSearchOpen(true)}
     ribbon={<WorldTimeRibbon/>} orb={<InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/>}/>
 
   <main id="main" className={'page page-' + page}>
    {page==='home'?<>
-   <section className="hero shell" id="home">
+   <section className="hero shell" id="home" data-hv={hv}>
     <div className="hero-copy reveal">
       <div className="eyebrow"><span className="live-dot"/> {t('hero.eyebrow')}</div>
       <h1>{t('hero.h1a')}<br/><em>{t('hero.h1b')}</em></h1>
@@ -1577,10 +1613,17 @@ export function App(){
       {/* Quick search: hands the text to the inventory screen through
           sessionStorage (no new URL shape, so the SEO routing is untouched)
           and navigates. The inventory search box picks it up on mount. */}
-      <form className="hero-search" role="search" onSubmit={e=>{e.preventDefault();const v=(e.currentTarget.elements.hq?.value||'').trim();try{sessionStorage.setItem('ar7-inv-q',v)}catch{/* storage may be off */}navigate('inventory')}}>
-        <Search aria-hidden="true"/>
-        <input name="hq" placeholder={t('hero.searchPlaceholder')} aria-label={t('hero.searchPlaceholder')} autoComplete="off"/>
-        <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
+      {/* 2026-11-09 (owner): the dark pill became a light filter panel in the
+          inventory-toolbar style — search text plus Make and Body dropdowns.
+          All three hand over through sessionStorage; the inventory screen
+          picks them up on mount, same as the plain query always did. */}
+      <form className="hero-search" role="search" onSubmit={e=>{e.preventDefault();const f=e.currentTarget.elements;const v=(f.hq?.value||'').trim();try{sessionStorage.setItem('ar7-inv-q',v);if(f.hm&&f.hm.value!=='All')sessionStorage.setItem('ar7-inv-make',f.hm.value);if(f.hb&&f.hb.value!=='All')sessionStorage.setItem('ar7-inv-body',f.hb.value)}catch{/* storage may be off */}navigate('inventory')}}>
+        <div className="hs-query"><Search aria-hidden="true"/><input name="hq" placeholder={t('hero.searchPlaceholder')} aria-label={t('hero.searchPlaceholder')} autoComplete="off"/></div>
+        <div className="hs-filters">
+          <label className="hs-field"><span>Make</span><select name="hm" defaultValue="All"><option value="All">All makes</option>{BRANDS().slice(0,12).map(b=><option key={b.name} value={b.name}>{b.name}</option>)}</select></label>
+          <label className="hs-field"><span>Body</span><select name="hb" defaultValue="All"><option value="All">Any body</option>{[...new Set(cars.map(c=>c.body).filter(Boolean))].slice(0,8).map(b=><option key={b} value={b}>{b}</option>)}</select></label>
+          <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
+        </div>
       </form>
       <div className="hero-quick"><button className="text-btn" onClick={()=>setEnquiry({kind:'auction'})} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
       <FounderStat variant="hero" delay={900}/>
@@ -1588,6 +1631,7 @@ export function App(){
     <HeroVisual navigate={navigate} discounts={liveDiscounts}/>
     <div className="scroll-cue"><span>{t('hero.scrollCue')}</span><ChevronDown/></div>
    </section>
+
 
    <section className="ticker"><div>{['USS TOKYO','JU AICHI','TAA KINKI','CAA CHUBU','HAA KOBE','ARAI AUTO'].concat(['USS TOKYO','JU AICHI','TAA KINKI']).map((x,i)=><span key={i}><i/> {x}</span>)}</div></section>
 

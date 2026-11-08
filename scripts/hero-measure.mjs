@@ -108,7 +108,7 @@ async function measure(page) {
         noSparks: qa('.spark').length === 0,
         arrowsOnPhoto: !!(arrows && carBox) && arrows.top >= carBox.top - 1 && arrows.bottom <= carBox.bottom + 1,
         bothCtasAreAnchors: qa('.hero-cta a').length === 2 && qa('.hero-cta button').length === 0,
-        bothDemoTags: qa('.hero-facts .card-demo').length === 2
+        bothDemoTags: qa('.hero-facts .card-demo').length === 0 // 2026-11-09: tag retired
       }
     };
   })()`);

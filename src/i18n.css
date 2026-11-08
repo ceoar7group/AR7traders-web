@@ -106,7 +106,13 @@ html[dir="rtl"] .navlinks a:after,
 html[dir="rtl"] .navlinks button:after{transform-origin:right}
 
 @media(max-width:899px){
-  .lang-panel{inset-inline-end:auto;inset-inline-start:0;width:min(280px,calc(100vw - 36px))}
+  /* 2026-11-09 (owner screenshot): anchoring the panel to the pill's leading
+     edge pushed it off the right side of phones. The pill's wrapper goes
+     static so the panel anchors to the bar's action block instead — its
+     trailing edge hugs the bar's trailing edge, the width is clamped to the
+     viewport, and it can never leave the screen in LTR or RTL. */
+  .lang-switch{position:static}
+  .lang-panel{top:calc(100% + 9px);inset-inline-start:auto;inset-inline-end:0;width:min(300px,calc(100vw - 24px))}
 }
 @media(prefers-reduced-motion:reduce){
   .lang-panel{animation:none}
