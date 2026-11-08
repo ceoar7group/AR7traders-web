@@ -22,8 +22,8 @@ html[data-crm-theme="emerald"] .crm-shell,
   --crm-border-subtle: #0d3826;
   --crm-ink: #eaf6f0;
   --crm-muted: #8eb19f;
-  --crm-gold: #eebc3f; /* 2026-11-08: sharper logo-7 gold */
-  --crm-gold-glow: rgba(238, 188, 63, 0.28);
+  --crm-gold: #f0ab42; /* 2026-11-08: sharper logo-7 gold */
+  --crm-gold-glow: rgba(240, 171, 66, 0.3);
   --crm-primary: #128253;
   --crm-primary-hover: #169b63;
   --crm-primary-text: #ffffff;
@@ -62,8 +62,8 @@ html[data-crm-theme="dark"] .crm-shell,
   --crm-border-subtle: #1e2c24;
   --crm-ink: #f0f7f3;
   --crm-muted: #8da397;
-  --crm-gold: #f6c94e; /* 2026-11-08: sharper logo-7 gold */
-  --crm-gold-glow: rgba(246, 201, 78, 0.28);
+  --crm-gold: #f7bd52; /* 2026-11-08: sharper logo-7 gold */
+  --crm-gold-glow: rgba(247, 189, 82, 0.3);
   --crm-primary: #107a4c;
   --crm-primary-hover: #15945d;
   --crm-primary-text: #ffffff;
@@ -95,8 +95,8 @@ html[data-crm-theme="light"] .crm-shell,
   --crm-border-subtle: #e2ebe5;
   --crm-ink: #0f241a;
   --crm-muted: #647a6f;
-  --crm-gold: #cf921d; /* 2026-11-08: sharper logo-7 gold */
-  --crm-gold-glow: rgba(207, 146, 29, 0.22);
+  --crm-gold: #dd941f; /* 2026-11-08: sharper logo-7 gold */
+  --crm-gold-glow: rgba(221, 148, 31, 0.24);
   --crm-primary: #064e32;
   --crm-primary-hover: #086340;
   --crm-primary-text: #ffffff;

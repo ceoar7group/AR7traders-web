@@ -353,12 +353,110 @@ html,body{overflow-x:clip}
    One pill under the CTA row: icon, free-text input, gold submit. It hands
    the text to the inventory screen, so it must read as "search the stock",
    not as a newsletter field. */
-.hero-search{display:flex;align-items:center;gap:10px;margin-top:18px;max-width:520px;padding:6px 6px 6px 16px;border-radius:999px;border:1px solid color-mix(in srgb,var(--gold,#c9a35c) 35%,transparent);background:color-mix(in srgb,var(--panel,#101418) 82%,transparent);backdrop-filter:blur(6px);transition:border-color .2s,box-shadow .2s}
-.hero-search:focus-within{border-color:var(--gold,#c9a35c);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c9a35c) 18%,transparent)}
-.hero-search>svg{width:17px;height:17px;flex:none;opacity:.55}
-.hero-search input{flex:1;min-width:0;background:transparent;border:0;outline:none;color:inherit;font:inherit;padding:8px 0}
-.hero-search input::placeholder{opacity:.55}
-.hero-search button{display:inline-flex;align-items:center;gap:6px;flex:none;border:0;cursor:pointer;border-radius:999px;padding:9px 18px;font:inherit;font-weight:600;color:#161309;background:linear-gradient(135deg,var(--gold,#c9a35c),#e5c98a);transition:transform .15s,box-shadow .2s}
-.hero-search button:hover{transform:translateY(-1px);box-shadow:0 6px 18px -6px var(--gold,#c9a35c)}
+/* 2026-11-09 (owner screenshot): the dark search pill became a LIGHT filter
+   panel in the inventory-toolbar style — cream card, labelled MAKE/BODY
+   dropdowns, gold Search button. */
+.hero-search{display:flex;flex-direction:column;gap:12px;margin-top:20px;max-width:none;padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--card);box-shadow:0 18px 50px rgba(3,43,27,.12);transition:border-color .2s,box-shadow .2s}
+.hero-search:focus-within{border-color:color-mix(in srgb,var(--gold) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 16%,transparent),0 18px 50px rgba(3,43,27,.12)}
+.hero-search .hs-query{display:flex;align-items:center;gap:10px;height:48px;padding:0 13px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.hero-search .hs-query svg{width:17px;height:17px;flex:none;opacity:.5;color:var(--ink)}
+.hero-search input{flex:1;min-width:0;background:transparent;border:0;outline:none;color:var(--ink);font:500 14px Manrope,sans-serif}
+.hero-search input::placeholder{color:var(--muted)}
+.hero-search .hs-filters{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.hero-search .hs-field{flex:1;min-width:132px;display:grid;gap:6px;text-align:left}
+.hero-search .hs-field span{font:700 8.5px Manrope,sans-serif;letter-spacing:1.7px;text-transform:uppercase;color:var(--muted)}
+.hero-search select{height:44px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--ink);font:600 13px Manrope,sans-serif;padding:0 10px;cursor:pointer}
+.hero-search button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;border:0;cursor:pointer;height:44px;border-radius:12px;padding:0 24px;font:700 13px Manrope,sans-serif;color:#2a1c04;background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 10px 24px color-mix(in srgb,var(--gold) 35%,transparent);transition:transform .15s,box-shadow .2s}
+.hero-search button:hover{transform:translateY(-1px)}
 .hero-search button svg{width:15px;height:15px}
-@media (max-width:640px){.hero-search{max-width:none}.hero-search button span{display:none}}
+@media (max-width:640px){.hero-search{padding:11px}.hero-search .hs-field{min-width:112px}.hero-search button{flex:1 1 100%}}
+
+/* ===========================================================================
+   2026-11-09: LANDING HERO LAYOUTS — options A / B / C, keyed off
+   .hero[data-hv]. THE OWNER CHOSE C (shipped default, set by main.jsx).
+   A and B are deliberately KEPT so the layout can be flipped later without a
+   rebuild — preview them any time with ?hv=a / ?hv=b on the home page.
+     A — same two-column hero, but the stage column wins: wider and taller.
+     B — showcase first: full-width stage on top, copy centred below it.
+     C — full-bleed opening like the inventory page: edge-to-edge stage on a
+         deep-green band, ~80vh tall, with the copy arranged below.
+   =========================================================================== */
+@media (min-width: 901px) {
+  /* A — bigger stage, same grid */
+  .hero[data-hv="a"] { grid-template-columns: minmax(0, .84fr) minmax(0, 1.34fr); }
+  .hero[data-hv="a"] .hero-visual { height: clamp(470px, min(76vh, 58vw), 780px); }
+
+  /* B — stage on top, copy below */
+  .hero[data-hv="b"] { display: flex; flex-direction: column; align-items: stretch; gap: clamp(26px, 4vh, 44px); }
+  .hero[data-hv="b"] .hero-visual { order: -1; width: 100%; height: clamp(460px, 64vh, 700px); }
+  .hero[data-hv="b"] .hero-copy { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .hero[data-hv="b"] .hero-copy h1 { margin: 20px 0 14px; }
+  .hero[data-hv="b"] .hero-copy > p { max-width: 720px; }
+  .hero[data-hv="b"] .hero-cta { justify-content: center; }
+  .hero[data-hv="b"] .hero-search { width: min(640px, 100%); }
+  .hero[data-hv="b"] .scroll-cue { left: 50%; transform: translateX(-50%); }
+
+  /* C — full-bleed inventory-style opening on a deep green band.
+     2026-11-09 round 2 (owner): band now matches the inventory page EXACTLY —
+     same linear-gradient(125deg, --deep, #0b603b), same ghost AR7 watermark —
+     and the copy below is arranged as a modern centred composition. */
+  .hero[data-hv="c"] { display: flex; flex-direction: column; align-items: stretch; gap: clamp(28px, 4vh, 48px); }
+  .hero[data-hv="c"] .hero-visual {
+    order: -1;
+    width: 100vw;
+    margin-inline: calc(50% - 50vw);
+    height: clamp(520px, 80vh, 880px);
+    padding: clamp(14px, 2.4vh, 26px) clamp(16px, 4.5vw, 64px) clamp(16px, 2.8vh, 30px);
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(125deg, var(--deep), #0b603b);
+  }
+  .hero[data-hv="c"] .hero-visual::before {
+    content: 'AR7';
+    position: absolute;
+    right: -30px;
+    bottom: -100px;
+    font: 800 310px Manrope, sans-serif;
+    color: #ffffff08;
+    pointer-events: none;
+  }
+  .hero[data-hv="c"] .hero-visual .route-strip,
+  .hero[data-hv="c"] .hero-visual .auction-chip { background: color-mix(in srgb, var(--card) 90%, transparent); border-color: #ffffff2a; }
+  .hero[data-hv="c"] .hero-copy { max-width: 1020px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .hero[data-hv="c"] .hero-copy .eyebrow { justify-content: center; letter-spacing: 3px; }
+  .hero[data-hv="c"] .hero-copy h1 { margin: 18px 0 12px; font-size: clamp(44px, 5vw, 74px); letter-spacing: -3.5px; }
+  .hero[data-hv="c"] .hero-copy > p { max-width: 760px; font-size: 17px; margin-bottom: 4px; }
+  .hero[data-hv="c"] .hero-cta { justify-content: center; margin-top: 24px; }
+  .hero[data-hv="c"] .hero-search {
+    width: min(720px, 100%);
+    border-radius: 18px;
+    box-shadow: 0 18px 50px rgba(3, 43, 27, .14);
+  }
+  .hero[data-hv="c"] .hero-quick { display: flex; justify-content: center; }
+  .hero[data-hv="c"] .founder-stat, .hero[data-hv="c"] .stats { justify-content: center; }
+  .hero[data-hv="c"] .scroll-cue { display: none; }
+}
+
+/* On phones every variant is one column already; B and C still lead with the
+   stage so the opening feels like the inventory page there too. */
+@media (max-width: 900px) {
+  .hero[data-hv="b"] .hero-visual,
+  .hero[data-hv="c"] .hero-visual { order: -1; }
+  /* C keeps its full-bleed deep-green opening on phones too */
+  .hero[data-hv="c"] .hero-visual {
+    width: 100vw;
+    margin-inline: calc(50% - 50vw);
+    padding: 12px 14px 16px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(125deg, var(--deep), #0b603b);
+  }
+  .hero[data-hv="c"] .hero-copy { text-align: center; }
+  .hero[data-hv="c"] .hero-copy .eyebrow, .hero[data-hv="c"] .hero-cta, .hero[data-hv="c"] .hero-quick { justify-content: center; }
+  .hero[data-hv="c"] .scroll-cue { display: none; }
+}
+
+/* 2026-11-09: the orb globes' REAL map (lazy world-land.js). Same gold as the
+   stylised blobs it replaces, with a soft drop shadow so it reads as relief. */
+.imap .iglobe-land{position:absolute;inset:0;width:100%;height:100%}
+.imap .iglobe-land path{fill:#d8a63e;stroke:rgba(231,180,81,.5);stroke-width:.8;filter:drop-shadow(0 4px 8px rgba(0,22,13,.55))}

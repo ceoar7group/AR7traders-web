@@ -2229,8 +2229,8 @@ html[data-theme=blue] {
   --green-text: #8fb9ff;
   --deep: #071a3a;
   --forest: #13509a;
-  --gold: #e8b73f; /* 2026-11-08: logo-7 metallic gold */
-  --gold2: #f7d97d;
+  --gold: #f0a848; /* 2026-11-09: true logo-7 gold, sampled from the mark (avg #e4ab51, core #f0a848) */
+  --gold2: #f8ce77;
   --ink: #eaf2fd;
   --muted: #92a6c5;
   --bg: #070e1c;
@@ -2287,4 +2287,64 @@ html[data-theme=blue] .car-counter {
    --------------------------------------------------------------------------- */
 .car-image img {
   object-position: 50% 58%;
+}
+
+/* ===========================================================================
+   2026-11-09: MOBILE MENU CLOSE + SPLIT THEME CONTROLS (owner screenshots)
+   1. The open burger sheet's fixed backdrop (z:-1 inside the z:60 panel)
+      painted OVER the nav bar, so the bar's X looked missing. The bar's
+      action cluster now sits above the backdrop, and the sheet carries its
+      own labelled MENU/close row on ≤899px screens.
+   2. Day/night and Blue & Gold are two separate buttons now; the gem keeps a
+      lit state when the palette is on, and drops out of the bar below 1024px
+      (it stays as a labelled row in the burger panel).
+   =========================================================================== */
+.panel-head-row { display: none; }
+
+@media (max-width: 899px) {
+  .nav-wrap .nav .nav-actions {
+    position: relative;
+    z-index: 61; /* one above .navlinks.open (60) so the backdrop never covers the bar */
+  }
+
+  .nav-wrap .navlinks.open .panel-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 10px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    margin-bottom: 6px;
+  }
+
+  .nav-wrap .navlinks.open .panel-head-row b {
+    font: 700 10px Manrope, sans-serif;
+    letter-spacing: 2.4px;
+    color: var(--gold);
+  }
+
+  .nav-wrap .navlinks.open .panel-close {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--card);
+    color: var(--ink);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  .nav-wrap .navlinks.open .panel-close svg { width: 17px; }
+}
+
+.nav-wrap .nav-actions .palette-btn.is-on {
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+/* The bar gets tight between 900–1023px — the gem lives in the burger there,
+   and below 640px both theme buttons already drop to the panel (§ phone bar). */
+@media (max-width: 1023px) {
+  .nav-wrap .nav-actions .palette-btn { display: none; }
 }

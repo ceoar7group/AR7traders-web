@@ -216,17 +216,24 @@ function useHeaderMetrics(ref, { hold, menu, routeKey }) {
 export function SiteHeader({
   page, vehicleId = null, makeFilter = null, brands = [], vehicleCount = 0,
   menu = false, setMenu = () => {}, dark = false, setDark = () => {},
-  theme = null,
+  theme = null, setTheme = null,
   signedIn = false, navigate = () => {}, logoFor = () => '', ribbon = null, orb = null,
   promo = null, hold = true, onOpenSearch = null
 }) {
   const headRef = useRef(null);
-  // 2026-11-08: three public themes. The toggle cycles light → dark → blue &
-  // gold, and its icon/label always advertise the NEXT theme. When only the
-  // legacy boolean is supplied (older callers, tests) it still reads right.
+  // 2026-11-09 (owner request): day/night and the Blue & Gold palette are now
+  // TWO separate controls, not one three-way cycle. The sun/moon button only
+  // flips between day and night; the gem button turns the Blue & Gold palette
+  // on and off. When only the legacy setDark boolean is supplied (older
+  // callers, tests) both still work through it.
   const mode = theme || (dark ? 'dark' : 'light');
-  const themeIcon = mode === 'light' ? <Moon/> : mode === 'dark' ? <Gem/> : <Sun/>;
-  const themeLabel = mode === 'light' ? 'Dark mode' : mode === 'dark' ? 'Blue & gold' : 'Light mode';
+  const pick = next => { if (setTheme) setTheme(next); else setDark(next !== 'light'); };
+  const isNight = mode !== 'light';
+  const dayNightIcon = isNight ? <Sun/> : <Moon/>;
+  const dayNightLabel = isNight ? 'Day mode' : 'Night mode';
+  const toggleDayNight = () => pick(isNight ? 'light' : 'dark');
+  const isBlue = mode === 'blue';
+  const toggleBlue = () => pick(isBlue ? 'dark' : 'blue');
   // 2026-11-08: while the burger menu is open the page behind it must not
   // scroll — the panel has its own scroller and a dimmed backdrop, so a
   // moving page underneath reads as a glitch on phones and tablets.
@@ -262,6 +269,15 @@ export function SiteHeader({
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div id="ar7-public-menu" className={'navlinks ' + (menu ? 'open' : '')}>
+      {/* 2026-11-09 (owner screenshot): the dimmed backdrop behind the open
+          burger sheet also dimmed the nav bar, so the X in the bar looked
+          missing. The sheet now carries its own labelled close row (phones &
+          tablets only — hidden on desktop by CSS), and the bar's actions are
+          raised above the backdrop in site-layout.css. */}
+      <div className="panel-head-row" aria-hidden={!menu}>
+        <b>MENU</b>
+        <button type="button" className="panel-close" onClick={() => setMenu(false)} aria-label="Close menu"><X/></button>
+      </div>
       <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={routeKey} label="Inventory">
         {close => INVENTORY_LINKS.map(x => {
           const I = x[0];
@@ -291,7 +307,8 @@ export function SiteHeader({
           even when the bar's icon row runs out of room. */}
       <div className="nav-panel-actions">
         <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? 'My account' : 'Sign in'}</a>
-        <button type="button" className="panel-theme" onClick={() => setDark(!dark)} aria-pressed={dark}>{themeIcon}{themeLabel}</button>
+        <button type="button" className="panel-theme" onClick={toggleDayNight} aria-pressed={isNight}>{dayNightIcon}{dayNightLabel}</button>
+        <button type="button" className="panel-theme" onClick={toggleBlue} aria-pressed={isBlue}><Gem/>Blue &amp; gold</button>
       </div>
     </div>
     <div className="nav-actions">
@@ -306,7 +323,8 @@ export function SiteHeader({
       <LanguageSwitcher/>
           <CurrencyDropdown/>
       <a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio', navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a>
-      <button type="button" className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme" title={'Switch to ' + themeLabel.toLowerCase()}>{themeIcon}</button>
+      <button type="button" className="icon-btn" onClick={toggleDayNight} aria-label="Toggle theme" aria-pressed={isNight} title={'Switch to ' + dayNightLabel.toLowerCase()}>{dayNightIcon}</button>
+      <button type="button" className={'icon-btn palette-btn' + (isBlue ? ' is-on' : '')} onClick={toggleBlue} aria-label="Blue and gold theme" aria-pressed={isBlue} title={isBlue ? 'Back to the emerald palette' : 'Switch to the blue & gold palette'}><Gem/></button>
       <a className="icon-btn portal-btn" href="/account" onClick={linkClick('account', navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a>
       <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>My account <UserCog/></> : <>Sign up <UserPlus/></>}</a>
       <button type="button" className="menu-btn" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-controls="ar7-public-menu" aria-label={menu ? 'Close menu' : 'Open menu'}>{menu ? <X/> : <Menu/>}</button>

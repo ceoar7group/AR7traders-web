@@ -97,9 +97,9 @@ const en = {
   // it, how to ask, how to reach us, the footer that stays on every page, and
   // the machinery desk's "tell us the machine" fallback.
   'hero.eyebrow': 'Japan auctions · China cars & machinery',
-  'hero.h1a': 'Cars from Japan & China,',
+  'hero.h1a': 'RHD & LHD cars from Japan & China,', // 2026-11-09 owner: headline must carry both drive sides
   'hero.h1b': 'machinery for every market.',
-  'hero.lead': "Verified right-hand-drive cars from Japan's leading auctions, left-hand-drive cars from trusted Chinese suppliers, and heavy machinery from vetted factories — inspected, priced to your port, and delivered",
+  'hero.lead': "Right-hand-drive and left-hand-drive cars exported from both Japan and China, plus heavy machinery and equipment from vetted factories — inspected, priced to your port, and delivered", // 2026-11-09 owner: we export RHD AND LHD from BOTH countries
   'hero.leadEm': 'anywhere in the world',
   'hero.explore': 'Explore vehicles',
   'hero.browseMachinery': 'Browse machinery',

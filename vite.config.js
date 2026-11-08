@@ -1,6 +1,40 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { devApiMock } from './src/dev-api-mock.js'
+import { readFileSync, existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+/* Dev-only: serve the REAL current website stock to local previews.
+ *
+ * 2026-11-09 (owner report): the home-hero slideshow in dev previews showed
+ * "old removed cars". Reason: with no Supabase in the sandbox, the hero fell
+ * back to the built-in seed plus devApiMock's August goo-net capture. When a
+ * fresh snapshot of the LIVE `site_listings` table exists at
+ * dev-fixtures/listings.json (gitignored; refreshed from Supabase by hand),
+ * this middleware serves it for /api/site-content?entity=listings and answers
+ * /api/goonet-stock with [] so stale capture rows cannot dilute the hero.
+ * Production never sees any of this — Vercel owns /api/* there. */
+function devLiveFixtures() {
+  const fixturePath = fileURLToPath(new URL('./dev-fixtures/listings.json', import.meta.url));
+  return {
+    name: 'ar7-dev-live-fixtures',
+    apply: 'serve',
+    configureServer(server) {
+      if (!existsSync(fixturePath)) return;
+      server.middlewares.use('/api/site-content', (req, res, next) => {
+        const q = new URL(req.url, 'http://x').searchParams;
+        if ((req.method || 'GET') !== 'GET' || q.get('entity') !== 'listings' || q.get('all') === '1') return next();
+        res.setHeader('Content-Type', 'application/json');
+        res.end(readFileSync(fixturePath, 'utf8'));
+      });
+      server.middlewares.use('/api/goonet-stock', (req, res, next) => {
+        if ((req.method || 'GET') !== 'GET') return next();
+        res.setHeader('Content-Type', 'application/json');
+        res.end('[]');
+      });
+    }
+  };
+}
 
 /* Dev-only: stop the browser reusing a stale module body.
  *
@@ -64,7 +98,7 @@ function devFreshModules() {
 
 export default defineConfig({
   base: '/',
-  plugins: [react(), devApiMock(), devFreshModules()],
+  plugins: [react(), devLiveFixtures(), devApiMock(), devFreshModules()],
   // The dev server must never hand out two copies of React: a second copy has a
   // null dispatcher, and every hook in the app then throws "Cannot read
   // properties of null (reading 'useState')". Dedupe pins one copy, and the

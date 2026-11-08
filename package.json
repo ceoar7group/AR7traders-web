@@ -100,7 +100,9 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
-    "jsdom": "^30.0.1"
+    "jsdom": "^30.0.1",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "engines": {
     "node": "22.x"
