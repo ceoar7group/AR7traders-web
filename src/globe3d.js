@@ -185,6 +185,26 @@ export function mountGlobe(host, opts = {}) {
     ...opts
   };
 
+  // Offscreen buffer for the smooth day/night shading (see the render note).
+  // Guarded: the engine-render test runs with DOM doubles that have no
+  // createElement/ImageData, and jsdom has no real 2D raster — in both cases
+  // night shading simply switches off while everything else keeps working.
+  const NIGHT_S = 96;
+  let nightCanvas = null, nightCtx = null, nightImg = null;
+  try {
+    if (o.night && typeof document !== 'undefined' && typeof document.createElement === 'function') {
+      nightCanvas = document.createElement('canvas');
+      nightCanvas.width = nightCanvas.height = NIGHT_S;
+      nightCtx = nightCanvas.getContext && nightCanvas.getContext('2d');
+      if (nightCtx && typeof nightCtx.createImageData === 'function' && typeof ctx.drawImage === 'function') {
+        nightImg = nightCtx.createImageData(NIGHT_S, NIGHT_S);
+        // pre-fill the night colour once — per frame only alpha changes
+        const d = nightImg.data;
+        for (let i = 0; i < d.length; i += 4) { d[i] = 1; d[i + 1] = 12; d[i + 2] = 7; }
+      } else { nightCanvas = nightCtx = null; }
+    }
+  } catch { nightCanvas = nightCtx = nightImg = null; }
+
   const st = {
     lam: o.lam, phi: o.phi, vLam: 0, vPhi: 0,
     drag: false, lx: 0, ly: 0, sx: 0, sy: 0, moved: false,
@@ -391,52 +411,44 @@ export function mountGlobe(host, opts = {}) {
       ctx.stroke(ho);
     }
 
-    /* live night hemisphere — ring 90° from the subsolar point */
-    if (o.night) {
-      const sLon = SUN[0], sLat = SUN[1];
-      const sv = sunV;
-      let ax = -sv[1], ay = sv[0], az = 0; // ⊥ sun
-      const al = Math.hypot(ax, ay, az) || 1; ax /= al; ay /= al; az /= al;
-      const bx = sv[1] * az - sv[2] * ay, by = sv[2] * ax - sv[0] * az, bz = sv[0] * ay - sv[1] * ax;
-      const night = new Path2D();
-      let penDown = false, anyVis = false;
-      for (let i = 0; i <= 120; i++) {
-        const t = i / 120 * Math.PI * 2;
-        const px3 = ax * Math.cos(t) + bx * Math.sin(t);
-        const py3 = ay * Math.cos(t) + by * Math.sin(t);
-        const pz3 = az * Math.cos(t) + bz * Math.sin(t);
-        const lon = Math.atan2(py3, px3) / RAD, lat = Math.asin(Math.max(-1, Math.min(1, pz3))) / RAD;
-        projLL(lon, lat, v);
-        let x = v[0], y = v[1];
-        if (v[2] > 0) anyVis = true;
-        else { const d = Math.hypot(x, y) || 1; x /= d; y /= d; }
-        const sx2 = cx + x * R, sy2 = cy - y * R;
-        if (!penDown) { night.moveTo(sx2, sy2); penDown = true; } else night.lineTo(sx2, sy2);
-      }
-      night.closePath();
-      ctx.fillStyle = 'rgba(1,12,7,.44)';
-      if (!anyVis) {
-        // Terminator fully behind the sphere: the whole visible face is either
-        // all day or all night — decided by whether the subsolar point faces us.
-        projLL(sLon, sLat, v);
-        if (v[2] <= 0) ctx.fillRect(0, 0, w, h); // clip keeps it on the sphere
-      } else {
-        // The clamped ring encloses ONE of the two caps in 2D — test which by
-        // sampling whichever of the subsolar/antisolar points faces us.
-        // (isPointInPath takes untransformed device-pixel coordinates.)
-        projLL(sLon, sLat, v);
-        const subVisible = v[2] > 0;
-        if (!subVisible) projLL(sLon > 0 ? sLon - 180 : sLon + 180, -sLat, v);
-        const rx = (cx + v[0] * R) * dpr, ry = (cy - v[1] * R) * dpr;
-        const inside = ctx.isPointInPath(night, rx, ry);
-        const nightEnclosed = subVisible ? !inside : inside;
-        if (nightEnclosed) ctx.fill(night);
-        else {
-          const inv = new Path2D(night);
-          inv.rect(-2, -2, w + 4, h + 4);
-          ctx.fill(inv, 'evenodd'); // everything on the sphere EXCEPT the day cap
+    /* live night hemisphere — 2026-11-14 (owner: "the day/night transition is
+       not smooth"): the old approach FILLED the exact terminator ring as a
+       hard-edged Path2D, so day snapped to night along a crisp line. Now the
+       shade is true per-pixel Lambert lighting: a small offscreen canvas (96²)
+       computes dot(surface normal, sun) for every pixel of the disc, maps it
+       through a smoothstep twilight band (dusk fades in over ~17° of arc) and
+       is drawn scaled onto the sphere with bilinear smoothing. The terminator
+       is now a soft dusk gradient from any camera angle, and the all-day /
+       all-night edge cases fall out of the same maths for free. */
+    if (o.night && nightImg) {
+      projLL(SUN[0], SUN[1], v);                 // sun direction in VIEW space
+      const sunX = v[0], sunY = v[1], sunZ = v[2];
+      const data = nightImg.data;
+      let k = 0;
+      for (let j = 0; j < NIGHT_S; j++) {
+        const Y = 1 - (j + 0.5) / NIGHT_S * 2;   // canvas y grows downward
+        for (let i = 0; i < NIGHT_S; i++) {
+          const X = (i + 0.5) / NIGHT_S * 2 - 1;
+          const r2 = X * X + Y * Y;
+          let a = 0;
+          if (r2 <= 1) {
+            const z = Math.sqrt(1 - r2);         // outward normal, toward viewer
+            const lit = X * sunX + Y * sunY + z * sunZ;
+            // twilight band: fully lit above +0.12, fully dark below -0.18
+            let tt = (0.12 - lit) / 0.30;
+            tt = tt < 0 ? 0 : tt > 1 ? 1 : tt;
+            a = tt * tt * (3 - 2 * tt) * 0.5;    // smoothstep, max alpha .5
+            if (r2 > 0.93) a *= (1 - r2) / 0.07; // feather the disc rim
+          }
+          data[k + 3] = (a * 255) | 0; k += 4;   // rgb pre-set to night colour
         }
       }
+      nightCtx.putImageData(nightImg, 0, 0);
+      const smoothWas = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;
+      if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(nightCanvas, cx - R, cy - R, 2 * R, 2 * R);
+      ctx.imageSmoothingEnabled = smoothWas;
     }
 
     /* city lights — warm dots where the world is currently dark */
@@ -484,8 +496,8 @@ export function mountGlobe(host, opts = {}) {
       for (const m of o.routes) {
         ctx.beginPath();
         let pen = false;
-        for (let i = 0; i <= 40; i++) {
-          const [lon, lat] = gcPoint(o.origin.lon, o.origin.lat, m.lon, m.lat, i / 40);
+        for (let i = 0; i <= 64; i++) { // 2026-11-14: finer arc = smoother lanes
+          const [lon, lat] = gcPoint(o.origin.lon, o.origin.lat, m.lon, m.lat, i / 64);
           projLL(lon, lat, v);
           if (v[2] > 0.01) {
             const px = cx + v[0] * R, py = cy - v[1] * R;

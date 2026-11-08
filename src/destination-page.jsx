@@ -61,8 +61,11 @@ export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related
     {f.inspection&&<p className="destination-note"><ShieldCheck/> <span><b>Pre-shipment inspection:</b> {f.inspection}.</span></p>}
     <p className="destination-note"><ShieldCheck/> <span><b>Duty and taxes:</b> assessed by {f.authority} at the port of entry. We never quote a duty rate — your licensed clearing agent calculates what is payable from the original documents we courier.</span></p>
    </section>
-   <Related navigate={navigate} limit={3} kicker="STOCK THIS ROUTE CARRIES" note={`Live Japan stock in the models ${f.country} buyers ask for most. Indicative FOB, confirmed by written quotation.`}
-     pick={c=>f.models.some(model=>{const key=String(model).toLowerCase().split(' ')[0];return key.length>2&&String(c.model||'').toLowerCase().includes(key)})}/>
+   {/* 2026-11-14: `fill` — when few cars match this market's model list the
+       strip now tops up with further Japan-stock cars instead of going thin,
+       and RelatedStock itself interleaves showroom + Japan stock. */}
+   <Related navigate={navigate} limit={3} fill kicker="STOCK THIS ROUTE CARRIES" note={`Live Japan stock in the models ${f.country} buyers ask for most. Indicative FOB, confirmed by written quotation.`}
+     pick={c=>f.models.some(model=>{const key=String(model).toLowerCase().split(' ')[0];return key.length>2&&(String(c.model||'').toLowerCase().includes(key)||String(c.make||'').toLowerCase().includes(key))})}/>
    <section className="destination-faq" aria-label={`Importing a used car from Japan to ${f.country}: questions buyers ask`}>
     <div className="kicker">QUESTIONS BUYERS ASK</div>
     <h2>Importing from Japan to {f.country}, answered</h2>

@@ -29,7 +29,13 @@ const MARKETS = [
  {name:'United Kingdom', port:'Southampton', lon:-1.4, lat:50.9, transit:'35–42 days', models:'Vellfire · Skyline · Jimny'},
  {name:'New Zealand', port:'Auckland', lon:174.8, lat:-36.8, transit:'20–26 days', models:'Prius · CX-5 · Forester'},
  {name:'Australia', port:'Sydney', lon:151.2, lat:-33.9, transit:'21–28 days', models:'Land Cruiser · Hiace'},
- {name:'USA', port:'Los Angeles', lon:-118.2, lat:34.0, transit:'28–36 days', models:'Kei trucks · 4Runner'}
+ {name:'USA', port:'Los Angeles', lon:-118.2, lat:34.0, transit:'28–36 days', models:'Kei trucks · 4Runner'},
+ // 2026-11-14 (owner: "add more routes, like the Caribbean"): the three
+ // Caribbean markets that already have full guides in destinations.js now
+ // sail on the globe too — transit/models copied from those guides.
+ {name:'Jamaica', port:'Kingston', lon:-76.8, lat:18.0, transit:'40–50 days', models:'Fielder · Axio · Probox'},
+ {name:'Trinidad & Tobago', port:'Port of Spain', lon:-61.5, lat:10.7, transit:'42–52 days', models:'Aqua · Fielder · Raize'},
+ {name:'Guyana', port:'Georgetown', lon:-58.2, lat:6.8, transit:'45–55 days', models:'Premio · Allion · Spacio'}
 ];
 const JP = {lon:138, lat:36};
 const CN = {lon:104, lat:35};
@@ -121,7 +127,16 @@ export function BigNetworkGlobe({navigate,compact}){
  },[marketKey]); // re-mount when the CRM swaps in live routes
  const fly=(lon,lat)=>()=>apiRef.current?.flyTo?.(lon,lat);
  const { t } = useLang();
- return <div className={'wglobe'+(compact?' compact':'')} ref={ref}>
+ // 2026-11-14 (owner: "country shortcuts outside the globe, below it, as an
+ // elegant rotating slide"): the fly-to buttons no longer float on the globe —
+ // they live in a seamless marquee strip under it. The chip list is doubled so
+ // the CSS animation can loop at -50% without a visible jump; the second copy
+ // is aria-hidden and untabbable so screen readers and keyboards see each
+ // market exactly once. Hover/focus pauses the ride (CSS).
+ const flyChips=[{name:'Japan',lon:JP.lon,lat:JP.lat},...MARKETS.map(m=>({name:m.name,lon:m.lon,lat:m.lat}))];
+ const chipLabel=n=>n==='United Kingdom'?'UK':n==='Trinidad & Tobago'?'Trinidad':n;
+ return <div className={'wglobe-unit'+(compact?' compact':'')}>
+ <div className={'wglobe'+(compact?' compact':'')} ref={ref}>
   <div className="wglobe-glow"/>
   <canvas className="g3-canvas" aria-hidden="true"/>
   <div className="g3-overlay">
@@ -135,18 +150,26 @@ export function BigNetworkGlobe({navigate,compact}){
      <i className="g3-dot" aria-hidden="true"/>
      <span className="g3-tag"><Flag c={m.name} w={13} h={8}/>{m.name}</span>
     </button>)}
-   <OriginChip navigate={navigate} to="inventory" lon={JP.lon} lat={JP.lat} flag="Japan" label="AR7 TRADERS · JAPAN" cls="jp"/>
-   <OriginChip navigate={navigate} to="machinery" lon={CN.lon} lat={CN.lat} flag="China" label="AR7 · CHINA DESK" cls="cn"/>
-  </div>
-  {/* fly-to-market: tap a flag and the camera glides to that country */}
-  <div className="g3-fly" role="group" aria-label={t('world.flyTo')}>
-   <button type="button" onClick={fly(JP.lon,JP.lat)} aria-label="Fly to Japan"><Flag c="Japan" w={16} h={10}/><span>Japan</span></button>
-   {MARKETS.slice(0,6).map(m=>
-    <button type="button" key={'fly'+m.name} onClick={fly(m.lon,m.lat)} aria-label={'Fly to '+m.name}>
-     <Flag c={m.name} w={16} h={10}/><span>{m.name==='United Kingdom'?'UK':m.name}</span>
-    </button>)}
+   {/* 2026-11-14: shorter origin labels — the old "AR7 TRADERS · JAPAN"
+       plates covered too much of the sphere (owner request). */}
+   <OriginChip navigate={navigate} to="inventory" lon={JP.lon} lat={JP.lat} flag="Japan" label="AR7 · JAPAN" cls="jp"/>
+   <OriginChip navigate={navigate} to="machinery" lon={CN.lon} lat={CN.lat} flag="China" label="AR7 · CHINA" cls="cn"/>
   </div>
   <span className="drag-hint"><i/> {t('world.dragHint')}</span>
+ </div>
+ {/* fly-to-market carousel: tap a flag and the camera glides to that country */}
+ <div className="g3-fly" role="group" aria-label={t('world.flyTo')}>
+  <div className="g3-fly-track">
+   {[0,1].map(copy=>
+    <div className="g3-fly-set" key={copy} aria-hidden={copy===1||undefined}>
+     {flyChips.map(m=>
+      <button type="button" key={'fly'+copy+m.name} onClick={fly(m.lon,m.lat)}
+        aria-label={'Fly to '+m.name} tabIndex={copy===1?-1:undefined}>
+       <Flag c={m.name} w={16} h={10}/><span>{chipLabel(m.name)}</span>
+      </button>)}
+    </div>)}
+  </div>
+ </div>
  </div>}
 
 export function WorldPage({navigate}){
