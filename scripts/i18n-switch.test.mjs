@@ -137,6 +137,10 @@ for (const { text } of srcFiles) {
   // 4th element and render it through t(x[3]) — collect those keys too, so
   // the indirection doesn't read as "translated but never rendered".
   for (const m of text.matchAll(/,\s*'(nav\.[a-zA-Z0-9_]+)'\s*\]/g)) usedKeys.add(m[1]);
+  // 2026-11-11: car-card status badges translate at display time through the
+  // STATUS_LABEL_KEY map in main.jsx, whose VALUES are i18n keys ('card.*')
+  // rather than inline t() literals — count those as used too.
+  for (const m of text.matchAll(/:\s*'(card\.[a-zA-Z0-9_]+)'/g)) usedKeys.add(m[1]);
 }
 const unknown = [...usedKeys].filter(k => !(k in EN));
 ok(unknown.length === 0,
