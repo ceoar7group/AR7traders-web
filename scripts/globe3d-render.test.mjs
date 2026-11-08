@@ -82,6 +82,22 @@ console.log('\n-- the engine mounts, projects and cleans up --');
   const landPts = ctx.fills.reduce((n, p) => n + p.ops.length, 0);
   ok(landPts > 2000, `the real Natural Earth geometry is drawn (${landPts} path ops)`);
 
+  // 2026-11-10 (owner: "water turned gold while rotating"): the land fill
+  // must be TRIANGLES, never whole horizon-clamped rings — a ring that is
+  // half behind the sphere closes its outline straight across open ocean and
+  // floods the green water with gold. Pin: every subpath of the land fill is
+  // exactly one triangle (M, L, L, Z), and no vertex strays off the sphere.
+  const landFill = ctx.fills[0];
+  let mi = 0, triOk = true, inDisc = true;
+  while (mi < landFill.ops.length) {
+    const sub = landFill.ops.slice(mi, mi + 4);
+    if (!(sub[0]?.[0] === 'M' && sub[1]?.[0] === 'L' && sub[2]?.[0] === 'L' && sub[3]?.[0] === 'Z')) { triOk = false; break; }
+    for (const op of sub) if (op.length > 1 && Math.hypot(op[1] - 200, op[2] - 200) > 200 * 0.985 + 1.5) inDisc = false;
+    mi += 4;
+  }
+  ok(triOk && mi > 0, `the land fill is pure triangles (${mi / 4} drawn) — half-hidden continents cannot paint the ocean gold`);
+  ok(inDisc, 'every drawn land vertex stays on the sphere disc');
+
   // Japan marker must sit at the centre of a 400×400 canvas when the camera
   // is centred on Japan — THE "right place on the map" guarantee.
   const m = /translate\((-?[\d.]+)px,(-?[\d.]+)px\)/.exec(jp.style.transform || '');
