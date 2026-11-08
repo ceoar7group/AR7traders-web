@@ -1001,7 +1001,8 @@ footer [id] {
   .hero .hero-visual {
     grid-template-rows: auto auto auto auto;
     gap: 12px;
-    width: min(680px, 100%);
+    /* 2026-11-16 (owner): bigger slides on tablets too */
+    width: min(760px, 100%);
     min-height: 0;
     height: auto;
     margin: 26px auto 0;
@@ -1415,7 +1416,9 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
 
 .mch-teaser .mch-teaser-head h2 em {
   font-style: normal;
-  color: var(--gold);
+  /* 2026-11-16 Lighthouse: --gold on the light page bg measured 2.2:1 —
+     the ink gold is the accent every other light-surface heading uses. */
+  color: var(--gold-ink);
 }
 
 .mch-teaser .mch-teaser-head > p {
@@ -1913,9 +1916,11 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
   margin-bottom: auto;
   height: auto;
   aspect-ratio: 16 / 10;
-  max-height: calc(100% - 64px);
-  width: min(80%, 680px);
-  margin-left: max(-340px, -40%);
+  max-height: calc(100% - 56px);
+  /* 2026-11-16 (owner): the centre car grew from 680px to 800px — the side
+     cars peek in correspondingly wider and the edge mask swallows the rest. */
+  width: min(86%, 800px);
+  margin-left: max(-400px, -43%);
   border-radius: 20px;
   overflow: hidden;
   background: #06281a;
@@ -2070,7 +2075,7 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
   .hero .hero-visual .car-main.hero-stage {
     aspect-ratio: 16 / 10.5;
     height: auto;
-    max-height: min(64vh, 540px);
+    max-height: min(68vh, 600px);
     border-width: 0;
   }
 }
@@ -2078,7 +2083,7 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
 @media (max-width: 560px) {
   .hero .hero-visual .car-main.hero-stage {
     aspect-ratio: 4 / 3.1;
-    max-height: 420px;
+    max-height: 460px;
     border-radius: 20px;
   }
 

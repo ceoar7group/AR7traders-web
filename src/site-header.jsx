@@ -167,10 +167,17 @@ function useHeaderMetrics(ref, { hold, menu, routeKey }) {
     };
     let raf = 0;
     let last = null;
-    const update = () => {
-      raf = 0;
-      resolve();
-      if (!target) { setAway(false); return; }
+    // 2026-11-16 Lighthouse round 2 (forced reflow): the old update() read
+    // THREE getBoundingClientRect()s on every scroll frame and after every
+    // DOM mutation — and the home page mutates constantly (the 1s auction
+    // countdown, the rotating hero slides), so each React commit was chased
+    // by a synchronous layout. The geometry is now measured only when it can
+    // actually change (hero found, viewport resized, page height changed) and
+    // cached; the scroll path compares window.scrollY against two numbers.
+    let bounds = null;   // { leaveAt, backAt } in document pixels
+    let dirty = true;    // geometry must be re-read on the next frame
+    const measureBounds = () => {
+      dirty = false;
       const headH = Math.max(48, Math.round(el?.getBoundingClientRect().height || 0));
       const leadTop = lead.getBoundingClientRect().top + window.scrollY;
       // Two boundaries, whichever comes first:
@@ -184,32 +191,54 @@ function useHeaderMetrics(ref, { hold, menu, routeKey }) {
       // return threshold can never reach 0 — scrolling back to the very top
       // must always bring the bar home.
       const backAt = Math.max(0, leaveAt - Math.min(24, leaveAt / 2));
+      bounds = { leaveAt, backAt };
+      // A real hero measured with a real boundary: the DOM watcher's one job
+      // (catching a lazy route's hero mounting late) is done.
+      if (mo && leaveAt > 0) { mo.disconnect(); mo = null; }
+    };
+    const update = () => {
+      raf = 0;
+      const had = target;
+      resolve();
+      if (!target) { setAway(false); return; }
+      if (dirty || !bounds || target !== had) measureBounds();
       // The top of the document always shows the bar. A hero whose copy starts
       // only a few pixels below it yields a boundary of ~20px, and without this
       // guard a refresh at the top (or a lazy route that mounts its hero after
       // the first measurement) could park the bar in the tucked-away state on a
       // page the visitor has not scrolled at all.
-      const next = window.scrollY > 0 && window.scrollY >= (last ? backAt : leaveAt);
+      const next = window.scrollY > 0 && window.scrollY >= (last ? bounds.backAt : bounds.leaveAt);
       if (next !== last) { last = next; setAway(next); }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    const onDirty = () => { dirty = true; onScroll(); };
+    // Declared before the first update() call — measureBounds() retires `mo`.
+    let mo = null;
+    let bodyRo = null;
     update();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onDirty);
     // The lazy route chunk mounts its hero after this effect has run, and a
     // refresh on a deep URL never fires a scroll — so watch the DOM itself
     // (throttled through the same animation frame) and pick the hero up as
-    // soon as it appears.
-    let mo = null;
+    // soon as it appears. Disconnected after the first successful measure.
     if (typeof MutationObserver === 'function') {
-      mo = new MutationObserver(onScroll);
+      mo = new MutationObserver(onDirty);
       mo.observe(document.body, { childList: true, subtree: true });
+    }
+    // Anything that changes the page's height above the hero (the promo bar
+    // collapsing, a font swapping in) shifts the boundary — a ResizeObserver
+    // on <body> re-measures exactly then, instead of on every mutation.
+    if (typeof ResizeObserver === 'function') {
+      bodyRo = new ResizeObserver(onDirty);
+      bodyRo.observe(document.body);
     }
     return () => {
       cancelAnimationFrame(raf);
       mo?.disconnect();
+      bodyRo?.disconnect();
       window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onDirty);
     };
   }, [ref, hold, menu, routeKey]);
 

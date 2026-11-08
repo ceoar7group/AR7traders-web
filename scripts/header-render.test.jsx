@@ -128,10 +128,15 @@ ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reac
     'the leave boundary is the hero\'s first line of copy, not a magic number');
   ok(src.includes('const leaveAt = Math.max(0, Math.min(leadTop - headH - 8, heroBottom - headH));'),
     'the bar leaves 8px before the hero copy can reach it, or at the hero\'s end');
-  ok(src.includes('window.scrollY > 0 && window.scrollY >= (last ? backAt : leaveAt)'),
+  // 2026-11-16 Lighthouse round 2: the boundary geometry is measured once and
+  // cached as bounds.{leaveAt,backAt}; the scroll path only compares numbers —
+  // no per-scroll-frame getBoundingClientRect (the forced-reflow source).
+  ok(src.includes('window.scrollY > 0 && window.scrollY >= (last ? bounds.backAt : bounds.leaveAt)'),
     'the top of the document always shows the bar, with hysteresis below it');
-  ok(src.includes('new MutationObserver(onScroll)'),
+  ok(src.includes('new MutationObserver(onDirty)'),
     'a lazy route chunk that mounts its hero late is picked up without a scroll');
+  ok(src.includes('const measureBounds = () =>') && !/const update = \(\) => \{[^}]*getBoundingClientRect/s.test(src),
+    'scrolling never re-reads layout — geometry is cached until it can actually change');
 }
 
 // ---- dropdown CSS never uses :focus-within to force panels open ------------

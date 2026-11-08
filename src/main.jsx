@@ -759,11 +759,23 @@ function RelatedMachines({navigate,pick,limit=3,kicker,note}){
 // reason the machinery desk went unnoticed from the home page.
 const heroSlides=(fmtPrice)=>{
  const pool=cars.filter(Boolean);
- const want=Math.min(8,pool.length);
- const step=pool.length/Math.max(want,1);
+ // 2026-11-16 (owner: "add more showroom cars in those slides"): the staged
+ // showroom flagships (Ferrari, Lamborghini, McLaren, Bentley…) are the best
+ // photography the site owns, but even spacing across the whole pool surfaced
+ // only one or two of them. Now every flagship with a showroom scene leads
+ // the car list (up to 8, spaced across the flagship set), and the evenly
+ // spaced sample of regular stock follows — same weave, bigger show.
+ const isShowroom=x=>String(x.image||'').includes('/assets/showroom/');
+ const flags=pool.filter(isShowroom);
+ const rest=pool.filter(x=>!isShowroom(x));
+ const pickSpread=(list,n)=>{
+  const out=[];const step=list.length/Math.max(n,1);
+  for(let i=0;i<n;i++){const x=list[Math.floor(i*step)];if(x)out.push(x);}
+  return out;
+ };
+ const chosen=[...pickSpread(flags,Math.min(8,flags.length)),...pickSpread(rest,Math.min(6,rest.length))];
  const carsOut=[];
- for(let i=0;i<want;i++){
-  const x=pool[Math.floor(i*step)];if(!x)continue;
+ for(const x of chosen){
   const ref=carRef(x);
   carsOut.push({kind:'car',id:'c'+ref,image:x.image,alt:carAlt(x),href:hrefFor('inventory',ref),
    tag:(x.status||'In stock').toUpperCase(),title:x.make+' '+x.model,
@@ -983,6 +995,12 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
     night:false,
     borders:!lite,
     detail:lite?0:1,
+    // 2026-11-16 Lighthouse round 2: decorative orbs (the nav orb mounts on
+    // EVERY page, inside the viewport) paint one static frame and only start
+    // spinning on the visitor's first gesture — a 60fps nav ornament was
+    // ~12s of attributed main-thread work in a throttled trace. The engine
+    // also frame-skips to idleFps while nobody interacts (see globe3d.js).
+    sleep:!!lite,
     autoRotate:lite?0.07:0.055,
     markers:false,
     // 2026-11-11 upgrades: the showcase globe gets clouds, sun-side lighting,
