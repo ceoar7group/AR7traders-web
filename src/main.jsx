@@ -625,9 +625,29 @@ function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts}){
 // `cars` array the /inventory grid renders, so the destination always exists
 // — and if there is no stock at all the block renders nothing rather than a
 // dead link.
-function RelatedStock({navigate,pick,limit=3,kicker='IN STOCK NOW',note}){
+// 2026-11-14 (owner: "suggest cars from Japan stock, not only the showroom"):
+// the pool used to be taken in raw array order, and the showroom cars sit at
+// the head of `cars` — so every 3-card strip was showroom-only. Now the two
+// stock groups are interleaved (showroom, Japan, showroom, Japan…) so Japan
+// auction/dealer stock always gets seats, and `fill` tops a thin match list
+// up to `limit` with further Japan-stock cars instead of rendering short.
+function RelatedStock({navigate,pick,limit=3,kicker='IN STOCK NOW',note,fill=false}){
  const all=Array.isArray(pick)?pick:(typeof pick==='function'?cars.filter(pick):cars);
- const shown=all.filter(c=>c&&carRef(c)).slice(0,limit);
+ const pool=all.filter(c=>c&&carRef(c));
+ const sr=pool.filter(isShowroomCar),jp=pool.filter(c=>!isShowroomCar(c));
+ const shown=[];
+ for(let i=0;shown.length<limit&&(i<sr.length||i<jp.length);i++){
+  if(i<sr.length&&shown.length<limit)shown.push(sr[i]);
+  if(i<jp.length&&shown.length<limit)shown.push(jp[i]);
+ }
+ if(fill&&shown.length<limit){
+  const have=new Set(shown.map(c=>c.id));
+  for(const c of [...cars.filter(c=>!isShowroomCar(c)),...cars]){
+   if(shown.length>=limit)break;
+   if(!c||!carRef(c)||have.has(c.id))continue;
+   shown.push(c);have.add(c.id);
+  }
+ }
  if(!shown.length)return null;
  return <aside className="related-stock">
   <div className="kicker">{kicker}</div>
@@ -643,6 +663,14 @@ function RelatedStock({navigate,pick,limit=3,kicker='IN STOCK NOW',note}){
 // The cars a piece of copy actually names. Matching the article's own words
 // keeps the link genuinely relevant, needs no extra field to keep in sync, and
 // works for database-sourced articles as well as the demo set.
+// Turn a guide's "popular models" line ('Harrier · Prado · Note') into a
+// matcher over the live stock — first word of each model, met in model OR make.
+export function modelPick(models){
+ const keys=String(models||'').toLowerCase().split('\u00b7').map(x=>x.trim().split(' ')[0]).filter(k=>k.length>2);
+ if(!keys.length)return null;
+ return c=>keys.some(k=>String(c.model||'').toLowerCase().includes(k)||String(c.make||'').toLowerCase().includes(k));
+}
+
 function stockNamedIn(text,limit=3){
  const t=String(text||'').toLowerCase();
  if(!t)return [];
@@ -945,7 +973,7 @@ function ExtraPage({type,navigate,openAuction}){
  const services=[['Auction sourcing','Live access to USS, TAA, JU, CAA and more.','100,000+ weekly listings'],['Dealer stock','Curated off-auction vehicles from trusted networks.','Fast purchase decisions'],['Inspection','Independent condition checks, photos and road tests.','Clear condition report'],['Export logistics','Booking, customs, insurance and documentation.','Destination markets worldwide'],['Parts sourcing','Optional OEM parts and accessories before shipment.','Consolidated shipping'],['Dealer programs','Volume sourcing and dedicated account support.','Wholesale pricing']];
  return <section className="inner-page extra-page"><div className="page-hero mini extra-head"><div className="page-orb-wrap"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="shell"><div className="kicker">{h[0]}</div><h1>{h[1]}</h1><p>{h[2]}</p>{type==='portal'?<PageLink className="gold-btn" to="account" navigate={navigate}>{t('page.openAccount')} <ArrowRight/></PageLink>:<button className="gold-btn" onClick={openAuction} type="button">{t('page.talkTeam')} <ArrowRight/></button>}</div></div><div className="shell page-content">
  {type==='services'&&<><div className="service-layout"><div className="service-tabs">{services.map((x,i)=><button key={x[0]} className={service===i?'active':''} onClick={()=>setService(i)} type="button"><span>0{i+1}</span>{t('svc.'+(i+1)+'t')}<ArrowRight/></button>)}</div><div className="service-panel"><Gavel/><div className="kicker">{t('svc.panelKicker')} 0{service+1}</div><h2>{t('svc.'+(service+1)+'t')}</h2><p>{t('svc.'+(service+1)+'p')}</p><strong>{t('svc.'+(service+1)+'s')}</strong><ul><li><Check/> {t('svc.li1')}</li><li><Check/> {t('svc.li2')}</li><li><Check/> {t('svc.li3')}</li></ul><button className="primary" onClick={openAuction} type="button">{t('svc.request')}</button></div></div><RelatedStock navigate={navigate} kicker="AVAILABLE FOR THIS SERVICE" note="Stock currently listed in our Japan inventory."/><div className="demo-strip">{[1,2,3,4].map(i=><div key={i}><b>{t('svc.st'+i+'b')}</b><span>{t('svc.st'+i+'s')}</span></div>)}</div></>}
- {type==='destinations'&&<><RelatedStock navigate={navigate} limit={6} kicker="POPULAR IN THIS MARKET" note="Stock already in Japan and ready to quote for your route."/><div className="destination-picker"><div><div className="kicker">{t('dest.pickKicker')}</div><h2>{t('dest.pickH2')}</h2></div><select value={activeDest[0]} onChange={e=>setPort(e.target.value)} aria-label="Select destination market">{DEST.map(x=><option key={x[0]} value={x[0]}>{FLAG[x[0]]} {x[0]} — {x[1].split(' / ')[0]}</option>)}</select><PageLink className="primary" to={destinationHref(activeDest[0])} navigate={navigate}>{t('dest.openGuide').replace('{m}',activeDest[0])} <ArrowRight/></PageLink></div>{/* 2026-10-08: the guide itself moved to the market's own URL. Rendering it
+ {type==='destinations'&&<><RelatedStock navigate={navigate} limit={6} fill pick={modelPick(activeDest[3])||undefined} kicker="POPULAR IN THIS MARKET" note={'Stock already in Japan that '+activeDest[0]+' buyers ask for most — ready to quote for your route.'}/><div className="destination-picker"><div><div className="kicker">{t('dest.pickKicker')}</div><h2>{t('dest.pickH2')}</h2></div><select value={activeDest[0]} onChange={e=>setPort(e.target.value)} aria-label="Select destination market">{DEST.map(x=><option key={x[0]} value={x[0]}>{FLAG[x[0]]} {x[0]} — {x[1].split(' / ')[0]}</option>)}</select><PageLink className="primary" to={destinationHref(activeDest[0])} navigate={navigate}>{t('dest.openGuide').replace('{m}',activeDest[0])} <ArrowRight/></PageLink></div>{/* 2026-10-08: the guide itself moved to the market's own URL. Rendering it
      here as well meant the same paragraphs lived on two URLs — duplicate copy
      for a crawler to choose between, and a hub that answered nothing a market
      page could not answer better. The hub now picks the market and opens it. */}
