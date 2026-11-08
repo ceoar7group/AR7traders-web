@@ -39,8 +39,15 @@ function prep(flat) {
   }
   return { n, cl, sl, cp, sp };
 }
-const LAND_P = LAND.map(prep);
+// 2026-11-10 (owner: "the water turned gold while rotating"): land polygons
+// are pre-TRIANGULATED by the generator. Filling whole horizon-clamped rings
+// let a half-hidden continent close its outline straight across open ocean;
+// per-triangle culling makes that impossible — a triangle only ever covers
+// its own few square degrees of land, so the sea stays green from every
+// angle. o = ring offsets (coastline strokes), t = Uint16 triangle indices.
+const LAND_P = LAND.map(p => ({ ...prep(p.v), o: p.o, t: Uint16Array.from(p.t) }));
 const BORDER_P = BORDERS.map(prep);
+const MAX_POLY = LAND_P.reduce((m, p) => Math.max(m, p.n), 0);
 
 /* Subsolar point from the real clock (same maths the old globe used). */
 function sunLonLat(now = new Date()) {
@@ -103,6 +110,9 @@ export function mountGlobe(host, opts = {}) {
   const motionQuery = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)');
   let reduced = !!motionQuery?.matches;
 
+  // per-frame projection scratch (one polygon at a time)
+  const scrX = new Float32Array(MAX_POLY), scrY = new Float32Array(MAX_POLY), scrC = new Float32Array(MAX_POLY);
+
   const measure = () => {
     const rect = canvas.getBoundingClientRect();
     st.dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -143,27 +153,6 @@ export function mountGlobe(host, opts = {}) {
     };
     const v = [0, 0, 0];
 
-    // Ring → Path2D using "clamp to limb": back-hemisphere vertices are pushed
-    // onto the horizon circle, so partially visible continents close cleanly
-    // along the sphere's edge with no tearing.
-    const ringPath = (p, path) => {
-      let any = false;
-      for (let i = 0; i < p.n; i++) { // visibility pre-pass
-        proj(p, i, v);
-        if (v[2] > 0) { any = true; break; }
-      }
-      if (!any) return false;
-      for (let i = 0; i < p.n; i++) {
-        proj(p, i, v);
-        let x = v[0], y = v[1];
-        if (v[2] < 0) { const d = Math.hypot(x, y) || 1; x /= d; y /= d; }
-        const px = cx + x * R, py = cy - y * R;
-        if (i === 0) path.moveTo(px, py); else path.lineTo(px, py);
-      }
-      path.closePath();
-      return true;
-    };
-
     /* ocean sphere */
     const og = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
     og.addColorStop(0, '#0f6a45'); og.addColorStop(0.55, '#06402a'); og.addColorStop(1, '#022316');
@@ -203,17 +192,51 @@ export function mountGlobe(host, opts = {}) {
       ctx.stroke();
     }
 
-    /* land — brand gold relief */
+    /* land — brand gold relief, drawn triangle by triangle so a half-hidden
+       continent can never flood the ocean with gold (see LAND_P note). */
     const landPath = new Path2D();
-    for (const p of LAND_P) ringPath(p, landPath);
+    const coastPath = new Path2D();
+    for (const p of LAND_P) {
+      // project every vertex of this polygon once (clamped x/y + visibility)
+      let anyFront = false;
+      for (let i = 0; i < p.n; i++) {
+        proj(p, i, v);
+        let x = v[0], y = v[1];
+        if (v[2] < 0) { const d = Math.hypot(x, y) || 1; x /= d; y /= d; }
+        scrX[i] = cx + x * R; scrY[i] = cy - y * R; scrC[i] = v[2];
+        if (v[2] > 0) anyFront = true;
+      }
+      if (!anyFront) continue; // whole polygon on the far side
+      const t = p.t;
+      for (let k = 0; k < t.length; k += 3) {
+        const a1 = t[k], b1 = t[k + 1], c1 = t[k + 2];
+        if (scrC[a1] <= 0 && scrC[b1] <= 0 && scrC[c1] <= 0) continue;
+        landPath.moveTo(scrX[a1], scrY[a1]);
+        landPath.lineTo(scrX[b1], scrY[b1]);
+        landPath.lineTo(scrX[c1], scrY[c1]);
+        landPath.closePath();
+      }
+      // coastline: stroke only fully-visible ring segments (crisp, no limb arcs)
+      for (let r = 0; r < p.o.length; r++) {
+        const s0 = p.o[r], s1 = r + 1 < p.o.length ? p.o[r + 1] : p.n;
+        for (let i = s0; i < s1; i++) {
+          const j = i + 1 < s1 ? i + 1 : s0;
+          if (scrC[i] > 0.01 && scrC[j] > 0.01) {
+            coastPath.moveTo(scrX[i], scrY[i]);
+            coastPath.lineTo(scrX[j], scrY[j]);
+          }
+        }
+      }
+    }
     const lg = ctx.createLinearGradient(0, cy - R, 0, cy + R);
     lg.addColorStop(0, '#f2c468'); lg.addColorStop(0.55, '#dca23a'); lg.addColorStop(1, '#b5801f');
     ctx.fillStyle = lg;
     ctx.shadowColor = 'rgba(0,20,12,.55)'; ctx.shadowBlur = R * 0.02; ctx.shadowOffsetY = 1;
     ctx.fill(landPath);
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = 'rgba(243,205,120,.5)'; ctx.lineWidth = 0.7;
-    ctx.stroke(landPath);
+    ctx.strokeStyle = 'rgba(243,205,120,.55)'; ctx.lineWidth = 0.8;
+    ctx.lineCap = 'round';
+    ctx.stroke(coastPath);
 
     /* country borders — thin engraved lines on the gold */
     if (o.borders && o.detail > 0) {
@@ -326,7 +349,10 @@ export function mountGlobe(host, opts = {}) {
     ctx.fillStyle = hl; ctx.fillRect(0, 0, w, h);
     ctx.restore();
 
-    /* rim */
+    /* rim + a soft green atmosphere halo just outside it */
+    ctx.strokeStyle = 'rgba(79,208,138,.16)';
+    ctx.lineWidth = Math.max(3, R * 0.016);
+    ctx.beginPath(); ctx.arc(cx, cy, R + ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
     ctx.strokeStyle = 'rgba(229,181,83,.28)';
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
