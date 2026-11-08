@@ -58,11 +58,15 @@ assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \{[^}]*overflow: hid
 assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \{[^}]*radial-gradient/s);
 assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \.iglobe \{[^}]*width: 100%;[^}]*height: 100%/s);
 assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \.iglobe-sphere \{[^}]*background: none/s);
-// The globe spins in every direction: the map strip overhangs the face and is
-// translated on both axes, and the script clamps the latitude so the strip can
-// never run out and expose an empty edge.
-assert.match(main, /--lat/);
-assert.match(main, /maxLat/);
+// 2026-11-10: the globes were redesigned as TRUE orthographic spheres — the
+// map-strip (--lat/maxLat) mechanics are gone. The engine owns free rotation
+// now: it clamps latitude at the poles and spins endlessly in longitude, and
+// main.jsx mounts it lazily so first load never pays for the geometry.
+const globeEngine = readFileSync(new URL('../src/globe3d.js', import.meta.url), 'utf8');
+assert.match(main, /import\('\.\/globe3d\.js'\)/);
+assert.match(globeEngine, /Math\.max\(-85, Math\.min\(85, st\.phi\)\)/);
+assert.match(globeEngine, /st\.lam -= dx \* k/);
+assert.match(globeEngine, /st\.phi \+= dy \* k/);
 assert.match(layoutCss, /\.nav-panel-actions/);
 assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-switch\s*\{[^}]*position:\s*static/s);
 // CRM: the shell's content track can shrink and the row actions stay pinned to

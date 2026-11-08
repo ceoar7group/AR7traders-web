@@ -79,7 +79,10 @@ export function validateDraft(raw) {
 // being overloaded (HTTP 503 → provider-unavailable), timing out, missing, or
 // per-model rate limits. A bad key or an exhausted daily quota fails the same
 // way on every model, so those are NOT retried on a fallback.
-const FALLBACK_STATES = new Set(['provider-unavailable', 'timeout', 'model-unavailable', 'rate-limited', 'empty-output']);
+// 2026-11-10: 'truncated' added — a thinking model that burned its whole
+// output budget on reasoning gets ONE more chance on the next model in the
+// chain instead of killing the Topic Scout run outright.
+const FALLBACK_STATES = new Set(['provider-unavailable', 'timeout', 'model-unavailable', 'rate-limited', 'empty-output', 'truncated']);
 
 // The WHOLE model chain must finish inside api/site-content.js's
 // maxDuration (60s), or Vercel kills the function and the operator sees a
@@ -110,6 +113,10 @@ export async function generateWithGemini({ system, user, env, fetchImpl, feature
     try {
       const out = await geminiGenerate(user, {
         env, fetch: fetchImpl, system, json: true, feature, model: candidate,
+        // 2026-11-10: Gemini 3.x thinking tokens count against this budget —
+        // 2400 (the shared default) truncated every Topic Scout article run.
+        // 16,384 leaves generous room for reasoning + a 600-word JSON draft.
+        maxOutputTokens: 16384,
         maxAttempts: 1, timeoutMs: Math.min(PER_MODEL_TIMEOUT_MS, remaining)
       });
       return { raw: out.text, model: out.model, usage: out.usage, provider: 'gemini',

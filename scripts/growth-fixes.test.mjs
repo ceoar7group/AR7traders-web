@@ -88,6 +88,30 @@ say('\n1b) The chain fits inside the serverless time limit — no more bare 504s
     'when models are slow, the budget stops the chain early (2 tried, not 3) — the function answers before Vercel kills it');
 }
 
+say('\n1c) Thinking-token truncation no longer kills a Topic Scout run');
+{
+  // 2026-11-10: "Gemini stopped because the output limit was reached" killed
+  // every Approve & publish. Root cause: Gemini 3.x THINKING tokens count
+  // against maxOutputTokens, and editorial drafts ran on the shared 2,400
+  // default; worse, 'truncated' was not a fallback state so no other model
+  // was even tried. Pins: drafts request a thinking-sized budget, and a
+  // truncated primary falls through to the next model in the chain.
+  const bodies = [];
+  let call = 0;
+  const out = await generateWithGemini({
+    system: 's', user: 'u', env: { GEMINI_API_KEY: 'k' },
+    fetchImpl: async (url, opts) => {
+      bodies.push(JSON.parse(opts.body)); call++;
+      if (call === 1) return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"half":' }] } }] }) };
+      return good();
+    }
+  });
+  ok(bodies[0].generationConfig.maxOutputTokens === 16384,
+    `editorial drafts request a thinking-sized output budget (got ${bodies[0].generationConfig.maxOutputTokens})`);
+  ok(call === 2 && out.fallbackUsed,
+    'a truncated model falls through to the next model instead of failing the whole run');
+}
+
 say('\n2) The scout-strippable boilerplate stays a stable contract');
 {
   const out = await generateEditorialDraft({ topic: 'Buying a used Toyota from Japan', facts: FACTS, kind: 'guide', sources: [] },

@@ -15,39 +15,44 @@
 .world-stats span{font-size:9px;letter-spacing:1.1px;color:var(--muted);text-transform:uppercase}
 .world-hero-orb{left:auto;right:36%;top:auto;bottom:-44px}
 
-/* the big globe */
-.wglobe{position:relative;width:min(600px,92vw);aspect-ratio:1;margin:auto;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;perspective:1000px;contain:layout style} /* 2026-11-09: touch-action none — the globe drags on BOTH axes now */
+/* ============================================================
+   THE BIG GLOBE — 2026-11-10 true-3D redesign.
+   The sphere itself (ocean, gold land, borders, graticule, live
+   day/night, routes, ships) is painted on .g3-canvas by
+   src/globe3d.js. Everything positioned over it (.g3-overlay
+   children with data-lon/data-lat) is moved by the engine every
+   frame with transform only — no per-frame layout.
+   ============================================================ */
+.wglobe{position:relative;width:min(600px,92vw);aspect-ratio:1;margin:auto;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;contain:layout style}
 .wglobe.dragging{cursor:grabbing}
+.wglobe.dragging .g3-overlay{pointer-events:none!important}
 .wglobe-glow{position:absolute;inset:-14%;border-radius:50%;background:radial-gradient(circle,rgba(34,176,105,.30),rgba(34,176,105,.07) 48%,transparent 70%);animation:haloPulse 4.8s ease-in-out infinite;pointer-events:none}
-.wsphere{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 35% 28%,#116844,#063623 55%,#012015);box-shadow:inset -46px -34px 95px #00150c,inset 16px 14px 46px #0d6846bb,0 0 120px #20a16855;animation:globeFloat 6s ease-in-out infinite;will-change:transform}
-.wsphere:after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 90px #01150e;pointer-events:none}
-.wsphere svg{position:absolute;left:0;top:-15%;width:300%;height:130%;transform:translate(var(--rot,0px),var(--lat,0px));will-change:transform} /* 2026-11-09: 130% tall strip + --lat = free vertical pan */
-.wshade{position:absolute;inset:0;z-index:3;border-radius:50%;background:radial-gradient(circle at 68% 34%,transparent 42%,#00100996 88%);pointer-events:none!important}
-.wshine{position:absolute;inset:0;z-index:4;border-radius:50%;overflow:hidden;pointer-events:none!important}
-.wshine:before{content:'';position:absolute;top:-30%;bottom:-30%;left:0;width:13%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-140%) rotate(14deg);animation:sheenSweep 7s ease-in-out infinite;will-change:transform}
-.wgrid line{stroke:rgba(255,255,255,.09);stroke-width:1}
-.wland{fill:url(#wlg);stroke:rgba(231,180,81,.5);stroke-width:.9;stroke-linejoin:round;filter:drop-shadow(0 5px 10px #00160dcc)} /* 2026-11-09: metallic gold relief gradient */
-.warc{pointer-events:none;fill:none;stroke:#e5b553;stroke-width:2.2;stroke-linecap:round;stroke-dasharray:7 11;opacity:.9;animation:arcDash 2.1s linear infinite}
-.wship{pointer-events:none}
-.whull{fill:#12482f;stroke:#ffe1a6;stroke-width:1.1}
-.wdeck{fill:#e3b04b}
-.wmkt{cursor:pointer}
-.wmkt-dot{fill:#e5b553;stroke:#fff;stroke-width:1.6}
-.wmkt-ring{fill:none;stroke:#e5b553;stroke-width:1.2;opacity:.5;animation:mktPulse 2.6s ease-out infinite}
-.wmkt:hover .wmkt-ring{opacity:1}
-@keyframes mktPulse{0%{r:6;opacity:.8}100%{r:22;opacity:0}}
-.wmkt-chip{fill:rgba(2,28,17,.88);stroke:rgba(229,181,83,.4);stroke-width:1}
-.wmkt-txt{fill:#f3e9d2;font:700 13px Manrope,sans-serif;letter-spacing:.4px}
-.wjp{cursor:pointer}
-.wjp-dot{fill:#e9b64f;stroke:#fff;stroke-width:2.2}
-.wjp-p1,.wjp-p2{fill:none;stroke:#e9b64f;stroke-width:1.6;animation:jpPing 2.2s ease-out infinite}
-.wjp-p2{animation-delay:1.1s}
-@keyframes jpPing{0%{r:8;opacity:.95}100%{r:34;opacity:0}}
-.wjp:hover .wjp-dot{fill:#ffd98a}
-.wjp-chip{fill:#032c1cee;stroke:#e9b64f;stroke-width:1.6;filter:drop-shadow(0 6px 14px #0009)}
-.wjp-txt{fill:#ffe1a6;font:800 15px Manrope,sans-serif;letter-spacing:1.6px;text-anchor:middle}
-.wjp-pointer{fill:#e9b64f}
-.wjp:hover .wjp-chip{stroke:#ffd98a}
+.wglobe .g3-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.g3-overlay{position:absolute;inset:0;z-index:5;pointer-events:none}
+.g3-overlay>*{position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;will-change:transform}
+
+/* pinned country flags (decorative, titled for hover) */
+.g3-flag{display:grid;place-items:center;width:26px;height:19px;background:rgba(2,24,15,.72);border:1px solid rgba(229,181,83,.45);border-radius:4px;box-shadow:0 3px 8px rgba(0,10,5,.5)}
+.g3-flag svg{display:block}
+
+/* market destinations — dot on the port + name tag */
+.g3-mkt{width:0;height:0;overflow:visible;background:none;border:0;padding:0;cursor:pointer;font:inherit}
+.g3-dot{position:absolute;left:-5px;top:-5px;width:10px;height:10px;border-radius:50%;background:#e5b553;box-shadow:0 0 0 2px #fff,0 2px 8px rgba(0,10,5,.6)}
+.g3-dot::after{content:'';position:absolute;left:-7px;top:-7px;width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(229,181,83,.75);animation:g3Ping 2.6s ease-out infinite}
+.g3-tag{position:absolute;left:11px;bottom:7px;display:flex;align-items:center;gap:6px;white-space:nowrap;background:rgba(2,28,17,.88);border:1px solid rgba(229,181,83,.4);border-radius:9px;padding:4px 9px;color:#f3e9d2;font:700 11.5px Manrope,sans-serif;letter-spacing:.4px;box-shadow:0 5px 14px rgba(0,10,5,.45)}
+.g3-tag svg{border-radius:2px}
+.g3-mkt:hover .g3-dot{background:#ffd37a}
+.g3-mkt:hover .g3-tag{border-color:rgba(229,181,83,.95)}
+@keyframes g3Ping{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+
+/* origin chips: Japan → inventory, China → machinery desk */
+.g3-origin{width:0;height:0;overflow:visible;background:none;border:0;padding:0;cursor:pointer;font:inherit}
+.g3-pin{position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:#e9b64f;box-shadow:0 0 0 2.5px #fff,0 3px 10px rgba(0,10,5,.65)}
+.g3-pulse{position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;border:2px solid rgba(233,182,79,.9);animation:g3Ping 2.2s ease-out infinite}
+.g3-origin .g3-chip{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;white-space:nowrap;background:#032c1cee;border:1.6px solid #e9b64f;border-radius:13px;padding:9px 15px;color:#ffe1a6;font:800 13.5px Manrope,sans-serif;letter-spacing:1.5px;box-shadow:0 8px 20px rgba(0,0,0,.55)}
+.g3-origin .g3-chip svg{border-radius:2.5px;flex:none}
+.g3-origin:hover .g3-chip{border-color:#ffd98a}
+.g3-origin:hover .g3-pin{background:#ffd98a}
 
 /* market cards */
 .markets-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding-bottom:30px}
@@ -62,35 +67,14 @@
 .markets-grid .mkt-go svg{width:13px;transition:transform .25s}
 .markets-grid .mkt-card:hover .mkt-go svg{transform:translateX(4px)}
 
-.wmkt-hit{cursor:pointer}
-.wjp-hit{cursor:pointer}
-
-/* happy customers on big globe */
-.whappy{animation:whFloat 4.6s ease-in-out infinite;pointer-events:none}
-@keyframes whFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
-.wh-ring{fill:none;stroke:#4fd08a;stroke-width:1.4;opacity:.55;animation:whRing 2.2s ease-out infinite;transform-origin:center}
-@keyframes whRing{0%{r:12;opacity:.7}100%{r:26;opacity:0}}
-.wh-face{fill:#fff8e6;stroke:#e2b04a;stroke-width:1.6;filter:drop-shadow(0 3px 6px #00160d88)}
-.wh-emoji{font-size:13px}
-.wh-bub{animation:whBub 4.6s ease-in-out infinite}
-@keyframes whBub{0%,100%{opacity:.9;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
-.wh-bub-bg{fill:rgba(2,28,17,.92);stroke:rgba(229,181,83,.45);stroke-width:1}
-.wh-bub-txt{fill:#f3e9d2;font:700 10.5px Manrope,sans-serif}
-.wh-stars{fill:#e9b64f;font-size:9px;letter-spacing:1.5px}
-
 .mkt-flag svg{width:36px;height:23px;border-radius:5px;box-shadow:0 2px 7px rgba(0,0,0,.18)}
 .wglobe.compact{width:min(470px,86vw)}
 .world-map .wglobe{width:min(470px,86vw)}
 .wglobe.compact .drag-hint{font-size:7.5px}
-.world-map .wland{fill:rgba(211,163,68,.88);stroke:rgba(231,180,81,.55);stroke-width:1.6}
-.world-map .warc{pointer-events:none;fill:none;stroke:#e5b553}
-.world-map .wgrid line{filter:none;stroke:rgba(255,255,255,.06)}
-
-.wplane{pointer-events:none}
-.wp-jet{fill:#fff;stroke:#0c3a26;stroke-width:.6}
-.wp-con{fill:none;stroke:rgba(255,255,255,.55);stroke-width:1.4;stroke-dasharray:4 5;animation:wpConDash 1.1s linear infinite}
-@keyframes wpConDash{to{stroke-dashoffset:-18}}
-.wcar{pointer-events:none}
+/* compact globes shrink the overlay so chips stay inside the disc */
+.wglobe.compact .g3-origin .g3-chip{font-size:11.5px;padding:7px 11px;letter-spacing:1.1px}
+.wglobe.compact .g3-tag{font-size:10px;padding:3px 7px}
+.wglobe.compact .g3-flag{width:22px;height:16px}
 
 /* network dashboard */
 .net-dash-wrap{padding-bottom:110px}
@@ -147,13 +131,10 @@
  .world-map .wglobe{width:min(360px,94vw)}
  .markets-grid{grid-template-columns:1fr}
  .mkt-flag svg{width:30px;height:20px}
- .wmkt-txt{font-size:10px}
- .wjp-txt{font-size:11px}
- .wjp-chip{width:150px!important}
- .wshade{opacity:.75}
- .wh-bub{display:none}
- .wh-emoji{font-size:10px}
- .wh-face{stroke-width:1.2}
+ .g3-tag{font-size:9.5px;padding:3px 6px;gap:4px}
+ .g3-origin .g3-chip{font-size:10.5px;padding:6px 9px;letter-spacing:.8px;gap:6px}
+ .g3-flag{width:20px;height:14px}
+ .g3-flag svg{width:14px;height:9px}
  .net-grid{grid-template-columns:1fr}
  .net-stats{grid-template-columns:1fr 1fr}
  .net-panel{overflow-x:auto}
@@ -163,20 +144,5 @@
  .net-stats{grid-template-columns:1fr!important}
 }
 @media (prefers-reduced-motion: reduce){
- .warc,.wship,.whappy,.wmkt-ring,.wjp-p1,.wjp-p2,.wglobe-glow,.wshine:before{animation:none!important}
+ .wglobe-glow,.g3-dot::after,.g3-pulse{animation:none!important}
 }
-
-/* 2026-11-09: the REAL map (Natural Earth 110m via src/world-land.js).
-   Land keeps the brand gold, borders are a faint hairline, and .wnight is
-   the live day/night terminator computed from the actual UTC time. */
-.wland{stroke-width:.9}
-.wborder{fill:none;stroke:rgba(2,28,17,.5);stroke-width:.7;stroke-linejoin:round;stroke-linecap:round}
-.wnight{fill:rgba(1,10,22,.34);pointer-events:none}
-.wmkt{transition:transform .2s}
-.wmkt:hover .wmkt-dot{fill:#ffd37a}
-.wmkt:hover .wmkt-chip{stroke:rgba(229,181,83,.95)}
-
-/* 2026-11-09: flag layer — small vector flags pinned straight on the map */
-.wflagpt .wflag-frame{fill:rgba(2,24,15,.72);stroke:rgba(229,181,83,.45);stroke-width:.8}
-.wflagpt{opacity:.95}
-.wcn .wjp-txt{letter-spacing:1.6px}
