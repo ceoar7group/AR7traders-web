@@ -581,6 +581,12 @@ const galleryFor=c=>{
 // Real anchor for in-app pages. Renders a true href (so the browser's
 // right-click / Ctrl+click "open in new tab" works everywhere) but keeps
 // single-page-app navigation for plain left-clicks via linkClick.
+// 2026-11-11 (owner: "proceed to the next upgrades of translations"): the
+// card badges keep their English values in DATA (status drives filters and
+// CSS slugs) and translate only at DISPLAY time through this map.
+const STATUS_LABEL_KEY = { 'in stock': 'card.statusInStock', auction: 'card.statusAuction', 'new arrival': 'card.statusNew', sold: 'card.statusSold' };
+const statusLabel = (t, s) => { const k = STATUS_LABEL_KEY[String(s || 'In Stock').trim().toLowerCase()]; return k ? t(k) : (s || 'In Stock'); };
+
 function PageLink({to, navigate, opts, className, children, ...rest}) {
   return <a href={hrefFromTarget(to)} className={className} onClick={linkClick(to, navigate, opts)} {...rest}>{children}</a>;
 }
@@ -593,12 +599,13 @@ function PageLink({to, navigate, opts, className, children, ...rest}) {
 // with the car and an offer prompt already typed in.
 function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts}){
  const s=useSettings();
+ const {t}=useLang();
  const href=hrefFor('inventory',carRef(c));
  const carLabel=[c.year,c.make,c.model].filter(Boolean).join(' ');
  const waMsg=`Hello AR7, I'm interested in the ${carLabel} (ref ${carRef(c)}) on your website. Is it still available?`;
  return <a className="car-card page-car" href={href} onClick={onOpen?linkClick(`inventory?car=${carRef(c)}`,()=>onOpen(c)):undefined}>
- <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{c.status||'In Stock'}</span>{c.grade?<span className="grade">Grade <b>{c.grade}</b></span>:null}</div>
- <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>EXPORT PRICE FROM</small><VehiclePriceDisplay car={c} discounts={discounts}/></div><span className="card-open"><ArrowUpRight/></span></div>
+ <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
+ <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={discounts}/></div><span className="card-open"><ArrowUpRight/></span></div>
  <div className="card-actions">
   <button type="button" className="card-wa" aria-label={'WhatsApp us about the '+carLabel} onClick={e=>{e.preventDefault();e.stopPropagation();window.open(waLink(s.whatsapp_number,waMsg),'_blank','noopener')}}><WhatsAppIcon size={14}/> WhatsApp</button>
   {onOffer&&<button type="button" className="card-offer" aria-label={'Make an offer on the '+carLabel} onClick={e=>{e.preventDefault();e.stopPropagation();onOffer(c)}}><BadgePercent/> Make offer</button>}
@@ -908,7 +915,7 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
   <span className="drag-hint"><i/> {t('world.dragSmall')}</span>
  </div>}
 
-function MotionShowcase({navigate}){return <section className="motion-showcase"><div className="shell motion-grid"><div className="motion-copy"><div className="kicker">THE AR7 GLOBAL SUPPLY NETWORK</div><h2>Cars in motion.<br/><em>Trade without borders.</em></h2><p>Watch a sample route from auction floor to destination port. Every vehicle, document and milestone stays visible.</p><div className="motion-metrics"><span><b>Major</b> Japanese auction houses</span><span><b>RoRo +</b> Container shipping</span><span><b>1</b> Accountable team</span></div><div className="globe-legend"><span><i className="lg car"/> Sample route</span><span><i className="lg ship"/> Sample vessel</span><span><i className="lg pin"/> Destination ports</span></div></div><div className="globe-scene"><div className="globe-wrap"><InteractiveGlobe onTap={()=>navigate('world')}/><div className="float-label japan"><small>ORIGIN</small><b>Yokohama, Japan</b></div><div className="float-label shipment"><small>SAMPLE SHIPMENT</small><b>AR7-260184</b></div></div></div></div><div className="vehicle-track"><div className="track-streaks"/><div className="road-lines"/><div className="moving-plane"><Plane/></div><div className="moving-car convoy"><CarFront/></div><div className="moving-car"><CarFront/><span>AUCTION WON</span></div><div className="moving-ship"><Ship/><span>VESSEL BOOKED</span></div><p>USS TOKYO <i/> INSPECTION YARD <i/> YOKOHAMA PORT <i/> WORLDWIDE</p></div></section>}
+function MotionShowcase({navigate}){const {t}=useLang();return <section className="motion-showcase"><div className="shell motion-grid"><div className="motion-copy"><div className="kicker">{t('home.motionKicker')}</div><h2>{t('home.motionH2a')}<br/><em>{t('home.motionH2b')}</em></h2><p>{t('home.motionBody')}</p><div className="motion-metrics"><span><b>Major</b> {t('home.motionAuctions')}</span><span><b>RoRo +</b> {t('home.motionShipping')}</span><span><b>1</b> {t('home.motionTeam')}</span></div><div className="globe-legend"><span><i className="lg car"/> {t('home.legendRoute')}</span><span><i className="lg ship"/> {t('home.legendVessel')}</span><span><i className="lg pin"/> {t('home.legendPorts')}</span></div></div><div className="globe-scene"><div className="globe-wrap"><InteractiveGlobe onTap={()=>navigate('world')}/><div className="float-label japan"><small>{t('home.originLabel')}</small><b>Yokohama, Japan</b></div><div className="float-label shipment"><small>{t('home.sampleShipment')}</small><b>AR7-260184</b></div></div></div></div><div className="vehicle-track"><div className="track-streaks"/><div className="road-lines"/><div className="moving-plane"><Plane/></div><div className="moving-car convoy"><CarFront/></div><div className="moving-car"><CarFront/><span>{t('home.trackWon')}</span></div><div className="moving-ship"><Ship/><span>{t('home.trackBooked')}</span></div><p>USS TOKYO <i/> INSPECTION YARD <i/> YOKOHAMA PORT <i/> WORLDWIDE</p></div></section>}
 
 function DeviceStudio({navigate}){
  const [device,setDevice]=useState('laptop');
@@ -1567,14 +1574,14 @@ export function App(){
    <MotionShowcase navigate={navigate}/>
 
    <section className="inventory shell section" id="inventory" onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
-    <div className="section-head"><div><div className="kicker">PREMIUM JAPAN STOCK</div><h2>Flagships in the<br/><em>showroom.</em></h2></div><p>Ferrari to Century — every showroom car is a real vehicle in Japan with live export pricing. The slide keeps running through live stock.</p></div>
-    <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> Search vehicles <SlidersHorizontal/></PageLink></div>
+    <div className="section-head"><div><div className="kicker">{t('home.stockKicker')}</div><h2>{t('home.stockH2a')}<br/><em>{t('home.stockH2b')}</em></h2></div><p>{t('home.stockBody')}</p></div>
+    <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f==='All'?t('home.filterAll'):statusLabel(t,f)}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> {t('home.searchVehicles')} <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
-      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{c.status||'In Stock'}</span><span role="button" tabIndex={0} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">Grade <b>{c.grade}</b></span>:null}</div>
-      <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>EXPORT PRICE FROM</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div><span className="card-open" aria-hidden="true"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
+      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
+      <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div><span className="card-open" aria-hidden="true"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
     </a>)}</div>
     <div className="home-carousel-dots" aria-label="Inventory slide pages">{Array.from({length:homePages},(_,i)=><button key={i} type="button" className={i===homePage?'active':''} aria-label={'Show stock page '+(i+1)} onClick={()=>setHomeOff(i*HOME_N)}/>)}</div>
-    <PageLink className="outline-btn" to="inventory" navigate={navigate}>View complete inventory <ArrowRight/></PageLink>
+    <PageLink className="outline-btn" to="inventory" navigate={navigate}>{t('home.viewAll')} <ArrowRight/></PageLink>
    </section>
 
    {/* 2026-11-08: recently-sold proof strip. Renders ONLY when the CRM has
@@ -1584,20 +1591,20 @@ export function App(){
    {(()=>{
     const sold=cars.filter(c=>c&&c.published!==false&&String(c.status||'').trim().toLowerCase()==='sold').slice(0,6);
     return sold.length?<section className="sold-strip shell section" aria-label="Recently sold vehicles">
-     <div className="section-head"><div><div className="kicker">RECENTLY SOLD</div><h2>Already on<br/><em>their way.</em></h2></div><p>Cars buyers secured recently — marked sold the moment a deal closes. Tell us your target car and yours is next.</p></div>
+     <div className="section-head"><div><div className="kicker">{t('home.soldKicker')}</div><h2>{t('home.soldH2a')}<br/><em>{t('home.soldH2b')}</em></h2></div><p>{t('home.soldBody')}</p></div>
      <div className="sold-grid">{sold.map(c=><div className="sold-card" key={c.id}>
       <img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark.png'} alt={carAlt(c)}/>
-      <span className="sold-flag">SOLD</span>
+      <span className="sold-flag">{t('card.statusSold').toUpperCase()}</span>
       <b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b>
       <small>{stockNo(c)}{c.location?' · '+c.location+', Japan':''}</small>
      </div>)}</div>
-     <button className="outline-btn" onClick={()=>openEnquiry({kind:'vehicle',message:'I saw the recently sold cars — please source a similar one for me.'})} type="button">Source one like these <ArrowRight/></button>
+     <button className="outline-btn" onClick={()=>openEnquiry({kind:'vehicle',message:'I saw the recently sold cars — please source a similar one for me.'})} type="button">{t('home.soldCta')} <ArrowRight/></button>
     </section>:null})()}
 
    <section className="mch-teaser shell section" id="machinery">
     <div className="mch-teaser-head">
-     <div><div className="kicker">CHINA DESK · LHD CARS &amp; MACHINERY</div><h2>LHD cars, excavators<br/><em>&amp; trucks.</em></h2></div>
-     <p>Left-hand-drive cars and heavy equipment sourced to order from vetted Chinese suppliers — the same inspection, documentation and shipping desk that moves our Japan cars.</p>
+     <div><div className="kicker">{t('home.mchKicker')}</div><h2>{t('home.mchH2a')}<br/><em>{t('home.mchH2b')}</em></h2></div>
+     <p>{t('home.mchBody')}</p>
     </div>
     {/* One machine per type, and only ones we actually have a photograph of —
         the teaser is the first thing a visitor sees, so it never opens with a
@@ -1608,37 +1615,37 @@ export function App(){
       <div className="mch-info">
         <div className="mch-head"><b>{m.name}</b><small><MapPin/> {m.location}, {m.origin}</small></div>
         <p>{m.summary}</p>
-        <div className="mch-foot"><div><small>INDICATIVE FOB</small>{(()=>{const offer=stockDiscountFor(liveDiscounts,'machine',m.ref);const p=priceWithOffer(listPriceUSD(m),offer?.percent||0);return p.hasOffer?<span className="mch-price-row"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span>:<b>{fmt(p.now)}</b>})()}</div><PageLink className="mch-teaser-link" to={machineHref(m)} navigate={navigate}>Details <ArrowRight/></PageLink></div>
+        <div className="mch-foot"><div><small>{t('machinery.indicative')}</small>{(()=>{const offer=stockDiscountFor(liveDiscounts,'machine',m.ref);const p=priceWithOffer(listPriceUSD(m),offer?.percent||0);return p.hasOffer?<span className="mch-price-row"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span>:<b>{fmt(p.now)}</b>})()}</div><PageLink className="mch-teaser-link" to={machineHref(m)} navigate={navigate}>{t('home.mchDetails')} <ArrowRight/></PageLink></div>
       </div>
     </article>)}</div>
-    <div className="mch-teaser-foot"><PageLink className="primary" to="machinery" navigate={navigate}>Browse all machinery <ArrowRight/></PageLink><button className="ghost-btn" type="button" onClick={()=>setEnquiry({kind:'vehicle',vehicle_interest:'Left-hand-drive car from China',message:'I am looking for a left-hand-drive car from your China desk. '})}>Request an LHD car <ArrowRight/></button><p className="mch-teaser-note">{MACHINERY_NOTE}</p></div>
+    <div className="mch-teaser-foot"><PageLink className="primary" to="machinery" navigate={navigate}>{t('home.mchBrowseAll')} <ArrowRight/></PageLink><button className="ghost-btn" type="button" onClick={()=>setEnquiry({kind:'vehicle',vehicle_interest:'Left-hand-drive car from China',message:'I am looking for a left-hand-drive car from your China desk. '})}>{t('home.mchRequestLhd')} <ArrowRight/></button><p className="mch-teaser-note">{t('machinery.note')}</p></div>
    </section>
 
-   <section className="world section"><div className="world-map"><DeferredBigGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">GLOBAL REACH, LOCAL CARE</div><h2>Japan to <em>everywhere.</em></h2><p>We ship through trusted carriers to ports worldwide. Spin the globe — tap Japan to browse stock, or any country for its market guide.</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>Explore destinations <ArrowRight/></PageLink></div></section>
+   <section className="world section"><div className="world-map"><DeferredBigGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">{t('home.worldKicker')}</div><h2>{t('home.worldH2a')} <em>{t('home.worldH2em')}</em></h2><p>{t('home.worldBody')}</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>{t('home.worldExplore')} <ArrowRight/></PageLink></div></section>
 
    <section className="brand-budgets shell section" id="budgets">
-    <div className="section-head"><div><div className="kicker">BROWSE BY MAKE & BUDGET</div><h2>Every brand.<br/><em>Every budget.</em></h2></div><p>Popular Japanese models with live export price ranges — tap a make to open its stock.</p></div>
-    <div className="budget-grid">{brandBudgets.map(b=><a key={b.name} className="budget-card" href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)}><div className="budget-head"><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt="" onError={logoOnError}/><b>{b.name}</b><span>{b.count} {b.count===1?'car':'cars'}</span></div><BudgetSlides make={b.name}/><div className="budget-models">{b.models.map(m=><span key={m}>{m}</span>)}</div><div className="budget-range"><small>EXPORT PRICE RANGE</small><b>{b.lo?fmt(Math.round(b.lo/100)*100)+' – '+fmt(Math.round(b.hi/100)*100):'On request'}</b>{b.y0?<span className="budget-years">{b.y0===b.y1?b.y0:b.y0+' – '+b.y1} · ready to export</span>:null}</div><span className="budget-cta">Browse {b.name} stock <ArrowRight/></span></a>)}</div>
+    <div className="section-head"><div><div className="kicker">{t('home.budgetKicker')}</div><h2>{t('home.budgetH2a')}<br/><em>{t('home.budgetH2b')}</em></h2></div><p>{t('home.budgetBody')}</p></div>
+    <div className="budget-grid">{brandBudgets.map(b=><a key={b.name} className="budget-card" href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)}><div className="budget-head"><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt="" onError={logoOnError}/><b>{b.name}</b><span>{b.count} {b.count===1?t('home.budgetCar'):t('home.budgetCars')}</span></div><BudgetSlides make={b.name}/><div className="budget-models">{b.models.map(m=><span key={m}>{m}</span>)}</div><div className="budget-range"><small>{t('home.budgetRange')}</small><b>{b.lo?fmt(Math.round(b.lo/100)*100)+' – '+fmt(Math.round(b.hi/100)*100):t('home.budgetOnRequest')}</b>{b.y0?<span className="budget-years">{b.y0===b.y1?b.y0:b.y0+' – '+b.y1} · {t('home.budgetReady')}</span>:null}</div><span className="budget-cta">{t('home.budgetBrowse',{make:b.name})} <ArrowRight/></span></a>)}</div>
     <div className="budget-bands">{budgetBands.map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div>
    </section>
 
    <section className="process section" id="process"><div className="shell">
-    <div className="section-head light"><div><div className="kicker">YOUR JOURNEY, SIMPLIFIED</div><h2>From auction floor<br/>to your <em>door.</em></h2></div><p>A transparent, four-step flow. You stay informed from the first bid to final delivery.</p></div>
+    <div className="section-head light"><div><div className="kicker">{t('home.processKicker')}</div><h2>{t('home.processH2a')}<br/>{t('home.processH2b')} <em>{t('home.processH2em')}</em></h2></div><p>{t('home.processBody')}</p></div>
     <div className="flow-line"><span/></div>
     <div className="steps">
-     {[{n:'01',icon:<Search/>,t:'Tell us what you want',p:'Share your make, model, budget and destination. We shortlist the best matches.'},{n:'02',icon:<Gavel/>,t:'Bid with confidence',p:'Get live auction access, translated sheets, expert advice and a clear bidding limit.'},{n:'03',icon:<ClipboardCheck/>,t:'Inspect & prepare',p:'We verify, photograph, service and prepare your vehicle for international shipment.'},{n:'04',icon:<Ship/>,t:'Track to your port',p:'Follow your car with live shipment updates until it safely reaches your destination.'}].map((s,i)=><div className="step" key={s.n}><div className="step-top"><span>{s.n}</span><i>{s.icon}</i></div><h3>{s.t}</h3><p>{s.p}</p>{i<3&&<ArrowRight className="step-arrow"/>}</div>)}
+     {[{n:'01',icon:<Search/>,t:t('home.step1t'),p:t('home.step1p')},{n:'02',icon:<Gavel/>,t:t('home.step2t'),p:t('home.step2p')},{n:'03',icon:<ClipboardCheck/>,t:t('home.step3t'),p:t('home.step3p')},{n:'04',icon:<Ship/>,t:t('home.step4t'),p:t('home.step4p')}].map((s,i)=><div className="step" key={s.n}><div className="step-top"><span>{s.n}</span><i>{s.icon}</i></div><h3>{s.t}</h3><p>{s.p}</p>{i<3&&<ArrowRight className="step-arrow"/>}</div>)}
     </div>
-    <div className="process-cta"><span><LockKeyhole/> Secure client portal included</span><button className="gold-btn" onClick={()=>openEnquiry()} type="button">Start sourcing <ArrowUpRight/></button></div>
+    <div className="process-cta"><span><LockKeyhole/> {t('home.processPortal')}</span><button className="gold-btn" onClick={()=>openEnquiry()} type="button">{t('home.processStart')} <ArrowUpRight/></button></div>
    </div></section>
 
    <section className="auction-preview section shell" id="about">
     <div className="dash-wrap">
-      <div className="dash-copy"><div className="kicker">AUCTION ACCESS</div><h2>The auction room,<br/>in your <em>pocket.</em></h2><p>Browse 100,000+ weekly listings from Japan's top auction houses. View translated inspection sheets, place bids, and track results—all in one place.</p><ul><li><Check/> Real-time vehicle listings</li><li><Check/> Translated auction sheets</li><li><Check/> Expert bid recommendations</li></ul><button className="primary" onClick={()=>setEnquiry({kind:'auction'})} type="button">Request free access <ArrowRight/></button></div>
+      <div className="dash-copy"><div className="kicker">{t('home.auctionKicker')}</div><h2>{t('home.auctionH2a')}<br/>{t('home.auctionH2b')} <em>{t('home.auctionH2em')}</em></h2><p>{t('home.auctionBody')}</p><ul><li><Check/> {t('home.auctionLi1')}</li><li><Check/> {t('home.auctionLi2')}</li><li><Check/> {t('home.auctionLi3')}</li></ul><button className="primary" onClick={()=>setEnquiry({kind:'auction'})} type="button">{t('home.auctionCta')} <ArrowRight/></button></div>
       <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open the client portal preview"><span className="dash-demo-chip">PREVIEW</span><div className="dash-nav"><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>{c.grade?'Grade '+c.grade:(c.st||'RHD')}</em></span><strong>{price(c)}</strong></div>)}</div></a>
     </div>
    </section>
 
-   <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">READY WHEN YOU ARE</div><h2>Let’s find your<br/>next <em>vehicle.</em></h2><p>Tell us what you’re looking for. Our Japan team will reply with suitable options.</p></div><button className="gold-btn large" onClick={()=>openEnquiry()} type="button">Start your search <ArrowUpRight/></button></section>
+   <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">{t('home.ctaKicker')}</div><h2>{t('home.ctaH2a')}<br/>{t('home.ctaH2b')} <em>{t('home.ctaH2em')}</em></h2><p>{t('home.ctaBody')}</p></div><button className="gold-btn large" onClick={()=>openEnquiry()} type="button">{t('home.ctaBtn')} <ArrowUpRight/></button></section>
    </>:page==='world'?<React.Suspense fallback={<div className="empty-state"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<DeviceStudio navigate={navigate}/>:page==='machinery'? <React.Suspense fallback={<div className="empty-state"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={ctx=>openEnquiry({kind:'machinery',...(ctx&&typeof ctx==='object'&&!('nativeEvent' in ctx)?ctx:{})})} openChat={()=>chatRef.current?.open()}/></React.Suspense>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} destSlug={page==='destinations'?destRoute:null} initialMake={makeFilter} initialModel={modelFilter} openAuction={openEnquiry} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
   </main>
 
