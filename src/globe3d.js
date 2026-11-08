@@ -23,7 +23,8 @@
 // No dependencies: ~5k vertices × a handful of multiplications per frame.
 // This module lives only in lazy chunks — never in the first-load bundle.
 // ---------------------------------------------------------------------------
-import { LAND, BORDERS } from './world-geo.js';
+import { LAND, BORDERS, COUNTRIES } from './world-geo.js';
+import earcut from 'earcut';
 
 const RAD = Math.PI / 180;
 
@@ -47,7 +48,83 @@ function prep(flat) {
 // angle. o = ring offsets (coastline strokes), t = Uint16 triangle indices.
 const LAND_P = LAND.map(p => ({ ...prep(p.v), o: p.o, t: Uint16Array.from(p.t) }));
 const BORDER_P = BORDERS.map(prep);
-const MAX_POLY = LAND_P.reduce((m, p) => Math.max(m, p.n), 0);
+
+// 2026-11-11 (owner: "do all the globe upgrades") — named country polygons.
+// Hover/tap hit-testing uses even-odd ray casting over the raw rings (holes
+// just work); the highlight fill triangulates the touched country ON DEMAND
+// with earcut and caches it, so the one country someone points at costs a
+// millisecond once and nothing after.
+const bboxOf = f => {
+  let a = 1e9, b = 1e9, c = -1e9, d = -1e9;
+  for (let i = 0; i < f.length; i += 2) {
+    if (f[i] < a) a = f[i]; if (f[i] > c) c = f[i];
+    if (f[i + 1] < b) b = f[i + 1]; if (f[i + 1] > d) d = f[i + 1];
+  }
+  return [a, b, c, d];
+};
+const CTRY_P = COUNTRIES.map(c => ({ n: c.n, rings: c.r, p: c.r.map(prep), b: c.r.map(bboxOf) }));
+const ctryTriCache = new Map(); // country index -> per-ring Uint16 triangle lists
+const ctryTris = ci => {
+  let t = ctryTriCache.get(ci);
+  if (!t) { t = CTRY_P[ci].rings.map(f => Uint16Array.from(earcut(f, null, 2))); ctryTriCache.set(ci, t); }
+  return t;
+};
+const inRing = (f, lon, lat) => {
+  let hit = false;
+  for (let i = 0, j = f.length - 2; i < f.length; j = i, i += 2) {
+    const x1 = f[i], y1 = f[i + 1], x2 = f[j], y2 = f[j + 1];
+    if ((y1 > lat) !== (y2 > lat) && lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1) hit = !hit;
+  }
+  return hit;
+};
+const hitCountry = (lon, lat) => {
+  for (let ci = 0; ci < CTRY_P.length; ci++) {
+    const c = CTRY_P[ci];
+    let odd = false;
+    for (let r = 0; r < c.rings.length; r++) {
+      const b = c.b[r];
+      if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+      if (inRing(c.rings[r], lon, lat)) odd = !odd;
+    }
+    if (odd) return ci;
+  }
+  return -1;
+};
+
+const MAX_POLY = Math.max(
+  LAND_P.reduce((m, p) => Math.max(m, p.n), 0),
+  CTRY_P.reduce((m, c) => Math.max(m, ...c.p.map(r => r.n)), 0)
+);
+
+// Major port & trade cities — warm "city lights" on the night side.
+const CITIES = [
+  [139.7, 35.7], [135.5, 34.7], [137, 35.2], [127, 37.5], [116.4, 39.9], [121.5, 31.2],
+  [114.2, 22.3], [103.8, 1.35], [100.5, 13.7], [106.8, -6.2], [121, 14.6], [77.2, 28.6],
+  [72.9, 19.1], [67, 24.9], [74.3, 31.5], [69.2, 34.5], [51.4, 35.7], [55.3, 25.3],
+  [46.7, 24.7], [29, 41], [37.6, 55.8], [31.2, 30.1], [36.8, -1.3], [39.7, -4],
+  [39.3, -6.8], [3.4, 6.5], [28, -26.2], [-0.1, 51.5], [2.3, 48.9], [13.4, 52.5],
+  [-3.7, 40.4], [-74, 40.7], [-87.6, 41.9], [-118.2, 34], [-79.4, 43.7], [-99.1, 19.4],
+  [-46.6, -23.5], [-58.4, -34.6], [-77, -12], [151.2, -33.9], [145, -37.8],
+  [174.8, -36.8], [115.9, -32], [18.4, -33.9], [45.3, 2]
+].map(([lon, lat]) => ({ lon, lat, cl: Math.cos(lon * RAD), sl: Math.sin(lon * RAD), cp: Math.cos(lat * RAD), sp: Math.sin(lat * RAD) }));
+
+/* Deterministic PRNG — same star sky and cloud belt on every visit. */
+const mulberry = seed => () => {
+  seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+};
+const STARS = (() => {
+  const rnd = mulberry(7), out = [];
+  for (let i = 0; i < 140; i++) out.push({ fx: rnd(), fy: rnd(), r: 0.4 + rnd() * 1.1, a: 0.25 + rnd() * 0.6, ph: rnd() * Math.PI * 2, tw: 0.4 + rnd() * 1.6 });
+  return out;
+})();
+const CLOUDS = (() => {
+  const rnd = mulberry(21), out = [];
+  for (let i = 0; i < 15; i++) out.push({ lon: -180 + rnd() * 360, lat: -52 + rnd() * 112, r: 7 + rnd() * 9, a: 0.05 + rnd() * 0.08, spd: 0.5 + rnd() });
+  return out;
+})();
 
 /* Subsolar point from the real clock (same maths the old globe used). */
 function sunLonLat(now = new Date()) {
@@ -98,6 +175,13 @@ export function mountGlobe(host, opts = {}) {
     markers: true,
     interactive: true,
     detail: 1,                   // 0 = mini decorative globes (skip fine work)
+    // 2026-11-11 upgrades — each is opt-in so the mini orbs stay featherweight
+    sun: true,                   // light the sphere from the real sun's direction
+    stars: false,                // deterministic starfield behind the sphere
+    clouds: false,               // drifting translucent cloud patches
+    cities: false,               // warm city lights on the night side
+    names: false,                // country hover/tap: highlight + name tooltip
+    zoom: false,                 // ctrl+wheel / pinch zoom, double-click toggles
     ...opts
   };
 
@@ -105,7 +189,12 @@ export function mountGlobe(host, opts = {}) {
     lam: o.lam, phi: o.phi, vLam: 0, vPhi: 0,
     drag: false, lx: 0, ly: 0, sx: 0, sy: 0, moved: false,
     raf: 0, prev: performance.now(), visible: false, destroyed: false,
-    w: 0, h: 0, dpr: 1, dash: 0, shipT: 0
+    w: 0, h: 0, dpr: 1, dash: 0, shipT: 0,
+    zoom: 1, zoomT: 1,           // current / target zoom (eased in the loop)
+    hoverC: -1, hvX: 0, hvY: 0,  // hovered country + pointer position
+    fly: null,                   // active flyTo animation
+    pts: new Map(), pinch: 0,    // active pointers (two = pinch zoom)
+    drift: 0, clock: 0           // cloud drift (deg) + star twinkle clock
   };
   const motionQuery = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)');
   let reduced = !!motionQuery?.matches;
@@ -126,9 +215,21 @@ export function mountGlobe(host, opts = {}) {
     if (!st.w) measure();
     const w = st.w, h = st.h, dpr = st.dpr;
     const cx = w / 2, cy = h / 2;
-    const R = Math.min(w, h) / 2 * 0.985;
+    const R = Math.min(w, h) / 2 * 0.985 * st.zoom;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+
+    /* starfield — deterministic sky behind the sphere */
+    if (o.stars) {
+      for (const sr of STARS) {
+        const tw = 0.55 + 0.45 * Math.sin(st.clock * sr.tw + sr.ph);
+        ctx.fillStyle = `rgba(214,233,255,${(sr.a * tw).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(sr.fx * w, sr.fy * h, sr.r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    const SUN = sunLonLat();
+    const sunV = [Math.cos(SUN[1] * RAD) * Math.cos(SUN[0] * RAD), Math.cos(SUN[1] * RAD) * Math.sin(SUN[0] * RAD), Math.sin(SUN[1] * RAD)];
 
     const lam0 = st.lam * RAD, phi0 = st.phi * RAD;
     const cL = Math.cos(lam0), sL = Math.sin(lam0);
@@ -256,10 +357,44 @@ export function mountGlobe(host, opts = {}) {
       ctx.stroke();
     }
 
+    /* hovered/tapped country — brighter gold fill + crisp outline */
+    if (o.names && st.hoverC >= 0) {
+      const c = CTRY_P[st.hoverC];
+      const tris = ctryTris(st.hoverC);
+      const hp = new Path2D(), ho = new Path2D();
+      for (let r = 0; r < c.p.length; r++) {
+        const pr = c.p[r];
+        let anyFront = false;
+        for (let i = 0; i < pr.n; i++) {
+          proj(pr, i, v);
+          let x = v[0], y = v[1];
+          if (v[2] < 0) { const d = Math.hypot(x, y) || 1; x /= d; y /= d; }
+          scrX[i] = cx + x * R; scrY[i] = cy - y * R; scrC[i] = v[2];
+          if (v[2] > 0) anyFront = true;
+        }
+        if (!anyFront) continue;
+        const t = tris[r];
+        for (let k = 0; k < t.length; k += 3) {
+          const a1 = t[k], b1 = t[k + 1], c1 = t[k + 2];
+          if (scrC[a1] <= 0 && scrC[b1] <= 0 && scrC[c1] <= 0) continue;
+          hp.moveTo(scrX[a1], scrY[a1]); hp.lineTo(scrX[b1], scrY[b1]); hp.lineTo(scrX[c1], scrY[c1]); hp.closePath();
+        }
+        for (let i = 0; i < pr.n; i++) {
+          const j = i + 1 < pr.n ? i + 1 : 0;
+          if (scrC[i] > 0.01 && scrC[j] > 0.01) { ho.moveTo(scrX[i], scrY[i]); ho.lineTo(scrX[j], scrY[j]); }
+        }
+      }
+      ctx.fillStyle = 'rgba(255,224,142,.45)';
+      ctx.fill(hp);
+      ctx.strokeStyle = 'rgba(255,236,178,.95)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke(ho);
+    }
+
     /* live night hemisphere — ring 90° from the subsolar point */
     if (o.night) {
-      const [sLon, sLat] = sunLonLat();
-      const sv = [Math.cos(sLat * RAD) * Math.cos(sLon * RAD), Math.cos(sLat * RAD) * Math.sin(sLon * RAD), Math.sin(sLat * RAD)];
+      const sLon = SUN[0], sLat = SUN[1];
+      const sv = sunV;
       let ax = -sv[1], ay = sv[0], az = 0; // ⊥ sun
       const al = Math.hypot(ax, ay, az) || 1; ax /= al; ay /= al; az /= al;
       const bx = sv[1] * az - sv[2] * ay, by = sv[2] * ax - sv[0] * az, bz = sv[0] * ay - sv[1] * ax;
@@ -304,6 +439,42 @@ export function mountGlobe(host, opts = {}) {
       }
     }
 
+    /* city lights — warm dots where the world is currently dark */
+    if (o.cities && o.night) {
+      for (const c of CITIES) {
+        const cosc = Math.sin(st.phi * RAD) * c.sp + Math.cos(st.phi * RAD) * c.cp * (c.cl * Math.cos(st.lam * RAD) + c.sl * Math.sin(st.lam * RAD));
+        if (cosc <= 0.04) continue;
+        const cv = [c.cp * c.cl, c.cp * c.sl, c.sp];
+        const dark = cv[0] * sunV[0] + cv[1] * sunV[1] + cv[2] * sunV[2] < -0.02;
+        if (!dark) continue;
+        projLL(c.lon, c.lat, v);
+        const px = cx + v[0] * R, py = cy - v[1] * R;
+        const a2 = Math.min(1, cosc * 2.2);
+        ctx.fillStyle = `rgba(255,208,118,${(0.28 * a2).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(px, py, 3.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(255,224,150,${(0.95 * a2).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(px, py, 1.3, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    /* drifting translucent clouds — soft patches, foreshortened at the limb */
+    if (o.clouds && o.detail > 0) {
+      for (const cp2 of CLOUDS) {
+        const lon = cp2.lon + st.drift * cp2.spd;
+        projLL(lon, cp2.lat, v);
+        if (v[2] <= 0.02) continue;
+        const px = cx + v[0] * R, py = cy - v[1] * R;
+        const rad = Math.max(4, R * Math.sin(cp2.r * RAD));
+        const al = cp2.a * Math.pow(v[2], 1.4);
+        const cg = ctx.createRadialGradient(px, py, 0, px, py, rad);
+        cg.addColorStop(0, `rgba(255,255,255,${al.toFixed(3)})`);
+        cg.addColorStop(0.65, `rgba(255,255,255,${(al * 0.55).toFixed(3)})`);
+        cg.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
     /* animated great-circle routes + ships */
     if (o.routes.length && o.detail > 0) {
       ctx.lineWidth = 1.3;
@@ -324,14 +495,37 @@ export function mountGlobe(host, opts = {}) {
         ctx.stroke();
       }
       ctx.setLineDash([]);
-      // ships — one gold tracer per route, phase-shifted
+      // ships — one gold tracer per route, phase-shifted, with a fading wake
+      ctx.lineCap = 'round';
       for (let r = 0; r < o.routes.length; r++) {
         const m = o.routes[r];
         const t = (st.shipT + r / o.routes.length) % 1;
+        // golden wake: a short trail of segments fading out behind the ship
+        let wx = 0, wy = 0, wOk = false;
+        for (let sgm = 8; sgm >= 1; sgm--) {
+          const tt = t - sgm * 0.016;
+          if (tt <= 0) { wOk = false; continue; }
+          const [wlon, wlat] = gcPoint(o.origin.lon, o.origin.lat, m.lon, m.lat, tt);
+          projLL(wlon, wlat, v);
+          if (v[2] <= 0.02) { wOk = false; continue; }
+          const px = cx + v[0] * R, py = cy - v[1] * R;
+          if (wOk) {
+            const f = 1 - sgm / 9;
+            ctx.strokeStyle = `rgba(255,214,120,${(f * 0.5).toFixed(3)})`;
+            ctx.lineWidth = 0.8 + f * 2.2;
+            ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(px, py); ctx.stroke();
+          }
+          wx = px; wy = py; wOk = true;
+        }
         const [lon, lat] = gcPoint(o.origin.lon, o.origin.lat, m.lon, m.lat, t);
         projLL(lon, lat, v);
         if (v[2] > 0.02) {
           const px = cx + v[0] * R, py = cy - v[1] * R;
+          if (wOk) {
+            ctx.strokeStyle = 'rgba(255,224,150,.6)';
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(px, py); ctx.stroke();
+          }
           ctx.fillStyle = 'rgba(255,224,150,.95)';
           ctx.beginPath(); ctx.arc(px, py, 2.6, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = 'rgba(255,224,150,.25)';
@@ -344,8 +538,18 @@ export function mountGlobe(host, opts = {}) {
     const sh = ctx.createRadialGradient(cx, cy, R * 0.55, cx, cy, R);
     sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(0.82, 'rgba(1,16,9,.12)'); sh.addColorStop(1, 'rgba(0,10,5,.55)');
     ctx.fillStyle = sh; ctx.fillRect(0, 0, w, h);
-    const hl = ctx.createRadialGradient(cx - R * 0.42, cy - R * 0.48, 0, cx - R * 0.42, cy - R * 0.48, R * 0.9);
-    hl.addColorStop(0, 'rgba(255,255,255,.14)'); hl.addColorStop(0.4, 'rgba(255,255,255,.04)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+    // glass highlight — when `sun` is on it sits where the real sun is,
+    // so the bright side of the sphere IS the daylight side.
+    let hx = cx - R * 0.42, hy = cy - R * 0.48, hs = 0.14;
+    if (o.sun) {
+      projLL(SUN[0], SUN[1], v);
+      // pull the centre toward the disc so the glow stays visible even when
+      // the subsolar point sits near (or beyond) the limb
+      hx = cx + v[0] * R * 0.62; hy = cy - v[1] * R * 0.62;
+      hs = 0.05 + 0.13 * Math.max(0, v[2]);
+    }
+    const hl = ctx.createRadialGradient(hx, hy, 0, hx, hy, R * (o.sun ? 1.15 : 0.9));
+    hl.addColorStop(0, `rgba(255,252,238,${hs.toFixed(3)})`); hl.addColorStop(0.4, `rgba(255,252,238,${(hs * 0.3).toFixed(3)})`); hl.addColorStop(1, 'rgba(255,252,238,0)');
     ctx.fillStyle = hl; ctx.fillRect(0, 0, w, h);
     ctx.restore();
 
@@ -357,14 +561,39 @@ export function mountGlobe(host, opts = {}) {
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
+    /* country name tooltip — drawn last so it rides above everything */
+    if (o.names && st.hoverC >= 0 && typeof ctx.fillText === 'function') {
+      const name = CTRY_P[st.hoverC].n;
+      ctx.font = '600 12px Manrope, system-ui, sans-serif';
+      const tw2 = (ctx.measureText ? ctx.measureText(name).width : name.length * 7) + 22;
+      let tx = st.hvX + 14, ty = st.hvY - 34;
+      if (tx + tw2 > w - 6) tx = w - 6 - tw2;
+      if (ty < 6) ty = st.hvY + 18;
+      ctx.fillStyle = 'rgba(2,24,14,.92)';
+      ctx.strokeStyle = 'rgba(229,181,83,.65)';
+      ctx.lineWidth = 1;
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath(); ctx.roundRect(tx, ty, tw2, 26, 8); ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(tx, ty, tw2, 26); ctx.strokeRect(tx, ty, tw2, 26);
+      }
+      ctx.fillStyle = '#ffe9b8';
+      ctx.fillText(name, tx + 11, ty + 17);
+    }
+
     /* overlay markers (chips + flags) follow the sphere */
     if (o.markers) {
       const nodes = host.querySelectorAll('[data-lon]');
       for (const el of nodes) {
         projLL(parseFloat(el.dataset.lon), parseFloat(el.dataset.lat), v);
-        const front = v[2] > 0.06;
+        let front = v[2] > 0.06;
+        let px = 0, py = 0;
         if (front) {
-          const px = cx + v[0] * R, py = cy - v[1] * R;
+          px = cx + v[0] * R; py = cy - v[1] * R;
+          // zoomed in: anything projected off-canvas must hide, not float
+          if (px < -24 || px > w + 24 || py < -24 || py > h + 24) front = false;
+        }
+        if (front) {
           const s = 0.72 + 0.3 * v[2];
           // transform-only: compositor work, no per-frame layout
           el.style.transform = `translate(${px.toFixed(1)}px,${py.toFixed(1)}px) translate(-50%,-50%) scale(${s.toFixed(3)})`;
@@ -388,11 +617,25 @@ export function mountGlobe(host, opts = {}) {
     st.raf = 0;
     if (st.destroyed || !st.visible || document.hidden) return;
     const dt = Math.min(t - st.prev, 40); st.prev = t;
-    if (!st.drag && !reduced) {
-      st.lam += o.autoRotate * dt / 16;
+    st.clock += dt * 0.0012;
+    st.drift += dt * 0.00009; // clouds drift slowly eastward
+    // eased zoom toward its target (double-click / flyTo set zoomT)
+    if (Math.abs(st.zoomT - st.zoom) > 0.001) st.zoom += (st.zoomT - st.zoom) * Math.min(1, dt / 130);
+    else st.zoom = st.zoomT;
+    // flyTo: glide the camera to a market over ~1.1s (shortest way around)
+    if (st.fly) {
+      const f = st.fly, p2 = Math.min(1, (t - f.t0) / f.ms);
+      const e2 = p2 < 0.5 ? 4 * p2 * p2 * p2 : 1 - Math.pow(-2 * p2 + 2, 3) / 2;
+      st.lam = f.lam0 + f.dLam * e2;
+      st.phi = f.phi0 + f.dPhi * e2;
+      if (p2 >= 1) st.fly = null;
+    } else if (!st.drag && !reduced) {
+      st.lam += o.autoRotate / Math.max(1, st.zoom) * dt / 16;
       st.lam += st.vLam * dt / 16; st.vLam *= Math.pow(0.92, dt / 16);
       st.phi += st.vPhi * dt / 16; st.vPhi *= Math.pow(0.9, dt / 16);
       st.phi = Math.max(-85, Math.min(85, st.phi));
+    }
+    if (!st.drag && !reduced) {
       st.dash += dt * 0.022;
       st.shipT = (st.shipT + dt / 26000) % 1;
     }
@@ -418,9 +661,47 @@ export function mountGlobe(host, opts = {}) {
   if (motionQuery?.addEventListener) motionQuery.addEventListener('change', onMotion);
   else motionQuery?.addListener?.(onMotion);
 
+  // Inverse orthographic: CSS pixel on the canvas → [lon, lat] (or null off-globe).
+  const screenToLL = (px, py) => {
+    const cx = st.w / 2, cy = st.h / 2;
+    const R = Math.min(st.w, st.h) / 2 * 0.985 * st.zoom;
+    const x = (px - cx) / R, y = -(py - cy) / R;
+    const rho = Math.hypot(x, y);
+    if (!R || rho > 0.9999) return null;
+    const cosc = Math.sqrt(1 - rho * rho);
+    const phi0 = st.phi * RAD;
+    const lat = Math.asin(Math.max(-1, Math.min(1, cosc * Math.sin(phi0) + y * Math.cos(phi0)))) / RAD;
+    const lon = st.lam + Math.atan2(x, cosc * Math.cos(phi0) - y * Math.sin(phi0)) / RAD;
+    return [((lon + 540) % 360) - 180, lat];
+  };
+
+  /* Fly the camera to a market — exposed on the returned cleanup function. */
+  const flyTo = (lon, lat, ms = 1100) => {
+    const tPhi = Math.max(-85, Math.min(85, lat));
+    if (reduced) { st.lam = lon; st.phi = tPhi; render(); return; }
+    st.fly = {
+      t0: performance.now(), ms,
+      lam0: st.lam, phi0: st.phi,
+      dLam: (((lon - st.lam) % 360) + 540) % 360 - 180,
+      dPhi: tPhi - st.phi
+    };
+    st.vLam = st.vPhi = 0;
+    schedule();
+  };
+
   // Pointer drag — degrees per pixel scales with size so every globe feels 1:1.
+  // Two simultaneous pointers switch to PINCH ZOOM instead of rotating.
   const dn = e => {
     if (!o.interactive) return;
+    st.fly = null; // a touch always hands control back to the visitor
+    st.pts.set(e.pointerId ?? 1, [e.clientX, e.clientY]);
+    if (st.pts.size === 2 && o.zoom) {
+      const [p1, p2] = [...st.pts.values()];
+      st.pinch = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]) || 1;
+      st.drag = false;
+      host.classList.remove('dragging');
+      return;
+    }
     st.drag = true; st.moved = false;
     st.sx = st.lx = e.clientX; st.sy = st.ly = e.clientY;
     host.classList.add('dragging');
@@ -430,20 +711,63 @@ export function mountGlobe(host, opts = {}) {
     // window-level move/up listeners already track drags that leave the host.
   };
   const mv = e => {
+    if (st.pts.has(e.pointerId ?? 1)) st.pts.set(e.pointerId ?? 1, [e.clientX, e.clientY]);
+    if (st.pinch && st.pts.size === 2) {
+      const [p1, p2] = [...st.pts.values()];
+      const nd = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]) || 1;
+      st.zoomT = st.zoom = Math.max(1, Math.min(3.4, st.zoom * nd / st.pinch));
+      st.pinch = nd; st.moved = true;
+      render(); schedule();
+      return;
+    }
     if (!st.drag) return;
     const dx = e.clientX - st.lx, dy = e.clientY - st.ly;
     st.lx = e.clientX; st.ly = e.clientY;
-    const k = 170 / Math.max(80, Math.min(st.w, st.h));
+    const k = 170 / (Math.max(80, Math.min(st.w, st.h)) * st.zoom);
     st.lam -= dx * k; st.vLam = -dx * k * 0.8;
     st.phi += dy * k; st.vPhi = dy * k * 0.7;
     st.phi = Math.max(-85, Math.min(85, st.phi));
     if (Math.abs(e.clientX - st.sx) + Math.abs(e.clientY - st.sy) > 7) st.moved = true;
     render(); schedule();
   };
-  const up = () => {
+  const up = e => {
+    if (e && e.pointerId != null) st.pts.delete(e.pointerId); else st.pts.clear();
+    if (st.pts.size < 2) st.pinch = 0;
     if (!st.drag) return;
     st.drag = false;
     host.classList.remove('dragging');
+    schedule();
+  };
+
+  // Country hover — hit-test the pointer against the named polygons.
+  const hv = e => {
+    if (!o.names || st.drag || st.pinch) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    st.hvX = px; st.hvY = py;
+    const ll = screenToLL(px, py);
+    const ci = ll ? hitCountry(ll[0], ll[1]) : -1;
+    if (ci !== st.hoverC) {
+      st.hoverC = ci;
+      if (ci >= 0) host.classList.add('over-country'); else host.classList.remove('over-country');
+      render();
+    } else if (ci >= 0 && reduced) render(); // tooltip follows even without rAF
+  };
+  const hvOut = () => {
+    if (st.hoverC >= 0) { st.hoverC = -1; host.classList.remove('over-country'); render(); }
+  };
+
+  // Zoom: ctrl+wheel (= trackpad pinch) and double-click toggle.
+  const wh = e => {
+    if (!o.zoom || !e.ctrlKey) return; // plain scrolling must keep scrolling the page
+    e.preventDefault();
+    st.zoomT = st.zoom = Math.max(1, Math.min(3.4, st.zoom * Math.exp(-e.deltaY * 0.0016)));
+    render(); schedule();
+  };
+  const dbl = e => {
+    if (!o.zoom) return;
+    e.preventDefault();
+    st.zoomT = st.zoomT > 1.05 ? 1 : 2.1;
     schedule();
   };
   // After a real drag, swallow the click so chips/links underneath don't fire.
@@ -456,12 +780,16 @@ export function mountGlobe(host, opts = {}) {
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
     host.addEventListener('click', clickGuard, true);
+    host.addEventListener('pointermove', hv, { passive: true });
+    host.addEventListener('pointerleave', hvOut);
+    host.addEventListener('wheel', wh, { passive: false });
+    host.addEventListener('dblclick', dbl);
   }
 
   measure();
   render(); // first paint even before IO fires (and the only paint when reduced)
 
-  return () => {
+  const cleanup = () => {
     st.destroyed = true;
     if (st.raf) cancelAnimationFrame(st.raf);
     io?.disconnect(); ro?.disconnect();
@@ -474,6 +802,12 @@ export function mountGlobe(host, opts = {}) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       host.removeEventListener('click', clickGuard, true);
+      host.removeEventListener('pointermove', hv);
+      host.removeEventListener('pointerleave', hvOut);
+      host.removeEventListener('wheel', wh);
+      host.removeEventListener('dblclick', dbl);
     }
   };
+  cleanup.flyTo = flyTo; // lets the fly-to-market buttons steer this globe
+  return cleanup;
 }

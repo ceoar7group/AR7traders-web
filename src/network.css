@@ -26,6 +26,14 @@
 .wglobe{position:relative;width:min(600px,92vw);aspect-ratio:1;margin:auto;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;contain:layout style}
 .wglobe.dragging{cursor:grabbing}
 .wglobe.dragging .g3-overlay{pointer-events:none!important}
+.wglobe.over-country{cursor:pointer} /* 2026-11-11: a named country is under the pointer */
+/* fly-to-market flag row (2026-11-11): tap a flag, the camera glides there */
+.g3-fly{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);z-index:7;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:94%}
+.g3-fly button{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(229,181,83,.35);background:rgba(2,24,14,.72);backdrop-filter:blur(6px);color:#ffe9b8;font:700 9.5px Manrope,sans-serif;letter-spacing:.6px;border-radius:999px;padding:5px 10px;cursor:pointer;transition:.2s}
+.g3-fly button:hover{background:rgba(6,52,32,.9);border-color:rgba(243,205,120,.7);transform:translateY(-1px)}
+.g3-fly button svg,.g3-fly button img{border-radius:2px;flex:none}
+.wglobe.compact .g3-fly{bottom:24px;gap:4px}
+.wglobe.compact .g3-fly button{font-size:8.5px;padding:4px 8px}
 .wglobe-glow{position:absolute;inset:-14%;border-radius:50%;background:radial-gradient(circle,rgba(34,176,105,.30),rgba(34,176,105,.07) 48%,transparent 70%);animation:haloPulse 4.8s ease-in-out infinite;pointer-events:none}
 .wglobe .g3-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .g3-overlay{position:absolute;inset:0;z-index:5;pointer-events:none}

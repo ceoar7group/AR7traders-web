@@ -873,6 +873,7 @@ function HeroVisual({navigate,discounts}){
 // on its own. Drags freely on both axes, taps still open the world page.
 function InteractiveGlobe({compact,lite,cls,onTap}){
  const ref=useRef(null);
+ const {t}=useLang();
  useEffect(()=>{
   let alive=true,cleanup=null;
   import('./globe3d.js').then(m=>{
@@ -883,6 +884,11 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
     detail:lite?0:1,
     autoRotate:lite?0.07:0.055,
     markers:false,
+    // 2026-11-11 upgrades: the showcase globe gets clouds, sun-side lighting,
+    // country hover tooltips and zoom; the mini orbs (lite) stay featherweight
+    clouds:!lite,
+    names:!lite,
+    zoom:!lite,
     // a touch of motion on the showcase globe: three sample export lanes
     routes:lite?[]:[{lon:55.2,lat:25},{lon:39.7,lat:-4},{lon:-1.4,lat:50.9}]
    });
@@ -899,7 +905,7 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
   <div className="orbit-ring o2"><span className="orbiter"><i className="orb-badge car"><CarFront/></i></span></div>
   <div className="orbit-ring o3"><span className="orbiter"><i className="orb-badge car alt"><CarFront/></i></span></div>
   {!lite&&<span className="iglobe-plane"><Plane/></span>}
-  <span className="drag-hint"><i/> DRAG TO ROTATE · CLICK TO EXPLORE</span>
+  <span className="drag-hint"><i/> {t('world.dragSmall')}</span>
  </div>}
 
 function MotionShowcase({navigate}){return <section className="motion-showcase"><div className="shell motion-grid"><div className="motion-copy"><div className="kicker">THE AR7 GLOBAL SUPPLY NETWORK</div><h2>Cars in motion.<br/><em>Trade without borders.</em></h2><p>Watch a sample route from auction floor to destination port. Every vehicle, document and milestone stays visible.</p><div className="motion-metrics"><span><b>Major</b> Japanese auction houses</span><span><b>RoRo +</b> Container shipping</span><span><b>1</b> Accountable team</span></div><div className="globe-legend"><span><i className="lg car"/> Sample route</span><span><i className="lg ship"/> Sample vessel</span><span><i className="lg pin"/> Destination ports</span></div></div><div className="globe-scene"><div className="globe-wrap"><InteractiveGlobe onTap={()=>navigate('world')}/><div className="float-label japan"><small>ORIGIN</small><b>Yokohama, Japan</b></div><div className="float-label shipment"><small>SAMPLE SHIPMENT</small><b>AR7-260184</b></div></div></div></div><div className="vehicle-track"><div className="track-streaks"/><div className="road-lines"/><div className="moving-plane"><Plane/></div><div className="moving-car convoy"><CarFront/></div><div className="moving-car"><CarFront/><span>AUCTION WON</span></div><div className="moving-ship"><Ship/><span>VESSEL BOOKED</span></div><p>USS TOKYO <i/> INSPECTION YARD <i/> YOKOHAMA PORT <i/> WORLDWIDE</p></div></section>}
@@ -1380,9 +1386,9 @@ export function App(){
  // navy + champagne gold) — joins light and dark. The header button cycles
  // light → dark → blue; legacy localStorage values ('light'/'dark') read
  // unchanged, so nobody's saved preference is lost.
- const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('ar7-theme');return t==='dark'||t==='blue'?t:'light'}catch{return 'light'}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
- const dark=theme!=='light';
- const cycleTheme=()=>setTheme(t=>t==='light'?'dark':t==='dark'?'blue':'light');
+ const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('ar7-theme');return t==='dark'||t==='blue'||t==='blue-day'?t:'light'}catch{return 'light'}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
+ const dark=theme==='dark'||theme==='blue'; // blue-day is a DAY palette (2026-11-11)
+ const cycleTheme=()=>setTheme(t=>t==='light'?'dark':t==='dark'?'blue':t==='blue'?'blue-day':'light');
  // 2026-11-09: landing hero layout — the owner chose option C (the full-bleed
  // inventory-style opening). Options A and B are kept as pure-CSS variants in
  // landing-v2.css so the layout can be flipped later without a rebuild:

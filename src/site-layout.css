@@ -1473,7 +1473,7 @@ footer [id] {
   display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;
   background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green-text);
 }
-html[data-theme=dark] .mch-offer-flag{color:#14100a}
+html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
 
 .mch-teaser .mch-teaser-head {
   display: flex;
@@ -2277,6 +2277,45 @@ html[data-theme=blue] .hero .hero-carousel-controls button:hover {
 
 html[data-theme=blue] .car-counter {
   background: rgba(4, 14, 36, .55);
+}
+
+/* ---------------------------------------------------------------------------
+   2026-11-11 (owner: "the blue theme is not working in day time"): Blue & Gold
+   now works on BOTH sides of the day/night switch. data-theme=blue stays the
+   navy NIGHT palette above; data-theme=blue-day is its DAYLIGHT twin — airy
+   blue-white surfaces, navy ink, the same champagne gold. The sun/moon button
+   flips blue ↔ blue-day without losing the palette, and the gem button turns
+   the palette on/off without losing day or night (src/site-header.jsx).
+   Every dark-surface component rule was also widened to match blue via
+   :is([data-theme=dark],[data-theme=blue]) — before this, those rules only
+   matched 'dark', which is exactly why blue looked half-broken.
+   --------------------------------------------------------------------------- */
+html[data-theme=blue-day] {
+  --green: #0d3f7e;
+  --green-text: #0b4894;
+  --deep: #071a3a;
+  --forest: #13509a;
+  --gold: #e09a26;
+  --gold2: #f4bd55;
+  --ink: #0e1a2e;
+  --muted: #5e6f8a;
+  --bg: #f3f6fb;
+  --card: #fff;
+  --line: #d8e0ec;
+  --shadow: 0 24px 80px rgba(7, 26, 58, .13);
+  color-scheme: light;
+}
+
+html[data-theme=blue-day] .primary:hover {
+  background: #11498d; /* styles.css hard-codes the emerald hover flash */
+}
+
+html[data-theme=blue-day] .page-hero.mini {
+  background: linear-gradient(125deg, var(--deep), #10488c);
+}
+
+html[data-theme=blue-day] .page-hero.split {
+  background: var(--deep);
 }
 
 /* ---------------------------------------------------------------------------

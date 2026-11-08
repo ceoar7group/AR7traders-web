@@ -10,7 +10,7 @@ import {
   Wrench, Ship, MapPin, BookOpen, Newspaper, ClipboardCheck, BadgeCheck, Landmark, Mail, Search
 } from 'lucide-react';
 import { CurrencyDropdown } from './currency.jsx';
-import { LanguageSwitcher } from './i18n.jsx';
+import { LanguageSwitcher, useLang } from './i18n.jsx';
 import { linkClick, hrefFor, inventoryHref } from './routing.js';
 
 // ---------------------------------------------------------------------------
@@ -67,26 +67,29 @@ export function NavDropdown({label, panel, className, routeKey, children}) {
 }
 
 // Inventory dropdown items
+// 2026-11-11 (owner: "translations not fully working"): every label carries
+// its i18n key as the 4th element; outside the LanguageProvider (tests, CRM)
+// t() falls back to the English label, so nothing changes for those callers.
 const INVENTORY_LINKS = [
-  [CarFront, 'All Inventory', 'inventory'],
-  [Wrench, 'Machinery & equipment', 'machinery']
+  [CarFront, 'All Inventory', 'inventory', 'nav.allInventory'],
+  [Wrench, 'Machinery & equipment', 'machinery', 'nav.machineryEquip']
 ];
 
 // More dropdown items - organized and duplicates removed.
 // The grid supports an unpaired final item; do not add filler navigation links.
 export const MORE_LINKS = [
-  [Globe2, 'World network', 'world'],
-  [Gavel, 'Live auctions', 'auction'],
-  [Calculator, 'Calculators', 'tools'],
-  [Wrench, 'Services', 'services'],
-  [Ship, 'Shipping', 'shipping'],
-  [MapPin, 'Destinations', 'destinations'],
-  [BookOpen, 'How to buy', 'howbuy'],
-  [Newspaper, 'News & guides', 'news'],
-  [MessageCircle, 'Reviews', 'reviews'],
-  [ClipboardCheck, 'Help & FAQ', 'faq'],
-  [BadgeCheck, 'About AR7', 'about'],
-  [LogIn, 'Client portal', 'portal']
+  [Globe2, 'World network', 'world', 'nav.world'],
+  [Gavel, 'Live auctions', 'auction', 'nav.liveAuctions'],
+  [Calculator, 'Calculators', 'tools', 'nav.calculators'],
+  [Wrench, 'Services', 'services', 'nav.services'],
+  [Ship, 'Shipping', 'shipping', 'nav.shipping'],
+  [MapPin, 'Destinations', 'destinations', 'nav.destinations'],
+  [BookOpen, 'How to buy', 'howbuy', 'nav.howToBuy'],
+  [Newspaper, 'News & guides', 'news', 'nav.news'],
+  [MessageCircle, 'Reviews', 'reviews', 'nav.reviews'],
+  [ClipboardCheck, 'Help & FAQ', 'faq', 'nav.faq'],
+  [BadgeCheck, 'About AR7', 'about', 'nav.about'],
+  [LogIn, 'Client portal', 'portal', 'nav.portal']
 ];
 
 /* ---------------------------------------------------------------------------
@@ -221,19 +224,24 @@ export function SiteHeader({
   promo = null, hold = true, onOpenSearch = null
 }) {
   const headRef = useRef(null);
+  const { t } = useLang(); // English fallback outside the provider
   // 2026-11-09 (owner request): day/night and the Blue & Gold palette are now
   // TWO separate controls, not one three-way cycle. The sun/moon button only
   // flips between day and night; the gem button turns the Blue & Gold palette
   // on and off. When only the legacy setDark boolean is supplied (older
   // callers, tests) both still work through it.
   const mode = theme || (dark ? 'dark' : 'light');
-  const pick = next => { if (setTheme) setTheme(next); else setDark(next !== 'light'); };
-  const isNight = mode !== 'light';
+  const pick = next => { if (setTheme) setTheme(next); else setDark(next !== 'light' && next !== 'blue-day'); };
+  // 2026-11-11 (owner: "the blue theme is not working in day time"): the two
+  // controls are now fully independent axes — day/night × emerald/blue — so
+  // all four combinations exist. The sun/moon button keeps the palette and
+  // flips day↔night; the gem keeps day/night and turns Blue & Gold on/off.
+  const isNight = mode === 'dark' || mode === 'blue';
+  const isBlue = mode === 'blue' || mode === 'blue-day';
   const dayNightIcon = isNight ? <Sun/> : <Moon/>;
-  const dayNightLabel = isNight ? 'Day mode' : 'Night mode';
-  const toggleDayNight = () => pick(isNight ? 'light' : 'dark');
-  const isBlue = mode === 'blue';
-  const toggleBlue = () => pick(isBlue ? 'dark' : 'blue');
+  const dayNightLabel = isNight ? t('nav.dayMode') : t('nav.nightMode');
+  const toggleDayNight = () => pick(isNight ? (isBlue ? 'blue-day' : 'light') : (isBlue ? 'blue' : 'dark'));
+  const toggleBlue = () => pick(isBlue ? (isNight ? 'dark' : 'light') : (isNight ? 'blue' : 'blue-day'));
   // 2026-11-08: while the burger menu is open the page behind it must not
   // scroll — the panel has its own scroller and a dimmed backdrop, so a
   // moving page underneath reads as a glitch on phones and tablets.
@@ -275,40 +283,40 @@ export function SiteHeader({
           tablets only — hidden on desktop by CSS), and the bar's actions are
           raised above the backdrop in site-layout.css. */}
       <div className="panel-head-row" aria-hidden={!menu}>
-        <b>MENU</b>
+        <b>{t('nav.menu')}</b>
         <button type="button" className="panel-close" onClick={() => setMenu(false)} aria-label="Close menu"><X/></button>
       </div>
-      <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={routeKey} label="Inventory">
+      <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={routeKey} label={t('nav.inventory')}>
         {close => INVENTORY_LINKS.map(x => {
           const I = x[0];
-          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
+          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[3] ? t(x[3]) : x[1]}</span></a>;
         })}
       </NavDropdown>
-      <a className={'nav-tier-full' + (page === 'auction' ? ' current' : '')} href="/auction" onClick={linkClick('auction', navigate)}>Auction access</a>
-      <NavDropdown className="nav-brands" panel="brands-panel" routeKey={routeKey} label="Brands">
+      <a className={'nav-tier-full' + (page === 'auction' ? ' current' : '')} href="/auction" onClick={linkClick('auction', navigate)}>{t('nav.auction')}</a>
+      <NavDropdown className="nav-brands" panel="brands-panel" routeKey={routeKey} label={t('nav.brands')}>
         {close => <>
-          <div className="brands-panel-head"><b>Brands in inventory</b><span>{brands.length} makes · {vehicleCount} vehicles live</span></div>
+          <div className="brands-panel-head"><b>{t('nav.brandsInInventory')}</b><span>{brands.length} makes · {vehicleCount} vehicles live</span></div>
           <div className="brands-grid">{brands.map(b => <a key={b.name} className={makeFilter === b.name ? ' current' : ''} href={inventoryHref(b.name)} onClick={e => { close(); linkClick(inventoryHref(b.name), navigate)(e); }}><img loading="lazy" decoding="async" width="30" height="19" src={logoFor(b.name)} alt="" onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></a>)}</div>
           <div className="brands-panel-foot">
-            <a href="/brands" onClick={e => { close(); linkClick('brands', navigate)(e); }}><Layers/> All brands &amp; models <ArrowUpRight/></a>
-            <a href="/inventory" onClick={e => { close(); linkClick('inventory', navigate)(e); }}><CarFront/> Full inventory <ArrowUpRight/></a>
+            <a href="/brands" onClick={e => { close(); linkClick('brands', navigate)(e); }}><Layers/> {t('nav.allBrands')} <ArrowUpRight/></a>
+            <a href="/inventory" onClick={e => { close(); linkClick('inventory', navigate)(e); }}><CarFront/> {t('nav.fullInventory')} <ArrowUpRight/></a>
           </div>
         </>}
       </NavDropdown>
-      <NavDropdown className="nav-more nav-tier-full" panel="more-panel" routeKey={routeKey} label="More">
+      <NavDropdown className="nav-more nav-tier-full" panel="more-panel" routeKey={routeKey} label={t('nav.more')}>
         {close => MORE_LINKS.map(x => {
           const I = x[0];
-          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
+          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[3] ? t(x[3]) : x[1]}</span></a>;
         })}
       </NavDropdown>
-      <a className={'auction-link' + (page === 'contact' ? ' current' : '')} href="/contact" onClick={linkClick('contact', navigate)}><MessageCircle size={15}/> Contact</a>
+      <a className={'auction-link' + (page === 'contact' ? ' current' : '')} href="/contact" onClick={linkClick('contact', navigate)}><MessageCircle size={15}/>{' ' + t('nav.contact')}</a>
       {/* Only rendered inside the burger panel (≤899px, src/site-layout.css):
           the labelled account button and theme switch stay reachable on phones
           even when the bar's icon row runs out of room. */}
       <div className="nav-panel-actions">
-        <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? 'My account' : 'Sign in'}</a>
+        <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? t('nav.myAccount') : t('nav.signIn')}</a>
         <button type="button" className="panel-theme" onClick={toggleDayNight} aria-pressed={isNight}>{dayNightIcon}{dayNightLabel}</button>
-        <button type="button" className="panel-theme" onClick={toggleBlue} aria-pressed={isBlue}><Gem/>Blue &amp; gold</button>
+        <button type="button" className="panel-theme" onClick={toggleBlue} aria-pressed={isBlue}><Gem/>{t('nav.blueGold')}</button>
       </div>
     </div>
     <div className="nav-actions">
@@ -326,7 +334,7 @@ export function SiteHeader({
       <button type="button" className="icon-btn" onClick={toggleDayNight} aria-label="Toggle theme" aria-pressed={isNight} title={'Switch to ' + dayNightLabel.toLowerCase()}>{dayNightIcon}</button>
       <button type="button" className={'icon-btn palette-btn' + (isBlue ? ' is-on' : '')} onClick={toggleBlue} aria-label="Blue and gold theme" aria-pressed={isBlue} title={isBlue ? 'Back to the emerald palette' : 'Switch to the blue & gold palette'}><Gem/></button>
       <a className="icon-btn portal-btn" href="/account" onClick={linkClick('account', navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a>
-      <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>My account <UserCog/></> : <>Sign up <UserPlus/></>}</a>
+      <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>{t('nav.myAccount')} <UserCog/></> : <>{t('nav.signUp')} <UserPlus/></>}</a>
       <button type="button" className="menu-btn" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-controls="ar7-public-menu" aria-label={menu ? 'Close menu' : 'Open menu'}>{menu ? <X/> : <Menu/>}</button>
     </div>
   </nav></header>;

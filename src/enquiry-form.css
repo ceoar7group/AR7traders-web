@@ -42,9 +42,9 @@
 .enquiry-modal h2{font-size:clamp(26px,4vw,34px)}
 .enquiry-dialog-body{color:var(--muted);font-size:14px;line-height:1.6;margin:8px 0 0}
 .enquiry-modal .enquiry-form{margin-top:22px}
-[data-theme="dark"] .enquiry-required{color:#8fd6ae}
-[data-theme="dark"] .enquiry-alert{background:#43201d;border-color:#7f3932;color:#ffd7d2}
-[data-theme="dark"] .enquiry-field-error{color:#ffb4ab}
+html:is([data-theme="dark"],[data-theme="blue"]) .enquiry-required{color:#8fd6ae}
+html:is([data-theme="dark"],[data-theme="blue"]) .enquiry-alert{background:#43201d;border-color:#7f3932;color:#ffd7d2}
+html:is([data-theme="dark"],[data-theme="blue"]) .enquiry-field-error{color:#ffb4ab}
 @media(max-width:650px){
   .enquiry-row{grid-template-columns:1fr}
   .enquiry-modal{padding:30px 18px 22px;max-height:calc(100dvh - 16px)}
