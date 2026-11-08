@@ -44,7 +44,10 @@ ok(!document.querySelector('.brand span')?.className?.includes('truncate'), 'the
 ok(document.querySelector('.menu-btn')?.getAttribute('aria-controls') === 'ar7-public-menu', 'the mobile menu button controls the public menu');
 ok(html.includes('nav-inventory'), 'the Inventory dropdown renders');
 ok(!html.includes('>Japan dealer stock</a>'), 'Japan dealer stock is NOT in the primary nav (moved to dropdown)');
-ok(html.includes('>Auction access</a>'), 'Auction access is in the primary nav');
+// 2026-11-18 (owner, mobile cleanup): the standalone "Auction access" bar
+// link folded into the More menu ("Live auctions") — it must NOT come back,
+// or the phone burger panel grows past one screen again.
+ok(!html.includes('>Auction access</a>'), 'Auction access is NOT a standalone primary-nav link (lives in More)');
 ok(html.includes(' Contact</a>'), 'Contact is in the primary nav');
 ok(!/>Calculators</.test(html.split('nav-drop-panel more-panel')[0]), 'Calculators is no longer a top-level nav link');
 
@@ -65,8 +68,12 @@ const morePanel = (html.split('nav-drop-panel more-panel')[1] || '').split('auct
 const moreItems = (morePanel.match(/<i>/g) || []).length;
 // 2026-10-04: Staff CRM and SEO desk removed from public nav — they live in
 // the CRM only, never in the buyer-facing "More" dropdown.
-const expectedMoreRoutes = ['world', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal'];
+// 2026-11-18: 'brands' joined the list (owner folded Brands + Auction access
+// into More for the phone cleanup; the Brands mega-panel stays in the bar on
+// wider screens, but More now carries the /brands door everywhere).
+const expectedMoreRoutes = ['world', 'brands', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal'];
 ok(JSON.stringify(MORE_LINKS.map(x => x[2])) === JSON.stringify(expectedMoreRoutes), 'More contains the 13 intended routes; an unpaired final grid item is allowed');
+ok((html.split('nav-drop-panel more-panel')[1] || '').split('auction-link')[0].includes('>All brands'), 'All brands is in the More dropdown (label may carry the & models suffix)');
 const renderedMoreRoutes = [...document.querySelectorAll('.more-panel a')].map(a => a.getAttribute('href'));
 ok(JSON.stringify(renderedMoreRoutes) === JSON.stringify(expectedMoreRoutes.map(route => '/' + route)), 'More renders every intended real-path link in order');
 ok(moreItems === MORE_LINKS.length, `the More panel rendered ${MORE_LINKS.length} links`);
