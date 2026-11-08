@@ -516,24 +516,33 @@ html,body{overflow-x:clip}
    the lane/auction chips stack full-width below. Everything stays on the
    deep-green band in normal flow; nothing can touch the slides. */
 @media (max-width: 640px) {
-  .hero[data-hv="c"] .stage-foot { gap: 12px; }
+  .hero[data-hv="c"] .stage-foot { gap: 10px; }
   .hero[data-hv="c"] .stage-foot .hero-cta {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 9px;
+    gap: 8px;
   }
+  /* 2026-11-18 (owner: "reduce the size of CTA buttons" + "Browse machinery"
+     wrapped to two lines on a 390px screen): slimmer pills, one-line labels. */
   .hero[data-hv="c"] .stage-foot .hero-cta .primary,
   .hero[data-hv="c"] .stage-foot .hero-cta .ghost-btn {
     width: 100%;
-    height: 46px;
-    padding: 0 10px;
+    height: 40px;
+    padding: 0 8px;
     justify-content: center;
+    font-size: 12px;
+    gap: 7px;
+    white-space: nowrap;
   }
+  .hero[data-hv="c"] .stage-foot .hero-cta .primary svg,
+  .hero[data-hv="c"] .stage-foot .hero-cta .ghost-btn svg { width: 14px; flex: none; }
   .hero[data-hv="c"] .stage-foot .text-btn {
     grid-column: 1 / -1;
     justify-content: center;
-    height: 38px;
+    height: 32px;
+    font-size: 12px;
   }
+  .hero[data-hv="c"] .stage-foot .text-btn > span { width: 28px; height: 28px; }
 }
 
 /* On phones every variant is one column already; B and C still lead with the
@@ -550,10 +559,22 @@ html,body{overflow-x:clip}
     overflow: hidden;
     background: linear-gradient(125deg, var(--deep), #0b603b);
   }
+  /* 2026-11-18 (owner, mobile cleanup): the band opens right under the bar —
+     the old 20–26px auto-margin read as a dead cream strip — and on phones
+     the side gutters slim down so the reclaimed room goes to the car slides. */
+  .hero[data-hv="c"] .hero-visual { margin-top: 0; }
   .hero[data-hv="c"] .hero-copy { text-align: center; }
   .hero[data-hv="c"] .hero-copy .eyebrow { justify-content: center; }
   .hero[data-hv="c"] .hero-facts { text-align: left; }
   .hero[data-hv="c"] .scroll-cue { display: none; }
+}
+
+@media (max-width: 640px) {
+  /* after the ≤900 block above so this padding wins the same-specificity race */
+  .hero[data-hv="c"] .hero-visual {
+    padding: 10px 8px 14px;
+    gap: 10px;
+  }
 }
 
 /* 2026-11-09: the orb globes' REAL map (lazy world-land.js). Same gold as the

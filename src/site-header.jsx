@@ -77,8 +77,13 @@ const INVENTORY_LINKS = [
 
 // More dropdown items - organized and duplicates removed.
 // The grid supports an unpaired final item; do not add filler navigation links.
+// 2026-11-18 (owner, mobile cleanup): Brands and Auction access fold into
+// this menu — "Live auctions" was already here, "All brands" joins it, and
+// the standalone bar links went away. The grid supports an unpaired final
+// item, so the odd count is fine.
 export const MORE_LINKS = [
   [Globe2, 'World network', 'world', 'nav.world'],
+  [Layers, 'All brands', 'brands', 'nav.allBrands'],
   [Gavel, 'Live auctions', 'auction', 'nav.liveAuctions'],
   [Calculator, 'Calculators', 'tools', 'nav.calculators'],
   [Wrench, 'Services', 'services', 'nav.services'],
@@ -321,7 +326,9 @@ export function SiteHeader({
           return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[3] ? t(x[3]) : x[1]}</span></a>;
         })}
       </NavDropdown>
-      <a className={'nav-tier-full' + (page === 'auction' ? ' current' : '')} href="/auction" onClick={linkClick('auction', navigate)}>{t('nav.auction')}</a>
+      {/* 2026-11-18 (owner, mobile cleanup): the standalone "Auction access"
+          bar link is gone — the More menu's "Live auctions" entry is the one
+          auction door now, which keeps the bar and the burger panel short. */}
       <NavDropdown className="nav-brands" panel="brands-panel" routeKey={routeKey} label={t('nav.brands')}>
         {close => <>
           <div className="brands-panel-head"><b>{t('nav.brandsInInventory')}</b><span>{brands.length} makes · {vehicleCount} vehicles live</span></div>

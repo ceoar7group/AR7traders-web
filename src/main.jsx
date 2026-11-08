@@ -446,7 +446,7 @@ const SHOWROOM_HEROES={
  '0508888A30261013W003':'/assets/showroom/hero-01.webp',
  '0201053A30261031W001':'/assets/showroom/hero-02-v2.webp',
  '0508888A30261019W003':'/assets/showroom/hero-03.webp',
- '0200160A30261023W003':'/assets/showroom/hero-04-v2.webp',
+ '0200160A30261023W003':'/assets/showroom/hero-04-v3.webp',
  '0520284A30260812W002':'/assets/showroom/hero-05.webp',
  '9731113A30260816W001':'/assets/showroom/hero-06-v3.webp',
  '0200160A30261016W001':'/assets/showroom/hero-07.webp',
@@ -456,9 +456,9 @@ const SHOWROOM_HEROES={
  '9731113A30261103W001':'/assets/showroom/hero-11.webp',
  '0551811A30261031W001':'/assets/showroom/hero-12-v2.webp',
  '0710084A30261103W001':'/assets/showroom/hero-13-v2.webp',
- '0200160A30261018W005':'/assets/showroom/hero-14-v2.webp',
+ '0200160A30261018W005':'/assets/showroom/hero-14-v3.webp',
  '0500520A30261101W002':'/assets/showroom/hero-15-v2.webp',
- '0550871A30261027W001':'/assets/showroom/hero-16-v3.webp',
+ '0550871A30261027W001':'/assets/showroom/hero-16-v4.webp',
  '0203361A20261022W005':'/assets/showroom/hero-17-v3.webp',
  '0201053A30261101W001':'/assets/showroom/hero-18.webp'
 };
