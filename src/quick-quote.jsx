@@ -16,6 +16,7 @@ import {ArrowRight, Check, Ship, MessageCircle, RotateCcw} from 'lucide-react';
 import {DEST} from './destinations.js';
 import {Flag} from './flag.jsx';
 import {useLang} from './i18n.jsx';
+import {CURRENCIES, convert, currencyOf, useCurrency} from './currency.jsx';
 import {useSettings, waLink} from './site-settings.js';
 import {validateLead} from './lead-validation.js';
 import {linkClick} from './routing.js';
@@ -38,13 +39,36 @@ const BUDGETS = [
 const BODIES = ['SUV', 'Sedan', 'Hatchback', 'Van', 'Truck', 'Kei'];
 const TOP_MARKETS = 8; // chips; every other market sits in the select below
 
+// 2026-11-17 (owner: "ask the budget in the relevant currency, or let them
+// select one"): picking a destination pre-selects that market's currency, and
+// the budget step carries a selector for the rest. Only currencies the site's
+// FX engine actually quotes (src/currency.jsx) are mapped — markets priced in
+// an unquoted currency (Tanzania, Uganda…) stay on USD, the invoicing base.
+const DEST_CURRENCY = {
+  'Pakistan': 'PKR', 'UAE': 'AED', 'Kenya': 'KES', 'United Kingdom': 'GBP',
+  'New Zealand': 'NZD', 'Australia': 'AUD', 'USA': 'USD',
+  'Ireland': 'EUR', 'Cyprus': 'EUR', 'Malta': 'EUR'
+};
+// "₨ 1.4M", "£3.9K" — approximate by design (the quote itself is written in
+// USD), so the figure is rounded and compact, never false-precise.
+const compactMoney = (usd, code, rates) => {
+  const cur = currencyOf(code);
+  const v = convert(usd, code, rates);
+  const n = new Intl.NumberFormat('en-US', {notation: 'compact', maximumFractionDigits: 1}).format(v);
+  return cur.symbol + (/[A-Za-z]$/.test(cur.symbol) ? ' ' : '') + n;
+};
+
 export default function QuickQuoteSection({navigate, cars}) {
  const {t} = useLang();
  const s = useSettings();
+ const {rates} = useCurrency();
  const [step, setStep] = useState(0);
  const [country, setCountry] = useState('');
  const [budget, setBudget] = useState('');
  const [body, setBody] = useState('');
+ // '' = follow the destination's currency; a code = the visitor's own pick.
+ const [curPick, setCurPick] = useState('');
+ const curCode = curPick || DEST_CURRENCY[country] || 'USD';
  const [name, setName] = useState('');
  const [phone, setPhone] = useState('');
  const [busy, setBusy] = useState(false);
@@ -68,8 +92,19 @@ export default function QuickQuoteSection({navigate, cars}) {
  }, [list, budget, budgetRow, body]);
 
  const bodyEn = body === 'any' ? 'any body type' : body;
+ // Staff see the USD band (the invoicing base) plus the buyer's own money so
+ // the desk can reply in the currency the buyer was thinking in.
+ const localBand = () => {
+  if (!budgetRow || budgetRow[0] === 'bAny' || curCode === 'USD') return '';
+  const [, lo, hi] = budgetRow;
+  const span = hi === Infinity ? compactMoney(lo, curCode, rates) + '+'
+   : lo === 0 ? 'under ' + compactMoney(hi, curCode, rates)
+   : compactMoney(lo, curCode, rates) + '–' + compactMoney(hi, curCode, rates);
+  return ' (≈ ' + span + ' ' + curCode + ')';
+ };
+ const budgetEn = budgetRow ? budgetRow[3] + localBand() : 'not set';
  const waMsg = 'Hello AR7! Quick quote request — destination: ' + (country || 'not set') +
-  '; budget: ' + (budgetRow ? budgetRow[3] : 'not set') + '; body type: ' + (bodyEn || 'not set') + '.';
+  '; budget: ' + budgetEn + '; body type: ' + (bodyEn || 'not set') + '.';
 
  async function submit(e) {
   e.preventDefault();
@@ -77,7 +112,7 @@ export default function QuickQuoteSection({navigate, cars}) {
    name, phone, country: country || 'Other',
    vehicle_interest: ('Quick quote: ' + (bodyEn || 'car') + ' · ' + (budgetRow ? budgetRow[3] : 'budget open')).slice(0, 180),
    message: 'Quick-quote wizard — destination: ' + (country || 'not set') + ', budget: ' +
-    (budgetRow ? budgetRow[3] : 'not set') + ', body type: ' + (bodyEn || 'not set') +
+    budgetEn + ', body type: ' + (bodyEn || 'not set') +
     '. Live matches shown at submit time: ' + matches.length + '.',
    website: ''
   };
@@ -96,8 +131,10 @@ export default function QuickQuoteSection({navigate, cars}) {
   finally { setBusy(false); }
  }
 
- const reset = () => { setStep(0); setCountry(''); setBudget(''); setBody(''); setDone(false); setErr(''); };
- const pickCountry = v => { setCountry(v); setStep(1); };
+ const reset = () => { setStep(0); setCountry(''); setBudget(''); setBody(''); setCurPick(''); setDone(false); setErr(''); };
+ // A new destination re-derives the currency; an explicit pick only sticks
+ // within the run it was made in.
+ const pickCountry = v => { setCountry(v); setCurPick(''); setStep(1); };
  const pickBudget = v => { setBudget(v); setStep(2); };
  const pickBody = v => { setBody(v); setStep(3); };
  const crumbs = [
@@ -143,12 +180,30 @@ export default function QuickQuoteSection({navigate, cars}) {
     </label>
    </div>}
 
-   {step === 1 && <div className="qq-grid qq-budgets" role="group" aria-label={t('qq.step2')}>
-    {BUDGETS.map(([k]) =>
-     <button key={k} type="button" className={'qq-chip' + (budget === k ? ' active' : '')} onClick={() => pickBudget(k)}>
-      <b>{t('qq.' + k)}</b><small>FOB</small>
-     </button>)}
-   </div>}
+   {step === 1 && <>
+    {/* The bands stay USD underneath (the written quote is invoiced in USD);
+        the chips LEAD with the buyer's money so the amounts mean something
+        at a glance. Figures are compact and approximate by design. */}
+    <label className="qq-cur">
+     <span>{t('qq.showIn')}</span>
+     <select value={curCode} onChange={e => setCurPick(e.target.value)} aria-label={t('qq.showIn')}>
+      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+     </select>
+    </label>
+    <div className="qq-grid qq-budgets" role="group" aria-label={t('qq.step2')}>
+     {BUDGETS.map(([k, lo, hi]) => {
+      const local = curCode !== 'USD' && k !== 'bAny';
+      const localLabel = !local ? null
+       : hi === Infinity ? t('qq.xPlus', {x: compactMoney(lo, curCode, rates)})
+       : lo === 0 ? t('qq.underX', {x: compactMoney(hi, curCode, rates)})
+       : compactMoney(lo, curCode, rates) + '–' + compactMoney(hi, curCode, rates);
+      return <button key={k} type="button" className={'qq-chip' + (budget === k ? ' active' : '')} onClick={() => pickBudget(k)}>
+       <b>{local ? localLabel : t('qq.' + k)}</b>
+       <small>{local ? t('qq.' + k) + ' · FOB' : 'FOB'}</small>
+      </button>;
+     })}
+    </div>
+   </>}
 
    {step === 2 && <div className="qq-grid qq-bodies" role="group" aria-label={t('qq.step3')}>
     {BODIES.map(b =>
@@ -162,9 +217,13 @@ export default function QuickQuoteSection({navigate, cars}) {
 
    {step === 3 && !done && <div className="qq-final">
     <div className="qq-matches">
+     {/* 2026-11-17 (owner screenshot): with 2 matches the line said "here are
+         three" — the "three" phrasing only appears when more than three
+         actually exist and the list below is a cut. */}
      <p className="qq-match-line">
       {matches.length === 0 ? t('qq.matchNone')
        : matches.length === 1 ? t('qq.matchOne')
+       : matches.length <= 3 ? t('qq.matchFew', {n: matches.length})
        : t('qq.matchMany', {n: matches.length})}
      </p>
      {matches.length > 0 && <div className="qq-match-cards">

@@ -149,7 +149,7 @@ ok(cleanReport.includes('every audited page passed'), 'an all-clean crawl says s
   // Nissan): the doctor must catch WRONG-BRAND covers even when unique, and
   // covers with competitor branding baked into the picture.
   const wrong = suggestCoverFixes([
-    { id: 'n', title: 'Used Nissan Stock from Japan', image: '/assets/showroom/hero-02.webp' },
+    { id: 'n', title: 'Used Nissan Stock from Japan', image: '/assets/showroom/hero-02-v2.webp' },
     { id: 'h', title: 'Used Honda Stock from Japan', image: '/assets/japan-used-car-export-stock-honda-vezel--1.webp' },
     { id: 'b', title: 'RoRo vs container', image: '/assets/japanese-car-auction-inspection-shipping-5.webp' }
   ]);

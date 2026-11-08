@@ -270,7 +270,11 @@ const BUDGET_GZIP = 163 * 1024;
 // 2026-11-14 (quick-quote): 558 → 560 kB raw — 27 qq.* English fallback keys
 // plus the DeferredQuickQuote wrapper ride first load; the wizard itself and
 // its CSS are a lazy quick-quote chunk. Measured 558.14 kB raw / 161.80 gzip.
-const BUDGET_RAW = 560 * 1024;
+// 2026-11-17: 560 → 562 kB raw — round-7 mobile QA: the wizard's destination
+// currency selector (4 qq.* keys), interaction-gated Supabase auth restore,
+// the prev/next home stock pager and the promo-bar shift-free reservation.
+// Measured 560.86 kB raw / gzip well inside 163.
+const BUDGET_RAW = 562 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -352,7 +356,10 @@ const CSS_BUDGET_GZIP = 43 * 1024; // 2026-11-09: see raw note above
 // theme buttons, and the TEMP A/B/C hero-layout variant layers in
 // landing-v2.css. Two of the three variants are deleted once the owner picks;
 // tighten this back then.
-const CSS_BUDGET_RAW = 219 * 1024;
+// 2026-11-17: 219 → 221 kB raw — round-7 mobile QA: single-line mobile promo
+// row, 44px home pager buttons, hv=c foot-band contrast block and the ≤560
+// two-row route chip. Measured 219.98 kB raw / gzip inside 43.
+const CSS_BUDGET_RAW = 221 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
