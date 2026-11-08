@@ -326,7 +326,10 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   // same paragraphs on two URLs would leave a crawler to choose between them.
   ok(!destHtml.includes('class="destination-guide"'),
     '/destinations no longer duplicates the market guide inline — it lives on the market page');
-  ok(destHtml.includes('class="destination-grid"') && /Open the <!-- -->Kenya<!-- --> guide/.test(destHtml),
+  // 2026-11-13: the CTA is now one translated string (t('dest.openGuide') with
+  // the market name substituted), so SSR emits a single text node without the
+  // <!-- --> expression separators it used to have.
+  ok(destHtml.includes('class="destination-grid"') && /Open the Kenya guide/.test(destHtml),
     'and links every market in the grid to its own guide');
   ok(/href="\/destinations\/kenya"/.test(destHtml), 'the links are real paths a crawler can follow');
   const marketHtml = await renderPage('/destinations/kenya');
