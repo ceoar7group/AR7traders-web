@@ -536,6 +536,7 @@ async function hydrateSiteContent(){
    mapped.push(...mapDealerRows(dealer).map((c,i)=>enrichCar({...c,image:c.image||'/assets/ar7-mark.png'},i)));
   }
   if(mapped.length){
+   warmImageOrigins(mapped);
    cars.length=0;cars.push(...mapped);
    // Refresh the "last live stock" snapshot (see the boot step below): capped
    // and trimmed so it fits comfortably in localStorage.
@@ -549,6 +550,29 @@ async function hydrateSiteContent(){
  contentHydrated=true;
  contentListeners.forEach(fn=>{try{fn()}catch{}});
 }
+// 2026-11-08 Lighthouse round: the live stock photos live on an external CDN,
+// and the hero asks for one the moment it renders — Lighthouse measured
+// ~650 ms of resource-load delay, much of it DNS+TLS setup. A <link
+// rel=preconnect> warms that connection as early as possible. The origin is
+// read out of the stock data itself (never hard-coded), capped at two hosts;
+// local /assets fallbacks are skipped.
+const warmedOrigins=new Set();
+function warmImageOrigins(list){
+ if(typeof document==='undefined'||!document.head)return;
+ for(const c of list){
+  if(warmedOrigins.size>=2)break;
+  const src=c&&c.image;
+  if(!src||!/^https?:\/\//i.test(src))continue;
+  try{
+   const origin=new URL(src).origin;
+   if(warmedOrigins.has(origin))continue;
+   warmedOrigins.add(origin);
+   const l=document.createElement('link');
+   l.rel='preconnect';l.href=origin;
+   document.head.appendChild(l);
+  }catch{/* malformed URL — skip */}
+ }
+}
 // 2026-11-09 (owner): a car removed in the CRM must never resurface on the
 // website. The last successful live snapshot is cached in localStorage and
 // replaces the built-in showcase seed BEFORE first paint on return visits, so
@@ -557,7 +581,7 @@ async function hydrateSiteContent(){
 if(typeof window!=='undefined'){
  try{
   const snap=JSON.parse(localStorage.getItem('ar7-live-cars')||'null');
-  if(Array.isArray(snap)&&snap.length){cars.length=0;cars.push(...snap.map((r,i)=>enrichCar(r,i)));}
+  if(Array.isArray(snap)&&snap.length){warmImageOrigins(snap);cars.length=0;cars.push(...snap.map((r,i)=>enrichCar(r,i)));}
  }catch{/* storage may be off */}
  hydrateSiteContent();
 }
@@ -919,10 +943,25 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
  const ref=useRef(null);
  const {t}=useLang();
  useEffect(()=>{
-  let alive=true,cleanup=null;
-  import('./globe3d.js').then(m=>{
-   if(!alive||!ref.current)return;
-   cleanup=m.mountGlobe(ref.current,{
+  let alive=true,cleanup=null,idle=0,io=null;
+  // 2026-11-08 Lighthouse round: the engine chunk (globe3d + Natural Earth
+  // geometry) used to be imported the moment this component mounted — on the
+  // home page that evaluated ~10s of CPU (throttled trace) during first load
+  // for a globe the visitor hadn't even scrolled to. Now the import waits
+  // until the host is within 320px of the viewport, and then for an idle
+  // slot, so hydration and the LCP never compete with it. The styled shell
+  // (sphere, orbits, halo) renders instantly either way.
+  const start=()=>{
+   const go=()=>{import('./globe3d.js').then(m=>{
+    if(!alive||!ref.current)return;
+    cleanup=m.mountGlobe(ref.current,mountOpts);
+   }).catch(()=>{/* offline chunk load — the styled shell still shows */})};
+   if(typeof requestIdleCallback==='function')idle=requestIdleCallback(go,{timeout:2500});
+   else idle=setTimeout(go,300);
+  };
+  const el=ref.current;
+  if(!el){return()=>{alive=false};}
+  const mountOpts={
     night:false,
     borders:!lite,
     detail:lite?0:1,
@@ -935,9 +974,20 @@ function InteractiveGlobe({compact,lite,cls,onTap}){
     zoom:!lite,
     // a touch of motion on the showcase globe: three sample export lanes
     routes:lite?[]:[{lon:55.2,lat:25},{lon:39.7,lat:-4},{lon:-1.4,lat:50.9}]
-   });
-  }).catch(()=>{/* offline chunk load — the styled shell still shows */});
-  return()=>{alive=false;if(cleanup)cleanup()};
+  };
+  if(typeof IntersectionObserver!=='function'){start();}
+  else{
+   io=new IntersectionObserver(entries=>{
+    if(entries.some(e=>e.isIntersecting)){io.disconnect();io=null;start();}
+   },{rootMargin:'320px 0px'});
+   io.observe(el);
+  }
+  return()=>{
+   alive=false;
+   if(io)io.disconnect();
+   if(idle){if(typeof cancelIdleCallback==='function')cancelIdleCallback(idle);else clearTimeout(idle);}
+   if(cleanup)cleanup();
+  };
  },[lite]);
  return <div className={'iglobe'+(compact?' compact':'')+(lite?' lite':'')+(cls?' '+cls:'')} ref={ref}
    onClick={onTap?()=>onTap():undefined}>
@@ -1639,7 +1689,7 @@ export function App(){
     <div className="section-head"><div><div className="kicker">{t('home.stockKicker')}</div><h2>{t('home.stockH2a')}<br/><em>{t('home.stockH2b')}</em></h2></div><p>{t('home.stockBody')}</p></div>
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f==='All'?t('home.filterAll'):statusLabel(t,f)}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> {t('home.searchVehicles')} <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
-      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
+      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
       <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div><span className="card-open" aria-hidden="true"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
     </a>)}</div>
     <div className="home-carousel-dots" aria-label="Inventory slide pages">{Array.from({length:homePages},(_,i)=><button key={i} type="button" className={i===homePage?'active':''} aria-label={'Show stock page '+(i+1)} onClick={()=>setHomeOff(i*HOME_N)}/>)}</div>
@@ -1708,7 +1758,7 @@ export function App(){
    <section className="auction-preview section shell" id="about">
     <div className="dash-wrap">
       <div className="dash-copy"><div className="kicker">{t('home.auctionKicker')}</div><h2>{t('home.auctionH2a')}<br/>{t('home.auctionH2b')} <em>{t('home.auctionH2em')}</em></h2><p>{t('home.auctionBody')}</p><ul><li><Check/> {t('home.auctionLi1')}</li><li><Check/> {t('home.auctionLi2')}</li><li><Check/> {t('home.auctionLi3')}</li></ul><button className="primary" onClick={()=>setEnquiry({kind:'auction'})} type="button">{t('home.auctionCta')} <ArrowRight/></button></div>
-      <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open the client portal preview"><span className="dash-demo-chip">PREVIEW</span><div className="dash-nav"><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>{c.grade?'Grade '+c.grade:(c.st||'RHD')}</em></span><strong>{price(c)}</strong></div>)}</div></a>
+      <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open the client portal preview"><span className="dash-demo-chip">PREVIEW</span><div className="dash-nav"><img width="128" height="53" src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>{c.grade?'Grade '+c.grade:(c.st||'RHD')}</em></span><strong>{price(c)}</strong></div>)}</div></a>
     </div>
    </section>
 
@@ -1822,7 +1872,7 @@ class BootErrorBoundary extends React.Component{
   const detail=showErrorDetail()?[String(this.state.error?.message||this.state.error||'unknown error').slice(0,400),componentStack].filter(Boolean).join('\n\n'):'';
   return <div style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:'32px 20px',background:'#f5f6f2',color:'#102018',fontFamily:'Manrope,system-ui,sans-serif',textAlign:'center'}}>
    <div style={{maxWidth:showErrorDetail()?620:460}}>
-    <img src="/assets/ar7-mark.png" alt="AR7 Traders" width="56" height="56" style={{borderRadius:12}} loading="lazy" decoding="async"/>
+    <img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" width="56" height="56" style={{borderRadius:12}} loading="lazy" decoding="async"/>
     <h1 style={{fontSize:28,letterSpacing:'-0.04em',margin:'18px 0 10px'}}>AR7 Traders</h1>
     <p style={{color:'#66736c',lineHeight:1.6,margin:'0 0 22px'}}>The page failed to load. Refresh, or email <a href={'mailto:'+FALLBACK.contact_email} style={{color:'#043f28'}}>{FALLBACK.contact_email}</a>.</p>
     <button type="button" onClick={()=>location.reload()} style={{border:0,background:'#043f28',color:'#fff',borderRadius:12,height:48,padding:'0 20px',fontWeight:700,cursor:'pointer'}}>Refresh the page</button>

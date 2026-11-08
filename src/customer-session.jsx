@@ -7,7 +7,17 @@
 import React, {useEffect, useState} from 'react';
 import {useSettings, waLink} from './site-settings.js';
 import {WhatsAppIcon} from './brand-icons.jsx';
-import {supabase, hasSupabase} from './supabase-client.js';
+
+// 2026-11-08 Lighthouse round: this module is in the always-loaded bundle
+// (main.jsx imports the session hook for the header), and it used to import
+// supabase-client.js statically — which dragged the whole @supabase/supabase-js
+// vendor chunk (~50 kB raw) into every visitor's first load just to ask
+// "is someone signed in?". The client is now imported dynamically after
+// mount, so the vendor code downloads off the critical path; the /account
+// and /crm chunks keep their static imports and share the same module
+// instance (one GoTrueClient, as before).
+const SUPABASE_CONFIGURED =
+  !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
 /* ------------------------------------------------------------------ */
 /*  Floating WhatsApp button — on every page, gently pulsing           */
@@ -33,16 +43,22 @@ export function WhatsAppButton(){
 /* ------------------------------------------------------------------ */
 export function useCustomerSession(){
  const [session,setSession] = useState(null);
- const [ready,setReady] = useState(!hasSupabase);
+ const [ready,setReady] = useState(!SUPABASE_CONFIGURED);
  const [recovery,setRecovery] = useState(false);
  useEffect(()=>{
-  if(!supabase){setReady(true);return}
-  supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});
-  const {data:{subscription}} = supabase.auth.onAuthStateChange((event,s)=>{
+  if(!SUPABASE_CONFIGURED){setReady(true);return}
+  let alive=true,subscription=null;
+  import('./supabase-client.js').then(({supabase})=>{
+   if(!alive||!supabase){setReady(true);return}
+   supabase.auth.getSession().then(({data})=>{if(!alive)return;setSession(data.session);setReady(true)});
+   const res = supabase.auth.onAuthStateChange((event,s)=>{
+    if(!alive)return;
     setSession(s);
     if(event==='PASSWORD_RECOVERY') setRecovery(true);
-  });
-  return ()=>subscription.unsubscribe();
+   });
+   subscription = res.data.subscription;
+  }).catch(()=>{if(alive)setReady(true)});
+  return ()=>{alive=false;if(subscription)subscription.unsubscribe()};
  },[]);
  return {session,ready,recovery,clearRecovery:()=>setRecovery(false)};
 }
