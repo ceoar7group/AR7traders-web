@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import { Ship, ArrowRight, CarFront, Gavel, BadgeCheck } from 'lucide-react';
 import { linkClick } from './routing.js';
 import { Flag } from './flag.jsx';
+import { useLang } from './i18n.jsx'; // 2026-11-11: world screen translates
 // 2026-11-10 (owner request: "redesign, completely free rotation, accurate
 // countries"): the flat scrolling map strip is gone — globe3d.js renders a
 // TRUE orthographic sphere from Natural Earth 110m geometry on canvas, and
@@ -101,16 +102,25 @@ function OriginChip({navigate,to,lon,lat,flag,label,cls}){
 
 export function BigNetworkGlobe({navigate,compact}){
  const ref=useRef(null);
+ const apiRef=useRef(null); // the engine cleanup carries .flyTo
  const MARKETS=useMarkets();
  const marketKey=MARKETS.map(m=>m.name).join('|');
  useEffect(()=>{
   const el=ref.current; if(!el)return;
-  return mountGlobe(el,{
+  // 2026-11-11 (owner: "do all the globe upgrades"): the big globe gets the
+  // full feature set — starfield, drifting clouds, night city lights, country
+  // hover tooltips + highlight, pinch/ctrl-wheel zoom, sun-side lighting.
+  const api=mountGlobe(el,{
    night:true,borders:true,graticule:true,detail:1,
+   stars:true,clouds:true,cities:true,names:true,zoom:true,
    origin:JP,
    routes:MARKETS.map(m=>({lon:m.lon,lat:m.lat}))
   });
+  apiRef.current=api;
+  return ()=>{apiRef.current=null;api()};
  },[marketKey]); // re-mount when the CRM swaps in live routes
+ const fly=(lon,lat)=>()=>apiRef.current?.flyTo?.(lon,lat);
+ const { t } = useLang();
  return <div className={'wglobe'+(compact?' compact':'')} ref={ref}>
   <div className="wglobe-glow"/>
   <canvas className="g3-canvas" aria-hidden="true"/>
@@ -128,35 +138,44 @@ export function BigNetworkGlobe({navigate,compact}){
    <OriginChip navigate={navigate} to="inventory" lon={JP.lon} lat={JP.lat} flag="Japan" label="AR7 TRADERS · JAPAN" cls="jp"/>
    <OriginChip navigate={navigate} to="machinery" lon={CN.lon} lat={CN.lat} flag="China" label="AR7 · CHINA DESK" cls="cn"/>
   </div>
-  <span className="drag-hint"><i/> DRAG ANY DIRECTION · LIVE DAY &amp; NIGHT · TAP JAPAN OR CHINA</span>
+  {/* fly-to-market: tap a flag and the camera glides to that country */}
+  <div className="g3-fly" role="group" aria-label={t('world.flyTo')}>
+   <button type="button" onClick={fly(JP.lon,JP.lat)} aria-label="Fly to Japan"><Flag c="Japan" w={16} h={10}/><span>Japan</span></button>
+   {MARKETS.slice(0,6).map(m=>
+    <button type="button" key={'fly'+m.name} onClick={fly(m.lon,m.lat)} aria-label={'Fly to '+m.name}>
+     <Flag c={m.name} w={16} h={10}/><span>{m.name==='United Kingdom'?'UK':m.name}</span>
+    </button>)}
+  </div>
+  <span className="drag-hint"><i/> {t('world.dragHint')}</span>
  </div>}
 
 export function WorldPage({navigate}){
  const MARKETS = useMarkets();
+ const { t } = useLang();
  return <section className="inner-page world-page">
   <div className="shell world-hero">
    <div className="world-copy">
-    <div className="kicker">AR7 GLOBAL EXPORT NETWORK</div>
-    <h1>Where AR7<br/><em>ships.</em></h1>
-    <p>Spin the globe. Every gold route is a sample AR7 lane from Japan to the world's ports — <b>click Japan</b> to browse the inventory, or press any country to open its market guide.</p>
-    <div className="world-cta"><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>Browse inventory <ArrowRight/></a><a className="outline-btn" href="/destinations" onClick={linkClick('destinations',navigate)}>Market guides</a></div>
+    <div className="kicker">{t('world.kicker')}</div>
+    <h1>{t('world.title')}<br/><em>{t('world.titleEm')}</em></h1>
+    <p>{t('world.intro1')}<b>{t('world.introClick')}</b>{t('world.intro2')}</p>
+    <div className="world-cta"><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>{t('world.browse')} <ArrowRight/></a><a className="outline-btn" href="/destinations" onClick={linkClick('destinations',navigate)}>{t('world.guides')}</a></div>
     <div className="world-stats">
-     {[['27','Market guides'],['30+','Ports of discharge'],['24/7','Portal access'],['100%','Cost transparency']].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
+     {[['27',t('world.guides')],['30+',t('world.statPorts')],['24/7',t('world.statPortal')],['100%',t('world.statCost')]].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
     </div>
    </div>
    <div className="hero-orb world-hero-orb"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
    <BigNetworkGlobe navigate={navigate}/>
   </div>
   <div className="shell">
-   <div className="section-head"><div><div className="kicker">FEATURED ROUTES</div><h2>From Japan to<br/><em>your port.</em></h2></div><p>Eight featured lanes with estimated transit — 27 market guides in total. Click any card to open that market's guide.</p></div>
+   <div className="section-head"><div><div className="kicker">{t('world.routesKicker')}</div><h2>{t('world.routesTitle')}<br/><em>{t('world.routesTitleEm')}</em></h2></div><p>{t('world.routesIntro')}</p></div>
    <div className="markets-grid">
     {MARKETS.map(m=><a className="mkt-card" key={m.name} href="/destinations" onClick={linkClick('destinations',navigate)}>
      <span className="mkt-flag"><Flag c={m.name} w={36} h={23}/></span>
      <div className="kicker">{m.port}</div>
      <h3>{m.name}</h3>
-     <p><Ship/> {m.transit} transit</p>
+     <p><Ship/> {m.transit} {t('world.transit')}</p>
      <small>{m.models}</small>
-     <span className="mkt-go">Market guide <ArrowRight/></span>
+     <span className="mkt-go">{t('world.marketGuide')} <ArrowRight/></span>
     </a>)}
    </div>
   </div>

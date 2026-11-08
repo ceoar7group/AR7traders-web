@@ -133,6 +133,10 @@ const usedKeys = new Set();
 // `t('key')` illustrative mention inside src/i18n.js's own header comment.
 for (const { text } of srcFiles) {
   for (const m of text.matchAll(/\bt\(\s*'([a-zA-Z0-9]+(?:\.[a-zA-Z0-9_]+)+)'/g)) usedKeys.add(m[1]);
+  // 2026-11-11: the header's dropdown tuples carry their i18n key as the
+  // 4th element and render it through t(x[3]) — collect those keys too, so
+  // the indirection doesn't read as "translated but never rendered".
+  for (const m of text.matchAll(/,\s*'(nav\.[a-zA-Z0-9_]+)'\s*\]/g)) usedKeys.add(m[1]);
 }
 const unknown = [...usedKeys].filter(k => !(k in EN));
 ok(unknown.length === 0,

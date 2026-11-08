@@ -117,7 +117,7 @@
    Non-interactive cards get the entrance only - no hover lift, which would
    suggest they are clickable. */
 .detail-actions{--cta-wa:#25d366;--cta-ring:var(--green-text);display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:18px}
-html[data-theme=dark] .detail-actions{--cta-ring:#f1bd58}
+html:is([data-theme=dark],[data-theme=blue]) .detail-actions{--cta-ring:#f1bd58}
 .detail-actions-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .detail-actions-row>*{min-width:0;justify-content:center;white-space:nowrap;font-size:15px}
 .detail-actions .primary{position:relative;isolation:isolate;overflow:hidden}
@@ -132,8 +132,8 @@ html[data-theme=dark] .detail-actions{--cta-ring:#f1bd58}
 .detail-cta--wa svg{color:#168a3d}
 .detail-cta--chat{--cta-line:color-mix(in srgb,var(--gold) 46%,var(--line));--cta-bg:color-mix(in srgb,var(--gold) 10%,var(--card))}
 .detail-cta--chat svg{color:#9a6a12}
-html[data-theme=dark] .detail-cta--wa svg{color:var(--cta-wa)}
-html[data-theme=dark] .detail-cta--chat svg{color:var(--gold2)}
+html:is([data-theme=dark],[data-theme=blue]) .detail-cta--wa svg{color:var(--cta-wa)}
+html:is([data-theme=dark],[data-theme=blue]) .detail-cta--chat svg{color:var(--gold2)}
 .detail-actions :is(.primary,.detail-cta,.ghost-btn){-webkit-tap-highlight-color:transparent}
 .detail-actions :is(.primary,.detail-cta,.ghost-btn):focus-visible{outline:3px solid var(--cta-ring);outline-offset:3px}
 @media (hover:hover){
@@ -600,25 +600,25 @@ section[id]{scroll-margin-top:120px}
 @media(max-width:650px){.inventory-groups{gap:42px}.showroom-group{padding:14px;border-radius:17px}.inventory-group-head h2{font-size:23px}.inventory-group-head{margin-bottom:15px}}
 
 /* Accessible colour contrast in both themes */
-html[data-theme=dark] .feat-box h4,
-html[data-theme=dark] .results-line span,
-html[data-theme=dark] .detail-info p,
-html[data-theme=dark] .detail-info small,
-html[data-theme=dark] .spec-table small,
-html[data-theme=dark] .car-info .loc,
-html[data-theme=dark] .car-info .specs span{color:#a9bbb1}
-html[data-theme=dark] .feat-chips span{color:#89e5b6;background:#123727;border-color:#2b694b}
-html[data-theme=dark] .feat-chips svg{color:#9af0c4}
-html[data-theme=dark] input::placeholder,
-html[data-theme=dark] textarea::placeholder{color:#9aada3;opacity:1}
-html[data-theme=dark] select option{background:#0d2118;color:#eff7f2}
-html[data-theme=dark] .inventory-group-head>b,
-html[data-theme=dark] .gallery-count{color:#d6e4dc}
-html[data-theme=dark] .back-btn,
-html[data-theme=dark] .text-btn{color:#eff7f2}
-html[data-theme=dark] .outline-btn{color:#83dfb0;border-color:#4b9e73}
-html[data-theme=dark] .sheet-box svg{color:#08613c}
-html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3px}
+html:is([data-theme=dark],[data-theme=blue]) .feat-box h4,
+html:is([data-theme=dark],[data-theme=blue]) .results-line span,
+html:is([data-theme=dark],[data-theme=blue]) .detail-info p,
+html:is([data-theme=dark],[data-theme=blue]) .detail-info small,
+html:is([data-theme=dark],[data-theme=blue]) .spec-table small,
+html:is([data-theme=dark],[data-theme=blue]) .car-info .loc,
+html:is([data-theme=dark],[data-theme=blue]) .car-info .specs span{color:#a9bbb1}
+html:is([data-theme=dark],[data-theme=blue]) .feat-chips span{color:#89e5b6;background:#123727;border-color:#2b694b}
+html:is([data-theme=dark],[data-theme=blue]) .feat-chips svg{color:#9af0c4}
+html:is([data-theme=dark],[data-theme=blue]) input::placeholder,
+html:is([data-theme=dark],[data-theme=blue]) textarea::placeholder{color:#9aada3;opacity:1}
+html:is([data-theme=dark],[data-theme=blue]) select option{background:#0d2118;color:#eff7f2}
+html:is([data-theme=dark],[data-theme=blue]) .inventory-group-head>b,
+html:is([data-theme=dark],[data-theme=blue]) .gallery-count{color:#d6e4dc}
+html:is([data-theme=dark],[data-theme=blue]) .back-btn,
+html:is([data-theme=dark],[data-theme=blue]) .text-btn{color:#eff7f2}
+html:is([data-theme=dark],[data-theme=blue]) .outline-btn{color:#83dfb0;border-color:#4b9e73}
+html:is([data-theme=dark],[data-theme=blue]) .sheet-box svg{color:#08613c}
+html:is([data-theme=dark],[data-theme=blue]) :focus-visible{outline:3px solid #f1bd58;outline-offset:3px}
 
 /* ============================================================
    RESPONSIVE DEVICE PASS — PC / LAPTOP / TABLET / MOBILE
@@ -743,8 +743,8 @@ html[data-theme=dark] :focus-visible{outline:3px solid #f1bd58;outline-offset:3p
 .world-time-item>strong{font:750 10px/1 Manrope;color:var(--green-text);font-variant-numeric:tabular-nums;letter-spacing:.5px}
 .world-time-item>small{font-size:6.5px;font-weight:700;letter-spacing:.6px;color:var(--muted);text-transform:uppercase}
 @keyframes worldClockSlide{to{transform:translateX(-50%)}}
-html[data-theme=dark] .world-time-ribbon{background:linear-gradient(110deg,rgba(13,33,24,.97),rgba(22,46,34,.94));border-color:#375c49;box-shadow:0 12px 32px #0006}
-html[data-theme=dark] .world-time-item>strong{color:#85e2b3}
+html:is([data-theme=dark],[data-theme=blue]) .world-time-ribbon{background:linear-gradient(110deg,rgba(13,33,24,.97),rgba(22,46,34,.94));border-color:#375c49;box-shadow:0 12px 32px #0006}
+html:is([data-theme=dark],[data-theme=blue]) .world-time-item>strong{color:#85e2b3}
 
 /* The World Time ribbon is a row of the header block; the space it and the bar
    need is reserved once by `main { padding-top: var(--head-h) }` in
@@ -764,7 +764,7 @@ html[data-theme=dark] .world-time-item>strong{color:#85e2b3}
 /* Crisp vector country flags in the permanent time ribbon */
 .world-time-flag{width:24px;height:17px;display:grid;place-items:center;flex:0 0 auto;border-radius:5px;background:var(--card);border:1px solid color-mix(in srgb,var(--line) 75%,var(--gold));box-shadow:0 2px 7px rgba(0,0,0,.12);overflow:hidden}
 .world-time-flag svg{display:block;width:20px!important;height:14px!important;position:static!important;overflow:hidden;border-radius:3px}
-html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
+html:is([data-theme=dark],[data-theme=blue]) .world-time-flag{background:#eef5f0;border-color:#5d806e}
 @media(max-width:650px){.world-time-flag{width:22px;height:16px}.world-time-flag svg{width:18px!important;height:12px!important}}
 
 /* Animated globe in the permanent time ribbon */
@@ -1198,7 +1198,7 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
 .card-actions>button{flex:1 1 auto;justify-content:center}
 .card-wa,.card-offer{display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:39px;padding:0 12px;border-radius:10px;font:700 11px Manrope;letter-spacing:.3px;cursor:pointer;transition:background .18s,color .18s,border-color .18s,box-shadow .18s}
 .card-wa{border:1px solid color-mix(in srgb,#1fa855 42%,var(--line));background:color-mix(in srgb,#25d366 9%,var(--card));color:#108a44}
-html[data-theme=dark] .card-wa{color:#4ade80}
+html:is([data-theme=dark],[data-theme=blue]) .card-wa{color:#4ade80}
 .card-wa:hover{background:#1fa855;border-color:#1fa855;color:#fff}
 .card-wa svg{width:14px;height:14px;flex:none}
 .card-offer{border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));background:color-mix(in srgb,var(--gold) 9%,var(--card));color:var(--gold)}

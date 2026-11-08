@@ -73,7 +73,7 @@ console.log('\n-- the engine mounts, projects and cleans up --');
   host.appendChild(jp); host.appendChild(anti);
 
   // centre the camera exactly on Japan and render one frame synchronously
-  const cleanup = mountGlobe(host, { lam: 138, phi: 36, autoRotate: 0 });
+  const cleanup = mountGlobe(host, { lam: 138, phi: 36, autoRotate: 0, names: true, zoom: true });
   ok(typeof cleanup === 'function', 'mountGlobe returns a cleanup function');
   ok(canvas.width === 400 && canvas.height === 400, 'the canvas backing store matches the measured size');
 
@@ -97,6 +97,16 @@ console.log('\n-- the engine mounts, projects and cleans up --');
   }
   ok(triOk && mi > 0, `the land fill is pure triangles (${mi / 4} drawn) — half-hidden continents cannot paint the ocean gold`);
   ok(inDisc, 'every drawn land vertex stays on the sphere disc');
+
+  // 2026-11-11 upgrade pins (owner: "do all the globe upgrades")
+  ok(typeof cleanup.flyTo === 'function', 'the cleanup function exposes flyTo(lon,lat) for the fly-to-market buttons');
+  const hoverFns = host.listeners.pointermove || [];
+  ok(hoverFns.length > 0, 'the host listens for hover (country tooltips)');
+  const fillsBefore = ctx.fills.length;
+  for (const fn of hoverFns) fn({ clientX: 200, clientY: 200 }); // dead centre = Japan
+  ok(ctx.fills.length > fillsBefore, 'hovering a country re-renders with the highlight fill');
+  ok((host.listeners.wheel || []).length > 0 && (host.listeners.dblclick || []).length > 0,
+    'ctrl+wheel and double-click zoom are wired');
 
   // Japan marker must sit at the centre of a 400×400 canvas when the camera
   // is centred on Japan — THE "right place on the map" guarantee.

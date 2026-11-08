@@ -62,6 +62,7 @@
 html,body{overflow-x:clip}
 .globe-scene{position:relative;display:grid;place-items:center;padding:26px 0 22px}
 .globe-wrap{position:relative;padding-bottom:30px}
+.iglobe.over-country{cursor:pointer}
 .iglobe{position:relative;width:min(430px,88vw);aspect-ratio:1;margin:auto;perspective:1000px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none} /* 2026-11-10: touch-action none — the 3D globe drags on BOTH axes */
 .iglobe.compact{width:min(480px,86vw)}
 .iglobe.dragging{cursor:grabbing}
