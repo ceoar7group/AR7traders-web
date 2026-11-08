@@ -444,9 +444,9 @@ export const isShowroomCar=c=>!!c&&!isImportedCar(c)&&(['Luxury','Supercar','Hyp
 // 1y immutable cache headers.
 const SHOWROOM_HEROES={
  '0508888A30261013W003':'/assets/showroom/hero-01.webp',
- '0201053A30261031W001':'/assets/showroom/hero-02.webp',
+ '0201053A30261031W001':'/assets/showroom/hero-02-v2.webp',
  '0508888A30261019W003':'/assets/showroom/hero-03.webp',
- '0200160A30261023W003':'/assets/showroom/hero-04.webp',
+ '0200160A30261023W003':'/assets/showroom/hero-04-v2.webp',
  '0520284A30260812W002':'/assets/showroom/hero-05.webp',
  '9731113A30260816W001':'/assets/showroom/hero-06-v3.webp',
  '0200160A30261016W001':'/assets/showroom/hero-07.webp',
@@ -456,10 +456,10 @@ const SHOWROOM_HEROES={
  '9731113A30261103W001':'/assets/showroom/hero-11.webp',
  '0551811A30261031W001':'/assets/showroom/hero-12-v2.webp',
  '0710084A30261103W001':'/assets/showroom/hero-13-v2.webp',
- '0200160A30261018W005':'/assets/showroom/hero-14.webp',
- '0500520A30261101W002':'/assets/showroom/hero-15.webp',
- '0550871A30261027W001':'/assets/showroom/hero-16-v2.webp',
- '0203361A20261022W005':'/assets/showroom/hero-17-v2.webp',
+ '0200160A30261018W005':'/assets/showroom/hero-14-v2.webp',
+ '0500520A30261101W002':'/assets/showroom/hero-15-v2.webp',
+ '0550871A30261027W001':'/assets/showroom/hero-16-v3.webp',
+ '0203361A20261022W005':'/assets/showroom/hero-17-v3.webp',
  '0201053A30261101W001':'/assets/showroom/hero-18.webp'
 };
 // Second showroom angle per car (rear/opposite three-quarter staged in a
@@ -773,14 +773,26 @@ const heroSlides=(fmtPrice)=>{
   for(let i=0;i<n;i++){const x=list[Math.floor(i*step)];if(x)out.push(x);}
   return out;
  };
- const chosen=[...pickSpread(flags,Math.min(8,flags.length)),...pickSpread(rest,Math.min(6,rest.length))];
- const carsOut=[];
- for(const x of chosen){
+ // 2026-11-17 (owner): the opening tableau is fixed — Ferrari 296 in the
+ // CENTRE, McLaren 720S peeking in on the right, Lamborghini Huracán on the
+ // left. slides[0] is the centre card, slides[1] its right neighbour, and the
+ // LAST slide wraps around to sit on the left — so the Lamborghini is pushed
+ // to the very end of the rotation below.
+ const findFlag=sig=>flags.find(x=>(x.make+' '+x.model).toLowerCase().includes(sig));
+ const ferrari=findFlag('296')||findFlag('ferrari');
+ const mclaren=findFlag('mclaren');
+ const lambo=findFlag('lamborghini');
+ const lead=[ferrari,mclaren].filter(Boolean);
+ const mids=flags.filter(x=>!lead.includes(x)&&x!==lambo);
+ const flagsOrdered=[...lead,...pickSpread(mids,Math.min(Math.max(8-lead.length-(lambo?1:0),0),mids.length))];
+ const chosen=[...flagsOrdered,...pickSpread(rest,Math.min(6,rest.length))];
+ const toSlide=x=>{
   const ref=carRef(x);
-  carsOut.push({kind:'car',id:'c'+ref,image:x.image,alt:carAlt(x),href:hrefFor('inventory',ref),
+  return {kind:'car',id:'c'+ref,image:x.image,alt:carAlt(x),href:hrefFor('inventory',ref),
    tag:(x.status||'In stock').toUpperCase(),title:x.make+' '+x.model,
-   meta:[x.year, x.grade?`Grade ${x.grade}`:null, fmtPrice(x)].filter(Boolean).join(' · ')});
- }
+   meta:[x.year, x.grade?`Grade ${x.grade}`:null, fmtPrice(x)].filter(Boolean).join(' · ')};
+ };
+ const carsOut=chosen.map(toSlide);
  // One machine per type, and only a machine that actually has a photograph —
  // the hero must never show the "photos on request" panel.
  const machinesOut=[];
@@ -803,6 +815,9 @@ const heroSlides=(fmtPrice)=>{
   for(let k=0;k<2&&ci<carsOut.length;k++)woven.push(carsOut[ci++]);
   if(mi<machinesOut.length)woven.push(machinesOut[mi++]);
  }
+ // The Lamborghini goes LAST so it wraps around to the centre card's left on
+ // first paint (owner tableau, see above).
+ if(lambo)woven.push(toSlide(lambo));
  return woven;
 };
 // Illustrative calendar of the auction houses AR7 bids at and the shipping
@@ -1730,7 +1745,16 @@ export function App(){
       <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
       <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div><span className="card-open" aria-hidden="true"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
     </a>)}</div>
-    <div className="home-carousel-dots" aria-label="Inventory slide pages">{Array.from({length:homePages},(_,i)=><button key={i} type="button" className={i===homePage?'active':''} aria-label={'Show stock page '+(i+1)} onClick={()=>setHomeOff(i*HOME_N)}/>)}</div>
+    {/* 2026-11-17 (Lighthouse touch targets): the pager used to render one
+        6px-tall pill PER PAGE — with a full catalogue that was ~38 slivers no
+        finger can hit. It is now a prev/next pager with 44px targets and a
+        "page / of" readout; the strip of pills stays as a passive progress
+        bar on wide screens only (aria-hidden, not clickable). */}
+    <div className="home-carousel-dots" aria-label="Inventory slide pages">
+     <button type="button" className="home-page-btn" aria-label="Previous stock page" onClick={()=>setHomeOff(((homePage-1+homePages)%homePages)*HOME_N)}><ChevronLeft/></button>
+     <span className="home-page-count" aria-live="polite"><b>{homePage+1}</b> / {homePages}</span>
+     <button type="button" className="home-page-btn" aria-label="Next stock page" onClick={()=>setHomeOff(((homePage+1)%homePages)*HOME_N)}><ChevronRight/></button>
+    </div>
     <PageLink className="outline-btn" to="inventory" navigate={navigate}>{t('home.viewAll')} <ArrowRight/></PageLink>
    </section>
 

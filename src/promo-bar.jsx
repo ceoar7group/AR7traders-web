@@ -32,12 +32,28 @@ const OFFER_DISMISS_KEY = 'ar7-price-offer-dismissed';
 // before first paint makes the bar appear in already-reserved space.
 const HEIGHT_KEY = 'ar7-promo-h';
 
+// The ribbon's top margin is --head-pad after the empty slot but --head-gap
+// after the real bar (site-layout.css §8), so a reservation equal to the raw
+// bar height still shifted the page by pad−gap when the bar mounted
+// (2026-11-17, Lighthouse mobile CLS). Everything that reserves space now
+// subtracts that difference; the stylesheet is loaded by the time React runs,
+// so it is read live rather than mirroring breakpoints.
+function marginDelta() {
+  try {
+    const cs = getComputedStyle(document.documentElement);
+    const pad = parseFloat(cs.getPropertyValue('--head-pad')) || 0;
+    const gap = parseFloat(cs.getPropertyValue('--head-gap')) || 0;
+    const d = pad - gap;
+    return Number.isFinite(d) && d >= 0 && d < 40 ? d : 0;
+  } catch { return 0; }
+}
+
 export function PromoBar({ navigate }) {
   const [promo, setPromo] = useState(null);
   useState(() => {   // runs once, synchronously, before the browser paints
     try {
       const h = parseInt(localStorage.getItem(HEIGHT_KEY) || '', 10);
-      if (h > 0 && h < 200) document.documentElement.style.setProperty('--promo-h', h + 'px');
+      if (h > 0 && h < 200) document.documentElement.style.setProperty('--promo-h', Math.max(h - marginDelta(), 0) + 'px');
     } catch { /* private mode: first paint reserves nothing, as before */ }
   });
   const [hidden, setHidden] = useState(false);
@@ -107,8 +123,11 @@ export function PromoBar({ navigate }) {
   useEffect(() => {
     const root = document.documentElement;
     if (campaign || offerLine) {
-      const h = document.querySelector('.promo-bar')?.offsetHeight || 44;
-      root.style.setProperty('--promo-h', h + 'px');
+      const h = document.querySelector('.promo-bar')?.offsetHeight || 47;
+      // --promo-h feeds --head-h, which assumes the no-bar margins; the bar
+      // swaps the ribbon's pad margin for a gap margin, so the exact page
+      // offset (and the exact slot height for the next paint) is h − delta.
+      root.style.setProperty('--promo-h', Math.max(h - marginDelta(), 0) + 'px');
       try { localStorage.setItem(HEIGHT_KEY, String(h)); } catch { /* ignore */ }
     } else if (settled) {
       // Only a CONFIRMED "no campaign" clears the reservation; while the

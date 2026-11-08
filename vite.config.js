@@ -43,7 +43,7 @@ function devLiveFixtures() {
  * index.html paints its boot/static shell first. This plugin injects ONE tiny
  * inline script into <head> that reserves the height BEFORE first paint:
  *   1. a returning visitor gets last visit's measured height (localStorage);
- *   2. a first-time visitor gets 45px (one minified bar row) whenever the
+ *   2. a first-time visitor gets 47px (one single-line bar row, all widths) whenever the
  *      campaign baked from public/promo.json at build time is still live and
  *      not dismissed — mirroring src/offers.js campaignIsLive().
  * PromoBar then measures the real row and corrects the variable by at most a
@@ -57,12 +57,18 @@ function promoReserve() {
         promo = JSON.parse(readFileSync(fileURLToPath(new URL('./public/promo.json', import.meta.url)), 'utf8'));
       } catch { /* no promo file: reserve from localStorage only */ }
       const baked = promo && promo.active ? { id: String(promo.id || ''), until: String(promo.until || '') } : null;
+      // `a` mirrors --head-pad minus --head-gap per breakpoint (site-layout.css
+      // §8): the ribbon's top margin is --head-pad after the empty slot but
+      // --head-gap after the real bar, so a shift-free reservation is
+      // barHeight + gap - pad. The stylesheet has not loaded when this runs,
+      // hence the hardcoded mirror of the 639/1000px breakpoints.
       const js =
-        "(function(){try{var d=document.documentElement.style,h=parseInt(localStorage.getItem('ar7-promo-h')||'',10);" +
-        "if(h>0&&h<200){d.setProperty('--promo-h',h+'px');return}" +
+        "(function(){try{var d=document.documentElement.style,w=innerWidth,a=w<640?7:w<=1000?8:9," +
+        "h=parseInt(localStorage.getItem('ar7-promo-h')||'',10);" +
+        "if(h>0&&h<200){d.setProperty('--promo-h',Math.max(h-a,0)+'px');return}" +
         (baked
           ? `var p=${JSON.stringify(baked)};` +
-            "if((!p.until||Date.now()<=new Date(p.until+'T23:59:59').getTime())&&localStorage.getItem('ar7-promo-dismissed')!==p.id)d.setProperty('--promo-h','45px');"
+            "if((!p.until||Date.now()<=new Date(p.until+'T23:59:59').getTime())&&localStorage.getItem('ar7-promo-dismissed')!==p.id)d.setProperty('--promo-h',(47-a)+'px');"
           : '') +
         '}catch(e){}})();';
       return [{ tag: 'script', children: js, injectTo: 'head-prepend' }];

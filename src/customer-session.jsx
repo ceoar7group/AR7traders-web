@@ -47,18 +47,47 @@ export function useCustomerSession(){
  const [recovery,setRecovery] = useState(false);
  useEffect(()=>{
   if(!SUPABASE_CONFIGURED){setReady(true);return}
-  let alive=true,subscription=null;
-  import('./supabase-client.js').then(({supabase})=>{
-   if(!alive||!supabase){setReady(true);return}
-   supabase.auth.getSession().then(({data})=>{if(!alive)return;setSession(data.session);setReady(true)});
-   const res = supabase.auth.onAuthStateChange((event,s)=>{
-    if(!alive)return;
-    setSession(s);
-    if(event==='PASSWORD_RECOVERY') setRecovery(true);
-   });
-   subscription = res.data.subscription;
-  }).catch(()=>{if(alive)setReady(true)});
-  return ()=>{alive=false;if(subscription)subscription.unsubscribe()};
+  // 2026-11-17 (Lighthouse mobile: vendor-supabase ~51KB of unused JS on the
+  // home page): the auth bundle used to load at startup for EVERY visitor,
+  // though an anonymous one has no session to restore. It now loads up front
+  // only when there is something to do right away — a stored `sb-*-auth-token`
+  // (returning signed-in buyer) or an auth redirect in the URL (password
+  // recovery hash / PKCE ?code=). Everyone else gets it lazily on their first
+  // tap or keypress, long before any sign-in form can be reached.
+  let alive=true,subscription=null,started=false;
+  const start=()=>{
+   if(started||!alive)return;started=true;
+   import('./supabase-client.js').then(({supabase})=>{
+    if(!alive||!supabase){setReady(true);return}
+    supabase.auth.getSession().then(({data})=>{if(!alive)return;setSession(data.session);setReady(true)});
+    const res = supabase.auth.onAuthStateChange((event,s)=>{
+     if(!alive)return;
+     setSession(s);
+     if(event==='PASSWORD_RECOVERY') setRecovery(true);
+    });
+    subscription = res.data.subscription;
+   }).catch(()=>{if(alive)setReady(true)});
+  };
+  const hasToken=(()=>{
+   try{
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('sb-')&&k.endsWith('-auth-token'))return true}
+   }catch{/* storage blocked: treat as anonymous */}
+   return false;
+  })();
+  const authUrl=/access_token|type=recovery/.test(String(location.hash||''))||/[?&]code=/.test(String(location.search||''));
+  let onFirst=null;
+  if(hasToken||authUrl){start()}
+  else{
+   setReady(true); // nothing to restore — the page must not wait on auth
+   onFirst=()=>{removeEventListener('pointerdown',onFirst);removeEventListener('keydown',onFirst);start()};
+   addEventListener('pointerdown',onFirst,{passive:true});
+   addEventListener('keydown',onFirst,{passive:true});
+  }
+  return ()=>{
+   alive=false;
+   if(onFirst){removeEventListener('pointerdown',onFirst);removeEventListener('keydown',onFirst)}
+   if(subscription)subscription.unsubscribe();
+  };
  },[]);
  return {session,ready,recovery,clearRecovery:()=>setRecovery(false)};
 }

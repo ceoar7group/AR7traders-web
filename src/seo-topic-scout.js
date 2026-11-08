@@ -86,7 +86,7 @@ const COVER_BRANDS = {
   '/assets/og/auction.jpg': 'honda',
   '/assets/og/help.jpg': 'toyota',
   '/assets/used-japanese-cars-auction-export-toyota-5.webp': 'nissan',
-  '/assets/showroom/hero-02.webp': 'lamborghini'
+  '/assets/showroom/hero-02-v2.webp': 'lamborghini'
 };
 // Covers that must never appear on an article at all: competitor or dealer
 // branding is visible in the picture.

@@ -236,9 +236,15 @@ html,body{overflow-x:clip}
 }
 
 /* home running-slide dots + make/budget explorer */
-.home-carousel-dots{display:flex;gap:8px;justify-content:center;margin:26px 0 0}
-.home-carousel-dots button{width:26px;height:6px;border-radius:99px;border:0;background:var(--line);cursor:pointer;transition:.25s}
-.home-carousel-dots button.active{background:var(--gold);width:44px}
+/* 2026-11-17: pill-per-page → prev/next pager (Lighthouse touch targets:
+   38 six-pixel pills were unusable on a phone). */
+.home-carousel-dots{display:flex;gap:14px;justify-content:center;align-items:center;margin:26px 0 0}
+.home-page-btn{width:44px;height:44px;border:1px solid var(--line);border-radius:50%;background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer;transition:border-color .2s,background .2s,transform .2s}
+.home-page-btn:hover{border-color:var(--gold);transform:translateY(-1px)}
+.home-page-btn:active{transform:scale(.94)}
+.home-page-btn svg{width:18px;height:18px}
+.home-page-count{font:600 12px Manrope;color:var(--muted);letter-spacing:1px;min-width:64px;text-align:center}
+.home-page-count b{font:800 14px Manrope;color:var(--ink)}
 .budget-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 .budget-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px;text-decoration:none;color:var(--ink);transition:.3s}
 .budget-card:hover{transform:translateY(-6px);box-shadow:var(--shadow);border-color:var(--gold)}
@@ -297,10 +303,21 @@ html,body{overflow-x:clip}
    anywhere: the block measures itself and the page reserves that one height.
    --promo-h is still published by src/promo-bar.jsx and feeds the no-JS
    fallback of --head-h in src/site-layout.css §8. */
+/* 2026-11-17 (Lighthouse mobile CLS 0.221): the old ≤899px rules let the
+   campaign row wrap onto three lines (~102px tall) while the pre-paint
+   reservation in vite.config.js holds exactly 45px — so the nav and the hero
+   jumped 50px down the moment the bar answered. The mobile row is now ONE
+   45px line, same as desktop: the sub-line goes, the headline ellipsises, and
+   the close button grows to a finger-sized target. */
 @media(max-width:899px){
-  .promo-bar-inner{flex-wrap:wrap;gap:8px;min-height:0;padding:9px 0}
-  .promo-sub{flex:1 1 100%;white-space:normal;font-size:11.5px}
+  .promo-bar-inner{gap:9px;font-size:12px}
+  .promo-sub{display:none}
+  .promo-bar-inner b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .promo-cta{margin-inline-start:auto}
+  .promo-x{width:32px;height:32px}
+}
+@media(max-width:480px){
+  .promo-pill{display:none}
 }
 
 /* Machine slides in the hero rotation. The badge turns gold so a visitor can
@@ -453,29 +470,70 @@ html,body{overflow-x:clip}
 .hero[data-hv="c"] .stage-foot .text-btn > span { width: 34px; height: 34px; border-color: #ffffff2e; }
 /* 2026-11-10 round 5 (owner): the chips were white cards shouting on a dark
    stage — now they wear the stage's own dark glass, exactly like the search
-   console above them, so the foot band reads as one quiet instrument row. */
+   console above them, so the foot band reads as one quiet instrument row.
+   2026-11-17 (owner: "improve design and color scheme and contrast of this
+   area"): the glass gets one step more body (#ffffff14 on ~#0d4a30 ≈ #1f583f
+   effective), every secondary ink is lifted to ≥5:1 on it (#c9ddd2 = 5.9:1,
+   titles #f4faf6 = 11:1, gold2 #f4bd55 = 5.1:1), and a hairline gold wash on
+   the border keys the chips to the brand instead of plain white glass. */
 .hero[data-hv="c"] .stage-foot .route-strip,
 .hero[data-hv="c"] .stage-foot .auction-chip {
-  background: #ffffff10;
-  border-color: #ffffff24;
-  box-shadow: none;
-  color: #eef6f0;
+  background: #ffffff14;
+  border-color: color-mix(in srgb, var(--gold) 26%, #ffffff2e);
+  box-shadow: inset 0 1px 0 #ffffff14;
+  color: #f4faf6;
 }
-.hero[data-hv="c"] .stage-foot .card-kicker { color: #a9c4b5; }
-.hero[data-hv="c"] .stage-foot .card-meta { color: #a9c4b5; }
+.hero[data-hv="c"] .stage-foot .card-title { color: #f4faf6; }
+.hero[data-hv="c"] .stage-foot .card-kicker { color: #c9ddd2; }
+.hero[data-hv="c"] .stage-foot .card-meta { color: #c9ddd2; }
 .hero[data-hv="c"] .stage-foot .auction-chip .card-meta { color: var(--gold2); }
 .hero[data-hv="c"] .stage-foot .card-meta svg,
 .hero[data-hv="c"] .stage-foot .facts-head > svg { color: var(--gold2); }
-.hero[data-hv="c"] .stage-foot .progress { background: #ffffff1f; }
+.hero[data-hv="c"] .stage-foot .progress { background: #ffffff26; }
 .hero[data-hv="c"] .stage-foot .route-ship { background: #0b3d28; box-shadow: 0 0 0 1px #ffffff2e, 0 2px 6px rgba(0,0,0,.35); }
 .hero[data-hv="c"] .stage-foot .lane-eta {
-  color: #cfeedd;
-  background: #ffffff0d;
-  border-color: #ffffff24;
+  color: #dff2e7;
+  background: #ffffff12;
+  border-color: #ffffff30;
 }
 @media (max-width: 1100px) {
   .hero[data-hv="c"] .stage-foot { flex-direction: column; align-items: stretch; }
   .hero[data-hv="c"] .stage-foot .hero-cta { flex-wrap: wrap; justify-content: center; }
+  /* 2026-11-17: in this COLUMN layout the chips' `flex: 1 1 340px` basis
+     turns vertical — each chip ballooned to a ~170px-tall half-empty card.
+     Size the facts block by its content; the chips stay slim rows. */
+  .hero[data-hv="c"] .stage-foot .hero-facts { flex: 0 0 auto; }
+}
+
+/* The dot rail sits on the deep-green band in this variant — theme-ink dots
+   (dark on dark) vanished there; they read as pale glass instead. */
+.hero[data-hv="c"] .hero-stage .car-dots i { background: #ffffff3d; }
+.hero[data-hv="c"] .hero-stage .car-dots i.active { background: var(--gold2); }
+
+/* 2026-11-17 (owner: "move them just below that beautifully"): on phones the
+   foot band is a composed panel, not a loose pile — the two desk buttons
+   share one row edge to edge, the bidding link sits centred under them, and
+   the lane/auction chips stack full-width below. Everything stays on the
+   deep-green band in normal flow; nothing can touch the slides. */
+@media (max-width: 640px) {
+  .hero[data-hv="c"] .stage-foot { gap: 12px; }
+  .hero[data-hv="c"] .stage-foot .hero-cta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 9px;
+  }
+  .hero[data-hv="c"] .stage-foot .hero-cta .primary,
+  .hero[data-hv="c"] .stage-foot .hero-cta .ghost-btn {
+    width: 100%;
+    height: 46px;
+    padding: 0 10px;
+    justify-content: center;
+  }
+  .hero[data-hv="c"] .stage-foot .text-btn {
+    grid-column: 1 / -1;
+    justify-content: center;
+    height: 38px;
+  }
 }
 
 /* On phones every variant is one column already; B and C still lead with the

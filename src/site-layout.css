@@ -890,6 +890,16 @@ footer [id] {
   text-overflow: ellipsis;
 }
 
+/* 2026-11-17 (owner: "the full auction site name must be visible"): the venue
+   name is the one line that may NEVER give way — at 1440 the flex row was
+   crushing it to a 0.4px sliver while the kicker and countdown (both nowrap)
+   kept their width. The grid column already refuses to shrink below content
+   (styles.css), so this flex:none is safe at every width the chip renders. */
+.hero-facts .auction-chip .card-title {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
 .hero-facts .route-lane {
   display: flex;
   align-items: center;
@@ -905,10 +915,15 @@ footer [id] {
 }
 
 /* The lane bar is the chip's flexible spring: it absorbs whatever width the
-   lane text leaves over, and collapses first when space runs out. */
+   lane text leaves over, and collapses first when space runs out.
+   2026-11-17 (owner: "decrease the length of the shipping lane"): the spring
+   is capped — on wide screens the lane line stops stretching into a runway
+   and the whole strip reads tighter; the freed room goes to the auction chip
+   via the facts grid (styles.css). */
 .hero-facts .progress {
   flex: 1 1 54px;
   min-width: 36px;
+  max-width: 300px;
   align-self: center;
 }
 
@@ -1019,6 +1034,13 @@ footer [id] {
     border-width: 5px;
     border-radius: 20px;
     transform: none;
+    /* 2026-11-17: default `stretch` alignment makes the grid IGNORE the
+       aspect-ratio height when it sizes this auto row (the row collapsed to
+       ~14px and the foot band painted over the car). `start` lets the
+       photo's own height size the row, so the bands below it can never
+       overlap the slides again — measured at 390/360/768. */
+    align-self: start;
+    width: 100%;
   }
 
   .hero .hero-visual .car-dots {
@@ -1066,6 +1088,27 @@ footer [id] {
     font-size: 9.5px;
   }
 
+  /* 2026-11-17: on a ~360px chip the vessel-status prose was what pushed the
+     lane into an ellipsis. The ports + line + ETA are the story; the rotating
+     status line is the first thing to go at arm's length. */
+  .hero-facts .route-status {
+    display: none;
+  }
+
+  /* …and the lane chip itself breathes as two short rows on phones —
+     "Shipping lane · n/12 · ETA" above, "Yokohama → Karachi ———" below —
+     instead of ellipsizing the one thing the chip exists to say. */
+  .hero-facts .route-strip .rotating-card-copy {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 3px 0;
+  }
+
+  .hero-facts .route-strip .facts-head { order: 1; }
+  .hero-facts .route-strip .lane-eta { order: 2; margin-left: auto; }
+  .hero-facts .route-strip .route-lane { order: 3; }
+  .hero-facts .route-strip .progress { order: 4; }
+
   /* On the narrowest chips the vessel-status prose goes: lane, bar and ETA
      carry the story alone, which keeps the chip to one honest line. */
   .hero-facts .route-status {
@@ -1080,9 +1123,39 @@ footer [id] {
   }
 
   /* The auction chip is the narrow one; the lane strip takes the rest so a
-     long port pair ("Yokohama → Dar es Salaam") has room to run. */
+     long port pair ("Yokohama → Dar es Salaam") has room to run.
+     2026-11-17: the chip used to carry a hard width (clamp 200–250px) while
+     its one-line content — kicker + venue + countdown — needs ~290px, so the
+     countdown spilled OUT of the chip onto the stage at every desktop width.
+     The grid column already sizes to max-content (styles.css); the chip now
+     simply takes that track, and the venue name + countdown always fit. */
   .hero-facts .auction-chip {
-    width: clamp(200px, 16vw, 250px);
+    width: auto;
+  }
+
+  /* With the auction chip at its honest width the lane strip owns less room
+     on narrow desktops — the rotating vessel-status prose is the padding
+     that goes first (same call as on phones, §9), keeping the ports, the
+     line and the ETA on one clean row. Even at 1440 the status only half-fit
+     ("Vessel departe…"), so it waits for a genuinely wide screen. */
+  @media (max-width: 1549px) {
+    .hero-facts .route-status {
+      display: none;
+    }
+  }
+
+  /* Between the stacked-foot phones/tablets (≤1100) and the roomy desktops,
+     one shared row leaves the lane chip ~216px — not even enough for the
+     ports. The two chips stack as slim rows instead; each gets the full
+     track and nothing ellipsises. */
+  @media (max-width: 1260px) {
+    .hero-facts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hero-facts .auction-chip {
+      width: auto;
+    }
   }
 }
 
@@ -1879,8 +1952,15 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
    `.hero-carousel-controls` block above are untouched; everything here is a
    later override layer.
    =========================================================================== */
-.hero .hero-visual {
-  height: clamp(460px, min(71vh, 55vw), 680px);
+/* 2026-11-17 (owner: "mobile is not optimized at all"): this height used to
+   apply at EVERY width — below 1000px it fought the stacked grid's
+   `height:auto` (this file loads last, so it won) and crushed the photo row
+   to ~14px, which painted the CTA/facts band straight over the car slides.
+   Desktop keeps the fixed stage; the stacked layout sizes itself. */
+@media (min-width: 1001px) {
+  .hero .hero-visual {
+    height: clamp(460px, min(71vh, 55vw), 680px);
+  }
 }
 
 /* 2026-11-08 (owner, round 2): the enclosed dark-green panel read as a "box".
@@ -2088,8 +2168,10 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
   }
 
   .hero-stage .hero-slide {
-    width: 84%;
-    margin-left: -42%;
+    /* 2026-11-17 (owner: bigger slides on phones too): 84% → 90%; the side
+       cars become slim gold-lit slivers under the edge mask. */
+    width: 90%;
+    margin-left: -45%;
     bottom: 46px;
     aspect-ratio: 16 / 10.8;
     max-height: calc(100% - 60px);
