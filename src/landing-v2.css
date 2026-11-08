@@ -366,12 +366,12 @@ html,body{overflow-x:clip}
      2026-11-09 round 2 (owner): band now matches the inventory page EXACTLY —
      same linear-gradient(125deg, --deep, #0b603b), same ghost AR7 watermark —
      and the copy below is arranged as a modern centred composition. */
-  .hero[data-hv="c"] { display: flex; flex-direction: column; align-items: stretch; gap: clamp(28px, 4vh, 48px); }
+  .hero[data-hv="c"] { display: flex; flex-direction: column; align-items: stretch; gap: clamp(18px, 2.8vh, 34px); }
   .hero[data-hv="c"] .hero-visual {
     order: -1;
     width: 100vw;
     margin-inline: calc(50% - 50vw);
-    height: clamp(520px, 80vh, 880px);
+    height: clamp(440px, 68vh, 760px);
     padding: clamp(14px, 2.4vh, 26px) clamp(16px, 4.5vw, 64px) clamp(16px, 2.8vh, 30px);
     position: relative;
     overflow: hidden;
@@ -386,19 +386,19 @@ html,body{overflow-x:clip}
     color: #ffffff08;
     pointer-events: none;
   }
-  .hero[data-hv="c"] .hero-visual .route-strip,
-  .hero[data-hv="c"] .hero-visual .auction-chip { background: color-mix(in srgb, var(--card) 90%, transparent); border-color: #ffffff2a; }
   .hero[data-hv="c"] .hero-copy { max-width: 1020px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; text-align: center; }
   .hero[data-hv="c"] .hero-copy .eyebrow { justify-content: center; letter-spacing: 3px; }
-  .hero[data-hv="c"] .hero-copy h1 { margin: 18px 0 12px; font-size: clamp(44px, 5vw, 74px); letter-spacing: -3.5px; }
+  .hero[data-hv="c"] .hero-copy h1 { margin: 14px 0 10px; font-size: clamp(42px, 4.6vw, 68px); letter-spacing: -3.2px; }
   .hero[data-hv="c"] .hero-copy > p { max-width: 760px; font-size: 17px; margin-bottom: 4px; }
-  .hero[data-hv="c"] .hero-cta { justify-content: center; margin-top: 24px; }
+  .hero[data-hv="c"] .hero-cta { justify-content: center; margin-top: 18px; }
   .hero[data-hv="c"] .hero-search {
     width: min(720px, 100%);
     border-radius: 18px;
     box-shadow: 0 18px 50px rgba(3, 43, 27, .14);
   }
-  .hero[data-hv="c"] .hero-quick { display: flex; justify-content: center; }
+  .hero[data-hv="c"] .hero-search { margin-top: 16px; }
+  .hero[data-hv="c"] .hero-facts { width: min(720px, 100%); margin-top: 10px; text-align: left; }
+  .hero[data-hv="c"] .founder-stat--hero { margin-top: 18px; }
   .hero[data-hv="c"] .founder-stat, .hero[data-hv="c"] .stats { justify-content: center; }
   .hero[data-hv="c"] .scroll-cue { display: none; }
 }
@@ -418,7 +418,8 @@ html,body{overflow-x:clip}
     background: linear-gradient(125deg, var(--deep), #0b603b);
   }
   .hero[data-hv="c"] .hero-copy { text-align: center; }
-  .hero[data-hv="c"] .hero-copy .eyebrow, .hero[data-hv="c"] .hero-cta, .hero[data-hv="c"] .hero-quick { justify-content: center; }
+  .hero[data-hv="c"] .hero-copy .eyebrow, .hero[data-hv="c"] .hero-cta { justify-content: center; }
+  .hero[data-hv="c"] .hero-facts { text-align: left; }
   .hero[data-hv="c"] .scroll-cue { display: none; }
 }
 

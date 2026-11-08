@@ -138,14 +138,16 @@ assert.match(main, /loading=\{a<=1\?'eager':'lazy'\}/);
 assert.match(main, /fetchPriority=\{off===0\?'high':'low'\}/);
 assert.match(main, /prefers-reduced-motion/);
 
-// 2026-10-07 hero rebuild: the photograph IS the card. `.hero-visual` is a
-// two-row grid — row 1 the photo, row 2 ONE in-flow `.hero-facts` row — so no
+// 2026-10-07 hero rebuild, amended 2026-11-09 round 3: the photograph IS the
+// card, and the facts row now docks in `.hero-copy` under the search console
+// (owner: "merge it with the search console area"). `.hero-visual` is the
+// photo alone; `.hero-facts` is a compact two-chip grid in normal flow, so no
 // card, badge or sparkle can sit on top of the vehicle at any width. The old
 // `.floating-card` / `.floating-badge` / `.hero-vignette` / `.spark` rules are
 // deleted everywhere, not merely overridden (one owner per rule).
-assert.match(stylesCss, /\.hero-visual\{position:relative;display:grid;grid-template-rows:minmax\(0,1fr\) auto;/);
+assert.match(stylesCss, /\.hero-visual\{position:relative;display:grid;grid-template-rows:minmax\(0,1fr\);/);
 assert.match(stylesCss, /\.car-main\{grid-row:1;grid-column:1\/-1;/);
-assert.match(stylesCss, /\.hero-facts\{grid-row:2;grid-column:1\/-1;display:grid;/);
+assert.match(stylesCss, /\.hero-facts\{min-width:0;width:100%;margin-top:12px;display:grid;/);
 assert.match(main, /className="hero-facts"/);
 assert.match(main, /className="route-strip"/);
 assert.match(main, /className="auction-chip"/);
@@ -202,7 +204,7 @@ const targetHeroWidths = [1920, 1366, 1024, 768, 390];
 for (const width of targetHeroWidths) {
   const expectedMode = width <= 1000 ? 'stacked' : 'collage';
   const stackedRule = /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-visual \{[\s\S]*?grid-template-rows: auto auto/.test(layoutCss);
-  const collageRule = /\.hero-visual\{position:relative;display:grid;grid-template-rows:minmax\(0,1fr\) auto;gap:clamp\(12px,2\.2vh,20px\);height:clamp\(430px,min\(68vh,52vw\),640px\)\}/.test(stylesCss);
+  const collageRule = /\.hero-visual\{position:relative;display:grid;grid-template-rows:minmax\(0,1fr\);height:clamp\(430px,min\(68vh,52vw\),640px\)\}/.test(stylesCss);
   const actualMode = width <= 1000 ? (stackedRule ? 'stacked' : 'missing') : (collageRule ? 'collage' : 'missing');
   assert.equal(actualMode, expectedMode, `${width}px hero uses its declared ${expectedMode} geometry`);
   // Both desks stay one click away at every width, as real anchors: the CTA row

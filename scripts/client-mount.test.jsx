@@ -130,9 +130,10 @@ ok(document.querySelector('.site'), 'the site shell renders');
     'the two anchors keep the hero CTA styling, not a bare text link');
   ok(!document.querySelector('.hero-copy .hero-vignettes'),
     'the duplicated vignette chips no longer float over the photograph');
-  // The facts row is in flow under the photo: nothing is layered on the image.
-  const facts = document.querySelector('.hero-visual .hero-facts');
-  ok(!!facts, 'the hero renders its facts row');
+  // 2026-11-09 round 3: the facts row docks in .hero-copy under the search
+  // console — nothing is layered on the stage photograph.
+  const facts = document.querySelector('.hero-copy .hero-facts');
+  ok(!!facts, 'the hero renders its facts row docked under the search console');
   ok(!!facts?.querySelector('.route-strip') && !!facts?.querySelector('.auction-chip'),
     'the facts row carries the shipping-lane strip and the next-auction chip');
   ok(!document.querySelector('.hero-visual .floating-card') && !document.querySelector('.hero-visual .floating-badge'),

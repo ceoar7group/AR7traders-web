@@ -728,8 +728,17 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       const cleanBody = String(out.body || '')
         .replace(/\n*\[EDITOR REVIEW: verify every factual claim and source, then remove this note before publication\.\]\s*$/i, '')
         .trimEnd();
-      const draftForm = { title: out.title || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: cleanBody };
-      const { errors, slug } = validateGuide(draftForm, articles);
+      let draftForm = { title: out.title || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: cleanBody };
+      let { errors, slug } = validateGuide(draftForm, articles);
+      // The model sometimes rewrites the headline into one that collides with
+      // an already-published slug (observed 2026-11-08: Gemini turned a fresh
+      // topic into "Used Suzuki Vehicles in Stock…", which was live). The
+      // approved topic title is unique by construction — fall back to it
+      // instead of failing the whole run.
+      if (errors.slug && draftForm.title !== topic.title) {
+        draftForm = { ...draftForm, title: topic.title };
+        ({ errors, slug } = validateGuide(draftForm, articles));
+      }
       if (Object.keys(errors).length) throw new Error('The generated draft failed validation: ' + Object.values(errors).join(' '));
       const needsReview = /\[EDITOR REVIEW:/i.test(draftForm.body || '');
       const article = buildArticle(draftForm, slug);

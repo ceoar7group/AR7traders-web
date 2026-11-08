@@ -51,10 +51,37 @@ ok(pakistanIdea.facts.some(f => f.includes('18–24 days')), 'destination facts 
 const machineryIdea = ideas.find(i => i.id === 'machinery-overview');
 ok(machineryIdea.facts.some(f => f.includes('3 machines')), 'machinery count excludes photosPending records');
 
+// Cover uniqueness (2026-11-08 owner report: three articles shared one photo).
+ok(new Set(ideas.map(i => i.img)).size === ideas.length, 'every proposed topic gets a distinct cover image');
+ok(/toyota/.test(toyota.img), 'the Toyota guide gets a Toyota cover, not a generic one');
+const honda = ideas.find(i => i.id === 'make-honda');
+ok(/honda/.test(honda.img), 'the Honda guide gets a Honda cover');
+
 // Duplicate suppression: publishing a guide with the same title removes the idea.
 const afterPublish = buildTopicIdeas({ cars, machines, dests, published: [{ title: toyota.title }] });
 ok(!afterPublish.some(i => i.id === 'make-toyota'), 'a published guide suppresses its own topic');
 ok(afterPublish.some(i => i.id === 'make-honda'), 'other topics survive the suppression');
+
+// Subject-level suppression (2026-11-08: the desk re-proposed a Suzuki guide
+// while "Used Suzuki Vehicles in Stock at AR7 Traders" was already live —
+// different slug, same subject). ANY published title naming the make/market
+// now suppresses the idea, not just an exact slug match.
+const subjectPublished = [
+  { title: 'Used Honda Vehicles in Stock at AR7 Traders' },
+  { title: 'Your Complete Kenya Import Playbook' }
+];
+const afterSubjects = buildTopicIdeas({ cars, machines, dests, published: subjectPublished });
+ok(!afterSubjects.some(i => i.id === 'make-honda'), 'a published article naming the make suppresses the make guide (subject-level dedupe)');
+ok(!afterSubjects.some(i => i.id === 'dest-kenya'), 'a published article naming the market suppresses the destination guide');
+ok(afterSubjects.some(i => i.id === 'make-toyota') && afterSubjects.some(i => i.id === 'dest-pakistan'), 'uncovered subjects still get proposed');
+
+// Image dedupe against the live site: a cover used by ANY published article
+// is never proposed again.
+const takenImg = toyota.img;
+const afterImgTaken = buildTopicIdeas({ cars, machines, dests, published: [{ title: 'Some Other Story', img: takenImg }] });
+const toyotaRetry = afterImgTaken.find(i => i.id === 'make-toyota');
+ok(toyotaRetry && toyotaRetry.img !== takenImg, 'a cover already used by a published article is never reused');
+ok(/^\/assets\//.test(toyotaRetry.img), 'the replacement cover is still a site asset');
 
 console.log('\n-- buildUpgradeReport --');
 const rows = [

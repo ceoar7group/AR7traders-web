@@ -824,10 +824,51 @@ const heroRoutes=[
 ];
 const formatCountdown=seconds=>{const s=Math.max(0,Math.floor(seconds));const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),x=s%60;return (d?d+'d ':'')+[h,m,x].map(n=>String(n).padStart(2,'0')).join(':')};
 
+// 2026-11-09 (owner request, round 3): the shipping-lane strip and the
+// next-auction chip leave the full-bleed stage and dock as compact chips
+// directly under the hero search console — "merge it with the search
+// console area… use less space". Self-contained: own pause-aware clock, so
+// HeroVisual no longer carries auction/route state it does not render.
+function HeroFactsRow(){
+ const wrap=useRef(null);
+ const auctionEnds=useRef(heroAuctions.map(a=>Date.now()+a.seconds*1000));
+ const [elapsed,setElapsed]=useState(0);
+ useEffect(()=>{
+  const el=wrap.current,query=window.matchMedia('(prefers-reduced-motion: reduce)');let timer;
+  const tick=()=>{if(el&&!query.matches&&!document.hidden&&!el.matches(':hover,:focus-within'))setElapsed(v=>v+1)};
+  const io=new IntersectionObserver(([entry])=>entry.isIntersecting?timer=setInterval(tick,1000):clearInterval(timer));
+  io.observe(el);
+  return()=>{clearInterval(timer);io.disconnect()}
+ },[]);
+ const auctionIdx=Math.floor(elapsed/4.6)%heroAuctions.length;
+ const routeIdx=Math.floor(elapsed/5.6)%heroRoutes.length;
+ const auction=heroAuctions[auctionIdx];
+ const route=heroRoutes[routeIdx];
+ const remaining=(auctionEnds.current[auctionIdx]-Date.now())/1000;
+ return <div className="hero-facts" ref={wrap}>
+  <div className="route-strip"><div className="rotating-card-copy" key={routeIdx}>
+   <div className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></div>
+   <div className="route-lane-row">
+    <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
+    <i className="lane-eta"><Clock3/> ETA {route.eta}</i>
+   </div>
+   <div className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></div>
+   <div className="route-foot">
+    <small className="card-meta route-status"><Ship/> {route.status}</small>
+    <div className="card-rotation-dots route-dots">{heroRoutes.map((_,n)=><i key={n} className={n===routeIdx?'active':''}/>)}</div>
+   </div>
+  </div></div>
+  <div className="auction-chip"><div className="rotating-card-copy" key={auctionIdx}>
+   <div className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span></div>
+   <b className="card-title">{auction.name}</b>
+   <small className="card-meta card-countdown"><Clock3/> Starts in {formatCountdown(remaining)}</small>
+   <div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div>
+  </div></div>
+ </div>}
+
 function HeroVisual({navigate,discounts}){
  const wrap=useRef(null);
  const price=useCarPrice(discounts);
- const auctionEnds=useRef(heroAuctions.map(a=>Date.now()+a.seconds*1000));
  const [manualIdx,setManualIdx]=useState(0);
  const [elapsed,setElapsed]=useState(0);
  useEffect(()=>{
@@ -840,8 +881,6 @@ function HeroVisual({navigate,discounts}){
  const slides=heroSlides(price);
  const moveSlide=delta=>setManualIdx(v=>(v+delta+slides.length)%slides.length);
  const activeIndex=(manualIdx+Math.floor(elapsed/3.2))%slides.length;
- const auctionIdx=Math.floor(elapsed/4.6)%heroAuctions.length;
- const routeIdx=Math.floor(elapsed/5.6)%heroRoutes.length;
  const c=slides[activeIndex]||slides[0];
  // 2026-11-08 (owner request): the flat cross-fade photo card is retired — the
  // home hero now runs the same 3D showroom stage as the inventory hero, which
@@ -855,9 +894,6 @@ function HeroVisual({navigate,discounts}){
  const dragDown=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(e.target.closest('.car-dots,.car-counter'))return;dragRef.current={x:e.clientX}};
  const dragUp=e=>{const d=dragRef.current;dragRef.current=null;if(!d)return;const dx=e.clientX-d.x;if(Math.abs(dx)>40){swipedRef.current=true;moveSlide(dx<0?1:-1)}};
  const dragClick=e=>{if(swipedRef.current){swipedRef.current=false;e.preventDefault();e.stopPropagation()}};
- const auction=heroAuctions[auctionIdx];
- const route=heroRoutes[routeIdx];
- const remaining=(auctionEnds.current[auctionIdx]-Date.now())/1000;
  if(!c)return null;
  return <div className="hero-visual" ref={wrap}>
    {/* The rotating card is a link preview, not a document section, but it does show
@@ -899,38 +935,10 @@ function HeroVisual({navigate,discounts}){
    <button type="button" onClick={()=>moveSlide(-1)} aria-label="Prev"><ChevronLeft/></button>
    <button type="button" onClick={()=>moveSlide(1)} aria-label="Next"><ChevronRight/></button>
   </div>
-  {/* 2026-10-07 hero rebuild — the photograph IS the card.
-      The auction card, the shipping-lane card and the "auction sheets
-      translated" badge used to be absolutely positioned ON TOP of the vehicle
-      photo: at 1000px-and-below they covered roughly a third of the car, and
-      at every width they read as stickers on somebody else's picture. They are
-      now ONE in-flow row (`.hero-facts`) that renders UNDER the photo, so
-      nothing overlaps the image at any viewport and the car keeps its full
-      frame. Same live data, same rotation cadence, same "demo" honesty tag —
-      and because the row is in flow, `.hero-facts` top is always ≥ the car
-      card's bottom (measured, see pr-visuals/).
-      The six `.spark` twinkles went with them: decorative gold dots on an
-      uncovered photograph read as sensor noise, not as sparkle. */}
-  <div className="hero-facts">
-   <div className="route-strip"><div className="rotating-card-copy" key={routeIdx}>
-    <div className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></div>
-    <div className="route-lane-row">
-     <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
-     <i className="lane-eta"><Clock3/> ETA {route.eta}</i>
-    </div>
-    <div className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></div>
-    <div className="route-foot">
-     <small className="card-meta route-status"><Ship/> {route.status}</small>
-     <div className="card-rotation-dots route-dots">{heroRoutes.map((_,n)=><i key={n} className={n===routeIdx?'active':''}/>)}</div>
-    </div>
-   </div></div>
-   <div className="auction-chip"><div className="rotating-card-copy" key={auctionIdx}>
-    <div className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span></div>
-    <b className="card-title">{auction.name}</b>
-    <small className="card-meta card-countdown"><Clock3/> Starts in {formatCountdown(remaining)}</small>
-    <div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div>
-   </div></div>
-  </div>
+  {/* 2026-11-09 (owner request, round 3): the facts row moved OUT of the
+      stage entirely — it now docks under the hero search console as
+      HeroFactsRow, so the full-bleed band is only the photograph and the
+      stage reads lighter. Nothing is ever layered on the photo. */}
  </div>}
 
 // 2026-11-10 (owner request: "redesign the globes — completely free rotation,
@@ -1657,7 +1665,9 @@ export function App(){
           two links as floating chips over the photo is gone: the same two
           destinations are these two buttons, and the machinery teaser below
           carries the China desk. */}
-      <div className="hero-cta"><PageLink className="primary" to="inventory" navigate={navigate}>{t('hero.explore')} <ArrowRight/></PageLink><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink></div>
+      {/* 2026-11-09 round 3: "See how bidding works" joins the CTA row (it was
+          a lone .hero-quick row of its own) — one less row of white space. */}
+      <div className="hero-cta"><PageLink className="primary" to="inventory" navigate={navigate}>{t('hero.explore')} <ArrowRight/></PageLink><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink><button className="text-btn" onClick={()=>setEnquiry({kind:'auction'})} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
       {/* Quick search: hands the text to the inventory screen through
           sessionStorage (no new URL shape, so the SEO routing is untouched)
           and navigates. The inventory search box picks it up on mount. */}
@@ -1673,7 +1683,9 @@ export function App(){
           <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
         </div>
       </form>
-      <div className="hero-quick"><button className="text-btn" onClick={()=>setEnquiry({kind:'auction'})} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
+      {/* 2026-11-09 round 3 (owner): shipping lane + next auction, docked as
+          compact chips right under the search console they belong with. */}
+      <HeroFactsRow/>
       <FounderStat variant="hero" delay={900}/>
     </div>
     <HeroVisual navigate={navigate} discounts={liveDiscounts}/>

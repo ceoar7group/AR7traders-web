@@ -36,6 +36,40 @@ function devLiveFixtures() {
   };
 }
 
+/* 2026-11-09 Lighthouse mobile CLS 0.292: the promo bar answers over the
+ * network AFTER first paint, so the fixed header grows and pushes the whole
+ * page down (`--promo-h` 0 → ~45px). React's own pre-reservation (see
+ * src/promo-bar.jsx HEIGHT_KEY) runs at component mount — too late, because
+ * index.html paints its boot/static shell first. This plugin injects ONE tiny
+ * inline script into <head> that reserves the height BEFORE first paint:
+ *   1. a returning visitor gets last visit's measured height (localStorage);
+ *   2. a first-time visitor gets 45px (one minified bar row) whenever the
+ *      campaign baked from public/promo.json at build time is still live and
+ *      not dismissed — mirroring src/offers.js campaignIsLive().
+ * PromoBar then measures the real row and corrects the variable by at most a
+ * couple of pixels instead of shifting the entire page. */
+function promoReserve() {
+  return {
+    name: 'ar7-promo-reserve',
+    transformIndexHtml() {
+      let promo = null;
+      try {
+        promo = JSON.parse(readFileSync(fileURLToPath(new URL('./public/promo.json', import.meta.url)), 'utf8'));
+      } catch { /* no promo file: reserve from localStorage only */ }
+      const baked = promo && promo.active ? { id: String(promo.id || ''), until: String(promo.until || '') } : null;
+      const js =
+        "(function(){try{var d=document.documentElement.style,h=parseInt(localStorage.getItem('ar7-promo-h')||'',10);" +
+        "if(h>0&&h<200){d.setProperty('--promo-h',h+'px');return}" +
+        (baked
+          ? `var p=${JSON.stringify(baked)};` +
+            "if((!p.until||Date.now()<=new Date(p.until+'T23:59:59').getTime())&&localStorage.getItem('ar7-promo-dismissed')!==p.id)d.setProperty('--promo-h','45px');"
+          : '') +
+        '}catch(e){}})();';
+      return [{ tag: 'script', children: js, injectTo: 'head-prepend' }];
+    }
+  };
+}
+
 /* Dev-only: stop the browser reusing a stale module body.
  *
  * Vite rewrites every bare import to a versioned optimizer URL
@@ -98,7 +132,7 @@ function devFreshModules() {
 
 export default defineConfig({
   base: '/',
-  plugins: [react(), devLiveFixtures(), devApiMock(), devFreshModules()],
+  plugins: [react(), promoReserve(), devLiveFixtures(), devApiMock(), devFreshModules()],
   // The dev server must never hand out two copies of React: a second copy has a
   // null dispatcher, and every hook in the app then throws "Cannot read
   // properties of null (reading 'useState')". Dedupe pins one copy, and the

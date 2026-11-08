@@ -21,8 +21,73 @@ const fmtUsd = n => '$' + Math.round(n).toLocaleString('en-US');
 const slugOf = title => text(title).toLowerCase()
   .replace(/[’'".,:;!?()&/]+/g, ' ').replace(/\s+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90);
 
+// ---------------------------------------------------------------------------
+// Cover pictures (2026-11-08 owner report: "the articles are using the same
+// image… it should not use the same twice at all").
+//
+// Guide covers must be site assets (validateGuide requires /assets/ paths, so
+// a hot-linked stock photo can never be an og:image). The scout now picks
+// from pools — brand-matched first, generic second — and REFUSES to assign a
+// cover that is already used by a published article or by another idea in
+// the same batch. Only when every pooled asset is taken does it fall back to
+// the first brand/generic entry rather than propose nothing.
+const BRAND_COVERS = {
+  toyota: [
+    '/assets/used-japanese-cars-auction-export-toyota-1.webp',
+    '/assets/used-japanese-cars-auction-export-toyota-2.webp',
+    '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
+    '/assets/used-japanese-cars-auction-export-toyota-4.webp',
+    '/assets/japan-used-car-export-inventory-toyota-h-2.webp',
+    '/assets/used-japanese-cars-auction-export-toyota-5.webp'
+  ],
+  honda: [
+    '/assets/japan-used-car-export-stock-honda-vezel--1.webp',
+    '/assets/japan-used-car-export-stock-honda-vezel--2.webp',
+    '/assets/japan-used-car-export-stock-honda-vezel--3.webp',
+    '/assets/japan-used-car-export-stock-honda-vezel--4.webp'
+  ]
+};
+const GENERIC_COVERS = [
+  '/assets/japanese-car-auction-inspection-shipping-1.webp',
+  '/assets/og/inventory.jpg',
+  '/assets/showroom/hero-02.webp',
+  '/assets/japanese-car-auction-inspection-shipping-2.webp',
+  '/assets/showroom/hero-03.webp',
+  '/assets/og/auction.jpg',
+  '/assets/showroom/hero-04.webp',
+  '/assets/japanese-car-auction-inspection-shipping-3.webp',
+  '/assets/showroom/hero-05.webp'
+];
+const LOGISTICS_COVERS = [
+  '/assets/og/shipping.jpg',
+  '/assets/japanese-car-auction-inspection-shipping-5.webp',
+  '/assets/showroom/hero-06-v3.webp',
+  '/assets/japanese-car-auction-inspection-shipping-2.webp',
+  '/assets/showroom/hero-08-v2.webp',
+  '/assets/japanese-car-auction-inspection-shipping-3.webp',
+  '/assets/showroom/hero-01.webp',
+  '/assets/og/inventory.jpg'
+];
+
 export function buildTopicIdeas({ cars = [], machines = [], dests = [], published = [] } = {}) {
   const taken = new Set(published.map(a => slugOf(a.title)));
+  // Subject-level coverage (2026-11-08 owner report: the desk kept proposing
+  // "Buying a used Suzuki…" while "Used Suzuki Vehicles in Stock…" was
+  // already live — the exact-slug check passed, the subject was still a
+  // duplicate). A make/market is covered when ANY published title names it.
+  const publishedSlugs = published.map(a => slugOf(a.title)).filter(Boolean);
+  const covered = subject => {
+    const t = slugOf(subject);
+    return !!t && publishedSlugs.some(s => s.includes(t));
+  };
+  // Covers already in use — published articles' images are off the table.
+  const usedCovers = new Set(published.map(a => text(a.img || a.image)).filter(Boolean));
+  const pickCover = (...pools) => {
+    for (const pool of pools) for (const img of pool) {
+      if (!usedCovers.has(img)) { usedCovers.add(img); return img; }
+    }
+    return (pools[0] && pools[0][0]) || GENERIC_COVERS[0]; // every asset taken — last resort
+  };
   const ideas = [];
   const push = idea => { if (!taken.has(slugOf(idea.title))) ideas.push(idea); };
 
@@ -37,6 +102,7 @@ export function buildTopicIdeas({ cars = [], machines = [], dests = [], publishe
   const makes = [...byMake.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 4);
   for (const [make, stock] of makes) {
     if (stock.length < 5) continue;
+    if (covered(make)) continue; // a live article already owns this make
     const models = [...new Set(stock.map(c => c.model).filter(Boolean))];
     const years = stock.map(c => Number(c.year)).filter(Boolean);
     const prices = stock.map(usdOf).filter(Boolean);
@@ -52,7 +118,7 @@ export function buildTopicIdeas({ cars = [], machines = [], dests = [], publishe
       id: 'make-' + make.toLowerCase().replace(/\s+/g, '-'),
       title: `Buying a used ${make} from Japan: what's in stock right now`,
       cat: 'BUYING GUIDE', kind: 'guide',
-      img: '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
+      img: pickCover(BRAND_COVERS[make.toLowerCase()] || [], GENERIC_COVERS),
       why: `${stock.length} ${make} vehicles live — searches for "used ${make.toLowerCase()} from japan" land on competitors' pages today.`,
       facts
     });
@@ -61,6 +127,7 @@ export function buildTopicIdeas({ cars = [], machines = [], dests = [], publishe
   // ---- 2. Destination checklists from the markets we actually ship to -----
   for (const d of dests.slice(0, 8)) {
     const [country, port, transit] = d;
+    if (covered(country)) continue; // a live article already owns this market
     const facts = [
       `AR7 Traders ships vehicles from Japan to ${country}, discharging at ${port}.`,
       `Typical sea transit from Japan to ${port} is ${transit}.`,
@@ -72,7 +139,7 @@ export function buildTopicIdeas({ cars = [], machines = [], dests = [], publishe
       id: 'dest-' + slugOf(country),
       title: `Shipping a car from Japan to ${country}: the pre-order checklist`,
       cat: 'LOGISTICS', kind: 'guide',
-      img: '/assets/og/shipping.jpg',
+      img: pickCover(LOGISTICS_COVERS, GENERIC_COVERS),
       why: `"${country.toLowerCase()} import used car from japan" is a buying-intent query this site can own with one page.`,
       facts
     });
@@ -80,14 +147,14 @@ export function buildTopicIdeas({ cars = [], machines = [], dests = [], publishe
 
   // ---- 3. Machinery guides from the catalogue ------------------------------
   const visibleMachines = machines.filter(m => m && !m.photosPending);
-  if (visibleMachines.length >= 3) {
+  if (visibleMachines.length >= 3 && !covered('machinery')) {
     const types = [...new Set(visibleMachines.map(m => m.type).filter(Boolean))];
     const brands = [...new Set(visibleMachines.map(m => m.brand).filter(Boolean))];
     push({
       id: 'machinery-overview',
       title: 'Buying used construction machinery for export: how AR7 sources it',
       cat: 'BUYING GUIDE', kind: 'guide',
-      img: '/assets/machinery/hero-yard.webp',
+      img: pickCover(['/assets/machinery/hero-yard.webp'], GENERIC_COVERS),
       why: 'The machinery desk has stock but almost no editorial surface for machinery buyers to find.',
       facts: [
         `AR7 Traders currently lists ${visibleMachines.length} machines for export, across these types: ${types.join(', ')}.`,
