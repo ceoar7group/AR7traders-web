@@ -204,8 +204,11 @@ const en = {
   // it, how to ask, how to reach us, the footer that stays on every page, and
   // the machinery desk's "tell us the machine" fallback.
   'hero.eyebrow': 'Japan auctions · China cars & machinery',
-  'hero.h1a': 'RHD & LHD cars from Japan & China,', // 2026-11-09 owner: headline must carry both drive sides
-  'hero.h1b': 'machinery for every market.',
+  // 2026-11-10 round 5 (owner: "rewrite it in a professional way… all kinds of
+  // vehicles and machinery"). The headline states the whole offer in six
+  // words; the lead right under it still spells out RHD/LHD and the segments.
+  'hero.h1a': 'Any vehicle. Any machine.',
+  'hero.h1b': 'Japan & China to your port.',
   'hero.lead': "We export every kind of vehicle and machinery from Japan and China — RHD or LHD cars, SUVs, vans and trucks, plus heavy and light equipment from vetted factories — inspected, priced to your port, and delivered", // 2026-11-10 owner: all kinds of vehicles AND machinery, both drive sides, both countries
   'hero.leadEm': 'anywhere in the world',
   'hero.explore': 'Explore vehicles',

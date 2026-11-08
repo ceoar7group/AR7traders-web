@@ -51,15 +51,21 @@ const AGENT_COMMANDS = [
 // Existing assets a guide may use for its og:image. Every path is a real file
 // under public/assets/ — scripts/seo-desk-create.test.jsx asserts that, so the
 // list can never drift from disk. (Custom paths are allowed too.)
+// 2026-11-10 asset audit: inspection-shipping-5 (dealer sign in shot) and
+// toyota-h-1 (BE FORWARD watermark) are OUT — competitor branding must never
+// ship on an AR7 guide. The three japan-*-1.jpg files are new, verified
+// brand-neutral scenes.
 export const GUIDE_ASSETS = [
   '/assets/japanese-car-auction-inspection-shipping-1.webp',
   '/assets/japanese-car-auction-inspection-shipping-2.webp',
   '/assets/japanese-car-auction-inspection-shipping-3.webp',
-  '/assets/japanese-car-auction-inspection-shipping-5.webp',
+  '/assets/japan-car-auction-hall-1.jpg',
+  '/assets/japan-vehicle-export-port-aerial-1.jpg',
+  '/assets/japan-car-carrier-trucks-1.jpg',
   '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
-  '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
+  '/assets/japan-used-car-export-stock-honda-vezel--4.webp',
+  '/assets/japan-used-car-export-stock-nissan-serena-1.webp',
   '/assets/machinery/hero-yard.webp',
-  '/assets/og/auction.jpg',
   '/assets/og/help.jpg',
   '/assets/og/inventory.jpg',
   '/assets/og/shipping.jpg'

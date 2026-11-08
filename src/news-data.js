@@ -60,7 +60,7 @@ const RAW_NEWS = [
   },
   {
     cat: 'LOGISTICS', date: 'Aug 04, 2026', min: 3,
-    img: '/assets/japanese-car-auction-inspection-shipping-5.webp',
+    img: '/assets/japan-vehicle-export-port-aerial-1.jpg',
     title: 'RoRo vs container: which shipping method fits your car?',
     ex: 'Costs, protection and loading windows for both methods — with sample numbers.',
     body: 'RoRo (roll-on, roll-off) is the most economical way to move a drivable car between continents, with your vehicle secured on an enclosed car-carrier deck. Container shipping adds an estimated $1,800–$2,500 on Japan–Karachi routes (a planning estimate that varies by carrier and schedule) and gives you a sealed hold.\n\nWe generally recommend RoRo for standard stock under $45,000 and containers for high-value, low-ground-clearance or multi-car orders.\n\nEvery AR7 shipment includes marine transit insurance at an estimated 1.6% of vehicle value, whether RoRo or container.'

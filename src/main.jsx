@@ -846,24 +846,24 @@ function HeroFactsRow(){
  const auction=heroAuctions[auctionIdx];
  const route=heroRoutes[routeIdx];
  const remaining=(auctionEnds.current[auctionIdx]-Date.now())/1000;
+ // 2026-11-10 round 5 (owner: "they look very thick… decrease the length and
+ // width… set their color according to the theme"): both chips rebuilt as a
+ // SINGLE slim line each — kicker · title · (lane line) · status · ETA — the
+ // same 44px height as the CTA buttons beside them, in the stage's own dark
+ // glass. The rotating data, classes and reduced-motion contract are
+ // unchanged; only the skeleton went from four stacked lines to one row.
  return <div className="hero-facts" ref={wrap}>
   <div className="route-strip"><div className="rotating-card-copy" key={routeIdx}>
-   <div className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></div>
-   <div className="route-lane-row">
-    <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
-    <i className="lane-eta"><Clock3/> ETA {route.eta}</i>
-   </div>
-   <div className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></div>
-   <div className="route-foot">
-    <small className="card-meta route-status"><Ship/> {route.status}</small>
-    <div className="card-rotation-dots route-dots">{heroRoutes.map((_,n)=><i key={n} className={n===routeIdx?'active':''}/>)}</div>
-   </div>
+   <span className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></span>
+   <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
+   <span className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></span>
+   <small className="card-meta route-status">{route.status}</small>
+   <i className="lane-eta"><Clock3/> ETA {route.eta}</i>
   </div></div>
   <div className="auction-chip"><div className="rotating-card-copy" key={auctionIdx}>
-   <div className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span></div>
+   <span className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span></span>
    <b className="card-title">{auction.name}</b>
-   <small className="card-meta card-countdown"><Clock3/> Starts in {formatCountdown(remaining)}</small>
-   <div className="card-rotation-dots">{heroAuctions.map((_,n)=><i key={n} className={n===auctionIdx?'active':''}/>)}</div>
+   <small className="card-meta card-countdown"><Clock3/> {formatCountdown(remaining)}</small>
   </div></div>
  </div>}
 
@@ -1365,7 +1365,7 @@ if(page==='inventory')return <section className="inner-page"><div className="pag
  const pages={
  auction:{tag:t('page.auctionKicker'),title:<>{t('page.auctionH1a')}<br/><em>{t('page.auctionH1em')}</em></>,desc:t('page.auctionBody'),image:'/assets/japanese-car-auction-inspection-shipping-3.webp'},
  shipping:{tag:t('page.shippingKicker'),title:<>{t('page.shippingH1a')}<br/>{t('page.shippingH1b')} <em>{t('page.shippingH1em')}</em></>,desc:t('page.shippingBody'),image:'/assets/japanese-car-auction-inspection-shipping-1.webp'},
- about:{tag:t('page.aboutKicker'),title:<>{t('page.aboutH1a')}<br/>{t('page.aboutH1b')} <em>{t('page.aboutH1em')}</em></>,desc:t('page.aboutBody'),image:'/assets/japanese-car-auction-inspection-shipping-5.webp'},
+ about:{tag:t('page.aboutKicker'),title:<>{t('page.aboutH1a')}<br/>{t('page.aboutH1b')} <em>{t('page.aboutH1em')}</em></>,desc:t('page.aboutBody'),image:'/assets/japan-vehicle-export-port-aerial-1.jpg'},
  contact:{tag:t('page.contactKicker'),title:<>{t('page.contactH1a')}<br/><em>{t('page.contactH1em')}</em></>,desc:t('page.contactBody'),image:'/assets/japanese-car-auction-inspection-shipping-2.webp'}
  };
  const p=pages[page]||pages.about;
@@ -1695,7 +1695,13 @@ export function App(){
    </section>
 
 
-   <section className="ticker"><div>{['USS TOKYO','JU AICHI','TAA KINKI','CAA CHUBU','HAA KOBE','ARAI AUTO'].concat(['USS TOKYO','JU AICHI','TAA KINKI']).map((x,i)=><span key={i}><i/> {x}</span>)}</div></section>
+   {/* 2026-11-10 round 5 (owner: the marquee ran with a gap). The loop
+       animates translateX(-50%), so the strip must be two IDENTICAL halves —
+       the old 6+3 arrangement left the second half short and a blank window
+       scrolled past every cycle. Fifteen real auction venues, doubled, and
+       styles.css slows the clock to 48s so the longer strip glides at the
+       same speed. */}
+   <section className="ticker" aria-label="Japanese auction venues AR7 bids at"><div>{(()=>{const v=['USS TOKYO','USS NAGOYA','USS YOKOHAMA','USS OSAKA','TAA KINKI','TAA YOKOHAMA','CAA CHUBU','CAA TOKYO','HAA KOBE','JU AICHI','JU GIFU','LAA KANSAI','ARAI OYAMA','MIRIVE OSAKA','BAYAUC'];return v.concat(v)})().map((x,i)=><span key={i}><i/> {x}</span>)}</div></section>
 
    <MotionShowcase navigate={navigate}/>
 

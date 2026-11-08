@@ -841,45 +841,79 @@ footer [id] {
    sailing on it, the live dot, the card swap) and its reduced-motion stops.
    src/styles.css owns the box itself. Nothing else may restyle the hero. */
 
-/* --- facts row: shared card skeleton, all widths --- */
+/* --- facts row: shared chip skeleton, all widths ---
+   2026-11-10 round 5 (owner: "they look very thick and their length is also
+   very wide… optimize them"). The chips are no longer four stacked lines —
+   each is ONE slim row, the same 44px height as the CTA buttons they sit
+   next to, so the whole stage foot reads as a single bar. Reading order per
+   chip: kicker → headline → (lane bar) → status → ETA / countdown. The
+   rotation dots are gone; the kicker's own "1/5" counter already says where
+   the rotation is. landing-v2.css still owns the motion; styles.css owns
+   the box. */
 .hero-facts .rotating-card-copy {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
   min-width: 0;
+  width: 100%;
 }
 
-.hero-facts .auction-chip {
-  justify-content: center;
-}
-
-.hero-facts .auction-chip .rotating-card-copy {
-  justify-content: center;
-  height: 100%;
-}
-
-.hero-facts .card-kicker {
+.hero-facts .facts-head {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.hero-facts .facts-head > svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  color: var(--gold-ink);
+}
+
+.hero-facts .card-kicker {
   font: 700 8px/1.35 Manrope, sans-serif;
-  letter-spacing: 1.3px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .hero-facts .card-title {
-  font: 700 12.5px/1.25 Manrope, sans-serif;
+  flex: 0 1 auto;
+  font: 700 12px/1.25 Manrope, sans-serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.hero-facts .route-lane {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hero-facts .lane-arrow {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  color: var(--gold);
+}
+
+/* The lane bar is the chip's flexible spring: it absorbs whatever width the
+   lane text leaves over, and collapses first when space runs out. */
+.hero-facts .progress {
+  flex: 1 1 54px;
+  min-width: 36px;
+  align-self: center;
+}
+
 .hero-facts .card-meta {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -887,21 +921,26 @@ footer [id] {
   font-size: 9px;
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .hero-facts .card-meta svg {
   flex: 0 0 auto;
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   color: var(--gold-ink);
 }
 
-/* The countdown is the live-feeling line of the auction chip; the route's
-   status line stays muted so the lane bar carries the colour. */
+/* The vessel status is the first line to give way on narrow chips. */
+.hero-facts .route-status {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The countdown is the live-feeling line of the auction chip. */
 .hero-facts .auction-chip .card-meta {
   color: var(--gold-ink);
+  margin-left: auto;
 }
 
 /* A live number needs fixed-width digits, or the chip jitters every second. */
@@ -925,70 +964,11 @@ footer [id] {
   50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 8%, transparent); }
 }
 
-/* The honesty tag: these are real venue names and real lanes, but the departure
-   times are a rotating illustration, so both cards say so on their face. */
-.hero-facts .card-demo {
-  flex: 0 0 auto;
-  margin-left: auto;
-  font: 700 7px/1 Manrope, sans-serif;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 3px 6px;
-  font-style: normal;
-}
-
-/* --- both cards: four lines each, and both carry the visible demo tag --- */
-.hero-facts .facts-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.hero-facts .facts-head > svg {
-  flex: 0 0 auto;
-  width: 13px;
-  height: 13px;
-  color: var(--gold-ink);
-}
-
-.hero-facts .facts-head .card-kicker {
-  flex: 1 1 auto;
-}
-
-.hero-facts .route-lane-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.hero-facts .route-lane-row .card-title {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.hero-facts .route-lane {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font: 700 12.5px/1.25 Manrope, sans-serif;
-}
-
-.hero-facts .lane-arrow {
-  flex: 0 0 auto;
-  width: 13px;
-  height: 13px;
-  color: var(--gold);
-}
-
-/* The ETA pill answers "how long" on the same line as "where". It is a planning
+/* The ETA pill answers "how long" at the chip's right edge. It is a planning
    window, never a promise, and the destinations page says so in full. */
 .hero-facts .lane-eta {
   flex: 0 0 auto;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1006,45 +986,6 @@ footer [id] {
 .hero-facts .lane-eta svg {
   width: 10px;
   height: 10px;
-}
-
-/* Line 4 pairs the vessel status with the rotation dots so the strip is four
-   lines tall at every width instead of five. */
-.hero-facts .route-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-}
-
-.hero-facts .route-status {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  font-size: 9px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.hero-facts .route-status svg {
-  flex: 0 0 auto;
-  width: 13px;
-  height: 13px;
-  color: var(--gold);
-}
-
-.hero-facts .card-rotation-dots {
-  margin: 0;
-  flex: 0 0 auto;
-}
-
-.hero-facts .auction-chip .card-rotation-dots {
-  margin-top: 3px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1115,23 +1056,19 @@ footer [id] {
     gap: 9px;
   }
 
-  .hero-facts .route-strip,
-  .hero-facts .auction-chip {
-    padding: 11px 12px;
-    border-radius: 14px;
-  }
-
+  /* Slightly larger type at arm's length, same single-line slim chips. */
   .hero-facts .card-title {
-    font-size: 13.5px;
+    font-size: 12.5px;
   }
 
-  .hero-facts .route-lane {
-    font-size: 13px;
-  }
-
-  .hero-facts .card-meta,
-  .hero-facts .route-status {
+  .hero-facts .card-meta {
     font-size: 9.5px;
+  }
+
+  /* On the narrowest chips the vessel-status prose goes: lane, bar and ETA
+     carry the story alone, which keeps the chip to one honest line. */
+  .hero-facts .route-status {
+    display: none;
   }
 }
 
@@ -1141,15 +1078,10 @@ footer [id] {
     gap: 10px;
   }
 
-  .hero-facts .route-strip,
+  /* The auction chip is the narrow one; the lane strip takes the rest so a
+     long port pair ("Yokohama → Dar es Salaam") has room to run. */
   .hero-facts .auction-chip {
-    padding: 8px 12px;
-  }
-
-  /* The auction chip is the narrow, fixed one; the lane strip takes the rest so
-     a long port pair ("Yokohama → Dar es Salaam") has room to run. */
-  .hero-facts .auction-chip {
-    width: clamp(176px, 14vw, 208px);
+    width: clamp(200px, 16vw, 250px);
   }
 }
 
