@@ -146,7 +146,9 @@ assert.match(main, /prefers-reduced-motion/);
 // (.stage-foot, row 3) underneath. The arrows share row 2 with the photo.
 assert.match(stylesCss, /\.hero-visual\{position:relative;display:grid;grid-template-rows:auto minmax\(0,1fr\) auto;/);
 assert.match(stylesCss, /\.stage-top\{grid-row:1;grid-column:1\/-1;/);
-assert.match(stylesCss, /\.stage-foot\{grid-row:3;grid-column:1\/-1;display:flex;flex-wrap:wrap;/);
+// 2026-11-10 round 5: the foot band carries z-index:12 — the crossfading
+// slides (zIndex<=10) were ghosting OVER the CTA buttons on tablets.
+assert.match(stylesCss, /\.stage-foot\{grid-row:3;grid-column:1\/-1;position:relative;z-index:12;display:flex;flex-wrap:wrap;/);
 assert.match(stylesCss, /\.car-main\{grid-row:2;grid-column:1\/-1;/);
 assert.match(stylesCss, /\.hero-facts\{min-width:0;flex:1 1 340px;display:grid;/);
 assert.match(main, /className="hero-facts"/);
@@ -168,8 +170,10 @@ assert.match(layoutCss, /@media \(max-width: 1000px\)[\s\S]*?\.hero \{\s*max-hei
 // Below 1000px the two facts cards stack: side by side on a phone each was
 // ~170px wide, which truncated the lane and squeezed the countdown.
 assert.match(layoutCss, /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-facts \{\s*grid-template-columns: minmax\(0, 1fr\);/s);
-assert.match(layoutCss, /\.hero-facts \.rotating-card-copy \{[^}]*flex-direction: column/s);
-assert.match(layoutCss, /\.hero-facts \.route-foot \{[^}]*justify-content: space-between/s);
+// 2026-11-10 round 5 (owner: chips "very thick… very wide"): each chip is ONE
+// slim row now, the same height as the CTA buttons beside it.
+assert.match(layoutCss, /\.hero-facts \.rotating-card-copy \{[^}]*flex-direction: row/s);
+assert.match(stylesCss, /\.route-strip,\.auction-chip\{[^}]*min-height:44px/);
 assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.inventory-panel:before \{\s*content: 'Inventory'/);
 assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.nav-drop-panel > a \{[^}]*justify-content: flex-start/s);
 
@@ -247,7 +251,8 @@ assert.ok(landingCss.includes('@media (prefers-reduced-motion: reduce)') && land
 assert.match(main, /className="hero-facts"/);
 assert.match(main, /Shipping lane · \{routeIdx\+1\}\/\{heroRoutes\.length\}/);
 assert.match(main, /Next auction · \{auction\.city\}/);
-assert.match(main, /Starts in \{formatCountdown\(remaining\)\}/);
+// 2026-11-10 round 5: one-line chip — the countdown stands alone, no prose.
+assert.match(main, /\{formatCountdown\(remaining\)\}/);
 assert.match(main, /className="ticker"/);
 // 2026-11-09 (owner direction): the visible "sample" tag is gone from both
 // facts cards — the owner wants the lane strip and auction chip presented as

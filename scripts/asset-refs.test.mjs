@@ -34,7 +34,11 @@ const EXT = /\.(jsx?|mjs|css|html|txt|xml|json|md|sql)$/i;
 // AR7-branded hero scenes (assets/showroom/hero-*.webp, ~75 KB each). Keep
 // this number honest — raise it only for real new media, never for build
 // artefacts.
-const MAX_PUBLIC_BYTES = 7.0 * 1000 * 1000;
+// Ratcheted 7.0 → 7.6 MB on 2026-11-10: the news-cover audit retired the
+// watermarked/competitor-branded covers and added four verified brand-safe
+// replacements (port aerial, auction hall, carrier trucks, Nissan Serena),
+// each under the 200 KB per-file cap. Real new media, not build artefacts.
+const MAX_PUBLIC_BYTES = 7.6 * 1000 * 1000;
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;

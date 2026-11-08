@@ -127,7 +127,9 @@ ok(cleanReport.includes('every audited page passed'), 'an all-clean crawl says s
     { id: 'b', title: 'Honda Vezel Buyer Guide', image: dup },
     { id: 'c', title: 'Shipping Lanes to Mombasa', image: dup },
     { id: 'd', title: 'No Cover Draft' },
-    { id: 'e', title: 'Already Unique', image: '/assets/og/auction.jpg' }
+    // og/shipping.jpg — NOT og/auction.jpg, which the scene map knows is the
+    // same photograph as the Honda Vezel brand asset.
+    { id: 'e', title: 'Already Unique', image: '/assets/og/shipping.jpg' }
   ]);
   ok(!fixes.some(f => f.id === 'a'), 'the Toyota article keeps the toyota cover (best title match wins)');
   ok(!fixes.some(f => f.id === 'e'), 'an article with a unique cover is left alone');
@@ -137,10 +139,29 @@ ok(cleanReport.includes('every audited page passed'), 'an all-clean crawl says s
   ok(byId.d && byId.d.reason === 'missing cover' && byId.d.to.startsWith('/assets/'), 'a cover-less draft is assigned a site asset');
   const proposed = fixes.map(f => f.to);
   ok(new Set(proposed).size === proposed.length, 'no two fixes propose the same image');
-  ok(!proposed.includes('/assets/og/auction.jpg'), 'proposals never collide with an image already in use');
+  ok(!proposed.includes('/assets/og/shipping.jpg') && !proposed.some(p2 => p2.includes('inspection-shipping-1')),
+    'proposals never collide with an image already in use — even as a .jpg/.webp twin of the same photo');
   ok(fixes.every(f => f.to.startsWith('/assets/')), 'every proposal is a site asset (validateGuide og:image contract)');
-  ok(suggestCoverFixes([{ id: 1, title: 'A', image: '/assets/x.webp' }, { id: 2, title: 'B', image: '/assets/y.webp' }]).length === 0,
+  // Real on-disk neutral assets (asset-refs.test.mjs walks test fixtures too).
+  ok(suggestCoverFixes([{ id: 1, title: 'A', image: '/assets/japan-car-carrier-trucks-1.jpg' }, { id: 2, title: 'B', image: '/assets/japanese-car-auction-inspection-shipping-3.webp' }]).length === 0,
     'a healthy article list produces zero fixes');
+  // 2026-11-10 round 5 (owner: Nissan wore a Lamborghini, Honda wore a
+  // Nissan): the doctor must catch WRONG-BRAND covers even when unique, and
+  // covers with competitor branding baked into the picture.
+  const wrong = suggestCoverFixes([
+    { id: 'n', title: 'Used Nissan Stock from Japan', image: '/assets/showroom/hero-02.webp' },
+    { id: 'h', title: 'Used Honda Stock from Japan', image: '/assets/japan-used-car-export-stock-honda-vezel--1.webp' },
+    { id: 'b', title: 'RoRo vs container', image: '/assets/japanese-car-auction-inspection-shipping-5.webp' }
+  ]);
+  const wb = Object.fromEntries(wrong.map(f => [f.id, f]));
+  ok(wb.n && /nissan/.test(wb.n.to) && /lamborghini/.test(wb.n.reason),
+    'a unique but wrong-brand cover is still flagged (the filename cannot hide the Lamborghini)');
+  ok(wb.h && /vezel--4|og\/auction/.test(wb.h.to) && /nissan/.test(wb.h.reason),
+    'a cover whose CONTENT contradicts its own filename is judged by content');
+  ok(wb.b && /competitor branding/.test(wb.b.reason),
+    'a cover with competitor branding in the picture is always replaced');
+  ok(!wrong.some(f => /toyota-h-|export-toyota-5|inspection-shipping-5/.test(f.to)),
+    'watermarked assets are never proposed as replacements');
   ok(suggestCoverFixes([]).length === 0 && suggestCoverFixes().length === 0, 'empty and missing input are safe');
 }
 

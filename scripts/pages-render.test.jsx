@@ -494,7 +494,11 @@ function checkFounderStat(html, variant, where) {
     'the primary CTA is no longer a JS button with no href');
   // 2026-11-09 (owner): the headline now carries both drive sides — "RHD & LHD
   // cars from Japan & China" — so the pin checks that fuller scope statement.
-  ok(home.includes('RHD &amp; LHD cars from Japan &amp; China') && home.includes('machinery for every market'), 'the hero headline states the scope of work: RHD & LHD cars from Japan and China, machinery for every market');
+  // 2026-11-10 round 5 (owner): headline rewritten to six words covering every
+  // vehicle AND machine; RHD/LHD detail moved down into the lead paragraph.
+  ok(home.includes('Any vehicle. Any machine.') && home.includes('Japan &amp; China to your port.'),
+    'the hero headline states the whole scope: any vehicle, any machine, Japan & China to your port');
+  ok(home.includes('RHD or LHD'), 'the lead under the headline still carries both drive sides');
   ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
   ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
   ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');
@@ -505,7 +509,9 @@ function checkFounderStat(html, variant, where) {
     'the hero auction chip describes the auction, without the word SAMPLE');
   ok(heroCards.includes('Shipping lane \u00b7 ') && /Lane|from|Yokohama|Kobe|Nagoya|Tokyo|Osaka/.test(heroCards),
     'the hero route card labels the shipping lane');
-  ok((home.match(/class="card-rotation-dots/g) || []).length === 2, 'both hero cards still show their rotation dots');
+  // 2026-11-10 round 5: the slim one-line chips drop the rotation dots — the
+  // kicker's own "1/5" counter carries that information now.
+  ok((home.match(/class="card-rotation-dots/g) || []).length === 0, 'the slim chips carry no rotation dots');
 }
 {
   const about = await renderPage('/about');

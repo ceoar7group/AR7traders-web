@@ -31,103 +31,176 @@ const slugOf = title => text(title).toLowerCase()
 // cover that is already used by a published article or by another idea in
 // the same batch. Only when every pooled asset is taken does it fall back to
 // the first brand/generic entry rather than propose nothing.
+// 2026-11-10 (owner report: "for nissan u added lambo image, for honda u
+// added nissan, for suzuki u added honda"): every pooled asset below has been
+// LOOKED AT, because several filenames lied about their content —
+// honda-vezel--1 is a Nissan Serena, honda-vezel--2/--3 are Toyota Vitz,
+// toyota-5 is a Nissan Murano with a competitor watermark, both toyota-h-*
+// files carry a BE FORWARD watermark and inspection-shipping-5 shows another
+// dealer's sign. None of those may ever be proposed as a cover. The pools
+// now hold only verified-content, watermark-free assets; a cover from the
+// wrong brand's pool is worse than a neutral one, so GENERIC holds only
+// brand-neutral yard/port/inspection scenes.
 const BRAND_COVERS = {
   toyota: [
-    '/assets/used-japanese-cars-auction-export-toyota-1.webp',
-    '/assets/used-japanese-cars-auction-export-toyota-2.webp',
-    '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
-    '/assets/used-japanese-cars-auction-export-toyota-4.webp',
-    '/assets/japan-used-car-export-inventory-toyota-h-2.webp',
-    '/assets/used-japanese-cars-auction-export-toyota-5.webp'
+    '/assets/used-japanese-cars-auction-export-toyota-1.webp',   // Noah
+    '/assets/used-japanese-cars-auction-export-toyota-2.webp',   // Alphard
+    '/assets/used-japanese-cars-auction-export-toyota-4.webp',   // Vellfire
+    '/assets/og/inventory.jpg'                                   // Voxy
   ],
   honda: [
-    '/assets/japan-used-car-export-stock-honda-vezel--1.webp',
-    '/assets/japan-used-car-export-stock-honda-vezel--2.webp',
-    '/assets/japan-used-car-export-stock-honda-vezel--3.webp',
-    '/assets/japan-used-car-export-stock-honda-vezel--4.webp'
+    '/assets/japan-used-car-export-stock-honda-vezel--4.webp',   // Vezel
+    '/assets/og/auction.jpg'                                     // Vezel
+  ],
+  nissan: [
+    '/assets/japan-used-car-export-stock-nissan-serena-1.webp'   // Serena
   ]
 };
 const GENERIC_COVERS = [
-  '/assets/japanese-car-auction-inspection-shipping-1.webp',
-  '/assets/og/inventory.jpg',
-  '/assets/showroom/hero-02.webp',
-  '/assets/japanese-car-auction-inspection-shipping-2.webp',
-  '/assets/showroom/hero-03.webp',
-  '/assets/og/auction.jpg',
-  '/assets/showroom/hero-04.webp',
-  '/assets/japanese-car-auction-inspection-shipping-3.webp',
-  '/assets/showroom/hero-05.webp'
+  '/assets/japan-car-auction-hall-1.jpg',                     // auction hall
+  '/assets/japanese-car-auction-inspection-shipping-1.webp',  // export yard
+  '/assets/japan-vehicle-export-port-aerial-1.jpg',           // port aerial
+  '/assets/japanese-car-auction-inspection-shipping-2.webp',  // RoRo vessel
+  '/assets/japan-car-carrier-trucks-1.jpg',                   // carrier truck
+  '/assets/japanese-car-auction-inspection-shipping-3.webp'   // inspection bay
 ];
 const LOGISTICS_COVERS = [
+  '/assets/japan-vehicle-export-port-aerial-1.jpg',
   '/assets/og/shipping.jpg',
-  '/assets/japanese-car-auction-inspection-shipping-5.webp',
-  '/assets/showroom/hero-06-v3.webp',
   '/assets/japanese-car-auction-inspection-shipping-2.webp',
-  '/assets/showroom/hero-08-v2.webp',
-  '/assets/japanese-car-auction-inspection-shipping-3.webp',
-  '/assets/showroom/hero-01.webp',
-  '/assets/og/inventory.jpg'
+  '/assets/japan-car-carrier-trucks-1.jpg',
+  '/assets/japanese-car-auction-inspection-shipping-1.webp',
+  '/assets/japanese-car-auction-inspection-shipping-3.webp'
 ];
+// Assets whose CONTENT shows a brand (verified by eye, not by filename).
+// suggestCoverFixes uses this to catch a cover wearing the WRONG make —
+// the filename-derived guess is overridden where the filename lies.
+const COVER_BRANDS = {
+  '/assets/japan-used-car-export-stock-honda-vezel--1.webp': 'nissan',
+  '/assets/japan-used-car-export-stock-honda-vezel--2.webp': 'toyota',
+  '/assets/japan-used-car-export-stock-honda-vezel--3.webp': 'toyota',
+  '/assets/japan-used-car-export-stock-honda-vezel--4.webp': 'honda',
+  '/assets/japan-used-car-export-stock-honda-vezel--5.webp': 'honda',
+  '/assets/japan-used-car-export-stock-nissan-serena-1.webp': 'nissan',
+  '/assets/og/inventory.jpg': 'toyota',
+  '/assets/og/auction.jpg': 'honda',
+  '/assets/og/help.jpg': 'toyota',
+  '/assets/used-japanese-cars-auction-export-toyota-5.webp': 'nissan',
+  '/assets/showroom/hero-02.webp': 'lamborghini'
+};
+// Covers that must never appear on an article at all: competitor or dealer
+// branding is visible in the picture.
+const BANNED_COVERS = new Set([
+  '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
+  '/assets/japan-used-car-export-inventory-toyota-h-2.webp',
+  '/assets/used-japanese-cars-auction-export-toyota-5.webp',
+  '/assets/japanese-car-auction-inspection-shipping-5.webp'
+]);
 
 // ---------------------------------------------------------------------------
 // Cover image doctor (2026-11-10 owner: "make a function in CRM to fix such
-// issues later as well"). Pure and deterministic: given the article list it
-// finds every cover shared by two or more articles (and articles with no
-// cover at all) and proposes a unique replacement for each offender from the
-// same pools the scout draws on — brand-matched first, then generic, then
-// logistics — never re-using an image already on ANY article or already
-// proposed in this batch. The article whose TITLE best matches the shared
-// image keeps it (a Toyota article keeps the toyota-*.webp; ties go to the
-// first in list order, i.e. the oldest the caller put first).
+// issues later as well"; extended same day after the first pass shipped a
+// Lamborghini on the Nissan guide — duplicates were fixed, brands were not).
+// Pure and deterministic: given the article list it flags, in this order,
+//   1. covers with visible competitor/dealer branding (BANNED_COVERS),
+//   2. covers whose pictured make contradicts the title's make — judged by
+//      verified CONTENT (COVER_BRANDS) first, filename token second,
+//   3. missing covers,
+//   4. duplicate covers (the best title↔image match keeps the image),
+// and proposes a unique replacement for each offender from the audited
+// pools — title's brand pool first, then neutral generic/logistics — never
+// re-using an image already on ANY article or already proposed in the batch.
+// Several assets are crops/re-exports of the SAME photograph under different
+// names (.jpg/.webp twins, and the og/* social images). Two articles wearing
+// two files of one photograph still LOOK like duplicates, so the doctor
+// reasons about scenes, not paths: the basename without extension, plus the
+// known og/* aliases (verified by eye).
+const COVER_SCENE_ALIASES = {
+  'shipping': 'japanese-car-auction-inspection-shipping-1', // og/shipping.jpg
+  'auction': 'japan-used-car-export-stock-honda-vezel--4',  // og/auction.jpg
+  'inventory': 'used-japanese-cars-auction-export-toyota-1' // og/inventory.jpg
+};
+export const coverSceneOf = image => {
+  const path = text(image);
+  if (!path) return '';
+  const stem = (path.split('/').pop() || '').replace(/\.(jpe?g|webp|png)$/i, '');
+  return path.startsWith('/assets/og/') && COVER_SCENE_ALIASES[stem] ? COVER_SCENE_ALIASES[stem] : stem;
+};
+const KNOWN_MAKES = ['toyota', 'honda', 'nissan', 'suzuki', 'mazda', 'subaru',
+  'mitsubishi', 'daihatsu', 'lexus', 'isuzu', 'lamborghini', 'ferrari'];
+const titleMakeOf = title => {
+  const t = title.toLowerCase();
+  return KNOWN_MAKES.find(b => t.includes(b)) || null;
+};
+const imageMakeOf = image => {
+  if (COVER_BRANDS[image]) return COVER_BRANDS[image];
+  const f = image.toLowerCase();
+  return KNOWN_MAKES.find(b => f.includes(b)) || null;
+};
 export function suggestCoverFixes(articles = []) {
   const rows = articles.filter(a => a && a.id != null).map(a => ({
     id: a.id, title: text(a.title), image: text(a.image || a.img)
   }));
-  const used = new Set(rows.map(r => r.image).filter(Boolean));
-  const brandOf = title => {
-    const t = title.toLowerCase();
-    return Object.keys(BRAND_COVERS).find(b => t.includes(b)) || null;
-  };
-  // Title↔image affinity: shared brand token beats a generic match.
+  const used = new Set(rows.map(r => coverSceneOf(r.image)).filter(Boolean));
+  // Title↔image affinity: the picture really showing the title's make beats
+  // everything; a neutral picture beats a wrong-make one.
   const affinity = r => {
-    const img = r.image.toLowerCase();
-    const b = brandOf(r.title);
-    return b && img.includes(b) ? 2 : 0;
+    const want = titleMakeOf(r.title);
+    const got = imageMakeOf(r.image);
+    if (want && got === want) return 2;
+    if (got && want && got !== want) return -1;
+    return 0;
   };
   const nextFree = r => {
-    const b = brandOf(r.title);
+    const want = titleMakeOf(r.title);
     const logistics = /shipp|freight|port|roro|container|clearance|lane/i.test(r.title);
     const pools = [
-      ...(b ? [BRAND_COVERS[b]] : []),
+      ...(want && BRAND_COVERS[want] ? [BRAND_COVERS[want]] : []),
       ...(logistics ? [LOGISTICS_COVERS] : []),
       GENERIC_COVERS, LOGISTICS_COVERS
     ];
     for (const pool of pools) for (const img of pool) {
-      if (!used.has(img)) { used.add(img); return img; }
+      // Never hand out a banned asset, and never hand a WRONG make's picture
+      // to a titled guide — a Suzuki guide takes a neutral yard over a Toyota.
+      const poolMake = imageMakeOf(img);
+      if (BANNED_COVERS.has(img)) continue;
+      if (want && poolMake && poolMake !== want) continue;
+      const scene = coverSceneOf(img);
+      if (!used.has(scene)) { used.add(scene); return img; }
     }
     return null; // every pooled asset is taken — surface "no fix" honestly
   };
   const fixes = [];
-  // Missing covers first, in list order.
-  for (const r of rows) {
-    if (r.image) continue;
+  const fixed = new Set();
+  const propose = (r, from, reason) => {
+    if (fixed.has(r.id)) return;
     const to = nextFree(r);
-    if (to) fixes.push({ id: r.id, title: r.title, from: '', to, reason: 'missing cover' });
-  }
-  // Duplicate groups: keep the best title match, re-cover the rest.
-  const byImage = new Map();
+    if (to) { fixed.add(r.id); fixes.push({ id: r.id, title: r.title, from, to, reason }); }
+  };
+  // 1. Banned branding and 2. wrong make — worst first.
   for (const r of rows) {
     if (!r.image) continue;
-    if (!byImage.has(r.image)) byImage.set(r.image, []);
-    byImage.get(r.image).push(r);
+    if (BANNED_COVERS.has(r.image)) { propose(r, r.image, 'competitor branding visible in the picture'); continue; }
+    const want = titleMakeOf(r.title), got = imageMakeOf(r.image);
+    if (want && got && got !== want) propose(r, r.image, `cover shows a ${got}, the title says ${want}`);
+  }
+  // 3. Missing covers, in list order.
+  for (const r of rows) {
+    if (!r.image) propose(r, '', 'missing cover');
+  }
+  // 4. Duplicate groups: keep the best title match, re-cover the rest.
+  const byImage = new Map();
+  for (const r of rows) {
+    if (!r.image || fixed.has(r.id)) continue;
+    const scene = coverSceneOf(r.image);
+    if (!byImage.has(scene)) byImage.set(scene, []);
+    byImage.get(scene).push(r);
   }
   for (const [img, group] of byImage) {
     if (group.length < 2) continue;
     const keeper = group.reduce((best, r) => affinity(r) > affinity(best) ? r : best, group[0]);
     for (const r of group) {
-      if (r === keeper) continue;
-      const to = nextFree(r);
-      if (to) fixes.push({ id: r.id, title: r.title, from: img, to, reason: `duplicate of “${keeper.title}”` });
+      if (r !== keeper) propose(r, img, `duplicate of “${keeper.title}”`);
     }
   }
   return fixes;
@@ -145,10 +218,14 @@ export function buildTopicIdeas({ cars = [], machines = [], dests = [], publishe
     return !!t && publishedSlugs.some(s => s.includes(t));
   };
   // Covers already in use — published articles' images are off the table.
-  const usedCovers = new Set(published.map(a => text(a.img || a.image)).filter(Boolean));
+  // Compared as SCENES (coverSceneOf), because .jpg/.webp twins and the og/*
+  // aliases are the same photograph wearing different filenames.
+  const usedCovers = new Set(published.map(a => coverSceneOf(a.img || a.image)).filter(Boolean));
   const pickCover = (...pools) => {
     for (const pool of pools) for (const img of pool) {
-      if (!usedCovers.has(img)) { usedCovers.add(img); return img; }
+      if (BANNED_COVERS.has(img)) continue;
+      const scene = coverSceneOf(img);
+      if (!usedCovers.has(scene)) { usedCovers.add(scene); return img; }
     }
     return (pools[0] && pools[0][0]) || GENERIC_COVERS[0]; // every asset taken — last resort
   };

@@ -161,7 +161,7 @@ ok(document.querySelector('.site'), 'the site shell renders');
 // path -> text that must be on screen once we get there. Without this, a
 // navigation that silently fails would pass the "keeps the app alive" check.
 const ROUTES = [
-  ['/', 'LHD cars from Japan'], // 2026-11-09: headline now opens "RHD & LHD cars from Japan & China"
+  ['/', 'Any vehicle. Any machine.'], // 2026-11-10 round 5: headline rewritten — scope in six words, drive sides live in the lead
   ['/inventory', 'inv-toolbar'],
   ['/japan-stock', 'inv-toolbar'],   // retired page: resolves to the merged /inventory list
   ['/services', 'AR7 SERVICE'],

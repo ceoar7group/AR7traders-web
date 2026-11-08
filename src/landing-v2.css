@@ -43,11 +43,7 @@
    the Shipping Lane card as an empty white box. */
 .rotating-card-copy{animation:heroCardSwap .42s cubic-bezier(.2,.75,.25,1) forwards}
 @keyframes heroCardSwap{from{opacity:0;transform:translateY(7px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
-.card-rotation-dots{display:flex!important;grid-auto-flow:column;justify-content:start;gap:4px;margin-top:7px;height:3px}
-.card-rotation-dots i{display:block;width:12px;height:3px;border-radius:4px;background:color-mix(in srgb,var(--muted) 28%,transparent);transition:width .3s,background .3s}
-.card-rotation-dots i.active{width:24px;background:var(--gold)}
-.route-dots{margin-top:7px}
-.route-strip .progress{height:3px;margin:7px 0 5px;overflow:visible;position:relative}
+.route-strip .progress{height:3px;margin:0;overflow:visible;position:relative}
 .route-strip .progress span{position:relative;width:var(--route-progress);animation:routeLineIn .8s cubic-bezier(.25,.65,.3,1) both;will-change:width}
 .route-strip .progress span:after{display:none}
 .route-strip .route-ship{position:absolute;right:-6px;top:-6px;width:15px!important;height:15px!important;color:var(--gold);padding:2.5px;border-radius:50%;background:var(--card);box-shadow:0 0 0 1px var(--line),0 2px 6px rgba(0,0,0,.18);transform:translateX(50%);animation:routeShipSail 1.7s ease-in-out infinite;overflow:visible}
@@ -432,11 +428,19 @@ html,body{overflow-x:clip}
 .hero[data-hv="c"] .stage-top .hero-search select { height: 40px; min-width: 116px; border-color: #ffffff26; background: #0b3d28; color: #eaf4ee; color-scheme: dark; }
 .hero[data-hv="c"] .stage-top .hero-search button { height: 40px; padding: 0 18px; border-radius: 11px; }
 @media (max-width: 760px) {
+  /* 2026-11-10 round 5: flex-wrap left the two selects as unreadable slivers
+     beside the Search button. A grid states the phone layout outright —
+     query on its own row, then make | body | go in three equal columns. */
   .hero[data-hv="c"] .stage-top .hero-search { flex-wrap: wrap; }
   .hero[data-hv="c"] .stage-top .hs-query { flex: 1 1 100%; }
-  .hero[data-hv="c"] .stage-top .hs-filters { flex: 1 1 100%; }
-  .hero[data-hv="c"] .stage-top .hs-field { flex: 1 1 0; }
+  .hero[data-hv="c"] .stage-top .hs-filters {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 8px;
+  }
   .hero[data-hv="c"] .stage-top .hero-search select { width: 100%; min-width: 0; }
+  .hero[data-hv="c"] .stage-top .hero-search button { padding: 0 14px; }
 }
 
 .hero[data-hv="c"] .stage-foot { gap: 10px; }
@@ -445,8 +449,28 @@ html,body{overflow-x:clip}
 .hero[data-hv="c"] .stage-foot .hero-cta .ghost-btn { height: 44px; padding: 0 14px; font-size: 12.5px; background: #ffffff10; border-color: #ffffff2e; color: #eef6f0; }
 .hero[data-hv="c"] .stage-foot .text-btn { color: #e8f2ec; font-size: 12.5px; }
 .hero[data-hv="c"] .stage-foot .text-btn > span { width: 34px; height: 34px; border-color: #ffffff2e; }
+/* 2026-11-10 round 5 (owner): the chips were white cards shouting on a dark
+   stage — now they wear the stage's own dark glass, exactly like the search
+   console above them, so the foot band reads as one quiet instrument row. */
 .hero[data-hv="c"] .stage-foot .route-strip,
-.hero[data-hv="c"] .stage-foot .auction-chip { background: color-mix(in srgb, var(--card) 92%, transparent); border-color: #ffffff2a; }
+.hero[data-hv="c"] .stage-foot .auction-chip {
+  background: #ffffff10;
+  border-color: #ffffff24;
+  box-shadow: none;
+  color: #eef6f0;
+}
+.hero[data-hv="c"] .stage-foot .card-kicker { color: #a9c4b5; }
+.hero[data-hv="c"] .stage-foot .card-meta { color: #a9c4b5; }
+.hero[data-hv="c"] .stage-foot .auction-chip .card-meta { color: var(--gold2); }
+.hero[data-hv="c"] .stage-foot .card-meta svg,
+.hero[data-hv="c"] .stage-foot .facts-head > svg { color: var(--gold2); }
+.hero[data-hv="c"] .stage-foot .progress { background: #ffffff1f; }
+.hero[data-hv="c"] .stage-foot .route-ship { background: #0b3d28; box-shadow: 0 0 0 1px #ffffff2e, 0 2px 6px rgba(0,0,0,.35); }
+.hero[data-hv="c"] .stage-foot .lane-eta {
+  color: #cfeedd;
+  background: #ffffff0d;
+  border-color: #ffffff24;
+}
 @media (max-width: 1100px) {
   .hero[data-hv="c"] .stage-foot { flex-direction: column; align-items: stretch; }
   .hero[data-hv="c"] .stage-foot .hero-cta { flex-wrap: wrap; justify-content: center; }
