@@ -12,6 +12,7 @@
 import React from 'react';
 import { ArrowRight, Check, Globe2, ShieldCheck } from 'lucide-react';
 import { DEST, destinationFacts, destinationFaqs, destinationHref } from './destinations.js';
+import { useLang } from './i18n.jsx';
 
 // ── One market's own page (/destinations/kenya) ────────────────────────────
 // The hub's picker answers a visitor who is already here. This page answers the
@@ -22,6 +23,7 @@ import { DEST, destinationFacts, destinationFaqs, destinationHref } from './dest
 // ever quoted (CLAIMS-POLICY.md: that is the buyer's own customs authority's
 // number, not ours).
 export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related,Flag}){
+ const {t}=useLang();
  if(!dest)return <section className="inner-page destination-page"><div className="shell">
   <Link className="back-btn" to="destinations" navigate={navigate}>← All destinations</Link>
   <div className="empty-state"><Globe2/><h3>No market guide for that URL yet</h3>
@@ -64,7 +66,7 @@ export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related
    {/* 2026-11-14: `fill` — when few cars match this market's model list the
        strip now tops up with further Japan-stock cars instead of going thin,
        and RelatedStock itself interleaves showroom + Japan stock. */}
-   <Related navigate={navigate} limit={3} fill kicker="STOCK THIS ROUTE CARRIES" note={`Live Japan stock in the models ${f.country} buyers ask for most. Indicative FOB, confirmed by written quotation.`}
+   <Related navigate={navigate} limit={3} fill kicker={t('rel.routeKicker')} note={t('rel.routeNote',{m:f.country})}
      pick={c=>f.models.some(model=>{const key=String(model).toLowerCase().split(' ')[0];return key.length>2&&(String(c.model||'').toLowerCase().includes(key)||String(c.make||'').toLowerCase().includes(key))})}/>
    <section className="destination-faq" aria-label={`Importing a used car from Japan to ${f.country}: questions buyers ask`}>
     <div className="kicker">QUESTIONS BUYERS ASK</div>

@@ -243,7 +243,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // How-to-Buy flow + Services + Tools calculators; 464 keys now). The 13
 // translated dictionaries stay lazy-loaded — this is the EN source only.
 // Actual: 159.66 kB gzip.
-const BUDGET_GZIP = 160 * 1024;
+// 2026-11-14: 160 → 163 kB gzip — fourth i18n round: 97 EN source keys for
+// the related-stock strips, brands/news page internals and the buyer-account
+// screens (login/signup/reset). English is the fallback dictionary so it must
+// ride first load; the 13 translations stay in the lazy i18n-dicts chunk.
+// Measured after the change: 161.30 kB gzip / 556.33 kB raw.
+const BUDGET_GZIP = 163 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -260,7 +265,9 @@ const BUDGET_GZIP = 160 * 1024;
 // China origin chip on the big globe.
 // 2026-11-13: 539 → 553 kB raw — same i18n EN-source growth as the gzip note
 // above (the per-screen t() wiring + 464 English keys). Actual: 551.63 kB raw.
-const BUDGET_RAW = 553 * 1024;
+// 2026-11-14: 553 → 558 kB raw — same fourth-round i18n EN-source growth as
+// the gzip note above. Measured 556.33 kB raw.
+const BUDGET_RAW = 558 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
