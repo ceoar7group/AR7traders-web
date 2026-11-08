@@ -238,7 +238,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // 2026-11-09: 154 → 155 kB gzip — split day/night + blue&gold theme controls,
 // burger-sheet close row, and the TEMP hero-layout preview switcher (A/B/C).
 // Tighten back when the unused hero variants + switcher are deleted.
-const BUDGET_GZIP = 155 * 1024;
+// 2026-11-13: 155 → 160 kB gzip — three i18n rounds of English source copy in
+// src/i18n.js (nav/world, home sections + car cards, inner-page heroes + FAQ,
+// How-to-Buy flow + Services + Tools calculators; 464 keys now). The 13
+// translated dictionaries stay lazy-loaded — this is the EN source only.
+// Actual: 159.66 kB gzip.
+const BUDGET_GZIP = 160 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -253,7 +258,9 @@ const BUDGET_GZIP = 155 * 1024;
 // 2026-11-09 (later): 537 → 539 kB raw — six new vector flags (China, India,
 // Germany, Russia, France, Turkey) plus the world-map flag layer and the
 // China origin chip on the big globe.
-const BUDGET_RAW = 539 * 1024;
+// 2026-11-13: 539 → 553 kB raw — same i18n EN-source growth as the gzip note
+// above (the per-screen t() wiring + 464 English keys). Actual: 551.63 kB raw.
+const BUDGET_RAW = 553 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
