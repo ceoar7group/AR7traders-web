@@ -16,6 +16,7 @@
 // half-translated page.
 // ---------------------------------------------------------------------------
 const ar = {
+  'card.fav': 'حفظ في المفضلة',
   'qq.kicker': 'عرض سعر سريع',
   'qq.h2a': 'عرض سعرك في',
   'qq.h2em': 'ثلاث نقرات.',
@@ -615,6 +616,7 @@ const ar = {
 };
 
 const ps = {
+  'card.fav': 'په خوښو کې خوندي کړئ',
   'qq.kicker': 'چټک قیمت',
   'qq.h2a': 'ستاسو قیمت په',
   'qq.h2em': 'دریو ټکونو کې.',
@@ -1214,6 +1216,7 @@ const ps = {
 };
 
 const ur = {
+  'card.fav': 'پسندیدہ میں محفوظ کریں',
   'qq.kicker': 'فوری کوٹیشن',
   'qq.h2a': 'آپ کا کوٹیشن صرف',
   'qq.h2em': 'تین ٹیپس میں۔',
@@ -1813,6 +1816,7 @@ const ur = {
 };
 
 const fa = {
+  'card.fav': 'ذخیره در علاقه‌مندی‌ها',
   'qq.kicker': 'پیش‌فاکتور سریع',
   'qq.h2a': 'قیمت شما در',
   'qq.h2em': 'سه کلیک.',
@@ -2412,6 +2416,7 @@ const fa = {
 };
 
 const fr = {
+  'card.fav': 'Ajouter aux favoris',
   'qq.kicker': 'DEVIS RAPIDE',
   'qq.h2a': 'Votre devis en',
   'qq.h2em': 'trois clics.',
@@ -3011,6 +3016,7 @@ const fr = {
 };
 
 const de = {
+  'card.fav': 'Zu Favoriten speichern',
   'qq.kicker': 'SCHNELLANGEBOT',
   'qq.h2a': 'Ihr Angebot in',
   'qq.h2em': 'drei Klicks.',
@@ -3610,6 +3616,7 @@ const de = {
 };
 
 const ru = {
+  'card.fav': 'Сохранить в избранное',
   'qq.kicker': 'БЫСТРАЯ ЦЕНА',
   'qq.h2a': 'Ваша цена за',
   'qq.h2em': 'три клика.',
@@ -4209,6 +4216,7 @@ const ru = {
 };
 
 const es = {
+  'card.fav': 'Guardar en favoritos',
   'qq.kicker': 'COTIZACIÓN RÁPIDA',
   'qq.h2a': 'Tu cotización en',
   'qq.h2em': 'tres toques.',
@@ -4808,6 +4816,7 @@ const es = {
 };
 
 const pt = {
+  'card.fav': 'Salvar nos favoritos',
   'qq.kicker': 'COTAÇÃO RÁPIDA',
   'qq.h2a': 'Sua cotação em',
   'qq.h2em': 'três toques.',
@@ -5407,6 +5416,7 @@ const pt = {
 };
 
 const tr = {
+  'card.fav': 'Favorilere kaydet',
   'qq.kicker': 'HIZLI TEKLİF',
   'qq.h2a': 'Teklifiniz',
   'qq.h2em': 'üç dokunuşta.',
@@ -6006,6 +6016,7 @@ const tr = {
 };
 
 const zh = {
+  'card.fav': '收藏此车',
   'qq.kicker': '快速报价',
   'qq.h2a': '三步获取',
   'qq.h2em': '您的报价。',
@@ -6605,6 +6616,7 @@ const zh = {
 };
 
 const sw = {
+  'card.fav': 'Hifadhi kwenye vipendwa',
   'qq.kicker': 'BEI YA HARAKA',
   'qq.h2a': 'Bei yako kwa',
   'qq.h2em': 'mibofyo mitatu.',
@@ -7204,6 +7216,7 @@ const sw = {
 };
 
 const ha = {
+  'card.fav': 'Ajiye a abubuwan so',
   'qq.kicker': 'FARASHI CIKIN SAURI',
   'qq.h2a': 'Farashinka cikin',
   'qq.h2em': 'danna sau uku.',

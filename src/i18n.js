@@ -352,6 +352,7 @@ const en = {
   // 2026-11-11 ("proceed to the next upgrades of translations"): home-page
   // sections + car-card chrome. Status/filter DATA stays English (drives CSS
   // slugs and filter state); only the DISPLAY strings translate.
+  'card.fav': 'Save to favourites',
   'card.grade': 'Grade',
   'card.priceFrom': 'EXPORT PRICE FROM',
   'card.statusInStock': 'In Stock',
