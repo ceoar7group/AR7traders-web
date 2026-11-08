@@ -435,24 +435,28 @@ export const isShowroomCar=c=>!!c&&!isImportedCar(c)&&(['Luxury','Supercar','Hyp
 // AR7-branded showroom heroes: studio scenes generated for the curated
 // collection, keyed by stock number so they survive hydration. The hero leads
 // the gallery; the real dealer photographs follow it unchanged.
+// 2026-11-08 owner round 2: 11 showroom images rebuilt (Aston DB11, LX600,
+// Defender, Century, LC500h, 740i x2, X6) via owner-approved car swaps inside
+// the liked scenes; renamed with -v2/-v3 suffixes because /assets/* ships with
+// 1y immutable cache headers.
 const SHOWROOM_HEROES={
  '0508888A30261013W003':'/assets/showroom/hero-01.webp',
  '0201053A30261031W001':'/assets/showroom/hero-02.webp',
  '0508888A30261019W003':'/assets/showroom/hero-03.webp',
  '0200160A30261023W003':'/assets/showroom/hero-04.webp',
  '0520284A30260812W002':'/assets/showroom/hero-05.webp',
- '9731113A30260816W001':'/assets/showroom/hero-06-v2.webp',
+ '9731113A30260816W001':'/assets/showroom/hero-06-v3.webp',
  '0200160A30261016W001':'/assets/showroom/hero-07.webp',
- '0508888A30261103W001':'/assets/showroom/hero-08.webp',
- '0201053A30261102W002':'/assets/showroom/hero-09.webp',
- '0710232A30260926W001':'/assets/showroom/hero-10-v2.webp',
+ '0508888A30261103W001':'/assets/showroom/hero-08-v2.webp',
+ '0201053A30261102W002':'/assets/showroom/hero-09-v2.webp',
+ '0710232A30260926W001':'/assets/showroom/hero-10-v3.webp',
  '9731113A30261103W001':'/assets/showroom/hero-11.webp',
  '0551811A30261031W001':'/assets/showroom/hero-12-v2.webp',
- '0710084A30261103W001':'/assets/showroom/hero-13.webp',
+ '0710084A30261103W001':'/assets/showroom/hero-13-v2.webp',
  '0200160A30261018W005':'/assets/showroom/hero-14.webp',
  '0500520A30261101W002':'/assets/showroom/hero-15.webp',
- '0550871A30261027W001':'/assets/showroom/hero-16.webp',
- '0203361A20261022W005':'/assets/showroom/hero-17.webp',
+ '0550871A30261027W001':'/assets/showroom/hero-16-v2.webp',
+ '0203361A20261022W005':'/assets/showroom/hero-17-v2.webp',
  '0201053A30261101W001':'/assets/showroom/hero-18.webp'
 };
 // Second showroom angle per car (rear/opposite three-quarter staged in a
@@ -464,17 +468,17 @@ const SHOWROOM_ANGLES={
  '0508888A30261019W003':'/assets/showroom/angle-03.webp',
  '0200160A30261023W003':'/assets/showroom/angle-04.webp',
  '0520284A30260812W002':'/assets/showroom/angle-05.webp',
- '9731113A30260816W001':'/assets/showroom/angle-06.webp',
+ '9731113A30260816W001':'/assets/showroom/angle-06-v2.webp',
  '0200160A30261016W001':'/assets/showroom/angle-07.webp',
  '0508888A30261103W001':'/assets/showroom/angle-08.webp',
- '0201053A30261102W002':'/assets/showroom/angle-09-v2.webp',
- '0710232A30260926W001':'/assets/showroom/angle-10.webp',
+ '0201053A30261102W002':'/assets/showroom/angle-09-v3.webp',
+ '0710232A30260926W001':'/assets/showroom/angle-10-v2.webp',
  '9731113A30261103W001':'/assets/showroom/angle-11.webp',
  '0551811A30261031W001':'/assets/showroom/angle-12.webp',
  '0710084A30261103W001':'/assets/showroom/angle-13.webp',
  '0200160A30261018W005':'/assets/showroom/angle-14.webp',
  '0500520A30261101W002':'/assets/showroom/angle-15.webp',
- '0550871A30261027W001':'/assets/showroom/angle-16-v2.webp',
+ '0550871A30261027W001':'/assets/showroom/angle-16-v3.webp',
  '0201053A30261101W001':'/assets/showroom/angle-18.webp'
 };
 const applyShowroomHero=c=>{
@@ -789,7 +793,7 @@ function HeroVisual({navigate,discounts}){
      // with the window biased below centre so the selling dealer's signage
      // above the car is cut away; MACHINE slides keep blur-fill contain so a
      // tall machine is never cropped. See .hero-slide/.is-machine CSS.
-     const resp=/^\/assets\/showroom\/hero-0[1-8](?:-v2)?\.webp$/.test(x.image||'');
+     const resp=/^\/assets\/showroom\/hero-0[1-8](?:-v\d+)?\.webp$/.test(x.image||'');
      return <a key={x.id} href={x.href}
       className={'hero-slide'+(off===0?' active':'')+(x.kind==='machine'?' is-machine':'')}
       style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.35,.45)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}

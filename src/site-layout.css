@@ -2229,8 +2229,8 @@ html[data-theme=blue] {
   --green-text: #8fb9ff;
   --deep: #071a3a;
   --forest: #13509a;
-  --gold: #cfa953;
-  --gold2: #e7cf8a;
+  --gold: #e8b73f; /* 2026-11-08: logo-7 metallic gold */
+  --gold2: #f7d97d;
   --ink: #eaf2fd;
   --muted: #92a6c5;
   --bg: #070e1c;
