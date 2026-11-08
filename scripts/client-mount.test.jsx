@@ -122,7 +122,9 @@ ok(document.querySelector('.site'), 'the site shell renders');
   // desks are still one click away — as the hero's own two CTA anchors, which
   // unlike the old `onClick={()=>go('inventory')}` button are real hrefs, so
   // Ctrl/Cmd-click, middle-click and crawlers all work.
-  const stockLinks = [...document.querySelectorAll('.hero-copy .hero-cta a')];
+  // 2026-11-10 hero v3: the CTA row moved into the stage foot band under the
+  // photograph, merged with the facts chips into one horizontal strip.
+  const stockLinks = [...document.querySelectorAll('.hero .stage-foot .hero-cta a')];
   ok(stockLinks.length === 2, `the hero CTA row is two real anchors (got ${stockLinks.length})`);
   ok(stockLinks[0]?.getAttribute('href') === '/inventory' && stockLinks[1]?.getAttribute('href') === '/machinery',
     'both desks are keyboard-focusable same-site anchors to their real pages');
@@ -130,10 +132,10 @@ ok(document.querySelector('.site'), 'the site shell renders');
     'the two anchors keep the hero CTA styling, not a bare text link');
   ok(!document.querySelector('.hero-copy .hero-vignettes'),
     'the duplicated vignette chips no longer float over the photograph');
-  // 2026-11-09 round 3: the facts row docks in .hero-copy under the search
-  // console — nothing is layered on the stage photograph.
-  const facts = document.querySelector('.hero-copy .hero-facts');
-  ok(!!facts, 'the hero renders its facts row docked under the search console');
+  // 2026-11-10 hero v3: the facts row lives in the stage's foot band under
+  // the photograph (.stage-foot) — nothing is layered on the stage photograph.
+  const facts = document.querySelector('.hero .stage-foot .hero-facts');
+  ok(!!facts, 'the hero renders its facts row inside the stage foot band');
   ok(!!facts?.querySelector('.route-strip') && !!facts?.querySelector('.auction-chip'),
     'the facts row carries the shipping-lane strip and the next-auction chip');
   ok(!document.querySelector('.hero-visual .floating-card') && !document.querySelector('.hero-visual .floating-badge'),

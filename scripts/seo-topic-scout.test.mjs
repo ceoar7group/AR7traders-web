@@ -7,7 +7,7 @@
 //   2. buildUpgradeReport turns crawl rows into a report that splits desk-
 //      fixable issues from code-change issues, so the operator knows exactly
 //      what to hand to a developer agent.
-import { buildTopicIdeas, buildUpgradeReport } from '../src/seo-topic-scout.js';
+import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes } from '../src/seo-topic-scout.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => {
@@ -112,6 +112,37 @@ ok(report.includes('Fix: Add a 50–60 character title.'), 'the audit fix line i
 
 const cleanReport = buildUpgradeReport([rows[2]], { now: new Date('2026-11-08T00:00:00Z') });
 ok(cleanReport.includes('every audited page passed'), 'an all-clean crawl says so plainly');
+
+// ---------------------------------------------------------------------------
+// 3. suggestCoverFixes — the CRM "cover image doctor" (2026-11-10 owner:
+// duplicate covers shipped on four live articles; the desk must be able to
+// find and fix that itself). Contracts: the best title↔image match KEEPS a
+// shared cover, every proposed replacement is unique across the whole batch
+// plus everything already in use, missing covers get one too, and a clean
+// list yields zero fixes.
+{
+  const dup = '/assets/used-japanese-cars-auction-export-toyota-3.jpg';
+  const fixes = suggestCoverFixes([
+    { id: 'a', title: 'Used Toyota Vehicles in Stock', image: dup },
+    { id: 'b', title: 'Honda Vezel Buyer Guide', image: dup },
+    { id: 'c', title: 'Shipping Lanes to Mombasa', image: dup },
+    { id: 'd', title: 'No Cover Draft' },
+    { id: 'e', title: 'Already Unique', image: '/assets/og/auction.jpg' }
+  ]);
+  ok(!fixes.some(f => f.id === 'a'), 'the Toyota article keeps the toyota cover (best title match wins)');
+  ok(!fixes.some(f => f.id === 'e'), 'an article with a unique cover is left alone');
+  const byId = Object.fromEntries(fixes.map(f => [f.id, f]));
+  ok(byId.b && /honda/.test(byId.b.to), 'the Honda article is re-covered from the Honda brand pool');
+  ok(byId.c && byId.c.to && byId.c.to !== dup, 'the shipping article gets a non-duplicate replacement');
+  ok(byId.d && byId.d.reason === 'missing cover' && byId.d.to.startsWith('/assets/'), 'a cover-less draft is assigned a site asset');
+  const proposed = fixes.map(f => f.to);
+  ok(new Set(proposed).size === proposed.length, 'no two fixes propose the same image');
+  ok(!proposed.includes('/assets/og/auction.jpg'), 'proposals never collide with an image already in use');
+  ok(fixes.every(f => f.to.startsWith('/assets/')), 'every proposal is a site asset (validateGuide og:image contract)');
+  ok(suggestCoverFixes([{ id: 1, title: 'A', image: '/assets/x.webp' }, { id: 2, title: 'B', image: '/assets/y.webp' }]).length === 0,
+    'a healthy article list produces zero fixes');
+  ok(suggestCoverFixes([]).length === 0 && suggestCoverFixes().length === 0, 'empty and missing input are safe');
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

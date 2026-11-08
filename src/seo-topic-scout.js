@@ -69,6 +69,70 @@ const LOGISTICS_COVERS = [
   '/assets/og/inventory.jpg'
 ];
 
+// ---------------------------------------------------------------------------
+// Cover image doctor (2026-11-10 owner: "make a function in CRM to fix such
+// issues later as well"). Pure and deterministic: given the article list it
+// finds every cover shared by two or more articles (and articles with no
+// cover at all) and proposes a unique replacement for each offender from the
+// same pools the scout draws on — brand-matched first, then generic, then
+// logistics — never re-using an image already on ANY article or already
+// proposed in this batch. The article whose TITLE best matches the shared
+// image keeps it (a Toyota article keeps the toyota-*.webp; ties go to the
+// first in list order, i.e. the oldest the caller put first).
+export function suggestCoverFixes(articles = []) {
+  const rows = articles.filter(a => a && a.id != null).map(a => ({
+    id: a.id, title: text(a.title), image: text(a.image || a.img)
+  }));
+  const used = new Set(rows.map(r => r.image).filter(Boolean));
+  const brandOf = title => {
+    const t = title.toLowerCase();
+    return Object.keys(BRAND_COVERS).find(b => t.includes(b)) || null;
+  };
+  // Title↔image affinity: shared brand token beats a generic match.
+  const affinity = r => {
+    const img = r.image.toLowerCase();
+    const b = brandOf(r.title);
+    return b && img.includes(b) ? 2 : 0;
+  };
+  const nextFree = r => {
+    const b = brandOf(r.title);
+    const logistics = /shipp|freight|port|roro|container|clearance|lane/i.test(r.title);
+    const pools = [
+      ...(b ? [BRAND_COVERS[b]] : []),
+      ...(logistics ? [LOGISTICS_COVERS] : []),
+      GENERIC_COVERS, LOGISTICS_COVERS
+    ];
+    for (const pool of pools) for (const img of pool) {
+      if (!used.has(img)) { used.add(img); return img; }
+    }
+    return null; // every pooled asset is taken — surface "no fix" honestly
+  };
+  const fixes = [];
+  // Missing covers first, in list order.
+  for (const r of rows) {
+    if (r.image) continue;
+    const to = nextFree(r);
+    if (to) fixes.push({ id: r.id, title: r.title, from: '', to, reason: 'missing cover' });
+  }
+  // Duplicate groups: keep the best title match, re-cover the rest.
+  const byImage = new Map();
+  for (const r of rows) {
+    if (!r.image) continue;
+    if (!byImage.has(r.image)) byImage.set(r.image, []);
+    byImage.get(r.image).push(r);
+  }
+  for (const [img, group] of byImage) {
+    if (group.length < 2) continue;
+    const keeper = group.reduce((best, r) => affinity(r) > affinity(best) ? r : best, group[0]);
+    for (const r of group) {
+      if (r === keeper) continue;
+      const to = nextFree(r);
+      if (to) fixes.push({ id: r.id, title: r.title, from: img, to, reason: `duplicate of “${keeper.title}”` });
+    }
+  }
+  return fixes;
+}
+
 export function buildTopicIdeas({ cars = [], machines = [], dests = [], published = [] } = {}) {
   const taken = new Set(published.map(a => slugOf(a.title)));
   // Subject-level coverage (2026-11-08 owner report: the desk kept proposing

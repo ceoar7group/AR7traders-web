@@ -1058,12 +1058,17 @@ footer [id] {
   }
 
   .hero .hero-visual {
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto auto;
     gap: 12px;
     width: min(680px, 100%);
+    min-height: 0;
     height: auto;
     margin: 26px auto 0;
   }
+
+  .hero .hero-visual .car-main { grid-row: 2; }
+  .hero .hero-visual .hero-carousel-controls { grid-row: 2; }
+  .hero .hero-visual .stage-foot { grid-row: 3; }
 
   .hero .hero-visual .car-main {
     aspect-ratio: 16 / 10;
@@ -1575,14 +1580,13 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
   outline: 3px solid var(--gold);
   outline-offset: 3px;
 }
-/* The prev/next arrows share grid row 1 with the photograph, so they are
-   centred on the PHOTO by construction. They used to be `position:absolute;
-   top:50%` on `.hero-visual`, which was fine while the visual held only the
-   car — with the facts row added underneath, 50% of the box landed the arrows
-   below the photograph. Grid placement removes the per-breakpoint `top`
-   guesswork entirely (there were three of them). */
+/* The prev/next arrows share the photograph's grid row (row 2 since the
+   2026-11-10 hero v3: row 1 is the slim search console, row 3 the CTA+chips
+   band), so they are centred on the PHOTO by construction. They used to be
+   `position:absolute; top:50%` on `.hero-visual` — grid placement removes the
+   per-breakpoint `top` guesswork entirely. */
 .hero-carousel-controls {
-  grid-row: 1;
+  grid-row: 2;
   grid-column: 1 / -1;
   z-index: 8;
   display: flex;
