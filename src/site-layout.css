@@ -828,17 +828,12 @@ footer [id] {
    the six gold `.spark` twinkles on top of an uncovered photograph read as
    sensor noise. All of it is gone.
 
-   `.hero-visual` is now a two-row grid (src/styles.css owns the rows and the
-   card skin):
-
-     row 1  `.car-main`   — the photograph, full-bleed, nothing layered on it
-     row 2  `.hero-facts` — ONE in-flow row: `.route-strip` (shipping lane) and
-                            `.auction-chip` (next auction + live countdown),
-                            side by side above 1000px, stacked below it.
-
-   Because row 2 is in flow, `.hero-facts`' top can never be above `.car-main`'s
-   bottom: the overlap class of bug is gone by construction rather than by
-   z-index. Verified at six viewports — see pr-visuals/2026-10-07/README.md.
+   2026-11-09 round 3 (owner): the facts row left the stage altogether.
+   `.hero-visual` is the photograph alone, and `.hero-facts` now docks in
+   `.hero-copy`, directly under the `.hero-search` console — two compact
+   chips (`.route-strip` shipping lane, `.auction-chip` next auction +
+   countdown), side by side above 1000px, stacked below it. Still in normal
+   flow, so nothing can ever overlap the photo or the console.
 
    OWNERSHIP. This section owns the geometry and the shared card skeleton
    (kicker, title, meta, lane row, ETA pill, rotation dots, "demo" tag).
@@ -900,13 +895,13 @@ footer [id] {
   flex: 0 0 auto;
   width: 12px;
   height: 12px;
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 /* The countdown is the live-feeling line of the auction chip; the route's
    status line stays muted so the lane bar carries the colour. */
 .hero-facts .auction-chip .card-meta {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 /* A live number needs fixed-width digits, or the chip jitters every second. */
@@ -957,7 +952,7 @@ footer [id] {
   flex: 0 0 auto;
   width: 13px;
   height: 13px;
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 .hero-facts .facts-head .card-kicker {
@@ -1135,21 +1130,21 @@ footer [id] {
   }
 }
 
-/* --- above 1000px: the two cards share one row under the photograph --- */
+/* --- above 1000px: the two chips share one row under the search console --- */
 @media (min-width: 1001px) {
   .hero .hero-facts {
-    gap: 14px;
+    gap: 10px;
   }
 
   .hero-facts .route-strip,
   .hero-facts .auction-chip {
-    padding: 11px 14px;
+    padding: 8px 12px;
   }
 
   /* The auction chip is the narrow, fixed one; the lane strip takes the rest so
      a long port pair ("Yokohama → Dar es Salaam") has room to run. */
   .hero-facts .auction-chip {
-    width: clamp(196px, 17vw, 236px);
+    width: clamp(176px, 14vw, 208px);
   }
 }
 
@@ -1220,17 +1215,13 @@ footer [id] {
   width: 17px;
 }
 
-.hero .hero-quick {
-  margin-top: 16px;
-}
-
 /* 2026-10-07: the `.hero-vignettes` pair used to sit between the "see how
    bidding works" line and the founder statistic, giving the column its last
    beat. With it gone the statistic collided with the quick link, so the stat
    carries that beat instead. The <=650px refinement stays in expanded.css,
    which already owned it. */
 .hero .hero-copy .founder-stat {
-  margin-top: 26px;
+  margin-top: 20px;
 }
 
 @media (max-width: 650px) {
@@ -1239,10 +1230,6 @@ footer [id] {
     height: 50px;
     padding: 0 16px;
     font-size: 13px;
-  }
-
-  .hero .hero-quick {
-    margin-top: 13px;
   }
 }
 
@@ -2225,6 +2212,7 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
    the primary button's hover flash) get explicit navy overrides below.
    =========================================================================== */
 html[data-theme=blue] {
+  --gold-ink: #f0a848; /* gold text sits on dark navy cards here — keep it bright */
   --green: #0d3f7e;
   --green-text: #8fb9ff;
   --deep: #071a3a;
