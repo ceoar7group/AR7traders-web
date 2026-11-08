@@ -60,6 +60,9 @@ const GlobalSearch = lazyRetry(() => import('./global-search.jsx'), 'search');
 // The machinery desk is its own page (and its own CSS chunk), reached from
 // /machinery, the Inventory menu and the home teaser.
 const MachineryPage = lazyRetry(() => import('./machinery.jsx').then(m => ({ default: m.MachineryPage })), 'machinery');
+// The quick-quote wizard (and its CSS) loads only when the visitor scrolls
+// near it on the home page — see DeferredQuickQuote.
+const QuickQuote = lazyRetry(() => import('./quick-quote.jsx'), 'quickquote');
 const EnquiryForm = lazyRetry(() => import('./enquiry-form.jsx').then(m => ({ default: m.EnquiryForm })), 'enquiry-form');
 const EnquiryDialog = lazyRetry(() => import('./enquiry-form.jsx').then(m => ({ default: m.EnquiryDialog })), 'enquiry-dialog');
 // 2026-10-08: the six market pages are a route-level screen like the machinery
@@ -1356,6 +1359,29 @@ function DeferredBigGlobe({navigate,compact}){
  </div>;
 }
 
+// Same deferred-mount pattern as DeferredBigGlobe: the quick-quote wizard
+// chunk only downloads once the visitor scrolls within 280px of the section.
+function DeferredQuickQuote({navigate,cars}){
+ const host=useRef(null);
+ const [ready,setReady]=useState(false);
+ useEffect(()=>{
+  const el=host.current;
+  if(!el)return;
+  if(typeof IntersectionObserver!=='function'){setReady(true);return;}
+  const io=new IntersectionObserver(entries=>{
+   if(entries.some(e=>e.isIntersecting)){
+    setReady(true);
+    io.disconnect();
+   }
+  },{rootMargin:'280px 0px'});
+  io.observe(el);
+  return()=>io.disconnect();
+ },[]);
+ return <div ref={host} className="qq-lazy">
+  {ready&&<React.Suspense fallback={<div className="qq-lazy" aria-hidden="true"/>}><QuickQuote navigate={navigate} cars={cars}/></React.Suspense>}
+ </div>;
+}
+
 function WorldTimeRibbon(){
  const [now,setNow]=useState(()=>new Date());
  useEffect(()=>{
@@ -1636,6 +1662,11 @@ export function App(){
      </div>)}</div>
      <button className="outline-btn" onClick={()=>openEnquiry({kind:'vehicle',message:'I saw the recently sold cars — please source a similar one for me.'})} type="button">{t('home.soldCta')} <ArrowRight/></button>
     </section>:null})()}
+
+   {/* Quick-quote wizard: three taps (market → budget → body) to a written
+       quote. Match counts come straight from the live `cars` list, so the
+       section never claims stock it doesn't have. */}
+   <DeferredQuickQuote navigate={navigate} cars={cars}/>
 
    <section className="mch-teaser shell section" id="machinery">
     <div className="mch-teaser-head">

@@ -267,7 +267,10 @@ const BUDGET_GZIP = 163 * 1024;
 // above (the per-screen t() wiring + 464 English keys). Actual: 551.63 kB raw.
 // 2026-11-14: 553 → 558 kB raw — same fourth-round i18n EN-source growth as
 // the gzip note above. Measured 556.33 kB raw.
-const BUDGET_RAW = 558 * 1024;
+// 2026-11-14 (quick-quote): 558 → 560 kB raw — 27 qq.* English fallback keys
+// plus the DeferredQuickQuote wrapper ride first load; the wizard itself and
+// its CSS are a lazy quick-quote chunk. Measured 558.14 kB raw / 161.80 gzip.
+const BUDGET_RAW = 560 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
