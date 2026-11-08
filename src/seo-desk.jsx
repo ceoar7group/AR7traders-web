@@ -15,7 +15,7 @@
 // It is a staff route: noindex, and never linked from the public nav.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Save, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2, Sparkles, BookOpenCheck, ClipboardList } from 'lucide-react';
+import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Save, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2, Sparkles, BookOpenCheck, ClipboardList, Image as ImageIcon } from 'lucide-react';
 import { auditDocument, summarise } from './seo-audit.js';
 import { applySeo, BASE } from './seo.js';
 import { staticAuditRoutes, publicLandingRoutes } from './seo-routes.js';
@@ -23,7 +23,7 @@ import { SITE_CANONICAL_ORIGIN, canonicalSiteUrl, isStaffNoindexPath, sitemapLoc
 import { NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH, getPublishedNews, getNewsCategories, setPublishedNews } from './news-data.js';
 import { updateSettingsCache } from './site-settings.js';
 import { campaignIsLive } from './offers.js';
-import { buildTopicIdeas, buildUpgradeReport } from './seo-topic-scout.js';
+import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes } from './seo-topic-scout.js';
 import { MACHINES } from './machinery-data.js';
 import { DEST } from './destinations.js';
 import './seo-desk.css';
@@ -550,6 +550,34 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     setDraftReviewed(false);
   };
 
+  // Cover image doctor (2026-11-10): the same duplicate-cover rule the Topic
+  // Scout enforces at proposal time, applied retroactively to everything in
+  // site_articles. Pure logic lives in seo-topic-scout.js (tested); this is
+  // just the PATCH loop.
+  const coverFixes = useMemo(() => suggestCoverFixes(editorArticles), [editorArticles]);
+  const [coverFixBusy, setCoverFixBusy] = useState(false);
+  const runCoverFixes = async () => {
+    if (!token || !canPublish || coverFixBusy || coverFixes.length === 0) return;
+    setCoverFixBusy(true);
+    try {
+      for (const fix of coverFixes) {
+        const response = await fetch('/api/site-content?entity=articles&via=cover-doctor', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ id: fix.id, image: fix.to })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Cover update failed (${response.status}) on “${fix.title}”.`);
+      }
+      await refreshArticleList();
+      notify(`Cover image doctor: ${coverFixes.length} article cover(s) replaced — every article now has a unique image.`);
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setCoverFixBusy(false);
+    }
+  };
+
   const refreshArticleList = async () => {
     const response = await fetch('/api/site-content?entity=articles&all=1', {
       cache: 'no-store', headers: {Authorization: `Bearer ${token}`}
@@ -909,6 +937,27 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
             })}
           </ul>
           {!canPublish && <small className="seo-muted">Your role can review topics but cannot publish guides.</small>}
+        </section>
+
+        <section className="seo-card seo-cover-doctor" aria-label="Cover image doctor">
+          <div className="seo-hub-title"><ImageIcon size={18}/><div><h2>Cover image doctor</h2><p>Every article must wear its own cover: duplicate or missing images hurt click-through and look careless in link previews. This check runs over <b>all</b> articles (drafts included) and proposes a unique replacement from the site asset pools — brand-matched first.</p></div></div>
+          {coverFixes.length === 0
+            ? <p className="seo-muted"><Check size={13}/> All {editorArticles.length} article(s) have unique cover images. Nothing to fix.</p>
+            : <>
+              <ul className="seo-scout-list">
+                {coverFixes.map(fix => (
+                  <li key={fix.id} className="seo-scout-topic">
+                    <div className="seo-scout-main">
+                      <b>{fix.title}</b>
+                      <small>{fix.reason} · {fix.from ? <>replace <code>{fix.from}</code> with</> : 'assign'} <code>{fix.to}</code></small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="gold-btn" disabled={!canPublish || !token || coverFixBusy} onClick={runCoverFixes}>
+                {coverFixBusy ? <><RefreshCw size={14} className="seo-spin"/> Fixing…</> : <><Send size={14}/> Fix all {coverFixes.length} cover(s)</>}
+              </button>
+            </>}
         </section>
 
         <section className="seo-card" aria-label="Keyword research automation">

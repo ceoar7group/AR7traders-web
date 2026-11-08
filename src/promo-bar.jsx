@@ -41,6 +41,11 @@ export function PromoBar({ navigate }) {
     } catch { /* private mode: first paint reserves nothing, as before */ }
   });
   const [hidden, setHidden] = useState(false);
+  // True once either promo source has actually answered. Until then the
+  // reserved `--promo-h` must not be zeroed, or the pre-paint reservation
+  // collapses the moment React mounts — reintroducing the very shift it
+  // exists to prevent.
+  const [settled, setSettled] = useState(false);
   const [offerHidden, setOfferHidden] = useState(false);
   const settings = useSettings();
   const stockDiscounts = useStockDiscounts();
@@ -53,6 +58,7 @@ export function PromoBar({ navigate }) {
       const live = typeof raw === 'string' ? JSON.parse(raw) : raw;
       setPromo(live?.active ? live : null);
     } catch { setPromo(null); }
+    setSettled(true);
   }, [settings?.promo]);
 
   // 2. The published file is the fallback, and what a static deploy shows.
@@ -73,6 +79,7 @@ export function PromoBar({ navigate }) {
         if (!campaignIsLive(data)) return;
         setPromo(data);
       } catch { /* no promo file, or offline preview: show nothing */ }
+      finally { if (alive) setSettled(true); }
     })();
     return () => { alive = false; };
   }, [promo, settings?.promo]);
@@ -103,14 +110,25 @@ export function PromoBar({ navigate }) {
       const h = document.querySelector('.promo-bar')?.offsetHeight || 44;
       root.style.setProperty('--promo-h', h + 'px');
       try { localStorage.setItem(HEIGHT_KEY, String(h)); } catch { /* ignore */ }
-    } else {
+    } else if (settled) {
+      // Only a CONFIRMED "no campaign" clears the reservation; while the
+      // answer is in flight the previous visit's height keeps holding the
+      // nav in place (the empty .promo-slot below occupies it).
       root.style.setProperty('--promo-h', '0px');
       try { localStorage.removeItem(HEIGHT_KEY); } catch { /* ignore */ }
     }
     return () => root.style.setProperty('--promo-h', '0px');
-  }, [promo?.id, hidden, currentStockRow?.id, offerHidden, campaign?.id, offerLine?.id]);
+  }, [promo?.id, hidden, currentStockRow?.id, offerHidden, campaign?.id, offerLine?.id, settled]);
 
-  if (!campaign && !offerLine) return null;
+  // While there is nothing to show, hold the previously reserved height open
+  // instead of unmounting (2026-11-10, PageSpeed `nav.shell` CLS 0.053): the
+  // bar sits ABOVE the ribbon and nav inside the fixed header, so on a repeat
+  // visit `--promo-h` is restored before first paint but the nav still
+  // started at the top and jumped down 45px when the answer arrived. An empty
+  // slot of exactly `var(--promo-h)` keeps the ribbon and nav where the bar
+  // will put them; for a first-time visitor the variable is 0px and the slot
+  // reserves nothing, exactly as before.
+  if (!campaign && !offerLine) return <div className="promo-slot" aria-hidden="true" style={{height: 'var(--promo-h, 0px)'}}/>;
 
   // Each row remembers its own dismissal, against its own id.
   const closeCampaign = () => {

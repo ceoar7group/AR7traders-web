@@ -366,13 +366,17 @@ html,body{overflow-x:clip}
      2026-11-09 round 2 (owner): band now matches the inventory page EXACTLY —
      same linear-gradient(125deg, --deep, #0b603b), same ghost AR7 watermark —
      and the copy below is arranged as a modern centred composition. */
-  .hero[data-hv="c"] { display: flex; flex-direction: column; align-items: stretch; gap: clamp(18px, 2.8vh, 34px); }
+  .hero[data-hv="c"] { display: flex; flex-direction: column; align-items: stretch; gap: clamp(14px, 2.2vh, 24px); }
+  /* 2026-11-10 hero v3: the stage hosts three rows — slim search console on
+     top (just under the header), the slideshow, and ONE horizontal band of
+     CTA buttons + shipping-lane/auction chips underneath. */
   .hero[data-hv="c"] .hero-visual {
     order: -1;
     width: 100vw;
     margin-inline: calc(50% - 50vw);
-    height: clamp(440px, 68vh, 760px);
-    padding: clamp(14px, 2.4vh, 26px) clamp(16px, 4.5vw, 64px) clamp(16px, 2.8vh, 30px);
+    height: clamp(560px, 86vh, 900px);
+    gap: clamp(10px, 1.6vh, 16px);
+    padding: clamp(12px, 2vh, 20px) clamp(16px, 4.5vw, 64px) clamp(14px, 2.2vh, 22px);
     position: relative;
     overflow: hidden;
     background: linear-gradient(125deg, var(--deep), #0b603b);
@@ -390,17 +394,62 @@ html,body{overflow-x:clip}
   .hero[data-hv="c"] .hero-copy .eyebrow { justify-content: center; letter-spacing: 3px; }
   .hero[data-hv="c"] .hero-copy h1 { margin: 14px 0 10px; font-size: clamp(42px, 4.6vw, 68px); letter-spacing: -3.2px; }
   .hero[data-hv="c"] .hero-copy > p { max-width: 760px; font-size: 17px; margin-bottom: 4px; }
-  .hero[data-hv="c"] .hero-cta { justify-content: center; margin-top: 18px; }
-  .hero[data-hv="c"] .hero-search {
-    width: min(720px, 100%);
-    border-radius: 18px;
-    box-shadow: 0 18px 50px rgba(3, 43, 27, .14);
-  }
-  .hero[data-hv="c"] .hero-search { margin-top: 16px; }
-  .hero[data-hv="c"] .hero-facts { width: min(720px, 100%); margin-top: 10px; text-align: left; }
-  .hero[data-hv="c"] .founder-stat--hero { margin-top: 18px; }
+  .hero[data-hv="c"] .founder-stat--hero { margin-top: 14px; }
   .hero[data-hv="c"] .founder-stat, .hero[data-hv="c"] .stats { justify-content: center; }
   .hero[data-hv="c"] .scroll-cue { display: none; }
+}
+
+/* --- hero v3 stage console + foot band (2026-11-10, owner direction):
+   the search console is a slim single-row bar recoloured for the deep-green
+   band — translucent glass, white type, the brand gold on the button — and
+   the foot band lines the CTA buttons up horizontally with the chips.
+   Applies at every width; the wrap points below handle small screens. --- */
+.hero[data-hv="c"] .stage-top { justify-content: center; }
+.hero[data-hv="c"] .stage-top .hero-search {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  width: min(1060px, 100%);
+  margin-top: 0;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid #ffffff26;
+  background: #ffffff12;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(1, 20, 12, .25);
+}
+.hero[data-hv="c"] .stage-top .hero-search:focus-within {
+  border-color: color-mix(in srgb, var(--gold) 60%, #ffffff26);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 20%, transparent), 0 10px 30px rgba(1, 20, 12, .25);
+}
+.hero[data-hv="c"] .stage-top .hs-query { flex: 1 1 220px; height: 40px; border-color: #ffffff22; background: #ffffff14; }
+.hero[data-hv="c"] .stage-top .hs-query svg { color: #e9f3ec; opacity: .8; }
+.hero[data-hv="c"] .stage-top .hero-search input { color: #fff; }
+.hero[data-hv="c"] .stage-top .hero-search input::placeholder { color: #bcd3c6; }
+.hero[data-hv="c"] .stage-top .hs-filters { flex: 0 1 auto; gap: 8px; align-items: center; flex-wrap: nowrap; }
+.hero[data-hv="c"] .stage-top .hs-field { display: block; min-width: 0; position: relative; }
+.hero[data-hv="c"] .stage-top .hs-field span { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hero[data-hv="c"] .stage-top .hero-search select { height: 40px; min-width: 116px; border-color: #ffffff26; background: #0b3d28; color: #eaf4ee; color-scheme: dark; }
+.hero[data-hv="c"] .stage-top .hero-search button { height: 40px; padding: 0 18px; border-radius: 11px; }
+@media (max-width: 760px) {
+  .hero[data-hv="c"] .stage-top .hero-search { flex-wrap: wrap; }
+  .hero[data-hv="c"] .stage-top .hs-query { flex: 1 1 100%; }
+  .hero[data-hv="c"] .stage-top .hs-filters { flex: 1 1 100%; }
+  .hero[data-hv="c"] .stage-top .hs-field { flex: 1 1 0; }
+  .hero[data-hv="c"] .stage-top .hero-search select { width: 100%; min-width: 0; }
+}
+
+.hero[data-hv="c"] .stage-foot { gap: 10px; }
+.hero[data-hv="c"] .stage-foot .hero-cta { margin-top: 0; gap: 9px; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; }
+.hero[data-hv="c"] .stage-foot .hero-cta .primary { height: 44px; padding: 0 16px; font-size: 12.5px; box-shadow: none; }
+.hero[data-hv="c"] .stage-foot .hero-cta .ghost-btn { height: 44px; padding: 0 14px; font-size: 12.5px; background: #ffffff10; border-color: #ffffff2e; color: #eef6f0; }
+.hero[data-hv="c"] .stage-foot .text-btn { color: #e8f2ec; font-size: 12.5px; }
+.hero[data-hv="c"] .stage-foot .text-btn > span { width: 34px; height: 34px; border-color: #ffffff2e; }
+.hero[data-hv="c"] .stage-foot .route-strip,
+.hero[data-hv="c"] .stage-foot .auction-chip { background: color-mix(in srgb, var(--card) 92%, transparent); border-color: #ffffff2a; }
+@media (max-width: 1100px) {
+  .hero[data-hv="c"] .stage-foot { flex-direction: column; align-items: stretch; }
+  .hero[data-hv="c"] .stage-foot .hero-cta { flex-wrap: wrap; justify-content: center; }
 }
 
 /* On phones every variant is one column already; B and C still lead with the
@@ -418,7 +467,7 @@ html,body{overflow-x:clip}
     background: linear-gradient(125deg, var(--deep), #0b603b);
   }
   .hero[data-hv="c"] .hero-copy { text-align: center; }
-  .hero[data-hv="c"] .hero-copy .eyebrow, .hero[data-hv="c"] .hero-cta { justify-content: center; }
+  .hero[data-hv="c"] .hero-copy .eyebrow { justify-content: center; }
   .hero[data-hv="c"] .hero-facts { text-align: left; }
   .hero[data-hv="c"] .scroll-cue { display: none; }
 }

@@ -119,7 +119,9 @@
      its first slide is hero-01 — preloading the retired lux/ cards wasted
      ~170 KB of high-priority bandwidth on every visit while the REAL LCP
      image queued behind them. The preload now matches the stage's own
-     srcset/sizes so phones fetch only the 760w variant. -->
+     srcset/sizes so phones fetch only the 760w variant — which is ALSO what
+     the blurred .hero-slide-bg backdrop (the measured LCP element) paints
+     from, so the LCP file is discovered right here, at high priority. -->
 <link rel="preload" as="image" href="/assets/showroom/hero-01.webp" imagesrcset="/assets/showroom/hero-01-760.webp 760w, /assets/showroom/hero-01.webp 1268w" imagesizes="(max-width:900px) 80vw, 36vw" fetchpriority="high"/>
 <link rel="preload" as="image" href="/assets/ar7-mark-128.webp"/>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-400.woff2" crossorigin/>

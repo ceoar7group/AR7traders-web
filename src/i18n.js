@@ -206,7 +206,7 @@ const en = {
   'hero.eyebrow': 'Japan auctions · China cars & machinery',
   'hero.h1a': 'RHD & LHD cars from Japan & China,', // 2026-11-09 owner: headline must carry both drive sides
   'hero.h1b': 'machinery for every market.',
-  'hero.lead': "Right-hand-drive and left-hand-drive cars exported from both Japan and China, plus heavy machinery and equipment from vetted factories — inspected, priced to your port, and delivered", // 2026-11-09 owner: we export RHD AND LHD from BOTH countries
+  'hero.lead': "We export every kind of vehicle and machinery from Japan and China — RHD or LHD cars, SUVs, vans and trucks, plus heavy and light equipment from vetted factories — inspected, priced to your port, and delivered", // 2026-11-10 owner: all kinds of vehicles AND machinery, both drive sides, both countries
   'hero.leadEm': 'anywhere in the world',
   'hero.explore': 'Explore vehicles',
   'hero.browseMachinery': 'Browse machinery',

@@ -138,16 +138,17 @@ assert.match(main, /loading=\{a<=1\?'eager':'lazy'\}/);
 assert.match(main, /fetchPriority=\{off===0\?'high':'low'\}/);
 assert.match(main, /prefers-reduced-motion/);
 
-// 2026-10-07 hero rebuild, amended 2026-11-09 round 3: the photograph IS the
-// card, and the facts row now docks in `.hero-copy` under the search console
-// (owner: "merge it with the search console area"). `.hero-visual` is the
-// photo alone; `.hero-facts` is a compact two-chip grid in normal flow, so no
-// card, badge or sparkle can sit on top of the vehicle at any width. The old
-// `.floating-card` / `.floating-badge` / `.hero-vignette` / `.spark` rules are
-// deleted everywhere, not merely overridden (one owner per rule).
-assert.match(stylesCss, /\.hero-visual\{position:relative;display:grid;grid-template-rows:minmax\(0,1fr\);/);
-assert.match(stylesCss, /\.car-main\{grid-row:1;grid-column:1\/-1;/);
-assert.match(stylesCss, /\.hero-facts\{min-width:0;width:100%;margin-top:12px;display:grid;/);
+// 2026-10-07 hero rebuild: the photograph IS the card — no `.floating-card` /
+// `.floating-badge` / `.hero-vignette` / `.spark` sits on the vehicle at any
+// width (deleted everywhere, not merely overridden: one owner per rule).
+// 2026-11-10 hero v3: the visual is a three-row stage — slim search console
+// (.stage-top, row 1) above the photograph (row 2) with the CTA + facts band
+// (.stage-foot, row 3) underneath. The arrows share row 2 with the photo.
+assert.match(stylesCss, /\.hero-visual\{position:relative;display:grid;grid-template-rows:auto minmax\(0,1fr\) auto;/);
+assert.match(stylesCss, /\.stage-top\{grid-row:1;grid-column:1\/-1;/);
+assert.match(stylesCss, /\.stage-foot\{grid-row:3;grid-column:1\/-1;display:flex;flex-wrap:wrap;/);
+assert.match(stylesCss, /\.car-main\{grid-row:2;grid-column:1\/-1;/);
+assert.match(stylesCss, /\.hero-facts\{min-width:0;flex:1 1 340px;display:grid;/);
 assert.match(main, /className="hero-facts"/);
 assert.match(main, /className="route-strip"/);
 assert.match(main, /className="auction-chip"/);
@@ -203,8 +204,8 @@ assert.match(main, /gallery-expand/);
 const targetHeroWidths = [1920, 1366, 1024, 768, 390];
 for (const width of targetHeroWidths) {
   const expectedMode = width <= 1000 ? 'stacked' : 'collage';
-  const stackedRule = /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-visual \{[\s\S]*?grid-template-rows: auto auto/.test(layoutCss);
-  const collageRule = /\.hero-visual\{position:relative;display:grid;grid-template-rows:minmax\(0,1fr\);height:clamp\(430px,min\(68vh,52vw\),640px\)\}/.test(stylesCss);
+  const stackedRule = /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-visual \{[\s\S]*?grid-template-rows: auto auto auto auto/.test(layoutCss);
+  const collageRule = /\.hero-visual\{position:relative;display:grid;grid-template-rows:auto minmax\(0,1fr\) auto;gap:10px;min-height:clamp\(430px,min\(68vh,52vw\),640px\)\}/.test(stylesCss);
   const actualMode = width <= 1000 ? (stackedRule ? 'stacked' : 'missing') : (collageRule ? 'collage' : 'missing');
   assert.equal(actualMode, expectedMode, `${width}px hero uses its declared ${expectedMode} geometry`);
   // Both desks stay one click away at every width, as real anchors: the CTA row
@@ -221,7 +222,7 @@ for (const width of targetHeroWidths) {
 // by construction. Three per-breakpoint `top:` offsets used to guess at it;
 // with the facts row added underneath, `top:50%` of `.hero-visual` would have
 // landed them below the car. There is now no magic number to drift.
-assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*grid-row: 1;[^}]*grid-column: 1 \/ -1;[^}]*align-items: center;/s,
+assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*grid-row: 2;[^}]*grid-column: 1 \/ -1;[^}]*align-items: center;/s,
   'carousel arrows are grid-placed on the photo row and centred on it');
 assert.doesNotMatch(layoutCss, /\.hero-carousel-controls \{[^}]*top:\s*clamp\(/s,
   'no per-breakpoint top offset is left to guess where the photo is');

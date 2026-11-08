@@ -550,12 +550,13 @@ async function hydrateSiteContent(){
  contentHydrated=true;
  contentListeners.forEach(fn=>{try{fn()}catch{}});
 }
-// 2026-11-08 Lighthouse round: the live stock photos live on an external CDN,
-// and the hero asks for one the moment it renders — Lighthouse measured
-// ~650 ms of resource-load delay, much of it DNS+TLS setup. A <link
-// rel=preconnect> warms that connection as early as possible. The origin is
-// read out of the stock data itself (never hard-coded), capped at two hosts;
-// local /assets fallbacks are skipped.
+// 2026-11-08 Lighthouse round: the live stock photos live on an external CDN.
+// 2026-11-10: downgraded from rel=preconnect to rel=dns-prefetch — the home
+// hero now paints local /assets slides first, so Lighthouse flagged the full
+// preconnect as "unused" (an idle TLS socket costs the first paint). DNS
+// resolution alone is nearly free and still removes the lookup from the
+// first CDN image request. The origin is read out of the stock data itself
+// (never hard-coded), capped at two hosts; local /assets fallbacks skipped.
 const warmedOrigins=new Set();
 function warmImageOrigins(list){
  if(typeof document==='undefined'||!document.head)return;
@@ -568,7 +569,7 @@ function warmImageOrigins(list){
    if(warmedOrigins.has(origin))continue;
    warmedOrigins.add(origin);
    const l=document.createElement('link');
-   l.rel='preconnect';l.href=origin;
+   l.rel='dns-prefetch';l.href=origin;
    document.head.appendChild(l);
   }catch{/* malformed URL — skip */}
  }
@@ -866,7 +867,7 @@ function HeroFactsRow(){
   </div></div>
  </div>}
 
-function HeroVisual({navigate,discounts}){
+function HeroVisual({navigate,discounts,topBar,bottomBar}){
  const wrap=useRef(null);
  const price=useCarPrice(discounts);
  const [manualIdx,setManualIdx]=useState(0);
@@ -900,6 +901,8 @@ function HeroVisual({navigate,discounts}){
        real headings for each vehicle — so the hero gets its own screen-reader heading
        and the heading order stays h1 → h2 → h3 for anyone navigating by headings. */}
    <h2 className="sr-only">Japan &amp; China cars, heavy machinery</h2>
+  {/* 2026-11-10 hero v3: slim search console at the top of the stage. */}
+  {topBar?<div className="stage-top">{topBar}</div>:null}
   <div className={'hero-card car-main hero-stage'+(c.kind==='machine'?' is-machine':'')}
    onPointerDown={dragDown} onPointerUp={dragUp} onPointerCancel={()=>{dragRef.current=null}} onClickCapture={dragClick}>
    {slides.map((x,i)=>{
@@ -920,7 +923,13 @@ function HeroVisual({navigate,discounts}){
       tabIndex={a>1?-1:0} aria-hidden={a>1||undefined}
       onClick={e=>{if(off!==0){e.preventDefault();jumpTo(i)}else linkClick(x.href,navigate)(e)}}
       aria-label={off===0?`Open ${x.title}`:`Show ${x.title}`}>
-      {a<=2&&<span className="hero-slide-bg" style={{backgroundImage:`url("${x.image}")`}} aria-hidden="true"/>}
+      {/* The blurred backdrop never needs the 1268w file (blur(22px) erases
+          the detail) — and on phones the 760w variant is the SAME file the
+          <img> srcset picks, so the two paint from one preloaded fetch
+          instead of double-downloading (2026-11-10: PageSpeed's LCP element
+          was this span, undiscovered because it pulled the full-size URL the
+          preload never requested). */}
+      {a<=2&&<span className="hero-slide-bg" style={{backgroundImage:`url("${resp?x.image.replace('.webp','-760.webp'):x.image}")`}} aria-hidden="true"/>}
       {a<=2&&<img src={x.image} width="820" height="550"
         srcSet={resp?`${x.image.replace('.webp','-760.webp')} 760w, ${x.image} 1268w`:undefined}
         sizes={resp?'(max-width:900px) 80vw, 36vw':undefined}
@@ -935,10 +944,11 @@ function HeroVisual({navigate,discounts}){
    <button type="button" onClick={()=>moveSlide(-1)} aria-label="Prev"><ChevronLeft/></button>
    <button type="button" onClick={()=>moveSlide(1)} aria-label="Next"><ChevronRight/></button>
   </div>
-  {/* 2026-11-09 (owner request, round 3): the facts row moved OUT of the
-      stage entirely — it now docks under the hero search console as
-      HeroFactsRow, so the full-bleed band is only the photograph and the
-      stage reads lighter. Nothing is ever layered on the photo. */}
+  {/* 2026-11-10 hero v3 (owner direction): ONE horizontal band under the
+      slideshow — the CTA buttons ride alongside the shipping-lane strip and
+      the next-auction chip. Everything stays in normal flow; nothing is
+      ever layered on the photographs. */}
+  {bottomBar?<div className="stage-foot">{bottomBar}</div>:null}
  </div>}
 
 // 2026-11-10 (owner request: "redesign the globes — completely free rotation,
@@ -1044,7 +1054,7 @@ function ExtraPage({type,navigate,openAuction}){
  {type==='reviews'&&<React.Suspense fallback={<div className="empty-state"><h3>Loading customer reviews…</h3></div>}><ReviewsShowcase navigate={navigate} openAuction={openAuction} founderClaim={FOUNDER_CLAIM}/></React.Suspense>}
  {type==='faq'&&<div className="faq-layout"><div><div className="kicker">{t('faq.kicker')}</div><h2>{t('faq.h2')}</h2><p>{t('faq.body')}</p><PageLink className="primary" to="contact" navigate={navigate}>{t('faq.ask')}</PageLink><RelatedStock navigate={navigate} limit={4} kicker={t('rel.faqKicker')} note={t('rel.faqNote')}/></div><div className="accordions">{FAQ_TOPICS.map(topic=><div className="faq-topic-group" key={topic}><h3 className="faq-topic-title">{FAQ_TOPIC_KEY[topic]?t(FAQ_TOPIC_KEY[topic]):topic}</h3>{FAQ_ITEMS.map((x,i)=>x[2]===topic?<article key={x[0]} className={open===i?'open':''}><button type="button" onClick={()=>setOpen(open===i?-1:i)}><span>{i<14?t('faq.q'+(i+1)):x[0]}</span><b>{open===i?'−':'+'}</b></button>{open===i&&<p>{i<14?t('faq.a'+(i+1)):x[1]}</p>}</article>:null)}</div>)}</div></div>}
  {type==='portal'&&<div className="portal-live-note"><ShieldCheck/><div><b>This is a preview of the dashboard.</b><span>Your own vehicles, every payment received and the balance remaining are waiting in your account.</span></div><PageLink className="primary" to="account" navigate={navigate}>Sign in <ArrowRight/></PageLink></div>}
- {type==='portal'&&<div className="portal-demo"><aside><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async"/>{['Shipments','Auctions','Documents','Payments'].map(x=><button key={x} className={portalTab===x?'active':''} onClick={()=>setPortalTab(x)} type="button">{x}</button>)}<small>SAMPLE ACCOUNT<br/><b>Imran Khan</b></small></aside><section className="portal-main" aria-label="Client portal preview"><header><div><small>CLIENT PORTAL / {portalTab.toUpperCase()}</small><h2>{portalTab}</h2></div><button onClick={openAuction} type="button">Contact agent</button></header>{portalTab==='Shipments'?<div className="portal-shipment"><div className="portal-car"><img loading="lazy" decoding="async" width="820" height="550" src={cars[0].image} alt={carAlt(cars[0])}/><span><small>AR7-260184</small><b>Toyota Land Cruiser ZX</b><em>Yokohama → Karachi</em></span><strong>IN TRANSIT</strong></div><div className="track-line">{['Purchased','Inspected','Loaded','At sea','Arrived'].map((x,i)=><span key={x} className={i<4?'done':''}><i/>{x}<small>{i<4?'Complete':'Sep 08'}</small></span>)}</div></div>:portalTab==='Auctions'?<div className="portal-list">{cars.slice(1,5).map(c=><VehicleCard key={c.id} c={c} discounts={discounts}/>)}</div>:portalTab==='Documents'?<div className="doc-list">{['Commercial invoice.pdf','Export certificate.pdf','Bill of lading.pdf','Inspection report.pdf'].map((x,i)=><button key={x} onClick={openAuction} type="button"><ClipboardCheck/><span><b>{x}</b><small>Updated Aug {12+i}, 2026 · PDF</small></span><ArrowUpRight/></button>)}</div>:<div className="payment-card"><BadgeCheck/><h3>Account up to date</h3><p>All sample invoices have been paid.</p><div><span>Vehicle payment<b>{fmt(58900)}</b></span><span>Freight & insurance<b>{fmt(2480)}</b></span><span>Balance due<b>{fmt(0)}</b></span></div></div>}</section></div>}
+ {type==='portal'&&<div className="portal-demo"><aside><img width="128" height="79" src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async"/>{['Shipments','Auctions','Documents','Payments'].map(x=><button key={x} className={portalTab===x?'active':''} onClick={()=>setPortalTab(x)} type="button">{x}</button>)}<small>SAMPLE ACCOUNT<br/><b>Imran Khan</b></small></aside><section className="portal-main" aria-label="Client portal preview"><header><div><small>CLIENT PORTAL / {portalTab.toUpperCase()}</small><h2>{portalTab}</h2></div><button onClick={openAuction} type="button">Contact agent</button></header>{portalTab==='Shipments'?<div className="portal-shipment"><div className="portal-car"><img loading="lazy" decoding="async" width="820" height="550" src={cars[0].image} alt={carAlt(cars[0])}/><span><small>AR7-260184</small><b>Toyota Land Cruiser ZX</b><em>Yokohama → Karachi</em></span><strong>IN TRANSIT</strong></div><div className="track-line">{['Purchased','Inspected','Loaded','At sea','Arrived'].map((x,i)=><span key={x} className={i<4?'done':''}><i/>{x}<small>{i<4?'Complete':'Sep 08'}</small></span>)}</div></div>:portalTab==='Auctions'?<div className="portal-list">{cars.slice(1,5).map(c=><VehicleCard key={c.id} c={c} discounts={discounts}/>)}</div>:portalTab==='Documents'?<div className="doc-list">{['Commercial invoice.pdf','Export certificate.pdf','Bill of lading.pdf','Inspection report.pdf'].map((x,i)=><button key={x} onClick={openAuction} type="button"><ClipboardCheck/><span><b>{x}</b><small>Updated Aug {12+i}, 2026 · PDF</small></span><ArrowUpRight/></button>)}</div>:<div className="payment-card"><BadgeCheck/><h3>Account up to date</h3><p>All sample invoices have been paid.</p><div><span>Vehicle payment<b>{fmt(58900)}</b></span><span>Freight & insurance<b>{fmt(2480)}</b></span><span>Balance due<b>{fmt(0)}</b></span></div></div>}</section></div>}
  </div></section>
 }
 
@@ -1359,7 +1369,7 @@ if(page==='inventory')return <section className="inner-page"><div className="pag
  contact:{tag:t('page.contactKicker'),title:<>{t('page.contactH1a')}<br/><em>{t('page.contactH1em')}</em></>,desc:t('page.contactBody'),image:'/assets/japanese-car-auction-inspection-shipping-2.webp'}
  };
  const p=pages[page]||pages.about;
- return <section className="inner-page"><div className="page-hero split"><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p>{page==='contact'?<a className="gold-btn" href="#contact-enquiry">{t('page.sendEnquiry')} <ArrowRight/></a>:<button className="gold-btn" onClick={()=>openAuction({kind:page==='auction'?'auction':'contact'})} type="button">{t('page.getStarted')} <ArrowRight/></button>}</div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/><div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="460" height="285" src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async"/></div></div></div></div>
+ return <section className="inner-page"><div className="page-hero split"><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p>{page==='contact'?<a className="gold-btn" href="#contact-enquiry">{t('page.sendEnquiry')} <ArrowRight/></a>:<button className="gold-btn" onClick={()=>openAuction({kind:page==='auction'?'auction':'contact'})} type="button">{t('page.getStarted')} <ArrowRight/></button>}</div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/><div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="128" height="79" src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async"/></div></div></div></div>
  <div className="shell page-content">{page==='auction'?<><div className="feature-intro"><h2>Auction access without the guesswork.</h2><p>Every listing comes with translation support, market guidance and complete cost visibility before you bid.</p></div><div className="feature-cards">{[['01','Browse live listings','Filter by make, year, mileage, grade and auction venue.'],['02','Review with an expert','We translate the auction sheet and flag every detail.'],['03','Set your bid limit','Know your landed estimate before bidding begins.'],['04','Win & track','See results instantly and follow your car to port.']].map(x=><article key={x[1]}><span>{x[0]}</span><Gavel/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div><div className="auction-demo"><div><span className="live-dot"/> AUCTION LOTS · SAMPLE</div>{cars.slice(0,4).map(c=><section key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><small>{stockLabel(c)}{c.grade?' · Grade '+c.grade:''}</small><strong>{price(c)}</strong><PageLink className="lot-link" to={`inventory?car=${carRef(c)}`} navigate={navigate}>View vehicle</PageLink></section>)}</div></>:
  page==='shipping'?<><div className="feature-intro"><h2>One clear route. Complete support.</h2><p>From export certificate to customs-ready documents, our logistics desk handles the complexity.</p></div><div className="shipping-flow">{[['Japan yard','Inspection & preparation'],['Export port','Customs & loading'],['At sea','Live milestone tracking'],['Your port','Documents & collection']].map((x,i)=><div key={x[0]}><span>0{i+1}</span><Ship/><b>{x[0]}</b><small>{x[1]}</small></div>)}</div></>:
  page==='about'?<><div className="feature-intro"><h2>{t('about.h2')}</h2><p>{t('about.body')}</p></div><div className="story-grid"><img loading="lazy" decoding="async" width="88" height="88" src="/assets/ar7-logo-circle.png" alt="AR7 Traders emblem"/><div><FounderStat variant="about"/><p>{t('about.story')}</p></div></div></>:
@@ -1657,38 +1667,30 @@ export function App(){
       <div className="eyebrow"><span className="live-dot"/> {t('hero.eyebrow')}</div>
       <h1>{t('hero.h1a')}<br/><em>{t('hero.h1b')}</em></h1>
       <p>{t('hero.lead')} <b>{t('hero.leadEm')}</b>.</p>
-      {/* 2026-10-07: the primary CTA is a real anchor, not a JS button. It was
-          `onClick={()=>go('inventory')}` — one click on the same page, but no
-          href, so no Ctrl/Cmd-click, no middle-click, no "open in new tab" and
-          no crawlable link out of the hero. Both desks are now one click AND
-          one Ctrl+click away. The `.hero-vignettes` pair that repeated those
-          two links as floating chips over the photo is gone: the same two
-          destinations are these two buttons, and the machinery teaser below
-          carries the China desk. */}
-      {/* 2026-11-09 round 3: "See how bidding works" joins the CTA row (it was
-          a lone .hero-quick row of its own) — one less row of white space. */}
-      <div className="hero-cta"><PageLink className="primary" to="inventory" navigate={navigate}>{t('hero.explore')} <ArrowRight/></PageLink><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink><button className="text-btn" onClick={()=>setEnquiry({kind:'auction'})} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
-      {/* Quick search: hands the text to the inventory screen through
-          sessionStorage (no new URL shape, so the SEO routing is untouched)
-          and navigates. The inventory search box picks it up on mount. */}
-      {/* 2026-11-09 (owner): the dark pill became a light filter panel in the
-          inventory-toolbar style — search text plus Make and Body dropdowns.
-          All three hand over through sessionStorage; the inventory screen
-          picks them up on mount, same as the plain query always did. */}
-      <form className="hero-search" role="search" onSubmit={e=>{e.preventDefault();const f=e.currentTarget.elements;const v=(f.hq?.value||'').trim();try{sessionStorage.setItem('ar7-inv-q',v);if(f.hm&&f.hm.value!=='All')sessionStorage.setItem('ar7-inv-make',f.hm.value);if(f.hb&&f.hb.value!=='All')sessionStorage.setItem('ar7-inv-body',f.hb.value)}catch{/* storage may be off */}navigate('inventory')}}>
-        <div className="hs-query"><Search aria-hidden="true"/><input name="hq" placeholder={t('hero.searchPlaceholder')} aria-label={t('hero.searchPlaceholder')} autoComplete="off"/></div>
-        <div className="hs-filters">
-          <label className="hs-field"><span>Make</span><select name="hm" defaultValue="All"><option value="All">All makes</option>{BRANDS().slice(0,12).map(b=><option key={b.name} value={b.name}>{b.name}</option>)}</select></label>
-          <label className="hs-field"><span>Body</span><select name="hb" defaultValue="All"><option value="All">Any body</option>{[...new Set(cars.map(c=>c.body).filter(Boolean))].slice(0,8).map(b=><option key={b} value={b}>{b}</option>)}</select></label>
-          <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
-        </div>
-      </form>
-      {/* 2026-11-09 round 3 (owner): shipping lane + next auction, docked as
-          compact chips right under the search console they belong with. */}
-      <HeroFactsRow/>
       <FounderStat variant="hero" delay={900}/>
     </div>
-    <HeroVisual navigate={navigate} discounts={liveDiscounts}/>
+    {/* 2026-11-10 hero v3 (owner direction): the search console moves to the
+        TOP of the stage — a slim full-width bar just under the header, above
+        the car slideshow, recoloured to sit on the deep-green band. The CTA
+        row (real anchors — Ctrl/Cmd-click and crawlers still work) and the
+        shipping-lane/auction chips share ONE horizontal band under the
+        slideshow. hero-copy keeps only the headline story + founder proof.
+        Quick search still hands over through sessionStorage; the inventory
+        screen picks it up on mount, same as always. */}
+    <HeroVisual navigate={navigate} discounts={liveDiscounts}
+      topBar={
+       <form className="hero-search" role="search" onSubmit={e=>{e.preventDefault();const f=e.currentTarget.elements;const v=(f.hq?.value||'').trim();try{sessionStorage.setItem('ar7-inv-q',v);if(f.hm&&f.hm.value!=='All')sessionStorage.setItem('ar7-inv-make',f.hm.value);if(f.hb&&f.hb.value!=='All')sessionStorage.setItem('ar7-inv-body',f.hb.value)}catch{/* storage may be off */}navigate('inventory')}}>
+        <div className="hs-query"><Search aria-hidden="true"/><input name="hq" placeholder={t('hero.searchPlaceholder')} aria-label={t('hero.searchPlaceholder')} autoComplete="off"/></div>
+        <div className="hs-filters">
+          <label className="hs-field"><span>Make</span><select name="hm" defaultValue="All" aria-label="Make"><option value="All">All makes</option>{BRANDS().slice(0,12).map(b=><option key={b.name} value={b.name}>{b.name}</option>)}</select></label>
+          <label className="hs-field"><span>Body</span><select name="hb" defaultValue="All" aria-label="Body"><option value="All">Any body</option>{[...new Set(cars.map(c=>c.body).filter(Boolean))].slice(0,8).map(b=><option key={b} value={b}>{b}</option>)}</select></label>
+          <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
+        </div>
+       </form>}
+      bottomBar={<>
+       <div className="hero-cta"><PageLink className="primary" to="inventory" navigate={navigate}>{t('hero.explore')} <ArrowRight/></PageLink><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink><button className="text-btn" onClick={()=>setEnquiry({kind:'auction'})} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
+       <HeroFactsRow/>
+      </>}/>
     <div className="scroll-cue"><span>{t('hero.scrollCue')}</span><ChevronDown/></div>
    </section>
 
