@@ -14,6 +14,7 @@ import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
 import {linkClick, inventoryHref} from './routing.js';
 import {describeCriteria, criteriaHref} from './saved-search.js';
 import './portal.css';
+import { useLang } from './i18n.jsx';
 import { validateLead } from './lead-validation.js';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
@@ -35,28 +36,29 @@ export function CustomerAccountPage({navigate}){
 function AccountGate({navigate}){
  const [mode,setMode]=useState('login');
  const s=useSettings();
+ const {t}=useLang();
  return <section className="account-page">
   <div className="account-visual">
    <img loading="lazy" decoding="async" src="/assets/japanese-car-auction-inspection-shipping-1.webp" alt="AR7 vehicle inspection in Japan" width="820" height="550"/>
    <div className="account-overlay">
     <img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async" width="49" height="49"/>
     <div>
-     <div className="kicker">AR7 BUYER ACCOUNT</div>
-     <h2>Your direct line<br/>to Japan.</h2>
+     <div className="kicker">{t('account.kicker')}</div>
+     <h2>{t('account.h2a')}<br/>{t('account.h2b')}</h2>
      <ul>
-      <li><Check/> See every car you have ordered</li>
-      <li><Check/> Track what is paid and what is due</li>
-      <li><Check/> View each payment we have received</li>
-      <li><Check/> Follow shipping and documents</li>
+      <li><Check/> {t('account.li1')}</li>
+      <li><Check/> {t('account.li2')}</li>
+      <li><Check/> {t('account.li3')}</li>
+      <li><Check/> {t('account.li4')}</li>
      </ul>
     </div>
-    <div className="account-testimonial">“The portal made my first import clear from day one.”<small>AR7 BUYER · KARACHI</small></div>
+    <div className="account-testimonial">{t('account.quote')}<small>{t('account.quoteBy')}</small></div>
    </div>
   </div>
   <div className="account-form-wrap">
    <div className="account-tabs">
-    <button className={mode==='signup'?'active':''} onClick={()=>setMode('signup')} type="button"><UserPlus/> Sign up</button>
-    <button className={mode!=='signup'?'active':''} onClick={()=>setMode('login')} type="button"><LogIn/> Log in</button>
+    <button className={mode==='signup'?'active':''} onClick={()=>setMode('signup')} type="button"><UserPlus/> {t('account.signup')}</button>
+    <button className={mode!=='signup'?'active':''} onClick={()=>setMode('login')} type="button"><LogIn/> {t('account.login')}</button>
    </div>
    {mode==='login'  && <LoginForm onForgot={()=>setMode('forgot')}/>}
    {mode==='forgot' && <ForgotForm onBack={()=>setMode('login')}/>}
@@ -67,6 +69,7 @@ function AccountGate({navigate}){
 
 function LoginForm({onForgot}){
  const [email,setEmail]=useState(''),[password,setPassword]=useState('');
+ const {t}=useLang();
  const [busy,setBusy]=useState(false),[err,setErr]=useState('');
  async function submit(e){
   e.preventDefault();
@@ -79,20 +82,21 @@ function LoginForm({onForgot}){
   setBusy(false);
  }
  return <form onSubmit={submit}>
-  <div className="kicker">WELCOME BACK</div>
-  <h1>Log in to your account.</h1>
-  <p>See your orders, payments and balance in one place.</p>
+  <div className="kicker">{t('account.welcome')}</div>
+  <h1>{t('account.loginH1')}</h1>
+  <p>{t('account.loginP')}</p>
   {err && <div className="account-error">{err}</div>}
-  <label>EMAIL<input required type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
-  <label>PASSWORD<input required type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label>
-  <button className="primary wide" disabled={busy} type="submit">{busy?'Logging in…':'Log in'} <ArrowRight/></button>
-  <button type="button" className="link-btn" onClick={onForgot}>Forgot your password?</button>
-  <small className="demo-note"><LockKeyhole/> Your connection is encrypted and your password is never stored in readable form.</small>
+  <label>{t('account.email')}<input required type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
+  <label>{t('account.password')}<input required type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label>
+  <button className="primary wide" disabled={busy} type="submit">{busy?t('account.loggingIn'):t('account.login')} <ArrowRight/></button>
+  <button type="button" className="link-btn" onClick={onForgot}>{t('account.forgot')}</button>
+  <small className="demo-note"><LockKeyhole/> {t('account.secure')}</small>
  </form>;
 }
 
 function ForgotForm({onBack}){
  const [email,setEmail]=useState(''),[sent,setSent]=useState(false);
+ const {t}=useLang();
  const [busy,setBusy]=useState(false),[err,setErr]=useState('');
  async function submit(e){
   e.preventDefault();
@@ -106,23 +110,24 @@ function ForgotForm({onBack}){
  }
  if(sent) return <div className="account-sent">
   <span><Mail/></span>
-  <h1>Check your email.</h1>
-  <p>We have sent a reset link to <b>{email}</b>. Open it on this device and you can choose a new password straight away. The link expires in one hour.</p>
-  <button className="outline-btn" onClick={onBack} type="button">Back to login</button>
+  <h1>{t('account.checkEmail')}</h1>
+  <p>{t('account.sentA')} <b>{email}</b>. {t('account.sentB')}</p>
+  <button className="outline-btn" onClick={onBack} type="button">{t('account.backLogin')}</button>
  </div>;
  return <form onSubmit={submit}>
-  <div className="kicker">PASSWORD HELP</div>
-  <h1>Reset your password.</h1>
-  <p>Enter the email you use for AR7 and we will send you a link to set a new password.</p>
+  <div className="kicker">{t('account.helpK')}</div>
+  <h1>{t('account.resetH1')}</h1>
+  <p>{t('account.resetP')}</p>
   {err && <div className="account-error">{err}</div>}
-  <label>EMAIL<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
-  <button className="primary wide" disabled={busy} type="submit">{busy?'Sending…':'Email me a reset link'} <ArrowRight/></button>
-  <button type="button" className="link-btn" onClick={onBack}>Back to login</button>
+  <label>{t('account.email')}<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
+  <button className="primary wide" disabled={busy} type="submit">{busy?t('account.sending'):t('account.resetBtn')} <ArrowRight/></button>
+  <button type="button" className="link-btn" onClick={onBack}>{t('account.backLogin')}</button>
  </form>;
 }
 
 function SignupForm({settings,onDone}){
  const [busy,setBusy]=useState(false),[err,setErr]=useState(''),[done,setDone]=useState(false);
+ const {t}=useLang();
  async function submit(e){
   e.preventDefault();
   const f=new FormData(e.target);
@@ -150,30 +155,31 @@ function SignupForm({settings,onDone}){
  }
  if(done) return <div className="account-sent">
   <span><BadgeCheck/></span>
-  <h1>You’re in.</h1>
-  <p>If we asked you to confirm your email, open that message first. Our Japan desk has your details and will be in touch — you can also message us on WhatsApp any time.</p>
-  <button className="primary" onClick={onDone} type="button">Go to login <ArrowRight/></button>
+  <h1>{t('account.doneH1')}</h1>
+  <p>{t('account.doneP')}</p>
+  <button className="primary" onClick={onDone} type="button">{t('account.goLogin')} <ArrowRight/></button>
  </div>;
  return <form onSubmit={submit}>
-  <div className="kicker">CREATE ACCOUNT</div>
-  <h1>Create your buyer profile.</h1>
-  <p>Create your buyer account — it takes less than a minute.</p>
+  <div className="kicker">{t('account.createK')}</div>
+  <h1>{t('account.createH1')}</h1>
+  <p>{t('account.createP')}</p>
   {err && <div className="account-error">{err}</div>}
-  <label>FULL NAME<input name="name" required placeholder="Your name"/></label>
-  <label>EMAIL<input name="email" required type="email" placeholder="you@email.com"/></label>
+  <label>{t('account.fullName')}<input name="name" required placeholder={t('account.phName')}/></label>
+  <label>{t('account.email')}<input name="email" required type="email" placeholder="you@email.com"/></label>
   <div className="form-row">
-   <label>COUNTRY<select name="country" defaultValue="Pakistan"><option>Pakistan</option><option>UAE</option><option>Kenya</option><option>United Kingdom</option><option>Tanzania</option><option>Other</option></select></label>
-   <label>CONTACT PHONE (required)<input name="phone" required type="tel" inputMode="tel" autoComplete="tel" maxLength={40} placeholder="+92 300 0000000"/></label>
+   <label>{t('account.country')}<select name="country" defaultValue="Pakistan"><option>Pakistan</option><option>UAE</option><option>Kenya</option><option>United Kingdom</option><option>Tanzania</option><option>Other</option></select></label>
+   <label>{t('account.phone')}<input name="phone" required type="tel" inputMode="tel" autoComplete="tel" maxLength={40} placeholder="+92 300 0000000"/></label>
   </div>
-  <label>PASSWORD<input name="password" required type="password" minLength={8} placeholder="At least 8 characters"/></label>
-  <label>VEHICLE YOU WANT<input name="vehicle" placeholder="e.g. Toyota Land Cruiser 2022"/></label>
-  <button className="primary wide" disabled={busy} type="submit">{busy?'Creating…':'Create account'} <ArrowRight/></button>
-  <small className="demo-note"><ShieldCheck/> We only use your details to help you buy and ship a vehicle. Questions? <a href={'mailto:'+settings.contact_email}>{settings.contact_email}</a></small>
+  <label>{t('account.password')}<input name="password" required type="password" minLength={8} placeholder={t('account.phPassword')}/></label>
+  <label>{t('account.vehicle')}<input name="vehicle" placeholder={t('account.phVehicle')}/></label>
+  <button className="primary wide" disabled={busy} type="submit">{busy?t('account.creating'):t('account.createBtn')} <ArrowRight/></button>
+  <small className="demo-note"><ShieldCheck/> {t('account.privacy')} <a href={'mailto:'+settings.contact_email}>{settings.contact_email}</a></small>
  </form>;
 }
 
 function NewPasswordPanel({onDone}){
  const [busy,setBusy]=useState(false),[err,setErr]=useState(''),[ok,setOk]=useState(false);
+ const {t}=useLang();
  async function submit(e){
   e.preventDefault();
   const p=new FormData(e.target).get('password');
@@ -184,14 +190,14 @@ function NewPasswordPanel({onDone}){
  }
  return <section className="account-page single">
   <div className="account-form-wrap">
-   {ok ? <div className="account-sent"><span><Check/></span><h1>Password changed.</h1><p>Taking you to your account…</p></div>
+   {ok ? <div className="account-sent"><span><Check/></span><h1>{t('account.changedH1')}</h1><p>{t('account.changedP')}</p></div>
    : <form onSubmit={submit}>
-     <div className="kicker">CHOOSE A NEW PASSWORD</div>
-     <h1>Set your password.</h1>
-     <p>Pick something only you know — at least 8 characters.</p>
+     <div className="kicker">{t('account.newK')}</div>
+     <h1>{t('account.newH1')}</h1>
+     <p>{t('account.newP')}</p>
      {err && <div className="account-error">{err}</div>}
-     <label>NEW PASSWORD<input name="password" type="password" required minLength={8} autoComplete="new-password"/></label>
-     <button className="primary wide" disabled={busy} type="submit">{busy?'Saving…':'Save new password'} <ArrowRight/></button>
+     <label>{t('account.newLbl')}<input name="password" type="password" required minLength={8} autoComplete="new-password"/></label>
+     <button className="primary wide" disabled={busy} type="submit">{busy?t('account.saving'):t('account.saveBtn')} <ArrowRight/></button>
     </form>}
   </div>
  </section>;
