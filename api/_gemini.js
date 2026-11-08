@@ -49,6 +49,14 @@ export const GEMINI_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'];
 /** Token ceiling per request. Bounded output is a cost and latency control. */
 export const GEMINI_MAX_OUTPUT_TOKENS = 2400;
 
+/** 2026-11-10: the hard clamp callers can raise maxOutputTokens to. Gemini
+ *  2.5+/3.x are THINKING models — their internal reasoning tokens are billed
+ *  against maxOutputTokens, so a 600-word JSON draft can burn through 8,192
+ *  tokens of "output" before the visible answer finishes. That is exactly how
+ *  Topic Scout died with "output limit was reached" on 2026-11-10. The models
+ *  support 65,536 output tokens; we allow callers up to 32,768. */
+export const GEMINI_MAX_OUTPUT_CEILING = 32768;
+
 /** Per-request timeout. A hung provider must not hold a serverless function. */
 export const GEMINI_TIMEOUT_MS = 30000;
 
@@ -115,7 +123,7 @@ export async function geminiGenerate(prompt, {
     contents: [{ role: 'user', parts: [{ text: String(prompt || '') }] }],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: Math.max(64, Math.min(8192, Number(maxOutputTokens) || GEMINI_MAX_OUTPUT_TOKENS)),
+      maxOutputTokens: Math.max(64, Math.min(GEMINI_MAX_OUTPUT_CEILING, Number(maxOutputTokens) || GEMINI_MAX_OUTPUT_TOKENS)),
       ...(json ? { responseMimeType: 'application/json' } : {})
     },
     // The free tier has no safety-filter override; the defaults are kept.

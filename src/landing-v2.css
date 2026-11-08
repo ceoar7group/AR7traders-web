@@ -62,7 +62,7 @@
 html,body{overflow-x:clip}
 .globe-scene{position:relative;display:grid;place-items:center;padding:26px 0 22px}
 .globe-wrap{position:relative;padding-bottom:30px}
-.iglobe{position:relative;width:min(430px,88vw);aspect-ratio:1;margin:auto;perspective:1000px;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.iglobe{position:relative;width:min(430px,88vw);aspect-ratio:1;margin:auto;perspective:1000px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none} /* 2026-11-10: touch-action none — the 3D globe drags on BOTH axes */
 .iglobe.compact{width:min(480px,86vw)}
 .iglobe.dragging{cursor:grabbing}
 
@@ -74,12 +74,6 @@ html,body{overflow-x:clip}
 .iglobe-sphere{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 32% 28%,#169260,#07472f 55%,#012719);box-shadow:inset -45px -20px 65px #00190f,0 0 90px #20a16840;animation:globeFloat 6s ease-in-out infinite;will-change:transform}
 .iglobe-sphere:after{content:'';position:absolute;left:8%;right:8%;bottom:-34px;height:34px;background:#000;filter:blur(16px);opacity:.4;border-radius:50%}
 
-/* wireframe graticule */
-.graticule{position:absolute;inset:6%;border:1px solid #ffffff1a;border-radius:50%;pointer-events:none}
-.graticule.g2{transform:rotateY(62deg)}
-.graticule.g3{transform:rotateY(-62deg)}
-.graticule.g4{transform:rotateX(66deg)}
-.graticule.g5{transform:rotateX(78deg) scale(.78)}
 
 /* rotating map face (the draggable part) */
 .iglobe-face{position:absolute;inset:6%;border-radius:50%;overflow:hidden;transform:rotateX(var(--tilt,0deg));will-change:transform;background:radial-gradient(circle at 40% 35%,#0d5c3c,#053722 60%,#022b1b)}
@@ -88,45 +82,16 @@ html,body{overflow-x:clip}
    up/down so the globe can be dragged in any direction. Both are written by
    InteractiveGlobe (src/main.jsx), which clamps --lat to half the overhang —
    that is what guarantees the strip never runs out and shows an empty edge. */
-.iglobe-maps{position:absolute;left:0;top:-17%;display:flex;width:300%;height:134%;translate:var(--rot,0px) var(--lat,0px);transform:none;will-change:translate}
-.imap{position:relative;flex:0 0 33.3333%;height:100%}
-
-/* continents (repeat every segment = seamless 360°) */
-.imap .land{position:absolute;background:linear-gradient(165deg,#e7b451,#c8902c 70%,#b57f22);box-shadow:0 6px 14px #001c1199;border-radius:45% 55% 60% 40%}
-.imap .l1{left:8%;top:16%;width:24%;height:16%;transform:rotate(-14deg);clip-path:polygon(0 20%,35% 0,65% 20%,100% 10%,80% 60%,45% 100%,15% 78%)}
-.imap .l2{left:48%;top:9%;width:17%;height:12%;transform:rotate(9deg);clip-path:polygon(20% 0,85% 8%,100% 45%,60% 100%,5% 70%)}
-.imap .l3{left:13%;top:52%;width:27%;height:21%;transform:rotate(7deg);clip-path:polygon(35% 0,95% 15%,78% 45%,100% 72%,45% 100%,12% 62%,0 28%)}
-.imap .l4{left:59%;top:57%;width:20%;height:14%;transform:rotate(-10deg);clip-path:polygon(10% 25%,60% 0,100% 40%,70% 100%,0 75%)}
-.imap .l5{left:42%;top:36%;width:11%;height:8%;transform:rotate(20deg);border-radius:50%;opacity:.7}
-
-/* dashed routes riding the surface */
-.iglobe-routes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.iglobe-routes .arc{fill:none;stroke:#e5b553;stroke-width:1.6;stroke-linecap:round;stroke-dasharray:7 9;opacity:.9;animation:arcDash 2.6s linear infinite}
-.iglobe-routes .arc.a2{animation-direction:reverse;stroke:#ffe1a6}
-.iglobe-routes .arc.a3{animation-duration:2.1s;opacity:.65}
-@keyframes arcDash{to{stroke-dashoffset:-32}}
-
-/* tiny cars & ships crossing the globe */
-.imover{position:absolute;left:-26px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(160deg,#177a52,#0a3a27);border:1.5px solid #e5b553;color:#ffe1a6;animation:moverCross linear infinite;will-change:transform;z-index:2}
-.imover svg{width:9px;height:9px}
-.imover.m1{top:24%;animation-duration:13s}
-.imover.m2{top:66%;animation-duration:17s;animation-delay:-6s;background:linear-gradient(160deg,#e3b04b,#a97820);border-color:#fff0c8;color:#241c07}
-.imover.m3{top:45%;animation-duration:21s;animation-delay:-12s;background:linear-gradient(160deg,#0f5f41,#07301f);border-color:#4fbf8d;color:#c9f2dc}
-@keyframes moverCross{from{left:-26px}to{left:104%}}
-
-/* static highlight + cheap transform-only sheen sweep */
+/* 2026-11-10: the real world is painted by src/globe3d.js (true orthographic
+   projection, Natural Earth geometry) on this canvas — the scrolling map
+   strip, fake gold blobs and CSS movers are gone. */
+.iglobe-face .g3-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .iglobe-shine{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.16),transparent 46%);pointer-events:none}
 .iglobe-sheen{position:absolute;inset:0;border-radius:50%;overflow:hidden;pointer-events:none}
 .iglobe-sheen:before{content:'';position:absolute;top:-35%;bottom:-35%;left:0;width:12%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.10),transparent);transform:translateX(-130%) rotate(16deg);animation:sheenSweep 6s ease-in-out infinite;will-change:transform}
 @keyframes sheenSweep{0%,52%{transform:translateX(-130%) rotate(16deg)}100%{transform:translateX(950%) rotate(16deg)}}
 
 /* destination pins + ripple */
-.iglobe-pin{position:absolute;width:9px;height:9px;border:2px solid #fff;background:#e5b553;border-radius:50%;box-shadow:0 0 0 6px #dda13b2e;z-index:3}
-.iglobe-pin.p1{left:30%;top:22%}
-.iglobe-pin.p2{right:24%;top:54%;animation:pulsePin 2s infinite}
-.iglobe-pin.p3{right:40%;bottom:16%}
-.iglobe-pin.p3:before,.iglobe-pin.p3:after{content:'';position:absolute;inset:-6px;border-radius:50%;border:1.5px solid #e5b553;animation:ripple 2.4s ease-out infinite}
-.iglobe-pin.p3:after{animation-delay:1.2s}
 @keyframes ripple{from{transform:scale(.5);opacity:.9}to{transform:scale(3);opacity:0}}
 
 /* tilted orbit rings with tiny badges */
@@ -458,5 +423,3 @@ html,body{overflow-x:clip}
 
 /* 2026-11-09: the orb globes' REAL map (lazy world-land.js). Same gold as the
    stylised blobs it replaces, with a soft drop shadow so it reads as relief. */
-.imap .iglobe-land{position:absolute;inset:0;width:100%;height:100%}
-.imap .iglobe-land path{fill:#d8a63e;stroke:rgba(231,180,81,.5);stroke-width:.8;filter:drop-shadow(0 4px 8px rgba(0,22,13,.55))}

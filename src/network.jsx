@@ -2,26 +2,23 @@ import React, {useEffect, useRef, useState} from 'react';
 import { Ship, ArrowRight, CarFront, Gavel, BadgeCheck } from 'lucide-react';
 import { linkClick } from './routing.js';
 import { Flag } from './flag.jsx';
-// 2026-11-09 (owner request: "more realistic map"): the real world — Natural
-// Earth 110m land + country borders, pre-projected to this file's own
-// equirectangular space by scripts/build-world-land.mjs. network.jsx is a
-// lazy chunk, so the map data never touches the first-load budget.
-import { WORLD_LAND_PATH, WORLD_BORDER_PATH } from './world-land.js';
+// 2026-11-10 (owner request: "redesign, completely free rotation, accurate
+// countries"): the flat scrolling map strip is gone — globe3d.js renders a
+// TRUE orthographic sphere from Natural Earth 110m geometry on canvas, and
+// the chips/flags below are plain DOM positioned by the engine every frame.
+// network.jsx stays a lazy chunk, so none of this touches first-load budget.
+import { mountGlobe } from './globe3d.js';
 import './network.css';
 export { Flag };
 
 /* ============================================================
-   AR7 WORLD NETWORK — big realistic globe
-   • real SVG country flags (render on every OS — no emoji fonts)
-   • landmasses from lon/lat, markers, animated routes + ships
-   • happy-customer markers with flag bubbles
-   • drag 360° / tap Japan → inventory / tap country → destinations
-   • rAF loop pauses when off-screen (performance)
+   AR7 WORLD NETWORK — big TRUE-3D globe (2026-11-10 redesign)
+   • orthographic canvas sphere: real country shapes, exact places
+   • drag in ANY direction with inertia · live day & night
+   • animated great-circle routes + ships on canvas
+   • real SVG country flags + market chips as clickable DOM
+   • tap Japan → inventory · China → machinery · market → guide
    ============================================================ */
-
-const X = lon => (lon + 180) / 360 * 1000;
-const Y = lat => 125 + (90 - lat) / 180 * 750;
-const XY = (lon, lat) => [X(lon).toFixed(1), Y(lat).toFixed(1)];
 
 const MARKETS = [
  {name:'Pakistan', port:'Karachi', lon:67, lat:24.9, transit:'18–24 days', models:'Land Cruiser · Vezel · Mira'},
@@ -91,186 +88,45 @@ async function hydrateMarkets(){
 }
 if(typeof window !== 'undefined') hydrateMarkets();
 
-/* ---------- landmasses ---------- */
-const LANDS = [
- [[-168,68],[-145,71],[-125,72],[-105,70],[-85,66],[-65,62],[-52,55],[-58,48],[-70,44],[-80,40],[-90,38],[-97,34],[-106,28],[-116,26],[-110,22],[-100,19],[-92,16],[-86,11],[-80,8],[-78,12],[-84,18],[-92,24],[-100,26],[-108,30],[-118,33],[-126,38],[-135,46],[-148,54],[-160,62]],
- [[-52,82],[-38,84],[-28,80],[-24,72],[-30,64],[-42,62],[-50,68],[-54,76]],
- [[-78,8],[-70,12],[-60,10],[-52,4],[-44,-2],[-36,-8],[-34,-15],[-38,-23],[-44,-32],[-52,-40],[-58,-48],[-64,-55],[-68,-54],[-70,-46],[-72,-36],[-74,-25],[-76,-14],[-78,-2]],
- [[-8,32],[2,35],[12,37],[22,36],[30,32],[38,28],[45,20],[50,12],[51,4],[48,-4],[43,-12],[38,-20],[32,-28],[25,-34],[20,-34],[16,-27],[12,-18],[9,-8],[6,2],[2,10],[-5,16],[-12,22],[-16,28]],
- [[-9,40],[-9,42],[0,46],[8,48],[14,50],[20,52],[24,52],[30,56],[36,60],[45,66],[60,70],[80,72],[100,74],[120,72],[140,70],[160,66],[175,64],[178,58],[170,52],[158,48],[146,44],[136,40],[128,36],[122,30],[116,22],[110,12],[104,4],[98,-2],[92,-6],[84,-4],[78,0],[72,6],[68,12],[66,18],[70,24],[74,30],[72,34],[66,32],[60,28],[54,24],[48,20],[42,18],[36,20],[30,24],[24,28],[18,30],[10,32],[0,36],[-9,40]],
- [[-4,54],[-1,55],[1,53],[-1,51],[-4,52]],
- [[43,-16],[47,-14],[50,-18],[48,-24],[44,-22]],
- [[139,42],[141,40],[142,37],[141,34],[139,32],[137,33],[138,36],[140,38]],
- [[143,44],[145,43],[145,45],[143,46]],
- [[95,2],[102,0],[108,-2],[114,-4],[120,-5],[126,-3],[120,-2],[112,-1],[104,-1],[98,1]],
- [[120,14],[124,12],[126,16],[123,20],[120,18]],
- [[114,-22],[122,-18],[132,-14],[142,-12],[150,-20],[153,-28],[150,-36],[142,-38],[132,-36],[122,-32],[115,-28]],
- [[173,-35],[176,-37],[178,-41],[175,-45],[172,-41]]
-];
-const LAND_PATH = LANDS.map(p => 'M' + p.map(([lo,la]) => XY(lo, la).join(' ')).join(' L ') + ' Z').join(' ');
-void LAND_PATH; // superseded by WORLD_LAND_PATH; kept as an offline-readable reference of the coordinate system
+/* The engine positions ANY [data-lon][data-lat] child of the globe host —
+   these helpers render the clickable overlay chips and flags. */
+function goto(navigate,where){return e=>{e.preventDefault();if(navigate)navigate(where)}}
 
-/* ---------------------------------------------------------------------------
-   2026-11-09: live day & night. The terminator is computed from the real
-   current time — solar declination from the day of the year, subsolar
-   longitude from UTC — and drawn as a translucent night polygon that tiles
-   with the map strip. Refreshed every 10 minutes while mounted, so the globe
-   always shows where on the network it is night RIGHT NOW.
---------------------------------------------------------------------------- */
-const RAD = Math.PI / 180;
-function nightPathNow(){
-  const now = new Date();
-  const start = Date.UTC(now.getUTCFullYear(), 0, 0);
-  const doy = (now.getTime() - start) / 86400000;
-  const decl = -23.44 * Math.cos(RAD * 360 / 365 * (doy + 10)); // solar declination, deg
-  const utcH = now.getUTCHours() + now.getUTCMinutes() / 60;
-  const sunLon = 180 - utcH * 15; // subsolar longitude, deg
-  const tanD = Math.tan(decl * RAD);
-  if (Math.abs(tanD) < 1e-4) return ''; // equinox minute — skip rather than divide by ~0
-  const pts = [];
-  for (let x = 0; x <= 1000; x += 20){
-    const lon = x / 1000 * 360 - 180;
-    const H = (lon - sunLon) * RAD;
-    const phi = Math.atan(-Math.cos(H) / tanD) / RAD; // terminator latitude
-    pts.push(x.toFixed(0) + ' ' + Y(phi).toFixed(1));
-  }
-  const poleY = decl > 0 ? Y(-90).toFixed(1) : Y(90).toFixed(1); // dark pole edge
-  return 'M' + pts.join('L') + 'L1000 ' + poleY + 'L0 ' + poleY + 'Z';
-}
-function useNightPath(){
-  const [d, setD] = useState(nightPathNow);
-  useEffect(() => {
-    const id = setInterval(() => setD(nightPathNow()), 10 * 60 * 1000);
-    return () => clearInterval(id);
-  }, []);
-  return d;
-}
-
-const JPX = X(JP.lon), JPY = Y(JP.lat);
-const arcFor = m => {
-  const x = X(m.lon), y = Y(m.lat);
-  const cx = ((JPX + x) / 2).toFixed(1);
-  const cy = (Math.min(JPY, y) - 175).toFixed(1);
-  return `M${JPX.toFixed(1)} ${JPY.toFixed(1)} Q${cx} ${cy} ${x.toFixed(1)} ${y.toFixed(1)}`;
-};
-
-function Seed({navigate}){
- const MARKETS = useMarkets();
- const night = useNightPath();
- return <g className="wseg">
-  <g className="wgrid">{Array.from({length:16},(_,i)=><line key={'v'+i} x1={i*62.5} y1="0" x2={i*62.5} y2="1000"/>)}</g>
-  <g className="wgrid">{Array.from({length:8},(_,i)=><line key={'h'+i} x1="0" y1={125+i*93.75} x2="1000" y2={125+i*93.75}/>)}</g>
-  <path className="wland" d={WORLD_LAND_PATH}/>
-  <path className="wborder" d={WORLD_BORDER_PATH}/>
-  {night && <path className="wnight" d={night}/>}
-  {FLAG_POINTS.filter(f=>!MARKETS.some(m=>m.name===f[0])).map(f=>{const [x,y]=XY(f[1],f[2]);
-   return <g key={'fp'+f[0]} className="wflagpt" transform={`translate(${x},${y})`}>
-    <title>{f[0]}</title>
-    <rect className="wflag-frame" x="-11" y="-7.5" width="22" height="15" rx="3"/>
-    <Flag c={f[0]} w={18} h={11} x={-9} y={-5.5}/>
-   </g>})}
-
-  {MARKETS.map((m,i)=>{const d=arcFor(m);
-   return <g key={'r'+m.name}>
-    <path className="warc" d={d} style={{animationDelay:(i*0.27)+'s'}}/>
-    <g className="wship"><animateMotion dur={(15+i*2.1)+'s'} begin={(-i*3.4)+'s'} repeatCount="indefinite" path={d} rotate="auto"/><g transform="scale(1.55)"><path className="whull" d="M-8 0 L-3.4 -3 L3.4 -3 L8 0 L3.4 3.4 L-3.4 3.4 Z"/><rect className="wdeck" x="-2.6" y="-6.2" width="5.2" height="3.4"/><rect className="wdeck" x="-1" y="-2.2" width="1.8" height="1.4"/></g></g>
-   </g>})}
-  {MARKETS.map(m=>{const [x,y]=XY(m.lon,m.lat);const w=Math.max(70,m.name.length*6.8+34);
-   return <g key={m.name} className="wmkt" data-goto="destinations" transform={`translate(${x},${y})`}>
-    <circle className="wmkt-hit" r="38" fill="transparent"/><circle className="wmkt-ring" r="15"/><circle className="wmkt-dot" r="6.5"/>
-    <g transform={`translate(11,-13.5)`}><rect className="wmkt-chip" rx="9" width={w} height="26"/><Flag c={m.name} w={12} h={8} x={7} y={9}/><text className="wmkt-txt" x="25" y="17.5">{m.name}</text></g>
-   </g>})}
-  {MARKETS.map((m,i)=>{const [hx,hy]=XY(m.lon,m.lat);
-   return <g key={'h'+m.name} transform={`translate(${Math.max(58,Math.min(942,hx))},${Math.max(168,Math.min(882,hy))})`}>
-    <g className="whappy" style={{animationDelay:(i*0.45)+'s'}}>
-     <circle className="wh-ring" r="17"/><circle className="wh-face" r="13"/><text className="wh-emoji" textAnchor="middle" dy="4.5">😊</text>
-     <g className="wh-bub" transform="translate(-8,-42)"><rect className="wh-bub-bg" rx="9" width={64+m.name.length*6.2+16} height="21"/><Flag c={m.name} w={12} h={8} x={8} y={6.5}/><text className="wh-bub-txt" x="26" y="14.5">{m.name}</text></g>
-     <text className="wh-stars" textAnchor="middle" y="30">★★★★★</text>
-    </g>
-   </g>})}
-  {MARKETS.slice(0,3).map((m,i)=>{const d=arcFor(m);return <g key={'pl'+m.name} className="wplane"><animateMotion dur={(14+i*2.5)+'s'} begin={(-i*5)+'s'} repeatCount="indefinite" path={d} rotate="auto"/><g transform="scale(1.35)"><path className="wp-con" d="M-32 0 h20"/><path className="wp-jet" d="M-8 0 L6 -5 L6 -2.2 L16 -2.8 L16 2.8 L6 2.2 L6 5 Z"/></g></g>})}
-  {MARKETS.slice(2,6).map((m,i)=>{const d=arcFor(m);return <g key={'cc'+m.name} className="wcar"><animateMotion dur={(11+i*2.4)+'s'} begin={(-i*2.3)+'s'} repeatCount="indefinite" path={d} rotate="auto"/><g transform="scale(1.5)"><rect x="-6" y="-3" width="12" height="6" rx="2" fill="#e5b553"/><rect x="-2.9" y="-2.3" width="5.2" height="2.3" rx="1" fill="#0d2c1e"/><circle cx="-3.4" cy="3.4" r="1.3" fill="#101d14"/><circle cx="3.4" cy="3.4" r="1.3" fill="#101d14"/></g></g>})}
-  <g className="wjp" data-goto="inventory" transform={`translate(${JPX},${JPY})`}>
-   <circle className="wjp-hit" r="44" fill="transparent"/><circle className="wjp-p1" r="10"/><circle className="wjp-p2" r="10"/><circle className="wjp-dot" r="8.5"/>
-   <g transform="translate(-104,-62)"><rect className="wjp-chip" rx="13" width="208" height="44"/><Flag c="Japan" w={17} h={11} x={13} y={16.5}/><text className="wjp-txt" x="116" y="28">AR7 TRADERS · JAPAN</text></g>
-   <path className="wjp-pointer" d="M-7 -16 l-6 12 h12 z"/>
-  </g>
-  {/* 2026-11-09: China is an AR7 origin too (LHD cars + machinery) — it gets
-      its own labelled chip, tapping through to the machinery desk. */}
-  <g className="wjp wcn" data-goto="machinery" transform={`translate(${X(CN.lon).toFixed(1)},${Y(CN.lat).toFixed(1)})`}>
-   <circle className="wjp-hit" r="40" fill="transparent"/><circle className="wjp-p1" r="9"/><circle className="wjp-p2" r="9"/><circle className="wjp-dot" r="7.5"/>
-   <g transform="translate(-98,-58)"><rect className="wjp-chip" rx="12" width="196" height="40"/><Flag c="China" w={16} h={10} x={12} y={15}/><text className="wjp-txt" x="106" y="25.5">AR7 · CHINA DESK</text></g>
-  </g>
- </g>}
+function OriginChip({navigate,to,lon,lat,flag,label,cls}){
+ return <button type="button" className={'g3-origin '+cls} data-goto={to} data-lon={lon} data-lat={lat}
+   onClick={goto(navigate,to)} aria-label={label}>
+  <span className="g3-pulse" aria-hidden="true"/><span className="g3-pin" aria-hidden="true"/>
+  <span className="g3-chip"><Flag c={flag} w={17} h={11}/>{label}</span>
+ </button>}
 
 export function BigNetworkGlobe({navigate,compact}){
  const ref=useRef(null);
+ const MARKETS=useMarkets();
+ const marketKey=MARKETS.map(m=>m.name).join('|');
  useEffect(()=>{
   const el=ref.current; if(!el)return;
-  // 2026-11-09 (owner): the globe now pans vertically as well — st.lat slides
-  // the oversized map strip up/down (clamped to its 15% overhang each side)
-  // while st.rot keeps the endless 360 spin, so a drag in ANY direction moves
-  // the world the way a real globe would.
-  const st={rot:0,vel:0,lat:0,vlat:0,drag:false,lx:0,ly:0,moved:false,sx:0,sy:0,upx:null,upy:null};
-  let raf=0,prev=performance.now(),visible=false,destroyed=false;
-  const motionQuery=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  let reduced=!!motionQuery?.matches;
-  const schedule=()=>{
-   if(!raf&&!destroyed&&visible&&!document.hidden&&(!reduced||st.drag))raf=requestAnimationFrame(loop);
-  };
-  const apply=()=>{
-   const w=el.offsetWidth||1;
-   while(st.rot<=-w)st.rot+=w;while(st.rot>0)st.rot-=w;
-   const maxLat=(el.offsetHeight||1)*0.15; // the svg strip is 130% tall
-   st.lat=Math.max(-maxLat,Math.min(maxLat,st.lat));
-   el.style.setProperty('--rot',st.rot.toFixed(2)+'px');
-   el.style.setProperty('--lat',st.lat.toFixed(2)+'px');
-  };
-  const loop=t=>{
-   raf=0;
-   if(destroyed||!visible||document.hidden)return;
-   const dt=Math.min(t-prev,40);prev=t;
-   if(!st.drag&&!reduced){st.rot+=0.13*dt/16;st.rot+=st.vel*dt/16;st.vel*=Math.pow(0.92,dt/16);st.lat+=st.vlat*dt/16;st.vlat*=Math.pow(0.9,dt/16);}
-   apply();
-   schedule();
-  };
-  const onVisible=en=>{
-   visible=!!en[0]?.isIntersecting;
-   if(visible){prev=performance.now();schedule();}
-   else if(raf){cancelAnimationFrame(raf);raf=0;}
-  };
-  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(onVisible,{threshold:0}):null;
-  if(io)io.observe(el);else{visible=true;schedule();}
-  const onVisibility=()=>{
-   if(document.hidden&&raf){cancelAnimationFrame(raf);raf=0;}
-   else{prev=performance.now();schedule();}
-  };
-  const onMotion=e=>{reduced=!!e.matches;if(!reduced)schedule();};
-  document.addEventListener('visibilitychange',onVisibility);
-  if(motionQuery?.addEventListener)motionQuery.addEventListener('change',onMotion);
-  else motionQuery?.addListener?.(onMotion);
-  const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;el.classList.add('dragging');schedule();if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){} };
-  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.upx=e.clientX;st.upy=e.clientY;st.rot+=dx;st.vel=dx*0.82;st.lat+=dy*0.62;st.vlat=dy*0.5;if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
-  const up=()=>{if(!st.drag)return;st.drag=false;el.classList.remove('dragging');if(!st.moved&&st.upx!=null){const target=document.elementFromPoint(st.upx,st.upy);const g=target&&target.closest?target.closest('[data-goto]'):null;if(g&&navigate)navigate(g.getAttribute('data-goto'));}st.upx=st.upy=null;schedule();};
-  el.addEventListener('pointerdown',dn);
-  window.addEventListener('pointermove',mv,{passive:true});
-  window.addEventListener('pointerup',up);
-  window.addEventListener('pointercancel',up);
-  return()=>{destroyed=true;if(raf)cancelAnimationFrame(raf);io?.disconnect();document.removeEventListener('visibilitychange',onVisibility);if(motionQuery?.removeEventListener)motionQuery.removeEventListener('change',onMotion);else motionQuery?.removeListener?.(onMotion);el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
- },[navigate]);
+  return mountGlobe(el,{
+   night:true,borders:true,graticule:true,detail:1,
+   origin:JP,
+   routes:MARKETS.map(m=>({lon:m.lon,lat:m.lat}))
+  });
+ },[marketKey]); // re-mount when the CRM swaps in live routes
  return <div className={'wglobe'+(compact?' compact':'')} ref={ref}>
   <div className="wglobe-glow"/>
-  <div className="wsphere">
-   <i className="wshade"/>
-   <svg viewBox="0 0 3000 1000" preserveAspectRatio="none" aria-hidden="true">
-    <defs>
-     <linearGradient id="wlg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#f0c060"/><stop offset=".55" stopColor="#dca23a"/><stop offset="1" stopColor="#b9821f"/>
-     </linearGradient>
-    </defs>
-    {[0,1,2].map(i=><g key={i} transform={`translate(${i*1000},0)`}><Seed navigate={navigate}/></g>)}
-   </svg>
-   <i className="wshine"/>
+  <canvas className="g3-canvas" aria-hidden="true"/>
+  <div className="g3-overlay">
+   {FLAG_POINTS.filter(f=>!MARKETS.some(m=>m.name===f[0])).map(f=>
+    <span key={'fp'+f[0]} className="g3-flag" data-lon={f[1]} data-lat={f[2]} title={f[0]}>
+     <Flag c={f[0]} w={18} h={11}/>
+    </span>)}
+   {MARKETS.map(m=>
+    <button type="button" key={m.name} className="g3-mkt" data-goto="destinations" data-lon={m.lon} data-lat={m.lat}
+      onClick={goto(navigate,'destinations')} aria-label={m.name+' market guide'}>
+     <i className="g3-dot" aria-hidden="true"/>
+     <span className="g3-tag"><Flag c={m.name} w={13} h={8}/>{m.name}</span>
+    </button>)}
+   <OriginChip navigate={navigate} to="inventory" lon={JP.lon} lat={JP.lat} flag="Japan" label="AR7 TRADERS · JAPAN" cls="jp"/>
+   <OriginChip navigate={navigate} to="machinery" lon={CN.lon} lat={CN.lat} flag="China" label="AR7 · CHINA DESK" cls="cn"/>
   </div>
   <span className="drag-hint"><i/> DRAG ANY DIRECTION · LIVE DAY &amp; NIGHT · TAP JAPAN OR CHINA</span>
  </div>}

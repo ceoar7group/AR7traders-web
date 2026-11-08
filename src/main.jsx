@@ -865,111 +865,34 @@ function HeroVisual({navigate,discounts}){
   </div>
  </div>}
 
-// 2026-11-09 (owner request): the orb globes draw the REAL world when the
-// generated Natural Earth path arrives. world-land.js is imported dynamically
-// so it lives in its own lazy chunk and never weighs on first load; until it
-// lands (or if it never does) the stylised gold blobs still render.
-let WORLD_LAND=null;
-const worldLandListeners=new Set();
-if(typeof window!=='undefined')import('./world-land.js').then(m=>{WORLD_LAND=m.WORLD_LAND_PATH;worldLandListeners.forEach(fn=>{try{fn()}catch{}})}).catch(()=>{});
-function useWorldLand(){
- const [,bump]=useState(0);
- useEffect(()=>{if(WORLD_LAND)return;const fn=()=>bump(n=>n+1);worldLandListeners.add(fn);return()=>worldLandListeners.delete(fn)},[]);
- return WORLD_LAND;
-}
-const globeSeg=(s,land)=><div className="imap" key={s}>
-  {land
-   ?<svg className="iglobe-land" viewBox="0 125 1000 750" preserveAspectRatio="none" aria-hidden="true"><path d={land}/></svg>
-   :<><span className="land l1"/><span className="land l2"/><span className="land l3"/><span className="land l4"/><span className="land l5"/></>}
-  <svg className="iglobe-routes" viewBox="0 0 360 360" preserveAspectRatio="none" fill="none" aria-hidden="true"><path className="arc a1" d="M-20 128 Q150 14 380 118"/><path className="arc a2" d="M-20 224 Q165 326 380 208"/><path className="arc a3" d="M60 62 Q200 208 340 58"/></svg>
-  <span className="imover m1"><CarFront/></span><span className="imover m2"><Ship/></span><span className="imover m3"><CarFront/></span>
- </div>;
-
+// 2026-11-10 (owner request: "redesign the globes — completely free rotation,
+// smoother, countries accurate and in the right place"): the orb globes now
+// share the TRUE orthographic 3D engine in src/globe3d.js. It is imported
+// dynamically so the engine + Natural Earth geometry live in a lazy chunk and
+// never weigh on first load; until it lands the styled sphere shell renders
+// on its own. Drags freely on both axes, taps still open the world page.
 function InteractiveGlobe({compact,lite,cls,onTap}){
  const ref=useRef(null);
- const worldLand=useWorldLand();
  useEffect(()=>{
-  const el=ref.current; if(!el)return;
-  // Drag state. `x` spins the map strip horizontally (seamless, so the visitor
-  // can keep spinning forever); `lat` slides the same strip up and down so the
-  // globe can be dragged in ANY direction like a real one. `lat` is clamped to
-  // half the strip's overhang, which is what stops the strip from running out
-  // and exposing an empty edge — the sliver that used to look like a "white
-  // part" on the header globe.
-  const st={x:0,lat:0,vel:0,drag:false,lx:0,ly:0,tilt:0,moved:false,sx:0,sy:0,faceW:0,faceH:0,maxLat:0};
-  let raf=0,prev=performance.now(),visible=false,destroyed=false;
-  const motionQuery=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  let reduced=!!motionQuery?.matches;
-  // Geometry is measured once (and again on resize) instead of reading
-  // offsetWidth inside the animation frame, which forced a layout on every tick.
-  const measure=()=>{
-   const face=el.querySelector('.iglobe-face'),maps=el.querySelector('.iglobe-maps');
-   if(!face)return;
-   st.faceW=face.offsetWidth||el.offsetWidth||1;
-   st.faceH=face.offsetHeight||st.faceW;
-   const mapsH=maps?maps.offsetHeight:st.faceH;
-   st.maxLat=Math.max(0,(mapsH-st.faceH)/2);
-  };
-  const apply=()=>{
-   if(!st.faceW)measure();
-   const w=st.faceW||1;
-   while(st.x<=-w)st.x+=w; while(st.x>0)st.x-=w;
-   st.lat=Math.max(-st.maxLat,Math.min(st.maxLat,st.lat));
-   el.style.setProperty('--rot',st.x.toFixed(2)+'px');
-   el.style.setProperty('--lat',st.lat.toFixed(2)+'px');
-   el.style.setProperty('--tilt',st.tilt.toFixed(2)+'deg');
-  };
-  const schedule=()=>{
-   if(!raf&&!destroyed&&visible&&!document.hidden&&(!reduced||st.drag))raf=requestAnimationFrame(loop);
-  };
-  const loop=t=>{
-   raf=0;
-   if(destroyed||!visible||document.hidden)return;
-   const dt=Math.min(t-prev,40);prev=t;
-   if(!st.drag&&!reduced){
-    st.x+=0.10*dt/16;
-    st.x+=st.vel*dt/16;st.vel*=Math.pow(0.93,dt/16);
-    st.tilt+=(0-st.tilt)*0.045*dt/16;
-   }
-   apply();
-   schedule();
-  };
-  const onVisible=en=>{
-   visible=!!en[0]?.isIntersecting;
-   if(visible){prev=performance.now();schedule();}
-   else if(raf){cancelAnimationFrame(raf);raf=0;}
-  };
-  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(onVisible,{threshold:0}):null;
-  if(io)io.observe(el);else{visible=true;schedule();}
-  // Re-measure when the button or globe changes size (responsive breakpoints,
-  // iframe previews in the device studio) so the drag limits stay correct.
-  const ro=typeof ResizeObserver==='function'?new ResizeObserver(()=>{measure();apply()}):null;
-  if(ro)ro.observe(el);
-  const onVisibility=()=>{
-   if(document.hidden&&raf){cancelAnimationFrame(raf);raf=0;}
-   else{prev=performance.now();schedule();}
-  };
-  const onMotion=e=>{reduced=!!e.matches;if(!reduced)schedule();};
-  document.addEventListener('visibilitychange',onVisibility);
-  if(motionQuery?.addEventListener)motionQuery.addEventListener('change',onMotion);
-  else motionQuery?.addListener?.(onMotion);
-  const dn=e=>{st.drag=true;st.moved=false;st.sx=e.clientX;st.sy=e.clientY;st.lx=e.clientX;st.ly=e.clientY;el.classList.add('dragging');schedule();if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId)}catch(_){} };
-  const mv=e=>{if(!st.drag)return;const dx=e.clientX-st.lx,dy=e.clientY-st.ly;st.lx=e.clientX;st.ly=e.clientY;st.x+=dx;st.lat+=dy*0.62;st.vel=dx*0.82;st.tilt=Math.max(-14,Math.min(14,st.tilt-dy*0.12));if(Math.abs(e.clientX-st.sx)+Math.abs(e.clientY-st.sy)>7)st.moved=true;apply();schedule();};
-  const up=()=>{if(!st.drag)return;st.drag=false;el.classList.remove('dragging');if(!st.moved&&onTap)onTap();schedule();};
-  el.addEventListener('pointerdown',dn);
-  window.addEventListener('pointermove',mv,{passive:true});
-  window.addEventListener('pointerup',up);
-  window.addEventListener('pointercancel',up);
-  return()=>{destroyed=true;if(raf)cancelAnimationFrame(raf);io?.disconnect();ro?.disconnect();document.removeEventListener('visibilitychange',onVisibility);if(motionQuery?.removeEventListener)motionQuery.removeEventListener('change',onMotion);else motionQuery?.removeListener?.(onMotion);el.removeEventListener('pointerdown',dn);window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up)}
- },[]);
- return <div className={'iglobe'+(compact?' compact':'')+(lite?' lite':'')+(cls?' '+cls:'')} ref={ref}>
+  let alive=true,cleanup=null;
+  import('./globe3d.js').then(m=>{
+   if(!alive||!ref.current)return;
+   cleanup=m.mountGlobe(ref.current,{
+    night:false,
+    borders:!lite,
+    detail:lite?0:1,
+    autoRotate:lite?0.07:0.055,
+    markers:false,
+    // a touch of motion on the showcase globe: three sample export lanes
+    routes:lite?[]:[{lon:55.2,lat:25},{lon:39.7,lat:-4},{lon:-1.4,lat:50.9}]
+   });
+  }).catch(()=>{/* offline chunk load — the styled shell still shows */});
+  return()=>{alive=false;if(cleanup)cleanup()};
+ },[lite]);
+ return <div className={'iglobe'+(compact?' compact':'')+(lite?' lite':'')+(cls?' '+cls:'')} ref={ref}
+   onClick={onTap?()=>onTap():undefined}>
   <div className="iglobe-halo"/><div className="iglobe-sphere">
-   <i className="graticule g1"/><i className="graticule g2"/><i className="graticule g3"/><i className="graticule g4"/><i className="graticule g5"/>
-   <div className="iglobe-face">
-    <div className="iglobe-maps">{[0,1,2].map(s=>globeSeg(s,worldLand))}</div>
-    <i className="iglobe-shine"/>
-    <span className="iglobe-pin p1"/><span className="iglobe-pin p2"/><span className="iglobe-pin p3"/>
-   </div>
+   <div className="iglobe-face"><canvas className="g3-canvas" aria-hidden="true"/><i className="iglobe-shine"/></div>
    <i className="iglobe-sheen"/>
   </div>
   <div className="orbit-ring o1"><span className="orbiter"><i className="orb-badge ship"><Ship/></i></span></div>
