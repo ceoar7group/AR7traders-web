@@ -370,9 +370,11 @@ html,body{overflow-x:clip}
     order: -1;
     width: 100vw;
     margin-inline: calc(50% - 50vw);
-    height: clamp(560px, 86vh, 900px);
+    /* 2026-11-16 (owner: "increase the size of the car slides"): taller
+       stage, slimmer side padding — the extra room all goes to the cars. */
+    height: clamp(600px, 90vh, 960px);
     gap: clamp(10px, 1.6vh, 16px);
-    padding: clamp(12px, 2vh, 20px) clamp(16px, 4.5vw, 64px) clamp(14px, 2.2vh, 22px);
+    padding: clamp(12px, 2vh, 20px) clamp(14px, 3vw, 44px) clamp(14px, 2.2vh, 22px);
     position: relative;
     overflow: hidden;
     background: linear-gradient(125deg, var(--deep), #0b603b);

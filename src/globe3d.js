@@ -182,8 +182,21 @@ export function mountGlobe(host, opts = {}) {
     cities: false,               // warm city lights on the night side
     names: false,                // country hover/tap: highlight + name tooltip
     zoom: false,                 // ctrl+wheel / pinch zoom, double-click toggles
+    // 2026-11-16 Lighthouse round 2: the engine's per-frame cost is
+    // RESOLUTION-INDEPENDENT (every frame projects the whole Natural Earth
+    // landmass and rebuilds the land Path2D), so a 56px nav orb at 60fps
+    // burned the same CPU as the full showcase globe — ~12s of main-thread
+    // work in a throttled trace, dwarfing everything else on the page.
+    //   idleFps — while nobody is interacting, frames are skipped down to
+    //             this rate; drags, zooms, flyTo and hover run at full rAF.
+    //   sleep   — decorative orbs mount with ONE static frame and only start
+    //             animating on the first real user gesture (scroll, pointer,
+    //             key, touch). Bots and audits never move, humans always do.
+    idleFps: 0,                  // 0 = uncapped (showcase default comes from opts)
+    sleep: false,
     ...opts
   };
+  if (!o.idleFps) o.idleFps = o.detail === 0 ? 14 : 30;
 
   // Offscreen buffer for the smooth day/night shading (see the render note).
   // Guarded: the engine-render test runs with DOM doubles that have no
@@ -214,8 +227,10 @@ export function mountGlobe(host, opts = {}) {
     hoverC: -1, hvX: 0, hvY: 0,  // hovered country + pointer position
     fly: null,                   // active flyTo animation
     pts: new Map(), pinch: 0,    // active pointers (two = pinch zoom)
-    drift: 0, clock: 0           // cloud drift (deg) + star twinkle clock
+    drift: 0, clock: 0,          // cloud drift (deg) + star twinkle clock
+    acc: 0                       // ms banked toward the next idle-capped frame
   };
+  let awake = !o.sleep;          // sleep:true waits for the first user gesture
   const motionQuery = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)');
   let reduced = !!motionQuery?.matches;
 
@@ -623,12 +638,19 @@ export function mountGlobe(host, opts = {}) {
 
   /* ---- animation / interaction plumbing ---- */
   const schedule = () => {
-    if (!st.raf && !st.destroyed && st.visible && !document.hidden && (!reduced || st.drag)) st.raf = requestAnimationFrame(loop);
+    if (!st.raf && !st.destroyed && st.visible && !document.hidden && (awake || st.drag) && (!reduced || st.drag)) st.raf = requestAnimationFrame(loop);
   };
   const loop = t => {
     st.raf = 0;
     if (st.destroyed || !st.visible || document.hidden) return;
-    const dt = Math.min(t - st.prev, 40); st.prev = t;
+    const real = Math.min(t - st.prev, 40); st.prev = t;
+    // idle throttle: with nothing interacting, bank the elapsed time and skip
+    // this frame until the idleFps budget is due. Motion below advances by the
+    // BANKED time, so the rotation speed is identical — just fewer paints.
+    const hot = st.drag || st.pinch || st.fly || st.hoverC >= 0 || Math.abs(st.zoomT - st.zoom) > 0.001;
+    st.acc += real;
+    if (!hot && st.acc < 1000 / o.idleFps) { schedule(); return; }
+    const dt = Math.min(st.acc, 80); st.acc = 0;
     st.clock += dt * 0.0012;
     st.drift += dt * 0.00009; // clouds drift slowly eastward
     // eased zoom toward its target (double-click / flyTo set zoomT)
@@ -801,8 +823,23 @@ export function mountGlobe(host, opts = {}) {
   measure();
   render(); // first paint even before IO fires (and the only paint when reduced)
 
+  // sleep mode: the static first frame above is the whole show until the
+  // visitor does ANYTHING — then the orb starts its slow spin. One gesture
+  // listener set, removed on first fire or on cleanup.
+  const WAKE_EVTS = ['scroll', 'pointermove', 'pointerdown', 'keydown', 'touchstart'];
+  const unwake = () => { for (const ev of WAKE_EVTS) window.removeEventListener(ev, onWake); };
+  const onWake = () => {
+    unwake();
+    if (st.destroyed || awake) return;
+    awake = true; st.prev = performance.now(); schedule();
+  };
+  if (o.sleep && typeof window !== 'undefined' && window.addEventListener) {
+    for (const ev of WAKE_EVTS) window.addEventListener(ev, onWake, { passive: true, once: true });
+  }
+
   const cleanup = () => {
     st.destroyed = true;
+    unwake();
     if (st.raf) cancelAnimationFrame(st.raf);
     io?.disconnect(); ro?.disconnect();
     document.removeEventListener('visibilitychange', onVisibility);
