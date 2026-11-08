@@ -129,6 +129,7 @@ const srcFiles = fs.readdirSync(path.join(ROOT, 'src'))
   .filter(f => /\.(jsx?|js)$/.test(f))
   .map(f => ({ file: 'src/' + f, text: fs.readFileSync(path.join(ROOT, 'src', f), 'utf8') }));
 const usedKeys = new Set();
+const dynamicPrefixes = new Set();
 // Keys are always namespaced (`hero.h1a`), which also filters out the
 // `t('key')` illustrative mention inside src/i18n.js's own header comment.
 for (const { text } of srcFiles) {
@@ -141,11 +142,38 @@ for (const { text } of srcFiles) {
   // STATUS_LABEL_KEY map in main.jsx, whose VALUES are i18n keys ('card.*')
   // rather than inline t() literals — count those as used too.
   for (const m of text.matchAll(/:\s*'(card\.[a-zA-Z0-9_]+)'/g)) usedKeys.add(m[1]);
+  // 2026-11-12: FAQ Q&A keys are built by index — t('faq.q'+(i+1)) — and FAQ
+  // topics route through the FAQ_TOPIC_KEY map. Mark every EN key that starts
+  // with such a dynamic prefix (or appears as a map value 'faq.*') as used.
+  for (const m of text.matchAll(/\bt\(\s*'([a-zA-Z0-9]+\.[a-zA-Z0-9_.]*)'\s*\+/g)) dynamicPrefixes.add(m[1]);
+  for (const m of text.matchAll(/:\s*'(faq\.[a-zA-Z0-9_]+)'/g)) usedKeys.add(m[1]);
+}
+// Expand dynamic prefixes: a t('faq.q'+…) call marks every faq.q* EN key as
+// used, and the truncated 'faq.q' literal the first regex collected is not a
+// real key — drop it from the unknown check.
+for (const p of dynamicPrefixes) {
+  usedKeys.delete(p);
+  for (const k of Object.keys(EN)) if (k.startsWith(p)) usedKeys.add(k);
 }
 const unknown = [...usedKeys].filter(k => !(k in EN));
 ok(unknown.length === 0,
   `all ${usedKeys.size} distinct t() keys in src/ exist in English` +
   (unknown.length ? ` — unknown: ${unknown.join(', ')}` : ''));
+
+// ---- 4b. FAQ drift guard --------------------------------------------------
+// The /faq page renders en['faq.qN'/'faq.aN'] while the FAQPage JSON-LD in
+// seo.js renders FAQ_ITEMS directly. If either side is edited alone, visible
+// content and structured data drift apart — pin them equal.
+{
+  const { FAQ_ITEMS } = await import(path.join(ROOT, 'src/seo.js'));
+  ok(FAQ_ITEMS.length === 14, `FAQ_ITEMS still has 14 entries (currently ${FAQ_ITEMS.length}) — the /faq page translates q1..q14`);
+  let drift = 0;
+  FAQ_ITEMS.forEach(([q, a], i) => {
+    if (EN[`faq.q${i + 1}`] !== q) drift++;
+    if (EN[`faq.a${i + 1}`] !== a) drift++;
+  });
+  ok(drift === 0, `en faq.q*/faq.a* match seo.js FAQ_ITEMS exactly (${drift} drifted)`);
+}
 
 // ---- 5. dead weight -------------------------------------------------------
 // An English key no screen asks for is dead weight in thirteen dictionaries.
