@@ -287,6 +287,28 @@ function MyAccount({session,navigate}){
         </dl>
        </article>})}</div>}
 
+    {!!data.shipments?.length && <>
+     <h2 className="ma-title">Where is my car?</h2>
+     <div className="ma-ships">{data.shipments.map(sh=>{
+       const STEPS=[['booking','Booked'],['loaded','Loaded'],['at_sea','At sea'],['arrived','Arrived']];
+       const idx=Math.max(0,STEPS.findIndex(([k])=>k===sh.status));
+       return <article key={sh.tracking_no}>
+        <header><b>{sh.tracking_no}</b><em className={'ma-status '+sh.status}>{title(sh.status)}</em></header>
+        <small>{sh.vehicle}{sh.origin?` · ${sh.origin} → ${sh.destination||'your port'}`:''}</small>
+        <div className="ma-ship-steps">{STEPS.map(([k,label],i)=>
+          <span key={k} className={i<=idx?'done':''}><i/>{label}</span>)}</div>
+        <div className="ma-bar"><u style={{width:Math.min(100,Number(sh.progress)||0)+'%'}}/></div>
+        <dl>
+         <div><dt>ETA</dt><dd>{nice(sh.eta)}</dd></div>
+         <div><dt>Progress</dt><dd>{Math.min(100,Number(sh.progress)||0)}%</dd></div>
+         <div><dt>Vessel</dt><dd>{sh.vessel
+           ? <a className="ma-vessel" href={'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(sh.vessel)} target="_blank" rel="noopener noreferrer">{sh.vessel} ↗</a>
+           : '—'}</dd></div>
+        </dl>
+       </article>;})}</div>
+     <p className="ma-foot"><ShieldCheck/> The vessel link opens the ship's live position on VesselFinder — free public AIS data, the same feed ports use.</p>
+    </>}
+
     <h2 className="ma-title">Payments received</h2>
     {!data.payments?.length ? <p className="ma-muted">No payments recorded yet.</p>
     : <div className="ma-table"><table>

@@ -99,7 +99,9 @@ const ROUTES = {
   '/reviews': ['inner-page'],
   '/faq': ['inner-page'],
   '/contact': ['inner-page'],
-  '/shipping': ['inner-page'],
+  // 2026-11: /shipping carries the public courier-style track-by-number box
+  // (no sign-in; backed by /api/my-account?track=NO).
+  '/shipping': ['inner-page', 'track-box', 'Track your shipment', 'AR7-260184'],
   '/machinery': ['machinery-page', 'Machines sourced from China', 'Doosan DX300LC-9C', 'mch-grid'],
   // Machinery type pages: one indexable URL per equipment type, each with its
   // own H1 and intro (2026-10-03 SEO pass).

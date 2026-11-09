@@ -280,6 +280,100 @@ console.log('\n-- /api/my-account?favourites routes --');
   ok(r.status === 405, 'unsupported methods on ?favourites answer 405');
 }
 
+/* ---------- shipment tracking (2026-11) ----------------------------------- */
+// Two routes share the shipments table: the public ?track=NO lookup (no
+// sign-in; the tracking number is the whole key) and the signed-in account
+// GET, which matches shipments by the customer's own name with LIKE
+// wildcards escaped.
+
+console.log('\n-- shipment tracking: public ?track and account shipments --');
+
+function shipDb({ customers = [], shipments = [] } = {}) {
+  const seen = { ilike: [] };
+  const db = {
+    seen,
+    from(table) {
+      const q = {
+        _t: table, _eq: {}, _ilike: null,
+        select() { return q; }, order() { return q; }, limit() { return q; },
+        is() { return q; }, single() { q._single = true; return q; },
+        eq(k, v) { q._eq[k] = v; return q; },
+        ilike(k, v) { q._ilike = [k, v]; seen.ilike.push([table, k, v]); return q; },
+        then(resolve) {
+          let rows = table === 'customers' ? customers : table === 'shipments' ? shipments : [];
+          rows = rows.filter(r => Object.entries(q._eq).every(([k, v]) => r[k] === v));
+          if (q._ilike) {
+            // Postgres ILIKE with backslash-escaped wildcards, same as live.
+            const [k, pat] = q._ilike;
+            const rx = new RegExp('^' + pat.replace(/[.*+?^${}()|[\]]/g, '\\$&')
+              .replace(/\\\\([%_])/g, (_, c) => '\\' + c)
+              .replace(/%/g, '[\\s\\S]*').replace(/_/g, '[\\s\\S]')
+              .replace(/\\([%_])/g, '$1') + '$', 'i');
+            rows = rows.filter(r => rx.test(String(r[k] ?? '')));
+          }
+          if (q._single) return resolve(rows[0] ? { data: rows[0], error: null } : { data: null, error: { message: 'not found' } });
+          return resolve({ data: rows, error: null });
+        }
+      };
+      return q;
+    }
+  };
+  return db;
+}
+
+const SHIPMENTS = [
+  { tracking_no: 'AR7-260184', customer_name: 'Imran Khan', vehicle: 'Toyota Land Cruiser ZX',
+    origin: 'Yokohama', destination: 'Karachi', vessel: 'AR7 Valiant', status: 'at_sea', eta: '2026-09-08', progress: 68, created_at: '2026-08-01' },
+  { tracking_no: 'AR7-260191', customer_name: 'Mary Wanjiku', vehicle: 'Lexus RX 450h',
+    origin: 'Kobe', destination: 'Mombasa', vessel: 'Pacific Trader', status: 'loaded', eta: '2026-09-16', progress: 42, created_at: '2026-08-02' }
+];
+
+{
+  // Public lookup: found, case-insensitive, logistics fields only.
+  const db = shipDb({ shipments: SHIPMENTS });
+  const r = await call('GET', { query: { track: 'ar7-260184' }, db });
+  ok(r.status === 200 && r.json.shipment?.tracking_no === 'AR7-260184',
+    'public ?track finds a shipment case-insensitively, no sign-in needed');
+  ok(!('customer_name' in (r.json.shipment || {})),
+    'the public payload never includes the customer name');
+  ok(r.json.shipment.vessel === 'AR7 Valiant' && r.json.shipment.progress === 68,
+    'vessel, status, ETA and progress are returned for the milestone view');
+
+  const miss = await call('GET', { query: { track: 'AR7-999999' }, db });
+  ok(miss.status === 404 && /No shipment found/.test(miss.json.error),
+    'an unknown number gets a clear 404, not an empty 200');
+
+  const bad = await call('GET', { query: { track: 'x%' }, db });
+  ok(bad.status === 400, 'wildcard characters fail the format check before any query runs');
+  const short = await call('GET', { query: { track: 'AR7' }, db });
+  ok(short.status === 400, 'too-short input is rejected with guidance');
+}
+
+{
+  // Signed-in account GET: shipments arrive matched by the customer's name.
+  const db = shipDb({
+    customers: [{ id: 'c1', auth_user_id: 'u1', name: 'Imran Khan', email: 'buyer@example.com' }],
+    shipments: SHIPMENTS
+  });
+  const r = await call('GET', { user, db });
+  ok(r.status === 200 && Array.isArray(r.json.shipments) && r.json.shipments.length === 1,
+    'the account view includes exactly the customer\u2019s own shipments');
+  ok(r.json.shipments[0].tracking_no === 'AR7-260184' &&
+     !r.json.shipments.some(s => s.customer_name === 'Mary Wanjiku'),
+    'another customer\u2019s shipment never leaks in');
+
+  // A customer whose name contains LIKE wildcards must not match everything.
+  const tricky = shipDb({
+    customers: [{ id: 'c2', auth_user_id: 'u1', name: '100% Motors Ltd', email: 'buyer@example.com' }],
+    shipments: SHIPMENTS
+  });
+  const r2 = await call('GET', { user, db: tricky });
+  ok(r2.status === 200 && r2.json.shipments.length === 0,
+    'a "100% Motors Ltd" customer matches nothing — wildcards are escaped');
+  ok(tricky.seen.ilike.some(([t, , pat]) => t === 'shipments' && pat.includes('\\%')),
+    'the ilike pattern carries the escaped % (' + JSON.stringify(tricky.seen.ilike.find(x => x[0] === 'shipments')?.[2]) + ')');
+}
+
 console.log('\n-- ?alerts=run guard --');
 {
   process.env.GOONET_SYNC_KEY = 'sweep-key';

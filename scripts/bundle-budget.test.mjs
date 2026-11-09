@@ -248,7 +248,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // screens (login/signup/reset). English is the fallback dictionary so it must
 // ride first load; the 13 translations stay in the lazy i18n-dicts chunk.
 // Measured after the change: 161.30 kB gzip / 556.33 kB raw.
-const BUDGET_GZIP = 163 * 1024;
+// 2026-11-18: 163 → 164 kB gzip — public track-your-shipment box on
+// /shipping (courier-style lookup against /api/my-account?track=NO with the
+// milestone strip and the free VesselFinder live-position link). It sits on
+// an inner page of the main bundle, so it rides first load.
+// Measured: 163.47 kB gzip.
+const BUDGET_GZIP = 164 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -274,7 +279,9 @@ const BUDGET_GZIP = 163 * 1024;
 // currency selector (4 qq.* keys), interaction-gated Supabase auth restore,
 // the prev/next home stock pager and the promo-bar shift-free reservation.
 // Measured 560.86 kB raw / gzip well inside 163.
-const BUDGET_RAW = 562 * 1024;
+// 2026-11-18: 562 → 564 kB raw — the public track-your-shipment box (same
+// change as the gzip note above). Measured 562.69 kB raw.
+const BUDGET_RAW = 564 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
