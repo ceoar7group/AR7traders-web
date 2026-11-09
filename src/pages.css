@@ -100,3 +100,29 @@ footer a.wa-link svg{color:#25d366}
 .detail-price>.stock-price-display .stock-price-display b,
 .detail-price>.stock-price-display>.stock-price-values b{font-size:32px}
 @media(max-width:650px){.stock-price-display small{font-size:8px}.detail-price>.stock-price-display>.stock-price-values b{font-size:28px}}
+
+/* Track your shipment (2026-11) — public courier-style lookup on /shipping. */
+.track-box{margin-top:65px;background:var(--deep);color:#fff;border-radius:20px;padding:30px}
+.track-box-head{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+.track-box-head svg{width:46px;height:46px;padding:12px;border-radius:50%;background:#ffffff14;color:var(--gold)}
+.track-box-head h3{font:700 22px Manrope;letter-spacing:-.5px;margin:0}
+.track-box-head p{margin:4px 0 0;color:#b6c9bf;font-size:12px}
+.track-box form{display:flex;gap:10px}
+.track-box input{flex:1;height:52px;border-radius:12px;border:1px solid #ffffff2b;background:#ffffff10;color:#fff;padding:0 16px;font:600 14px Manrope;letter-spacing:.5px}
+.track-box input::placeholder{color:#8fa79b}
+.track-box form .primary{height:52px;padding:0 30px}
+.track-box-error{margin:12px 0 0;color:#ffb4a0;font-size:12.5px}
+.track-box-result{margin-top:20px;background:#ffffff0b;border:1px solid #ffffff18;border-radius:14px;padding:18px}
+.track-box-result header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.track-box-result header b{font:700 16px Manrope;letter-spacing:-.3px}
+.track-box-result header em{font:700 9px Manrope;letter-spacing:1.5px;font-style:normal;color:var(--gold)}
+.track-box-result>p{margin:5px 0 14px;color:#b6c9bf;font-size:12px}
+.track-box-steps{display:flex;gap:4px;margin-bottom:12px}
+.track-box-steps span{flex:1;display:grid;justify-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#7d938a}
+.track-box-steps span i{width:100%;height:4px;border-radius:99px;background:#ffffff1d}
+.track-box-steps span.done{color:#fff}
+.track-box-steps span.done i{background:var(--gold)}
+.track-box-result small{color:#b6c9bf;font-size:11.5px}
+.track-box-result small a{color:var(--gold);font-weight:700;text-decoration:none}
+.track-box-result small a:hover{text-decoration:underline}
+@media(max-width:650px){.track-box form{flex-direction:column}.track-box form .primary{width:100%}}

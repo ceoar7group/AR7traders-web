@@ -26,6 +26,31 @@ export default async function handler(req,res,injected={}){
    return send(res,200,result);
   }
 
+  // ---- Public shipment tracking (2026-11) --------------------------------
+  // A courier-style track-by-number box: no sign-in, the tracking number is
+  // the whole key. Returns ONLY logistics fields — never the customer's
+  // name, contact details or money. Vessel position itself is public AIS
+  // data (the CRM links the same VesselFinder page).
+  if('track' in query){
+   const no=String(query.track||'').trim().toUpperCase();
+   if(!/^[A-Z0-9-]{6,24}$/.test(no))
+     return send(res,400,{error:'Enter the tracking number from your invoice, like AR7-260184'});
+   const db=injected.db||adminClient();
+   const {data:found,error}=await db.from('shipments')
+     .select('tracking_no,vehicle,origin,destination,vessel,status,eta,progress')
+     .ilike('tracking_no',no.replace(/[%_]/g,m=>'\\'+m)).limit(1);
+   if(error)return send(res,500,{error:'Tracking is unavailable right now — please try again shortly'});
+   const row=(found||[])[0];
+   if(!row)return send(res,404,{error:'No shipment found for that tracking number. Check it against your invoice, or ask us on WhatsApp.'});
+   // Shape the payload explicitly — belt and braces on top of the select()
+   // column list, so a schema change can never leak a name or a note here.
+   return send(res,200,{shipment:{
+     tracking_no:row.tracking_no,vehicle:row.vehicle,origin:row.origin,
+     destination:row.destination,vessel:row.vessel,status:row.status,
+     eta:row.eta,progress:row.progress
+   }});
+  }
+
   let user=injected.user||null;
   if(!user){
    const header=req.headers.authorization||'';
@@ -168,7 +193,7 @@ export default async function handler(req,res,injected={}){
      phone:cust.phone||'',country:cust.country||''}});
   }
 
-  const db=adminClient();
+  const db=injected.db||adminClient();
   let {data:cust}=await db.from('customers').select('*').eq('auth_user_id',user.id).single();
 
   // Someone who signed up on the website arrives with no link yet. If we
@@ -187,16 +212,26 @@ export default async function handler(req,res,injected={}){
    }
   }
 
-  if(!cust)return send(res,200,{customer:null,orders:[],payments:[],totals:null,
+  if(!cust)return send(res,200,{customer:null,orders:[],payments:[],totals:null,shipments:[],
     message:'Your account is ready, but no vehicle order is linked to it yet. As soon as our team records your order it will appear here with every payment and the balance remaining.'});
 
-  const [o,p]=await Promise.all([
+  // Shipments are keyed by customer_name (free text set by staff), so the
+  // match is the customer's own name, case-insensitive, with LIKE wildcards
+  // escaped — a customer named "100% Motors Ltd" must never match everyone.
+  // A missing/erroring shipments table yields [] and never blocks the view.
+  const [o,p,sh]=await Promise.all([
     db.from('order_balances').select('*').eq('customer_id',cust.id).order('created_at',{ascending:false}),
-    db.from('payment_balances').select('*').eq('customer_id',cust.id).order('received_at',{ascending:false})
+    db.from('payment_balances').select('*').eq('customer_id',cust.id).order('received_at',{ascending:false}),
+    db.from('shipments')
+      .select('tracking_no,vehicle,origin,destination,vessel,status,eta,progress,created_at')
+      .ilike('customer_name',String(cust.name||'').replace(/[%_]/g,m=>'\\'+m))
+      .order('created_at',{ascending:false})
   ]);
   const orders=o.data||[],payments=p.data||[];
+  const shipments=(cust.name&&!sh.error&&Array.isArray(sh.data))?sh.data:[];
   return send(res,200,{
     customer:{id:cust.id,name:cust.name,email:cust.email,country:cust.country},
+    shipments,
     orders,
     payments:payments.map(x=>({id:x.id,amount:x.amount,currency:x.currency||'USD',
       amount_original:x.amount_original??null,method:x.method,tt_number:x.tt_number,

@@ -1237,6 +1237,51 @@ function RecentlyViewed({onOpen}){
  </div>;
 }
 
+// Public track-by-number box on the Shipping page (2026-11). Same contract as
+// any courier: the tracking number from the invoice is the whole key, and the
+// API returns logistics fields only — never a name or a balance. The vessel
+// link is free public AIS data on VesselFinder.
+function TrackShipment(){
+ const [no,setNo]=useState('');
+ const [state,setState]=useState({phase:'idle'});
+ async function go(e){
+  e.preventDefault();
+  const v=no.trim();
+  if(!v)return;
+  setState({phase:'loading'});
+  try{
+   const r=await fetch('/api/my-account?track='+encodeURIComponent(v));
+   const j=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(j.error||'Lookup failed — please try again');
+   setState({phase:'done',sh:j.shipment});
+  }catch(err){setState({phase:'error',msg:err.message})}
+ }
+ const sh=state.sh;
+ const STEPS=[['booking','Booked'],['loaded','Loaded'],['at_sea','At sea'],['arrived','Arrived']];
+ const idx=sh?Math.max(0,STEPS.findIndex(([k])=>k===sh.status)):0;
+ return <div className="track-box">
+  <div className="track-box-head"><Ship/><div><h3>Track your shipment</h3>
+   <p>Enter the AR7 tracking number from your invoice — no sign-in needed.</p></div></div>
+  <form onSubmit={go}>
+   <input value={no} onChange={e=>setNo(e.target.value)} placeholder="e.g. AR7-260184"
+     aria-label="Tracking number" autoComplete="off"/>
+   <button className="primary" disabled={state.phase==='loading'} type="submit">
+     {state.phase==='loading'?'Searching…':'Track'}</button>
+  </form>
+  {state.phase==='error'&&<p className="track-box-error">{state.msg}</p>}
+  {sh&&<div className="track-box-result">
+   <header><b>{sh.tracking_no}</b><em>{(sh.status||'').replaceAll('_',' ').toUpperCase()}</em></header>
+   <p>{sh.vehicle}{sh.origin?` · ${sh.origin} → ${sh.destination||'destination port'}`:''}</p>
+   <div className="track-box-steps">{STEPS.map(([k,label],i)=>
+     <span key={k} className={i<=idx?'done':''}><i/>{label}</span>)}</div>
+   <small>
+    {sh.eta?`ETA ${new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(sh.eta))}`:'ETA to be confirmed'}
+    {sh.vessel&&<> · aboard <a href={'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(sh.vessel)} target="_blank" rel="noopener noreferrer">{sh.vessel} ↗</a> (live position)</>}
+   </small>
+  </div>}
+ </div>;
+}
+
 function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,initialMake,initialModel,destSlug}){
  const settings=useSettings();
  const discounts=useStockDiscounts();
@@ -1416,7 +1461,7 @@ if(page==='inventory')return <section className="inner-page"><div className="pag
  const p=pages[page]||pages.about;
  return <section className="inner-page"><div className="page-hero split"><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p>{page==='contact'?<a className="gold-btn" href="#contact-enquiry">{t('page.sendEnquiry')} <ArrowRight/></a>:<button className="gold-btn" onClick={()=>openAuction({kind:page==='auction'?'auction':'contact'})} type="button">{t('page.getStarted')} <ArrowRight/></button>}</div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/><div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="128" height="79" src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async"/></div></div></div></div>
  <div className="shell page-content">{page==='auction'?<><div className="feature-intro"><h2>Auction access without the guesswork.</h2><p>Every listing comes with translation support, market guidance and complete cost visibility before you bid.</p></div><div className="feature-cards">{[['01','Browse live listings','Filter by make, year, mileage, grade and auction venue.'],['02','Review with an expert','We translate the auction sheet and flag every detail.'],['03','Set your bid limit','Know your landed estimate before bidding begins.'],['04','Win & track','See results instantly and follow your car to port.']].map(x=><article key={x[1]}><span>{x[0]}</span><Gavel/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div><div className="auction-demo"><div><span className="live-dot"/> AUCTION LOTS · SAMPLE</div>{cars.slice(0,4).map(c=><section key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><small>{stockLabel(c)}{c.grade?' · Grade '+c.grade:''}</small><strong>{price(c)}</strong><PageLink className="lot-link" to={`inventory?car=${carRef(c)}`} navigate={navigate}>View vehicle</PageLink></section>)}</div></>:
- page==='shipping'?<><div className="feature-intro"><h2>One clear route. Complete support.</h2><p>From export certificate to customs-ready documents, our logistics desk handles the complexity.</p></div><div className="shipping-flow">{[['Japan yard','Inspection & preparation'],['Export port','Customs & loading'],['At sea','Live milestone tracking'],['Your port','Documents & collection']].map((x,i)=><div key={x[0]}><span>0{i+1}</span><Ship/><b>{x[0]}</b><small>{x[1]}</small></div>)}</div></>:
+ page==='shipping'?<><div className="feature-intro"><h2>One clear route. Complete support.</h2><p>From export certificate to customs-ready documents, our logistics desk handles the complexity.</p></div><div className="shipping-flow">{[['Japan yard','Inspection & preparation'],['Export port','Customs & loading'],['At sea','Live milestone tracking'],['Your port','Documents & collection']].map((x,i)=><div key={x[0]}><span>0{i+1}</span><Ship/><b>{x[0]}</b><small>{x[1]}</small></div>)}</div><TrackShipment/></>:
  page==='about'?<><div className="feature-intro"><h2>{t('about.h2')}</h2><p>{t('about.body')}</p></div><div className="story-grid"><img loading="lazy" decoding="async" width="88" height="88" src="/assets/ar7-logo-circle.png" alt="AR7 Traders emblem"/><div><FounderStat variant="about"/><p>{t('about.story')}</p></div></div></>:
  <div className="contact-grid"><div><h2>Let’s source your car.</h2><p>Contact our Japan export desk directly, or use the form to send one enquiry straight to our team.</p><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={17}/> WhatsApp us</a><a href="/contact" onClick={linkClick('contact',navigate)}><MapPin/> {settings.contact_address}</a></div><React.Suspense fallback={<div className="enquiry-loading" role="status">Loading contact form…</div>}><EnquiryForm kind="contact"/></React.Suspense></div>}</div></section>
 }
