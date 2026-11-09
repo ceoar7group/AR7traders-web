@@ -222,6 +222,37 @@ for (const [path, markers] of Object.entries(ROUTES)) {
     'a non-YouTube video URL falls back to a plain external "Watch video" link');
   delete CARS[0].video;
 
+  // ---- landed-price cards (2026-11) ----------------------------------------
+  // A buyer picks their destination port once on the inventory toolbar and
+  // every stock card gains an indicative CIF line. Pinned honesty rules: off
+  // by default (FOB only), the chip says "excl. import duty", and it quotes
+  // no percentages — duty is the buyer's customs authority's decision.
+  const inv = await renderPage('/inventory');
+  ok(inv.includes('cif-dest-pick') && inv.includes('Off — FOB prices only'),
+    'the inventory toolbar offers a CIF-estimate destination picker, off by default');
+  ok(!inv.includes('card-cif'),
+    'with the picker off, stock cards show FOB prices only — no CIF chip');
+  {
+    const pickStart = inv.indexOf('cif-dest-pick');
+    const pick = inv.slice(pickStart, inv.indexOf('</select>', pickStart));
+    ok((pick.match(/<option /g) || []).length === DEST.length + 1,
+      `the picker lists every destination market (${DEST.length}) plus the Off state`);
+  }
+  localStorage.setItem('ar7-cif-dest', DEST[1][1]);
+  const invCif = await renderPage('/inventory');
+  ok(invCif.includes('class="card-cif"') && invCif.includes('excl. import duty'),
+    'with a destination chosen every stock card gains an indicative CIF line that says import duty is excluded');
+  {
+    const chipStart = invCif.indexOf('class="card-cif"');
+    const chip = invCif.slice(chipStart, invCif.indexOf('card-actions', chipStart));
+    ok(chip.includes('CIF') && !/%/.test(chip),
+      'the CIF chip quotes an estimate but no percentages and no duty rate');
+  }
+  const detSynced = await renderPage('/inventory/' + stock);
+  ok(detSynced.includes('<option selected="">' + DEST[1][1].replace(/&/g, '&amp;')),
+    'the vehicle detail CIF box opens on the port remembered from the inventory picker');
+  localStorage.removeItem('ar7-cif-dest');
+
   const relatedStart = detail.indexOf('<section class="related-stock"');
   const relatedEnd = detail.indexOf('</section>', relatedStart);
   const related = relatedStart >= 0 && relatedEnd > relatedStart
