@@ -241,7 +241,12 @@ const seed = {
     { id: 'a1', action: 'Quote Q-2026-1042 sent to Ahmed Khan', actor: 'Sara Malik', entity_type: 'quote', created_at: '2026-08-23T12:42:00Z' },
     { id: 'a2', action: 'New website lead received from Kenya', actor: 'System', entity_type: 'lead', created_at: '2026-08-23T11:10:00Z' },
     { id: 'a3', action: 'Shipment AR7-260184 milestone updated to At Sea', actor: 'Omar Ali', entity_type: 'shipment', created_at: '2026-08-23T09:18:00Z' },
-    { id: 'a4', action: 'Audi R8 inventory record updated with new photo gallery', actor: 'Sara Malik', entity_type: 'vehicle', created_at: '2026-08-23T08:33:00Z' }
+    { id: 'a4', action: 'Audi R8 inventory record updated with new photo gallery', actor: 'Sara Malik', entity_type: 'vehicle', created_at: '2026-08-23T08:33:00Z' },
+    // Call-desk entries use live timestamps so the demo dashboards show the
+    // per-agent calling stats the way a working day actually looks.
+    { id: 'a5', action: 'Call logged — Interested', actor: 'Sara Malik', entity_type: 'lead', entity_id: 'l1', created_at: new Date(Date.now() - 2 * 36e5).toISOString() },
+    { id: 'a6', action: 'Call logged — No answer', actor: 'Omar Ali', entity_type: 'lead', entity_id: 'l2', created_at: new Date(Date.now() - 1 * 36e5).toISOString() },
+    { id: 'a7', action: 'Call logged — Callback booked', actor: 'Omar Ali', entity_type: 'lead', entity_id: 'l4', created_at: new Date(Date.now() - 50 * 36e5).toISOString() }
   ]
 };
 
@@ -2112,6 +2117,28 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
   const overdueTasks = tasks.filter(x => x.status !== 'done' && isOverdue(x.due_date));
   const awaitingQuotes = quotes.filter(x => x.status === 'sent');
 
+  // Calls by agent (2026-11): every outcome logged on the Call desk writes a
+  // "Call logged — …" audit entry with the agent as actor, so the day's
+  // calling effort can be read straight off the activity feed — no extra
+  // table, no extra fetch. CALL_TARGET_PER_DAY is a soft benchmark, not a
+  // quota stored anywhere.
+  const activities = rows.activities || [];
+  const agentCalls = (() => {
+    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    const weekStart = Date.now() - 7 * 864e5;
+    const by = {};
+    activities.forEach(a => {
+      if (!/^Call logged/.test(a.action || '')) return;
+      const t = new Date(a.created_at).getTime();
+      if (!(t >= weekStart)) return;
+      const k = a.actor || 'Team';
+      by[k] = by[k] || { today: 0, week: 0 };
+      by[k].week += 1;
+      if (t >= dayStart.getTime()) by[k].today += 1;
+    });
+    return Object.entries(by).sort((a, b) => b[1].today - a[1].today || b[1].week - a[1].week);
+  })();
+
   return (
     <div className="crm-dashboard">
       {(overdueLeads.length > 0 || overdueTasks.length > 0 || awaitingQuotes.length > 0) && (
@@ -2274,6 +2301,35 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
         <section className="crm-panel crm-span">
           <div className="crm-panel-head">
             <div>
+              <small>CALLING ACTIVITY</small>
+              <h3>Calls by agent</h3>
+            </div>
+            <button onClick={() => setTab('calls')} type="button">Call desk <ChevronRight /></button>
+          </div>
+          {agentCalls.length === 0 ? (
+            <p className="crm-agent-calls-empty">
+              No calls logged in the last 7 days. Outcomes logged on the Call desk appear here per agent.
+            </p>
+          ) : (
+            <div className="crm-agent-calls">
+              {agentCalls.map(([name, c]) => (
+                <div key={name} className="crm-agent-call-row">
+                  <span>
+                    <b>{name}</b>
+                    <em>{c.week} this week</em>
+                  </span>
+                  <i><u className={c.today >= CALL_TARGET_PER_DAY ? 'is-hit' : ''} style={{ width: Math.min(100, (c.today / CALL_TARGET_PER_DAY) * 100) + '%' }} /></i>
+                  <small>{c.today} / {CALL_TARGET_PER_DAY} today</small>
+                </div>
+              ))}
+              <p className="crm-agent-calls-note">Target is {CALL_TARGET_PER_DAY} logged calls per agent per day.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="crm-panel crm-span">
+          <div className="crm-panel-head">
+            <div>
               <small>LIVE LOGISTICS</small>
               <h3>Vehicles in transit across global ports</h3>
             </div>
@@ -2289,7 +2345,12 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
                 <h4>{x.vehicle}</h4>
                 <p>{x.origin} <i /> {x.destination}</p>
                 <div><u style={{ width: x.progress + '%' }} /></div>
-                <small>{x.vessel} · ETA {date(x.eta)}</small>
+                <small>
+                  {x.vessel
+                    ? <a className="crm-vessel-link" href={vesselTrackUrl(x.vessel)} target="_blank" rel="noreferrer" title="Live vessel position on VesselFinder (free AIS tracking)">{x.vessel} <ExternalLink size={10} /></a>
+                    : '—'}
+                  {' · ETA '}{date(x.eta)}
+                </small>
               </article>
             ))}
           </div>
@@ -2352,6 +2413,77 @@ const CALL_TEMPLATES = [
 ];
 const firstNameOf = l => String(l?.name || '').trim().split(' ')[0] || 'there';
 
+// Soft benchmark for the dashboard's calls-by-agent panel. Not a quota and
+// not stored anywhere — just the line agents measure their day against.
+const CALL_TARGET_PER_DAY = 10;
+
+// Free vessel tracking (2026-11): shipments already store the vessel name, so
+// a VesselFinder search link gives live AIS position with no API key and no
+// cost — same free-by-design rule as the Call desk's tel:/wa.me links.
+const vesselTrackUrl = name => 'https://www.vesselfinder.com/vessels?name=' + encodeURIComponent(String(name || '').trim());
+
+// Local-language template variants (2026-11). The library stays personalised
+// from the lead record only — no price or stock claims in any language; those
+// belong in verified quotations. The default language is picked from the
+// lead's country, deliberately conservative: English stays the default where
+// business runs in English (Kenya, Uganda, UAE, Qatar…) and the agent can
+// switch any row by hand.
+const TEMPLATE_LANGS = [
+  { id: 'en', label: 'English' },
+  { id: 'fr', label: 'Français' },
+  { id: 'sw', label: 'Kiswahili' },
+  { id: 'ur', label: 'Urdu (Roman)' },
+  { id: 'ar', label: 'العربية' },
+  { id: 'pt', label: 'Português' }
+];
+const COUNTRY_TEMPLATE_LANG = {
+  'dr congo': 'fr', 'drc': 'fr', 'democratic republic of congo': 'fr', 'congo': 'fr',
+  'burundi': 'fr', 'rwanda': 'fr', 'senegal': 'fr', 'ivory coast': 'fr', "côte d'ivoire": 'fr',
+  'cameroon': 'fr', 'mali': 'fr', 'guinea': 'fr', 'benin': 'fr', 'togo': 'fr', 'madagascar': 'fr', 'djibouti': 'fr',
+  'tanzania': 'sw',
+  'pakistan': 'ur',
+  'saudi arabia': 'ar', 'libya': 'ar', 'sudan': 'ar', 'yemen': 'ar', 'iraq': 'ar', 'jordan': 'ar',
+  'mozambique': 'pt', 'angola': 'pt', 'brazil': 'pt'
+};
+const templateLangFor = l => COUNTRY_TEMPLATE_LANG[String(l?.country || '').trim().toLowerCase()] || 'en';
+const TEMPLATE_TEXTS = {
+  fr: {
+    intro: l => `Bonjour ${firstNameOf(l)} ! Ici AR7 Traders au Japon, au sujet de ${l.vehicle_interest || 'votre demande de véhicule'}. Est-ce un bon moment pour un bref échange ?`,
+    missed: l => `Bonjour ${firstNameOf(l)}, AR7 Traders (Japon) — j'ai essayé de vous appeler au sujet de ${l.vehicle_interest || 'votre demande de véhicule'} sans succès. Quel horaire vous conviendrait aujourd'hui ou demain ?`,
+    options: l => `Bonjour ${firstNameOf(l)} ! Bonne nouvelle — j'ai des options correspondant à ${l.vehicle_interest || 'votre recherche'}, avec photos et rapports d'inspection. Puis-je vous les envoyer ici sur WhatsApp ?`,
+    quote: l => `Bonjour ${firstNameOf(l)}, je fais suite au devis envoyé pour ${l.vehicle_interest || 'votre véhicule'}. Avez-vous des questions sur le prix ou l'expédition vers ${l.country || 'votre port'} ? Nous pouvons l'ajuster.`,
+    reserve: l => `Bonjour ${firstNameOf(l)} ! Pour réserver ${l.vehicle_interest || 'le véhicule'} avant son retour aux enchères, je peux envoyer la facture et les coordonnées bancaires aujourd'hui. Puis-je procéder ?`
+  },
+  sw: {
+    intro: l => `Habari ${firstNameOf(l)}! Hapa ni AR7 Traders kutoka Japani, kuhusu ${l.vehicle_interest || 'gari uliyoulizia'}. Je, huu ni wakati mzuri kuzungumza kidogo?`,
+    missed: l => `Habari ${firstNameOf(l)}, AR7 Traders (Japani) — nilijaribu kukupigia simu kuhusu ${l.vehicle_interest || 'gari uliyoulizia'} lakini sikukupata. Wakati gani unakufaa leo au kesho?`,
+    options: l => `Habari ${firstNameOf(l)}! Habari njema — nina magari yanayolingana na ${l.vehicle_interest || 'uliyoulizia'}, pamoja na picha na ripoti za ukaguzi. Nikutumie hapa WhatsApp?`,
+    quote: l => `Habari ${firstNameOf(l)}, nafuatilia nukuu ya bei tuliyokutumia kwa ${l.vehicle_interest || 'gari yako'}. Una swali lolote kuhusu bei au usafirishaji hadi ${l.country || 'bandari yako'}? Tunaweza kurekebisha.`,
+    reserve: l => `Habari ${firstNameOf(l)}! Ili kuhifadhi ${l.vehicle_interest || 'gari hii'} kabla haijarudi mnadani, naweza kukutumia ankara na maelezo ya benki leo. Niendelee?`
+  },
+  ur: {
+    intro: l => `Assalam o alaikum ${firstNameOf(l)}! Ye AR7 Traders Japan se hai, ${l.vehicle_interest || 'aap ki gari ki enquiry'} ke baare mein. Kya abhi baat karne ka munasib waqt hai?`,
+    missed: l => `Assalam o alaikum ${firstNameOf(l)}, AR7 Traders (Japan) — maine ${l.vehicle_interest || 'aap ki enquiry'} ke baare mein call ki thi magar raabta nahi ho saka. Aaj ya kal kis waqt call karun?`,
+    options: l => `Assalam o alaikum ${firstNameOf(l)}! Khushkhabri — ${l.vehicle_interest || 'aap ki pasand'} se milti julti options tayyar hain, photos aur inspection grades ke saath. Yahin WhatsApp par bhej dun?`,
+    quote: l => `Assalam o alaikum ${firstNameOf(l)}, ${l.vehicle_interest || 'aap ki gari'} ke liye bheji gayi quotation ka follow-up kar raha hun. Price ya ${l.country || 'aap ke port'} tak shipping par koi sawal ho to zaroor batayen.`,
+    reserve: l => `Assalam o alaikum ${firstNameOf(l)}! ${l.vehicle_interest || 'gari'} ko auction mein wapas jaane se pehle reserve karne ke liye aaj hi invoice aur bank details bhej sakta hun. Ijazat hai?`
+  },
+  ar: {
+    intro: l => `مرحباً ${firstNameOf(l)}! معك AR7 Traders من اليابان بخصوص ${l.vehicle_interest || 'استفسارك عن السيارة'}. هل هذا وقت مناسب لمكالمة قصيرة؟`,
+    missed: l => `مرحباً ${firstNameOf(l)}، AR7 Traders (اليابان) — حاولت الاتصال بك بخصوص ${l.vehicle_interest || 'استفسارك'} دون رد. ما الوقت المناسب لك اليوم أو غداً؟`,
+    options: l => `مرحباً ${firstNameOf(l)}! خبر سار — لدينا خيارات مطابقة لـ ${l.vehicle_interest || 'ما تبحث عنه'} مع الصور وتقارير الفحص. هل أرسلها لك هنا على واتساب؟`,
+    quote: l => `مرحباً ${firstNameOf(l)}، بخصوص عرض السعر الذي أرسلناه لـ ${l.vehicle_interest || 'سيارتك'} — هل لديك أي استفسار عن السعر أو الشحن إلى ${l.country || 'ميناء بلدك'}؟ يسعدنا التعديل.`,
+    reserve: l => `مرحباً ${firstNameOf(l)}! لحجز ${l.vehicle_interest || 'السيارة'} قبل عودتها إلى المزاد، يمكنني إرسال الفاتورة والتفاصيل البنكية اليوم. هل أتابع؟`
+  },
+  pt: {
+    intro: l => `Olá ${firstNameOf(l)}! Aqui é a AR7 Traders no Japão, sobre ${l.vehicle_interest || 'o seu pedido de veículo'}. É um bom momento para uma conversa rápida?`,
+    missed: l => `Olá ${firstNameOf(l)}, AR7 Traders (Japão) — tentei ligar sobre ${l.vehicle_interest || 'o seu pedido'} mas não consegui falar consigo. Que horário lhe convém hoje ou amanhã?`,
+    options: l => `Olá ${firstNameOf(l)}! Boas notícias — tenho opções compatíveis com ${l.vehicle_interest || 'o que procura'}, com fotos e relatórios de inspeção. Posso enviar aqui pelo WhatsApp?`,
+    quote: l => `Olá ${firstNameOf(l)}, dando seguimento à cotação enviada para ${l.vehicle_interest || 'o seu veículo'}. Tem alguma dúvida sobre o preço ou o envio para ${l.country || 'o seu porto'}? Podemos ajustar.`,
+    reserve: l => `Olá ${firstNameOf(l)}! Para reservar ${l.vehicle_interest || 'o veículo'} antes de voltar ao leilão, posso enviar a fatura e os dados bancários hoje. Posso prosseguir?`
+  }
+};
+
 // One lead's full story: every audit entry for it, newest first. The data is
 // already on screen (the activities the CRM loads) — this just focuses it.
 function LeadTimelineModal({ lead, activities, onClose }) {
@@ -2404,6 +2536,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
   const [logged, setLogged] = useState({});
   const [timelineFor, setTimelineFor] = useState(null);
   const [templateFor, setTemplateFor] = useState({});
+  const [langFor, setLangFor] = useState({});
   const today = new Date().toISOString().slice(0, 10);
   const plusDays = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const digits = p => String(p || '').replace(/\D/g, '');
@@ -2442,7 +2575,16 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
 
   // The message a row's WhatsApp/SMS links pre-fill — picked per lead from
   // the template library (defaults to the introduction).
-  const waText = lead => (CALL_TEMPLATES.find(t => t.id === (templateFor[lead.id] || 'intro')) || CALL_TEMPLATES[0]).text(lead);
+  // The message language defaults from the lead's country (conservative map —
+  // English wherever business runs in English) and the agent can override it
+  // per row. A missing translation falls back to the English template.
+  const waText = lead => {
+    const tid = templateFor[lead.id] || 'intro';
+    const lang = langFor[lead.id] || templateLangFor(lead);
+    const localized = (TEMPLATE_TEXTS[lang] || {})[tid];
+    if (localized) return localized(lead);
+    return (CALL_TEMPLATES.find(t => t.id === tid) || CALL_TEMPLATES[0]).text(lead);
+  };
 
   // Real call stats from the audit trail ("Call logged — …" entries), plus
   // outcomes logged this session that the activities list has not re-fetched.
@@ -2493,6 +2635,11 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
                   onChange={e => setTemplateFor(v => ({ ...v, [lead.id]: e.target.value }))}
                   title="Which message WhatsApp and SMS pre-fill for this lead">
                   {CALL_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <select className="crm-call-template crm-call-lang" aria-label="Message language" value={langFor[lead.id] || templateLangFor(lead)}
+                  onChange={e => setLangFor(v => ({ ...v, [lead.id]: e.target.value }))}
+                  title="Language the WhatsApp and SMS message is written in — picked from the lead's country, switchable per lead">
+                  {TEMPLATE_LANGS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
                 <a className="crm-call-act is-call" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><PhoneCall size={14} /> Call</a>
                 {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(waText(lead))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
@@ -3080,6 +3227,20 @@ function renderCell(k, v, fmt = money) {
       : <em className="crm-status active">Live</em>;
   }
   if (k === 'progress') return <span className="table-progress"><i style={{ width: v + '%' }} /><b>{v}%</b></span>;
+  // Vessel names link to live AIS position on VesselFinder — free, no API
+  // key, no account. stopPropagation keeps the row's edit click intact.
+  if (k === 'vessel') {
+    if (!v) return <span className="crm-cell-muted">—</span>;
+    return (
+      <span className="crm-vessel-cell">
+        {v}
+        <a href={vesselTrackUrl(v)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+          title="Live vessel position on VesselFinder (free AIS tracking)">
+          <ExternalLink size={11} /> Track
+        </a>
+      </span>
+    );
+  }
   return v ?? '—';
 }
 

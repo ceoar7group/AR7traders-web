@@ -593,6 +593,82 @@ say('\\nMachinery scraper review and explicit confirmation');
   host.remove();
 }
 
+// ---- Round 12 (2026-11): vessel tracking, calls-by-agent, template languages
+say('\nVessel tracking is free deep links, not an API');
+{
+  await clickText('.crm-side nav button', 'Overview');
+  // Dashboard logistics card: the vessel name itself is the tracking link.
+  const dashLinks = [...document.querySelectorAll('.crm-vessel-link')];
+  ok(dashLinks.length >= 3, `every in-transit vessel on the dashboard links to live AIS (${dashLinks.length} links)`);
+  ok(dashLinks.every(a => a.href.startsWith('https://www.vesselfinder.com/vessels?name=')),
+    'dashboard vessel links point at VesselFinder — no API key, no cost');
+  ok(dashLinks.some(a => a.href.includes(encodeURIComponent('AR7 Valiant'))),
+    'the vessel name is URL-encoded into the search');
+
+  // Shipments table: the vessel cell carries a Track link that does not
+  // hijack the row's edit click.
+  await clickText('.crm-side nav button', 'Shipments');
+  const cells = [...document.querySelectorAll('.crm-vessel-cell a')];
+  ok(cells.length >= 3, `every shipment row grows a Track link (${cells.length})`);
+  ok(cells.every(a => a.target === '_blank' && a.rel.includes('noreferrer')),
+    'tracking opens in a new tab with noreferrer');
+}
+
+say('\nDashboard shows calls by agent against the daily target');
+{
+  await clickText('.crm-side nav button', 'Overview');
+  const panel = [...document.querySelectorAll('.crm-panel')].find(p => /Calls by agent/.test(p.textContent));
+  ok(!!panel, 'the "Calls by agent" panel is on the overview');
+  const rowsEls = [...(panel?.querySelectorAll('.crm-agent-call-row') || [])];
+  ok(rowsEls.length >= 2, `both demo agents appear (${rowsEls.length} agents)`);
+  ok(rowsEls.every(r => / \/ 10 today$/.test(r.querySelector('small')?.textContent || '')),
+    'each agent is measured against the 10-calls-a-day target');
+  const omar = rowsEls.find(r => /Omar Ali/.test(r.textContent));
+  ok(!!omar && /2 this week/.test(omar.textContent), 'week counts include days before today');
+  ok(/Target is 10 logged calls/.test(panel?.textContent || ''), 'the target is stated, not implied');
+}
+
+say('\nWhatsApp templates speak the lead\u2019s language');
+{
+  await clickText('.crm-side nav button', 'Call desk');
+  const rowsEls = [...document.querySelectorAll('.crm-call-row')];
+  ok(rowsEls.length >= 3, `the call queue renders (${rowsEls.length} rows)`);
+  const langSelects = [...document.querySelectorAll('.crm-call-lang')];
+  ok(langSelects.length === rowsEls.length, 'every row gets a language picker');
+  ok(langSelects.every(s => s.options.length === 6), 'six languages: EN, FR, SW, UR (Roman), AR, PT');
+
+  const rowFor = name => rowsEls.find(r => r.textContent.includes(name));
+  const waOf = row => decodeURIComponent((row?.querySelector('.crm-call-act.is-wa')?.href || '').split('text=')[1] || '');
+
+  // Ahmed Khan (Pakistan) defaults to Roman Urdu — the WhatsApp norm there.
+  const ahmed = rowFor('Ahmed Khan');
+  ok(ahmed?.querySelector('.crm-call-lang')?.value === 'ur', 'a Pakistan lead defaults to Urdu (Roman)');
+  ok(/Assalam o alaikum Ahmed/.test(waOf(ahmed)), `the pre-filled message opens in Roman Urdu ("${waOf(ahmed).slice(0, 40)}…")`);
+
+  // Kenya stays English by design — business runs in English and the agent
+  // can switch to Kiswahili per row.
+  const daniel = rowFor('Daniel Mwangi');
+  ok(daniel?.querySelector('.crm-call-lang')?.value === 'en', 'a Kenya lead conservatively defaults to English');
+  const sel = daniel?.querySelector('.crm-call-lang');
+  await act(async () => {
+    sel.value = 'sw';
+    sel.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  ok(/Habari Daniel/.test(waOf(rowFor('Daniel Mwangi'))), 'switching the row to Kiswahili re-fills the message');
+
+  // No template in any language may claim a price or stock position.
+  const texts = [];
+  for (const lang of ['en', 'fr', 'sw', 'ur', 'ar', 'pt']) {
+    for (const row of rowsEls) {
+      const s = row.querySelector('.crm-call-lang');
+      await act(async () => { s.value = lang; s.dispatchEvent(new dom.window.Event('change', { bubbles: true })); });
+    }
+    [...document.querySelectorAll('.crm-call-row')].forEach(r => texts.push(waOf(r)));
+  }
+  ok(texts.length > 0 && texts.every(t => !/\$\s?\d|USD|JPY|KES|PKR|in stock|available now/i.test(t)),
+    'no template in any language claims a price or stock — that stays in verified quotations');
+}
+
 // ---- React logged nothing ---------------------------------------------------
 console.error = realError; console.warn = realWarn;
 const real = errors.filter(e => !/not wrapped in act|Not implemented|jsdom/i.test(e));
