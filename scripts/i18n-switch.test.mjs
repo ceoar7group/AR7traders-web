@@ -116,7 +116,14 @@ const SCREENS = [
   ['enquiry form', 'src/enquiry-form.jsx', fs.readFileSync(path.join(ROOT, 'src/enquiry-form.jsx'), 'utf8'), 'enq.h2'],
   ['contact block', 'src/main.jsx', mainSrc, 'contact.getInTouch'],
   ['footer', 'src/main.jsx', mainSrc, 'footer.subscribe'],
-  ['machinery "tell us the machine"', 'src/machinery.jsx', machinerySrc, 'machinery.tellUs']
+  ['machinery "tell us the machine"', 'src/machinery.jsx', machinerySrc, 'machinery.tellUs'],
+  // 2026-11-18: the signed-in My Account view (orders, payments, shipment
+  // tracking) joined the translated screens — a buyer who switched the site
+  // to Urdu or French must not meet an English-only account page.
+  ['my account: shipment tracking', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.shipTitle'],
+  ['my account: payments table', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.payTitle']
 ];
 for (const [name, file, src, key] of SCREENS) {
   ok(src.includes(`t('${key}')`), `${name} calls t('${key}') (${file})`);
