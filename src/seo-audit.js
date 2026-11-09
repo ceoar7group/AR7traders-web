@@ -99,7 +99,15 @@ export function auditDocument(doc, opts = {}) {
   }
 
   // ---- canonical ---------------------------------------------------------
-  if (!canonical) {
+  if (!canonical && opts.sharedShell) {
+    // 2026-11-18 (Search Console: 93 "not indexed"): the SPA shell is served
+    // for EVERY client-rendered route, so a canonical baked into it declared
+    // each vehicle page an alternate of the homepage. The shell now ships
+    // without one — applySeo() emits the correct per-route canonical at
+    // runtime, and prerendered pages bake theirs at build.
+    add('canonical', 'Canonical URL', 'pass',
+      'No static canonical by design: this shell answers for every client-rendered route; applySeo() sets the per-route canonical.');
+  } else if (!canonical) {
     add('canonical', 'Canonical URL', 'fail', 'No canonical link.', 'Emit link[rel=canonical] on every indexable page.');
   } else if (!/^https?:\/\//.test(canonical)) {
     add('canonical', 'Canonical URL', 'fail', `Canonical is not absolute: ${canonical}`, 'Use the full https URL.');

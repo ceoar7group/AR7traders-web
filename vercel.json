@@ -352,7 +352,7 @@
       ]
     },
     {
-      "source": "/(promo.json|promo-plan.json|guardian-report.json)",
+      "source": "/(promo.json|promo-plan.json|guardian-report.json|stock-discounts.json|llms.txt)",
       "headers": [
         {
           "key": "Cache-Control",

@@ -253,12 +253,15 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // milestone strip and the free VesselFinder live-position link). It sits on
 // an inner page of the main bundle, so it rides first load.
 // Measured: 163.47 kB gzip.
+// 2026-11-18 (3): 165 → 166 kB gzip — hero search console v2 (make-aware
+// Model select) + runtime stock-CDN preconnect + landed-price cards earlier
+// the same day. Measured 165.22 kB.
 // 2026-11-18 (2): 164 → 165 kB gzip — fifth i18n round: 46 ma.* EN source
 // keys for the signed-in My Account view (orders, payments, Where-is-my-car
 // shipment tracking). English is the fallback dictionary so it rides first
 // load; the 13 translations stay in the lazy i18n-dicts chunk.
 // Measured: 164.13 kB gzip.
-const BUDGET_GZIP = 165 * 1024;
+const BUDGET_GZIP = 166 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -286,17 +289,32 @@ const BUDGET_GZIP = 165 * 1024;
 // Measured 560.86 kB raw / gzip well inside 163.
 // 2026-11-18: 562 → 564 kB raw — the public track-your-shipment box (same
 // change as the gzip note above). Measured 562.69 kB raw.
+// 2026-11-18 (4): 568 → 570 kB raw — hero search console v2 + runtime
+// stock-CDN preconnect (origin derived from data, never hardcoded).
 // 2026-11-18 (3): 566 → 568 kB raw — landed-price cards: the CIF-destination
 // picker on the inventory toolbar + the per-card indicative CIF chip
 // (estimateFor reuse, localStorage persistence). Measured 566.70 kB.
 // 2026-11-18 (2): 564 → 566 kB raw — the 46 ma.* EN source keys for the
 // signed-in My Account view (same change as the gzip note above).
 // Measured 564.52 kB raw.
-const BUDGET_RAW = 568 * 1024;
+const BUDGET_RAW = 570 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
   `first-load JS is ${kb(raw)} raw (budget ${kb(BUDGET_RAW)})`);
+
+// ---- SPA shell head hygiene (2026-11-18) ------------------------------------
+// Search Console showed 93 pages "not indexed": this shell is served for EVERY
+// client-rendered route, so a static canonical pointing at "/" declared every
+// vehicle page an alternate of the homepage in Google's first HTML pass.
+// applySeo() owns the canonical at runtime; prerendered pages bake theirs.
+console.log('\n-- SPA shell head hygiene --');
+ok(!/rel="canonical"/.test(html),
+  'the SPA shell carries NO static canonical — applySeo sets the per-route one (pinned: do not re-add)');
+// The stock-photo CDN preconnect is injected at RUNTIME from the data (see
+// the App boot effect in main.jsx) because the public shell never names the
+// sourcing site — pinned by the ui-audit index.html checks.
+ok(!/goo-net/i.test(html), 'the shell still never names the sourcing site');
 
 // ---- measure first-load CSS ------------------------------------------------
 console.log('\n-- first-load CSS budget --');

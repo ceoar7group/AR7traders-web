@@ -142,6 +142,7 @@ function auditStaticShell(facts) {
     route: 'home',
     label: 'static shell (dist/index.html)',
     url: BASE + '/',
+    sharedShell: true,
     expectIndexable: true,
     origin: BASE,
     facts: { ...facts, keywordTargets: ['japanese', 'export', 'machinery'] }

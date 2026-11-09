@@ -426,14 +426,17 @@ html,body{overflow-x:clip}
    the foot band lines the CTA buttons up horizontally with the chips.
    Applies at every width; the wrap points below handle small screens. --- */
 .hero[data-hv="c"] .stage-top { justify-content: center; }
+/* 2026-11-18 (owner: "make the search form a bit thinner — enhance the first
+   impression"): padding 8→6, controls 40→36px on pointer screens. Touch
+   screens keep ≥44px targets via the ≤760px block below. */
 .hero[data-hv="c"] .stage-top .hero-search {
   flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: min(1060px, 100%);
   margin-top: 0;
-  padding: 8px;
-  border-radius: 14px;
+  padding: 6px;
+  border-radius: 13px;
   border: 1px solid #ffffff26;
   background: #ffffff12;
   backdrop-filter: blur(16px);
@@ -443,29 +446,37 @@ html,body{overflow-x:clip}
   border-color: color-mix(in srgb, var(--gold) 60%, #ffffff26);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 20%, transparent), 0 10px 30px rgba(1, 20, 12, .25);
 }
-.hero[data-hv="c"] .stage-top .hs-query { flex: 1 1 220px; height: 40px; border-color: #ffffff22; background: #ffffff14; }
+.hero[data-hv="c"] .stage-top .hs-query { flex: 1 1 220px; height: 36px; border-radius: 9px; border-color: #ffffff22; background: #ffffff14; }
 .hero[data-hv="c"] .stage-top .hs-query svg { color: #e9f3ec; opacity: .8; }
 .hero[data-hv="c"] .stage-top .hero-search input { color: #fff; }
 .hero[data-hv="c"] .stage-top .hero-search input::placeholder { color: #bcd3c6; }
 .hero[data-hv="c"] .stage-top .hs-filters { flex: 0 1 auto; gap: 8px; align-items: center; flex-wrap: nowrap; }
-.hero[data-hv="c"] .stage-top .hs-field { display: block; min-width: 0; position: relative; }
+.hero[data-hv="c"] .stage-top .hs-field { display: block; flex: 0 0 auto; min-width: 0; position: relative; }
 .hero[data-hv="c"] .stage-top .hs-field span { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.hero[data-hv="c"] .stage-top .hero-search select { height: 40px; min-width: 116px; border-color: #ffffff26; background: #0b3d28; color: #eaf4ee; color-scheme: dark; }
-.hero[data-hv="c"] .stage-top .hero-search button { height: 40px; padding: 0 18px; border-radius: 11px; }
+.hero[data-hv="c"] .stage-top .hero-search select { height: 36px; min-width: 112px; max-width: 168px; text-overflow: ellipsis; border-radius: 9px; border-color: #ffffff26; background: #0b3d28; color: #eaf4ee; color-scheme: dark; }
+.hero[data-hv="c"] .stage-top .hero-search button { height: 36px; padding: 0 16px; border-radius: 9px; }
+@media (max-width: 1023px) {
+  /* Tablet: the model names are longer than the old body types — let the two
+     selects shrink instead of wrapping the bar onto a second line. */
+  .hero[data-hv="c"] .stage-top .hero-search select { min-width: 92px; }
+  .hero[data-hv="c"] .stage-top .hero-search button { padding: 0 13px; }
+}
 @media (max-width: 760px) {
   /* 2026-11-10 round 5: flex-wrap left the two selects as unreadable slivers
      beside the Search button. A grid states the phone layout outright —
-     query on its own row, then make | body | go in three equal columns. */
-  .hero[data-hv="c"] .stage-top .hero-search { flex-wrap: wrap; }
-  .hero[data-hv="c"] .stage-top .hs-query { flex: 1 1 100%; }
+     query on its own row, then make | model | go in three equal columns.
+     2026-11-18: controls go back UP to 44px here — the desktop slimming
+     must never shrink a phone touch target below the 44px Lighthouse floor. */
+  .hero[data-hv="c"] .stage-top .hero-search { flex-wrap: wrap; padding: 8px; }
+  .hero[data-hv="c"] .stage-top .hs-query { flex: 1 1 100%; height: 44px; }
   .hero[data-hv="c"] .stage-top .hs-filters {
     flex: 1 1 100%;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     gap: 8px;
   }
-  .hero[data-hv="c"] .stage-top .hero-search select { width: 100%; min-width: 0; }
-  .hero[data-hv="c"] .stage-top .hero-search button { padding: 0 14px; }
+  .hero[data-hv="c"] .stage-top .hero-search select { width: 100%; min-width: 0; max-width: none; height: 44px; }
+  .hero[data-hv="c"] .stage-top .hero-search button { height: 44px; padding: 0 14px; }
 }
 
 .hero[data-hv="c"] .stage-foot { gap: 10px; }
