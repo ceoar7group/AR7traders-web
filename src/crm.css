@@ -4711,3 +4711,21 @@ html[data-crm-theme="light"] .crm-shell,
 }
 /* The explainer hint is prose, not a flex toolbar — undo the generic flex. */
 .crm-call-explain .crm-hint { display: block; margin: 0; }
+
+/* Call desk v2 (2026-11-12): template picker + lead timeline */
+.crm-call-template { background: var(--crm-panel-sub); border: 1px solid var(--crm-border); border-radius: 9px; color: var(--crm-ink); font: 600 12px/1 var(--crm-font); padding: 8px 10px; min-height: 36px; max-width: 150px; }
+.crm-call-template:hover { border-color: var(--crm-gold); }
+.crm-timeline-modal { max-width: 560px; }
+.crm-timeline-body { padding: 16px 20px 20px; }
+.crm-timeline-facts { margin: 0 0 14px; color: var(--crm-muted); font-size: 12.5px; }
+.crm-timeline-list { list-style: none; margin: 0; padding: 0 0 0 6px; display: flex; flex-direction: column; }
+.crm-timeline-list li { position: relative; display: flex; gap: 12px; padding: 0 0 16px 14px; border-left: 2px solid var(--crm-border); }
+.crm-timeline-list li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.crm-timeline-dot { position: absolute; left: -6px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--crm-muted); border: 2px solid var(--crm-panel); }
+.crm-timeline-list li.is-call .crm-timeline-dot { background: var(--crm-gold); }
+.crm-timeline-list li.is-created .crm-timeline-dot { background: var(--crm-accent); }
+.crm-timeline-list b { display: block; color: var(--crm-ink); font-size: 13px; font-weight: 600; }
+.crm-timeline-list small { color: var(--crm-muted); font-size: 11.5px; }
+@media (max-width: 640px) {
+  .crm-call-template { width: 100%; max-width: none; min-height: 44px; }
+}
