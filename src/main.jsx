@@ -633,6 +633,30 @@ function PageLink({to, navigate, opts, className, children, ...rest}) {
   return <a href={hrefFromTarget(to)} className={className} onClick={linkClick(to, navigate, opts)} {...rest}>{children}</a>;
 }
 
+// Hero search console (owner direction 2026-11-18: "replace Body with Models
+// in the hero search, make the bar thinner, keep mobile/tablet sharp").
+// The second select now lists real MODELS and follows the chosen make, so a
+// buyer's very first click can land on /inventory already filtered to e.g.
+// Toyota + Alphard. Handover still goes through sessionStorage: the inventory
+// screen consumes ar7-inv-q / ar7-inv-make / ar7-inv-model on mount.
+function HeroSearch({t,navigate}){
+ const [hsMake,setHsMake]=useState('All');
+ const models=React.useMemo(()=>{
+  const pool=hsMake==='All'?cars:cars.filter(c=>c.make===hsMake);
+  const n=new Map();
+  for(const c of pool){if(!c||!c.model)continue;n.set(c.model,(n.get(c.model)||0)+1)}
+  return [...n.entries()].sort((a,b)=>b[1]-a[1]).slice(0,14).map(x=>x[0]);
+ },[hsMake]);
+ return <form className="hero-search" role="search" onSubmit={e=>{e.preventDefault();const f=e.currentTarget.elements;const v=(f.hq?.value||'').trim();try{sessionStorage.setItem('ar7-inv-q',v);if(hsMake!=='All')sessionStorage.setItem('ar7-inv-make',hsMake);if(f.hmd&&f.hmd.value!=='All')sessionStorage.setItem('ar7-inv-model',f.hmd.value)}catch{/* storage may be off */}navigate('inventory')}}>
+  <div className="hs-query"><Search aria-hidden="true"/><input name="hq" placeholder={t('hero.searchPlaceholder')} aria-label={t('hero.searchPlaceholder')} autoComplete="off"/></div>
+  <div className="hs-filters">
+   <label className="hs-field"><span>Make</span><select name="hm" value={hsMake} onChange={e=>setHsMake(e.target.value)} aria-label="Make"><option value="All">All makes</option>{BRANDS().slice(0,12).map(b=><option key={b.name} value={b.name}>{b.name}</option>)}</select></label>
+   <label className="hs-field"><span>Model</span><select name="hmd" defaultValue="All" key={hsMake} aria-label="Model"><option value="All">{hsMake==='All'?'Any model':'All '+hsMake}</option>{models.map(m=><option key={m} value={m}>{m}</option>)}</select></label>
+   <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
+  </div>
+ </form>;
+}
+
 // Card redesign (owner direction 2026-11-08): the lower half of every stock
 // card is now a proper action zone — spec pills, a framed price plate, and
 // direct WhatsApp / Make-an-offer buttons so a buyer can start negotiating
@@ -1333,7 +1357,7 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  const signedIn=!!cust.session;
  const [,contentTick]=useReducer(x=>x+1,0);
  useEffect(()=>onContentChange(()=>contentTick()),[]);
- const [query,setQuery]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-body')||'All';if(v!=='All')sessionStorage.removeItem('ar7-inv-body');return v}catch{return 'All'}}),[make,setMake]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-make');if(v){sessionStorage.removeItem('ar7-inv-make');return initialMake||v}return initialMake||'All'}catch{return initialMake||'All'}}),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState('All'),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(()=>loadCifDest()||DEST[0][1]),[cifDest,setCifDest]=useState(loadCifDest),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false),[pageNo,setPageNo]=useState(1),[perPage,setPerPage]=useState(()=>{try{const v=Number(localStorage.getItem('ar7-inv-pp'));return [25,50,100].includes(v)?v:25}catch{return 25}});
+ const [query,setQuery]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-body')||'All';if(v!=='All')sessionStorage.removeItem('ar7-inv-body');return v}catch{return 'All'}}),[make,setMake]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-make');if(v){sessionStorage.removeItem('ar7-inv-make');return initialMake||v}return initialMake||'All'}catch{return initialMake||'All'}}),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-model');if(v){sessionStorage.removeItem('ar7-inv-model');return v}return 'All'}catch{return 'All'}}),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(()=>loadCifDest()||DEST[0][1]),[cifDest,setCifDest]=useState(loadCifDest),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false),[pageNo,setPageNo]=useState(1),[perPage,setPerPage]=useState(()=>{try{const v=Number(localStorage.getItem('ar7-inv-pp'));return [25,50,100].includes(v)?v:25}catch{return 25}});
  // Any change to a filter facet starts the visitor back on page 1 — a page
  // number only makes sense inside the result set it was computed for.
  useEffect(()=>{setPageNo(1)},[query,body,make,fuel,priceF,yearF,kmF,sortF,modelF,trF,steerF]);
@@ -1669,6 +1693,23 @@ export function App(){
  // is shown, so the full-bleed hero band drifted sideways leaving a white
  // strip. Publish the TRUE layout width as --vpw and keep it fresh — the
  // ResizeObserver even catches the scrollbar appearing (no resize event).
+ // Perf (2026-11-18 Lighthouse: network dependency tree / image delivery):
+ // open the TLS connection to whichever CDN hosts the live stock photos while
+ // the first paint is still settling. The origin is DERIVED from the stock
+ // data at runtime — the public shell and copy never name the source
+ // (standing rule, pinned by the ui-audit index.html tests).
+ useEffect(()=>{try{
+  const seen=new Set();
+  for(const c of cars){
+   const src=c&&c.image;
+   if(!src||!/^https:\/\//.test(src))continue;
+   const origin=new URL(src).origin;
+   if(seen.has(origin))continue;
+   seen.add(origin);
+   const l=document.createElement('link');l.rel='preconnect';l.href=origin;document.head.appendChild(l);
+   if(seen.size>=2)break;
+  }
+ }catch{/* hints only */}},[]);
  useEffect(()=>{
   const set=()=>document.documentElement.style.setProperty('--vpw',document.documentElement.clientWidth+'px');
   set();
@@ -1824,14 +1865,7 @@ export function App(){
         screen picks it up on mount, same as always. */}
     <HeroVisual navigate={navigate} discounts={liveDiscounts}
       topBar={
-       <form className="hero-search" role="search" onSubmit={e=>{e.preventDefault();const f=e.currentTarget.elements;const v=(f.hq?.value||'').trim();try{sessionStorage.setItem('ar7-inv-q',v);if(f.hm&&f.hm.value!=='All')sessionStorage.setItem('ar7-inv-make',f.hm.value);if(f.hb&&f.hb.value!=='All')sessionStorage.setItem('ar7-inv-body',f.hb.value)}catch{/* storage may be off */}navigate('inventory')}}>
-        <div className="hs-query"><Search aria-hidden="true"/><input name="hq" placeholder={t('hero.searchPlaceholder')} aria-label={t('hero.searchPlaceholder')} autoComplete="off"/></div>
-        <div className="hs-filters">
-          <label className="hs-field"><span>Make</span><select name="hm" defaultValue="All" aria-label="Make"><option value="All">All makes</option>{BRANDS().slice(0,12).map(b=><option key={b.name} value={b.name}>{b.name}</option>)}</select></label>
-          <label className="hs-field"><span>Body</span><select name="hb" defaultValue="All" aria-label="Body"><option value="All">Any body</option>{[...new Set(cars.map(c=>c.body).filter(Boolean))].slice(0,8).map(b=><option key={b} value={b}>{b}</option>)}</select></label>
-          <button type="submit">{t('hero.searchBtn')} <ArrowRight/></button>
-        </div>
-       </form>}
+       <HeroSearch t={t} navigate={navigate}/>}
       bottomBar={<>
        <div className="hero-cta"><PageLink className="primary" to="inventory" navigate={navigate}>{t('hero.explore')} <ArrowRight/></PageLink><PageLink className="ghost-btn" to="machinery" navigate={navigate}>{t('hero.browseMachinery')} <Wrench/></PageLink><button className="text-btn" onClick={()=>setEnquiry({kind:'auction'})} type="button"><span><Play fill="currentColor"/></span> {t('hero.howBidding')}</button></div>
        <HeroFactsRow/>

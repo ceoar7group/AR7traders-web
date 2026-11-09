@@ -253,6 +253,21 @@ for (const [path, markers] of Object.entries(ROUTES)) {
     'the vehicle detail CIF box opens on the port remembered from the inventory picker');
   localStorage.removeItem('ar7-cif-dest');
 
+  // ---- hero search console (2026-11-18 owner round) ------------------------
+  // The second hero select offers real MODELS (make-aware), not body types,
+  // and the handover key is ar7-inv-model — consumed by the inventory screen.
+  const home = await renderPage('/');
+  ok(home.includes('name="hmd"') && home.includes('>Any model<'),
+    'the hero search console offers a Model select (name="hmd") with an "Any model" default');
+  ok(!home.includes('>Any body<'),
+    'the old Body select is gone from the hero search console');
+  {
+    const mdStart = home.indexOf('name="hmd"');
+    const md = home.slice(mdStart, home.indexOf('</select>', mdStart));
+    ok((md.match(/<option /g) || []).length >= 8,
+      'the hero Model select lists real models from live stock (8+ options)');
+  }
+
   const relatedStart = detail.indexOf('<section class="related-stock"');
   const relatedEnd = detail.indexOf('</section>', relatedStart);
   const related = relatedStart >= 0 && relatedEnd > relatedStart
