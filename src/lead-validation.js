@@ -75,6 +75,16 @@ export function validateLead(input = {}, { requireEmail = false } = {}) {
   return errors;
 }
 
+// Referral codes (2026-11-18): a friend's share code travels on the lead so
+// staff see the attribution in the CRM. Normalised to uppercase with spaces
+// stripped; anything that doesn't look like a code is dropped silently —
+// a bad referral code must never block an enquiry.
+export const REFERRAL_CODE_RE = /^[A-Z0-9][A-Z0-9-]{3,19}$/;
+export function referralCodeFrom(value) {
+  const raw = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  return REFERRAL_CODE_RE.test(raw) ? raw : null;
+}
+
 /** The cleaned numeric offer amount, or null when absent/invalid. */
 export function offerAmountFrom(input = {}) {
   const raw = String(input.offer_amount ?? '').trim();
@@ -112,5 +122,7 @@ export function leadFromRequest(input = {}) {
     source,
     status: 'new',
     budget: offerAmount ?? (Number.isFinite(budget) && budget > 0 ? budget : null),
+    // Normalised share code or null — never a reason to reject the lead.
+    referral_code: referralCodeFrom(input.referral_code),
   };
 }

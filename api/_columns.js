@@ -11,7 +11,9 @@
 // (see scripts/function-count.test.mjs).
 
 export const CRM_COLUMNS = {
-  leads:      ['name','email','phone','country','vehicle_interest','source','status','budget','assigned_to','next_follow_up'],
+  // `referral_code` (2026-11-18): the share code a friend quoted on their
+  // enquiry — staff see and can correct the attribution in the CRM.
+  leads:      ['name','email','phone','country','vehicle_interest','source','status','budget','assigned_to','next_follow_up','referral_code'],
   customers:  ['name','email','phone','country','status','total_spend','vehicles_bought','notes'],
   vehicles:   ['stock_no','make','model','year','price','status','location','steering','colour','interior','image','images','gallery','notes','vendor','cost_price','freight_cost','duty_cost','other_cost','sourcing_currency'],
   quotes:     ['quote_no','customer_name','vehicle','amount','status','valid_until','notes'],

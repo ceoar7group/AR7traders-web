@@ -298,5 +298,28 @@ say('\napi/leads.js — instant lead e-mail (Resend, fire-and-forget)');
   ok(res.statusCode === 201 && seen.length === 0, 'without RESEND_API_KEY no mail call is made');
 }
 
+// ---- referral codes (2026-11-18) -------------------------------------------
+// A friend's share code rides on the lead for CRM attribution. Normalised to
+// uppercase with spaces stripped; junk becomes null and NEVER blocks the lead.
+say('\n-- referral codes --');
+{
+  const base = { name: 'Imran Khan', email: 'imran@example.com', phone: '+92 300 1234567' };
+  let { res, tables } = await post({ ...base, referral_code: ' ar7-7k q2m ' });
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === 'AR7-7KQ2M',
+    'a referral code is normalised to uppercase with spaces stripped and stored on the lead');
+
+  ({ res, tables } = await post({ ...base, referral_code: '<script>alert(1)</script>' }));
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === null,
+    'junk that does not look like a code becomes null — it never blocks the enquiry');
+
+  ({ res, tables } = await post({ ...base, referral_code: 'ab' }));
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === null,
+    'a too-short code is dropped, the lead still lands');
+
+  ({ res, tables } = await post(base));
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === null,
+    'no referral code at all stays a plain null column');
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
