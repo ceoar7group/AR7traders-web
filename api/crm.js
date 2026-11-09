@@ -74,7 +74,13 @@ export default async function handler(req,res,injected={}){
    await db.from('activities').insert({action:`Created ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:data.id,created_by:user.id});return send(res,201,data)
   }
   if(req.method==='PATCH'){
-   const id=req.body?.id;if(!id)return send(res,400,{error:'Record id is required'});const payload={...clean(entity,req.body),updated_at:new Date().toISOString()};const {data,error}=await db.from(entities[entity]).update(payload).eq('id',id).select().single();if(error)throw error;await db.from('activities').insert({action:`Updated ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:id,created_by:user.id});return send(res,200,data)
+   const id=req.body?.id;if(!id)return send(res,400,{error:'Record id is required'});const payload={...clean(entity,req.body),updated_at:new Date().toISOString()};const {data,error}=await db.from(entities[entity]).update(payload).eq('id',id).select().single();if(error)throw error;
+   // Call Desk (2026-11-12): a logged call outcome is a first-class audit
+   // entry — "Call logged — No answer" — not a generic "Updated lead record".
+   // That makes the lead timeline readable and the daily call stats real.
+   // call_outcome is NOT a column (clean() strips it); it only shapes the log.
+   const outcome=entity==='leads'&&typeof req.body?.call_outcome==='string'?String(req.body.call_outcome).trim().slice(0,60):'';
+   await db.from('activities').insert({action:outcome?`Call logged — ${outcome}`:`Updated ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:id,created_by:user.id});return send(res,200,data)
   }
   if(req.method==='DELETE'){
    const id=req.query.id;if(!id)return send(res,400,{error:'Record id is required'});

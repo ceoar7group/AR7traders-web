@@ -1802,6 +1802,7 @@ export default function CrmApp() {
         ) : tab === 'calls' ? (
           <CallDeskView
             leads={rows.leads || []}
+            activities={rows.activities || []}
             canWrite={canWrite('leads')}
             quickPatch={(row, patch) => quickPatch('leads', row, patch)}
             aiAssist={canWrite('leads') ? row => call('/api/crm?entity=leads&ai=assist', session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id }) }) : null}
@@ -2338,11 +2339,71 @@ const CALL_OUTCOMES = [
   { id: 'not-interested', label: 'Not interested', icon: Ban, status: 'lost', hint: 'Marked lost.' }
 ];
 
-function CallDeskView({ leads, canWrite, quickPatch, aiAssist, notify }) {
+// Message template library (2026-11-12). One click fills the WhatsApp/SMS
+// link with the right message for the moment — no re-typing, no copy drift.
+// Templates only reference facts already on the lead record; prices and
+// stock claims stay in quotations where they are verified.
+const CALL_TEMPLATES = [
+  { id: 'intro', label: 'Introduction', text: l => `Hello ${firstNameOf(l)}! This is AR7 Traders in Japan about ${l.vehicle_interest || 'your vehicle enquiry'}. Is now a good moment for a quick chat?` },
+  { id: 'missed', label: 'After no answer', text: l => `Hello ${firstNameOf(l)}, AR7 Traders (Japan) here — I tried calling about ${l.vehicle_interest || 'your vehicle enquiry'} but could not reach you. What time suits you for a quick call today or tomorrow?` },
+  { id: 'options', label: 'Send options', text: l => `Hello ${firstNameOf(l)}! Good news — I have matching options for ${l.vehicle_interest || 'the vehicle you asked about'} ready to share, with photos and inspection grades. Shall I send them here on WhatsApp?` },
+  { id: 'quote', label: 'Quote follow-up', text: l => `Hello ${firstNameOf(l)}, following up on the quotation we sent for ${l.vehicle_interest || 'your vehicle'}. Do you have any questions on the price or shipping to ${l.country || 'your port'}? Happy to adjust it.` },
+  { id: 'reserve', label: 'Reserve / next step', text: l => `Hello ${firstNameOf(l)}! To reserve ${l.vehicle_interest || 'the vehicle'} before it goes back to auction, I can send the invoice and bank details today. Shall I proceed?` }
+];
+const firstNameOf = l => String(l?.name || '').trim().split(' ')[0] || 'there';
+
+// One lead's full story: every audit entry for it, newest first. The data is
+// already on screen (the activities the CRM loads) — this just focuses it.
+function LeadTimelineModal({ lead, activities, onClose }) {
+  const entries = (activities || [])
+    .filter(a => a.entity_type === 'lead' && String(a.entity_id) === String(lead.id))
+    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const fmtWhen = iso => iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <div className="crm-modal-bg" onMouseDown={onClose}>
+      <div className="crm-ai-modal crm-timeline-modal" onMouseDown={e => e.stopPropagation()}>
+        <header>
+          <div>
+            <small><Clock3 size={13} /> LEAD TIMELINE</small>
+            <h2>{lead.name || 'Lead'}</h2>
+          </div>
+          <button onClick={onClose} type="button" aria-label="Close"><X /></button>
+        </header>
+        <div className="crm-timeline-body">
+          <p className="crm-timeline-facts">
+            {[lead.country, lead.vehicle_interest, lead.source && `via ${lead.source}`,
+              lead.budget && `budget $${Number(lead.budget).toLocaleString('en-US')}`,
+              lead.assigned_to && `assigned to ${lead.assigned_to}`].filter(Boolean).join(' · ')}
+          </p>
+          <ul className="crm-timeline-list">
+            {entries.map(entry => (
+              <li key={entry.id} className={/^Call logged/.test(entry.action || '') ? 'is-call' : ''}>
+                <span className="crm-timeline-dot" aria-hidden="true" />
+                <div>
+                  <b>{entry.action}</b>
+                  <small>{entry.actor || 'System'} · {fmtWhen(entry.created_at)}</small>
+                </div>
+              </li>
+            ))}
+            <li className="is-created">
+              <span className="crm-timeline-dot" aria-hidden="true" />
+              <div><b>Lead received{lead.source ? ` from ${lead.source}` : ''}</b><small>{fmtWhen(lead.created_at)}</small></div>
+            </li>
+          </ul>
+          {entries.length === 0 && <p className="crm-ai-note">No logged activity yet — outcomes you log on the Call desk will appear here.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, notify }) {
   const [assist, setAssist] = useState(null);
   const [logFor, setLogFor] = useState(null);
   const [callbackDate, setCallbackDate] = useState('');
   const [logged, setLogged] = useState({});
+  const [timelineFor, setTimelineFor] = useState(null);
+  const [templateFor, setTemplateFor] = useState({});
   const today = new Date().toISOString().slice(0, 10);
   const plusDays = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const digits = p => String(p || '').replace(/\D/g, '');
@@ -2370,7 +2431,7 @@ function CallDeskView({ leads, canWrite, quickPatch, aiAssist, notify }) {
 
   const logOutcome = async (lead, outcome) => {
     if (!canWrite) { notify('Your role cannot update leads.'); return; }
-    const patch = {};
+    const patch = { call_outcome: outcome.label };
     if (outcome.status) patch.status = outcome.status;
     if (outcome.id === 'callback') patch.next_follow_up = callbackDate || plusDays(1);
     else if (outcome.days !== undefined) patch.next_follow_up = plusDays(outcome.days);
@@ -2379,7 +2440,22 @@ function CallDeskView({ leads, canWrite, quickPatch, aiAssist, notify }) {
     setLogFor(null); setCallbackDate('');
   };
 
-  const waText = lead => `Hello ${String(lead.name || '').split(' ')[0] || 'there'}! This is AR7 Traders in Japan about ${lead.vehicle_interest || 'your vehicle enquiry'}. Is now a good moment for a quick chat?`;
+  // The message a row's WhatsApp/SMS links pre-fill — picked per lead from
+  // the template library (defaults to the introduction).
+  const waText = lead => (CALL_TEMPLATES.find(t => t.id === (templateFor[lead.id] || 'intro')) || CALL_TEMPLATES[0]).text(lead);
+
+  // Real call stats from the audit trail ("Call logged — …" entries), plus
+  // outcomes logged this session that the activities list has not re-fetched.
+  const callStats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const calls = (activities || []).filter(a => /^Call logged/.test(a.action || ''));
+    const sessionExtra = Object.keys(logged).length;
+    return {
+      today: calls.filter(a => String(a.created_at || '').slice(0, 10) === today).length + sessionExtra,
+      week: calls.filter(a => String(a.created_at || '') >= weekAgo).length + sessionExtra
+    };
+  }, [activities, logged]);
 
   return (
     <div className="crm-call-desk">
@@ -2390,6 +2466,8 @@ function CallDeskView({ leads, canWrite, quickPatch, aiAssist, notify }) {
       <div className="crm-call-stats" role="status">
         <span><b>{queue.length}</b> leads with a phone number to work</span>
         <span className={dueCount ? 'is-due' : ''}><b>{dueCount}</b> due or overdue today</span>
+        <span><b>{callStats.today}</b> calls logged today</span>
+        <span><b>{callStats.week}</b> this week</span>
       </div>
       {queue.length === 0 && (
         <div className="crm-empty"><PhoneCall /><h3>No leads to call</h3><p>Leads with a phone number appear here automatically, overdue follow-ups first. Won and lost leads are filtered out.</p></div>
@@ -2411,10 +2489,16 @@ function CallDeskView({ leads, canWrite, quickPatch, aiAssist, notify }) {
                 </small>
               </div>
               <div className="crm-call-actions">
+                <select className="crm-call-template" aria-label="Message template" value={templateFor[lead.id] || 'intro'}
+                  onChange={e => setTemplateFor(v => ({ ...v, [lead.id]: e.target.value }))}
+                  title="Which message WhatsApp and SMS pre-fill for this lead">
+                  {CALL_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
                 <a className="crm-call-act is-call" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><PhoneCall size={14} /> Call</a>
                 {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(waText(lead))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
                 <a className="crm-call-act" href={'sms:' + String(lead.phone).replace(/[^+\d]/g, '') + '?&body=' + encodeURIComponent(waText(lead))}><Mail size={14} /> SMS</a>
                 <button type="button" className="crm-call-act is-ai" onClick={() => openAssist(lead)}><Sparkles size={14} /> AI script</button>
+                <button type="button" className="crm-call-act" onClick={() => setTimelineFor(lead)}><Clock3 size={14} /> Timeline</button>
                 <button type="button" className="crm-call-act" onClick={() => { setLogFor(logFor === lead.id ? null : lead.id); setCallbackDate(''); }}><ClipboardCopy size={14} /> Log outcome</button>
               </div>
               {logFor === lead.id && (
@@ -2432,6 +2516,7 @@ function CallDeskView({ leads, canWrite, quickPatch, aiAssist, notify }) {
         })}
       </ul>
       {assist && <AiAssistModal assist={assist} onClose={() => setAssist(null)} />}
+      {timelineFor && <LeadTimelineModal lead={timelineFor} activities={activities} onClose={() => setTimelineFor(null)} />}
     </div>
   );
 }

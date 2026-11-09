@@ -171,6 +171,20 @@ say('\n1) api/crm.js — writes need the entity permission');
   ok(r.statusCode === 201, `sales can still create a lead (${r.statusCode})`);
   ok((tables.leads || []).length === 1, 'the allowed lead was stored');
 
+  // Call Desk (2026-11-12): a PATCH carrying call_outcome writes a readable
+  // "Call logged — …" audit entry, and call_outcome itself NEVER becomes a
+  // lead column (clean() strips it).
+  const leadId = tables.leads[0].id;
+  r = await run(crm, { method: 'PATCH', query: { entity: 'leads' }, ...auth('sales'), body: { id: leadId, status: 'qualified', call_outcome: 'No answer' } }, { db, getUser: userFor('s1', 'sales'), permsFor });
+  ok(r.statusCode === 200, `a sales call outcome logs cleanly (${r.statusCode})`);
+  ok(tables.leads[0].call_outcome === undefined, 'call_outcome is not stored on the lead record');
+  ok((tables.activities || []).some(a => a.action === 'Call logged — No answer'),
+    'the audit trail reads "Call logged — No answer", not a generic update');
+  // Without call_outcome the audit message stays the generic one.
+  r = await run(crm, { method: 'PATCH', query: { entity: 'leads' }, ...auth('sales'), body: { id: leadId, status: 'proposal' } }, { db, getUser: userFor('s1', 'sales'), permsFor });
+  ok((tables.activities || []).some(a => a.action === 'Updated lead record'),
+    'a plain edit still logs the generic update message');
+
   // accounts has leads.write = false
   r = await run(crm, { method: 'POST', query: { entity: 'leads' }, ...auth('accounts'), body: { name: 'Nope' } }, { db, getUser: userFor('a1', 'accounts'), permsFor });
   ok(r.statusCode === 403, `accounts cannot create a lead — leads.write is off (${r.statusCode})`);
