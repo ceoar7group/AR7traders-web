@@ -171,6 +171,18 @@
 .ghost-btn.fav-on svg{color:var(--green-text)}
 .sheet-tag{position:absolute;left:10px;top:10px;z-index:3;display:inline-flex;gap:5px;align-items:center;background:#032c1be8;color:#fff;font-size:7px;letter-spacing:.8px;padding:4px 7px;border-radius:7px;border:1px solid #ffffff22}
 .sheet-tag svg{width:12px;color:var(--gold)}
+/* Video walkaround (2026-11): click-to-play facade under the detail gallery */
+.video-walk{margin-top:12px;border-radius:16px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9;background:#02150d}
+.video-walk>button{position:relative;display:block;width:100%;height:100%;padding:0;border:0;cursor:pointer;background:#02150d}
+.video-walk>button img{width:100%;height:100%;object-fit:cover;display:block;opacity:.88;transition:opacity .25s,transform .4s}
+.video-walk>button:hover img{opacity:1;transform:scale(1.03)}
+.video-walk-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:#032c1be8;border:1px solid var(--gold);display:flex;align-items:center;justify-content:center;transition:background .25s}
+.video-walk>button:hover .video-walk-play{background:#064d30f0}
+.video-walk-play svg{width:24px;height:24px;color:var(--gold);fill:currentColor;margin-left:3px}
+.video-walk-tag{position:absolute;left:10px;top:10px;display:inline-flex;align-items:center;background:#032c1be8;color:#fff;font-size:7px;letter-spacing:.8px;padding:4px 7px;border-radius:7px;border:1px solid #ffffff22;font-weight:700}
+.video-walk iframe{width:100%;height:100%;border:0;display:block}
+.video-walk-link{margin-top:12px;display:inline-flex;gap:8px;align-items:center;font-weight:700;color:var(--green-text)}
+.video-walk-link svg{width:15px}
 .detail-specs{grid-template-columns:repeat(3,1fr)!important}
 
 /* ---------- BRANDS page ---------- */

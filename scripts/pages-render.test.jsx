@@ -10,7 +10,7 @@ import { goto, flushLazy } from './browser-stubs.mjs';
 import { App, HOWBUY, DEST, NEWS } from '../src/main.jsx';
 import { CUSTOMER_REVIEWS } from '../src/reviews.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
-import { cars as CARS, stockLabel } from '../src/main.jsx';
+import { cars as CARS, stockLabel, youtubeId } from '../src/main.jsx';
 import { carRef } from '../src/routing.js';
 import { FAQ_ITEMS, FAQ_TOPICS } from '../src/seo.js';
 import { articleSlug } from '../src/news-data.js';
@@ -184,6 +184,43 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   delete CARS[0].auction_sheet;
   ok(detailWithSheet.includes('Auction sheet included') && detailWithSheet.includes('Translated auction inspection sheet'),
     'vehicle with auction_sheet evidence renders the auction-sheet condition wording');
+
+  // youtubeId accepts every common YouTube URL shape staff may paste, and
+  // rejects anything else (non-YouTube URLs become a plain external link).
+  for (const [url, want] of [
+    ['https://youtu.be/dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/watch?feature=shared&v=dQw4w9WgXcQ&t=12', 'dQw4w9WgXcQ'],
+    ['https://youtube.com/shorts/dQw4w9WgXcQ?si=abc', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/embed/dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/live/dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://example.com/tour.mp4', null],
+    ['https://www.youtube.com/watch?v=short', null],
+    ['', null],
+  ]) {
+    ok(youtubeId(url) === want, `youtubeId(${JSON.stringify(url)}) → ${JSON.stringify(want)}`);
+  }
+
+  // Video walkarounds (2026-11): the detail page shows a click-to-play facade
+  // — YouTube thumbnail + play button, NO iframe on initial render (perf +
+  // no third-party cookies before the buyer presses play). Static CARS carry
+  // no fake video, so the default render must be facade-free too.
+  ok(!detail.includes('video-walk') && !detail.includes('<iframe'),
+    'a vehicle without a video renders no walkaround facade and no iframe');
+  CARS[0].video = 'https://youtu.be/dQw4w9WgXcQ';
+  const detailWithVideo = await renderPage('/inventory/' + stock);
+  ok(detailWithVideo.includes('class="video-walk"')
+    && detailWithVideo.includes('i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg')
+    && detailWithVideo.includes('VIDEO WALKAROUND'),
+    'a vehicle with a YouTube link renders the click-to-play walkaround facade with the ytimg thumbnail');
+  ok(!detailWithVideo.includes('<iframe'),
+    'the walkaround facade embeds NO iframe until the buyer clicks play (pinned: do not regress to eager embeds)');
+  CARS[0].video = 'https://example.com/tour.mp4';
+  const detailWithLink = await renderPage('/inventory/' + stock);
+  ok(detailWithLink.includes('class="video-walk-link"') && detailWithLink.includes('rel="noopener noreferrer"')
+    && !detailWithLink.includes('<iframe'),
+    'a non-YouTube video URL falls back to a plain external "Watch video" link');
+  delete CARS[0].video;
 
   const relatedStart = detail.indexOf('<section class="related-stock"');
   const relatedEnd = detail.indexOf('</section>', relatedStart);
