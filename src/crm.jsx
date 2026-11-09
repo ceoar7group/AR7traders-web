@@ -361,6 +361,7 @@ const configs = {
       ['vehicle_interest', 'Vehicle interest', 'text', { placeholder: 'e.g. Toyota Land Cruiser 2022+', section: 'Interest' }],
       ['budget', 'Budget (USD)', 'number', { min: 0, step: 100, placeholder: '65000', section: 'Interest' }],
       ['source', 'Lead source', 'select', { options: OPT.leadSource, section: 'Interest' }],
+      ['referral_code', 'Referral code', 'text', { placeholder: 'AR7-7KQ2M', section: 'Interest', hint: 'The customer whose share code this enquiry quoted — find them under Customers' }],
       ['status', 'Pipeline stage', 'select', { options: OPT.leadStatus, section: 'Pipeline' }],
       ['assigned_to', 'Assigned agent', 'text', { placeholder: 'Who owns this lead?', section: 'Pipeline' }],
       ['next_follow_up', 'Next follow-up', 'date', { section: 'Pipeline' }],

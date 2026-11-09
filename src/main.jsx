@@ -75,6 +75,7 @@ import { Flag } from './flag.jsx';
 import { ChatWidget } from './ChatWidget.jsx';
 import { VehicleActions } from './vehicle-actions.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
+import { referralCodeFrom } from './lead-validation.js';
 import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
 import { useSeo, FAQ_ITEMS, FAQ_TOPICS } from './seo.js';
 import { DEST, destinationBySlug, destinationHref } from './destinations.js';
@@ -1693,6 +1694,14 @@ export function App(){
  // is shown, so the full-bleed hero band drifted sideways leaving a white
  // strip. Publish the TRUE layout width as --vpw and keep it fresh — the
  // ResizeObserver even catches the scrollbar appearing (no resize event).
+ // Referral codes (2026-11-18): a share link looks like /?ref=AR7-7KQ2M.
+ // Remember the code so the enquiry form pre-fills it — whichever page the
+ // visitor eventually enquires from. Normalisation and validation live in
+ // lead-validation.js; junk is simply not stored.
+ useEffect(()=>{try{
+  const ref=referralCodeFrom(new URLSearchParams(window.location.search).get('ref'));
+  if(ref)localStorage.setItem('ar7-ref',ref);
+ }catch{/* storage may be off */}},[]);
  // Perf (2026-11-18 Lighthouse: network dependency tree / image delivery):
  // open the TLS connection to whichever CDN hosts the live stock photos while
  // the first paint is still settling. The origin is DERIVED from the stock

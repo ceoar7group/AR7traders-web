@@ -374,6 +374,62 @@ const SHIPMENTS = [
     'the ilike pattern carries the escaped % (' + JSON.stringify(tricky.seen.ilike.find(x => x[0] === 'shipments')?.[2]) + ')');
 }
 
+console.log('\n-- referral codes on the account view --');
+// Every linked customer gets a share code on first view. Generation is
+// fail-soft: a db without update() (like shipDb above) must still serve the
+// account — those earlier blocks double as the regression pin for that.
+function referDb({ customer, leadsUsing = 0 } = {}) {
+  const row = { ...customer };
+  const db = {
+    row,
+    from(table) {
+      const q = {
+        _single: false, _head: false, _eqs: {},
+        select(sel, opts) { if (opts && opts.head) q._head = true; return q; },
+        order() { return q; }, limit() { return q; }, ilike() { return q; },
+        is(k, v) { q._is = [k, v]; return q; },
+        eq(k, v) { q._eqs[k] = v; return q; },
+        single() { q._single = true; return q; },
+        update(patch) { q._patch = patch; return q; },
+        then(resolve) {
+          if (table === 'customers') {
+            if (q._patch) {
+              // honour the .is('referral_code', null) guard like Postgres
+              if (q._is && row[q._is[0]] != null) return resolve({ data: null, error: { message: '0 rows' } });
+              Object.assign(row, q._patch);
+              return resolve({ data: row, error: null });
+            }
+            return resolve({ data: row, error: null });
+          }
+          if (table === 'leads' && q._head) return resolve({ count: leadsUsing, error: null });
+          return resolve({ data: [], error: null, count: 0 });
+        }
+      };
+      return q;
+    }
+  };
+  return db;
+}
+{
+  const db = referDb({ customer: { id: 'c1', auth_user_id: 'u1', name: 'Imran Khan', email: 'buyer@example.com' }, leadsUsing: 3 });
+  const r = await call('GET', { user, db });
+  ok(r.status === 200 && /^AR7-[A-HJ-NP-Z2-9]{5}$/.test(r.json.referral?.code || ''),
+    `a linked customer gets a generated AR7-XXXXX share code (${r.json.referral?.code})`);
+  ok(db.row.referral_code === r.json.referral.code,
+    'the generated code is persisted on the customer row');
+  ok(r.json.referral.uses === 3, 'the response counts the enquiries that quoted the code');
+
+  // Second view: the stored code comes back unchanged, nothing regenerates.
+  const again = await call('GET', { user, db });
+  ok(again.json.referral.code === r.json.referral.code,
+    'a later visit returns the SAME stored code — codes never rotate');
+
+  const kept = referDb({ customer: { id: 'c2', auth_user_id: 'u1', name: 'Mary', email: 'buyer@example.com', referral_code: 'AR7-KEPT9' } });
+  const r2 = await call('GET', { user, db: kept });
+  ok(r2.json.referral.code === 'AR7-KEPT9' && kept.row.referral_code === 'AR7-KEPT9',
+    'an existing code is honoured verbatim');
+}
+
 console.log('\n-- ?alerts=run guard --');
 {
   process.env.GOONET_SYNC_KEY = 'sweep-key';

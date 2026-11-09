@@ -6,6 +6,10 @@ import { validateLead } from './lead-validation.js';
 import './enquiry-form.css';
 
 const COUNTRIES = ['Pakistan', 'UAE', 'United Kingdom', 'Kenya', 'Tanzania', 'New Zealand', 'Australia', 'USA', 'Other'];
+
+// The share code captured from a ?ref= link by the app boot (main.jsx).
+// Read lazily per render: storage may be off, and that must never throw.
+const storedReferralCode = () => { try { return localStorage.getItem('ar7-ref') || ''; } catch { return ''; } };
 const SOURCE = {
   contact: 'Website contact',
   auction: 'Auction access',
@@ -236,6 +240,17 @@ export function EnquiryForm({ kind = 'contact', initialValues = {}, onSuccess, o
 
         <Field id={fieldId('message')} label={kind === 'contact' ? 'How can we help?' : 'Your message'} optional>
           {props => <textarea {...props} name="message" rows={4} maxLength={2000} autoComplete="off" placeholder={kind === 'contact' ? 'Tell us about the vehicle, machinery, or service you need.' : 'Share your question, budget, destination port, or timing.'} defaultValue={initialValues.message || ''} />}
+        </Field>
+
+        {/* Referral codes (2026-11-18): a friend's share code rides on the
+            lead so our team links the enquiry to the referrer. Prefilled when
+            the visitor arrived through a ?ref= share link (stored by the app
+            boot in localStorage). Optional and silently dropped by the API
+            when it doesn't look like a code — it can never block an enquiry. */}
+        <Field id={fieldId('referral_code')} label="Referral code" optional
+          hint="Was AR7 recommended by a friend? Paste their code and we'll thank them.">
+          {props => <input {...props} name="referral_code" maxLength={24} autoComplete="off" placeholder="e.g. AR7-7KQ2M"
+            defaultValue={initialValues.referral_code || storedReferralCode()} style={{textTransform:'uppercase'}} />}
         </Field>
 
         <button className="primary enquiry-submit" type="submit" disabled={busy}>

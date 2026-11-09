@@ -115,6 +115,21 @@
   display:flex;gap:10px;align-items:flex-start;margin-top:26px;
   font-size:12.5px;line-height:1.65;color:#6d7d74;
 }
+/* Refer a friend (2026-11-18) */
+.ma-refer-card{border:1px solid #d8e4dc;border-radius:16px;padding:20px 22px;background:linear-gradient(135deg,#f4faf6,#eaf4ee);display:grid;gap:12px;max-width:560px}
+:root[data-theme="dark"] .ma-refer-card{background:#0d241879;border-color:#1e3327}
+.ma-refer-code{display:flex;align-items:baseline;gap:12px}
+.ma-refer-code span{font:700 9px Manrope,sans-serif;letter-spacing:1.6px;color:#6d7d74}
+.ma-refer-code b{font:800 24px Manrope,sans-serif;letter-spacing:2px;color:#0b5c3a}
+:root[data-theme="dark"] .ma-refer-code b{color:#d9b25c}
+.ma-refer-card p{margin:0;font-size:12.5px;line-height:1.65;color:#51645a}
+:root[data-theme="dark"] .ma-refer-card p{color:#9fb5a8}
+.ma-refer-actions{display:flex;gap:10px;flex-wrap:wrap}
+.ma-refer-actions button,.ma-refer-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:11px;font:700 12.5px Manrope,sans-serif;cursor:pointer;text-decoration:none}
+.ma-refer-actions button{border:0;background:#0b5c3a;color:#fff}
+.ma-refer-actions a{border:1px solid #0b5c3a44;color:#0b5c3a;background:#fff}
+:root[data-theme="dark"] .ma-refer-actions a{background:transparent;color:#d9b25c;border-color:#d9b25c55}
+.ma-refer-card small{font-size:11.5px;color:#6d7d74}
 .ma-foot svg{width:16px;height:16px;flex:none;margin-top:2px;color:#0b5c3a}
 
 .ma-empty{

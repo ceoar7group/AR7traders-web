@@ -320,9 +320,42 @@ function MyAccount({session,navigate}){
         <td className={Number(p.unapplied)>0?'credit':''}>{fmt(p.unapplied)}</td>
        </tr>)}</tbody></table></div>}
     <p className="ma-foot"><ShieldCheck/> {t('ma.payFoot',{email:s.contact_email})}</p>
+
+    {/* Referral codes (2026-11-18). English-only for now, like the saved-cars
+        panel — the localisation pass can pick it up later. Honest copy: the
+        benefit is agreed with our team per market, we never invent amounts. */}
+    {data.referral?.code && <ReferFriend referral={data.referral}/>}
    </>}
   </div>
  </section>;
+}
+
+/* ---- refer a friend -------------------------------------------------- */
+// Every linked customer gets a share code from /api/my-account (generated
+// server-side, unique). A friend either opens the share link (?ref=CODE is
+// remembered and pre-fills the enquiry form) or types the code by hand; the
+// lead then carries it, staff see the attribution in the CRM, and `uses`
+// counts how many enquiries quoted this code.
+function ReferFriend({referral}){
+ const [copied,setCopied]=useState(false);
+ const link='https://www.ar7traders.com/?ref='+encodeURIComponent(referral.code);
+ const wa='https://wa.me/?text='+encodeURIComponent(
+   `I import my vehicles from Japan through AR7 Traders — honest pricing and they handle everything to your port. Use my referral code ${referral.code} when you enquire: ${link}`);
+ const copy=async()=>{try{await navigator.clipboard.writeText(link);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{/* clipboard may be off */}};
+ return <div className="ma-refer">
+  <h2 className="ma-title">Refer a friend</h2>
+  <div className="ma-refer-card">
+   <div className="ma-refer-code" aria-label="Your referral code"><span>YOUR CODE</span><b>{referral.code}</b></div>
+   <p>Share your code or link. When a friend mentions it in their enquiry and completes a purchase, our team applies the referral thank-you agreed for your market — ask your agent for the current offer.</p>
+   <div className="ma-refer-actions">
+    <button type="button" onClick={copy}>{copied?'Link copied ✓':'Copy share link'}</button>
+    <a href={wa} target="_blank" rel="noopener noreferrer">Share on WhatsApp</a>
+   </div>
+   <small>{Number(referral.uses)>0
+     ? `${referral.uses} ${Number(referral.uses)===1?'enquiry has':'enquiries have'} used your code so far.`
+     : 'No enquiries have used your code yet — share it with someone importing a car.'}</small>
+  </div>
+ </div>;
 }
 
 /* ---- saved cars (favourites) --------------------------------------- */

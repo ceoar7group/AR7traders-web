@@ -229,8 +229,36 @@ export default async function handler(req,res,injected={}){
   ]);
   const orders=o.data||[],payments=p.data||[];
   const shipments=(cust.name&&!sh.error&&Array.isArray(sh.data))?sh.data:[];
+
+  // Referral code (2026-11-18): every linked customer gets a share code the
+  // first time they open their account. Generation retries on the unique
+  // index; the whole block is fail-soft — a referral hiccup must NEVER block
+  // the account view (and injected test dbs without update() stay valid).
+  let referral=null;
+  try{
+   let code=(typeof cust.referral_code==='string'&&cust.referral_code.trim())?cust.referral_code.trim():null;
+   if(!code){
+    const ALPHA='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    for(let i=0;i<5&&!code;i++){
+     const cand='AR7-'+Array.from({length:5},()=>ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
+     const {data:u,error:uerr}=await db.from('customers').update({referral_code:cand})
+       .eq('id',cust.id).is('referral_code',null).select().single();
+     if(!uerr&&u&&u.referral_code)code=u.referral_code;
+    }
+   }
+   if(code){
+    let uses=0;
+    try{
+     const {count}=await db.from('leads').select('id',{count:'exact',head:true}).eq('referral_code',code);
+     uses=Number(count)||0;
+    }catch{/* count is cosmetic */}
+    referral={code,uses};
+   }
+  }catch{/* referral is a bonus, not a dependency */}
+
   return send(res,200,{
     customer:{id:cust.id,name:cust.name,email:cust.email,country:cust.country},
+    referral,
     shipments,
     orders,
     payments:payments.map(x=>({id:x.id,amount:x.amount,currency:x.currency||'USD',
