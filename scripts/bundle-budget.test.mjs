@@ -286,10 +286,13 @@ const BUDGET_GZIP = 165 * 1024;
 // Measured 560.86 kB raw / gzip well inside 163.
 // 2026-11-18: 562 → 564 kB raw — the public track-your-shipment box (same
 // change as the gzip note above). Measured 562.69 kB raw.
+// 2026-11-18 (3): 566 → 568 kB raw — landed-price cards: the CIF-destination
+// picker on the inventory toolbar + the per-card indicative CIF chip
+// (estimateFor reuse, localStorage persistence). Measured 566.70 kB.
 // 2026-11-18 (2): 564 → 566 kB raw — the 46 ma.* EN source keys for the
 // signed-in My Account view (same change as the gzip note above).
 // Measured 564.52 kB raw.
-const BUDGET_RAW = 566 * 1024;
+const BUDGET_RAW = 568 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -371,10 +374,12 @@ const CSS_BUDGET_GZIP = 43 * 1024; // 2026-11-09: see raw note above
 // theme buttons, and the TEMP A/B/C hero-layout variant layers in
 // landing-v2.css. Two of the three variants are deleted once the owner picks;
 // tighten this back then.
+// 2026-11-18: 221 → 222 kB raw — landed-price cards: .card-cif chip and
+// .cif-dest-pick picker styles. Measured 221.19 kB.
 // 2026-11-17: 219 → 221 kB raw — round-7 mobile QA: single-line mobile promo
 // row, 44px home pager buttons, hv=c foot-band contrast block and the ≤560
 // two-row route chip. Measured 219.98 kB raw / gzip inside 43.
-const CSS_BUDGET_RAW = 221 * 1024;
+const CSS_BUDGET_RAW = 222 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
