@@ -965,12 +965,24 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
      </a>;
    })}
    <div className="car-dots">{slides.map((x,i)=><i key={x.id} className={(x.kind==='machine'?'machine ':'')+(i===activeIndex?'active':'')} onClick={()=>jumpTo(i)} role="button" tabIndex={-1} aria-label={'Show slide '+(i+1)}/>)}</div>
-   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {activeIndex+1}/{total} · {c.kind==='machine'?'China machinery desk':'rotating stock'}</div>
+   {/* 2026-11-19 (owner, phone cleanup): the pill's "· rotating stock" tail
+       is wrapped so phones can keep just the compact "4/18" (CSS hides the
+       tail ≤560px — the photo stays uncovered). */}
+   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {activeIndex+1}/{total}<span className="car-counter-tail"> · {c.kind==='machine'?'China machinery desk':'rotating stock'}</span></div>
   </div>
   <div className="hero-carousel-controls">
    <button type="button" onClick={()=>moveSlide(-1)} aria-label="Prev"><ChevronLeft/></button>
    <button type="button" onClick={()=>moveSlide(1)} aria-label="Next"><ChevronRight/></button>
   </div>
+  {/* 2026-11-19 (owner: the phone photo was "very much covered"): on phones
+      the caption leaves the photograph entirely and renders HERE, as its own
+      row on the deep-green band right under the slides. Desktop keeps the
+      in-photo caption; CSS shows exactly one of the two per tier. */}
+  <a className="stage-cap" href={c.href} onClick={e=>linkClick(c.href,navigate)(e)} aria-hidden="true" tabIndex={-1}>
+   <span className="hero-slide-tag">{c.tag}</span>
+   <b>{c.title}</b>
+   <small>{c.meta}</small>
+  </a>
   {/* 2026-11-10 hero v3 (owner direction): ONE horizontal band under the
       slideshow — the CTA buttons ride alongside the shipping-lane strip and
       the next-auction chip. Everything stays in normal flow; nothing is
@@ -1556,15 +1568,30 @@ export function App(){
  // navy + champagne gold) — joins light and dark. The header button cycles
  // light → dark → blue; legacy localStorage values ('light'/'dark') read
  // unchanged, so nobody's saved preference is lost.
- const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('ar7-theme');return t==='dark'||t==='blue'||t==='blue-day'?t:'light'}catch{return 'light'}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
- const dark=theme==='dark'||theme==='blue'; // blue-day is a DAY palette (2026-11-11)
- const cycleTheme=()=>setTheme(t=>t==='light'?'dark':t==='dark'?'blue':t==='blue'?'blue-day':'light');
+ const [theme,setTheme]=useState(()=>{try{const t=localStorage.getItem('ar7-theme');return t==='dark'||t==='blue'?'dark':'light'}catch{return 'light'}}), [menu,setMenu]=useState(false), [filter,setFilter]=useState('All'), [enquiry,setEnquiry]=useState(null), [favs,setFavs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-favs')||'[]')}catch{return []}}), [page,setPage]=useState(initialRoute.page), [vehicleId,setVehicleId]=useState(initialRoute.carId), [makeFilter,setMakeFilter]=useState(initialRoute.make), [modelFilter,setModelFilter]=useState(initialRoute.model);
+ // 2026-11-19 (owner): the Blue & Gold theme is retired — two palettes only.
+ // Legacy localStorage values 'blue'/'blue-day' map to dark/light on boot.
+ const dark=theme==='dark';
+ const cycleTheme=()=>setTheme(t=>t==='light'?'dark':'light');
  // 2026-11-09: landing hero layout — the owner chose option C (the full-bleed
  // inventory-style opening). Options A and B are kept as pure-CSS variants in
  // landing-v2.css so the layout can be flipped later without a rebuild:
  // open any page with ?hv=a or ?hv=b to preview them again.
  const hv=(()=>{try{const q=new URLSearchParams(window.location.search).get('hv');return q==='a'||q==='b'?q:'c'}catch{return 'c'}})();
  useEffect(()=>{ document.documentElement.dataset.theme=theme; try{localStorage.setItem('ar7-theme',theme)}catch{} },[theme]);
+ // 2026-11-19 (owner: "the whole web on mobile looks tilted on one side"):
+ // 100vw disagrees with the real layout width whenever a classic scrollbar
+ // is shown, so the full-bleed hero band drifted sideways leaving a white
+ // strip. Publish the TRUE layout width as --vpw and keep it fresh — the
+ // ResizeObserver even catches the scrollbar appearing (no resize event).
+ useEffect(()=>{
+  const set=()=>document.documentElement.style.setProperty('--vpw',document.documentElement.clientWidth+'px');
+  set();
+  window.addEventListener('resize',set);
+  let ro;
+  if(typeof ResizeObserver!=='undefined'){ro=new ResizeObserver(set);ro.observe(document.documentElement);}
+  return ()=>{window.removeEventListener('resize',set);if(ro)ro.disconnect();};
+ },[]);
  useEffect(()=>{ try{localStorage.setItem('ar7-favs',JSON.stringify(favs))}catch{} },[favs]);
  // 2026-11-08: favourites follow the signed-in customer across devices.
  // Pull the server copy once per sign-in (and again when stock hydrates, so

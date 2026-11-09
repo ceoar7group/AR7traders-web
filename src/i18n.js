@@ -330,7 +330,6 @@ const en = {
   'nav.closeMenu': 'Close menu',
   'nav.dayMode': 'Day mode',
   'nav.nightMode': 'Night mode',
-  'nav.blueGold': 'Blue & gold',
   'world.kicker': 'AR7 GLOBAL EXPORT NETWORK',
   'world.title': 'Where AR7',
   'world.titleEm': 'ships.',

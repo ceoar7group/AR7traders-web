@@ -385,8 +385,14 @@ html,body{overflow-x:clip}
      CTA buttons + shipping-lane/auction chips underneath. */
   .hero[data-hv="c"] .hero-visual {
     order: -1;
-    width: 100vw;
-    margin-inline: calc(50% - 50vw);
+    /* 2026-11-19 (owner: "the whole web on mobile looks tilted on one
+       side"): 100vw includes the browser's classic scrollbar, so on devices
+       that show one the band overshot the layout and everything read as
+       shifted left with a white strip on the right. main.jsx measures the
+       real layout width into --vpw; the band spans exactly that. */
+    width: var(--vpw, 100vw);
+    max-width: none; /* performance.css clamps .hero-visual to 100% */
+    margin-inline: calc(50% - var(--vpw, 100vw) / 2);
     /* 2026-11-16 (owner: "increase the size of the car slides"): taller
        stage, slimmer side padding — the extra room all goes to the cars. */
     height: clamp(600px, 90vh, 960px);
@@ -552,8 +558,14 @@ html,body{overflow-x:clip}
   .hero[data-hv="c"] .hero-visual { order: -1; }
   /* C keeps its full-bleed deep-green opening on phones too */
   .hero[data-hv="c"] .hero-visual {
-    width: 100vw;
-    margin-inline: calc(50% - 50vw);
+    /* 2026-11-19 (owner: "the whole web on mobile looks tilted on one
+       side"): 100vw includes the browser's classic scrollbar, so on devices
+       that show one the band overshot the layout and everything read as
+       shifted left with a white strip on the right. main.jsx measures the
+       real layout width into --vpw; the band spans exactly that. */
+    width: var(--vpw, 100vw);
+    max-width: none; /* performance.css clamps .hero-visual to 100% */
+    margin-inline: calc(50% - var(--vpw, 100vw) / 2);
     padding: 12px 14px 16px;
     position: relative;
     overflow: hidden;
