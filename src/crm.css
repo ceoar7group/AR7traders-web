@@ -4729,3 +4729,30 @@ html[data-crm-theme="light"] .crm-shell,
 @media (max-width: 640px) {
   .crm-call-template { width: 100%; max-width: none; min-height: 44px; }
 }
+
+/* Round 12 (2026-11): vessel tracking links, calls-by-agent dashboard panel,
+   per-language template picker. */
+.crm-vessel-cell { display: inline-flex; align-items: center; gap: 8px; }
+.crm-vessel-cell a, .crm-vessel-link { display: inline-flex; align-items: center; gap: 3px; color: var(--crm-gold); font-weight: 600; text-decoration: none; }
+.crm-vessel-cell a:hover, .crm-vessel-link:hover { text-decoration: underline; }
+.crm-vessel-cell a { font-size: 11px; border: 1px solid var(--crm-border); border-radius: 7px; padding: 2px 7px; }
+.crm-vessel-cell a:hover { border-color: var(--crm-gold); text-decoration: none; }
+
+.crm-call-lang { max-width: 118px; }
+
+.crm-agent-calls { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px 28px; }
+.crm-agent-calls .crm-agent-calls-note { grid-column: 1 / -1; }
+.crm-agent-call-row { display: flex; flex-direction: column; gap: 5px; }
+.crm-agent-call-row span { display: flex; justify-content: space-between; font-size: 12px; }
+.crm-agent-call-row span b { color: var(--crm-ink); font-weight: 600; }
+.crm-agent-call-row span em { color: var(--crm-muted); font-style: normal; }
+.crm-agent-call-row i { display: block; height: 7px; border-radius: 99px; background: var(--crm-panel-sub); border: 1px solid var(--crm-border); overflow: hidden; }
+.crm-agent-call-row u { display: block; height: 100%; border-radius: 99px; background: var(--crm-gold); text-decoration: none; transition: width .3s ease; }
+.crm-agent-call-row u.is-hit { background: var(--crm-accent); }
+.crm-agent-call-row small { color: var(--crm-muted); font-size: 11.5px; }
+.crm-agent-calls-note, .crm-agent-calls-empty { margin: 2px 0 0; color: var(--crm-muted); font-size: 11.5px; }
+.crm-agent-calls-empty { font-size: 12.5px; margin: 0; }
+
+@media (max-width: 640px) {
+  .crm-call-lang { max-width: none; }
+}
