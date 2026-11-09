@@ -20,7 +20,9 @@ export const CRM_COLUMNS = {
 };
 
 export const SITE_COLUMNS = {
-  listings: ['stock_no','make','model','year','km','fuel','body','price','image','images','gallery','grade','status','location','tr','drv','eng','seats','col','st','published','sort_order'],
+  // `video` (2026-11-18): one optional video-walkaround link per website car
+  // (MIGRATION-2026-11-video-walkaround.sql).
+  listings: ['stock_no','make','model','year','km','fuel','body','price','image','images','gallery','grade','status','location','tr','drv','eng','seats','col','st','published','sort_order','video'],
   routes:   ['country','port','transit','popular','freight_base','duty_pct','lon','lat','show_on_map','published','sort_order'],
   articles: ['title','category','date','read_min','image','excerpt','body','published','sort_order'],
   blocks:   ['key','label','value','page']

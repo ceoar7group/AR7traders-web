@@ -457,6 +457,7 @@ const configs = {
       ['col', 'Colour', 'text', { section: 'Details' }],
       ['st', 'Steering', 'select', { options: OPT.steering, section: 'Details' }],
       ['image', 'Cover photo path', 'text', { placeholder: '/assets/… (first gallery photo is used)', section: 'Details' }],
+      ['video', 'Video walkaround', 'text', { placeholder: 'https://youtu.be/…', section: 'Details', hint: 'YouTube link — the car page shows a click-to-play walkaround player' }],
       ['sort_order', 'Sort order', 'number', { min: 0, section: 'Details', hint: 'Lower numbers appear first' }]
     ]
   },
