@@ -5,6 +5,7 @@
 import {sign as signData} from 'node:crypto';
 import {send} from './_supabase.js';
 import {keywordIdeas, safeDraftSeo, generateEditorialDraft, aiProviderStatus, aiConnectionTest} from './_seo-content.js';
+import {scanIndustryNews} from './_news-scout.js';
 import {NEWS, articleSlug} from '../src/news-data.js';
 import {
   SITE_CANONICAL_ORIGIN, SITE_SITEMAP_PATHS, canonicalSiteUrl,
@@ -375,6 +376,12 @@ export async function handleSeoWorkflow(req, res, action, {db, auth, injected = 
       return send(res, 200, {...status, connectionTest: test});
     }
     return send(res, 200, status);
+  }
+  // Industry News Scout (2026-11-11): fresh, dated, sourced vehicle-industry
+  // headlines the operator can turn into a published news brief with one
+  // approval. Read-only — it fetches and reports; it never saves or publishes.
+  if (action === 'news-scan' && (method === 'GET' || method === 'POST')) {
+    return send(res, 200, await scanIndustryNews({fetch: fetchImpl, now}));
   }
   if (action === 'optimize-draft' && method === 'POST') {
     return send(res, 200, safeDraftSeo(req.body || {}));

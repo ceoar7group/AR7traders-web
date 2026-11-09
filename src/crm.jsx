@@ -9,7 +9,8 @@ import {
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
   Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
-  ChevronDown, Percent, Bot, Stethoscope, Bell, CalendarClock, CornerDownLeft
+  ChevronDown, Percent, Bot, Stethoscope, Bell, CalendarClock, CornerDownLeft,
+  PhoneCall, PhoneOff, PhoneForwarded, Voicemail
 } from 'lucide-react';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
@@ -247,6 +248,10 @@ const seed = {
 const tabs = [
   ['dashboard', 'Overview', LayoutDashboard],
   ['leads', 'Leads', Users],
+  // Free cold-calling desk (2026-11-11 owner request): the queue, the script,
+  // the dial/WhatsApp/SMS links and the outcome log in one screen. Calls go
+  // through the agent's own phone or WhatsApp — zero per-call cost.
+  ['calls', 'Call desk', PhoneCall],
   ['customers', 'Customers', UserRound],
   ['accounts', 'Customer accounts', Wallet],
   // Inventory and the website showroom are ONE tab: the same cars, two faces.
@@ -1679,7 +1684,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'Growth studio', agents: 'Growth studio' };
+  const SPECIAL = { calls: 'Call desk', dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'Growth studio', agents: 'Growth studio' };
   // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
   // activeEntity picks which set the panel, the toolbar and the editor work on.
   const activeEntity = tab === 'vehicles' ? carSub : tab;
@@ -1794,6 +1799,14 @@ export default function CrmApp() {
 
         {tab === 'dashboard' ? (
           <Dashboard rows={rows} setTab={setTab} onOpenPhotos={car => setGalleryView(car)} onManagePhotos={(entity, car) => setPhotoTarget({ entity, row: car })} />
+        ) : tab === 'calls' ? (
+          <CallDeskView
+            leads={rows.leads || []}
+            canWrite={canWrite('leads')}
+            quickPatch={(row, patch) => quickPatch('leads', row, patch)}
+            aiAssist={canWrite('leads') ? row => call('/api/crm?entity=leads&ai=assist', session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id }) }) : null}
+            notify={setNotice}
+          />
         ) : tab === 'activities' ? (
           <ActivityView rows={rows.activities || []} />
         ) : tab === 'team' ? (
@@ -2306,6 +2319,123 @@ function imgFallback(e) {
   el.src = '/assets/ar7-mark.png';
 }
 
+// ---------------------------------------------------------------------------
+// Call desk — free cold calling for the owner and every agent (2026-11-11).
+// ---------------------------------------------------------------------------
+// HOW IT IS FREE: the desk never buys telephony. "Call" opens the agent's own
+// phone dialler (tel:), "WhatsApp" opens a chat with the drafted message
+// pre-filled (wa.me), "SMS" pre-fills a text (sms:) — the agent's existing
+// phone plan or WhatsApp (free over data) carries the call. The AI writes the
+// script and the messages; a HUMAN always speaks and presses send.
+// Fully automated AI VOICE calls are deliberately absent: they require a paid
+// telephony provider (Twilio and the like) and, in most target markets,
+// consent rules for robocalls. The desk says so instead of pretending.
+const CALL_OUTCOMES = [
+  { id: 'no-answer', label: 'No answer', icon: PhoneOff, days: 1, hint: 'Follow-up moves to tomorrow.' },
+  { id: 'voicemail', label: 'Left a message', icon: Voicemail, days: 2, hint: 'Follow-up moves 2 days out.' },
+  { id: 'callback', label: 'Asked to call back', icon: PhoneForwarded, days: 1, hint: 'Pick the date below.' },
+  { id: 'interested', label: 'Interested — quote now', icon: Check, status: 'qualified', days: 0, hint: 'Marked qualified, follow-up today.' },
+  { id: 'not-interested', label: 'Not interested', icon: Ban, status: 'lost', hint: 'Marked lost.' }
+];
+
+function CallDeskView({ leads, canWrite, quickPatch, aiAssist, notify }) {
+  const [assist, setAssist] = useState(null);
+  const [logFor, setLogFor] = useState(null);
+  const [callbackDate, setCallbackDate] = useState('');
+  const [logged, setLogged] = useState({});
+  const today = new Date().toISOString().slice(0, 10);
+  const plusDays = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const digits = p => String(p || '').replace(/\D/g, '');
+
+  const queue = useMemo(() => {
+    const stageRank = s => ({ new: 0, qualified: 1, proposal: 2, negotiation: 3 })[String(s || '').toLowerCase()] ?? 4;
+    return [...(leads || [])]
+      .filter(l => digits(l.phone).length >= 7)
+      .filter(l => !['won', 'lost'].includes(String(l.status || '').toLowerCase()))
+      .sort((a, b) => {
+        const aDue = a.next_follow_up && a.next_follow_up <= today ? 0 : 1;
+        const bDue = b.next_follow_up && b.next_follow_up <= today ? 0 : 1;
+        return aDue - bDue || stageRank(a.status) - stageRank(b.status)
+          || String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      });
+  }, [leads, today]);
+  const dueCount = queue.filter(l => l.next_follow_up && l.next_follow_up <= today).length;
+
+  const openAssist = async lead => {
+    if (!aiAssist) { notify('Your role cannot draft outreach — ask for the "Add / edit leads" permission.'); return; }
+    setAssist({ lead, loading: true });
+    try { setAssist({ lead, data: await aiAssist(lead) }); }
+    catch (e) { setAssist({ lead, error: e.message || 'AI assist failed' }); }
+  };
+
+  const logOutcome = async (lead, outcome) => {
+    if (!canWrite) { notify('Your role cannot update leads.'); return; }
+    const patch = {};
+    if (outcome.status) patch.status = outcome.status;
+    if (outcome.id === 'callback') patch.next_follow_up = callbackDate || plusDays(1);
+    else if (outcome.days !== undefined) patch.next_follow_up = plusDays(outcome.days);
+    await quickPatch(lead, patch);
+    setLogged(v => ({ ...v, [lead.id]: outcome.label }));
+    setLogFor(null); setCallbackDate('');
+  };
+
+  const waText = lead => `Hello ${String(lead.name || '').split(' ')[0] || 'there'}! This is AR7 Traders in Japan about ${lead.vehicle_interest || 'your vehicle enquiry'}. Is now a good moment for a quick chat?`;
+
+  return (
+    <div className="crm-call-desk">
+      <div className="crm-call-explain">
+        <p><b><PhoneCall size={14} /> Free calling, by design.</b> “Call” dials from <i>your</i> phone, “WhatsApp” opens the chat with the first message pre-filled (free over data), “SMS” pre-fills a text — no telephony subscription, no per-minute fees. <b>AI script</b> writes your talking points, objection answers and follow-up messages from the lead’s own enquiry and live stock; you speak, you press send.</p>
+        <p className="crm-hint">Fully automated AI <i>voice</i> calls need a paid telephony provider (e.g. Twilio) and robocall consent rules per country — this desk is honest about that and keeps humans on the line. Ask your developer to connect a provider if you ever want it.</p>
+      </div>
+      <div className="crm-call-stats" role="status">
+        <span><b>{queue.length}</b> leads with a phone number to work</span>
+        <span className={dueCount ? 'is-due' : ''}><b>{dueCount}</b> due or overdue today</span>
+      </div>
+      {queue.length === 0 && (
+        <div className="crm-empty"><PhoneCall /><h3>No leads to call</h3><p>Leads with a phone number appear here automatically, overdue follow-ups first. Won and lost leads are filtered out.</p></div>
+      )}
+      <ul className="crm-call-list">
+        {queue.map(lead => {
+          const overdue = lead.next_follow_up && lead.next_follow_up <= today;
+          const wa = digits(lead.phone);
+          return (
+            <li key={lead.id} className={'crm-call-row' + (overdue ? ' is-due' : '')}>
+              <div className="crm-call-who">
+                <b>{lead.name || 'Unnamed lead'}</b>
+                <small>{[lead.country, lead.vehicle_interest || 'vehicle enquiry', lead.source].filter(Boolean).join(' · ')}</small>
+                <small className="crm-call-meta">
+                  <span className={'crm-call-chip st-' + (lead.status || 'new')}>{lead.status || 'new'}</span>
+                  {lead.next_follow_up && <span className={overdue ? 'crm-call-due' : ''}><CalendarClock size={12} /> {overdue ? 'due ' : 'next '} {lead.next_follow_up}</span>}
+                  {lead.budget ? <span>budget ${Number(lead.budget).toLocaleString('en-US')}</span> : null}
+                  {logged[lead.id] && <span className="crm-call-logged"><Check size={12} /> {logged[lead.id]}</span>}
+                </small>
+              </div>
+              <div className="crm-call-actions">
+                <a className="crm-call-act is-call" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><PhoneCall size={14} /> Call</a>
+                {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(waText(lead))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
+                <a className="crm-call-act" href={'sms:' + String(lead.phone).replace(/[^+\d]/g, '') + '?&body=' + encodeURIComponent(waText(lead))}><Mail size={14} /> SMS</a>
+                <button type="button" className="crm-call-act is-ai" onClick={() => openAssist(lead)}><Sparkles size={14} /> AI script</button>
+                <button type="button" className="crm-call-act" onClick={() => { setLogFor(logFor === lead.id ? null : lead.id); setCallbackDate(''); }}><ClipboardCopy size={14} /> Log outcome</button>
+              </div>
+              {logFor === lead.id && (
+                <div className="crm-call-log">
+                  {CALL_OUTCOMES.map(outcome => (
+                    <button key={outcome.id} type="button" title={outcome.hint} onClick={() => logOutcome(lead, outcome)}>
+                      <outcome.icon size={13} /> {outcome.label}
+                    </button>
+                  ))}
+                  <label>Callback date <input type="date" value={callbackDate} min={today} onChange={e => setCallbackDate(e.target.value)} /></label>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {assist && <AiAssistModal assist={assist} onClose={() => setAssist(null)} />}
+    </div>
+  );
+}
+
 // AI assist modal for one lead: readiness score with its evidence, matching
 // published stock, and outreach drafts to COPY — there is no send button on
 // purpose. The server note explains honestly whether Gemini or the
@@ -2362,6 +2492,10 @@ function AiAssistModal({ assist, onClose }) {
             <div className="crm-ai-draft-head"><h3>WhatsApp draft</h3><div>{waHref && <a className="crm-ai-act" href={waHref} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Open in WhatsApp</a>}<button className="crm-ai-act" onClick={() => copy('wa', data.drafts.whatsapp)} type="button"><Copy size={13} /> {copied === 'wa' ? 'Copied!' : 'Copy'}</button></div></div>
             <pre>{data.drafts.whatsapp}</pre>
           </section>
+          {data.drafts.call_script && <section>
+            <div className="crm-ai-draft-head"><h3>Phone call script</h3><div>{lead.phone && <a className="crm-ai-act" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><Phone size={13} /> Call now</a>}<button className="crm-ai-act" onClick={() => copy('call', data.drafts.call_script)} type="button"><Copy size={13} /> {copied === 'call' ? 'Copied!' : 'Copy'}</button></div></div>
+            <pre>{data.drafts.call_script}</pre>
+          </section>}
           {data.note && <p className="crm-ai-note">{data.note}</p>}
           <p className="crm-ai-disclaimer">{data.disclaimer} {data.score.disclaimer}</p>
         </div>}
