@@ -253,7 +253,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // milestone strip and the free VesselFinder live-position link). It sits on
 // an inner page of the main bundle, so it rides first load.
 // Measured: 163.47 kB gzip.
-const BUDGET_GZIP = 164 * 1024;
+// 2026-11-18 (2): 164 → 165 kB gzip — fifth i18n round: 46 ma.* EN source
+// keys for the signed-in My Account view (orders, payments, Where-is-my-car
+// shipment tracking). English is the fallback dictionary so it rides first
+// load; the 13 translations stay in the lazy i18n-dicts chunk.
+// Measured: 164.13 kB gzip.
+const BUDGET_GZIP = 165 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -281,7 +286,10 @@ const BUDGET_GZIP = 164 * 1024;
 // Measured 560.86 kB raw / gzip well inside 163.
 // 2026-11-18: 562 → 564 kB raw — the public track-your-shipment box (same
 // change as the gzip note above). Measured 562.69 kB raw.
-const BUDGET_RAW = 564 * 1024;
+// 2026-11-18 (2): 564 → 566 kB raw — the 46 ma.* EN source keys for the
+// signed-in My Account view (same change as the gzip note above).
+// Measured 564.52 kB raw.
+const BUDGET_RAW = 566 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

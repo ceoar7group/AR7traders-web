@@ -209,6 +209,7 @@ function MyAccount({session,navigate}){
  const [panel,setPanel]=useState(null);   // 'profile' | 'password' | null
  const s=useSettings();
  const {fmt,display,isBase,rate}=useCurrency();
+ const {t}=useLang();
  async function load(){
   const r=await fetch('/api/my-account',{headers:{Authorization:'Bearer '+session.access_token}});
   const j=await r.json().catch(()=>({}));
@@ -220,27 +221,27 @@ function MyAccount({session,navigate}){
  async function signOut(){await supabase.auth.signOut()}
 
  if(err) return <section className="account-page single"><div className="account-form-wrap">
-   <div className="account-sent"><span><X/></span><h1>Something went wrong.</h1><p>{err}</p>
-   <button className="outline-btn" onClick={signOut} type="button">Sign out</button></div></div></section>;
- if(!data) return <section className="account-page"><div className="account-loading"><i/><span>Loading your orders…</span></div></section>;
+   <div className="account-sent"><span><X/></span><h1>{t('ma.errorH1')}</h1><p>{err}</p>
+   <button className="outline-btn" onClick={signOut} type="button">{t('ma.signout')}</button></div></div></section>;
+ if(!data) return <section className="account-page"><div className="account-loading"><i/><span>{t('ma.loading')}</span></div></section>;
 
  const name=data.customer?.name||session.user.email;
- const t=data.totals||{ordered:0,received:0,unapplied:0,due:0};
+ const tt=data.totals||{ordered:0,received:0,unapplied:0,due:0};
 
  return <section className="my-account">
   <div className="shell">
    <div className="ma-head">
     <div>
-     <div className="kicker">YOUR AR7 ACCOUNT</div>
-     <h1>Hello, <em>{String(name).split(' ')[0]}</em>.</h1>
+     <div className="kicker">{t('ma.kicker')}</div>
+     <h1>{t('ma.hello')} <em>{String(name).split(' ')[0]}</em>.</h1>
      <p>{session.user.email}</p>
     </div>
         <div className="ma-head-actions">
-     <CurrencySwitcher label="My account currency"/>
-     <button className="outline-btn" onClick={()=>setPanel(panel==='profile'?null:'profile')} type="button"><UserCog/> Profile</button>
-     <button className="outline-btn" onClick={()=>setPanel(panel==='password'?null:'password')} type="button"><KeyRound/> Password</button>
-     <a className="outline-btn" href={waLink(s.whatsapp_number,'Hello AR7, I have a question about my order.')} target="_blank" rel="noopener noreferrer"><MessageCircle/> Ask a question</a>
-     <button className="outline-btn" onClick={signOut} type="button">Sign out</button>
+     <CurrencySwitcher label={t('ma.currency')}/>
+     <button className="outline-btn" onClick={()=>setPanel(panel==='profile'?null:'profile')} type="button"><UserCog/> {t('ma.profile')}</button>
+     <button className="outline-btn" onClick={()=>setPanel(panel==='password'?null:'password')} type="button"><KeyRound/> {t('ma.password')}</button>
+     <a className="outline-btn" href={waLink(s.whatsapp_number,t('ma.askMsg'))} target="_blank" rel="noopener noreferrer"><MessageCircle/> {t('ma.ask')}</a>
+     <button className="outline-btn" onClick={signOut} type="button">{t('ma.signout')}</button>
     </div>
    </div>
 
@@ -254,71 +255,71 @@ function MyAccount({session,navigate}){
 
    {!data.customer ? <div className="ma-empty">
      <span><CarFront/></span>
-     <h2>Your account is ready.</h2>
-     <p>{data.message||'As soon as our team links an order to you, it will appear here with every payment and the balance remaining.'}</p>
-     <div><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>Browse inventory <ArrowRight/></a>
+     <h2>{t('ma.readyH2')}</h2>
+     <p>{data.message||t('ma.readyP')}</p>
+     <div><a className="primary" href="/inventory" onClick={linkClick('inventory',navigate)}>{t('ma.browse')} <ArrowRight/></a>
       <a className="outline-btn" href={'mailto:'+s.contact_email}><Mail/> {s.contact_email}</a></div>
     </div>
    : <>
     <div className="ma-kpis">
-     {[['Total ordered',t.ordered,<CarFront/>],['Total received',t.received,<Wallet/>],
-       ['Available credit',t.unapplied,<ArrowLeftRight/>],['Balance due',t.due,<BadgeCheck/>]]
-      .map(([l,v,icon])=><article key={l} className={l==='Balance due'&&v>0?'due':''}>
+     {[[t('ma.kOrdered'),tt.ordered,<CarFront/>],[t('ma.kReceived'),tt.received,<Wallet/>],
+       [t('ma.kCredit'),tt.unapplied,<ArrowLeftRight/>],[t('ma.kDue'),tt.due,<BadgeCheck/>,'due']]
+      .map(([l,v,icon,kind])=><article key={l} className={kind==='due'&&v>0?'due':''}>
         <i>{icon}</i><span>{l}</span><b>{fmt(v)}</b></article>)}
     </div>
     {!isBase && <p className="ma-note">
-      <ShieldCheck/> Shown in {display} at 1 {BASE_CURRENCY} = {rate(display)} {display}. Your invoices are issued in {BASE_CURRENCY} or JPY — the {BASE_CURRENCY} figures your order is measured in never change.</p>}
-    {Number(t.unapplied)>0 && <p className="ma-note">
-      <ShieldCheck/> You have {fmt(t.unapplied)} received but not yet applied to a specific car. Tell us which order it should go against and our team will apply it.</p>}
+      <ShieldCheck/> {t('ma.fxNote',{display,base:BASE_CURRENCY,rate:rate(display)})}</p>}
+    {Number(tt.unapplied)>0 && <p className="ma-note">
+      <ShieldCheck/> {t('ma.unappliedNote',{amt:fmt(tt.unapplied)})}</p>}
 
-    <h2 className="ma-title">Your vehicles</h2>
-    {!data.orders?.length ? <p className="ma-muted">No orders yet.</p>
+    <h2 className="ma-title">{t('ma.vehicles')}</h2>
+    {!data.orders?.length ? <p className="ma-muted">{t('ma.noOrders')}</p>
     : <div className="ma-orders">{data.orders.map(o=>{
        const pct=Number(o.amount)>0?Math.min(100,Math.round(Number(o.paid)/Number(o.amount)*100)):0;
        return <article key={o.id}>
         <header><b>{o.vehicle}</b><em className={'ma-status '+o.status}>{title(o.status)}</em></header>
-        <small>Order {o.order_no}{o.stock_no?' · Stock '+o.stock_no:''} · {nice(o.created_at)}</small>
+        <small>{t('ma.order')} {o.order_no}{o.stock_no?' · '+t('ma.stock')+' '+o.stock_no:''} · {nice(o.created_at)}</small>
         <div className="ma-bar"><u style={{width:pct+'%'}}/></div>
         <dl>
-         <div><dt>Price</dt><dd>{fmt(o.amount)}</dd></div>
-         <div><dt>Paid</dt><dd>{fmt(o.paid)}</dd></div>
-         <div><dt>Remaining</dt><dd className={Number(o.balance_due)>0?'owing':'clear'}>{fmt(o.balance_due)}</dd></div>
-         <div><dt>Paid so far</dt><dd>{pct}%</dd></div>
+         <div><dt>{t('ma.price')}</dt><dd>{fmt(o.amount)}</dd></div>
+         <div><dt>{t('ma.paid')}</dt><dd>{fmt(o.paid)}</dd></div>
+         <div><dt>{t('ma.remaining')}</dt><dd className={Number(o.balance_due)>0?'owing':'clear'}>{fmt(o.balance_due)}</dd></div>
+         <div><dt>{t('ma.paidPct')}</dt><dd>{pct}%</dd></div>
         </dl>
        </article>})}</div>}
 
     {!!data.shipments?.length && <>
-     <h2 className="ma-title">Where is my car?</h2>
+     <h2 className="ma-title">{t('ma.shipTitle')}</h2>
      <div className="ma-ships">{data.shipments.map(sh=>{
-       const STEPS=[['booking','Booked'],['loaded','Loaded'],['at_sea','At sea'],['arrived','Arrived']];
+       const STEPS=[['booking',t('ma.sBooked')],['loaded',t('ma.sLoaded')],['at_sea',t('ma.sAtSea')],['arrived',t('ma.sArrived')]];
        const idx=Math.max(0,STEPS.findIndex(([k])=>k===sh.status));
        return <article key={sh.tracking_no}>
         <header><b>{sh.tracking_no}</b><em className={'ma-status '+sh.status}>{title(sh.status)}</em></header>
-        <small>{sh.vehicle}{sh.origin?` · ${sh.origin} → ${sh.destination||'your port'}`:''}</small>
+        <small>{sh.vehicle}{sh.origin?` · ${sh.origin} → ${sh.destination||t('ma.yourPort')}`:''}</small>
         <div className="ma-ship-steps">{STEPS.map(([k,label],i)=>
           <span key={k} className={i<=idx?'done':''}><i/>{label}</span>)}</div>
         <div className="ma-bar"><u style={{width:Math.min(100,Number(sh.progress)||0)+'%'}}/></div>
         <dl>
-         <div><dt>ETA</dt><dd>{nice(sh.eta)}</dd></div>
-         <div><dt>Progress</dt><dd>{Math.min(100,Number(sh.progress)||0)}%</dd></div>
-         <div><dt>Vessel</dt><dd>{sh.vessel
+         <div><dt>{t('ma.eta')}</dt><dd>{nice(sh.eta)}</dd></div>
+         <div><dt>{t('ma.progress')}</dt><dd>{Math.min(100,Number(sh.progress)||0)}%</dd></div>
+         <div><dt>{t('ma.vessel')}</dt><dd>{sh.vessel
            ? <a className="ma-vessel" href={'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(sh.vessel)} target="_blank" rel="noopener noreferrer">{sh.vessel} ↗</a>
            : '—'}</dd></div>
         </dl>
        </article>;})}</div>
-     <p className="ma-foot"><ShieldCheck/> The vessel link opens the ship's live position on VesselFinder — free public AIS data, the same feed ports use.</p>
+     <p className="ma-foot"><ShieldCheck/> {t('ma.shipFoot')}</p>
     </>}
 
-    <h2 className="ma-title">Payments received</h2>
-    {!data.payments?.length ? <p className="ma-muted">No payments recorded yet.</p>
+    <h2 className="ma-title">{t('ma.payTitle')}</h2>
+    {!data.payments?.length ? <p className="ma-muted">{t('ma.noPayments')}</p>
     : <div className="ma-table"><table>
-       <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th>Amount</th><th>Applied</th><th>Available</th></tr></thead>
+       <thead><tr><th>{t('ma.thDate')}</th><th>{t('ma.thMethod')}</th><th>{t('ma.thRef')}</th><th>{t('ma.thAmount')}</th><th>{t('ma.thApplied')}</th><th>{t('ma.thAvail')}</th></tr></thead>
        <tbody>{data.payments.map(p=><tr key={p.id}>
         <td>{nice(p.received_at)}</td><td>{p.method}</td><td>{p.tt_number||'—'}</td>
         <td>{fmt(p.amount)}</td><td>{fmt(p.applied)}</td>
         <td className={Number(p.unapplied)>0?'credit':''}>{fmt(p.unapplied)}</td>
        </tr>)}</tbody></table></div>}
-    <p className="ma-foot"><ShieldCheck/> Every payment we receive is listed here the day it clears. If something looks wrong, message us on WhatsApp or email {s.contact_email} and we will check it with you.</p>
+    <p className="ma-foot"><ShieldCheck/> {t('ma.payFoot',{email:s.contact_email})}</p>
    </>}
   </div>
  </section>;
