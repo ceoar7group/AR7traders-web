@@ -58,10 +58,12 @@
 }
 
 .nav-wrap .brand img {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
+  /* 2026-11-19 (owner: "AR7 Traders needs to be bigger and prominent"):
+     52px mark + 16.5px wordmark on desktop; the tiers below scale down. */
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
 }
 
 /* The company name is the primary brand: natural width, never an ellipsis. */
@@ -73,14 +75,14 @@
   overflow: visible;
   text-overflow: clip;
   white-space: nowrap;
-  font-size: 14px;
-  letter-spacing: 1.3px;
+  font-size: 16.5px;
+  letter-spacing: 1.6px;
 }
 
 .nav-wrap .brand small {
   margin-top: 4px;
-  font-size: 6px;
-  letter-spacing: 1px;
+  font-size: 7px;
+  letter-spacing: 1.2px;
 }
 
 /* Inline links. margin-inline:auto centres them between the brand and the
@@ -226,14 +228,14 @@
   }
 
   .nav-wrap .brand img {
-    flex-basis: 40px;
-    width: 40px;
-    height: 40px;
+    flex-basis: 46px;
+    width: 46px;
+    height: 46px;
   }
 
   .nav-wrap .brand span {
-    font-size: 13px;
-    letter-spacing: 1.1px;
+    font-size: 14.5px;
+    letter-spacing: 1.2px;
   }
 
   .nav-wrap .brand-group {
@@ -556,14 +558,14 @@
      58px tall, so a 44px mark still clears it, and the quieter action row
      (Brands/Auction folded into More) left the room to spend here. */
   .nav-wrap .brand img {
-    flex-basis: 44px;
-    width: 44px;
-    height: 44px;
+    flex-basis: 46px;
+    width: 46px;
+    height: 46px;
     border-radius: 11px;
   }
 
   .nav-wrap .brand span {
-    font-size: 14px;
+    font-size: 15px;
     letter-spacing: .8px;
   }
 
@@ -620,13 +622,13 @@
   }
 
   .nav-wrap .brand img {
-    flex-basis: 42px;
-    width: 42px;
-    height: 42px;
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
   }
 
   .nav-wrap .brand span {
-    font-size: 13px;
+    font-size: 14px;
     letter-spacing: .6px;
   }
 }
@@ -646,13 +648,13 @@
   }
 
   .nav-wrap .brand img {
-    flex-basis: 38px;
-    width: 38px;
-    height: 38px;
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
   }
 
   .nav-wrap .brand span {
-    font-size: 12px;
+    font-size: 13px;
     letter-spacing: .4px;
   }
 
@@ -1487,7 +1489,6 @@ footer [id] {
   display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;
   background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green-text);
 }
-html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
 
 .mch-teaser .mch-teaser-head {
   display: flex;
@@ -2178,34 +2179,28 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
 
 @media (max-width: 560px) {
   .hero .hero-visual .car-main.hero-stage {
-    /* 2026-11-18 (owner: "increase the size of car rotating slides"): the
-       18-dot rail was the clutter AND the reason for the 52px floor — with
-       it gone (the 1/18 counter pill replaces it, below) the stage trims to
-       the photo's own height and the slide takes nearly the full width. */
-    aspect-ratio: 16 / 11.6;
+    /* 2026-11-19 (owner: photo was "small and very much covered"): the
+       caption moves OFF the photograph onto its own band row below
+       (.stage-cap), the counter pill shrinks to "4/18", and the slide takes
+       96% of the stage — the photo finally reads as a clean picture. */
+    aspect-ratio: 16 / 11.8;
     max-height: 460px;
     border-radius: 20px;
   }
 
   .hero-stage .hero-slide {
-    width: 94%;
-    margin-left: -47%;
-    bottom: 14px;
+    width: 96%;
+    margin-left: -48%;
+    bottom: 12px;
     aspect-ratio: 16 / 11.2;
-    max-height: calc(100% - 28px);
+    max-height: calc(100% - 24px);
     border-radius: 16px;
   }
 
+  /* The in-photo caption leaves the phone photograph entirely — .stage-cap
+     (below) carries the tag/title/price on the band instead. */
   .hero-stage .hero-slide-cap {
-    padding: 36px 13px 11px;
-  }
-
-  .hero-stage .hero-slide-cap b {
-    font-size: 15px;
-  }
-
-  .hero-stage .hero-slide-cap small {
-    font-size: 10px;
+    display: none;
   }
 
   /* 18 dashes in a 344px-wide strip read as noise at arm's length (owner
@@ -2216,29 +2211,85 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
 
   .hero .hero-visual .car-counter {
     display: flex; /* landing-v2.css hides the old flat-card counter ≤650 */
-    top: 10px;
-    right: 10px;
+    top: 20px;
+    right: 16px;
     bottom: auto;
+    padding: 5px 9px;
+    font-size: 8.5px;
+    letter-spacing: .6px;
+  }
+
+  /* "4/18" only — the "· rotating stock" tail is desktop furniture. */
+  .hero .hero-visual .car-counter .car-counter-tail {
+    display: none;
+  }
+
+  .hero .hero-visual .stage-foot {
+    grid-row: 4;
   }
 
   .hero .hero-carousel-controls {
-    padding-inline: 7px;
+    padding-inline: 5px;
   }
 
   .hero .hero-carousel-controls button {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* The caption row on the band, right under the slides (phones only): tag +
+   one-line title + meta. A steady min-height so rotation never jumps. */
+.hero .hero-visual .stage-cap {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .hero .hero-visual .stage-cap {
+    display: grid;
+    grid-row: 3;
+    gap: 3px;
+    justify-items: start;
+    min-height: 68px;
+    align-content: start;
+    padding: 2px 6px 0;
+    text-decoration: none;
+    color: #f4faf6;
+  }
+
+  .hero .hero-visual .stage-cap .hero-slide-tag {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--gold), var(--gold2));
+    color: #2a1c04;
+    font: 800 8.5px/1 Manrope, sans-serif;
+    letter-spacing: 1.6px;
+    padding: 5px 9px;
+    border-radius: 7px;
+  }
+
+  .hero .hero-visual .stage-cap b {
+    font: 700 16.5px/1.2 Manrope, sans-serif;
+    letter-spacing: -.3px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hero .hero-visual .stage-cap small {
+    font-size: 11px;
+    color: #c9ddd2;
   }
 }
 
 /* The pinned ≤650px rule above parks the arrows near the TOP of the old flat
    photo card (whose caption filled the bottom-left). On the stage the caption
-   lives inside the centre card, so the pair returns to the true vertical
-   centre of the photo area (the floor rail is 14px now that the dots left). */
+   lives below the photo now, so the pair sits at the true vertical centre of
+   the photo area (the floor rail is 12px). */
 @media (max-width: 650px) {
   .hero .hero-carousel-controls {
     align-self: center;
-    margin-top: -7px; /* half the 14px floor: centred on the CARS */
+    margin-top: -6px; /* half the 12px floor: centred on the CARS */
   }
 }
 
@@ -2260,61 +2311,6 @@ html:is([data-theme=dark],[data-theme=blue]) .mch-offer-flag{color:#14100a}
    surfaces that matter visually (mini page heroes, the two showroom stages,
    the primary button's hover flash) get explicit navy overrides below.
    =========================================================================== */
-html[data-theme=blue] {
-  --gold-ink: #f0a848; /* gold text sits on dark navy cards here — keep it bright */
-  --green: #0d3f7e;
-  --green-text: #8fb9ff;
-  --deep: #071a3a;
-  --forest: #13509a;
-  --gold: #f0a848; /* 2026-11-09: true logo-7 gold, sampled from the mark (avg #e4ab51, core #f0a848) */
-  --gold2: #f8ce77;
-  --ink: #eaf2fd;
-  --muted: #92a6c5;
-  --bg: #070e1c;
-  --card: #0c1a31;
-  --line: #1e3458;
-  --shadow: 0 25px 80px rgba(0, 0, 0, .5);
-  color-scheme: dark;
-}
-
-html[data-theme=blue] .primary:hover {
-  background: #11498d; /* styles.css hard-codes the emerald hover flash */
-}
-
-html[data-theme=blue] .page-hero.mini {
-  background: linear-gradient(125deg, var(--deep), #10488c);
-}
-
-html[data-theme=blue] .page-hero.split {
-  background: var(--deep);
-}
-
-html[data-theme=blue] .hero-stage .hero-slide,
-html[data-theme=blue] .inv-slide {
-  background: #0a1c3c;
-}
-
-html[data-theme=blue] .hero-stage .hero-slide-cap {
-  background: linear-gradient(0deg, rgba(3, 10, 26, .9), rgba(3, 10, 26, .42) 55%, transparent);
-}
-
-html[data-theme=blue] .inv-slide > span {
-  background: linear-gradient(0deg, #030c1ad9, transparent);
-}
-
-html[data-theme=blue] .inv-stage-arrow,
-html[data-theme=blue] .hero .hero-carousel-controls button {
-  background: linear-gradient(160deg, rgba(8, 24, 52, .92), rgba(3, 10, 26, .88));
-}
-
-html[data-theme=blue] .inv-stage-arrow:hover,
-html[data-theme=blue] .hero .hero-carousel-controls button:hover {
-  background: linear-gradient(160deg, #133f7e, #081a38);
-}
-
-html[data-theme=blue] .car-counter {
-  background: rgba(4, 14, 36, .55);
-}
 
 /* ---------------------------------------------------------------------------
    2026-11-11 (owner: "the blue theme is not working in day time"): Blue & Gold
@@ -2327,33 +2323,6 @@ html[data-theme=blue] .car-counter {
    :is([data-theme=dark],[data-theme=blue]) — before this, those rules only
    matched 'dark', which is exactly why blue looked half-broken.
    --------------------------------------------------------------------------- */
-html[data-theme=blue-day] {
-  --green: #0d3f7e;
-  --green-text: #0b4894;
-  --deep: #071a3a;
-  --forest: #13509a;
-  --gold: #e09a26;
-  --gold2: #f4bd55;
-  --ink: #0e1a2e;
-  --muted: #5e6f8a;
-  --bg: #f3f6fb;
-  --card: #fff;
-  --line: #d8e0ec;
-  --shadow: 0 24px 80px rgba(7, 26, 58, .13);
-  color-scheme: light;
-}
-
-html[data-theme=blue-day] .primary:hover {
-  background: #11498d; /* styles.css hard-codes the emerald hover flash */
-}
-
-html[data-theme=blue-day] .page-hero.mini {
-  background: linear-gradient(125deg, var(--deep), #10488c);
-}
-
-html[data-theme=blue-day] .page-hero.split {
-  background: var(--deep);
-}
 
 /* ---------------------------------------------------------------------------
    2026-11-08 (5b): synced auction photographs often carry the selling
@@ -2413,14 +2382,5 @@ html[data-theme=blue-day] .page-hero.split {
   .nav-wrap .navlinks.open .panel-close svg { width: 17px; }
 }
 
-.nav-wrap .nav-actions .palette-btn.is-on {
-  color: var(--gold);
-  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent);
-}
-
-/* The bar gets tight between 900–1023px — the gem lives in the burger there,
-   and below 640px both theme buttons already drop to the panel (§ phone bar). */
-@media (max-width: 1023px) {
-  .nav-wrap .nav-actions .palette-btn { display: none; }
-}
+/* 2026-11-19 (owner): the Blue & Gold palette button is retired — only the
+   day/night switch remains in the bar and the burger panel. */

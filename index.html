@@ -8,7 +8,8 @@
 /* 2026-11-08 audit: apply the saved theme BEFORE first paint so dark / blue&gold
    visitors never get a white flash while the bundle loads. Mirrors the
    tri-state contract in src/main.jsx (localStorage 'ar7-theme'). */
-(function(){try{var t=localStorage.getItem('ar7-theme');if(t==='dark'||t==='blue'){document.documentElement.setAttribute('data-theme',t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',t==='blue'?'#070e1c':'#08140f');}}catch(e){}})();
+(function(){try{document.documentElement.style.setProperty('--vpw',document.documentElement.clientWidth+'px');}catch(e){}})();
+(function(){try{var t=localStorage.getItem('ar7-theme');if(t==='dark'||t==='blue'){document.documentElement.setAttribute('data-theme','dark');var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#08140f');}}catch(e){}})();
 </script>
 <!-- Keep the pre-React first paint intentional while the public app bundle loads. -->
 <style>
@@ -43,7 +44,6 @@
   /* 2026-11-08 audit: the boot screen follows the saved theme (set on <html>
      by the inline script above) so a blue&gold visitor boots into navy, not
      emerald, and a dark visitor into a deeper green. */
-  html[data-theme=blue] #ar7-boot { background:radial-gradient(ellipse at 50% 40%,#13509a 0%,#0a2a55 42%,#040c1d 100%); }
   html[data-theme=dark] #ar7-boot { background:radial-gradient(ellipse at 50% 40%,#0a3f2a 0%,#052a1c 42%,#01160d 100%); }
 </style>
 <script>

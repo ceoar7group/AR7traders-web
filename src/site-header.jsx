@@ -6,7 +6,7 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {
   ArrowUpRight, Sun, Moon, Menu, X, ChevronDown, MessageCircle, Monitor,
-  UserPlus, UserCog, LogIn, CarFront, Globe2, Layers, Gavel, Calculator, Gem,
+  UserPlus, UserCog, LogIn, CarFront, Globe2, Layers, Gavel, Calculator,
   Wrench, Ship, MapPin, BookOpen, Newspaper, ClipboardCheck, BadgeCheck, Landmark, Mail, Search
 } from 'lucide-react';
 import { CurrencyDropdown } from './currency.jsx';
@@ -259,23 +259,15 @@ export function SiteHeader({
 }) {
   const headRef = useRef(null);
   const { t } = useLang(); // English fallback outside the provider
-  // 2026-11-09 (owner request): day/night and the Blue & Gold palette are now
-  // TWO separate controls, not one three-way cycle. The sun/moon button only
-  // flips between day and night; the gem button turns the Blue & Gold palette
-  // on and off. When only the legacy setDark boolean is supplied (older
-  // callers, tests) both still work through it.
+  // 2026-11-19 (owner): the Blue & Gold palette is retired — one day/night
+  // switch remains. When only the legacy setDark boolean is supplied (older
+  // callers, tests) it still works through it.
   const mode = theme || (dark ? 'dark' : 'light');
-  const pick = next => { if (setTheme) setTheme(next); else setDark(next !== 'light' && next !== 'blue-day'); };
-  // 2026-11-11 (owner: "the blue theme is not working in day time"): the two
-  // controls are now fully independent axes — day/night × emerald/blue — so
-  // all four combinations exist. The sun/moon button keeps the palette and
-  // flips day↔night; the gem keeps day/night and turns Blue & Gold on/off.
-  const isNight = mode === 'dark' || mode === 'blue';
-  const isBlue = mode === 'blue' || mode === 'blue-day';
+  const pick = next => { if (setTheme) setTheme(next); else setDark(next !== 'light'); };
+  const isNight = mode === 'dark';
   const dayNightIcon = isNight ? <Sun/> : <Moon/>;
   const dayNightLabel = isNight ? t('nav.dayMode') : t('nav.nightMode');
-  const toggleDayNight = () => pick(isNight ? (isBlue ? 'blue-day' : 'light') : (isBlue ? 'blue' : 'dark'));
-  const toggleBlue = () => pick(isBlue ? (isNight ? 'dark' : 'light') : (isNight ? 'blue' : 'blue-day'));
+  const toggleDayNight = () => pick(isNight ? 'light' : 'dark');
   // 2026-11-08: while the burger menu is open the page behind it must not
   // scroll — the panel has its own scroller and a dimmed backdrop, so a
   // moving page underneath reads as a glitch on phones and tablets.
@@ -307,7 +299,7 @@ export function SiteHeader({
       {/* 2026-11-07: width/height were the literal strings "None" (invalid HTML,
     no reserved box) and the 460px source PNG was 17KB for a 49px slot —
     both flagged by PageSpeed. The 128px webp is 3KB. */}
-      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async" width="49" height="49"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
+      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async" width="56" height="56"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div id="ar7-public-menu" className={'navlinks ' + (menu ? 'open' : '')}>
@@ -352,7 +344,6 @@ export function SiteHeader({
       <div className="nav-panel-actions">
         <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? t('nav.myAccount') : t('nav.signIn')}</a>
         <button type="button" className="panel-theme" onClick={toggleDayNight} aria-pressed={isNight}>{dayNightIcon}{dayNightLabel}</button>
-        <button type="button" className="panel-theme" onClick={toggleBlue} aria-pressed={isBlue}><Gem/>{t('nav.blueGold')}</button>
       </div>
     </div>
     <div className="nav-actions">
@@ -368,7 +359,6 @@ export function SiteHeader({
           <CurrencyDropdown/>
       <a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio', navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a>
       <button type="button" className="icon-btn" onClick={toggleDayNight} aria-label="Toggle theme" aria-pressed={isNight} title={'Switch to ' + dayNightLabel.toLowerCase()}>{dayNightIcon}</button>
-      <button type="button" className={'icon-btn palette-btn' + (isBlue ? ' is-on' : '')} onClick={toggleBlue} aria-label="Blue and gold theme" aria-pressed={isBlue} title={isBlue ? 'Back to the emerald palette' : 'Switch to the blue & gold palette'}><Gem/></button>
       <a className="icon-btn portal-btn" href="/account" onClick={linkClick('account', navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a>
       <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>{t('nav.myAccount')} <UserCog/></> : <>{t('nav.signUp')} <UserPlus/></>}</a>
       <button type="button" className="menu-btn" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-controls="ar7-public-menu" aria-label={menu ? 'Close menu' : 'Open menu'}>{menu ? <X/> : <Menu/>}</button>
