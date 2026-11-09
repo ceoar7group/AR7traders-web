@@ -163,6 +163,13 @@ say('\n3) ruleDrafts — the no-key fallback is still a real draft');
     'with no stock match the draft offers sourcing, not a fake car');
   ok(/destination port/.test(drafts.email_body), 'the draft asks for the missing facts');
   ok(/\+447347132624/.test(drafts.email_body), 'the fallback signature names the real WhatsApp line');
+  // Call Desk (2026-11-11): every assist carries a spoken phone script too.
+  ok(/OPENING —/.test(drafts.call_script) && /CLOSE —/.test(drafts.call_script),
+    'the rule-based call script has labelled beats from opening to close');
+  ok(/Asad Ali/.test(drafts.call_script) && /Suzuki Alto/.test(drafts.call_script),
+    'the call script names the lead and what they asked about');
+  ok(/source.*from the Japanese auctions|send you three live options/i.test(drafts.call_script),
+    'with no stock match the script offers sourcing, never a fake car');
 }
 
 say('\n4) leadAssist never sends anything');

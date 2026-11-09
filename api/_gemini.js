@@ -43,8 +43,12 @@ export { GoogleGeminiError, classifyGeminiFailure };
 /** The default model: stable, free-tier eligible, verified 2026-10-11. */
 export const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
 
-/** Fallbacks tried only when the configured model itself is unavailable. */
-export const GEMINI_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'];
+/** Fallbacks tried only when the configured model itself is unavailable.
+ *  2026-11-11: gemini-3.5-flash-lite added — it is the id Google's own docs
+ *  tell NEW projects to use, and a Topic Scout run on 2026-11-10 found a key
+ *  for which every member of the old chain 404'd. The chain is still only a
+ *  guess; the real safety net is geminiListModels() discovery below. */
+export const GEMINI_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
 
 /** Token ceiling per request. Bounded output is a cost and latency control. */
 export const GEMINI_MAX_OUTPUT_TOKENS = 2400;
@@ -233,10 +237,110 @@ export async function geminiConnectionTest({
       note: 'Free-tier content may be used by Google to improve their products; send editorial notes and public catalogue facts only.'
     };
   } catch (e) {
-    return {
+    const failure = {
       ok: false, state: e.state || 'unknown', model: chosen, keyHint: hint.hint,
       latencyMs: Date.now() - started, message: e.message,
       ownerAction: e.ownerAction || 'Check the Vercel function log for the provider response.'
     };
+    // 2026-11-11: when the configured model 404s, the test now reports what
+    // this key CAN call — and proves one of them works — instead of leaving
+    // the operator to guess model ids.
+    if (failure.state === 'model-unavailable') {
+      const listed = await geminiListModels({ env, fetch: fetchImpl, timeoutMs: 6000 });
+      failure.availableModels = listed.ok
+        ? listed.models.filter(m => m.methods.includes('generateContent')).map(m => m.id).slice(0, 12)
+        : [];
+      if (!listed.ok) failure.listError = listed.detail || listed.state;
+      const discovered = listed.ok ? pickGeminiModel(listed.models, { exclude: [chosen] }) : null;
+      if (discovered) {
+        try {
+          const retry = await geminiGenerate('Reply with the single word: ok', {
+            env, fetch: fetchImpl, model: discovered, feature, timeoutMs,
+            maxOutputTokens: 16, maxAttempts: 1, json: false
+          });
+          return {
+            ok: true, state: 'connected', model: retry.model, keyHint: hint.hint,
+            latencyMs: Date.now() - started, usage: retry.usage,
+            discovered: true, availableModels: failure.availableModels,
+            tier: 'free (billing not required by this code — no paid fallback exists)',
+            note: `The configured model (${chosen}) is not available to this key — ${discovered} was discovered from the key's own model list and works. Drafting uses discovery automatically; set SEO_GEMINI_MODEL=${discovered} in Vercel to silence this notice.`
+          };
+        } catch { /* fall through to the honest failure */ }
+      }
+    }
+    return failure;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Model discovery (2026-11-11).
+// ---------------------------------------------------------------------------
+// Owner report: Topic Scout failed with "Gemini has no usable model at that
+// id" for EVERY id in the static chain — the ids were valid on Google's
+// pricing page, but not for this key's project (Google limits some model
+// families per project, e.g. 2.5 access is restricted to projects that used
+// it before). A hard-coded id list can never be right for every key, so when
+// the whole chain 404s the code now asks the authoritative source — the
+// ListModels endpoint — what THIS key can actually call, and uses that.
+
+/** Ask Google which models this key can use. Never throws; returns
+ *  { ok, models:[{id, methods}], state?, status?, detail? }. */
+export async function geminiListModels({ env = process.env, fetch: fetchImpl = globalThis.fetch, timeoutMs = 8000 } = {}) {
+  const key = String(env.GEMINI_API_KEY || '').trim();
+  if (!key) return { ok: false, state: 'no-key', models: [] };
+  if (typeof fetchImpl !== 'function') return { ok: false, state: 'provider-unavailable', models: [] };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(`${GEMINI_API_BASE}/models?pageSize=1000`, {
+      redirect: 'error', signal: controller.signal,
+      headers: { 'x-goog-api-key': key, Accept: 'application/json' }
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return {
+        ok: false, models: [], status: response.status,
+        state: (response.status === 401 || response.status === 403) ? 'invalid-key' : 'provider-unavailable',
+        detail: String(payload?.error?.message || `HTTP ${response.status}`).slice(0, 300)
+      };
+    }
+    const models = (Array.isArray(payload?.models) ? payload.models : [])
+      .map(m => ({
+        id: String(m?.name || '').replace(/^models\//, ''),
+        methods: Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : []
+      }))
+      .filter(m => m.id);
+    return { ok: true, models };
+  } catch (e) {
+    return { ok: false, state: 'provider-unavailable', detail: String(e?.message || 'network error').slice(0, 300), models: [] };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Non-text models must never be picked for editorial generation. */
+const NON_TEXT_MODEL = /tts|live|image|imagen|veo|audio|embed|aqa|robotics|computer-use/i;
+
+/** Pick the best text-generation model from a ListModels result: newest
+ *  Flash first, stable over preview, full over lite, gemini over gemma.
+ *  Returns a model id string or null. Pure — tested without a network. */
+export function pickGeminiModel(models, { exclude = [] } = {}) {
+  const skip = new Set((exclude || []).map(value => String(value).toLowerCase()));
+  const score = id => {
+    const version = Number((id.match(/(\d+(?:\.\d+)?)/) || [])[1]) || 0;
+    let points = version * 100;
+    if (/^gemini-/i.test(id)) points += 10000;      // gemini before gemma/others
+    if (/flash/i.test(id)) points += 40;            // flash family first
+    if (/lite/i.test(id)) points -= 10;             // full flash over lite
+    if (/preview|exp/i.test(id)) points -= 30;      // stable over preview
+    if (/latest/i.test(id)) points -= 5;            // pinned id over moving alias
+    if (/-\d{2}-\d{4}$|-\d{3,}$/.test(id)) points -= 3; // bare id over dated snapshot
+    return points;
+  };
+  const usable = (Array.isArray(models) ? models : [])
+    .filter(m => m && m.id && Array.isArray(m.methods) && m.methods.includes('generateContent'))
+    .filter(m => !NON_TEXT_MODEL.test(m.id))
+    .filter(m => !skip.has(m.id.toLowerCase()));
+  usable.sort((a, b) => score(b.id) - score(a.id) || a.id.localeCompare(b.id));
+  return usable[0]?.id || null;
 }

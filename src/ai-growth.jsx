@@ -352,7 +352,11 @@ export default function AiGrowth({ token, canWrite = false, notify = () => {}, n
                 Model {providerTest.model} · key {providerTest.keyHint || 'not set'} · {providerTest.latencyMs != null ? `${providerTest.latencyMs} ms` : 'no response'}
                 {providerTest.message ? ` · ${providerTest.message}` : ''}
               </span>
+              {providerTest.note && <span className="ai-owner-action">{providerTest.note}</span>}
               {providerTest.ownerAction && <span className="ai-owner-action">{providerTest.ownerAction}</span>}
+              {Array.isArray(providerTest.availableModels) && providerTest.availableModels.length > 0 && !providerTest.ok && (
+                <span className="ai-owner-action">Models this key CAN use: {providerTest.availableModels.join(', ')}</span>
+              )}
             </div>
           )}
 

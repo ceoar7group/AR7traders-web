@@ -41,7 +41,7 @@ export class GoogleGeminiError extends Error {
 export const OWNER_ACTION = {
   'no-key': 'Add GEMINI_API_KEY in Vercel → Settings → Environment Variables (Production, Preview and Development), then redeploy. It is server-only: never a VITE_* variable, never in Git.',
   'invalid-key': 'The key was rejected. Create a fresh key in Google AI Studio (aistudio.google.com/apikey) and replace GEMINI_API_KEY in Vercel. Do not enable billing to "fix" this.',
-  'model-unavailable': 'Set SEO_GEMINI_MODEL (or GOONET_GEMINI_MODEL) in Vercel to a model this key can use — gemini-3.8-flash is the verified free-tier default on 2026-10-11.',
+  'model-unavailable': 'This key cannot call that model id. The desk now discovers a usable model from the key\u2019s own model list automatically \u2014 press the button again, or run \u201cTest provider\u201d in CRM \u2192 Growth studio to see the models this key CAN use and set SEO_GEMINI_MODEL (or GOONET_GEMINI_MODEL) in Vercel to one of them.',
   'quota-exhausted': 'The free-tier allowance for today is spent. Nothing was saved; the no-key formatter still works. Try again after the quota resets (midnight Pacific), or raise the tier deliberately — do not enable billing to make an error go away.',
   'rate-limited': 'Too many requests in a short window. The code retries a bounded number of times; if this repeats, lower the agent concurrency in CRM → AI Growth.',
   timeout: 'The provider did not answer inside the request budget. Nothing was saved. Retry later; if it repeats, the provider may be degraded.',

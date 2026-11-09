@@ -744,13 +744,52 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     () => buildTopicIdeas({ cars: liveCars, machines: MACHINES, dests: DEST, published: articles }),
     [articles, liveCars]);
 
+  // ---- Industry News Scout (2026-11-11) ------------------------------------
+  // Owner request: "let it suggest and publish latest car or vehicle industry
+  // related news." The server (?seo=news-scan) returns verified RSS headlines
+  // (source, date, link). Each becomes a kind:'news' topic the SAME autopilot
+  // publishes — generateEditorialDraft refuses news without a dated, sourced
+  // facts block, so the AI can never invent a story.
+  const [newsScan, setNewsScan] = useState(null);
+  const [newsScanBusy, setNewsScanBusy] = useState(false);
+  const newsTopics = useMemo(() => {
+    const items = newsScan?.items || [];
+    const usedCovers = new Set(articles.map(a => a.img).filter(Boolean));
+    const usedSlugs = new Set(articles.map(a => articleSlug(a.title)));
+    return items.map((item, index) => {
+      const title = item.headline.length > 64 ? item.headline.slice(0, 61).replace(/\s+\S*$/, '') + '…' : item.headline;
+      const cover = GUIDE_ASSETS.find(asset => !usedCovers.has(asset)) || GUIDE_ASSETS[index % GUIDE_ASSETS.length];
+      usedCovers.add(cover);
+      return {
+        id: 'news-' + index + '-' + articleSlug(item.headline).slice(0, 40),
+        title, kind: 'news', cat: 'MARKET WATCH', img: cover,
+        why: `${item.source} · ${item.date}`,
+        sources: [item.link],
+        facts: [
+          `On ${item.date}, ${item.source} reported: ${item.headline}.`,
+          ...(item.snippet ? [`Report summary from the source: ${item.snippet}`] : []),
+          'AR7 Traders context (verified): AR7 Traders exports used vehicles and machinery from Japan worldwide, with RoRo and container shipping arranged from Japanese ports and prices quoted FOB or CIF in USD.'
+        ]
+      };
+    }).filter(topic => !usedSlugs.has(articleSlug(topic.title)));
+  }, [newsScan, articles]);
+
+  const runNewsScan = async () => {
+    setNewsScanBusy(true);
+    try { setNewsScan(await seoWorkflow('news-scan')); }
+    catch (error) { setNewsScan({ items: [], note: error.message || 'The news scan failed — try again in a minute.' }); }
+    finally { setNewsScanBusy(false); }
+  };
+
   const runTopicAutopilot = async topic => {
     if (!canPublish || !token) { notify('Your role cannot publish website guides. Ask a website editor.'); return; }
     setScoutBusy(topic.id);
     const log = (state, detail, extra = {}) => setScoutLog(cur => ({ ...cur, [topic.id]: { state, detail, ...extra } }));
     try {
       log('generating', 'Drafting from the catalogue facts via the AI provider…');
-      const out = await seoWorkflow('generate', 'POST', { topic: topic.title, facts: topic.facts.join('\n'), kind: topic.kind || 'guide', sources: [] });
+      // News topics (Industry News Scout) carry their verified source links;
+      // catalogue topics carry none — the facts ARE the catalogue.
+      const out = await seoWorkflow('generate', 'POST', { topic: topic.title, facts: topic.facts.join('\n'), kind: topic.kind || 'guide', sources: topic.sources || [] });
       // The generate endpoint appends one BOILERPLATE reminder to every draft
       // ("[EDITOR REVIEW: verify every factual claim and source…]"). For Topic
       // Scout that reminder is satisfied by construction — every supplied fact
@@ -943,6 +982,47 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
             })}
           </ul>
           {!canPublish && <small className="seo-muted">Your role can review topics but cannot publish guides.</small>}
+        </section>
+
+        <section className="seo-card seo-topic-scout" aria-label="Industry news scout">
+          <div className="seo-hub-title"><Megaphone size={18}/><div><h2>Industry News Scout</h2><p>Fresh vehicle-industry headlines (Japan exports, auctions, shipping, EV markets) pulled live from news feeds — each with its source, date and link. <b>Approve &amp; publish</b> turns one into a short, sourced news brief on your /news page through the same generate → validate → save → publish pipeline. Nothing is invented: the AI may only restate the verified headline facts, and every brief cites its source.</p></div></div>
+          <div className="seo-scout-actions" style={{marginBottom: 10}}>
+            <button type="button" className="seo-mini-action" disabled={newsScanBusy} onClick={runNewsScan}>
+              {newsScanBusy ? <><RefreshCw size={14} className="seo-spin"/> Scanning feeds…</> : <><RefreshCw size={14}/> {newsScan ? 'Re-scan industry news' : 'Scan the latest industry news'}</>}
+            </button>
+            {newsScan?.checkedAt && <small className="seo-muted">Checked {new Date(newsScan.checkedAt).toLocaleString()}</small>}
+          </div>
+          {newsScan && newsTopics.length === 0 && <p className="seo-muted">{newsScan.note || 'No fresh industry headlines right now.'}</p>}
+          {!newsScan && <p className="seo-muted">Press the button to fetch this fortnight’s industry headlines. The scan reads public news feeds from the server — your browser contacts nothing.</p>}
+          <ul className="seo-scout-list">
+            {newsTopics.map(topic => {
+              const state = scoutLog[topic.id];
+              return (
+                <li key={topic.id} className={'seo-scout-topic' + (state ? ' is-' + state.state : '')}>
+                  <div className="seo-scout-main">
+                    <b>{topic.title}</b>
+                    <small>{topic.cat} · {topic.why} · <a href={topic.sources[0]} target="_blank" rel="noopener noreferrer">Read the source <ExternalLink size={11}/></a></small>
+                    <details><summary>{topic.facts.length} verified facts the brief may use</summary><ul>{topic.facts.map((fact, i) => <li key={i}>{fact}</li>)}</ul></details>
+                    {state && <span className={'seo-scout-state ' + state.state} role="status">
+                      {state.state === 'published' ? <Check size={13}/> : state.state === 'failed' ? <AlertTriangle size={13}/> : <RefreshCw size={13} className="seo-spin"/>}
+                      {state.detail}
+                      {state.url && <> <a href={state.url} target="_blank" rel="noopener noreferrer">Open the live page <ExternalLink size={12}/></a></>}
+                    </span>}
+                  </div>
+                  <div className="seo-scout-actions">
+                    <button type="button" className="gold-btn" disabled={!canPublish || !token || scoutBusy !== null || state?.state === 'published'}
+                      onClick={() => runTopicAutopilot(topic)}>
+                      {scoutBusy === topic.id ? <><RefreshCw size={14} className="seo-spin"/> Working…</> : state?.state === 'published' ? <><Check size={14}/> Published</> : <><Send size={14}/> Approve &amp; publish</>}
+                    </button>
+                    <button type="button" className="seo-mini-action" disabled={scoutBusy !== null}
+                      onClick={() => { setCreating(true); setActiveDraftId(null); setCreated(null); setDraftReviewed(false); setDraftFacts(topic.facts.join('\n')); setForm({ title: topic.title, cat: topic.cat, img: topic.img, desc: '', body: '' }); notify('Headline loaded into the draft creator below for manual editing.'); }}>
+                      Edit manually instead
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
         <section className="seo-card seo-cover-doctor" aria-label="Cover image doctor">

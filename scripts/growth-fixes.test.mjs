@@ -16,7 +16,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { generateEditorialDraft, generateWithGemini } from '../api/_seo-content.js';
-import { GEMINI_DEFAULT_MODEL, GEMINI_FALLBACK_MODELS } from '../api/_gemini.js';
+import { GEMINI_DEFAULT_MODEL, GEMINI_FALLBACK_MODELS, pickGeminiModel } from '../api/_gemini.js';
+import { parseRssItems, filterNewsItems, scanIndustryNews, NEWS_FEEDS } from '../api/_news-scout.js';
 import { articleSeo, NEWS } from '../src/news-data.js';
 import { PAGE_SEO } from '../src/seo.js';
 import { auditDocument } from '../src/seo-audit.js';
@@ -59,6 +60,81 @@ say('\n1) Gemini model fallback — the 503/overload path has a plan B');
     { env: { GEMINI_API_KEY: 'k' }, fetch: async () => notFound() }).then(() => null, e => e);
   ok(allDown && new RegExp(`Tried ${1 + GEMINI_FALLBACK_MODELS.length} model\\(s\\)`).test(allDown.message),
     'when every model fails, the error names the whole chain that was tried');
+}
+
+say('\n1a) Model discovery — when the whole static chain 404s, ListModels is the plan C');
+{
+  // 2026-11-11 owner report: "check whats wrong its not publishing" — every
+  // id in the static chain 404'd for a real key (Google limits some model
+  // families per project). The generator must then ask ListModels what the
+  // key CAN call and draft with that, instead of failing on a guessed id.
+  const LIST = { models: [
+    { name: 'models/gemini-3.9-flash', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-3.9-flash-tts', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/embedding-001', supportedGenerationMethods: ['embedContent'] }
+  ] };
+  const calls = [];
+  const discoveryStub = async url => {
+    calls.push(String(url));
+    if (String(url).includes('/models?')) return { ok: true, status: 200, json: async () => LIST };
+    return String(url).includes('gemini-3.9-flash') ? good() : notFound();
+  };
+  const out = await generateEditorialDraft({ topic: 'Buying a used Toyota from Japan', facts: FACTS, kind: 'guide', sources: [] },
+    { env: { GEMINI_API_KEY: 'k' }, fetch: discoveryStub });
+  ok(out.title === DRAFT.title, 'a draft is produced from the DISCOVERED model after the whole chain 404s');
+  ok(out.model === 'gemini-3.9-flash', `the discovered model is the one that drafted (${out.model}) — never the TTS or embedding entry`);
+
+  // When discovery itself finds a list, the final error (if the discovered
+  // model also fails) must NAME the usable models for the operator.
+  const stillDown = async url => String(url).includes('/models?')
+    ? { ok: true, status: 200, json: async () => LIST }
+    : notFound();
+  const named = await generateEditorialDraft({ topic: 'Buying a used Toyota from Japan', facts: FACTS, kind: 'guide', sources: [] },
+    { env: { GEMINI_API_KEY: 'k' }, fetch: stillDown }).then(() => null, e => e);
+  ok(named && /Models this key CAN use: .*gemini-3\.9-flash/.test(named.message),
+    'when even discovery cannot draft, the error lists the models the key can actually call');
+
+  // pickGeminiModel preferences: stable full flash > lite > preview; text only.
+  ok(pickGeminiModel([
+    { id: 'gemini-3-flash-preview', methods: ['generateContent'] },
+    { id: 'gemini-3.5-flash-lite', methods: ['generateContent'] },
+    { id: 'gemini-3.6-flash', methods: ['generateContent'] },
+    { id: 'gemini-3.8-flash-tts', methods: ['generateContent'] }
+  ]) === 'gemini-3.6-flash', 'pickGeminiModel prefers the newest stable full Flash and never a TTS model');
+  ok(pickGeminiModel([{ id: 'gemma-4-31b-it', methods: ['generateContent'] },
+    { id: 'gemini-2.5-flash-lite', methods: ['generateContent'] }]) === 'gemini-2.5-flash-lite',
+    'gemini is preferred over gemma when both can generate text');
+  ok(pickGeminiModel([{ id: 'embedding-001', methods: ['embedContent'] }]) === null,
+    'no usable text model → null, never a wrong-modality pick');
+}
+
+say('\n1d) Industry News Scout — verified, dated, sourced, competitor-free');
+{
+  const RSS = `<?xml version="1.0"?><rss><channel>
+    <item><title>Japan used car exports hit record high - Nikkei Asia</title><link>https://example.com/a</link><pubDate>${new Date(Date.now() - 2 * 86400000).toUTCString()}</pubDate><source url="https://nikkei.com">Nikkei Asia</source><description>&lt;a href="x"&gt;Exports rose &amp;amp; shipping rates held steady.&lt;/a&gt;</description></item>
+    <item><title>Goo-net dealer stock update</title><link>https://example.com/b</link><pubDate>${new Date(Date.now() - 86400000).toUTCString()}</pubDate><source>Goo-net</source><description>competitor</description></item>
+    <item><title>Japan used car exports hit record high - Reuters</title><link>https://example.com/c</link><pubDate>${new Date(Date.now() - 3 * 86400000).toUTCString()}</pubDate><source>Reuters</source><description>duplicate headline</description></item>
+    <item><title>Old story about RoRo</title><link>https://example.com/d</link><pubDate>${new Date(Date.now() - 40 * 86400000).toUTCString()}</pubDate><source>Reuters</source><description>stale</description></item>
+    <item><title>Insecure link story</title><link>http://example.com/e</link><pubDate>${new Date().toUTCString()}</pubDate><source>X</source></item>
+  </channel></rss>`;
+  const parsed = parseRssItems(RSS);
+  ok(parsed.length === 4, `https-only parse (${parsed.length} of 5 items — the http:// link is refused)`);
+  ok(parsed[0].headline === 'Japan used car exports hit record high', 'the " - Publisher" tail is stripped from the headline');
+  ok(parsed[0].snippet === 'Exports rose & shipping rates held steady.', `double-encoded HTML is fully decoded out of the snippet (got: ${parsed[0].snippet})`);
+  ok(/^\d{4}-\d{2}-\d{2}$/.test(parsed[0].date), 'every item carries the YYYY-MM-DD date the news pipeline requires');
+
+  const kept = filterNewsItems(parsed);
+  ok(kept.length === 1, `filtering keeps ${kept.length} item: the competitor source, the duplicate headline and the stale story are all dropped`);
+  ok(kept[0].source === 'Nikkei Asia', 'the newest instance of a duplicated headline wins');
+
+  // scanIndustryNews: one dead feed must not hide the others.
+  const scan = await scanIndustryNews({ fetch: async url =>
+    String(url).includes(encodeURIComponent(NEWS_FEEDS[0].query))
+      ? { ok: true, status: 200, text: async () => RSS }
+      : { ok: false, status: 503, text: async () => '' } });
+  ok(scan.items.length === 1 && scan.feeds.filter(f => f.ok).length === 1,
+    'a dead feed is reported per-feed while the live feed still returns items');
+  ok(scan.feeds.length === NEWS_FEEDS.length, 'every configured feed reports a status');
 }
 
 say('\n1b) The chain fits inside the serverless time limit — no more bare 504s');

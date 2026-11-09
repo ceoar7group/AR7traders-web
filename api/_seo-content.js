@@ -15,6 +15,7 @@
 import { DEST, destinationHref } from '../src/destinations.js';
 import {
   geminiGenerate, geminiConfigured, geminiModelFor, geminiConnectionTest,
+  geminiListModels, pickGeminiModel,
   parseJsonLoose, GEMINI_DEFAULT_MODEL, GEMINI_FALLBACK_MODELS
 } from './_gemini.js';
 
@@ -126,8 +127,45 @@ export async function generateWithGemini({ system, user, env, fetchImpl, feature
       if (!FALLBACK_STATES.has(e?.state)) throw e;
     }
   }
+  // 2026-11-11 (owner report: "check whats wrong its not publishing"): every
+  // id in the static chain 404'd for a real key — ids that are valid on
+  // Google's pricing page are NOT guaranteed callable for every project. When
+  // the whole chain is "model-unavailable", ask ListModels what THIS key can
+  // actually use and try the best text model it names. If even that fails,
+  // the error names the models the key CAN use so the operator can fix the
+  // configuration in one step instead of guessing.
+  let listed = null;
+  if (lastError?.state === 'model-unavailable') {
+    listed = await geminiListModels({ env, fetch: fetchImpl, timeoutMs: 6000 });
+    const discovered = listed.ok ? pickGeminiModel(listed.models, { exclude: tried }) : null;
+    if (discovered && deadline - now() >= MIN_MODEL_WINDOW_MS) {
+      tried.push(discovered);
+      try {
+        const out = await geminiGenerate(user, {
+          env, fetch: fetchImpl, system, json: true, feature, model: discovered,
+          maxOutputTokens: 16384,
+          maxAttempts: 1, timeoutMs: Math.min(PER_MODEL_TIMEOUT_MS, deadline - now())
+        });
+        return { raw: out.text, model: out.model, usage: out.usage, provider: 'gemini',
+          fallbackUsed: discovered, discovered: true };
+      } catch (e) {
+        if (!FALLBACK_STATES.has(e?.state)) throw e;
+        lastError = e;
+      }
+    }
+  }
   if (lastError) {
     lastError.message = `${lastError.message} Tried ${tried.length} model(s): ${tried.join(', ')}.`;
+    if (lastError.state === 'model-unavailable' && listed) {
+      const usable = listed.ok
+        ? listed.models.filter(m => m.methods.includes('generateContent')).map(m => m.id).slice(0, 10)
+        : [];
+      lastError.message += usable.length
+        ? ` Models this key CAN use: ${usable.join(', ')} — set SEO_GEMINI_MODEL in Vercel to one of them, or just retry (the desk now picks from this list automatically).`
+        : listed.ok
+          ? ' The key lists NO text-generation models at all — create a fresh key in Google AI Studio (aistudio.google.com/apikey) and replace GEMINI_API_KEY in Vercel.'
+          : ` The model list could not be read either (${listed.detail || listed.state}) — the key or project itself is the problem, not the model id.`;
+    }
     throw lastError;
   }
   throw Object.assign(new Error('No Gemini model available'), { status: 502, state: 'provider-unavailable' });
