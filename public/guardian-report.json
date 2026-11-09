@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-09T23:03:39.007Z",
+  "generatedAt": "2026-11-09T23:29:13.411Z",
   "summary": {
     "total": 18,
-    "pass": 17,
+    "pass": 16,
     "warn": 0,
-    "fail": 1
+    "fail": 2
   },
   "checks": [
     {
@@ -25,7 +25,7 @@
       "area": "health",
       "name": "Crawler shell has content",
       "status": "pass",
-      "detail": "index.html carries an H1 (17.9 KB)",
+      "detail": "index.html carries an H1 (18.4 KB)",
       "fix": "Check index.html — the pre-render feeds every crawler"
     },
     {
@@ -129,8 +129,8 @@
     {
       "area": "seo",
       "name": "Canonical on every page",
-      "status": "pass",
-      "detail": "35 page(s) canonical",
+      "status": "fail",
+      "detail": "dist/index.html",
       "fix": "Add the route to PAGE_SEO in src/seo.js"
     }
   ]
