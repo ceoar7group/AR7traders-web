@@ -1212,3 +1212,37 @@ section[id]{scroll-margin-top:120px}
  .card-actions .cmp-chip{height:38px}
  .car-bottom .card-open{width:42px;height:42px}
 }
+
+/* ===========================================================================
+   2026-11 (owner request): PREMIUM METAL FINISH — brushed emerald + gold.
+   The card WhatsApp / Make-offer buttons set the standard; this extends the
+   same two finishes to the spec chips, the compare chip, the price-box
+   arrow, the stock badges and the main gold/green CTAs. Two shared
+   backgrounds carry the brushing (a fine repeating streak laid over the
+   metal gradient) so the finish stays identical everywhere it appears.
+   =========================================================================== */
+:root{--met-em:repeating-linear-gradient(115deg,#fff0 0 4px,#ffffff12 4px 5px),linear-gradient(165deg,#10754d,#09603c 48%,#053b26);--met-au:repeating-linear-gradient(115deg,#fff0 0 4px,#ffffff30 4px 5px),linear-gradient(165deg,#f8dc8f,#f2c04e 30%,#d99a22 58%,#c4861a 80%,#e8b64a)}
+/* spec chips — alternating emerald / gold plates */
+.specs span{background:var(--met-em);border-color:#0b4f33;color:#eef7ef;box-shadow:inset 0 1px 0 #ffffff26,0 2px 6px #032b1b40}
+.specs span svg{color:#f4c763}
+.specs span:nth-child(even){background:var(--met-au);border-color:#b47d15;color:#073b27;box-shadow:inset 0 1px 0 #ffe9ad,inset 0 -1px 0 #a06c0c,0 2px 6px #9a690d40}
+.specs span:nth-child(even) svg{color:#073b27}
+/* compare chip joins the set; "Added" flips to the gold plate */
+.cmp-chip{background:var(--met-em);border-color:#0b4f33;color:#eef7ef;box-shadow:inset 0 1px 0 #ffffff26,0 2px 8px #032b1b4d}
+.cmp-chip svg{color:#f4c763}
+.cmp-chip:hover{border-color:#f2c04e;color:#fff;box-shadow:inset 0 1px 0 #ffffff38,0 4px 13px #032b1b66}
+.cmp-chip.on{background:var(--met-au);border-color:#b47d15;color:#073b27}
+.cmp-chip.on svg{color:#073b27}
+/* price-box arrow — gold plate; the card-hover emerald flip in styles.css
+   still wins on hover, so gold turns emerald as the pointer arrives */
+.car-bottom .card-open,.car-bottom button{background:var(--met-au);border:1px solid #b47d15;color:#073b27;box-shadow:inset 0 1px 0 #ffe9ad,0 2px 8px #9a690d47}
+/* stock badges over the photo */
+.status{background:var(--met-em);box-shadow:inset 0 1px 0 #ffffff30,0 2px 8px #0004}
+.status.auction,.status.newarrival{background:var(--met-au);color:#073b27}
+/* the big gold CTAs get the brushed plate + the offer button's light sweep */
+.gold-btn,.footer-news-btn,.hero-search button{position:relative;overflow:hidden;background:var(--met-au);color:#073b27;box-shadow:inset 0 1px 0 #ffe9ad,inset 0 -1px 0 #a06c0c,0 10px 24px color-mix(in srgb,var(--gold) 30%,transparent)}
+.gold-btn:after,.footer-news-btn:after,.hero-search button:after{content:'';position:absolute;top:0;bottom:0;left:-70%;width:38%;background:linear-gradient(105deg,transparent,#ffffff8c,transparent);transform:skewX(-20deg);transition:left .5s;pointer-events:none}
+.gold-btn:hover:after,.footer-news-btn:hover:after,.hero-search button:hover:after{left:125%}
+/* the primary (emerald) buttons pick up the same brushed finish */
+.primary{background:var(--met-em);box-shadow:inset 0 1px 0 #ffffff2e,0 10px 24px rgba(4,63,40,.18)}
+.primary:hover{background:var(--met-em);filter:brightness(1.08)}
