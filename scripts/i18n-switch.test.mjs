@@ -5,7 +5,7 @@
 //
 // WHY THIS EXISTS
 // ---------------
-// The language switcher offers 14 languages. Before the six screens a buyer
+// The language switcher offers 15 languages. Before the six screens a buyer
 // meets first were translated, picking Arabic translated the machinery desk
 // and left the hero, the inventory toolbar, the enquiry form, the contact
 // block and the footer in English — a page that looked broken rather than
@@ -57,14 +57,14 @@ const LANGS = Object.keys(dicts);
 // ---- the language table ---------------------------------------------------
 const langTable = [...i18nSrc.matchAll(/\{\s*code:\s*'([a-z]{2})'[\s\S]*?dir:\s*'(ltr|rtl)'\s*\}/g)]
   .map(m => ({ code: m[1], dir: m[2] }));
-ok(langTable.length === 14, `LANGUAGES advertises ${langTable.length} languages (English + 13)`);
+ok(langTable.length === 15, `LANGUAGES advertises ${langTable.length} languages (English + 14)`);
 ok(langTable.every(l => l.code === 'en' || LANGS.includes(l.code)),
   'every advertised language except English has a dictionary');
 ok(langTable.filter(l => l.dir === 'rtl').map(l => l.code).sort().join(',') === 'ar,fa,ps,ur',
   'the four RTL languages are ar, fa, ps, ur');
 
 // ---- 1. parity + no empty values -----------------------------------------
-console.log('\n-- key parity across the 13 dictionaries --');
+console.log('\n-- key parity across the 14 dictionaries --');
 let parityBad = 0;
 for (const lang of LANGS) {
   const dict = dicts[lang];
@@ -101,7 +101,7 @@ for (const term of TERMS) {
     }
   }
   ok(termBad === 0,
-    `${term} survives in all 13 languages (${keysWithTerm.length} key${keysWithTerm.length === 1 ? '' : 's'}: ${keysWithTerm.join(', ')})`);
+    `${term} survives in all 14 languages (${keysWithTerm.length} key${keysWithTerm.length === 1 ? '' : 's'}: ${keysWithTerm.join(', ')})`);
 }
 
 // ---- 3. the six translated screens actually call t() ---------------------
@@ -198,7 +198,7 @@ ok(unknown.length === 0,
 }
 
 // ---- 5. dead weight -------------------------------------------------------
-// An English key no screen asks for is dead weight in thirteen dictionaries.
+// An English key no screen asks for is dead weight in fourteen dictionaries.
 // This is reported rather than failed: at the time the six screens were wired,
 // a set of machinery-desk keys already existed in the dictionaries that no
 // screen had ever called. Closing that gap is tracked work, and printing the

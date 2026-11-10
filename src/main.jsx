@@ -76,6 +76,7 @@ import { ChatWidget } from './ChatWidget.jsx';
 import { VehicleActions } from './vehicle-actions.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { referralCodeFrom } from './lead-validation.js';
+import { englishCarFields } from './jp-display.js';
 import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
 import { useSeo, FAQ_ITEMS, FAQ_TOPICS } from './seo.js';
 import { DEST, destinationBySlug, destinationHref } from './destinations.js';
@@ -435,7 +436,10 @@ const enrichCar=(c,i)=>{
  // body type (generic), but auction venue, arrival date, chassis, interior and
  // equipment are EVIDENCE — fabricating them for real inventory would be
  // inventing facts, so they stay absent when the data does not carry them.
- c.doors=DOORS[c.body]||4;return applyShowroomHero(c)};
+ // Imported dealer rows arrive verbatim in Japanese (colour パールホワイト, prefecture
+ // 愛知県) — translate the display fields faithfully or leave them unchanged
+ // (src/jp-display.js), so an English page never shows katakana specs.
+ c.doors=DOORS[c.body]||4;return applyShowroomHero(englishCarFields(c))};
 // The showroom is the curated seed collection (bundle ids 1-18, extended as
 // the seed grows). After hydration the DB rows carry uuid ids and honest body
 // types, so membership is decided by stock number, captured here before the
@@ -673,7 +677,7 @@ function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts,cifDest}){
  const waMsg=`Hello AR7, I'm interested in the ${carLabel} (ref ${carRef(c)}) on your website. Is it still available?`;
  return <a className="car-card page-car" href={href} onClick={onOpen?linkClick(`inventory?car=${carRef(c)}`,()=>onOpen(c)):undefined}>
  <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
- <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={discounts}/></div><span className="card-open"><ArrowUpRight/></span></div>
+ <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={discounts}/></div><span className="card-open"><ArrowUpRight/></span></div>
  {cifDest&&(()=>{const e=estimateFor(c,cifDest,discounts);return <div className="card-cif"><Ship/><span><small>CIF {cifDest.split(' / ')[0]} · ETA ±{e.days} days</small><b>≈ {fmt(e.cif)}</b></span><em>excl. import duty</em></div>})()}
  <div className="card-actions">
   <button type="button" className="card-wa" aria-label={'WhatsApp us about the '+carLabel} onClick={e=>{e.preventDefault();e.stopPropagation();window.open(waLink(s.whatsapp_number,waMsg),'_blank','noopener')}}><WhatsAppIcon size={14}/> WhatsApp</button>
@@ -1898,7 +1902,7 @@ export function App(){
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f==='All'?t('home.filterAll'):statusLabel(t,f)}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> {t('home.searchVehicles')} <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
       <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
-      <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span><span><ArrowLeftRight/> {c.tr}</span></div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div><span className="card-open" aria-hidden="true"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
+      <div className="car-info"><div className="make"><img loading="lazy" decoding="async" width="34" height="22" src={LOGO(c.make)} alt="" onError={logoOnError}/>{c.make}</div><h3>{c.model}</h3><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div><span className="card-open" aria-hidden="true"><ArrowUpRight/></span></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
     </a>)}</div>
     {/* 2026-11-17 (Lighthouse touch targets): the pager used to render one
         6px-tall pill PER PAGE — with a full catalogue that was ~38 slivers no

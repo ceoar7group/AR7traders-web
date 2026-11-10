@@ -30,6 +30,7 @@ export const LANGUAGES = [
   { code: 'pt', label: 'Portuguese', native: 'Português', dir: 'ltr' },
   { code: 'tr', label: 'Turkish', native: 'Türkçe', dir: 'ltr' },
   { code: 'zh', label: 'Chinese', native: '中文', dir: 'ltr' },
+  { code: 'ja', label: 'Japanese', native: '日本語', dir: 'ltr' },
   { code: 'sw', label: 'Swahili', native: 'Kiswahili', dir: 'ltr' },
   { code: 'ha', label: 'Hausa', native: 'Hausa', dir: 'ltr' }
 ];
