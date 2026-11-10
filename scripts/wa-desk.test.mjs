@@ -177,6 +177,25 @@ say('\n3) public webhook on /api/leads?wa=webhook');
     ok(['AI agent', 'Auto-reply'].includes(out[0].actor), 'auto-reply is honestly attributed, never as a human');
   }
 
+  // Known sender: no auto-captured duplicate lead
+  ok((tables.leads || []).length === 1, 'a KNOWN sender never auto-creates a second lead');
+
+  // Auto-capture (2026-11): an unknown number's first message files a lead
+  {
+    const { db: dbA, tables: tA } = memDb({ leads: [] });
+    const pA = { entry: [{ changes: [{ value: { contacts: [{ wa_id: '15550001111', profile: { name: 'Grace' } }], messages: [{ from: '15550001111', id: 'wamid.N1', type: 'text', text: { body: 'Do you ship to Georgetown?' } }] } }] }] };
+    let rA = await run(leadsApi, { method: 'POST', query: { wa: 'webhook', key: 'vt-secret' }, body: pA }, { db: dbA, env: ENV });
+    const auto = (tA.leads || [])[0];
+    ok(rA.statusCode === 200 && auto && auto.phone === '+15550001111' && auto.name === 'Grace', 'unknown sender is auto-captured as a lead with name and phone');
+    ok(auto && auto.source === 'WhatsApp' && auto.status === 'new', 'auto-captured lead is honestly sourced as WhatsApp, status new');
+    ok(auto && /Do you ship to Georgetown\?/.test(auto.notes || ''), 'the first message is kept on the lead notes');
+    ok((tA.wa_messages || [])[0]?.lead_id === auto?.id, 'the stored message is linked back to the auto-captured lead');
+    ok((tA.activities || []).some(a => /auto-captured/.test(a.action || '')), 'auto-capture leaves an activity-log receipt');
+    // Meta retry (same msg_id) must not create a second lead
+    rA = await run(leadsApi, { method: 'POST', query: { wa: 'webhook', key: 'vt-secret' }, body: pA }, { db: dbA, env: ENV });
+    ok((tA.leads || []).length === 1, 'a Meta retry cannot duplicate the auto-captured lead');
+  }
+
   // Ordinary lead POSTs still work with the webhook branch in place
   const { db: db3 } = memDb({ leads: [] });
   r = await run(leadsApi, { method: 'POST', query: {}, body: { name: 'Buyer', phone: '+254700000000', country: 'Kenya', source: 'Website' } }, { db: db3, notify: false });
@@ -233,6 +252,22 @@ say('\n4) staff desk on /api/crm?entity=wa');
   ok(r.statusCode === 200 && typeof r.body.text === 'string' && r.body.text.length > 10, 'AI draft returns reply text');
   ok(r.body.source === 'canned' || r.body.source === 'ai', 'draft is honest about its source');
   ok((mem2.tables.wa_messages || []).length === 3, 'drafting stores nothing and sends nothing');
+
+  // Connection test (2026-11): POST {test:1} asks Graph about the phone id.
+  // Always 200 — a failed test is a result, not a server error.
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { test: 1 } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: {} });
+  ok(r.statusCode === 200 && r.body.ok === false && /WHATSAPP_TOKEN/.test(r.body.error || ''), 'unconfigured test answers ok:false naming the missing variables');
+
+  ({ db } = memDb(seed));
+  const testCalls = [];
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { test: 1 } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: ENV, fetch: async url => { testCalls.push(String(url)); return { ok: true, json: async () => ({ display_phone_number: '+81 90 0000 0000', verified_name: 'AR7 Traders' }) }; } });
+  ok(r.statusCode === 200 && r.body.ok === true && r.body.number === '+81 90 0000 0000', 'configured test reports the number Meta says is connected');
+  ok(testCalls.length === 1 && testCalls[0].includes('/1234567890?fields='), 'test asks Graph about the configured phone-number id and sends nothing');
+
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { test: 1 } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: ENV, fetch: async () => ({ ok: false, status: 401, json: async () => ({ error: { code: 190, message: 'Error validating access token' } }) }) });
+  ok(r.statusCode === 200 && r.body.ok === false && /190/.test(r.body.error || '') && /Error validating access token/.test(r.body.error || ''), "a bad token surfaces Meta's exact error, not a guess");
 
   // Unknown entity contract still intact
   ({ db } = memDb(seed));
