@@ -247,8 +247,8 @@ export function EnquiryForm({ kind = 'contact', initialValues = {}, onSuccess, o
             the visitor arrived through a ?ref= share link (stored by the app
             boot in localStorage). Optional and silently dropped by the API
             when it doesn't look like a code — it can never block an enquiry. */}
-        <Field id={fieldId('referral_code')} label="Referral code" optional
-          hint="Was AR7 recommended by a friend? Paste their code and we'll thank them.">
+        <Field id={fieldId('referral_code')} label={t('enq.refLabel')} optional
+          hint={t('enq.refHint')}>
           {props => <input {...props} name="referral_code" maxLength={24} autoComplete="off" placeholder="e.g. AR7-7KQ2M"
             defaultValue={initialValues.referral_code || storedReferralCode()} style={{textTransform:'uppercase'}} />}
         </Field>

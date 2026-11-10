@@ -261,7 +261,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // shipment tracking). English is the fallback dictionary so it rides first
 // load; the 13 translations stay in the lazy i18n-dicts chunk.
 // Measured: 164.13 kB gzip.
-const BUDGET_GZIP = 166 * 1024;
+// 2026-11-18 (4): 166 → 167 kB gzip — sixth i18n round: 55 ma.*/enq.ref* EN
+// source keys (refer-a-friend card, saved cars/searches, profile + password
+// panels, enquiry referral field). English is the fallback dictionary so it
+// rides first load; the 13 translations stay in the lazy i18n-dicts chunk.
+// Measured: 166.21 kB gzip.
+const BUDGET_GZIP = 167 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -297,7 +302,9 @@ const BUDGET_GZIP = 166 * 1024;
 // 2026-11-18 (2): 564 → 566 kB raw — the 46 ma.* EN source keys for the
 // signed-in My Account view (same change as the gzip note above).
 // Measured 564.52 kB raw.
-const BUDGET_RAW = 570 * 1024;
+// 2026-11-18 (5): 570 → 572 kB raw — the 55 EN source keys of the sixth i18n
+// round (same change as the gzip note above). Measured 570.28 kB raw.
+const BUDGET_RAW = 572 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

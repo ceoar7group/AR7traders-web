@@ -123,7 +123,22 @@ const SCREENS = [
   ['my account: shipment tracking', 'src/customer-portal.jsx',
     fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.shipTitle'],
   ['my account: payments table', 'src/customer-portal.jsx',
-    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.payTitle']
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.payTitle'],
+  // Round 19: the account side-panels and cards joined too — refer-a-friend,
+  // saved cars, saved searches, profile and password were the last hardcoded
+  // English on an otherwise translated page.
+  ['my account: refer a friend', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.refTitle'],
+  ['my account: saved searches', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.alTitle'],
+  ['my account: saved cars', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.favTitle'],
+  ['my account: profile panel', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.pfTitle'],
+  ['my account: password panel', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.pwTitle'],
+  ['enquiry form: referral code field', 'src/enquiry-form.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/enquiry-form.jsx'), 'utf8'), 'enq.refLabel']
 ];
 for (const [name, file, src, key] of SCREENS) {
   ok(src.includes(`t('${key}')`), `${name} calls t('${key}') (${file})`);
