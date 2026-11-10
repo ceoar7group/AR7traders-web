@@ -11,16 +11,24 @@
 // (see scripts/function-count.test.mjs).
 
 export const CRM_COLUMNS = {
-  leads:      ['name','email','phone','country','vehicle_interest','source','status','budget','assigned_to','next_follow_up'],
+  // `referral_code` (2026-11-18): the share code a friend quoted on their
+  // enquiry — staff see and can correct the attribution in the CRM.
+  leads:      ['name','email','phone','country','vehicle_interest','source','status','budget','assigned_to','next_follow_up','referral_code'],
   customers:  ['name','email','phone','country','status','total_spend','vehicles_bought','notes'],
   vehicles:   ['stock_no','make','model','year','price','status','location','steering','colour','interior','image','images','gallery','notes','vendor','cost_price','freight_cost','duty_cost','other_cost','sourcing_currency'],
   quotes:     ['quote_no','customer_name','vehicle','amount','status','valid_until','notes'],
   shipments:  ['tracking_no','customer_name','vehicle','origin','destination','vessel','status','eta','progress','notes'],
-  tasks:      ['title','owner','priority','status','due_date','notes']
+  tasks:      ['title','owner','priority','status','due_date','notes'],
+  // Prospects (2026-11-03): the outreach radar — importers/dealers collected
+  // by scripts/prospect-scan.mjs from public business directories, plus any
+  // added by hand in the CRM. Public business contact data only.
+  prospects:  ['company','website','country','emails','phones','source_url','note','status']
 };
 
 export const SITE_COLUMNS = {
-  listings: ['stock_no','make','model','year','km','fuel','body','price','image','images','gallery','grade','status','location','tr','drv','eng','seats','col','st','published','sort_order'],
+  // `video` (2026-11-18): one optional video-walkaround link per website car
+  // (MIGRATION-2026-11-video-walkaround.sql).
+  listings: ['stock_no','make','model','year','km','fuel','body','price','image','images','gallery','grade','status','location','tr','drv','eng','seats','col','st','published','sort_order','video'],
   routes:   ['country','port','transit','popular','freight_base','duty_pct','lon','lat','show_on_map','published','sort_order'],
   articles: ['title','category','date','read_min','image','excerpt','body','published','sort_order'],
   blocks:   ['key','label','value','page']
@@ -43,6 +51,7 @@ export const TABLE_COLUMNS = {
   quotes:        CRM_COLUMNS.quotes,
   shipments:     CRM_COLUMNS.shipments,
   tasks:         CRM_COLUMNS.tasks,
+  prospects:     CRM_COLUMNS.prospects,
   site_listings: SITE_COLUMNS.listings,
   site_routes:   SITE_COLUMNS.routes,
   site_articles: SITE_COLUMNS.articles

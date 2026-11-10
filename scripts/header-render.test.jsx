@@ -44,7 +44,10 @@ ok(!document.querySelector('.brand span')?.className?.includes('truncate'), 'the
 ok(document.querySelector('.menu-btn')?.getAttribute('aria-controls') === 'ar7-public-menu', 'the mobile menu button controls the public menu');
 ok(html.includes('nav-inventory'), 'the Inventory dropdown renders');
 ok(!html.includes('>Japan dealer stock</a>'), 'Japan dealer stock is NOT in the primary nav (moved to dropdown)');
-ok(html.includes('>Auction access</a>'), 'Auction access is in the primary nav');
+// 2026-11-18 (owner, mobile cleanup): the standalone "Auction access" bar
+// link folded into the More menu ("Live auctions") — it must NOT come back,
+// or the phone burger panel grows past one screen again.
+ok(!html.includes('>Auction access</a>'), 'Auction access is NOT a standalone primary-nav link (lives in More)');
 ok(html.includes(' Contact</a>'), 'Contact is in the primary nav');
 ok(!/>Calculators</.test(html.split('nav-drop-panel more-panel')[0]), 'Calculators is no longer a top-level nav link');
 
@@ -65,8 +68,12 @@ const morePanel = (html.split('nav-drop-panel more-panel')[1] || '').split('auct
 const moreItems = (morePanel.match(/<i>/g) || []).length;
 // 2026-10-04: Staff CRM and SEO desk removed from public nav — they live in
 // the CRM only, never in the buyer-facing "More" dropdown.
-const expectedMoreRoutes = ['world', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal'];
+// 2026-11-18: 'brands' joined the list (owner folded Brands + Auction access
+// into More for the phone cleanup; the Brands mega-panel stays in the bar on
+// wider screens, but More now carries the /brands door everywhere).
+const expectedMoreRoutes = ['world', 'brands', 'auction', 'tools', 'services', 'shipping', 'destinations', 'howbuy', 'news', 'reviews', 'faq', 'about', 'portal'];
 ok(JSON.stringify(MORE_LINKS.map(x => x[2])) === JSON.stringify(expectedMoreRoutes), 'More contains the 13 intended routes; an unpaired final grid item is allowed');
+ok((html.split('nav-drop-panel more-panel')[1] || '').split('auction-link')[0].includes('>All brands'), 'All brands is in the More dropdown (label may carry the & models suffix)');
 const renderedMoreRoutes = [...document.querySelectorAll('.more-panel a')].map(a => a.getAttribute('href'));
 ok(JSON.stringify(renderedMoreRoutes) === JSON.stringify(expectedMoreRoutes.map(route => '/' + route)), 'More renders every intended real-path link in order');
 ok(moreItems === MORE_LINKS.length, `the More panel rendered ${MORE_LINKS.length} links`);
@@ -86,12 +93,12 @@ ok(renderToString(<NavDropdown label="X" panel="p">child</NavDropdown>).includes
 const invPanel = (html.split('nav-drop-panel inventory-panel')[1] || '').split('nav-brands')[0];
 ok(invPanel.includes('>All Inventory</span>'), 'All Inventory is in the Inventory dropdown');
 ok(invPanel.includes('href="/inventory"'), 'All Inventory points at /inventory');
-ok(invPanel.includes('>Japan dealer stock</span>'), 'Japan dealer stock is in the Inventory dropdown');
-ok(invPanel.includes('href="/japan-stock"'), 'Japan dealer stock points at /japan-stock');
+// /japan-stock is retired (merged into /inventory) — the dropdown must not
+// link to it, or the header would resurrect the duplicate inventory surface.
+ok(!invPanel.includes('japan-stock'), 'the retired /japan-stock page is not linked from the Inventory dropdown');
 
 // ---- active-page highlight ----------------------------------------------
 ok(render({ page: 'inventory' }).includes('nav-inventory'), 'the Inventory dropdown is present');
-ok(render({ page: 'japan-stock' }).includes('nav-inventory'), 'the Inventory dropdown is present on japan-stock page');
 ok(render({ page: 'inventory', makeFilter: 'Toyota' }).includes('class=" current" href="/cars/toyota"'), 'the filtered brand is marked current');
 ok(!render({ page: 'inventory', vehicleId: '43' }).includes('class=" current" href="/inventory"'), 'a vehicle deep link does not highlight the inventory tab');
 ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reaches the nav');
@@ -128,10 +135,15 @@ ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reac
     'the leave boundary is the hero\'s first line of copy, not a magic number');
   ok(src.includes('const leaveAt = Math.max(0, Math.min(leadTop - headH - 8, heroBottom - headH));'),
     'the bar leaves 8px before the hero copy can reach it, or at the hero\'s end');
-  ok(src.includes('window.scrollY > 0 && window.scrollY >= (last ? backAt : leaveAt)'),
+  // 2026-11-16 Lighthouse round 2: the boundary geometry is measured once and
+  // cached as bounds.{leaveAt,backAt}; the scroll path only compares numbers —
+  // no per-scroll-frame getBoundingClientRect (the forced-reflow source).
+  ok(src.includes('window.scrollY > 0 && window.scrollY >= (last ? bounds.backAt : bounds.leaveAt)'),
     'the top of the document always shows the bar, with hysteresis below it');
-  ok(src.includes('new MutationObserver(onScroll)'),
+  ok(src.includes('new MutationObserver(onDirty)'),
     'a lazy route chunk that mounts its hero late is picked up without a scroll');
+  ok(src.includes('const measureBounds = () =>') && !/const update = \(\) => \{[^}]*getBoundingClientRect/s.test(src),
+    'scrolling never re-reads layout — geometry is cached until it can actually change');
 }
 
 // ---- dropdown CSS never uses :focus-within to force panels open ------------

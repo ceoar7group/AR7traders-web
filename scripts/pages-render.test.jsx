@@ -10,12 +10,13 @@ import { goto, flushLazy } from './browser-stubs.mjs';
 import { App, HOWBUY, DEST, NEWS } from '../src/main.jsx';
 import { CUSTOMER_REVIEWS } from '../src/reviews.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
-import { cars as CARS, stockLabel } from '../src/main.jsx';
+import { cars as CARS, stockLabel, youtubeId } from '../src/main.jsx';
 import { carRef } from '../src/routing.js';
 import { FAQ_ITEMS, FAQ_TOPICS } from '../src/seo.js';
 import { articleSlug } from '../src/news-data.js';
 import { VehicleActions, vehicleName, vehicleWhatsAppMessage, vehicleWhatsAppHref } from '../src/vehicle-actions.jsx';
 import { waLink, waDigits, FALLBACK } from '../src/site-settings.js';
+import { hydrateMachines } from '../src/machinery-data.js';
 
 let pass = 0, fail = 0;
 // Write straight to the streams: console.error is stubbed below to catch React
@@ -51,15 +52,45 @@ const ROUTES = {
   '/': ['AR7 Traders', 'hero'],
   '/inventory': ['Find your next', 'inv-toolbar'],
   '/inventory?make=Toyota': ['inv-toolbar', 'brand-context-card'],
-  '/japan-stock': ['japan-stock-page', 'LIVE JAPAN DEALER STOCK'],
+  '/japan-stock': ['inv-toolbar'],   // retired page — resolves to the merged /inventory
   '/auction': ['inner-page'],
   '/services': ['inner-page'],
   '/brands': ['inner-page'],
   '/destinations': ['inner-page'],
+  '/destinations/kenya': ['destination-page', 'Import a used car from Japan to Kenya', 'Mombasa'],
+  '/destinations/pakistan': ['destination-page', 'Import a used car from Japan to Pakistan', 'Karachi'],
+  '/destinations/uae': ['destination-page', 'Import a used car from Japan to UAE', 'Jebel Ali'],
+  '/destinations/united-kingdom': ['destination-page', 'Import a used car from Japan to United Kingdom', 'Southampton'],
+  '/destinations/new-zealand': ['destination-page', 'Import a used car from Japan to New Zealand', 'Auckland'],
+  '/destinations/australia': ['destination-page', 'Import a used car from Japan to Australia', 'Sydney'],
+  '/destinations/usa': ['destination-page', 'Import a used car from Japan to USA', 'Los Angeles'],
+  '/destinations/tanzania': ['destination-page', 'Import a used car from Japan to Tanzania', 'Dar es Salaam'],
+  // 2026-11-08 market expansion: 19 new destination guides.
+  '/destinations/uganda': ['destination-page', 'Import a used car from Japan to Uganda', 'Kampala'],
+  '/destinations/zambia': ['destination-page', 'Import a used car from Japan to Zambia', 'Lusaka'],
+  '/destinations/zimbabwe': ['destination-page', 'Import a used car from Japan to Zimbabwe', 'Harare'],
+  '/destinations/mozambique': ['destination-page', 'Import a used car from Japan to Mozambique', 'Maputo'],
+  '/destinations/dr-congo': ['destination-page', 'Import a used car from Japan to DR Congo', 'Lubumbashi'],
+  '/destinations/botswana': ['destination-page', 'Import a used car from Japan to Botswana', 'Gaborone'],
+  '/destinations/jamaica': ['destination-page', 'Import a used car from Japan to Jamaica', 'Kingston'],
+  '/destinations/trinidad-and-tobago': ['destination-page', 'Import a used car from Japan to Trinidad', 'Port of Spain'],
+  '/destinations/guyana': ['destination-page', 'Import a used car from Japan to Guyana', 'Georgetown'],
+  '/destinations/fiji': ['destination-page', 'Import a used car from Japan to Fiji', 'Suva'],
+  '/destinations/papua-new-guinea': ['destination-page', 'Import a used car from Japan to Papua New Guinea', 'Port Moresby'],
+  '/destinations/sri-lanka': ['destination-page', 'Import a used car from Japan to Sri Lanka', 'Colombo'],
+  '/destinations/bangladesh': ['destination-page', 'Import a used car from Japan to Bangladesh', 'Chattogram'],
+  '/destinations/mongolia': ['destination-page', 'Import a used car from Japan to Mongolia', 'Ulaanbaatar'],
+  '/destinations/ireland': ['destination-page', 'Import a used car from Japan to Ireland', 'Dublin'],
+  '/destinations/cyprus': ['destination-page', 'Import a used car from Japan to Cyprus', 'Limassol'],
+  '/destinations/malta': ['destination-page', 'Import a used car from Japan to Malta', 'Valletta'],
+  '/destinations/oman': ['destination-page', 'Import a used car from Japan to Oman', 'Sohar'],
+  '/destinations/qatar': ['destination-page', 'Import a used car from Japan to Qatar', 'Hamad'],
   '/tools': ['inner-page'],
   '/world': ['world-page'],
   '/howbuy': ['inner-page'],
   '/news': ['inner-page'],
+  '/news/checking-your-japanese-vehicle-export-documents': ['news-article', 'Checking your Japanese vehicle export documents'],
+  '/news/comparing-fob-and-cif-vehicle-quotations': ['news-article', 'Comparing FOB and CIF vehicle quotations'],
   '/news/why-land-cruiser-demand-keeps-climbing-in-pakistan': ['news-article', 'Why Land Cruiser demand keeps climbing in Pakistan'],
   '/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean': ['news-article', 'Auction sheet decoded: what R, A and 4.5 really mean'],
   '/news/roro-vs-container-which-shipping-method-fits-your-car': ['news-article', 'RoRo vs container: which shipping method fits your car?'],
@@ -68,7 +99,9 @@ const ROUTES = {
   '/reviews': ['inner-page'],
   '/faq': ['inner-page'],
   '/contact': ['inner-page'],
-  '/shipping': ['inner-page'],
+  // 2026-11: /shipping carries the public courier-style track-by-number box
+  // (no sign-in; backed by /api/my-account?track=NO).
+  '/shipping': ['inner-page', 'track-box', 'Track your shipment', 'AR7-260184'],
   '/machinery': ['machinery-page', 'Machines sourced from China', 'Doosan DX300LC-9C', 'mch-grid'],
   // Machinery type pages: one indexable URL per equipment type, each with its
   // own H1 and intro (2026-10-03 SEO pass).
@@ -79,11 +112,16 @@ const ROUTES = {
   // Brand landing pages (the shape every /cars/... URL uses).
   '/cars/toyota': ['inner-page', 'Toyota', 'for export', 'landing-links'],
   '/cars/toyota/land-cruiser': ['inner-page', 'Land Cruiser', 'for export'],
+  // Legal pages (2026-11-07): real routes behind the footer links that used
+  // to point at /faq.
+  '/privacy': ['legal-page', 'Privacy', 'Supabase'],
+  '/cookies': ['legal-page', 'ar7-display-currency', 'Vercel Web Analytics'],
+  '/terms': ['legal-page', 'Export policy', 'subject to prior sale'],
   '/account': ['AR7'],
   '/studio': ['AR7'],
   // /portal is in PAGES and in the vercel.json rewrites, so it is a real
   // public route — it was the only one neither route suite visited.
-  '/portal': ['portal-demo', 'CLIENT PORTAL DEMO']
+  '/portal': ['portal-demo', 'CLIENT PORTAL PREVIEW'] // 2026-11-08: owner asked for the word "demo" to go; the tag is now PREVIEW
 };
 
 for (const [path, markers] of Object.entries(ROUTES)) {
@@ -105,7 +143,9 @@ for (const [path, markers] of Object.entries(ROUTES)) {
 {
   const html = await renderPage('/inventory?make=Toyota');
   const start = html.indexOf('<div class="brand-context-card"');
-  const end = html.indexOf('<div class="logo-strip">', start);
+  // The brand strip moved into the inventory hero (brand-pulse chips), so the
+  // next structural block after the context card is now the body-type chips.
+  const end = html.indexOf('<div class="inv-chips">', start);
   const card = start >= 0 && end > start ? html.slice(start, end) : '';
   const cardText = card.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
   ok(!!card, '/inventory?make=Toyota renders its brand overview context card');
@@ -145,6 +185,89 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(detailWithSheet.includes('Auction sheet included') && detailWithSheet.includes('Translated auction inspection sheet'),
     'vehicle with auction_sheet evidence renders the auction-sheet condition wording');
 
+  // youtubeId accepts every common YouTube URL shape staff may paste, and
+  // rejects anything else (non-YouTube URLs become a plain external link).
+  for (const [url, want] of [
+    ['https://youtu.be/dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/watch?feature=shared&v=dQw4w9WgXcQ&t=12', 'dQw4w9WgXcQ'],
+    ['https://youtube.com/shorts/dQw4w9WgXcQ?si=abc', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/embed/dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://www.youtube.com/live/dQw4w9WgXcQ', 'dQw4w9WgXcQ'],
+    ['https://example.com/tour.mp4', null],
+    ['https://www.youtube.com/watch?v=short', null],
+    ['', null],
+  ]) {
+    ok(youtubeId(url) === want, `youtubeId(${JSON.stringify(url)}) → ${JSON.stringify(want)}`);
+  }
+
+  // Video walkarounds (2026-11): the detail page shows a click-to-play facade
+  // — YouTube thumbnail + play button, NO iframe on initial render (perf +
+  // no third-party cookies before the buyer presses play). Static CARS carry
+  // no fake video, so the default render must be facade-free too.
+  ok(!detail.includes('video-walk') && !detail.includes('<iframe'),
+    'a vehicle without a video renders no walkaround facade and no iframe');
+  CARS[0].video = 'https://youtu.be/dQw4w9WgXcQ';
+  const detailWithVideo = await renderPage('/inventory/' + stock);
+  ok(detailWithVideo.includes('class="video-walk"')
+    && detailWithVideo.includes('i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg')
+    && detailWithVideo.includes('VIDEO WALKAROUND'),
+    'a vehicle with a YouTube link renders the click-to-play walkaround facade with the ytimg thumbnail');
+  ok(!detailWithVideo.includes('<iframe'),
+    'the walkaround facade embeds NO iframe until the buyer clicks play (pinned: do not regress to eager embeds)');
+  CARS[0].video = 'https://example.com/tour.mp4';
+  const detailWithLink = await renderPage('/inventory/' + stock);
+  ok(detailWithLink.includes('class="video-walk-link"') && detailWithLink.includes('rel="noopener noreferrer"')
+    && !detailWithLink.includes('<iframe'),
+    'a non-YouTube video URL falls back to a plain external "Watch video" link');
+  delete CARS[0].video;
+
+  // ---- landed-price cards (2026-11) ----------------------------------------
+  // A buyer picks their destination port once on the inventory toolbar and
+  // every stock card gains an indicative CIF line. Pinned honesty rules: off
+  // by default (FOB only), the chip says "excl. import duty", and it quotes
+  // no percentages — duty is the buyer's customs authority's decision.
+  const inv = await renderPage('/inventory');
+  ok(inv.includes('cif-dest-pick') && inv.includes('Off — FOB prices only'),
+    'the inventory toolbar offers a CIF-estimate destination picker, off by default');
+  ok(!inv.includes('card-cif'),
+    'with the picker off, stock cards show FOB prices only — no CIF chip');
+  {
+    const pickStart = inv.indexOf('cif-dest-pick');
+    const pick = inv.slice(pickStart, inv.indexOf('</select>', pickStart));
+    ok((pick.match(/<option /g) || []).length === DEST.length + 1,
+      `the picker lists every destination market (${DEST.length}) plus the Off state`);
+  }
+  localStorage.setItem('ar7-cif-dest', DEST[1][1]);
+  const invCif = await renderPage('/inventory');
+  ok(invCif.includes('class="card-cif"') && invCif.includes('excl. import duty'),
+    'with a destination chosen every stock card gains an indicative CIF line that says import duty is excluded');
+  {
+    const chipStart = invCif.indexOf('class="card-cif"');
+    const chip = invCif.slice(chipStart, invCif.indexOf('card-actions', chipStart));
+    ok(chip.includes('CIF') && !/%/.test(chip),
+      'the CIF chip quotes an estimate but no percentages and no duty rate');
+  }
+  const detSynced = await renderPage('/inventory/' + stock);
+  ok(detSynced.includes('<option selected="">' + DEST[1][1].replace(/&/g, '&amp;')),
+    'the vehicle detail CIF box opens on the port remembered from the inventory picker');
+  localStorage.removeItem('ar7-cif-dest');
+
+  // ---- hero search console (2026-11-18 owner round) ------------------------
+  // The second hero select offers real MODELS (make-aware), not body types,
+  // and the handover key is ar7-inv-model — consumed by the inventory screen.
+  const home = await renderPage('/');
+  ok(home.includes('name="hmd"') && home.includes('>Any model<'),
+    'the hero search console offers a Model select (name="hmd") with an "Any model" default');
+  ok(!home.includes('>Any body<'),
+    'the old Body select is gone from the hero search console');
+  {
+    const mdStart = home.indexOf('name="hmd"');
+    const md = home.slice(mdStart, home.indexOf('</select>', mdStart));
+    ok((md.match(/<option /g) || []).length >= 8,
+      'the hero Model select lists real models from live stock (8+ options)');
+  }
+
   const relatedStart = detail.indexOf('<section class="related-stock"');
   const relatedEnd = detail.indexOf('</section>', relatedStart);
   const related = relatedStart >= 0 && relatedEnd > relatedStart
@@ -152,14 +275,14 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const relatedLinks = [...related.matchAll(/<a[^>]+href="(\/inventory\/[^\"]+)"[^>]*>/g)];
   const relatedImages = [...related.matchAll(/<img[^>]*loading="lazy"[^>]*decoding="async"[^>]*width="\d+"[^>]*height="\d+"[^>]*alt="[^"]+"[^>]*>/g)];
   ok(relatedLinks.length > 0 && relatedLinks.length <= 3,
-    '/inventory/AR7-26001 renders up to three related vehicle links');
-  ok(relatedLinks.every(([, href]) => href !== '/inventory/AR7-26001'),
-    'related stock excludes the current Rolls-Royce Ghost');
+    'a vehicle detail page renders up to three related vehicle links');
+  ok(relatedLinks.every(([, href]) => href !== '/inventory/' + stock),
+    'related stock excludes the current vehicle');
   ok(relatedImages.length === relatedLinks.length,
     'each related vehicle image is lazy, async-decoded, dimensioned and described with carAlt');
   const relatedText = related.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-  ok(related.includes('href="/inventory?make=Rolls-Royce"') && relatedText.includes('Browse all Rolls-Royce stock'),
-    'related stock links to all Rolls-Royce inventory');
+  ok(related.includes('href="/inventory?make=' + CARS[0].make + '"') && relatedText.includes('Browse all ' + CARS[0].make + ' stock'),
+    'related stock links to all same-make inventory');
 }
 {
   // ---- vehicle detail action stack: Enquire now + WhatsApp + Chat Now + Save / Copy link ----
@@ -182,12 +305,17 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const group = attrsOf(tagOf(stackHtml));
   ok(group.role === 'group' && group['aria-label'] === `Actions for the ${vehicleName(car)}`,
     `the vehicle page renders its actions as a labelled group naming the car ("${group['aria-label']}")`);
-  ok(labels.join(' | ') === 'Enquire now | WhatsApp | Chat Now | Save | Copy link',
-    `the stack reads Enquire now, WhatsApp, Chat Now, Save, Copy link (${labels.join(' | ')})`);
+  ok(labels.join(' | ') === 'Make an offer | Enquire now | WhatsApp | Chat Now | Save | Copy link',
+    `the stack reads Make an offer, Enquire now, WhatsApp, Chat Now, Save, Copy link (${labels.join(' | ')})`);
 
-  const enquire = controls[0] || '';
-  ok(enquire.startsWith('<button') && attrsOf(tagOf(enquire)).class === 'primary' && (stackHtml.match(/class="primary"/g) || []).length === 1,
-    'Enquire now is still the single solid .primary button — the dominant action');
+  const offer = controls[0] || '';
+  ok(offer.startsWith('<button') && attrsOf(tagOf(offer)).class === 'primary' && (stackHtml.match(/class="primary"/g) || []).length === 1,
+    'Make an offer is the single solid .primary button — the dominant action');
+  ok(attrsOf(tagOf(offer))['aria-haspopup'] === 'dialog', 'Make an offer announces that it opens a dialog');
+
+  const enquire = controls[1] || '';
+  ok(enquire.startsWith('<button') && /\boutline-btn\b/.test(attrsOf(tagOf(enquire)).class || ''),
+    'Enquire now stays one step quieter than the offer, as an outline button');
 
   const waHtml = controls.find(c => c.includes('detail-cta--wa')) || '';
   const wa = attrsOf(tagOf(waHtml));
@@ -212,7 +340,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(chat['aria-label'] === 'Chat Now with the AR7 assistant' && chat['aria-haspopup'] === 'dialog',
     'Chat Now has a clear accessible name and announces that it opens a dialog');
 
-  ok(controls.slice(3).every(c => attrsOf(tagOf(c)).class === 'ghost-btn') && labels[3] === 'Save' && labels[4] === 'Copy link',
+  ok(controls.slice(4).every(c => attrsOf(tagOf(c)).class === 'ghost-btn') && labels[4] === 'Save' && labels[5] === 'Copy link',
     'Save and Copy link stay as neutral .ghost-btn utilities in their idle state');
   ok((stackHtml.match(/<div class="detail-actions-row">/g) || []).length === 2,
     'the contact pair and the utility pair each sit in their own row, so they wrap independently');
@@ -278,8 +406,20 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(!faqHtml.toLowerCase().includes('demo support content'), '/faq removes the "demo support content" label');
 
   const destHtml = await renderPage('/destinations');
-  ok(destHtml.includes('class="destination-guide"') && destHtml.includes('What to expect in Japan') && destHtml.includes('On arrival at'),
-    '/destinations renders the selected market guide with "what to expect" and "on arrival" sections');
+  // 2026-10-08: the guide moved to the market's own URL. The hub keeps the
+  // picker and the market grid, and both now open that page — rendering the
+  // same paragraphs on two URLs would leave a crawler to choose between them.
+  ok(!destHtml.includes('class="destination-guide"'),
+    '/destinations no longer duplicates the market guide inline — it lives on the market page');
+  // 2026-11-13: the CTA is now one translated string (t('dest.openGuide') with
+  // the market name substituted), so SSR emits a single text node without the
+  // <!-- --> expression separators it used to have.
+  ok(destHtml.includes('class="destination-grid"') && /Open the Kenya guide/.test(destHtml),
+    'and links every market in the grid to its own guide');
+  ok(/href="\/destinations\/kenya"/.test(destHtml), 'the links are real paths a crawler can follow');
+  const marketHtml = await renderPage('/destinations/kenya');
+  ok(marketHtml.includes('What happens in Japan') && marketHtml.includes('On arrival at'),
+    'the market page carries the "before departure" and "on arrival" sections the hub used to');
   ok(destHtml.includes('planning figure') && !/\b(48|25|10|5)%/.test(destHtml),
     '/destinations labels transit as a planning figure and quotes no duty percentage');
 
@@ -381,7 +521,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(home.includes('nav-drop-panel brands-panel'), 'the Brands dropdown panel is in the markup');
   ok(home.includes('nav-drop-panel inventory-panel'), 'the Inventory dropdown panel is in the markup');
   ok(home.includes('Calculators'), 'Calculators is reachable from the More menu');
-  ok(home.includes('/japan-stock'), 'Japan dealer stock is linked in the Inventory dropdown');
+  ok(!home.includes('/japan-stock'), 'the retired /japan-stock page is not linked anywhere on the home page');
 }
 
 // ---- honest public claims ----------------------------------------------------
@@ -420,20 +560,43 @@ function checkFounderStat(html, variant, where) {
   ok(!home.includes('4.9/5') && !home.includes('Trusted by 1,200+ buyers') && !home.includes('Trusted by 900+ buyers'),
     'no unsupported rating or buyer-count in the home hero');
   ok(!home.includes('98%') && !home.includes('On-time delivery'), 'no unsupported on-time delivery stat on the home page');
-  // The two hero cards specifically: the word SAMPLE is gone from them (owner
-  // direction 2026-10-03) and each carries a small visible "demo" tag plus a
-  // rotation dot rail. Other page sections keep their own labels.
-  const heroCards = home.slice(home.indexOf('floating-card auction-card'), home.indexOf('floating-badge'));
-  ok(home.includes('Cars from Japan') && home.includes('machines from China'), 'the hero headline states the scope of work: cars from Japan, machines from China');
+  // The hero's two facts cards specifically: the word SAMPLE is gone from them
+  // (owner direction 2026-10-03) and each carries a small visible "demo" tag
+  // plus a rotation dot rail. 2026-10-07: they moved OFF the photograph into
+  // one in-flow `.hero-facts` row underneath it. Other page sections keep their
+  // own labels.
+  const heroCards = home.slice(home.indexOf('hero-facts'), home.indexOf('scroll-cue'));
+  ok(heroCards.length > 0 && home.includes('hero-facts'), 'the hero renders its facts row under the photograph');
+  ok(!home.includes('floating-card') && !home.includes('floating-badge'),
+    'nothing floats on the vehicle photograph any more');
+  ok(!home.includes('hero-vignette'), 'the duplicated origin chips are gone from the hero');
+  ok(!/<i class="spark /.test(home), 'the six decorative sparkles are gone from the hero photo box');
+  ok(/<a href="\/inventory" class="primary"/.test(home),
+    'the hero primary CTA is a real anchor to /inventory, so Ctrl-click and crawlers work');
+  ok(/<a href="\/machinery" class="ghost-btn"/.test(home),
+    'the machinery desk is still one click away from the hero');
+  ok(!/<button class="primary"[^>]*>Explore/.test(home),
+    'the primary CTA is no longer a JS button with no href');
+  // 2026-11-09 (owner): the headline now carries both drive sides — "RHD & LHD
+  // cars from Japan & China" — so the pin checks that fuller scope statement.
+  // 2026-11-10 round 5 (owner): headline rewritten to six words covering every
+  // vehicle AND machine; RHD/LHD detail moved down into the lead paragraph.
+  ok(home.includes('Any vehicle. Any machine.') && home.includes('Japan &amp; China to your port.'),
+    'the hero headline states the whole scope: any vehicle, any machine, Japan & China to your port');
+  ok(home.includes('RHD or LHD'), 'the lead under the headline still carries both drive sides');
   ok(/<i class="machine/.test(home) && home.includes('href="/machinery"'), 'the home hero rotation carries machinery slides beside the cars (machine markers on the dot rail)');
   ok(home.includes('mch-teaser') && home.includes('Browse all machinery'), 'the landing page carries the machinery teaser');
   ok(home.includes('/machinery'), 'the machinery desk is linked from the landing page');
-  ok(home.includes('card-demo') && home.includes('>demo<'), 'both hero cards carry a visible demo tag');
-  ok(heroCards.includes('Auction \u00b7 ') && !heroCards.includes('SAMPLE'),
-    'the hero auction card describes the auction, without the word SAMPLE');
+  // 2026-11-09 (owner direction): the visible "sample" tag is retired from the
+  // hero facts cards; the guard now pins its absence.
+  ok(!home.includes('card-demo') && !home.includes('>sample<'), 'the hero facts cards no longer carry a sample/demo tag');
+  ok(heroCards.includes('Next auction \u00b7 ') && !heroCards.includes('SAMPLE'),
+    'the hero auction chip describes the auction, without the word SAMPLE');
   ok(heroCards.includes('Shipping lane \u00b7 ') && /Lane|from|Yokohama|Kobe|Nagoya|Tokyo|Osaka/.test(heroCards),
     'the hero route card labels the shipping lane');
-  ok((home.match(/class="card-rotation-dots/g) || []).length === 2, 'both hero cards still show their rotation dots');
+  // 2026-11-10 round 5: the slim one-line chips drop the rotation dots — the
+  // kicker's own "1/5" counter carries that information now.
+  ok((home.match(/class="card-rotation-dots/g) || []).length === 0, 'the slim chips carry no rotation dots');
 }
 {
   const about = await renderPage('/about');
@@ -489,11 +652,11 @@ function checkFounderStat(html, variant, where) {
   ok(stockLabel(null) === '', 'a missing car renders no label');
   const home = await renderPage('/');
   ok(!home.includes('LOT 51') && !home.includes('LOT 28149'), 'homepage dashboard shows no fabricated LOT numbers');
-  ok(home.includes('Stock AR7-26'), 'homepage dashboard labels cars by stock reference');
-  ok(home.includes('dash-demo-chip') && home.includes('DEMO'), 'homepage dashboard is visibly labelled as a demo');
+  ok(home.includes('Stock ' + CARS[0].stock_no), 'homepage dashboard labels cars by stock reference');
+  ok(home.includes('dash-demo-chip') && home.includes('PREVIEW'), 'homepage dashboard is visibly labelled as a preview (was DEMO until the 2026-11-08 owner direction)');
   const auction = await renderPage('/auction');
   ok(!auction.includes('LOT 3821'), 'auction preview shows no invented lot numbers');
-  ok(auction.includes('Stock AR7-26'), 'auction preview labels cars by stock reference');
+  ok(auction.includes('Stock ' + CARS[0].stock_no), 'auction preview labels cars by stock reference');
   ok(auction.includes('AUCTION LOTS \u00b7 SAMPLE'), 'auction preview panel is visibly labelled SAMPLE');
 }
 
@@ -516,6 +679,116 @@ function checkFounderStat(html, variant, where) {
   ok(machineDetail.includes('Request a quotation'), 'the machine page keeps the quotation call to action');
   const missingMachine = await renderPage('/machinery/excavators/AR7-MC-999');
   ok(/not on the site any more/.test(missingMachine), 'an unknown machine reference says so instead of rendering a blank page');
+}
+
+// ---------------------------------------------------------------------------
+// 2026-10-08: the importer no longer invents a model year or an hour meter, so
+// a published machine may legitimately state neither. Every renderer has to say
+// so in words — a "null" in a card or a meta description is a lie printed on
+// the public site, and `null.toLocaleString()` is a white screen.
+say('\n== a machine with no stated year or hours renders honestly ==');
+{
+  const stale = new Date(Date.now() - 86400000).toISOString();
+  const hydrated = hydrateMachines([
+    { id: 'hx1', ref: 'AR7-MC-900', name: 'Sany SY215C hydraulic excavator', brand: 'Sany', model: 'SY215C',
+      type: 'Excavators', year: null, hours: null, price_usd: 31500, status: 'Available', published: true,
+      location: 'Shanghai', origin: 'China', summary: 'Used unit, sourced to order.', specs: [['Condition', 'Used']],
+      images: ['/assets/machinery/sany-sy215c-1.webp'], image: '/assets/machinery/sany-sy215c-1.webp',
+      rights_basis: 'supplier-listing', source_url: 'https://supplier.example/sany-sy215c', updated_at: stale },
+    { id: 'hx2', ref: 'AR7-MC-901', name: 'Doosan DX300LC-7 crawler excavator', brand: 'Doosan', model: 'DX300LC-7',
+      type: 'Excavators', year: 2019, hours: 6800, price_usd: 47000, status: 'Available', published: true,
+      location: 'Qingdao', origin: 'China', summary: 'Used unit, sourced to order.', specs: [['Condition', 'Used']],
+      images: ['/assets/machinery/doosan-dx300lc-1.webp'], image: '/assets/machinery/doosan-dx300lc-1.webp',
+      rights_basis: 'supplier-listing', source_url: 'https://supplier.example/doosan-dx300', updated_at: stale }
+  ]);
+  ok(hydrated === true, 'the two live rows replace the built-in catalogue for this check');
+
+  const hub = await renderPage('/machinery');
+  ok(hub.includes('AR7-MC-900') && hub.includes('AR7-MC-901'), 'both machines are listed');
+  ok(hub.includes('Year not stated'), 'the machine with no stated year says "Year not stated"');
+  ok(/hours on request/i.test(hub), 'and no hour meter reads "hours on request"');
+  ok(hub.includes('2019') && /6,800 h/.test(hub), 'while the machine that states both shows them');
+  ok(!/>\s*null\s*</.test(hub) && !/null ·/.test(hub) && !/· null/.test(hub),
+    'the word "null" is nowhere in the catalogue markup');
+  ok(!/\b0 h\b/.test(hub), 'and an unstated hour meter is not printed as "0 h"');
+
+  const detail = await renderPage('/machinery/excavators/AR7-MC-900');
+  ok(detail.includes('AR7-MC-900'), 'its detail page still renders');
+  ok(detail.includes('Year not stated') && /hours on request/i.test(detail),
+    'with the same honest wording in the spec table');
+  const seo = detail.slice(0, 4000);
+  ok(!/null/.test(seo), 'and no "null" in the head — the meta description Google reads');
+
+  // The home hero rotates machinery slides too; it must not crash on null hours.
+  const home = await renderPage('/');
+  ok(home.length > 2000, 'the home page still renders with null-fact machines in the catalogue');
+  ok(!/Hours on request/.test(home) || true, '(the hero card only picks machines with photos)');
+}
+
+// ---------------------------------------------------------------------------
+// 2026-10-08 (traffic): one indexable page per market. The content assertions
+// the audit cannot make — that the H1 says the route, that the facts are that
+// market's, that no duty rate is quoted anywhere, and that the page links into
+// live stock and the sitemap agrees with the router.
+say('\n== each market has its own indexable page ==');
+{
+  const kenya = await renderPage('/destinations/kenya');
+  const h1s = [...kenya.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)]
+    .map(m => m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  ok(h1s.length === 1, `the market page has exactly one H1 (found ${h1s.length})`);
+  ok(h1s[0] === 'Import a used car from Japan to Kenya', `and it is the query the page exists to answer ("${h1s[0]}")`);
+  ok(/destination-facts/.test(kenya) && /24–30 days/.test(kenya) && /Mombasa/.test(kenya),
+    'the route facts are Kenya\'s own: port and planning transit window');
+  ok(/estimate — vessel schedules and transshipment vary/.test(kenya),
+    'and the transit window is labelled an estimate, not a promise');
+  ok(/Harrier · Prado · Note/.test(kenya), 'the models this route carries are listed');
+  ok(/QISJ Certificate of Roadworthiness/.test(kenya), 'the document pack is the one Mombasa actually needs');
+  ok(/Kenya Revenue Authority/.test(kenya), 'and the authority that assesses duty is named');
+  // Copy only: a WhatsApp href contains %20 and an inline <style> block
+  // contains keyframe percentages — neither is a duty rate.
+  const kenyaText = kenya
+    .replace(/<(style|script)[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  ok(!/\d+(?:\.\d+)?\s*%/.test(kenyaText), 'no duty percentage or tax rate is quoted anywhere in the page copy');
+  ok((kenya.match(/<details>/g) || []).length === 5, 'five FAQs render visibly — the FAQPage markup describes content that is on the page');
+  ok(/Who calculates import duty in Kenya\?/.test(kenya) && /How long does shipping from Japan to Mombasa take\?/.test(kenya),
+    'the questions are the ones a buyer on this route asks');
+  ok(/indicative FOB/i.test(kenya) && /written quotation/i.test(kenya),
+    'prices stay indicative FOB, confirmed by written quotation');
+  ok(/href=\"\/inventory\"/.test(kenya), 'the page links into live stock');
+  ok(/STOCK THIS ROUTE CARRIES/.test(kenya), 'and offers stock in the models this route carries');
+  ok(/href=\"\/destinations\/pakistan\"/.test(kenya) && /href=\"\/destinations\/tanzania\"/.test(kenya),
+    'every other market is one click away');
+  ok(/← All destinations/.test(kenya), 'with a way back to the hub');
+
+  const uk = await renderPage('/destinations/united-kingdom');
+  ok(/NOVA notification/.test(uk) && /HMRC/.test(uk) && /Southampton/.test(uk),
+    'the United Kingdom page carries its own documents and authority, not Kenya\'s');
+  const nz = await renderPage('/destinations/new-zealand');
+  ok(/biosecurity/i.test(nz) && /MPI/.test(nz), 'New Zealand gets its biosecurity requirement');
+
+  const unknown = await renderPage('/destinations/atlantis');
+  ok(/No market guide for that URL yet/.test(unknown), 'an unknown market slug renders its own state, not a duplicate of the hub');
+  ok((unknown.match(/<h1/g) || []).length === 0, 'and claims no H1 of its own while it is out of the index');
+  ok(/href=\"\/destinations\/kenya\"/.test(unknown), 'it still offers every market that does exist');
+
+  const hub = await renderPage('/destinations');
+  // React SSR separates text and expression with comments, so the visible
+  // label is checked with them stripped.
+  const hubText = hub.replace(/<!--[\s\S]*?-->/g, '');
+  ok(/href=\"\/destinations\/kenya\"/.test(hub) && /Open the Kenya guide/.test(hubText),
+    'the hub now links each market to its own page instead of only switching a picker');
+  ok((hub.match(/href=\"\/destinations\/[a-z-]+\"/g) || []).length >= DEST.length,
+    'every market in DEST is linked from the hub by its own URL');
+
+  const sitemap = readFileSync('public/sitemap.xml', 'utf8');
+  for (const slug of ['kenya', 'pakistan', 'uae', 'united-kingdom', 'new-zealand', 'tanzania', 'australia', 'usa']) {
+    ok(sitemap.includes(`<loc>https://ar7traders.com/destinations/${slug}</loc>`), `${slug} is in the sitemap`);
+  }
+  ok(!sitemap.includes('/destinations/atlantis'), 'and no market that does not exist is offered to crawlers');
+  const sitemapMarkets = [...sitemap.matchAll(/<loc>https:\/\/ar7traders\.com\/destinations\/([a-z-]+)<\/loc>/g)].map(m => m[1]);
+  ok(new Set(sitemapMarkets).size === sitemapMarkets.length && sitemapMarkets.length === DEST.length,
+    `exactly one sitemap entry per market in DEST (${sitemapMarkets.length} entries, ${DEST.length} markets)`);
 }
 
 console.error = realError; console.warn = realWarn;

@@ -10,7 +10,7 @@ import {
   Wrench, Ship, MapPin, BookOpen, Newspaper, ClipboardCheck, BadgeCheck, Landmark, Mail, Search
 } from 'lucide-react';
 import { CurrencyDropdown } from './currency.jsx';
-import { LanguageSwitcher } from './i18n.jsx';
+import { LanguageSwitcher, useLang } from './i18n.jsx';
 import { linkClick, hrefFor, inventoryHref } from './routing.js';
 
 // ---------------------------------------------------------------------------
@@ -67,27 +67,34 @@ export function NavDropdown({label, panel, className, routeKey, children}) {
 }
 
 // Inventory dropdown items
+// 2026-11-11 (owner: "translations not fully working"): every label carries
+// its i18n key as the 4th element; outside the LanguageProvider (tests, CRM)
+// t() falls back to the English label, so nothing changes for those callers.
 const INVENTORY_LINKS = [
-  [CarFront, 'All Inventory', 'inventory'],
-  [Wrench, 'Machinery & equipment', 'machinery'],
-  [Layers, 'Japan dealer stock', 'japan-stock']
+  [CarFront, 'All Inventory', 'inventory', 'nav.allInventory'],
+  [Wrench, 'Machinery & equipment', 'machinery', 'nav.machineryEquip']
 ];
 
 // More dropdown items - organized and duplicates removed.
 // The grid supports an unpaired final item; do not add filler navigation links.
+// 2026-11-18 (owner, mobile cleanup): Brands and Auction access fold into
+// this menu — "Live auctions" was already here, "All brands" joins it, and
+// the standalone bar links went away. The grid supports an unpaired final
+// item, so the odd count is fine.
 export const MORE_LINKS = [
-  [Globe2, 'World network', 'world'],
-  [Gavel, 'Live auctions', 'auction'],
-  [Calculator, 'Calculators', 'tools'],
-  [Wrench, 'Services', 'services'],
-  [Ship, 'Shipping', 'shipping'],
-  [MapPin, 'Destinations', 'destinations'],
-  [BookOpen, 'How to buy', 'howbuy'],
-  [Newspaper, 'News & guides', 'news'],
-  [MessageCircle, 'Reviews', 'reviews'],
-  [ClipboardCheck, 'Help & FAQ', 'faq'],
-  [BadgeCheck, 'About AR7', 'about'],
-  [LogIn, 'Client portal', 'portal']
+  [Globe2, 'World network', 'world', 'nav.world'],
+  [Layers, 'All brands', 'brands', 'nav.allBrands'],
+  [Gavel, 'Live auctions', 'auction', 'nav.liveAuctions'],
+  [Calculator, 'Calculators', 'tools', 'nav.calculators'],
+  [Wrench, 'Services', 'services', 'nav.services'],
+  [Ship, 'Shipping', 'shipping', 'nav.shipping'],
+  [MapPin, 'Destinations', 'destinations', 'nav.destinations'],
+  [BookOpen, 'How to buy', 'howbuy', 'nav.howToBuy'],
+  [Newspaper, 'News & guides', 'news', 'nav.news'],
+  [MessageCircle, 'Reviews', 'reviews', 'nav.reviews'],
+  [ClipboardCheck, 'Help & FAQ', 'faq', 'nav.faq'],
+  [BadgeCheck, 'About AR7', 'about', 'nav.about'],
+  [LogIn, 'Client portal', 'portal', 'nav.portal']
 ];
 
 /* ---------------------------------------------------------------------------
@@ -165,10 +172,17 @@ function useHeaderMetrics(ref, { hold, menu, routeKey }) {
     };
     let raf = 0;
     let last = null;
-    const update = () => {
-      raf = 0;
-      resolve();
-      if (!target) { setAway(false); return; }
+    // 2026-11-16 Lighthouse round 2 (forced reflow): the old update() read
+    // THREE getBoundingClientRect()s on every scroll frame and after every
+    // DOM mutation — and the home page mutates constantly (the 1s auction
+    // countdown, the rotating hero slides), so each React commit was chased
+    // by a synchronous layout. The geometry is now measured only when it can
+    // actually change (hero found, viewport resized, page height changed) and
+    // cached; the scroll path compares window.scrollY against two numbers.
+    let bounds = null;   // { leaveAt, backAt } in document pixels
+    let dirty = true;    // geometry must be re-read on the next frame
+    const measureBounds = () => {
+      dirty = false;
       const headH = Math.max(48, Math.round(el?.getBoundingClientRect().height || 0));
       const leadTop = lead.getBoundingClientRect().top + window.scrollY;
       // Two boundaries, whichever comes first:
@@ -182,32 +196,54 @@ function useHeaderMetrics(ref, { hold, menu, routeKey }) {
       // return threshold can never reach 0 — scrolling back to the very top
       // must always bring the bar home.
       const backAt = Math.max(0, leaveAt - Math.min(24, leaveAt / 2));
+      bounds = { leaveAt, backAt };
+      // A real hero measured with a real boundary: the DOM watcher's one job
+      // (catching a lazy route's hero mounting late) is done.
+      if (mo && leaveAt > 0) { mo.disconnect(); mo = null; }
+    };
+    const update = () => {
+      raf = 0;
+      const had = target;
+      resolve();
+      if (!target) { setAway(false); return; }
+      if (dirty || !bounds || target !== had) measureBounds();
       // The top of the document always shows the bar. A hero whose copy starts
       // only a few pixels below it yields a boundary of ~20px, and without this
       // guard a refresh at the top (or a lazy route that mounts its hero after
       // the first measurement) could park the bar in the tucked-away state on a
       // page the visitor has not scrolled at all.
-      const next = window.scrollY > 0 && window.scrollY >= (last ? backAt : leaveAt);
+      const next = window.scrollY > 0 && window.scrollY >= (last ? bounds.backAt : bounds.leaveAt);
       if (next !== last) { last = next; setAway(next); }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    const onDirty = () => { dirty = true; onScroll(); };
+    // Declared before the first update() call — measureBounds() retires `mo`.
+    let mo = null;
+    let bodyRo = null;
     update();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onDirty);
     // The lazy route chunk mounts its hero after this effect has run, and a
     // refresh on a deep URL never fires a scroll — so watch the DOM itself
     // (throttled through the same animation frame) and pick the hero up as
-    // soon as it appears.
-    let mo = null;
+    // soon as it appears. Disconnected after the first successful measure.
     if (typeof MutationObserver === 'function') {
-      mo = new MutationObserver(onScroll);
+      mo = new MutationObserver(onDirty);
       mo.observe(document.body, { childList: true, subtree: true });
+    }
+    // Anything that changes the page's height above the hero (the promo bar
+    // collapsing, a font swapping in) shifts the boundary — a ResizeObserver
+    // on <body> re-measures exactly then, instead of on every mutation.
+    if (typeof ResizeObserver === 'function') {
+      bodyRo = new ResizeObserver(onDirty);
+      bodyRo.observe(document.body);
     }
     return () => {
       cancelAnimationFrame(raf);
       mo?.disconnect();
+      bodyRo?.disconnect();
       window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onDirty);
     };
   }, [ref, hold, menu, routeKey]);
 
@@ -217,10 +253,30 @@ function useHeaderMetrics(ref, { hold, menu, routeKey }) {
 export function SiteHeader({
   page, vehicleId = null, makeFilter = null, brands = [], vehicleCount = 0,
   menu = false, setMenu = () => {}, dark = false, setDark = () => {},
+  theme = null, setTheme = null,
   signedIn = false, navigate = () => {}, logoFor = () => '', ribbon = null, orb = null,
-  promo = null, hold = true
+  promo = null, hold = true, onOpenSearch = null
 }) {
   const headRef = useRef(null);
+  const { t } = useLang(); // English fallback outside the provider
+  // 2026-11-19 (owner): the Blue & Gold palette is retired — one day/night
+  // switch remains. When only the legacy setDark boolean is supplied (older
+  // callers, tests) it still works through it.
+  const mode = theme || (dark ? 'dark' : 'light');
+  const pick = next => { if (setTheme) setTheme(next); else setDark(next !== 'light'); };
+  const isNight = mode === 'dark';
+  const dayNightIcon = isNight ? <Sun/> : <Moon/>;
+  const dayNightLabel = isNight ? t('nav.dayMode') : t('nav.nightMode');
+  const toggleDayNight = () => pick(isNight ? 'light' : 'dark');
+  // 2026-11-08: while the burger menu is open the page behind it must not
+  // scroll — the panel has its own scroller and a dimmed backdrop, so a
+  // moving page underneath reads as a glitch on phones and tablets.
+  useEffect(() => {
+    if (typeof document === 'undefined' || !menu) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [menu]);
   const routeKey = [page, vehicleId || '', makeFilter || ''].join('/');
   const away = useHeaderMetrics(headRef, { hold, menu, routeKey });
   // The bar is one line at every width (see src/site-layout.css). Above 900px
@@ -240,49 +296,71 @@ export function SiteHeader({
     {ribbon}
     <nav className="nav shell">
     <div className="brand-group">
-      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark.png" alt="AR7 Traders" loading="lazy" decoding="async" width="None" height="None"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
+      {/* 2026-11-07: width/height were the literal strings "None" (invalid HTML,
+    no reserved box) and the 460px source PNG was 17KB for a 49px slot —
+    both flagged by PageSpeed. The 128px webp is 3KB. */}
+      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async" width="56" height="56"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div id="ar7-public-menu" className={'navlinks ' + (menu ? 'open' : '')}>
-      <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={routeKey} label="Inventory">
+      {/* 2026-11-09 (owner screenshot): the dimmed backdrop behind the open
+          burger sheet also dimmed the nav bar, so the X in the bar looked
+          missing. The sheet now carries its own labelled close row (phones &
+          tablets only — hidden on desktop by CSS), and the bar's actions are
+          raised above the backdrop in site-layout.css. */}
+      <div className="panel-head-row" aria-hidden={!menu}>
+        <b>{t('nav.menu')}</b>
+        <button type="button" className="panel-close" onClick={() => setMenu(false)} aria-label="Close menu"><X/></button>
+      </div>
+      <NavDropdown className="nav-inventory" panel="inventory-panel" routeKey={routeKey} label={t('nav.inventory')}>
         {close => INVENTORY_LINKS.map(x => {
           const I = x[0];
-          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
+          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[3] ? t(x[3]) : x[1]}</span></a>;
         })}
       </NavDropdown>
-      <a className={'nav-tier-full' + (page === 'auction' ? ' current' : '')} href="/auction" onClick={linkClick('auction', navigate)}>Auction access</a>
-      <NavDropdown className="nav-brands" panel="brands-panel" routeKey={routeKey} label="Brands">
+      {/* 2026-11-18 (owner, mobile cleanup): the standalone "Auction access"
+          bar link is gone — the More menu's "Live auctions" entry is the one
+          auction door now, which keeps the bar and the burger panel short. */}
+      <NavDropdown className="nav-brands" panel="brands-panel" routeKey={routeKey} label={t('nav.brands')}>
         {close => <>
-          <div className="brands-panel-head"><b>Brands in inventory</b><span>{brands.length} makes · {vehicleCount} vehicles live</span></div>
+          <div className="brands-panel-head"><b>{t('nav.brandsInInventory')}</b><span>{brands.length} makes · {vehicleCount} vehicles live</span></div>
           <div className="brands-grid">{brands.map(b => <a key={b.name} className={makeFilter === b.name ? ' current' : ''} href={inventoryHref(b.name)} onClick={e => { close(); linkClick(inventoryHref(b.name), navigate)(e); }}><img loading="lazy" decoding="async" width="30" height="19" src={logoFor(b.name)} alt="" onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></a>)}</div>
           <div className="brands-panel-foot">
-            <a href="/brands" onClick={e => { close(); linkClick('brands', navigate)(e); }}><Layers/> All brands &amp; models <ArrowUpRight/></a>
-            <a href="/inventory" onClick={e => { close(); linkClick('inventory', navigate)(e); }}><CarFront/> Full inventory <ArrowUpRight/></a>
+            <a href="/brands" onClick={e => { close(); linkClick('brands', navigate)(e); }}><Layers/> {t('nav.allBrands')} <ArrowUpRight/></a>
+            <a href="/inventory" onClick={e => { close(); linkClick('inventory', navigate)(e); }}><CarFront/> {t('nav.fullInventory')} <ArrowUpRight/></a>
           </div>
         </>}
       </NavDropdown>
-      <NavDropdown className="nav-more nav-tier-full" panel="more-panel" routeKey={routeKey} label="More">
+      <NavDropdown className="nav-more nav-tier-full" panel="more-panel" routeKey={routeKey} label={t('nav.more')}>
         {close => MORE_LINKS.map(x => {
           const I = x[0];
-          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[1]}</span></a>;
+          return <a key={x[2]} href={hrefFor(x[2])} onClick={e => { close(); linkClick(x[2], navigate)(e); }}><i><I/></i><span>{x[3] ? t(x[3]) : x[1]}</span></a>;
         })}
       </NavDropdown>
-      <a className={'auction-link' + (page === 'contact' ? ' current' : '')} href="/contact" onClick={linkClick('contact', navigate)}><MessageCircle size={15}/> Contact</a>
+      <a className={'auction-link' + (page === 'contact' ? ' current' : '')} href="/contact" onClick={linkClick('contact', navigate)}><MessageCircle size={15}/>{' ' + t('nav.contact')}</a>
       {/* Only rendered inside the burger panel (≤899px, src/site-layout.css):
           the labelled account button and theme switch stay reachable on phones
           even when the bar's icon row runs out of room. */}
       <div className="nav-panel-actions">
-        <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? 'My account' : 'Sign in'}</a>
-        <button type="button" className="panel-theme" onClick={() => setDark(!dark)} aria-pressed={dark}>{dark ? <Sun/> : <Moon/>}{dark ? 'Light mode' : 'Dark mode'}</button>
+        <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}><LogIn/>{signedIn ? t('nav.myAccount') : t('nav.signIn')}</a>
+        <button type="button" className="panel-theme" onClick={toggleDayNight} aria-pressed={isNight}>{dayNightIcon}{dayNightLabel}</button>
       </div>
     </div>
     <div className="nav-actions">
+      {/* Global search (⌘K). One pill above 1100px, a plain icon below it —
+          the overlay itself is a lazy chunk mounted by main.jsx. */}
+      {/* 2026-11-07 redesign (owner request): the wide "Search … Ctrl K" pill
+          took the room of two buttons. Now a compact gold icon button at every
+          width; Ctrl+K still works and the title still advertises it. */}
+      {onOpenSearch && <button type="button" className="nav-search" onClick={onOpenSearch} aria-label="Search the site" title="Search cars, machinery and guides (Ctrl+K)">
+        <Search/>
+      </button>}
       <LanguageSwitcher/>
           <CurrencyDropdown/>
       <a className="icon-btn studio-btn" href="/studio" onClick={linkClick('studio', navigate)} aria-label="Preview device modes" title="Phone, tablet, laptop & PC preview"><Monitor/></a>
-      <button type="button" className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun/> : <Moon/>}</button>
+      <button type="button" className="icon-btn" onClick={toggleDayNight} aria-label="Toggle theme" aria-pressed={isNight} title={'Switch to ' + dayNightLabel.toLowerCase()}>{dayNightIcon}</button>
       <a className="icon-btn portal-btn" href="/account" onClick={linkClick('account', navigate)} aria-label="Sign in to your account" title="Sign in to your account"><LogIn/></a>
-      <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>My account <UserCog/></> : <>Sign up <UserPlus/></>}</a>
+      <a className="primary compact" href="/account" onClick={linkClick('account', navigate)}>{signedIn ? <>{t('nav.myAccount')} <UserCog/></> : <>{t('nav.signUp')} <UserPlus/></>}</a>
       <button type="button" className="menu-btn" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-controls="ar7-public-menu" aria-label={menu ? 'Close menu' : 'Open menu'}>{menu ? <X/> : <Menu/>}</button>
     </div>
   </nav></header>;

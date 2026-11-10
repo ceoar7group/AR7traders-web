@@ -34,7 +34,8 @@
 //     existing machine (URL or brand+model+year) is skipped, not duplicated.
 
 import { previewMachine, toRow, findExisting } from './_machinery-import.js';
-import { MACHINERY_TABLE, machinerySettings } from './_machinery.js';
+import { machinerySettings, readMachineryRows } from './_machinery.js';
+import { relayBaseUrl, relayApiKey, relayRequestHeaders, RELAY_TIMEOUT_MS } from '../scripts/goonet-core.mjs';
 
 /** The honest identity the importer already uses elsewhere. */
 export const SCRAPER_UA = 'AR7Traders-Import/1.0 (+https://ar7traders.com)';
@@ -177,21 +178,97 @@ const normUrl = u => String(u || '').trim().toLowerCase().replace(/[?#].*$/, '')
 // The run
 // ---------------------------------------------------------------------------
 
-async function defaultFetch(url, { timeoutMs = SCRAPER_FETCH_TIMEOUT_MS } = {}) {
+/** Bounded, polite retry for transient transport/server failures only, plus
+ * ONE relay rescue for IP-reputation walls. Direct attempts never retry
+ * 401/403/429 or captcha/bot gates. But 2026-11-04 the marketplace started
+ * answering a flat 403 to every request from Vercel's egress IPs — the same
+ * datacenter-IP wall goo-net raised against the car importer, on pages it
+ * serves to any real visitor. The cure is also the same: when the direct
+ * fetch comes back blocked (401/403/429) or dead and a relay key is
+ * configured, the page is fetched once through the reader relay the car
+ * importer already uses (keyed, rotating proxy pool, plain-HTTP engine).
+ * robots.txt is still honoured BEFORE any page is fetched, the pacing between
+ * fetches is unchanged, and the honest user agent is what the relay is shown.
+ * The caller's deadline caps every timeout, so no rescue can push a preview
+ * past the serverless budget. */
+export async function fetchWithRetry(url, options = {}) {
+  const direct = await directFetchWithRetry(url, options);
+  if (direct.ok) return direct;
+  const blocked = direct.status === 401 || direct.status === 403 || direct.status === 429;
+  if (!blocked && !direct.networkError) return direct; // 404s etc. are honest answers, not walls
+  const key = relayApiKey();
+  if (!key) return { ...direct, relaySkipped: 'no relay key configured' };
+  const { deadline = Infinity, now = Date.now, fetchImpl = globalThis.fetch } = options;
+  const remaining = deadline - now();
+  if (remaining <= 0) return direct;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(RELAY_TIMEOUT_MS, remaining)));
   try {
-    const res = await fetch(url, {
+    const res = await fetchImpl(relayBaseUrl() + url, {
       signal: ctrl.signal,
       redirect: 'follow',
-      headers: { 'user-agent': SCRAPER_UA, accept: 'text/html,application/xhtml+xml' }
+      headers: relayRequestHeaders({ userAgent: SCRAPER_UA }),
     });
-    return { ok: res.ok, status: res.status, text: res.ok ? await res.text() : '', networkError: false };
-  } catch (e) {
-    return { ok: false, status: 0, text: '', networkError: true, error: e.message };
+    if (!res.ok) return { ...direct, relayError: `the relay answered ${res.status}` };
+    return { ok: true, status: res.status, text: await res.text(), networkError: false, attempts: direct.attempts + 1, via: 'relay', directStatus: direct.status };
+  } catch (error) {
+    return { ...direct, relayError: `the relay failed (${error.message})` };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function directFetchWithRetry(url, {
+  timeoutMs = SCRAPER_FETCH_TIMEOUT_MS,
+  retries = 2,
+  backoffMs = 500,
+  deadline = Infinity,
+  now = Date.now,
+  sleep = ms => new Promise(r => setTimeout(r, ms)),
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const maxAttempts = Math.max(1, Math.min(3, Number(retries) + 1 || 1));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const remaining = deadline - now();
+    if (remaining <= 0) return { ok: false, status: 0, text: '', networkError: true, error: 'Run time budget exhausted', attempts: attempt };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(timeoutMs, remaining)));
+    let transient = false;
+    try {
+      const res = await fetchImpl(url, {
+        signal: ctrl.signal,
+        redirect: 'follow',
+        headers: { 'user-agent': SCRAPER_UA, accept: 'text/html,application/xhtml+xml' },
+      });
+      transient = res.status >= 500 && res.status <= 599;
+      if (res.ok || !transient || attempt === maxAttempts - 1) {
+        return { ok: res.ok, status: res.status, text: res.ok ? await res.text() : '', networkError: false, attempts: attempt + 1 };
+      }
+    } catch (error) {
+      if (attempt === maxAttempts - 1) {
+        return { ok: false, status: 0, text: '', networkError: true, error: error.message, attempts: attempt + 1 };
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+    const wait = Math.min(backoffMs * (2 ** attempt), Math.max(0, deadline - now()));
+    if (wait <= 0) return { ok: false, status: 0, text: '', networkError: true, error: 'Run time budget exhausted', attempts: attempt + 1 };
+    await sleep(wait);
+  }
+  return { ok: false, status: 0, text: '', networkError: true, error: 'Retry budget exhausted', attempts: maxAttempts };
+}
+
+async function defaultFetch(url, options = {}) {
+  return fetchWithRetry(url, options);
+}
+
+/** One honest sentence about why a page could not be read, including what the
+ *  relay rescue did (or why it never ran). */
+export function describeFetchFailure(page) {
+  let base = page.networkError ? `network error${page.error ? ': ' + page.error : ''}` : 'the site answered ' + page.status;
+  if (page.relayError) base += ` — ${page.relayError}`;
+  else if (page.relaySkipped) base += ` — ${page.relaySkipped}`;
+  return base;
 }
 
 /** Which category pages this run crawls. A known name → that one page; an
@@ -218,8 +295,13 @@ export async function runScraper(db, {
   batch = null,
   fetch: fetchImpl = null,
   sleep: sleepImpl = null,
-  markup = 0.25
+  markup = 0.25,
+  now = Date.now,
+  budgetMs = 45000
 } = {}) {
+  const deadline = now() + Math.min(45000, Math.max(0, budgetMs));
+  let timedOut = false;
+  const exhausted = () => (timedOut ||= now() >= deadline);
   const doFetch = fetchImpl || defaultFetch;
   const sleep = sleepImpl || (ms => new Promise(r => setTimeout(r, ms)));
   const delayMs = SCRAPER_DELAY_MS;
@@ -255,19 +337,22 @@ export async function runScraper(db, {
   stats.categories = catList.length;
 
   // ---- dedupe seed: what the catalogue already holds -----------------------
-  let existing = [];
-  try {
-    const { data } = await db.from(MACHINERY_TABLE).select('*');
-    existing = Array.isArray(data) ? data : [];
-  } catch { /* no readable catalogue means nothing to dedupe against */ }
+  const existing = await readMachineryRows(db);
+  const hiddenExisting = existing.filter(r => r.published !== true && r.source_url)
+    .map(r => ({ id: r.id, ref: r.ref, name: [r.brand, r.model].filter(Boolean).join(' '),
+      status: r.status, hold_reason: r.hold_reason || null }));
   const seenUrls = new Set(existing.map(r => normUrl(r?.source_url)).filter(Boolean));
 
   // ---- paced fetch: one delay BEFORE every fetch after the first -----------
   let fetchCount = 0;
   async function pacedFetch(url) {
+    if (exhausted() || deadline - now() <= delayMs) {
+      timedOut = true;
+      return { ok: false, status: 0, networkError: true, text: '', error: 'Run time budget exhausted' };
+    }
     if (fetchCount > 0) await sleep(delayMs);
     fetchCount++;
-    return doFetch(url);
+    return doFetch(url, { timeoutMs: Math.max(1, Math.min(SCRAPER_FETCH_TIMEOUT_MS, deadline - now())), deadline, now });
   }
 
   // ---- robots.txt per host, cached, fail-closed -----------------------------
@@ -298,7 +383,7 @@ export async function runScraper(db, {
   // ---- 1. collect product links from the category pages ---------------------
   const links = [];
   for (const cat of catList) {
-    if (links.length >= maxMachines) break;
+    if (exhausted() || links.length >= maxMachines) break;
     const catUrl = SCRAPER_ORIGIN + cat.path;
     if (!(await pathAllowed(catUrl))) {
       stats.robotsBlocked++;
@@ -307,7 +392,7 @@ export async function runScraper(db, {
     }
     const page = await pacedFetch(catUrl);
     if (!page.ok) {
-      warnings.push(`Category "${cat.key}" could not be read (${page.networkError ? 'network error' : 'the site answered ' + page.status}).`);
+      warnings.push(`Category "${cat.key}" could not be read (${describeFetchFailure(page)}).`);
       continue;
     }
     const found = extractProductLinks(page.text, catUrl);
@@ -315,7 +400,7 @@ export async function runScraper(db, {
       if (links.includes(link)) continue;
       if (seenUrls.has(normUrl(link))) {
         stats.deduped++;
-        skipped.push({ url: link, reason: 'already in the catalogue (source link)' });
+        skipped.push({ url: link, reason: 'already in the catalogue (source link)', ref: existing.find(r => normUrl(r.source_url) === normUrl(link))?.ref });
         continue;
       }
       links.push(link);
@@ -326,6 +411,7 @@ export async function runScraper(db, {
 
   // ---- 2. preview each link through the existing pipeline -------------------
   for (const link of links) {
+    if (exhausted()) break;
     if (machines.length >= maxMachines) { stats.capped++; continue; }
 
     if (!(await pathAllowed(link))) {
@@ -336,7 +422,7 @@ export async function runScraper(db, {
 
     const page = await pacedFetch(link);
     if (!page.ok) {
-      warnings.push(`Could not read ${link} (${page.networkError ? 'network error' : 'the site answered ' + page.status}).`);
+      warnings.push(`Could not read ${link} (${describeFetchFailure(page)}).`);
       continue;
     }
     stats.fetched++;
@@ -372,8 +458,11 @@ export async function runScraper(db, {
     });
   }
 
+  if (timedOut) warnings.push('Time limit reached. Review and confirm the collected previews, then run again; confirmed source links will be skipped.');
   return {
     ok: true,
+    partial: timedOut,
+    existingHidden: hiddenExisting,
     machines,
     previews,
     skipped,

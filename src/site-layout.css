@@ -58,10 +58,12 @@
 }
 
 .nav-wrap .brand img {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
+  /* 2026-11-19 (owner: "AR7 Traders needs to be bigger and prominent"):
+     52px mark + 16.5px wordmark on desktop; the tiers below scale down. */
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
 }
 
 /* The company name is the primary brand: natural width, never an ellipsis. */
@@ -73,14 +75,14 @@
   overflow: visible;
   text-overflow: clip;
   white-space: nowrap;
-  font-size: 14px;
-  letter-spacing: 1.3px;
+  font-size: 16.5px;
+  letter-spacing: 1.6px;
 }
 
 .nav-wrap .brand small {
   margin-top: 4px;
-  font-size: 6px;
-  letter-spacing: 1px;
+  font-size: 7px;
+  letter-spacing: 1.2px;
 }
 
 /* Inline links. margin-inline:auto centres them between the brand and the
@@ -115,6 +117,32 @@
   width: 40px;
   height: 40px;
   border-radius: 11px;
+}
+
+/* Global search trigger (⌘K). 2026-11-07 redesign: a compact gold icon
+   button at every width — the old labelled pill + kbd hint crowded the bar.
+   The overlay is still a lazy chunk (main.jsx), Ctrl+K still opens it. */
+.nav-wrap .nav-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--gold), color-mix(in srgb, var(--gold) 62%, #7a5d1d));
+  color: #1b1405;
+  cursor: pointer;
+  box-shadow: 0 5px 14px rgba(176,138,48,.28);
+  transition: transform .2s, box-shadow .2s, filter .2s;
+}
+.nav-wrap .nav-search:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(176,138,48,.4); filter: brightness(1.05); }
+.nav-wrap .nav-search:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.nav-wrap .nav-search svg { width: 16px; height: 16px; flex: none; stroke-width: 2.4; }
+@media (max-width: 639px) {
+  .nav-wrap .nav-search { width: 34px; height: 34px; }
+  .nav-wrap .nav-search svg { width: 15px; height: 15px; }
 }
 
 /* The burger only exists below 900px — the bar carries the whole menu above
@@ -200,14 +228,14 @@
   }
 
   .nav-wrap .brand img {
-    flex-basis: 40px;
-    width: 40px;
-    height: 40px;
+    flex-basis: 46px;
+    width: 46px;
+    height: 46px;
   }
 
   .nav-wrap .brand span {
-    font-size: 13px;
-    letter-spacing: 1.1px;
+    font-size: 14.5px;
+    letter-spacing: 1.2px;
   }
 
   .nav-wrap .brand-group {
@@ -522,19 +550,29 @@
   }
 
   .nav-wrap .brand {
-    gap: 7px;
+    gap: 8px;
   }
 
+  /* 2026-11-18 (owner: "increase the size of header logo and name on
+     mobile"): the mark and the wordmark both step up a tier — the bar is
+     58px tall, so a 44px mark still clears it, and the quieter action row
+     (Brands/Auction folded into More) left the room to spend here. */
   .nav-wrap .brand img {
-    flex-basis: 36px;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    flex-basis: 46px;
+    width: 46px;
+    height: 46px;
+    border-radius: 11px;
   }
 
   .nav-wrap .brand span {
-    font-size: 12px;
-    letter-spacing: .6px;
+    font-size: 15px;
+    letter-spacing: .8px;
+  }
+
+  /* The burger sheet stays short: Brands lives in More ("All brands") on
+     phones, so the dropdown row disappears from the panel (owner 2026-11-18). */
+  .nav-wrap .navlinks .nav-brands {
+    display: none;
   }
 
   .nav-wrap .brand-group .nav-orb {
@@ -583,9 +621,15 @@
     gap: 6px;
   }
 
+  .nav-wrap .brand img {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
   .nav-wrap .brand span {
-    font-size: 11.5px;
-    letter-spacing: .5px;
+    font-size: 14px;
+    letter-spacing: .6px;
   }
 }
 
@@ -604,14 +648,14 @@
   }
 
   .nav-wrap .brand img {
-    flex-basis: 33px;
-    width: 33px;
-    height: 33px;
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
   }
 
   .nav-wrap .brand span {
-    font-size: 11px;
-    letter-spacing: .3px;
+    font-size: 13px;
+    letter-spacing: .4px;
   }
 
   .nav-wrap .brand-group .nav-orb {
@@ -793,110 +837,156 @@ footer [id] {
 }
 
 /* ---------------------------------------------------------------------------
-   9.1 HERO VISUAL — stacked on phones and tablets, plus the sample cards
+   9.1 HERO VISUAL — the photograph IS the card, and the facts row sits under it
    ---------------------------------------------------------------------------
-   The car photo, the auction card, the route card and the translated-sheets
-   badge used to be layered on top of each other in a fixed height box. On a
-   phone that buried a third of the car and collided with the globe. Below
-   1000px the same markup flows as a grid instead: the photo first and
-   unobstructed, then the two cards side by side, then the badge and the globe.
-   Every child keeps its order via `order`, so no markup change was needed.
+   2026-10-07 rebuild. The auction card, the shipping-lane card and the
+   "auction sheets translated" badge used to be absolutely positioned ON TOP of
+   the vehicle photograph. Below 1000px they covered roughly a third of the car;
+   at every width they read as stickers laid over somebody else's picture, and
+   the six gold `.spark` twinkles on top of an uncovered photograph read as
+   sensor noise. All of it is gone.
 
-   Both cards share one skeleton at every width — kicker, title, meta, then a
-   footer row holding the rotation dots on the left and the "demo" tag on the
-   right — so their internal lines line up when they sit side by side. */
+   2026-11-09 round 3 (owner): the facts row left the stage altogether.
+   `.hero-visual` is the photograph alone, and `.hero-facts` now docks in
+   `.hero-copy`, directly under the `.hero-search` console — two compact
+   chips (`.route-strip` shipping lane, `.auction-chip` next auction +
+   countdown), side by side above 1000px, stacked below it. Still in normal
+   flow, so nothing can ever overlap the photo or the console.
 
-/* --- card skeleton, all widths --- */
-.hero-visual .rotating-card-copy {
+   OWNERSHIP. This section owns the geometry and the shared card skeleton
+   (kicker, title, meta, lane row, ETA pill, rotation dots, "demo" tag).
+   src/landing-v2.css owns the MOTION (the lane line drawing in, the ship
+   sailing on it, the live dot, the card swap) and its reduced-motion stops.
+   src/styles.css owns the box itself. Nothing else may restyle the hero. */
+
+/* --- facts row: shared chip skeleton, all widths ---
+   2026-11-10 round 5 (owner: "they look very thick and their length is also
+   very wide… optimize them"). The chips are no longer four stacked lines —
+   each is ONE slim row, the same 44px height as the CTA buttons they sit
+   next to, so the whole stage foot reads as a single bar. Reading order per
+   chip: kicker → headline → (lane bar) → status → ETA / countdown. The
+   rotation dots are gone; the kicker's own "1/5" counter already says where
+   the rotation is. landing-v2.css still owns the motion; styles.css owns
+   the box. */
+.hero-facts .rotating-card-copy {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  width: 100%;
+}
+
+.hero-facts .facts-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
-.hero-visual .card-kicker {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
+.hero-facts .facts-head > svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  color: var(--gold-ink);
+}
+
+.hero-facts .card-kicker {
+  font: 700 8px/1.35 Manrope, sans-serif;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.hero-visual .card-title {
-  font: 700 15px/1.2 Manrope, sans-serif;
+.hero-facts .card-title {
+  flex: 0 1 auto;
+  font: 700 12px/1.25 Manrope, sans-serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.hero-visual .card-meta {
+/* 2026-11-17 (owner: "the full auction site name must be visible"): the venue
+   name is the one line that may NEVER give way — at 1440 the flex row was
+   crushing it to a 0.4px sliver while the kicker and countdown (both nowrap)
+   kept their width. The grid column already refuses to shrink below content
+   (styles.css), so this flex:none is safe at every width the chip renders. */
+.hero-facts .auction-chip .card-title {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.hero-facts .route-lane {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 9.5px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.hero-visual .card-meta svg {
+.hero-facts .lane-arrow {
   flex: 0 0 auto;
   width: 12px;
   height: 12px;
   color: var(--gold);
 }
 
-/* The countdown is the live-feeling line of the auction card; the route's
-   status line stays muted so the lane bar carries the colour. */
-.hero-visual .auction-card .card-meta {
-  color: var(--gold);
+/* The lane bar is the chip's flexible spring: it absorbs whatever width the
+   lane text leaves over, and collapses first when space runs out.
+   2026-11-17 (owner: "decrease the length of the shipping lane"): the spring
+   is capped — on wide screens the lane line stops stretching into a runway
+   and the whole strip reads tighter; the freed room goes to the auction chip
+   via the facts grid (styles.css). */
+.hero-facts .progress {
+  flex: 1 1 54px;
+  min-width: 36px;
+  max-width: 300px;
+  align-self: center;
 }
 
-.hero-visual .card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: auto;
-  padding-top: 8px;
-}
-
-.hero-visual .card-rotation-dots {
-  margin: 0;
-}
-
-.hero-visual .card-demo {
+.hero-facts .card-meta {
   flex: 0 0 auto;
-  font: 700 7px/1 Manrope, sans-serif;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 3px 6px;
-}
-
-.hero-visual .route-card .route-lane {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font: 700 12.5px/1.2 Manrope, sans-serif;
+  gap: 5px;
+  min-width: 0;
+  font-size: 9px;
+  color: var(--muted);
   white-space: nowrap;
+}
+
+.hero-facts .card-meta svg {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+  color: var(--gold-ink);
+}
+
+/* The vessel status is the first line to give way on narrow chips. */
+.hero-facts .route-status {
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* The countdown is a live number: fixed-width digits stop it jittering as the
-   seconds change, and a small pulsing dot marks it as the card's live line. */
-.hero-visual .card-live {
+/* The countdown is the live-feeling line of the auction chip. */
+.hero-facts .auction-chip .card-meta {
+  color: var(--gold-ink);
+  margin-left: auto;
+}
+
+/* A live number needs fixed-width digits, or the chip jitters every second. */
+.hero-facts .card-countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.hero-facts .card-live {
   display: inline-block;
+  flex: 0 0 auto;
   width: 6px;
   height: 6px;
-  margin-right: 6px;
   border-radius: 50%;
   background: var(--gold);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent);
@@ -907,103 +997,68 @@ footer [id] {
   50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 8%, transparent); }
 }
 
-.hero-visual .card-countdown {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-/* Lane row: origin → destination on the left, transit time as a chip on the
-   right, so the card answers "where" and "how long" on one line. */
-.hero-visual .route-lane-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.hero-visual .route-lane-row .card-title {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.hero-visual .lane-eta {
+/* The ETA pill answers "how long" at the chip's right edge. It is a planning
+   window, never a promise, and the destinations page says so in full. */
+.hero-facts .lane-eta {
   flex: 0 0 auto;
-  font: 700 9px/1 Manrope, sans-serif;
-  letter-spacing: .6px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 700 8.5px/1 Manrope, sans-serif;
+  letter-spacing: .4px;
+  font-style: normal;
   color: var(--green-text);
   background: color-mix(in srgb, var(--green) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--green) 18%, transparent);
   border-radius: 999px;
-  padding: 4px 7px;
+  padding: 3px 7px;
   white-space: nowrap;
 }
 
-.hero-visual .route-status svg {
-  color: var(--gold);
+.hero-facts .lane-eta svg {
+  width: 10px;
+  height: 10px;
 }
 
-.hero-visual .route-card .lane-arrow {
-  flex: 0 0 auto;
-  width: 13px;
-  height: 13px;
-  color: var(--gold);
-}
-
+/* ---------------------------------------------------------------------------
+   9.2 THE SAME HERO BELOW 1000px — one column, photo first, facts stacked
+   --------------------------------------------------------------------------- */
 @media (max-width: 1000px) {
-  /* Free the box to grow: with the old 940px cap the last grid rows
-     (badge + globe) spilled over the marquee below the hero. */
+  /* Free the box to grow: with the old 940px cap the last grid rows spilled
+     over the marquee below the hero. */
   .hero {
     max-height: none;
   }
 
   .hero .hero-visual {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    width: min(680px, 100%);
+    grid-template-rows: auto auto auto auto;
+    gap: 12px;
+    /* 2026-11-16 (owner): bigger slides on tablets too */
+    width: min(760px, 100%);
+    min-height: 0;
     height: auto;
     margin: 26px auto 0;
-    perspective: none;
   }
 
-  .hero .hero-visual:before {
-    display: none;
-  }
-
-  .hero .hero-visual .spark {
-    display: none;
-  }
+  .hero .hero-visual .car-main { grid-row: 2; }
+  .hero .hero-visual .hero-carousel-controls { grid-row: 2; }
+  .hero .hero-visual .stage-foot { grid-row: 3; }
 
   .hero .hero-visual .car-main {
-    position: relative;
-    inset: auto;
-    z-index: 4;
-    grid-column: 1 / -1;
-    order: 1;
-    height: auto;
     aspect-ratio: 16 / 10;
+    height: auto;
     max-height: min(58vh, 460px);
     border-width: 5px;
     border-radius: 20px;
     transform: none;
-  }
-
-  .hero .hero-visual .hero-stack {
-    border-radius: 15px;
-  }
-
-  .hero .hero-visual .car-float-title {
-    left: 14px;
-    bottom: 40px;
-    max-width: 74%;
-  }
-
-  .hero .hero-visual .car-float-title h3 {
-    font: 700 15px/1.15 Manrope;
-    margin: 8px 0 2px;
-  }
-
-  .hero .hero-visual .car-float-title p {
-    font-size: 9.5px;
+    /* 2026-11-17: default `stretch` alignment makes the grid IGNORE the
+       aspect-ratio height when it sizes this auto row (the row collapsed to
+       ~14px and the foot band painted over the car). `start` lets the
+       photo's own height size the row, so the bands below it can never
+       overlap the slides again — measured at 390/360/768. */
+    align-self: start;
+    width: 100%;
   }
 
   .hero .hero-visual .car-dots {
@@ -1016,131 +1071,19 @@ footer [id] {
     bottom: 12px;
   }
 
-  /* The two cards keep their live rotation but stop floating and stop
-     scaling: as grid cells they must line up, not bob. */
-  .hero .hero-visual .floating-card {
-    position: relative;
-    inset: auto;
-    order: 2;
-    animation: none;
-    transform: none;
-    scale: 1;
-    translate: none;
-    height: 100%;
-    min-height: 132px;
-  }
-
-  .hero .hero-visual .floating-card .rotating-card-copy {
-    width: 100%;
-    height: 100%;
-  }
-
-  .hero .hero-visual .floating-card.auction-card {
-    padding: 13px;
-    border-radius: 14px;
-    gap: 11px;
-    align-items: flex-start;
-  }
-
-  .hero .hero-visual .auction-card > svg {
-    flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
-    padding: 8px;
-    border-radius: 10px;
-  }
-
-  .hero .hero-visual .card-kicker {
-    font-size: 8px;
-  }
-
-  .hero .hero-visual .card-title {
-    font-size: 15.5px;
-  }
-
-  .hero .hero-visual .card-meta {
-    font-size: 10px;
-  }
-
-  .hero .hero-visual .floating-card.route-card {
-    order: 3;
-    width: auto;
-    padding: 13px;
-    border-radius: 14px;
-  }
-
-  .hero .hero-visual .route-card .route-head {
-    margin-bottom: 7px;
-  }
-
-  .hero .hero-visual .route-card .progress {
-    margin: 12px 0 4px;
-  }
-
-  .hero .hero-visual .floating-badge {
-    position: relative;
-    inset: auto;
-    order: 4;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 11px;
-    width: auto;
-    height: auto;
-    padding: 12px 14px;
-    border-radius: 14px;
-    text-align: left;
-    animation: none;
-    transform: none;
-  }
-
-  .hero .hero-visual .floating-badge svg {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    margin: 0;
-  }
-
-  .hero .hero-visual .floating-badge span {
-    display: grid;
-    gap: 2px;
-    font-size: 9.5px;
-  }
-
-  .hero .hero-visual .floating-badge b {
-    font-size: 12px;
-    letter-spacing: .2px;
-  }
-
-  .hero .hero-visual .floating-badge small {
-    font-size: 9.5px;
-    font-weight: 500;
-    opacity: .9;
-    line-height: 1.35;
-  }
-
-  /* The header globe's bigger sibling, parked beside the badge instead of on
-     top of the car. */
-  .hero .hero-visual > .hero-orb {
-    position: relative;
-    inset: auto;
-    order: 5;
-    display: grid;
-    place-items: center;
-    filter: none;
-  }
-
-  .hero .hero-visual > .hero-orb .iglobe {
-    width: 74px;
+  /* The facts row becomes two full-width cards: side by side on a phone each
+     was ~170px wide, which truncated the lane and squeezed the countdown. */
+  .hero .hero-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
   }
 }
 
-/* Phones: one card per row — side by side each was only ~170px wide, which
-   squeezed the auction icon flat and left the route bar nowhere to breathe. */
+/* Phones: tighter padding, slightly larger type — the facts row is now read at
+   arm's length, not glanced at over a photograph. */
 @media (max-width: 560px) {
   .hero .hero-visual {
-    gap: 9px;
+    gap: 10px;
     margin-top: 20px;
   }
 
@@ -1150,164 +1093,87 @@ footer [id] {
     border-radius: 18px;
   }
 
-  .hero .hero-visual .car-float-title h3 {
-    font-size: 14px;
+  .hero .hero-facts {
+    gap: 9px;
   }
 
-  .hero .hero-visual .floating-card {
-    grid-column: 1 / -1;
-    min-height: 0;
-  }
-
-  .hero .hero-visual .floating-card.auction-card {
-    align-items: center;
-    gap: 12px;
-    padding: 13px 14px;
-  }
-
-  .hero .hero-visual .auction-card > svg {
-    width: 38px;
-    height: 38px;
-    padding: 9px;
-    border-radius: 11px;
-  }
-
-  .hero .hero-visual .floating-card.route-card {
-    padding: 13px 14px;
-  }
-
-  .hero .hero-visual .card-kicker {
-    font-size: 8.5px;
-    letter-spacing: 1.3px;
-  }
-
-  .hero .hero-visual .card-title {
-    font-size: 16px;
-  }
-
-  .hero .hero-visual .route-card .route-lane {
-    font-size: 14.5px;
-  }
-
-  .hero .hero-visual .card-meta {
-    font-size: 10px;
-  }
-
-  .hero .hero-visual .route-card .progress {
-    margin: 12px 0 4px;
-  }
-
-  .hero .hero-visual .floating-badge {
-    grid-column: 1 / -1;
-  }
-
-  .hero .hero-visual .floating-badge b {
+  /* Slightly larger type at arm's length, same single-line slim chips. */
+  .hero-facts .card-title {
     font-size: 12.5px;
   }
 
-  .hero .hero-visual .floating-badge small {
-    font-size: 10px;
+  .hero-facts .card-meta {
+    font-size: 9.5px;
   }
 
-  .hero .hero-visual > .hero-orb {
-    grid-column: 1 / -1;
-    margin-top: 2px;
+  /* 2026-11-17: on a ~360px chip the vessel-status prose was what pushed the
+     lane into an ellipsis. The ports + line + ETA are the story; the rotating
+     status line is the first thing to go at arm's length. */
+  .hero-facts .route-status {
+    display: none;
   }
 
-  .hero .hero-visual > .hero-orb .iglobe {
-    width: 68px;
+  /* …and the lane chip itself breathes as two short rows on phones —
+     "Shipping lane · n/12 · ETA" above, "Yokohama → Karachi ———" below —
+     instead of ellipsizing the one thing the chip exists to say. */
+  .hero-facts .route-strip .rotating-card-copy {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 3px 0;
+  }
+
+  .hero-facts .route-strip .facts-head { order: 1; }
+  .hero-facts .route-strip .lane-eta { order: 2; margin-left: auto; }
+  .hero-facts .route-strip .route-lane { order: 3; }
+  .hero-facts .route-strip .progress { order: 4; }
+
+  /* On the narrowest chips the vessel-status prose goes: lane, bar and ETA
+     carry the story alone, which keeps the chip to one honest line. */
+  .hero-facts .route-status {
+    display: none;
   }
 }
 
-/* --- the same cards above 1000px, where they float over the collage --- */
+/* --- above 1000px: the two chips share one row under the search console --- */
 @media (min-width: 1001px) {
-  /* Every sample card lives inside its own containing block (`.hero-visual`)
-     and keeps a stable width, padding and minimum height, so it cannot drift
-     over the hero copy, the CTA row, the ticker or the statistic. */
-  .hero .hero-visual .floating-card {
-    padding: 14px 16px;
-    border-radius: 16px;
+  .hero .hero-facts {
+    gap: 10px;
   }
 
-  .hero .hero-visual .floating-card.auction-card {
-    left: clamp(0px, 1.6%, 22px);
-    right: auto;
-    top: 4%;
-    width: 200px;
-    max-width: calc(100% - 12px);
-    min-height: 92px;
-    align-items: flex-start;
-    gap: 12px;
+  /* The auction chip is the narrow one; the lane strip takes the rest so a
+     long port pair ("Yokohama → Dar es Salaam") has room to run.
+     2026-11-17: the chip used to carry a hard width (clamp 200–250px) while
+     its one-line content — kicker + venue + countdown — needs ~290px, so the
+     countdown spilled OUT of the chip onto the stage at every desktop width.
+     The grid column already sizes to max-content (styles.css); the chip now
+     simply takes that track, and the venue name + countdown always fit. */
+  .hero-facts .auction-chip {
+    width: auto;
   }
 
-  .hero .hero-visual .floating-card.route-card {
-    right: clamp(0px, 1.6%, 22px);
-    left: auto;
-    bottom: 5%;
-    top: auto;
-    width: 216px;
-    max-width: calc(100% - 12px);
-    min-height: 124px;
+  /* With the auction chip at its honest width the lane strip owns less room
+     on narrow desktops — the rotating vessel-status prose is the padding
+     that goes first (same call as on phones, §9), keeping the ports, the
+     line and the ETA on one clean row. Even at 1440 the status only half-fit
+     ("Vessel departe…"), so it waits for a genuinely wide screen. */
+  @media (max-width: 1549px) {
+    .hero-facts .route-status {
+      display: none;
+    }
   }
 
-  /* The badge is a trust card now, not a 118px disc: give it the right rail
-     between the auction card (top) and the route card (bottom). */
-  .hero .hero-visual .floating-badge {
-    right: clamp(0px, 1.6%, 22px);
-    left: auto;
-    top: 119px;
-    bottom: auto;
-    width: 208px;
-    max-width: calc(100% - 12px);
-    min-height: 84px;
-    height: auto;
-    padding: 12px 14px;
-    border-radius: 16px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 11px;
-    text-align: left;
-  }
+  /* Between the stacked-foot phones/tablets (≤1100) and the roomy desktops,
+     one shared row leaves the lane chip ~216px — not even enough for the
+     ports. The two chips stack as slim rows instead; each gets the full
+     track and nothing ellipsises. */
+  @media (max-width: 1260px) {
+    .hero-facts {
+      grid-template-columns: minmax(0, 1fr);
+    }
 
-  .hero .hero-visual .floating-badge svg {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    margin: 0;
-  }
-
-  .hero .hero-visual .floating-badge span {
-    display: grid;
-    gap: 2px;
-    font-size: 9px;
-  }
-
-  .hero .hero-visual .floating-badge b {
-    font-size: 12px;
-  }
-
-  .hero .hero-visual .floating-badge small {
-    font-size: 9.5px;
-    font-weight: 500;
-    opacity: .92;
-    line-height: 1.35;
-  }
-
-  .hero .hero-visual .auction-card .rotating-card-copy {
-    flex: 1 1 auto;
-    min-width: 118px;
-  }
-
-  .hero .hero-visual .route-card .rotating-card-copy {
-    flex: 1 1 auto;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .hero .hero-visual .card-foot {
-    padding-top: 9px;
+    .hero-facts .auction-chip {
+      width: auto;
+    }
   }
 }
 
@@ -1320,10 +1186,6 @@ footer [id] {
     transform: none;
   }
 
-  .hero-visual .card-live {
-    animation: none;
-  }
-
   /* The mobile currency menu slides up from the switch; the machinery cards
      and hero cards do not animate themselves, only their hover lift does. */
   .ar7cur-menu {
@@ -1332,6 +1194,13 @@ footer [id] {
 
   .mch-card:hover,
   .hero .hero-cta .ghost-btn:hover {
+    transform: none;
+  }
+
+  .mch-photo img,
+  .mch-card:hover .mch-photo > a img,
+  .mch-card:hover .mch-photo > button img {
+    transition: none;
     transform: none;
   }
 }
@@ -1375,8 +1244,13 @@ footer [id] {
   width: 17px;
 }
 
-.hero .hero-quick {
-  margin-top: 16px;
+/* 2026-10-07: the `.hero-vignettes` pair used to sit between the "see how
+   bidding works" line and the founder statistic, giving the column its last
+   beat. With it gone the statistic collided with the quick link, so the stat
+   carries that beat instead. The <=650px refinement stays in expanded.css,
+   which already owned it. */
+.hero .hero-copy .founder-stat {
+  margin-top: 20px;
 }
 
 @media (max-width: 650px) {
@@ -1385,10 +1259,6 @@ footer [id] {
     height: 50px;
     padding: 0 16px;
     font-size: 13px;
-  }
-
-  .hero .hero-quick {
-    margin-top: 13px;
   }
 }
 
@@ -1426,6 +1296,12 @@ footer [id] {
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform .35s ease;
+}
+
+.mch-card:hover .mch-photo > a img,
+.mch-card:hover .mch-photo > button img {
+  transform: scale(1.04);
 }
 
 .mch-type {
@@ -1613,7 +1489,6 @@ footer [id] {
   display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;
   background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green-text);
 }
-html[data-theme=dark] .mch-offer-flag{color:#14100a}
 
 .mch-teaser .mch-teaser-head {
   display: flex;
@@ -1631,7 +1506,9 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
 
 .mch-teaser .mch-teaser-head h2 em {
   font-style: normal;
-  color: var(--gold);
+  /* 2026-11-16 Lighthouse: --gold on the light page bg measured 2.2:1 —
+     the ink gold is the accent every other light-surface heading uses. */
+  color: var(--gold-ink);
 }
 
 .mch-teaser .mch-teaser-head > p {
@@ -1718,57 +1595,29 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
   }
 }
 
-/* Origin links live with the hero copy, never as floating photo annotations. */
-.hero .hero-copy .hero-vignettes {
-  position: relative;
-  inset: auto;
-  z-index: 3;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  width: 100%;
-  max-width: 460px;
-  margin: 14px 0 0;
-}
-.hero .hero-copy .hero-vignette {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  min-height: 50px;
-  padding: 8px 13px 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: color-mix(in srgb,var(--card) 94%,transparent);
-  color: var(--ink);
-  box-shadow: 0 7px 20px rgba(0,0,0,.07);
-  font: 700 11px/1.2 Manrope,sans-serif;
-  text-decoration: none;
-  transition: border-color .2s,box-shadow .2s,transform .2s;
-}
-.hero .hero-copy .hero-vignette:hover {
-  border-color: var(--gold);
-  box-shadow: 0 10px 24px rgba(0,0,0,.1);
-  text-decoration: none;
-}
-.hero .hero-copy .hero-vignette:focus-visible,
+/* 2026-10-07: the `.hero-vignettes` pair is gone. Those two chips repeated the
+   hero's own two CTAs as floating annotations over the photograph; the CTA row
+   is now two real anchors (`/inventory`, `/machinery`) and the machinery teaser
+   below carries the China desk, so the links survive without a second copy of
+   themselves on top of the car. */
+.hero .hero-cta a:focus-visible,
 .hero-carousel-controls button:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 3px;
 }
-.hero .hero-copy .hero-vignette svg {width:19px;height:19px;flex:none;color:var(--gold)}
-.hero .hero-copy .hero-vignette span {display:block;line-height:1.2}
-.hero .hero-copy .hero-vignette small {display:block;margin-top:3px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.25px}
+/* The prev/next arrows share the photograph's grid row (row 2 since the
+   2026-11-10 hero v3: row 1 is the slim search console, row 3 the CTA+chips
+   band), so they are centred on the PHOTO by construction. They used to be
+   `position:absolute; top:50%` on `.hero-visual` — grid placement removes the
+   per-breakpoint `top` guesswork entirely. */
 .hero-carousel-controls {
-  position: absolute;
+  grid-row: 2;
+  grid-column: 1 / -1;
   z-index: 8;
-  top: 50%;
-  left: 5px;
-  right: 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transform: translateY(-50%);
+  padding-inline: 5px;
   pointer-events: none;
 }
 .hero-carousel-controls button {
@@ -1789,27 +1638,749 @@ html[data-theme=dark] .mch-offer-flag{color:#14100a}
 }
 .hero-carousel-controls button:hover {border-color:var(--gold);background:var(--card);transform:scale(1.04)}
 .hero-carousel-controls button svg {width:17px;height:17px}
-@media (max-width:1000px) {
-  /* .car-main sits 24px below the top of the stacked visual; 28–72px keeps the
-     arrows on the photograph at every width, clear of the rows underneath. */
-  .hero-carousel-controls {top:clamp(28px, 6vw, 72px)}
-}
 @media (max-width:650px) {
-  .hero .hero-copy .hero-vignettes {width:100%;gap:8px;margin-top:12px}
-  .hero .hero-copy .hero-vignette {min-height:50px;padding-inline:10px}
-  .hero-carousel-controls {top:clamp(30px, 9vw, 56px);left:6px;right:6px}
+  /* On a phone the photo is only ~232px tall, so a vertically centred arrow
+     lands on the stock tag of the caption block. Park the pair under the dot
+     rail instead — clear of the dots above and the caption below — and keep
+     them grid-placed, so they still track the photo, not a magic `top`. */
+  .hero-carousel-controls {align-self:start;margin-top:36px;padding-inline:6px}
   .hero-carousel-controls button {width:40px;height:40px}
 }
+/* ONE owner for hero motion preferences. src/landing-v2.css defines the facts
+   row's animations; this block is what stops them.
+
+   Measured with `prefers-reduced-motion: reduce` (see pr-visuals/2026-10-07):
+   the lane line, the ship on it, the auction chip's live dot, the card swap,
+   the photograph cross-fade, the scroll cue and the ticker are all `none`.
+   The lane line still shows the route's REAL progress — that is data, not
+   decoration — it just arrives at its width without animating. */
 @media (prefers-reduced-motion:reduce) {
-  .hero .hero-copy .hero-vignette,
+  .hero .hero-cta a,
   .hero-carousel-controls button {transition:none!important}
-  .hero .hero-copy .hero-vignette:hover,
+  .hero .hero-cta a:hover,
   .hero-carousel-controls button:hover {transform:none!important}
-  .hero .hero-visual {--mx:0!important;--my:0!important}
   .hero .hero-visual .car-main {transform:none!important;transition:none!important}
-  .hero .hero-visual .floating-card,
-  .hero .hero-visual .floating-badge,
   .hero .scroll-cue svg,
   .hero .hero-visual .hero-stack img,
+  .hero-facts .rotating-card-copy,
+  .hero-facts .card-live,
+  .route-strip .progress span,
+  .route-strip .route-ship,
   .ticker>div {animation:none!important;transition:none!important}
+  .route-strip .progress span {width:var(--route-progress)!important;transform:none!important;translate:none!important;rotate:none!important}
+  .route-strip .route-ship {transform:translateX(50%)!important;translate:none!important;rotate:none!important}
 }
+
+/* ---------------------------------------------------------------------------
+   Cookie / storage notice (main.jsx CookieNotice). Appears once per device,
+   bottom-left so it never covers the WhatsApp / chat buttons bottom-right.
+   --------------------------------------------------------------------------- */
+.cookie-note {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 180;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: min(380px, calc(100vw - 36px));
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px #0007;
+  padding: 15px 16px;
+  animation: cookiePop .3s cubic-bezier(.2,.8,.3,1) both;
+}
+@keyframes cookiePop { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.cookie-note > svg { width: 17px; height: 17px; color: var(--gold); flex: none; margin-top: 2px; }
+.cookie-note p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.cookie-note p b { color: var(--ink); }
+.cookie-note p a { color: var(--green-text); font-weight: 700; }
+.cookie-note button.primary.compact { flex: none; height: 32px; padding: 0 13px; font-size: 11.5px; align-self: center; }
+@media (max-width: 480px) {
+  .cookie-note { flex-wrap: wrap; }
+  .cookie-note button.primary.compact { margin-left: 28px; }
+}
+
+/* 2026-11-08 (owner direction): the home page had slack width around the two
+   stock sections — the cars slideshow and the machinery teaser now breathe
+   wider than the standard 1240px shell and carry taller photography, so the
+   vehicles read bigger on desktop without changing the 3-across rhythm. */
+.inventory.shell,
+.mch-teaser.shell {
+  width: min(1380px, calc(100% - 48px));
+}
+@media (min-width: 1001px) {
+  .inventory .car-image { height: 285px; }
+  .mch-teaser .mch-photo { height: 265px; }
+}
+@media (max-width: 650px) {
+  .inventory.shell,
+  .mch-teaser.shell { width: calc(100% - 32px); }
+}
+
+/* ===== 2026-11-08: recently-sold proof strip =====================
+   Appears on the home page only when the CRM has listings marked
+   "Sold". Dark cards, gold SOLD flag, photo desaturated slightly so
+   live stock above it keeps the visual priority. */
+.sold-strip .section-head p { max-width: 460px; }
+.sold-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 18px;
+  margin: 26px 0 22px;
+}
+.sold-card {
+  position: relative;
+  background: var(--card, #101014);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 14px;
+  overflow: hidden;
+  padding-bottom: 14px;
+}
+.sold-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+  filter: saturate(.75);
+  opacity: .92;
+}
+.sold-card .sold-flag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: var(--gold, #c9a35c);
+  color: #141414;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.sold-card b {
+  display: block;
+  padding: 12px 14px 2px;
+  font-size: 15px;
+}
+.sold-card small {
+  display: block;
+  padding: 0 14px;
+  color: rgba(255, 255, 255, .55);
+  font-size: 12px;
+}
+@media (max-width: 650px) {
+  .sold-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .sold-card img { height: 110px; }
+  .sold-card b { font-size: 13px; }
+}
+
+/* ===========================================================================
+   2026-11-08: burger menu refresh for phones AND tablets (owner feedback:
+   "the header menu on mobile doesn't look good, same for tablet").
+
+   What changes — all layered on top of the tiers above, none of the pinned
+   rules rewritten:
+   1. Below 900px the bar goes FULLY clean: brand + action icons + burger.
+      (Before, tablets kept a cramped row of 11px quick-links in the bar.)
+   2. The open panel reads as a proper menu sheet: dimmed, blurred backdrop
+      behind it, slide-down entrance, roomier 48px rows, gold section
+      captions with breathing room, and hairline separators between groups.
+   3. On tablets (640–899px) the panel becomes a right-anchored drawer of
+      420px — a phone-width full sheet looks lost on an 800px screen.
+   =========================================================================== */
+@keyframes ar7MenuIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 899px) {
+  /* 1 — clean bar: every in-bar link lives in the panel now */
+  .nav-wrap .navlinks:not(.open) {
+    display: none;
+  }
+
+  /* 2 — the sheet */
+  .nav-wrap .navlinks.open {
+    padding: 14px 14px 16px;
+    border-radius: 18px;
+    box-shadow: 0 42px 90px rgba(1, 20, 12, .38);
+    animation: ar7MenuIn .22s ease;
+  }
+
+  /* Dimmed, blurred page behind the sheet. The pseudo-element lives inside
+     the panel's stacking context (z-index -1), so it sits under the sheet
+     but over the page. */
+  /* Longhand edges rather than `inset:0` on purpose: the overlay-portal
+     guard treats `fixed + inset:0` classes as page overlays that must be
+     portalled. This backdrop lives in the fixed header, outside every
+     content-visibility page container, so that rule does not apply. */
+  .nav-wrap .navlinks.open::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    background: rgba(2, 18, 11, .45);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+
+  /* Roomier rows: 48px targets, calmer hierarchy */
+  .nav-wrap .navlinks.open > a,
+  .nav-wrap .navlinks.open .nav-drop-panel > a {
+    min-height: 48px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 14.5px;
+  }
+
+  .nav-wrap .navlinks.open .nav-drop-panel:before {
+    padding: 16px 14px 6px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gold);
+  }
+
+  /* Hairline separators between link groups */
+  .nav-wrap .navlinks.open .nav-drop {
+    border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    margin-top: 6px;
+  }
+
+  .nav-wrap .navlinks.open .nav-drop:first-child {
+    border-top: 0;
+    margin-top: 0;
+  }
+
+  .nav-wrap .navlinks.open .auction-link {
+    border-left: 0;
+  }
+
+  /* Bottom actions: full-width 48px account button beside the theme switch */
+  .nav-wrap .navlinks.open .nav-panel-actions {
+    margin-top: 10px;
+    padding-top: 14px;
+  }
+
+  .nav-wrap .navlinks.open .nav-panel-actions > *,
+  .nav-wrap .navlinks.open .nav-panel-actions .primary.compact {
+    height: 48px;
+    font-size: 13px;
+  }
+}
+
+/* 3 — tablet drawer: right-anchored, 420px, full-height feel */
+@media (min-width: 640px) and (max-width: 899px) {
+  .nav-wrap .navlinks.open {
+    left: auto;
+    right: 0;
+    width: min(420px, calc(100vw - 32px));
+    max-height: calc(100dvh - 128px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-wrap .navlinks.open {
+    animation: none;
+  }
+
+  .nav-wrap .navlinks.open::before {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ===========================================================================
+   2026-11-08 (2): PHONE BAR OVERFLOW FIX (owner screenshot, ar7traders.com)
+   The 2026-11-07 gold search button and the language pill joined a ≤639px bar
+   that was already full: brand + orb + search + EN pill + USD pill + theme +
+   burger ≈ 450px on a 412px phone — the USD pill was clipped at the edge and
+   the THEME TOGGLE AND THE BURGER ITSELF sat off-screen. The bar now carries
+   exactly what a phone needs — brand · search · language · currency · burger —
+   and every dropped control keeps a labelled home: dark mode lives in the
+   burger panel ("Dark mode" row), the 360° orb's world page is in the menu.
+   =========================================================================== */
+@media (max-width: 639px) {
+  .nav-wrap .brand-group .nav-orb {
+    display: none;
+  }
+
+  /* The only .icon-btn still visible at this width is the theme toggle
+     (studio drops at 1023px, the account icon at 699px). */
+  .nav-wrap .nav-actions .icon-btn {
+    display: none;
+  }
+
+  .nav-wrap .nav-actions .lang-btn {
+    height: 34px;
+    padding: 0 8px 0 4px;
+    gap: 4px;
+  }
+
+  .nav-wrap .nav-actions .lang-btn .lang-chev {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  /* Globe icon only — the open panel still shows every language by name. */
+  .nav-wrap .nav-actions .lang-btn {
+    padding: 0 5px 0 4px;
+  }
+
+  .nav-wrap .nav-actions .lang-btn .lang-code {
+    display: none;
+  }
+
+  .nav-wrap .nav-actions .ar7cur-chev {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .nav-wrap .nav-actions .nav-search {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nav-wrap .nav-actions .lang-btn {
+    height: 32px;
+  }
+}
+
+/* ===========================================================================
+   2026-11-08 (3): LANDING SHOWROOM STAGE (owner request, screenshots)
+   The home hero's flat cross-fade card is replaced by the inventory page's
+   3D showroom stage — centre car large, neighbours peeking from the dark
+   green showroom behind it. Differences from the inventory stage, on
+   purpose:
+     • the stage lives INSIDE the hero card frame (overflow hidden), so the
+       side cars can never overlap the hero copy or anything else;
+     • it is BIGGER than the old photo card at every width (owner request);
+     • photographs render whole — object-fit:contain over a blurred copy of
+       themselves — never cropped by the frame;
+     • the prev/next pair is restyled to match: dark glass, gold hairline,
+       glow on hover, press-down on :active.
+   The pinned `.hero-visual` grid in styles.css and the pinned
+   `.hero-carousel-controls` block above are untouched; everything here is a
+   later override layer.
+   =========================================================================== */
+/* 2026-11-17 (owner: "mobile is not optimized at all"): this height used to
+   apply at EVERY width — below 1000px it fought the stacked grid's
+   `height:auto` (this file loads last, so it won) and crushed the photo row
+   to ~14px, which painted the CTA/facts band straight over the car slides.
+   Desktop keeps the fixed stage; the stacked layout sizes itself. */
+@media (min-width: 1001px) {
+  .hero .hero-visual {
+    height: clamp(460px, min(71vh, 55vw), 680px);
+  }
+}
+
+/* 2026-11-08 (owner, round 2): the enclosed dark-green panel read as a "box".
+   The stage is now OPEN like the inventory hero — no backdrop, no frame, no
+   card shadow of its own; the side cars simply fade out at the edges through
+   a soft mask, so nothing is hard-cropped and nothing can overlap the hero
+   copy either. */
+.hero-stage {
+  display: block;
+  border-width: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  touch-action: pan-y;
+  cursor: grab;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
+.hero-stage:active {
+  cursor: grabbing;
+}
+
+.hero-stage .hero-slide {
+  position: absolute;
+  left: 50%;
+  /* Vertically centred in the zone above the 52px floor rail (dots+counter):
+     top/bottom pin the zone, auto block margins centre the card in it, and
+     the card's own height comes from its showroom-landscape aspect ratio. */
+  top: 0;
+  bottom: 52px;
+  margin-top: auto;
+  margin-bottom: auto;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  max-height: calc(100% - 56px);
+  /* 2026-11-16 (owner): the centre car grew from 680px to 800px — the side
+     cars peek in correspondingly wider and the edge mask swallows the rest. */
+  width: min(86%, 800px);
+  margin-left: max(-400px, -43%);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #06281a;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, .45);
+  color: #fff;
+  text-decoration: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  will-change: transform, opacity, filter;
+  transition: transform .7s cubic-bezier(.22, .8, .26, 1), opacity .7s, filter .7s;
+}
+
+/* 2026-11-08 (owner, round 2): many synced auction photos carry the selling
+   dealer's signage ABOVE the car. Car slides therefore crop with the window
+   biased BELOW centre (sign gone, car whole); machinery keeps the blur-fill
+   contain treatment from round 1, because machines are tall and cropping
+   them loses the machine itself. */
+.hero-stage .hero-slide img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 62%;
+  display: block;
+  transform: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.hero-stage .hero-slide.is-machine img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.hero-stage .hero-slide .hero-slide-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px) brightness(.72) saturate(1.08);
+  transform: scale(1.22);
+}
+
+.hero-stage .hero-slide-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 48px 18px 14px;
+  background: linear-gradient(0deg, rgba(2, 20, 11, .9), rgba(2, 20, 11, .42) 55%, transparent);
+  text-align: left;
+}
+
+.hero-stage .hero-slide-tag {
+  font: 700 8.5px/1 Manrope;
+  letter-spacing: 2px;
+  background: var(--gold);
+  color: #fff;
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+
+.hero-stage .hero-slide-cap b {
+  font: 700 clamp(15px, 1.5vw, 21px)/1.15 Manrope;
+}
+
+.hero-stage .hero-slide-cap small {
+  font-size: 11px;
+  color: #d9e6dd;
+  opacity: .88;
+}
+
+.hero-stage .hero-slide:not(.active) .hero-slide-cap {
+  opacity: .35;
+}
+
+/* Dot rail + counter move to the floor strip under the slides. With the open
+   (panel-less) stage the dots sit on the PAGE background now, so they take
+   their colour from the theme ink instead of assuming a dark panel. */
+.hero-stage .car-dots {
+  top: auto;
+  right: auto;
+  left: 50%;
+  bottom: 17px;
+  transform: translateX(-50%);
+  gap: 7px;
+  z-index: 12;
+}
+
+.hero-stage .car-dots i {
+  cursor: pointer;
+  background: color-mix(in srgb, var(--ink) 26%, transparent);
+}
+
+.hero-stage .car-dots i.active {
+  background: var(--gold);
+}
+
+.hero-stage .car-counter {
+  z-index: 12;
+  right: 32px; /* clear of the 28px edge fade mask */
+  bottom: 12px;
+}
+
+/* Premium prev/next, matching the inventory stage arrows. The pinned base
+   block above keeps its 42px definition; this layer restyles on top. */
+.hero .hero-carousel-controls {
+  padding-inline: 10px;
+}
+
+.hero .hero-carousel-controls button {
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(213, 176, 100, .5);
+  background: linear-gradient(160deg, rgba(6, 40, 26, .9), rgba(2, 20, 11, .86));
+  color: #f4ead2;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .14);
+}
+
+.hero .hero-carousel-controls button:hover {
+  background: linear-gradient(160deg, #0b4a2e, #06281a);
+  border-color: var(--gold);
+  color: #fff;
+  transform: scale(1.07);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .4), 0 0 0 4px rgba(213, 176, 100, .16);
+}
+
+.hero .hero-carousel-controls button:active {
+  transform: scale(.93);
+}
+
+.hero .hero-carousel-controls button svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* Stacked layout (≤1000px): the stage keeps the bigger presence the owner
+   asked for — wider box, taller ratio than the old 16/10 photo card. */
+@media (max-width: 1000px) {
+  .hero .hero-visual {
+    width: min(760px, 100%);
+  }
+
+  .hero .hero-visual .car-main.hero-stage {
+    aspect-ratio: 16 / 10.5;
+    height: auto;
+    max-height: min(68vh, 600px);
+    border-width: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero .hero-visual .car-main.hero-stage {
+    /* 2026-11-19 (owner: photo was "small and very much covered"): the
+       caption moves OFF the photograph onto its own band row below
+       (.stage-cap), the counter pill shrinks to "4/18", and the slide takes
+       96% of the stage — the photo finally reads as a clean picture. */
+    aspect-ratio: 16 / 11.8;
+    max-height: 460px;
+    border-radius: 20px;
+  }
+
+  .hero-stage .hero-slide {
+    width: 96%;
+    margin-left: -48%;
+    bottom: 12px;
+    aspect-ratio: 16 / 11.2;
+    max-height: calc(100% - 24px);
+    border-radius: 16px;
+  }
+
+  /* The in-photo caption leaves the phone photograph entirely — .stage-cap
+     (below) carries the tag/title/price on the band instead. */
+  .hero-stage .hero-slide-cap {
+    display: none;
+  }
+
+  /* 18 dashes in a 344px-wide strip read as noise at arm's length (owner
+     screenshot, 2026-11-18). The counter pill carries the position instead. */
+  .hero-stage .car-dots {
+    display: none;
+  }
+
+  .hero .hero-visual .car-counter {
+    display: flex; /* landing-v2.css hides the old flat-card counter ≤650 */
+    top: 20px;
+    right: 16px;
+    bottom: auto;
+    padding: 5px 9px;
+    font-size: 8.5px;
+    letter-spacing: .6px;
+  }
+
+  /* "4/18" only — the "· rotating stock" tail is desktop furniture. */
+  .hero .hero-visual .car-counter .car-counter-tail {
+    display: none;
+  }
+
+  .hero .hero-visual .stage-foot {
+    grid-row: 4;
+  }
+
+  .hero .hero-carousel-controls {
+    padding-inline: 5px;
+  }
+
+  .hero .hero-carousel-controls button {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* The caption row on the band, right under the slides (phones only): tag +
+   one-line title + meta. A steady min-height so rotation never jumps. */
+.hero .hero-visual .stage-cap {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .hero .hero-visual .stage-cap {
+    display: grid;
+    grid-row: 3;
+    gap: 3px;
+    justify-items: start;
+    min-height: 68px;
+    align-content: start;
+    padding: 2px 6px 0;
+    text-decoration: none;
+    color: #f4faf6;
+  }
+
+  .hero .hero-visual .stage-cap .hero-slide-tag {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--gold), var(--gold2));
+    color: #2a1c04;
+    font: 800 8.5px/1 Manrope, sans-serif;
+    letter-spacing: 1.6px;
+    padding: 5px 9px;
+    border-radius: 7px;
+  }
+
+  .hero .hero-visual .stage-cap b {
+    font: 700 16.5px/1.2 Manrope, sans-serif;
+    letter-spacing: -.3px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hero .hero-visual .stage-cap small {
+    font-size: 11px;
+    color: #c9ddd2;
+  }
+}
+
+/* The pinned ≤650px rule above parks the arrows near the TOP of the old flat
+   photo card (whose caption filled the bottom-left). On the stage the caption
+   lives below the photo now, so the pair sits at the true vertical centre of
+   the photo area (the floor rail is 12px). */
+@media (max-width: 650px) {
+  .hero .hero-carousel-controls {
+    align-self: center;
+    margin-top: -6px; /* half the 12px floor: centred on the CARS */
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage .hero-slide {
+    transition: none !important;
+  }
+
+  .hero .hero-carousel-controls button:active {
+    transform: none !important;
+  }
+}
+
+/* ===========================================================================
+   2026-11-08 (5): THIRD PUBLIC THEME — "BLUE & GOLD" (owner request)
+   Deep navy + champagne gold. The header's theme button cycles
+   light → dark → blue & gold (src/main.jsx). Everything that reads the
+   theme variables recolours itself; the handful of hard-coded emerald
+   surfaces that matter visually (mini page heroes, the two showroom stages,
+   the primary button's hover flash) get explicit navy overrides below.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   2026-11-11 (owner: "the blue theme is not working in day time"): Blue & Gold
+   now works on BOTH sides of the day/night switch. data-theme=blue stays the
+   navy NIGHT palette above; data-theme=blue-day is its DAYLIGHT twin — airy
+   blue-white surfaces, navy ink, the same champagne gold. The sun/moon button
+   flips blue ↔ blue-day without losing the palette, and the gem button turns
+   the palette on/off without losing day or night (src/site-header.jsx).
+   Every dark-surface component rule was also widened to match blue via
+   :is([data-theme=dark],[data-theme=blue]) — before this, those rules only
+   matched 'dark', which is exactly why blue looked half-broken.
+   --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   2026-11-08 (5b): synced auction photographs often carry the selling
+   dealer's signboard ABOVE the car. Stock-card crops bias the visible window
+   below centre — the car stays whole, the signage leaves the frame.
+   Machinery cards (.mch-photo) are untouched.
+   --------------------------------------------------------------------------- */
+.car-image img {
+  object-position: 50% 58%;
+}
+
+/* ===========================================================================
+   2026-11-09: MOBILE MENU CLOSE + SPLIT THEME CONTROLS (owner screenshots)
+   1. The open burger sheet's fixed backdrop (z:-1 inside the z:60 panel)
+      painted OVER the nav bar, so the bar's X looked missing. The bar's
+      action cluster now sits above the backdrop, and the sheet carries its
+      own labelled MENU/close row on ≤899px screens.
+   2. Day/night and Blue & Gold are two separate buttons now; the gem keeps a
+      lit state when the palette is on, and drops out of the bar below 1024px
+      (it stays as a labelled row in the burger panel).
+   =========================================================================== */
+.panel-head-row { display: none; }
+
+@media (max-width: 899px) {
+  .nav-wrap .nav .nav-actions {
+    position: relative;
+    z-index: 61; /* one above .navlinks.open (60) so the backdrop never covers the bar */
+  }
+
+  .nav-wrap .navlinks.open .panel-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 10px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    margin-bottom: 6px;
+  }
+
+  .nav-wrap .navlinks.open .panel-head-row b {
+    font: 700 10px Manrope, sans-serif;
+    letter-spacing: 2.4px;
+    color: var(--gold);
+  }
+
+  .nav-wrap .navlinks.open .panel-close {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--card);
+    color: var(--ink);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  .nav-wrap .navlinks.open .panel-close svg { width: 17px; }
+}
+
+/* 2026-11-19 (owner): the Blue & Gold palette button is retired — only the
+   day/night switch remains in the bar and the burger panel. */

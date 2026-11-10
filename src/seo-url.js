@@ -9,7 +9,10 @@ export const SITE_SITEMAP_PATHS = Object.freeze([
   '/api/sitemap-news.xml'
 ]);
 export const STAFF_NOINDEX_PATHS = Object.freeze([
-  '/crm', '/account', '/portal', '/studio', '/seo'
+  '/crm', '/account', '/portal', '/studio', '/seo',
+  // Private voice-call rooms: each URL is a one-off shared link, never
+  // content a search engine should index.
+  '/call'
 ]);
 
 const decodePath = value => {

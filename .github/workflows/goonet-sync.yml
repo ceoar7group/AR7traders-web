@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
       - name: Trigger Goo-net sync on Vercel
         env:
           SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
@@ -25,7 +26,10 @@ jobs:
           URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}"
           # -L follows the site's canonical-domain redirect (www.ar7traders.com → ar7traders.com;
           # the apex is canonical — all canonical/og:url/sitemap URLs use https://ar7traders.com)
-          CODE=$(curl -sSL -m 60 -o /tmp/goonet-sync.json -w "%{http_code}" "$URL")
+          # -m 100: the run itself is budgeted (~60s worst case now that the
+          # relay leg waits up to 20s) and the function's maxDuration is 90s —
+          # the old -m 60 could cut the wait on a run that was still finishing.
+          CODE=$(curl -sSL -m 100 -o /tmp/goonet-sync.json -w "%{http_code}" "$URL")
           echo "HTTP status: $CODE"
           echo "Response:"
           cat /tmp/goonet-sync.json
@@ -33,4 +37,26 @@ jobs:
           if [ "$CODE" != "200" ]; then
             echo "::error::Importer returned HTTP $CODE — see the Response above for the reason"
             exit 1
+          fi
+          node scripts/check-sync-report.mjs /tmp/goonet-sync.json
+      # New stock has just landed (or been refreshed) — run the saved-search
+      # alert sweep so buyers hear about matching cars the same night. Shares
+      # the importer's key contract; a sweep hiccup must never fail the
+      # import run itself, so this step only warns.
+      - name: Stock alert sweep
+        if: always()
+        env:
+          SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
+          SYNC_KEY: ${{ secrets.GOONET_SYNC_KEY }}
+        run: |
+          if [ -z "$SYNC_KEY" ]; then
+            echo "::warning::GOONET_SYNC_KEY secret is not set — skipping the stock alert sweep."
+            exit 0
+          fi
+          URL="${SYNC_URL:-https://ar7traders.com}/api/my-account?alerts=run&key=${SYNC_KEY}"
+          CODE=$(curl -sSL -m 60 -o /tmp/stock-alerts.json -w "%{http_code}" "$URL")
+          echo "HTTP status: $CODE"
+          cat /tmp/stock-alerts.json; echo
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::Stock alert sweep returned HTTP $CODE — buyers were not e-mailed this run."
           fi

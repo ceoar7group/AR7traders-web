@@ -1,0 +1,444 @@
+// Saved searches & stock alerts — the matcher, the sweep and the API routes.
+//
+//   node scripts/saved-searches.test.mjs
+//
+// Everything runs against injected fakes: no network, no Supabase.
+
+import {
+  normalizeCriteria, criteriaIsEmpty, matchesCriteria, describeCriteria,
+  defaultSearchName, criteriaHref, moneyNumber
+} from '../src/saved-search.js';
+import {
+  stockRef, evaluateSearch, nextSeenRefs, alertEmail, runAlertSweep,
+  MAX_SEEN_REFS
+} from '../api/_stock-alerts.js';
+import handler from '../api/my-account.js';
+
+let passed = 0, failed = 0;
+const ok = (cond, label) => {
+  if (cond) { passed++; console.log('  \u2713 ' + label); }
+  else { failed++; console.error('  \u2717 ' + label); }
+};
+
+/* ---------- fixtures ----------------------------------------------------- */
+
+const STOCK = [
+  { stock_no: 'LC250', make: 'Toyota', model: 'Land Cruiser 250 VX', year: 2024,
+    km: '15,000', fuel: 'Petrol', body: 'SUV', price: '$38,700', tr: 'AT', st: 'RHD', location: 'Aichi' },
+  { stock_no: 'PRIUS17', make: 'Toyota', model: 'Prius S', year: 2017,
+    km: '81,000', fuel: 'Hybrid', body: 'Sedan', price: '$10,600', tr: 'AT', st: 'RHD', location: 'Okayama' },
+  { stock_no: 'HURACAN', make: 'Lamborghini', model: 'Huracan', year: 2021,
+    km: '6,295', fuel: 'Petrol', body: 'Coupe', price: '$293,182', tr: 'AT', st: 'LHD', location: 'Aichi' }
+];
+
+const toyotaSuv = { make: 'Toyota', body: 'SUV', price_max: 60000, year_min: 2020 };
+
+/* ---------- criteria module ---------------------------------------------- */
+
+console.log('\n-- criteria: normalize / match / describe --');
+
+const n = normalizeCriteria({ make: ' Toyota ', body: 'All', price_max: '60,000', year_min: 2020, junk: 'x' });
+ok(n.make === 'Toyota' && n.body === null && n.price_max === 60000 && !('junk' in n),
+  'normalizeCriteria trims, drops "All"/"Any" placeholders and unknown keys');
+ok(criteriaIsEmpty({ make: 'All', q: '  ' }) === true, 'all-placeholder criteria counts as empty');
+ok(criteriaIsEmpty(toyotaSuv) === false, 'a real constraint is not empty');
+
+ok(matchesCriteria(STOCK[0], toyotaSuv) === true, 'the 2024 Land Cruiser matches Toyota SUV under $60k, 2020+');
+ok(matchesCriteria(STOCK[1], toyotaSuv) === false, 'the 2017 Prius fails it (body + year)');
+ok(matchesCriteria(STOCK[2], toyotaSuv) === false, 'the Huracan fails it (make)');
+ok(matchesCriteria(STOCK[0], { q: 'land cruiser' }) === true, 'free-text matches make+model case-insensitively');
+ok(matchesCriteria(STOCK[1], { km_max: 100000 }) === true && matchesCriteria(STOCK[1], { km_max: 50000 }) === false,
+  'km ceiling parses the "81,000" odometer string');
+ok(matchesCriteria({ ...STOCK[0], price: null }, { price_max: 60000 }) === false,
+  'a car with no price never matches a budget ceiling (price is a claim, not a default)');
+ok(moneyNumber('$38,700') === 38700, 'moneyNumber parses currency strings');
+
+const chips = describeCriteria(toyotaSuv);
+ok(chips.includes('Toyota') && chips.includes('SUV') && chips.some(c => c.includes('60,000')) && chips.includes('2020+'),
+  'describeCriteria renders human chips (' + chips.join(' · ') + ')');
+ok(describeCriteria({}).join() === 'All stock', 'empty criteria describes as "All stock"');
+ok(defaultSearchName(toyotaSuv).length <= 60 && defaultSearchName(toyotaSuv).startsWith('Toyota'),
+  'defaultSearchName starts with the make and stays short');
+ok(criteriaHref(toyotaSuv, (mk, md) => `/inventory?make=${mk}`) === '/inventory?make=Toyota',
+  'criteriaHref delegates make/model to the router helper');
+
+/* ---------- sweep internals ----------------------------------------------- */
+
+console.log('\n-- sweep: evaluate / seen_refs / e-mail --');
+
+const search = { id: 's1', name: 'Toyota SUVs', criteria: toyotaSuv, seen_refs: [], email: 'b@x.com', email_alerts: true };
+let ev = evaluateSearch(search, STOCK);
+ok(ev.matchRefs.join() === 'LC250' && ev.newRefs.join() === 'LC250',
+  'a fresh search sees the matching car as NEW');
+ev = evaluateSearch({ ...search, seen_refs: ['LC250'] }, STOCK);
+ok(ev.matchRefs.length === 1 && ev.newRefs.length === 0,
+  'a car already in seen_refs never re-alerts');
+ok(stockRef({ stock_no: ' X1 ' }) === 'X1' && stockRef({}) === null, 'stockRef trims and rejects blanks');
+
+const seen = nextSeenRefs({ seen_refs: Array.from({ length: MAX_SEEN_REFS }, (_, i) => 'r' + i) }, ['new-ref']);
+ok(seen.length === MAX_SEEN_REFS && seen.at(-1) === 'new-ref' && !seen.includes('r0'),
+  'seen_refs is capped at ' + MAX_SEEN_REFS + ' with the oldest trimmed first');
+
+const mail = alertEmail(search, [STOCK[0]]);
+ok(mail.subject === 'New in stock: 2024 Toyota Land Cruiser 250 VX', 'single-car subject names the car');
+ok(mail.text.includes('/inventory/LC250') && mail.html.includes('/inventory/LC250'),
+  'the e-mail links straight to the vehicle page');
+ok(mail.text.includes('/account'), 'the e-mail points at the account page to manage alerts');
+const many = alertEmail(search, Array.from({ length: 9 }, (_, i) => ({ ...STOCK[0], stock_no: 'C' + i })));
+ok(many.subject.startsWith('9 new cars') && many.text.includes('and 3 more'),
+  'a big batch becomes a digest (6 shown, "…and 3 more")');
+
+/* ---------- a fake Supabase ------------------------------------------------ */
+
+function fakeDb(rows) {
+  const calls = { updates: [], inserts: [], deletes: [] };
+  const db = {
+    calls,
+    from(table) {
+      const q = {
+        _table: table, _filters: {}, _count: null,
+        select(_cols, opts) { if (opts?.count) q._count = true; return q; },
+        eq(k, v) { q._filters[k] = v; return q; },
+        order() { return q; },
+        is() { return q; }, ilike() { return q; }, limit() { return q; },
+        insert(payload) { calls.inserts.push({ table, payload }); q._inserted = payload; return q; },
+        update(payload) { q._update = payload; return q; },
+        delete() { q._delete = true; return q; },
+        single() { q._single = true; return q; },
+        then(resolve) {
+          if (q._inserted) return resolve({ data: { id: 'new-id', created_at: 'now', ...q._inserted }, error: null });
+          if (q._update) { calls.updates.push({ table, id: q._filters.id, patch: q._update }); 
+            const row = rows.find(r => r.id === q._filters.id && (!q._filters.auth_user_id || r.auth_user_id === q._filters.auth_user_id));
+            return resolve(row ? { data: { ...row, ...q._update }, error: null } : { data: null, error: { message: 'not found' } });
+          }
+          if (q._delete) { calls.deletes.push({ table, id: q._filters.id }); return resolve({ error: null }); }
+          if (q._count) return resolve({ count: rows.filter(r => r.auth_user_id === q._filters.auth_user_id).length });
+          let data = rows.filter(r => Object.entries(q._filters).every(([k, v]) => r[k] === v));
+          // 2026-11-08: saved_favourites shares this fake (the ?favourites
+          // routes live on the same function); other tables stay empty.
+          if (table !== 'saved_searches' && table !== 'saved_favourites') data = [];
+          if (q._single) return resolve(data[0] ? { data: data[0], error: null } : { data: null, error: { message: 'not found' } });
+          return resolve({ data, error: null });
+        }
+      };
+      return q;
+    }
+  };
+  return db;
+}
+
+/* ---------- runAlertSweep -------------------------------------------------- */
+
+console.log('\n-- runAlertSweep --');
+
+{
+  const rows = [
+    { id: 'a', auth_user_id: 'u1', email: 'b@x.com', email_alerts: true,  name: 'Toyota SUVs', criteria: toyotaSuv, seen_refs: [] },
+    { id: 'b', auth_user_id: 'u2', email: 'c@x.com', email_alerts: false, name: 'Muted',       criteria: toyotaSuv, seen_refs: [] },
+    { id: 'c', auth_user_id: 'u3', email: 'd@x.com', email_alerts: true,  name: 'Seen',        criteria: toyotaSuv, seen_refs: ['LC250'] }
+  ];
+  const db = fakeDb(rows);
+  const sent = [];
+  const result = await runAlertSweep(db, {
+    stock: STOCK,
+    emailFn: async (to, msg) => { sent.push({ to, subject: msg.subject }); return 'sent'; },
+    now: new Date('2026-11-07T00:00:00Z')
+  });
+  ok(result.checked === 3 && result.matched === 2 && result.emailed === 1,
+    `sweep: 3 checked, 2 with new matches, 1 e-mailed (${JSON.stringify(result)})`);
+  ok(sent.length === 1 && sent[0].to === 'b@x.com', 'only the un-muted owner with new stock gets mail');
+  const aPatch = db.calls.updates.find(u => u.id === 'a')?.patch;
+  ok(Array.isArray(aPatch?.seen_refs) && aPatch.seen_refs.includes('LC250') && aPatch.last_notified_at,
+    'the alerted search persists seen_refs + last_notified_at');
+  const bPatch = db.calls.updates.find(u => u.id === 'b')?.patch;
+  ok(Array.isArray(bPatch?.seen_refs) && !bPatch.last_notified_at,
+    'the muted search still advances seen_refs (no backlog bomb when unmuted) but records no notification');
+  const cPatch = db.calls.updates.find(u => u.id === 'c')?.patch;
+  ok(cPatch && !cPatch.seen_refs && !cPatch.last_notified_at && cPatch.last_checked_at,
+    'an already-seen search only refreshes last_checked_at');
+}
+
+/* ---------- the API routes -------------------------------------------------- */
+
+console.log('\n-- /api/my-account?searches routes --');
+
+function call(method, { query = {}, body = null, user, db, stock } = {}) {
+  return new Promise(resolve => {
+    const req = { method, query, body, headers: {} };
+    const res = {
+      _status: 200, _headers: {},
+      status(c) { this._status = c; return this; },
+      setHeader(k, v) { this._headers[k] = v; return this; },
+      end(payload) { resolve({ status: this._status, json: JSON.parse(payload || '{}') }); }
+    };
+    handler(req, res, { user, db, stock });
+  });
+}
+
+const user = { id: 'u1', email: 'buyer@example.com' };
+
+{
+  const db = fakeDb([]);
+  const r = await call('POST', { query: { searches: '1' }, user, db, stock: STOCK,
+    body: { name: '', criteria: toyotaSuv, email_alerts: true } });
+  ok(r.status === 200 && r.json.search.id === 'new-id', 'POST creates a saved search');
+  ok(r.json.search.name.startsWith('Toyota'), 'a blank name falls back to the criteria description');
+  ok(r.json.search.matches === 1 && r.json.search.new_matches === 0, 'creation reports current matches and zero NEW');
+  const inserted = db.calls.inserts[0].payload;
+  ok(inserted.auth_user_id === 'u1' && inserted.email === 'buyer@example.com',
+    'the row is bound to the auth user and captures their confirmed e-mail');
+  ok(Array.isArray(inserted.seen_refs) && inserted.seen_refs.includes('LC250'),
+    'seen_refs is seeded with today\u2019s matches — alerts are about FUTURE stock');
+}
+{
+  const r = await call('POST', { query: { searches: '1' }, user, db: fakeDb([]), stock: STOCK,
+    body: { criteria: { make: 'All', q: ' ' } } });
+  ok(r.status === 400, 'an empty criteria (match-everything alert) is rejected');
+}
+{
+  const ten = Array.from({ length: 10 }, (_, i) => ({ id: 'r' + i, auth_user_id: 'u1' }));
+  const r = await call('POST', { query: { searches: '1' }, user, db: fakeDb(ten), stock: STOCK,
+    body: { criteria: toyotaSuv } });
+  ok(r.status === 400 && /10 saved searches/.test(r.json.error), 'the per-user cap of 10 holds');
+}
+{
+  const rows = [{ id: 's1', auth_user_id: 'u1', name: 'Mine', criteria: toyotaSuv, seen_refs: [], email_alerts: true, created_at: 'x' }];
+  const r = await call('GET', { query: { searches: '1' }, user, db: fakeDb(rows), stock: STOCK });
+  ok(r.status === 200 && r.json.searches.length === 1
+    && r.json.searches[0].matches === 1 && r.json.searches[0].new_matches === 1
+    && r.json.searches[0].new_refs.join() === 'LC250',
+    'GET lists the user\u2019s searches with live match / NEW counts');
+}
+{
+  const rows = [{ id: 's1', auth_user_id: 'u1', criteria: toyotaSuv, seen_refs: [], email_alerts: true }];
+  const db = fakeDb(rows);
+  const r = await call('PATCH', { query: { searches: '1' }, user, db, stock: STOCK,
+    body: { id: 's1', ack: true } });
+  ok(r.status === 200 && db.calls.updates[0].patch.seen_refs.includes('LC250'),
+    'PATCH ack folds the current matches into seen_refs (NEW badge resets)');
+  const r2 = await call('PATCH', { query: { searches: '1' }, user, db, stock: STOCK,
+    body: { id: 's1', email_alerts: false } });
+  ok(r2.status === 200 && r2.json.search.email_alerts === false, 'PATCH toggles e-mail alerts');
+}
+{
+  const db = fakeDb([{ id: 's1', auth_user_id: 'u1', criteria: toyotaSuv, seen_refs: [] }]);
+  const r = await call('DELETE', { query: { searches: '1', id: 's1' }, user, db });
+  ok(r.status === 200 && db.calls.deletes.length === 1, 'DELETE removes the search');
+}
+{
+  const r = await call('GET', { query: { searches: '1' }, db: fakeDb([]) });
+  ok(r.status === 401, 'no token, no searches (401)');
+}
+
+/* ---------- ?favourites routes (2026-11-08) ------------------------------- */
+
+console.log('\n-- /api/my-account?favourites routes --');
+
+{
+  const r = await call('GET', { query: { favourites: '1' }, db: fakeDb([]) });
+  ok(r.status === 401, 'no token, no favourites (401)');
+}
+{
+  const r = await call('GET', { query: { favourites: '1' }, user, db: fakeDb([]) });
+  ok(r.status === 200 && Array.isArray(r.json.refs) && r.json.refs.length === 0,
+    'GET with no row yet returns an empty refs array');
+}
+{
+  const rows = [{ id: 'f1', auth_user_id: 'u1', refs: ['LC250', 'GONE99'] }];
+  const r = await call('GET', { query: { favourites: '1' }, user, db: fakeDb(rows) });
+  ok(r.status === 200 && r.json.refs.join() === 'LC250,GONE99',
+    'GET returns the stored refs, including ones no longer in stock');
+}
+{
+  const db = fakeDb([]);
+  const r = await call('PUT', { query: { favourites: '1' }, user, db,
+    body: { refs: ['LC250', ' LC250 ', '', 'PRIUS17', 42, null] } });
+  ok(r.status === 200 && r.json.refs.join() === 'LC250,PRIUS17,42',
+    'PUT dedupes, trims and drops empty refs before storing');
+  const ins = db.calls.inserts[0];
+  ok(ins && ins.table === 'saved_favourites' && ins.payload.auth_user_id === 'u1',
+    'first PUT inserts a row bound to the auth user');
+}
+{
+  const rows = [{ id: 'f1', auth_user_id: 'u1', refs: ['OLD1'] }];
+  const db = fakeDb(rows);
+  const r = await call('PUT', { query: { favourites: '1' }, user, db,
+    body: { refs: ['LC250'] } });
+  ok(r.status === 200 && db.calls.updates.length === 1
+    && db.calls.updates[0].table === 'saved_favourites'
+    && db.calls.updates[0].patch.refs.join() === 'LC250',
+    'a later PUT updates the existing row in place (one row per user)');
+}
+{
+  const db = fakeDb([]);
+  const flood = Array.from({ length: 300 }, (_, i) => 'REF' + i);
+  const r = await call('PUT', { query: { favourites: '1' }, user, db, body: { refs: flood } });
+  ok(r.status === 200 && r.json.refs.length === 200, 'refs are capped at 200 per user');
+}
+{
+  const r = await call('DELETE', { query: { favourites: '1' }, user, db: fakeDb([]) });
+  ok(r.status === 405, 'unsupported methods on ?favourites answer 405');
+}
+
+/* ---------- shipment tracking (2026-11) ----------------------------------- */
+// Two routes share the shipments table: the public ?track=NO lookup (no
+// sign-in; the tracking number is the whole key) and the signed-in account
+// GET, which matches shipments by the customer's own name with LIKE
+// wildcards escaped.
+
+console.log('\n-- shipment tracking: public ?track and account shipments --');
+
+function shipDb({ customers = [], shipments = [] } = {}) {
+  const seen = { ilike: [] };
+  const db = {
+    seen,
+    from(table) {
+      const q = {
+        _t: table, _eq: {}, _ilike: null,
+        select() { return q; }, order() { return q; }, limit() { return q; },
+        is() { return q; }, single() { q._single = true; return q; },
+        eq(k, v) { q._eq[k] = v; return q; },
+        ilike(k, v) { q._ilike = [k, v]; seen.ilike.push([table, k, v]); return q; },
+        then(resolve) {
+          let rows = table === 'customers' ? customers : table === 'shipments' ? shipments : [];
+          rows = rows.filter(r => Object.entries(q._eq).every(([k, v]) => r[k] === v));
+          if (q._ilike) {
+            // Postgres ILIKE with backslash-escaped wildcards, same as live.
+            const [k, pat] = q._ilike;
+            const rx = new RegExp('^' + pat.replace(/[.*+?^${}()|[\]]/g, '\\$&')
+              .replace(/\\\\([%_])/g, (_, c) => '\\' + c)
+              .replace(/%/g, '[\\s\\S]*').replace(/_/g, '[\\s\\S]')
+              .replace(/\\([%_])/g, '$1') + '$', 'i');
+            rows = rows.filter(r => rx.test(String(r[k] ?? '')));
+          }
+          if (q._single) return resolve(rows[0] ? { data: rows[0], error: null } : { data: null, error: { message: 'not found' } });
+          return resolve({ data: rows, error: null });
+        }
+      };
+      return q;
+    }
+  };
+  return db;
+}
+
+const SHIPMENTS = [
+  { tracking_no: 'AR7-260184', customer_name: 'Imran Khan', vehicle: 'Toyota Land Cruiser ZX',
+    origin: 'Yokohama', destination: 'Karachi', vessel: 'AR7 Valiant', status: 'at_sea', eta: '2026-09-08', progress: 68, created_at: '2026-08-01' },
+  { tracking_no: 'AR7-260191', customer_name: 'Mary Wanjiku', vehicle: 'Lexus RX 450h',
+    origin: 'Kobe', destination: 'Mombasa', vessel: 'Pacific Trader', status: 'loaded', eta: '2026-09-16', progress: 42, created_at: '2026-08-02' }
+];
+
+{
+  // Public lookup: found, case-insensitive, logistics fields only.
+  const db = shipDb({ shipments: SHIPMENTS });
+  const r = await call('GET', { query: { track: 'ar7-260184' }, db });
+  ok(r.status === 200 && r.json.shipment?.tracking_no === 'AR7-260184',
+    'public ?track finds a shipment case-insensitively, no sign-in needed');
+  ok(!('customer_name' in (r.json.shipment || {})),
+    'the public payload never includes the customer name');
+  ok(r.json.shipment.vessel === 'AR7 Valiant' && r.json.shipment.progress === 68,
+    'vessel, status, ETA and progress are returned for the milestone view');
+
+  const miss = await call('GET', { query: { track: 'AR7-999999' }, db });
+  ok(miss.status === 404 && /No shipment found/.test(miss.json.error),
+    'an unknown number gets a clear 404, not an empty 200');
+
+  const bad = await call('GET', { query: { track: 'x%' }, db });
+  ok(bad.status === 400, 'wildcard characters fail the format check before any query runs');
+  const short = await call('GET', { query: { track: 'AR7' }, db });
+  ok(short.status === 400, 'too-short input is rejected with guidance');
+}
+
+{
+  // Signed-in account GET: shipments arrive matched by the customer's name.
+  const db = shipDb({
+    customers: [{ id: 'c1', auth_user_id: 'u1', name: 'Imran Khan', email: 'buyer@example.com' }],
+    shipments: SHIPMENTS
+  });
+  const r = await call('GET', { user, db });
+  ok(r.status === 200 && Array.isArray(r.json.shipments) && r.json.shipments.length === 1,
+    'the account view includes exactly the customer\u2019s own shipments');
+  ok(r.json.shipments[0].tracking_no === 'AR7-260184' &&
+     !r.json.shipments.some(s => s.customer_name === 'Mary Wanjiku'),
+    'another customer\u2019s shipment never leaks in');
+
+  // A customer whose name contains LIKE wildcards must not match everything.
+  const tricky = shipDb({
+    customers: [{ id: 'c2', auth_user_id: 'u1', name: '100% Motors Ltd', email: 'buyer@example.com' }],
+    shipments: SHIPMENTS
+  });
+  const r2 = await call('GET', { user, db: tricky });
+  ok(r2.status === 200 && r2.json.shipments.length === 0,
+    'a "100% Motors Ltd" customer matches nothing — wildcards are escaped');
+  ok(tricky.seen.ilike.some(([t, , pat]) => t === 'shipments' && pat.includes('\\%')),
+    'the ilike pattern carries the escaped % (' + JSON.stringify(tricky.seen.ilike.find(x => x[0] === 'shipments')?.[2]) + ')');
+}
+
+console.log('\n-- referral codes on the account view --');
+// Every linked customer gets a share code on first view. Generation is
+// fail-soft: a db without update() (like shipDb above) must still serve the
+// account — those earlier blocks double as the regression pin for that.
+function referDb({ customer, leadsUsing = 0 } = {}) {
+  const row = { ...customer };
+  const db = {
+    row,
+    from(table) {
+      const q = {
+        _single: false, _head: false, _eqs: {},
+        select(sel, opts) { if (opts && opts.head) q._head = true; return q; },
+        order() { return q; }, limit() { return q; }, ilike() { return q; },
+        is(k, v) { q._is = [k, v]; return q; },
+        eq(k, v) { q._eqs[k] = v; return q; },
+        single() { q._single = true; return q; },
+        update(patch) { q._patch = patch; return q; },
+        then(resolve) {
+          if (table === 'customers') {
+            if (q._patch) {
+              // honour the .is('referral_code', null) guard like Postgres
+              if (q._is && row[q._is[0]] != null) return resolve({ data: null, error: { message: '0 rows' } });
+              Object.assign(row, q._patch);
+              return resolve({ data: row, error: null });
+            }
+            return resolve({ data: row, error: null });
+          }
+          if (table === 'leads' && q._head) return resolve({ count: leadsUsing, error: null });
+          return resolve({ data: [], error: null, count: 0 });
+        }
+      };
+      return q;
+    }
+  };
+  return db;
+}
+{
+  const db = referDb({ customer: { id: 'c1', auth_user_id: 'u1', name: 'Imran Khan', email: 'buyer@example.com' }, leadsUsing: 3 });
+  const r = await call('GET', { user, db });
+  ok(r.status === 200 && /^AR7-[A-HJ-NP-Z2-9]{5}$/.test(r.json.referral?.code || ''),
+    `a linked customer gets a generated AR7-XXXXX share code (${r.json.referral?.code})`);
+  ok(db.row.referral_code === r.json.referral.code,
+    'the generated code is persisted on the customer row');
+  ok(r.json.referral.uses === 3, 'the response counts the enquiries that quoted the code');
+
+  // Second view: the stored code comes back unchanged, nothing regenerates.
+  const again = await call('GET', { user, db });
+  ok(again.json.referral.code === r.json.referral.code,
+    'a later visit returns the SAME stored code — codes never rotate');
+
+  const kept = referDb({ customer: { id: 'c2', auth_user_id: 'u1', name: 'Mary', email: 'buyer@example.com', referral_code: 'AR7-KEPT9' } });
+  const r2 = await call('GET', { user, db: kept });
+  ok(r2.json.referral.code === 'AR7-KEPT9' && kept.row.referral_code === 'AR7-KEPT9',
+    'an existing code is honoured verbatim');
+}
+
+console.log('\n-- ?alerts=run guard --');
+{
+  process.env.GOONET_SYNC_KEY = 'sweep-key';
+  const bad = await call('GET', { query: { alerts: 'run', key: 'wrong' }, db: fakeDb([]) });
+  ok(bad.status === 401, 'the sweep rejects a wrong key');
+  const good = await call('GET', { query: { alerts: 'run', key: 'sweep-key' }, db: fakeDb([]), stock: STOCK });
+  ok(good.status === 200 && good.json.checked === 0, 'the right key runs the sweep (0 searches, 0 mails)');
+  delete process.env.GOONET_SYNC_KEY;
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) process.exit(1);

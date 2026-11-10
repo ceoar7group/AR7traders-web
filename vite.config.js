@@ -1,6 +1,80 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { devApiMock } from './src/dev-api-mock.js'
+import { readFileSync, existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+/* Dev-only: serve the REAL current website stock to local previews.
+ *
+ * 2026-11-09 (owner report): the home-hero slideshow in dev previews showed
+ * "old removed cars". Reason: with no Supabase in the sandbox, the hero fell
+ * back to the built-in seed plus devApiMock's August goo-net capture. When a
+ * fresh snapshot of the LIVE `site_listings` table exists at
+ * dev-fixtures/listings.json (gitignored; refreshed from Supabase by hand),
+ * this middleware serves it for /api/site-content?entity=listings and answers
+ * /api/goonet-stock with [] so stale capture rows cannot dilute the hero.
+ * Production never sees any of this — Vercel owns /api/* there. */
+function devLiveFixtures() {
+  const fixturePath = fileURLToPath(new URL('./dev-fixtures/listings.json', import.meta.url));
+  return {
+    name: 'ar7-dev-live-fixtures',
+    apply: 'serve',
+    configureServer(server) {
+      if (!existsSync(fixturePath)) return;
+      server.middlewares.use('/api/site-content', (req, res, next) => {
+        const q = new URL(req.url, 'http://x').searchParams;
+        if ((req.method || 'GET') !== 'GET' || q.get('entity') !== 'listings' || q.get('all') === '1') return next();
+        res.setHeader('Content-Type', 'application/json');
+        res.end(readFileSync(fixturePath, 'utf8'));
+      });
+      server.middlewares.use('/api/goonet-stock', (req, res, next) => {
+        if ((req.method || 'GET') !== 'GET') return next();
+        res.setHeader('Content-Type', 'application/json');
+        res.end('[]');
+      });
+    }
+  };
+}
+
+/* 2026-11-09 Lighthouse mobile CLS 0.292: the promo bar answers over the
+ * network AFTER first paint, so the fixed header grows and pushes the whole
+ * page down (`--promo-h` 0 → ~45px). React's own pre-reservation (see
+ * src/promo-bar.jsx HEIGHT_KEY) runs at component mount — too late, because
+ * index.html paints its boot/static shell first. This plugin injects ONE tiny
+ * inline script into <head> that reserves the height BEFORE first paint:
+ *   1. a returning visitor gets last visit's measured height (localStorage);
+ *   2. a first-time visitor gets 47px (one single-line bar row, all widths) whenever the
+ *      campaign baked from public/promo.json at build time is still live and
+ *      not dismissed — mirroring src/offers.js campaignIsLive().
+ * PromoBar then measures the real row and corrects the variable by at most a
+ * couple of pixels instead of shifting the entire page. */
+function promoReserve() {
+  return {
+    name: 'ar7-promo-reserve',
+    transformIndexHtml() {
+      let promo = null;
+      try {
+        promo = JSON.parse(readFileSync(fileURLToPath(new URL('./public/promo.json', import.meta.url)), 'utf8'));
+      } catch { /* no promo file: reserve from localStorage only */ }
+      const baked = promo && promo.active ? { id: String(promo.id || ''), until: String(promo.until || '') } : null;
+      // `a` mirrors --head-pad minus --head-gap per breakpoint (site-layout.css
+      // §8): the ribbon's top margin is --head-pad after the empty slot but
+      // --head-gap after the real bar, so a shift-free reservation is
+      // barHeight + gap - pad. The stylesheet has not loaded when this runs,
+      // hence the hardcoded mirror of the 639/1000px breakpoints.
+      const js =
+        "(function(){try{var d=document.documentElement.style,w=innerWidth,a=w<640?7:w<=1000?8:9," +
+        "h=parseInt(localStorage.getItem('ar7-promo-h')||'',10);" +
+        "if(h>0&&h<200){d.setProperty('--promo-h',Math.max(h-a,0)+'px');return}" +
+        (baked
+          ? `var p=${JSON.stringify(baked)};` +
+            "if((!p.until||Date.now()<=new Date(p.until+'T23:59:59').getTime())&&localStorage.getItem('ar7-promo-dismissed')!==p.id)d.setProperty('--promo-h',(47-a)+'px');"
+          : '') +
+        '}catch(e){}})();';
+      return [{ tag: 'script', children: js, injectTo: 'head-prepend' }];
+    }
+  };
+}
 
 /* Dev-only: stop the browser reusing a stale module body.
  *
@@ -64,7 +138,7 @@ function devFreshModules() {
 
 export default defineConfig({
   base: '/',
-  plugins: [react(), devApiMock(), devFreshModules()],
+  plugins: [react(), promoReserve(), devLiveFixtures(), devApiMock(), devFreshModules()],
   // The dev server must never hand out two copies of React: a second copy has a
   // null dispatcher, and every hook in the app then throws "Cannot read
   // properties of null (reading 'useState')". Dedupe pins one copy, and the
@@ -82,7 +156,19 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) return 'vendor-react';
-          if (id.includes('lucide-react')) return 'vendor-icons';
+          // lucide-react is deliberately NOT pinned to a vendor chunk.
+          //
+          // It used to be (`return 'vendor-icons'`), which forced every icon in
+          // the app into one chunk. Because the entry module also imports
+          // icons, that chunk was modulepreloaded into first paint — so an icon
+          // added for a staff-only screen (the CRM, the AI Growth desk) was
+          // downloaded by every public visitor on first load. Measured on
+          // 2026-10-11: 1.6 kB of CRM-only icons landed in first-load bytes.
+          //
+          // Letting Rollup place them instead keeps the icons the public pages
+          // need in a shared, preloaded chunk and moves icons only a lazy route
+          // uses into that route's chunk, where they belong. The budget guard
+          // (scripts/bundle-budget.test.mjs) still holds the first-load size.
           if (id.includes('@supabase') || id.includes('node_modules/@supabase')) return 'vendor-supabase';
           return undefined;
         }

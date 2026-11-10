@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-06T15:58:38.365Z",
+  "generatedAt": "2026-11-10T17:51:32.618Z",
   "summary": {
     "total": 18,
-    "pass": 18,
+    "pass": 16,
     "warn": 0,
-    "fail": 0
+    "fail": 2
   },
   "checks": [
     {
@@ -18,21 +18,21 @@
       "area": "health",
       "name": "Internal links resolve",
       "status": "pass",
-      "detail": "2 page(s) checked; every asset link and every route resolves",
+      "detail": "35 page(s) checked; every asset link and every route resolves",
       "fix": "Open the listed file and correct the href"
     },
     {
       "area": "health",
       "name": "Crawler shell has content",
       "status": "pass",
-      "detail": "index.html carries an H1 (15.8 KB)",
+      "detail": "index.html carries an H1 (19.4 KB)",
       "fix": "Check index.html — the pre-render feeds every crawler"
     },
     {
       "area": "health",
       "name": "Sitemap has no noindex or staff URLs",
       "status": "pass",
-      "detail": "37 URL(s) in the sitemap",
+      "detail": "68 URL(s) in the sitemap",
       "fix": "Remove staff and transactional paths from public/sitemap.xml"
     },
     {
@@ -53,7 +53,7 @@
       "area": "security",
       "name": "No secrets in the client source",
       "status": "pass",
-      "detail": "39 source file(s) scanned",
+      "detail": "58 source file(s) scanned",
       "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
     },
     {
@@ -73,8 +73,8 @@
     {
       "area": "security",
       "name": "API functions check permission",
-      "status": "pass",
-      "detail": "12 function(s) checked",
+      "status": "fail",
+      "detail": "api/my-account.js",
       "fix": "Call the shared permission helper before writing"
     },
     {
@@ -123,14 +123,14 @@
       "area": "seo",
       "name": "One H1 per page",
       "status": "pass",
-      "detail": "2 page(s) carry exactly one H1",
+      "detail": "35 page(s) carry exactly one H1",
       "fix": "The shared page shell renders the H1 — check the route does not add a second"
     },
     {
       "area": "seo",
       "name": "Canonical on every page",
-      "status": "pass",
-      "detail": "2 page(s) canonical",
+      "status": "fail",
+      "detail": "dist/index.html",
       "fix": "Add the route to PAGE_SEO in src/seo.js"
     }
   ]

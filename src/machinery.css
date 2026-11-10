@@ -381,6 +381,9 @@
 @media(prefers-reduced-motion:reduce){
   .mch-modal{animation:none}
   .mch-thumbs button:hover{transform:none}
+  .mch-detail-shot img,.mch-detail-shot:hover img{transition:none;transform:none}
+  .mch-detail-actions .outline-btn:hover{transform:none}
+  .mch-related-card:hover{transform:none}
 }
 
 /* A unit with no photographs yet. Shown as a deliberate "photos on request"
@@ -469,13 +472,17 @@
 /* ── One machine's own page ────────────────────────────────────────────────── */
 .mch-detail-page .page-content{padding-top:var(--hero-lead)}
 .mch-detail{display:grid;grid-template-columns:1.08fr .92fr;gap:34px;align-items:start}
-.mch-detail-gallery{position:relative;display:grid;gap:12px}
+.mch-detail-gallery{position:relative;display:grid;gap:12px;align-self:start}
+@media (min-width:901px){.mch-detail-gallery{position:sticky;top:86px}}
 .mch-detail-shot{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);cursor:zoom-in}
-.mch-detail-shot img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover}
+.mch-detail-shot img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;transition:transform .35s ease}
+.mch-detail-shot:hover img{transform:scale(1.02)}
 .mch-detail-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
 .mch-detail-strip button{padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:none;cursor:pointer;line-height:0}
 .mch-detail-strip button.active{border-color:var(--gold)}
-.mch-detail-strip img{width:100%;height:60px;object-fit:cover;border-radius:8px}
+.mch-detail-strip button:hover img{opacity:.8}
+.mch-detail-strip button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.mch-detail-strip img{width:100%;height:60px;object-fit:cover;border-radius:8px;transition:opacity .18s ease}
 .mch-detail-info h1{font:800 clamp(26px,3.4vw,40px)/1.08 Manrope;letter-spacing:-1.4px;margin:10px 0 12px}
 .mch-detail-summary{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 20px}
 .mch-detail-price{border:1px solid var(--line);border-radius:16px;padding:16px 18px;background:var(--card);display:grid;gap:6px}
@@ -485,17 +492,35 @@
 .mch-detail-meta{display:flex;flex-wrap:wrap;gap:9px;margin:16px 0 18px}
 .mch-detail-meta span{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 12px;background:var(--card)}
 .mch-detail-meta svg{width:13px;color:var(--gold)}
-.mch-detail-specs{width:100%;border-collapse:collapse;margin-bottom:18px}
-.mch-detail-specs th,.mch-detail-specs td{text-align:left;padding:9px 4px;border-bottom:1px solid var(--line);font-size:12.5px}
+.mch-detail-specs{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:18px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.mch-detail-specs th,.mch-detail-specs td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);font-size:12.5px}
+.mch-detail-specs tr:last-child th,.mch-detail-specs tr:last-child td{border-bottom:0}
+.mch-detail-specs tr:nth-child(odd){background:color-mix(in srgb,var(--line) 22%,transparent)}
 .mch-detail-specs th{color:var(--muted);font-weight:600;width:44%}
 .mch-detail-specs td{font-weight:700;color:var(--ink)}
 .mch-detail-assurance{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:10px}
 .mch-detail-assurance li{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.6;color:var(--muted)}
 .mch-detail-assurance svg{width:15px;flex:none;margin-top:2px;color:var(--green-text)}
-.mch-detail-actions{display:flex;gap:10px;align-items:center}
+.mch-detail-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+/* The global .outline-btn ships a `margin:36px auto 0` meant for a lone,
+   centred button under a section. Inside this flex row that margin shoved
+   "Request a quotation" away from "Make an offer" and centred it in the
+   leftover space — the untidy drift the owner screenshotted. In this row the
+   buttons sit together, same height, same radius. */
+.mch-detail-actions .primary,.mch-detail-actions .outline-btn{margin:0;height:50px;border-radius:12px}
+.mch-detail-actions .outline-btn{padding:0 20px;transition:background-color .18s ease,color .18s ease,border-color .18s ease,transform .18s ease}
+.mch-detail-actions .outline-btn:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-1px)}
 .mch-detail-actions .primary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.mch-detail-actions .outline-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .mch-detail-actions .mch-chat:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .mch-detail-note{margin:16px 0 0;padding-left:11px;border-left:3px solid var(--gold);font-size:11.5px;line-height:1.65;color:var(--muted)}
+/* Breadcrumbs — the visible twin of the page's BreadcrumbList JSON-LD. */
+.mch-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-size:11.5px}
+.mch-crumbs a{color:var(--muted);text-decoration:none;font-weight:600;transition:color .15s ease}
+.mch-crumbs a:hover{color:var(--gold)}
+.mch-crumbs a:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+.mch-crumbs span{color:var(--line)}
+.mch-crumbs b{color:var(--ink);font-weight:800;letter-spacing:.3px}
 .mch-related{margin-top:52px;padding-top:30px;border-top:1px solid var(--line)}
 .mch-related h2{font:800 clamp(22px,2.6vw,30px)/1.1 Manrope;letter-spacing:-.9px;margin:8px 0 20px}
 .mch-related-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -543,7 +568,9 @@
 .mch-any-note{display:block;font-size:10.5px;line-height:1.6;color:#94ac9f}
 
 .mch-view{display:inline-flex;align-items:center;gap:6px;height:37px;padding:0 13px;border-radius:10px;
-  border:1px solid var(--line);background:var(--card);color:var(--green-text);font-size:11.5px;font-weight:800;text-decoration:none}
+  border:1px solid var(--line);background:var(--card);color:var(--green-text);font-size:11.5px;font-weight:800;text-decoration:none;
+  transition:border-color .18s ease,color .18s ease,background-color .18s ease}
+.mch-view:hover{border-color:var(--gold);color:var(--gold)}
 .mch-view svg{width:14px}
 .mch-view:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .mch-related-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -558,6 +585,10 @@
 @media (max-width:620px){
   .mch-related-grid{grid-template-columns:1fr}
   .mch-detail-meta span{font-size:11px}
+  /* One clean column of full-width actions on a phone — no wrapped,
+     half-width buttons fighting the chat bubble for the same row. */
+  .mch-detail-actions .primary,.mch-detail-actions .outline-btn{flex:1 1 100%;justify-content:center}
+  .mch-detail-actions .mch-chat{margin-inline:auto}
 }
 
 .mch-detail-page .mch-empty h1{font:800 clamp(22px,2.6vw,30px)/1.15 Manrope;letter-spacing:-.9px;margin:0 0 10px;color:var(--ink)}

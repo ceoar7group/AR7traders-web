@@ -5,7 +5,7 @@
 //
 // WHY THIS EXISTS
 // ---------------
-// The language switcher offers 14 languages. Before the six screens a buyer
+// The language switcher offers 15 languages. Before the six screens a buyer
 // meets first were translated, picking Arabic translated the machinery desk
 // and left the hero, the inventory toolbar, the enquiry form, the contact
 // block and the footer in English — a page that looked broken rather than
@@ -57,14 +57,14 @@ const LANGS = Object.keys(dicts);
 // ---- the language table ---------------------------------------------------
 const langTable = [...i18nSrc.matchAll(/\{\s*code:\s*'([a-z]{2})'[\s\S]*?dir:\s*'(ltr|rtl)'\s*\}/g)]
   .map(m => ({ code: m[1], dir: m[2] }));
-ok(langTable.length === 14, `LANGUAGES advertises ${langTable.length} languages (English + 13)`);
+ok(langTable.length === 15, `LANGUAGES advertises ${langTable.length} languages (English + 14)`);
 ok(langTable.every(l => l.code === 'en' || LANGS.includes(l.code)),
   'every advertised language except English has a dictionary');
 ok(langTable.filter(l => l.dir === 'rtl').map(l => l.code).sort().join(',') === 'ar,fa,ps,ur',
   'the four RTL languages are ar, fa, ps, ur');
 
 // ---- 1. parity + no empty values -----------------------------------------
-console.log('\n-- key parity across the 13 dictionaries --');
+console.log('\n-- key parity across the 14 dictionaries --');
 let parityBad = 0;
 for (const lang of LANGS) {
   const dict = dicts[lang];
@@ -101,7 +101,7 @@ for (const term of TERMS) {
     }
   }
   ok(termBad === 0,
-    `${term} survives in all 13 languages (${keysWithTerm.length} key${keysWithTerm.length === 1 ? '' : 's'}: ${keysWithTerm.join(', ')})`);
+    `${term} survives in all 14 languages (${keysWithTerm.length} key${keysWithTerm.length === 1 ? '' : 's'}: ${keysWithTerm.join(', ')})`);
 }
 
 // ---- 3. the six translated screens actually call t() ---------------------
@@ -113,10 +113,32 @@ const machinerySrc = fs.readFileSync(path.join(ROOT, 'src/machinery.jsx'), 'utf8
 const SCREENS = [
   ['home hero', 'src/main.jsx', mainSrc, 'hero.h1a'],
   ['inventory toolbar', 'src/main.jsx', mainSrc, 'inv.searchPlaceholder'],
-  ['enquiry form', 'src/main.jsx', mainSrc, 'enq.h2'],
+  ['enquiry form', 'src/enquiry-form.jsx', fs.readFileSync(path.join(ROOT, 'src/enquiry-form.jsx'), 'utf8'), 'enq.h2'],
   ['contact block', 'src/main.jsx', mainSrc, 'contact.getInTouch'],
   ['footer', 'src/main.jsx', mainSrc, 'footer.subscribe'],
-  ['machinery "tell us the machine"', 'src/machinery.jsx', machinerySrc, 'machinery.tellUs']
+  ['machinery "tell us the machine"', 'src/machinery.jsx', machinerySrc, 'machinery.tellUs'],
+  // 2026-11-18: the signed-in My Account view (orders, payments, shipment
+  // tracking) joined the translated screens — a buyer who switched the site
+  // to Urdu or French must not meet an English-only account page.
+  ['my account: shipment tracking', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.shipTitle'],
+  ['my account: payments table', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.payTitle'],
+  // Round 19: the account side-panels and cards joined too — refer-a-friend,
+  // saved cars, saved searches, profile and password were the last hardcoded
+  // English on an otherwise translated page.
+  ['my account: refer a friend', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.refTitle'],
+  ['my account: saved searches', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.alTitle'],
+  ['my account: saved cars', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.favTitle'],
+  ['my account: profile panel', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.pfTitle'],
+  ['my account: password panel', 'src/customer-portal.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/customer-portal.jsx'), 'utf8'), 'ma.pwTitle'],
+  ['enquiry form: referral code field', 'src/enquiry-form.jsx',
+    fs.readFileSync(path.join(ROOT, 'src/enquiry-form.jsx'), 'utf8'), 'enq.refLabel']
 ];
 for (const [name, file, src, key] of SCREENS) {
   ok(src.includes(`t('${key}')`), `${name} calls t('${key}') (${file})`);
@@ -129,18 +151,54 @@ const srcFiles = fs.readdirSync(path.join(ROOT, 'src'))
   .filter(f => /\.(jsx?|js)$/.test(f))
   .map(f => ({ file: 'src/' + f, text: fs.readFileSync(path.join(ROOT, 'src', f), 'utf8') }));
 const usedKeys = new Set();
+const dynamicPrefixes = new Set();
 // Keys are always namespaced (`hero.h1a`), which also filters out the
 // `t('key')` illustrative mention inside src/i18n.js's own header comment.
 for (const { text } of srcFiles) {
   for (const m of text.matchAll(/\bt\(\s*'([a-zA-Z0-9]+(?:\.[a-zA-Z0-9_]+)+)'/g)) usedKeys.add(m[1]);
+  // 2026-11-11: the header's dropdown tuples carry their i18n key as the
+  // 4th element and render it through t(x[3]) — collect those keys too, so
+  // the indirection doesn't read as "translated but never rendered".
+  for (const m of text.matchAll(/,\s*'(nav\.[a-zA-Z0-9_]+)'\s*\]/g)) usedKeys.add(m[1]);
+  // 2026-11-11: car-card status badges translate at display time through the
+  // STATUS_LABEL_KEY map in main.jsx, whose VALUES are i18n keys ('card.*')
+  // rather than inline t() literals — count those as used too.
+  for (const m of text.matchAll(/:\s*'(card\.[a-zA-Z0-9_]+)'/g)) usedKeys.add(m[1]);
+  // 2026-11-12: FAQ Q&A keys are built by index — t('faq.q'+(i+1)) — and FAQ
+  // topics route through the FAQ_TOPIC_KEY map. Mark every EN key that starts
+  // with such a dynamic prefix (or appears as a map value 'faq.*') as used.
+  for (const m of text.matchAll(/\bt\(\s*'([a-zA-Z0-9]+\.[a-zA-Z0-9_.]*)'\s*\+/g)) dynamicPrefixes.add(m[1]);
+  for (const m of text.matchAll(/:\s*'(faq\.[a-zA-Z0-9_]+)'/g)) usedKeys.add(m[1]);
+}
+// Expand dynamic prefixes: a t('faq.q'+…) call marks every faq.q* EN key as
+// used, and the truncated 'faq.q' literal the first regex collected is not a
+// real key — drop it from the unknown check.
+for (const p of dynamicPrefixes) {
+  usedKeys.delete(p);
+  for (const k of Object.keys(EN)) if (k.startsWith(p)) usedKeys.add(k);
 }
 const unknown = [...usedKeys].filter(k => !(k in EN));
 ok(unknown.length === 0,
   `all ${usedKeys.size} distinct t() keys in src/ exist in English` +
   (unknown.length ? ` — unknown: ${unknown.join(', ')}` : ''));
 
+// ---- 4b. FAQ drift guard --------------------------------------------------
+// The /faq page renders en['faq.qN'/'faq.aN'] while the FAQPage JSON-LD in
+// seo.js renders FAQ_ITEMS directly. If either side is edited alone, visible
+// content and structured data drift apart — pin them equal.
+{
+  const { FAQ_ITEMS } = await import(path.join(ROOT, 'src/seo.js'));
+  ok(FAQ_ITEMS.length === 14, `FAQ_ITEMS still has 14 entries (currently ${FAQ_ITEMS.length}) — the /faq page translates q1..q14`);
+  let drift = 0;
+  FAQ_ITEMS.forEach(([q, a], i) => {
+    if (EN[`faq.q${i + 1}`] !== q) drift++;
+    if (EN[`faq.a${i + 1}`] !== a) drift++;
+  });
+  ok(drift === 0, `en faq.q*/faq.a* match seo.js FAQ_ITEMS exactly (${drift} drifted)`);
+}
+
 // ---- 5. dead weight -------------------------------------------------------
-// An English key no screen asks for is dead weight in thirteen dictionaries.
+// An English key no screen asks for is dead weight in fourteen dictionaries.
 // This is reported rather than failed: at the time the six screens were wired,
 // a set of machinery-desk keys already existed in the dictionaries that no
 // screen had ever called. Closing that gap is tracked work, and printing the

@@ -9,14 +9,19 @@ import {
   Phone, Briefcase, Camera, Image, Images, Sun, Moon, Sparkles, Star,
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
   Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
-  ChevronDown, Percent
+  ChevronDown, Percent, Bot, Stethoscope, Bell, CalendarClock, CornerDownLeft,
+  PhoneCall, PhoneOff, PhoneForwarded, Voicemail, Radar, Headphones
 } from 'lucide-react';
+import { localTimeFor } from './call-time.js';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
 import { updateSettingsCache } from './site-settings.js';
-import SeoDesk from './seo-desk.jsx';
-import { MACHINES, MACHINE_TYPES, listPriceUSD } from './machinery-data.js';
+// 2026-11-07: the SEO desk and AI Growth merged into ONE sidebar tab — the
+// Growth studio — because operating them as two tabs confused the owner.
+// GrowthHub renders both desks unchanged behind a plain-language front door.
+import GrowthHub from './growth-hub.jsx';
+import { MACHINES, MACHINE_TYPES, listPriceUSD, machineYearText } from './machinery-data.js';
 import { buildDiscountStockRows } from './stock-discount-catalogue.js';
 import { RIGHTS } from './machinery-source.js';
 
@@ -44,6 +49,12 @@ const fmt0 = value => '$' + Number(value || 0).toLocaleString('en-US');
 const machinePhoto = machine => (Array.isArray(machine?.images) && machine.images[0]) || machine?.image || null;
 
 const KEY_ACTIVATE = (run) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(); } };
+
+// RowActions lives in its own module (src/row-actions.jsx) so the AI Growth desk
+// can reuse it without a circular import. It is imported (the CRM's own tables
+// use it) and re-exported unchanged for every existing caller and the tests.
+import { RowActions, placeMenu } from './row-actions.jsx';
+export { RowActions, placeMenu };
 
 const PHOTO_PRESETS = [
   {
@@ -151,6 +162,26 @@ const PHOTO_PRESETS = [
   }
 ];
 
+// One car, one count. Since imported cars are promoted to BOTH the CRM
+// inventory and the website, summing the two tables counted every promoted car
+// twice (141 + 167 = 308 for ~170 real cars). Cars on both surfaces share a
+// stock_no, so the real total is every CRM vehicle plus only the website
+// listings whose stock number the inventory does not already hold. Listings
+// without a stock number cannot be matched and count as their own car.
+export function uniqueCarCount(vehicles, listings) {
+  const held = new Set();
+  for (const v of (vehicles || [])) {
+    const ref = String(v?.stock_no || '').trim().toLowerCase();
+    if (ref) held.add(ref);
+  }
+  let webOnly = 0;
+  for (const l of (listings || [])) {
+    const ref = String(l?.stock_no || '').trim().toLowerCase();
+    if (!ref || !held.has(ref)) webOnly++;
+  }
+  return (vehicles || []).length + webOnly;
+}
+
 export function extractPhotos(item) {
   if (!item) return [];
   if (Array.isArray(item.images) && item.images.length) return item.images.filter(Boolean);
@@ -168,6 +199,11 @@ export function extractPhotos(item) {
 }
 
 const seed = {
+  // Demo prospects so the radar explains itself before the first scan runs.
+  prospects: [
+    { id: 'p1', company: 'Mombasa Auto Imports', website: 'https://example-dealer.co.ke', country: 'Kenya', emails: ['sales@example-dealer.co.ke'], phones: ['+254700112233'], source_url: 'https://example-directory.com/kenya-importers', status: 'new', note: '', created_at: '2026-10-28T09:00:00Z' },
+    { id: 'p2', company: 'Karachi Motors Trading', website: 'https://example-motors.pk', country: 'Pakistan', emails: ['info@example-motors.pk'], phones: ['+923001234567'], source_url: 'https://example-directory.com/pk-importers', status: 'contacted', note: 'Asked for Probox and Vitz pricing', created_at: '2026-10-25T13:00:00Z' }
+  ],
   leads: [
     { id: 'l1', name: 'Ahmed Khan', email: 'ahmed@example.com', phone: '+92 300 1234567', country: 'Pakistan', vehicle_interest: 'Toyota Land Cruiser 2022+', source: 'Website', status: 'qualified', budget: 65000, assigned_to: 'Sara Malik', next_follow_up: '2026-08-25', created_at: '2026-08-23T08:30:00Z' },
     { id: 'l2', name: 'Daniel Mwangi', email: 'daniel@example.com', phone: '+254 711 223344', country: 'Kenya', vehicle_interest: 'Lexus RX 450h', source: 'WhatsApp', status: 'new', budget: 42000, assigned_to: 'Omar Ali', next_follow_up: '2026-08-24', created_at: '2026-08-23T11:10:00Z' },
@@ -211,13 +247,29 @@ const seed = {
     { id: 'a1', action: 'Quote Q-2026-1042 sent to Ahmed Khan', actor: 'Sara Malik', entity_type: 'quote', created_at: '2026-08-23T12:42:00Z' },
     { id: 'a2', action: 'New website lead received from Kenya', actor: 'System', entity_type: 'lead', created_at: '2026-08-23T11:10:00Z' },
     { id: 'a3', action: 'Shipment AR7-260184 milestone updated to At Sea', actor: 'Omar Ali', entity_type: 'shipment', created_at: '2026-08-23T09:18:00Z' },
-    { id: 'a4', action: 'Audi R8 inventory record updated with new photo gallery', actor: 'Sara Malik', entity_type: 'vehicle', created_at: '2026-08-23T08:33:00Z' }
+    { id: 'a4', action: 'Audi R8 inventory record updated with new photo gallery', actor: 'Sara Malik', entity_type: 'vehicle', created_at: '2026-08-23T08:33:00Z' },
+    // Call-desk entries use live timestamps so the demo dashboards show the
+    // per-agent calling stats the way a working day actually looks.
+    { id: 'a5', action: 'Call logged — Interested', actor: 'Sara Malik', entity_type: 'lead', entity_id: 'l1', created_at: new Date(Date.now() - 2 * 36e5).toISOString() },
+    { id: 'a6', action: 'Call logged — No answer', actor: 'Omar Ali', entity_type: 'lead', entity_id: 'l2', created_at: new Date(Date.now() - 1 * 36e5).toISOString() },
+    { id: 'a7', action: 'Call logged — Callback booked', actor: 'Omar Ali', entity_type: 'lead', entity_id: 'l4', created_at: new Date(Date.now() - 50 * 36e5).toISOString() }
   ]
 };
 
 const tabs = [
   ['dashboard', 'Overview', LayoutDashboard],
   ['leads', 'Leads', Users],
+  // Free cold-calling desk (2026-11-11 owner request): the queue, the script,
+  // the dial/WhatsApp/SMS links and the outcome log in one screen. Calls go
+  // through the agent's own phone or WhatsApp — zero per-call cost.
+  ['calls', 'Call desk', PhoneCall],
+  // WhatsApp desk (2026-11-03 owner request): the business WhatsApp inbox
+  // inside the CRM — staff and the AI agent answer customers here once the
+  // (free) Meta Cloud API number is connected. See WHATSAPP-DESK.md.
+  ['wa', 'WhatsApp', MessageCircle],
+  // Prospect radar: public business contacts of used-car importers collected
+  // by the weekly scanner, reviewed by a human, converted into leads.
+  ['prospects', 'Prospects', Radar],
   ['customers', 'Customers', UserRound],
   ['accounts', 'Customer accounts', Wallet],
   // Inventory and the website showroom are ONE tab: the same cars, two faces.
@@ -237,7 +289,12 @@ const tabs = [
   ['people', 'People & payroll', Briefcase],
   ['settings', 'Website settings', Settings],
   ['offers', 'Price offers', Percent],
-  ['seo', 'SEO desk', Search],
+  // ONE growth tab (2026-11-07): the SEO desk and the AI Growth agents are
+  // two views of the same job — be found, convert, repeat — so they live in
+  // one "Growth studio" with a Start-here view for non-technical operators.
+  // The old tab ids 'seo' and 'agents' still navigate here (deep links from
+  // the Offers view, Guardian and the Upgrade Advisor keep working).
+  ['seo', 'Growth studio', Search],
   ['guardian', 'Site guardian', ShieldCheck],
   ['activities', 'Activity log', Activity]
 ];
@@ -272,7 +329,9 @@ const ENTITY_WRITE_PERM = {
   leads: 'leads.write', customers: 'customers.write', vehicles: 'vehicles.write',
   quotes: 'quotes.write', shipments: 'shipments.write', tasks: 'tasks.write',
   listings: 'site.write', routes: 'site.write', articles: 'site.write', goonet: 'site.write',
-  machinery: 'site.write'
+  machinery: 'site.write',
+  // Outreach surfaces ride the leads permission — same people, same job.
+  wa: 'leads.write', prospects: 'leads.write'
 };
 const SITE_ENTITIES = ['listings', 'routes', 'articles'];
 
@@ -283,7 +342,7 @@ const SITE_ENTITIES = ['listings', 'routes', 'articles'];
 const OPT = {
   countries: ['Pakistan', 'UAE', 'Kenya', 'Tanzania', 'United Kingdom', 'New Zealand', 'Australia', 'USA', 'South Africa', 'Ghana', 'Nigeria', 'Egypt', 'Jordan', 'Qatar', 'Saudi Arabia', 'Bangladesh', 'Sri Lanka', 'Japan', 'Other'],
   leadStatus: ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'],
-  leadSource: ['Website', 'WhatsApp', 'Referral', 'Instagram', 'Facebook', 'YouTube', 'Walk-in', 'Other'],
+  leadSource: ['Website', 'Website contact', 'Website signup', 'Auction access', 'Vehicle enquiry', 'Machinery enquiry', 'WhatsApp', 'Referral', 'Instagram', 'Facebook', 'YouTube', 'Walk-in', 'Other'],
   customerStatus: ['active', 'vip', 'dormant', 'blocked'],
   vehicleStatus: ['available', 'reserved', 'sold', 'in_preparation', 'in_transit', 'auction_watch'],
   listingStatus: ['In Stock', 'New Arrival', 'Auction', 'Reserved', 'Sold'],
@@ -317,6 +376,7 @@ const configs = {
       ['vehicle_interest', 'Vehicle interest', 'text', { placeholder: 'e.g. Toyota Land Cruiser 2022+', section: 'Interest' }],
       ['budget', 'Budget (USD)', 'number', { min: 0, step: 100, placeholder: '65000', section: 'Interest' }],
       ['source', 'Lead source', 'select', { options: OPT.leadSource, section: 'Interest' }],
+      ['referral_code', 'Referral code', 'text', { placeholder: 'AR7-7KQ2M', section: 'Interest', hint: 'The customer whose share code this enquiry quoted — find them under Customers' }],
       ['status', 'Pipeline stage', 'select', { options: OPT.leadStatus, section: 'Pipeline' }],
       ['assigned_to', 'Assigned agent', 'text', { placeholder: 'Who owns this lead?', section: 'Pipeline' }],
       ['next_follow_up', 'Next follow-up', 'date', { section: 'Pipeline' }],
@@ -413,6 +473,7 @@ const configs = {
       ['col', 'Colour', 'text', { section: 'Details' }],
       ['st', 'Steering', 'select', { options: OPT.steering, section: 'Details' }],
       ['image', 'Cover photo path', 'text', { placeholder: '/assets/… (first gallery photo is used)', section: 'Details' }],
+      ['video', 'Video walkaround', 'text', { placeholder: 'https://youtu.be/…', section: 'Details', hint: 'YouTube link — the car page shows a click-to-play walkaround player' }],
       ['sort_order', 'Sort order', 'number', { min: 0, section: 'Details', hint: 'Lower numbers appear first' }]
     ]
   },
@@ -546,6 +607,24 @@ function exportCsv(entity, rows) {
   const a = document.createElement('a');
   a.href = url;
   a.download = `ar7-${entity}-${todayKey()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 2026-11-08: whole-desk backup. Every table currently loaded in the CRM
+// (leads, customers, vehicles, listings, quotes, shipments, …) lands in ONE
+// dated JSON file, so the owner's backups cover data as well as code — the
+// code side is covered by the GitHub archive download.
+function exportAllJson(rows) {
+  const tables = {};
+  for (const [entity, list] of Object.entries(rows || {})) {
+    if (Array.isArray(list) && list.length) tables[entity] = list;
+  }
+  const payload = { exported_at: new Date().toISOString(), source: 'AR7 CRM', tables };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ar7-crm-backup-${todayKey()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -711,6 +790,116 @@ async function machineryAction(action, id, token) {
   });
 }
 
+/**
+ * Turn a failed entity read into the issue the desk shows.
+ *
+ * WHY: loadAll() used to swallow every failure into `[]`, so the machinery desk
+ * rendered an empty table (or, worse, looked healthy because the built-in
+ * website catalogue filled it) while production answered "Could not find the
+ * table 'public.machinery' in the schema cache". The server has always sent the
+ * state and the file to run; this keeps them, and separates a MISSING STORAGE
+ * from an ordinary read error so the desk can say which one it is.
+ *
+ * Pure and exported so the shapes are unit-tested (scripts/machinery-receipt.test.jsx).
+ */
+export function describeLoadFailure(entity, error) {
+  const body = error?.body || {};
+  const storage = body.storage || null;
+  const state = storage?.state || body.state || null;
+  const missingTable = state === 'missing-table' || state === 'missing-tables'
+    || /does not exist|schema cache|relation .* does not exist/i.test(body.details || error?.message || '');
+  return {
+    entity,
+    error: error?.message || 'The records could not be read.',
+    stage: body.stage || null,
+    storage,
+    state,
+    missingTable,
+    // No storage means no writes: the desk must not offer a button whose only
+    // possible answer is another copy of this failure.
+    writesBlocked: missingTable,
+    title: missingTable ? 'Machinery storage does not exist yet' : 'Machinery records could not be read',
+    ownerAction: body.ownerAction || storage?.ownerAction || null
+  };
+}
+
+/**
+ * The machinery desk's storage alert.
+ *
+ * WHY: the desk rendered a machine list whether or not the database could be
+ * read — in demo mode, or with the bundled catalogue as a fallback — so "the
+ * public.machinery table was never created" produced an EMPTY desk, not a
+ * broken one, and nothing on screen asked for the migration. This is that
+ * sentence, in the operator's words, with the file to run and a button that
+ * asks the server for a fresh diagnosis. Presentational on purpose: the state
+ * and the network call live in the tab, and the DOM is asserted by
+ * scripts/machinery-receipt.test.jsx.
+ */
+export function MachineryStorageAlert({ issue, busy = false, onDiagnose }) {
+  if (!issue) return null;
+  return (
+    <div className="crm-storage-alert" role="alert">
+      <ShieldAlert size={16} />
+      <div>
+        <b>{issue.title}</b>
+        <p>{issue.error}</p>
+        {(issue.storage || issue.state) && (
+          <p>
+            State: <code>{issue.state || issue.storage?.state || 'unknown'}</code>
+            {issue.storage?.table ? <> · table <code>{issue.storage.table}</code></> : null}
+          </p>
+        )}
+        {issue.ownerAction && <p className="crm-storage-fix"><b>Fix:</b> {issue.ownerAction}</p>}
+        <p>
+          The machine list below is the <b>built-in website catalogue</b>, not your database records.
+          Imports, price refreshes and the nightly job cannot work until this is fixed, so every
+          button that reads or writes stored machines is disabled until the migration is run.
+        </p>
+      </div>
+      <button type="button" className="crm-add" disabled={busy} onClick={onDiagnose}>
+        <Stethoscope size={14} /> {busy ? 'Checking storage…' : 'Run storage diagnostic'}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The read-only answer from ?machinery=doctor: one row per check, the fix on
+ * the rows that failed, and nothing that implies a change was made.
+ */
+export function MachineryDoctorReport({ report, onDismiss }) {
+  if (!report) return null;
+  return (
+    <div className={'crm-storage-report' + (report.ok ? ' is-ok' : ' is-bad')} role="status">
+      <div className="crm-storage-report-head">
+        <b>{report.ok ? 'Machinery storage is healthy' : 'Machinery storage needs attention'}</b>
+        <button type="button" onClick={onDismiss} aria-label="Dismiss the storage report"><X size={13} /></button>
+      </div>
+      {report.ownerAction && <p className="crm-storage-fix"><b>Fix:</b> {report.ownerAction}</p>}
+      <ul>
+        {(report.checks || []).map((check, i) => (
+          <li key={i} className={check.ok ? 'is-ok' : 'is-bad'}>
+            <b>{check.ok ? 'Pass' : 'Fail'} — {check.name}</b>
+            <span>{check.detail}</span>
+            {check.fix && <span className="crm-storage-fix"><b>Fix:</b> {check.fix}</span>}
+          </li>
+        ))}
+        {!(report.checks || []).length && <li className="is-bad"><b>No checks returned</b><span>{report.error || 'The diagnostic did not answer.'}</span></li>}
+      </ul>
+      <p className="crm-storage-note">Read-only diagnostic — nothing was changed.</p>
+    </div>
+  );
+}
+
+/**
+ * read-only). This is the desk's own version of the nightly workflow's preflight:
+ * it answers "is the table there, and does the catalogue show database rows or
+ * the built-in fallback?" instead of leaving the owner with an empty table.
+ */
+async function machineryDoctor(token) {
+  return call('/api/site-content?machinery=doctor', token);
+}
+
 /** Preview or confirm a machinery import. Preview writes nothing at all. */
 async function machineryImport(step, body, token) {
   return call('/api/site-content?import=machinery&step=' + encodeURIComponent(step), token, {
@@ -721,8 +910,278 @@ async function machineryImport(step, body, token) {
 async function call(path, token, options = {}) {
   const res = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(options.headers || {}) } });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Request failed');
+  if (!res.ok) {
+    // 2026-10-07: a refusal carries the receipt. A confirm that wrote nothing
+    // answers 422 with `invalid` / `skipped` per row; throwing only body.error
+    // threw that away, so "where did my machines go?" had no answer on screen.
+    // The error keeps the whole body and describeImportOutcome() reads it.
+    const err = new Error(body.error || 'Request failed');
+    err.body = body;
+    throw err;
+  }
   return body;
+}
+
+/**
+ * Turn one confirm (or refused confirm) response into a full account of what
+ * happened to EVERY selected machine — the answer to "I selected many machines
+ * and they were not listed".
+ *
+ * The server has always returned the reasons: `invalid` (failed validation:
+ * unknown type, missing brand/model, bad ref), `skipped` (no dedupe key — not
+ * enough detail to tell it apart) and `failed` (a database error). The desk
+ * used to read only imported/updated/rePriced and then announce that the
+ * selection was published, even when nothing had been written. This renders
+ * the other side, per row, by name, with the reason the server gave.
+ *
+ * Pure, exported, and covered by scripts/machinery-receipt.test.jsx (rendered
+ * against a stubbed API, and unit-tested against the exact body applyImport()
+ * returns) so the receipt cannot drift from the API's shape.
+ */
+export function describeImportOutcome(out, selectedCount = null) {
+  const body = out || {};
+  const imported = Number(body.imported) || 0;
+  const updated = Number(body.updated) || 0;
+  const rePriced = Array.isArray(body.rePriced) ? body.rePriced : [];
+  const skipped = Array.isArray(body.skipped) ? body.skipped : [];
+  const invalid = Array.isArray(body.invalid) ? body.invalid : [];
+  const failed = Array.isArray(body.failed) ? body.failed : [];
+  const wrote = imported + updated;
+  const missed = skipped.length + invalid.length + failed.length;
+  // A row is named the way a person recognises it. A real stock number
+  // (AR7-MC-014) is the best identifier there is; the placeholder every NEW
+  // machine carries (AR7-MC-NEW) identifies nobody, so for a refusal the
+  // brand/model the scraper read is used instead.
+  const PLACEHOLDER_REF = 'AR7-MC-NEW';
+  const described = row => row?.name || [row?.brand, row?.model].filter(Boolean).join(' ').trim();
+  const name = row => {
+    const ref = String(row?.ref || '').trim();
+    const label = described(row);
+    const realRef = ref && ref.toUpperCase() !== PLACEHOLDER_REF;
+    if (realRef && label) return `${ref} · ${label}`;
+    if (realRef) return ref;
+    return label || ref || 'that machine';
+  };
+
+  const headline = [];
+  if (imported) headline.push(`${imported} added`);
+  if (updated) headline.push(`${updated} updated`);
+  if (rePriced.length) headline.push(`${rePriced.length} re-priced`);
+  if (!headline.length) headline.push('nothing written');
+
+  const lines = [];
+  for (const row of invalid) {
+    const why = (row?.errors || []).map(e => e?.message).filter(Boolean).join('; ');
+    lines.push({ kind: 'invalid', ref: name(row), why: why || 'failed validation' });
+  }
+  for (const row of skipped) lines.push({ kind: 'skipped', ref: name(row), why: row?.reason || 'not enough detail to tell this machine apart' });
+  for (const row of failed) lines.push({ kind: 'failed', ref: name(row), why: row?.error || 'the database refused the write' });
+
+  return {
+    imported, updated, rePriced, skipped, invalid, failed,
+    // The refused rows themselves, so the desk can point the operator at the
+    // candidate that needs correcting rather than at every selected one.
+    refused: [...invalid, ...skipped, ...failed],
+    wrote, missed, selectedCount,
+    headline: headline.join(', '),
+    lines,
+    everythingWrote: wrote > 0 && missed === 0,
+    partial: wrote > 0 && missed > 0,
+    nothingWritten: wrote === 0,
+    // The names the server refused, so the desk can offer an inline fix-up and
+    // a re-confirm instead of making the operator re-scrape the source.
+    refusedRefs: lines.map(l => String(l.ref).toUpperCase())
+  };
+}
+
+/**
+ * Which previewed candidates the server actually refused.
+ *
+ * The receipt names rows; this maps those names back onto the candidates still
+ * on screen, so the inline fix-up editor opens on the machine that needs it and
+ * not on the two that were written successfully. Matching is on the fields both
+ * sides carry — brand/model when the refusal has them, a real stock number
+ * otherwise. A refusal that identifies nothing (no brand, no model, no real
+ * ref) can only mean "some of your selection", so every selected candidate is
+ * offered the fix-up rather than none.
+ *
+ * @param {{machine: object, key: string}[]} candidateRows  the previewed rows
+ * @param {Set<string>} selectedKeys                        the ones confirmed
+ * @param {object[]} refusedRows                            outcome.refused
+ */
+export function refusedCandidateKeys(candidateRows, selectedKeys, refusedRows) {
+  const selected = (candidateRows || []).filter(c => selectedKeys?.has?.(c.key));
+  const rows = (refusedRows || []).filter(Boolean);
+  const tokens = v => String(v || '').trim().toLowerCase();
+  const identifiable = rows.filter(r => tokens(r.brand) || tokens(r.model) || tokens(r.name) ||
+    (tokens(r.ref) && tokens(r.ref) !== 'ar7-mc-new'));
+  if (!identifiable.length) return new Set(selected.map(c => c.key));
+  const keys = new Set();
+  for (const c of selected) {
+    const m = c.machine || {};
+    const hit = identifiable.some(r =>
+      (tokens(r.brand) && tokens(r.brand) === tokens(m.brand)) ||
+      (tokens(r.model) && tokens(r.model) === tokens(m.model)) ||
+      (tokens(r.name) && tokens(r.name) === tokens(m.name)) ||
+      (tokens(r.ref) && tokens(r.ref) !== 'ar7-mc-new' && tokens(r.ref) === tokens(m.ref)));
+    if (hit) keys.add(c.key);
+  }
+  return keys;
+}
+
+/* ---------------------------------------------------------------------------
+   Notification bell (2026-11-07). A live "needs attention" list computed from
+   the records already loaded — no extra API call, no stored read-state:
+     • tasks past or at their due date that are not done
+     • brand-new leads, and leads whose follow-up date has arrived
+     • sent quotes past their validity date
+   Clicking an item jumps to the desk (and pre-fills the search where that
+   pins the exact record). */
+function CrmBell({ rows, go }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = e => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const today = new Date().toISOString().slice(0, 10);
+  const items = useMemo(() => {
+    const out = [];
+    for (const t of rows.tasks || []) {
+      if (t.status === 'done' || !t.due_date) continue;
+      if (t.due_date > today) continue;
+      out.push({
+        key: 'task-' + t.id, Icon: CalendarClock, tone: t.due_date < today ? 'danger' : 'warn',
+        text: t.title, sub: (t.due_date < today ? 'Overdue — was due ' : 'Due today — ') + t.due_date + (t.owner ? ' · ' + t.owner : ''),
+        tab: 'tasks', q: t.title
+      });
+    }
+    for (const l of rows.leads || []) {
+      if (l.status === 'new') {
+        out.push({
+          key: 'lead-new-' + l.id, Icon: Users, tone: 'ok',
+          text: 'New lead: ' + (l.name || 'Unnamed') + (l.country ? ' (' + l.country + ')' : ''),
+          sub: (l.vehicle_interest || 'No vehicle named') + (l.source ? ' · via ' + l.source : ''),
+          tab: 'leads', q: l.name
+        });
+      } else if (l.next_follow_up && l.next_follow_up <= today && !['won', 'lost', 'closed'].includes(String(l.status || ''))) {
+        out.push({
+          key: 'lead-fu-' + l.id, Icon: Clock3, tone: 'warn',
+          text: 'Follow up ' + (l.name || 'lead'),
+          sub: 'Planned for ' + l.next_follow_up + (l.assigned_to ? ' · ' + l.assigned_to : ''),
+          tab: 'leads', q: l.name
+        });
+      }
+    }
+    for (const q of rows.quotes || []) {
+      if (q.status !== 'sent' || !q.valid_until || q.valid_until > today) continue;
+      out.push({
+        key: 'quote-' + q.id, Icon: FileText, tone: 'danger',
+        text: 'Quote ' + (q.quote_no || '') + ' past validity',
+        sub: (q.customer_name || '') + ' · was valid until ' + q.valid_until,
+        tab: 'quotes', q: q.quote_no
+      });
+    }
+    return out;
+  }, [rows, today]);
+  return (
+    <div className="crm-bell-wrap" ref={ref}>
+      <button type="button" className={'crm-bell' + (open ? ' open' : '')} onClick={() => setOpen(v => !v)}
+        aria-label={items.length ? items.length + ' items need attention' : 'Nothing needs attention'}
+        aria-expanded={open} title="Needs attention: overdue tasks, new leads, expiring quotes">
+        <Bell />
+        {items.length > 0 && <i className="crm-bell-badge">{items.length > 9 ? '9+' : items.length}</i>}
+      </button>
+      {open && (
+        <div className="crm-bell-panel" role="menu" aria-label="Needs attention">
+          <div className="crm-bell-head"><b>Needs attention</b><span>{items.length === 0 ? 'All clear' : items.length + (items.length === 1 ? ' item' : ' items')}</span></div>
+          {items.length === 0 ? (
+            <div className="crm-bell-empty"><ShieldCheck /> No overdue tasks, no waiting leads, no expired quotes.</div>
+          ) : items.slice(0, 12).map(it => (
+            <button key={it.key} type="button" role="menuitem" className={'crm-bell-item tone-' + it.tone}
+              onClick={() => { setOpen(false); go(it.tab, it.q); }}>
+              <it.Icon />
+              <span><b>{it.text}</b><small>{it.sub}</small></span>
+              <ChevronRight />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Command palette (2026-11-07) — Ctrl/⌘+K anywhere in the CRM. Jump to any
+   desk by name, or straight to a lead / customer / car: picking a record
+   opens its desk with the search pre-filled to pin it. */
+function CrmPalette({ onClose, rows, go }) {
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(0);
+  const inputRef = useRef(null);
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 20); }, []);
+  const list = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const out = [];
+    for (const [id, label, Icon] of tabs) {
+      if (!needle || label.toLowerCase().includes(needle) || id.includes(needle)) {
+        out.push({ key: 'tab-' + id, Icon, text: label, sub: 'Open desk', tab: id, q: '' });
+      }
+    }
+    if (needle.length >= 2) {
+      for (const l of rows.leads || []) {
+        if (`${l.name} ${l.email} ${l.country} ${l.vehicle_interest}`.toLowerCase().includes(needle)) {
+          out.push({ key: 'lead-' + l.id, Icon: Users, text: l.name, sub: 'Lead · ' + (l.vehicle_interest || l.country || ''), tab: 'leads', q: l.name });
+        }
+      }
+      for (const c of rows.customers || []) {
+        if (`${c.name} ${c.email} ${c.country}`.toLowerCase().includes(needle)) {
+          out.push({ key: 'cust-' + c.id, Icon: UserRound, text: c.name, sub: 'Customer · ' + (c.country || ''), tab: 'customers', q: c.name });
+        }
+      }
+      for (const v of rows.vehicles || []) {
+        if (`${v.stock_no} ${v.make} ${v.model}`.toLowerCase().includes(needle)) {
+          out.push({ key: 'veh-' + v.id, Icon: CarFront, text: [v.year, v.make, v.model].filter(Boolean).join(' '), sub: 'Inventory · ' + (v.stock_no || ''), tab: 'vehicles', q: v.stock_no || v.model });
+        }
+      }
+    }
+    return out.slice(0, 14);
+  }, [q, rows]);
+  useEffect(() => { setSel(0); }, [q]);
+  const pick = it => { go(it.tab, it.q); onClose(); };
+  const onKey = e => {
+    if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, list.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSel(s => Math.max(s - 1, 0)); }
+    else if (e.key === 'Enter' && list[sel]) { e.preventDefault(); pick(list[sel]); }
+  };
+  return (
+    <div className="crm-palette-backdrop" onMouseDown={onClose} role="dialog" aria-modal="true" aria-label="Command palette">
+      <div className="crm-palette" onMouseDown={e => e.stopPropagation()}>
+        <label className="crm-palette-input">
+          <Search />
+          <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey}
+            placeholder="Jump to a desk, lead, customer or car…" aria-label="Command palette search" />
+          <kbd>ESC</kbd>
+        </label>
+        <div className="crm-palette-list">
+          {list.map((it, i) => (
+            <button key={it.key} type="button" className={'crm-palette-item' + (sel === i ? ' active' : '')}
+              onMouseEnter={() => setSel(i)} onClick={() => pick(it)}>
+              <it.Icon />
+              <span><b>{it.text}</b><small>{it.sub}</small></span>
+              {sel === i && <CornerDownLeft />}
+            </button>
+          ))}
+          {list.length === 0 && <div className="crm-palette-none">Nothing matches “{q.trim()}”.</div>}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function CrmApp() {
@@ -744,7 +1203,21 @@ export default function CrmApp() {
   const [perms, setPerms] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [openCustomer, setOpenCustomer] = useState(null);
+  // Per-entity read failures, so an empty desk can say WHY it is empty.
+  const [loadIssues, setLoadIssues] = useState({});
+  // The storage diagnostic the desk can run itself (read-only, ?machinery=doctor).
+  const [storageReport, setStorageReport] = useState(null);
+  const [storageBusy, setStorageBusy] = useState(false);
   const [theme, setTheme] = useState(() => lsGet('ar7-crm-theme') || 'emerald');
+  // Ctrl/⌘+K command palette — staff jump between 20+ desks all day.
+  const [palette, setPalette] = useState(false);
+  useEffect(() => {
+    const onKey = e => {
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setPalette(v => !v); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleThemeChange = newTheme => {
     setTheme(newTheme);
@@ -759,7 +1232,7 @@ export default function CrmApp() {
   useEffect(() => {
     if (DEMO) {
       setSession({ access_token: 'demo', user: { email: 'admin@ar7traders.com' } });
-      setProfile({ full_name: 'Demo Administrator', role: 'admin' });
+      setProfile({ full_name: 'Offline Administrator', role: 'admin' });
       setLoading(false);
       return;
     }
@@ -812,14 +1285,22 @@ export default function CrmApp() {
         const allStock = hasPerm(matrix, me?.role, 'site.write');
         const entries = await Promise.all(keys.map(async k => {
           try {
-            return [k, await api(k, session.access_token, {
+            const loaded = await api(k, session.access_token, {
               all: k === 'goonet' || k === 'machinery' ? allStock : undefined
-            })];
-          } catch {
-            return [k, []];
+            });
+            return [k, loaded, null];
+          } catch (e) {
+            // A failed read used to be swallowed into `[]`, so the desk showed an
+            // empty list with no reason — which is how "the machinery table was
+            // never created in production" stayed invisible for weeks while the
+            // nightly importer 500'd. The failure is kept (with the server's
+            // stage/storage/ownerAction) and shown on the desk.
+            return [k, [], describeLoadFailure(k, e)];
           }
         }));
-        const loaded = Object.fromEntries(entries);
+        // Errors are reported per entity and survive the other entities loading.
+        setLoadIssues(Object.fromEntries(entries.filter(([, , issue]) => issue).map(([k, , issue]) => [k, issue])));
+        const loaded = Object.fromEntries(entries.map(([k, value]) => [k, value]));
         // Machinery only: the bundled catalogue is on the public site, so it
         // belongs in the desk too (flagged until it is added).
         loaded.machinery = withWebsiteCatalogue(loaded.machinery || []);
@@ -856,11 +1337,11 @@ export default function CrmApp() {
   // One-click stock sync (admin only): makes the public website's car list
   // match the latest seed. Cars not in the seed are hidden, never deleted.
   async function syncWebsiteStock() {
-    if (DEMO) { setNotice('Stock sync needs the live database — it is disabled in demo mode.'); return; }
+    if (DEMO) { setNotice('Stock sync needs the live database — it is disabled in offline mode.'); return; }
     const ok = window.confirm(
       'Sync the public website stock to the latest seed?\n\n' +
-      'The 25 seed cars (12 showroom + 13 Goo-net) will be published with their photo galleries.\n' +
-      'Any car in the database that is NOT in the seed will be hidden (published=false — you can re-publish it later from this tab).'
+      'All seed cars (18 real showroom picks + the Goo-net imports) will be published with their photo galleries.\n' +
+      'Cars imported by the Goo-net sync are left untouched. Any OTHER car not in the seed will be hidden (published=false — you can re-publish it later from this tab).'
     );
     if (!ok) return;
     setSyncing(true);
@@ -939,13 +1420,13 @@ export default function CrmApp() {
           demoWrite('goonet', next);
           setRows(v => ({ ...v, goonet: next }));
           setNotice(wasThere
-            ? `${row.make} ${row.model} is already in ${prettyTarget} — its details were refreshed (demo)`
-            : `Added ${row.make} ${row.model} to ${prettyTarget} (demo)`);
+            ? `${row.make} ${row.model} is already in ${prettyTarget} — its details were refreshed (offline)`
+            : `Added ${row.make} ${row.model} to ${prettyTarget} (offline)`);
         } else if (action === 'delist') {
           const next = (rows.goonet || []).map(x => x.id === row.id ? { ...x, available: false, delisted_at: new Date().toISOString() } : x);
           demoWrite('goonet', next);
           setRows(v => ({ ...v, goonet: next }));
-          setNotice(`Delisted ${label} (demo)`);
+          setNotice(`Delisted ${label} (offline)`);
         }
         return;
       }
@@ -998,11 +1479,14 @@ export default function CrmApp() {
   }
 
   // Trigger one importer run (admin) — same code the scheduled cron calls.
-  async function runGoonetSync() {
-    if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in demo mode.'); return; }
+  async function runGoonetSync(maybeKeyword) {
+    if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in offline mode.'); return; }
+    // The Run button passes its click event; only a real string is a keyword.
+    const keyword = typeof maybeKeyword === 'string' ? maybeKeyword.trim() : '';
     setSyncing(true);
     try {
-      const r = await call('/api/goonet-sync', session.access_token, { method: 'POST' });
+      const r = await call('/api/goonet-sync', session.access_token,
+        { method: 'POST', ...(keyword ? { body: JSON.stringify({ keyword }) } : {}) });
       const skipped = r.skipped?.length ? ` · skipped ${r.skipped.length}` : '';
       // The skip reasons ARE the diagnosis ("only 2 images (need 5+)",
       // "missing fields: fuel, body", "detail fetch failed"…). Show the first
@@ -1016,12 +1500,24 @@ export default function CrmApp() {
       const detail = why.length ? ' — ' + why.join(' — ') : '';
       // A blocked run must not read like a clean one: the report's own note
       // says the bookmark was held, so no pages were silently skipped.
+      const label = r.keyword ? `Search "${r.keyword}"` : 'Importer run';
       setNotice(r.blocked
         ? `Importer blocked by goo-net — page ${r.page || '?'} gave ${r.cardsSeen ?? 0} card(s), nothing imported.${skipped} ${r.note || ''}`.trim()
-        : `Importer run finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
+        : `${label} finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
       await loadAll();
     } catch (e) {
-      setNotice(e.message);
+      // A failed crawl now carries a structured `failure` report. Render the
+      // whole picture — which page, timeout vs blocked, what the relay did,
+      // whether the relay runs keyless, and the suggested owner action — so
+      // "This operation was aborted" never again stands alone as the answer.
+      const f = e.body?.failure;
+      setNotice(f ? [
+        e.message,
+        `Direct: ${f.timedOut ? 'timed out' : f.directStatus ? 'HTTP ' + f.directStatus : (f.directError || 'failed')}${f.retried ? ' (retried once)' : ''}`,
+        `Relay: ${f.relayAttempted ? (f.relayError || (f.relayStatus ? 'HTTP ' + f.relayStatus : 'failed')) : 'not attempted'} · key ${f.relayKey || '?'}`,
+        f.fallbackTried ? `Fallback page 1: ${f.fallbackError || 'also failed'}` : null,
+        f.failCount > 1 ? `This page has failed ${f.failCount} run(s) in a row.` : null
+      ].filter(Boolean).join(' — ') : e.message);
     } finally {
       setSyncing(false);
     }
@@ -1032,7 +1528,7 @@ export default function CrmApp() {
   // served by GET /api/goonet-stock?action=diag). Pasting that exact markup is
   // how scripts/goonet-core.mjs gets fixed against what the site really sent.
   async function copyGoonetDiag() {
-    if (DEMO) { setNotice('The parser diagnostic needs the live database — disabled in demo mode.'); return; }
+    if (DEMO) { setNotice('The parser diagnostic needs the live database — disabled in offline mode.'); return; }
     try {
       const r = await call('/api/goonet-stock?action=diag', session.access_token);
       if (!r.sample) { setNotice('No parser diagnostic stored — the importer last read the page successfully.'); return; }
@@ -1063,7 +1559,7 @@ export default function CrmApp() {
   // "Run import now" then re-crawls from the first listing page instead of the
   // page where the crawler last stopped.
   async function resetGoonetBookmark() {
-    if (DEMO) { setNotice('The Goo-net bookmark reset needs the live database — disabled in demo mode.'); return; }
+    if (DEMO) { setNotice('The Goo-net bookmark reset needs the live database — disabled in offline mode.'); return; }
     if (!window.confirm('Reset the Goo-net importer bookmark to page 1?\n\nAlready-imported cars are skipped automatically, so no duplicates are created. Use this when the bookmark is stuck on an old page or the search URL changed.')) return;
     try {
       const r = await call('/api/goonet-stock?action=reset_bookmark', session.access_token, { method: 'POST', body: JSON.stringify({ action: 'reset_bookmark' }) });
@@ -1210,7 +1706,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'SEO desk' };
+  const SPECIAL = { calls: 'Call desk', wa: 'WhatsApp desk', prospects: 'Prospect radar', dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'Growth studio', agents: 'Growth studio' };
   // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
   // activeEntity picks which set the panel, the toolbar and the editor work on.
   const activeEntity = tab === 'vehicles' ? carSub : tab;
@@ -1238,8 +1734,8 @@ export default function CrmApp() {
               <span>{label}</span>
               {id === 'leads' && <em>{(rows.leads || []).filter(x => x.status === 'new').length}</em>}
               {id === 'vehicles' && (
-                <span className="crm-nav-count" title={`${(rows.vehicles || []).length} CRM inventory · ${(rows.listings || []).length} website`}>
-                  {(rows.vehicles || []).length + (rows.listings || []).length}
+                <span className="crm-nav-count" title={`${uniqueCarCount(rows.vehicles, rows.listings)} cars · ${(rows.vehicles || []).length} in CRM inventory · ${(rows.listings || []).length} on the website`}>
+                  {uniqueCarCount(rows.vehicles, rows.listings)}
                 </span>
               )}
               {id === 'goonet' && <span className="crm-nav-count">{(rows.goonet || []).filter(x => x.available !== false).length}</span>}
@@ -1249,6 +1745,11 @@ export default function CrmApp() {
         </nav>
         <div className="crm-staff-tools">
           <small>STAFF TOOLS</small>
+          {/* 2026-11-08: one-click data backup — everything the desk has
+              loaded, one dated JSON file. CSV per table stays on each tab. */}
+          <button type="button" className="crm-backup-btn" title="Download every loaded table as one JSON backup file" onClick={() => exportAllJson(rows)}>
+            <Download size={14} /> Data backup
+          </button>
         </div>
         <div className="crm-user">
           <button className="crm-user-open" onClick={() => setWho({ self: true })} title="Edit your profile" type="button">
@@ -1302,6 +1803,10 @@ export default function CrmApp() {
               </button>
             </div>
 
+            <button type="button" className="crm-kbtn" onClick={() => setPalette(true)} title="Command palette (Ctrl+K)" aria-label="Open command palette">
+              <Search /><kbd>Ctrl K</kbd>
+            </button>
+            <CrmBell rows={rows} go={(t, q) => { setTab(t); setQuery(q || ''); }} />
             <div className="crm-live"><i /> LIVE OPS</div>
             <a className="crm-site" href="/" title="Return to public website">Website <ChevronRight /></a>
           </div>
@@ -1316,6 +1821,41 @@ export default function CrmApp() {
 
         {tab === 'dashboard' ? (
           <Dashboard rows={rows} setTab={setTab} onOpenPhotos={car => setGalleryView(car)} onManagePhotos={(entity, car) => setPhotoTarget({ entity, row: car })} />
+        ) : tab === 'calls' ? (
+          <CallDeskView
+            leads={rows.leads || []}
+            activities={rows.activities || []}
+            canWrite={canWrite('leads')}
+            quickPatch={(row, patch) => quickPatch('leads', row, patch)}
+            aiAssist={canWrite('leads') ? row => call('/api/crm?entity=leads&ai=assist', session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id }) }) : null}
+            notify={setNotice}
+          />
+        ) : tab === 'wa' ? (
+          <WaDeskView
+            token={DEMO ? null : session.access_token}
+            canWrite={canWrite('wa')}
+            canToggleAuto={hasPerm(perms, profile?.role, 'settings.write')}
+            notify={setNotice}
+          />
+        ) : tab === 'prospects' ? (
+          <ProspectsView
+            rows={rows.prospects || []}
+            canWrite={canWrite('prospects')}
+            canLead={canWrite('leads')}
+            notify={setNotice}
+            quickPatch={(row, patch) => quickPatch('prospects', row, patch)}
+            onAdd={payload => save('prospects', payload)}
+            onConvert={async p => {
+              const payload = {
+                name: p.company || 'Prospect', email: (p.emails || [])[0] || '', phone: (p.phones || [])[0] || '',
+                country: p.country || '', vehicle_interest: 'Used-car import stock (B2B)', source: 'Prospecting',
+                status: 'new'
+              };
+              await save('leads', payload, { quiet: true });
+              await quickPatch('prospects', p, { status: 'converted' });
+              setNotice(`${payload.name} is now a lead — find them in Leads and the Call desk.`);
+            }}
+          />
         ) : tab === 'activities' ? (
           <ActivityView rows={rows.activities || []} />
         ) : tab === 'team' ? (
@@ -1326,8 +1866,21 @@ export default function CrmApp() {
           <PeopleView token={session.access_token} profile={profile} perms={perms} notify={setNotice} />
         ) : tab === 'offers' ? (
           <OffersView token={session.access_token} profile={profile} perms={perms} notify={setNotice} rows={rows} onOpenSeo={() => setTab('seo')} />
-        ) : tab === 'seo' ? (
-          <SeoDesk token={session.access_token} canPublish={hasPerm(perms, profile?.role, 'site.write')} canPromote={hasPerm(perms, profile?.role, 'settings.write')} notify={setNotice} />
+        ) : tab === 'seo' || tab === 'agents' ? (
+          // One Growth studio for both old tab ids. key={tab} remounts on a
+          // deep link (goDesk('agents') from the Upgrade Advisor) so the hub
+          // opens on the right view instead of whatever was left open.
+          <GrowthHub
+            key={tab}
+            token={session.access_token}
+            canPublish={hasPerm(perms, profile?.role, 'site.write')}
+            canPromote={hasPerm(perms, profile?.role, 'settings.write')}
+            canWrite={hasPerm(perms, profile?.role, 'site.write')}
+            notify={setNotice}
+            goDesk={setTab}
+            liveCars={rows.listings || []}
+            initialView={tab === 'agents' ? 'agents' : 'start'}
+          />
         ) : tab === 'guardian' ? (
           <GuardianView notify={setNotice} onOpenSeo={() => setTab('seo')} />
         ) : tab === 'settings' ? (
@@ -1366,7 +1919,20 @@ export default function CrmApp() {
                 operator has read the machine and pressed Import. */}
             {tab === 'machinery' && (
               <>
-                {canWrite('machinery') && (rows.machinery || []).some(r => r._notInDesk) && (
+                {loadIssues.machinery && (
+                  <MachineryStorageAlert
+                    issue={loadIssues.machinery}
+                    busy={storageBusy}
+                    onDiagnose={async () => {
+                      setStorageBusy(true);
+                      try { setStorageReport(await machineryDoctor(session.access_token)); }
+                      catch (e) { setStorageReport({ ok: false, error: e.message, ownerAction: e.body?.ownerAction || null }); }
+                      finally { setStorageBusy(false); }
+                    }}
+                  />
+                )}
+                {storageReport && <MachineryDoctorReport report={storageReport} onDismiss={() => setStorageReport(null)} />}
+                {canWrite('machinery') && !loadIssues.machinery?.writesBlocked && (rows.machinery || []).some(r => r._notInDesk) && (
                   <div className="crm-catalogue-bar">
                     <div>
                       <b>{(rows.machinery || []).filter(r => r._notInDesk).length} machines are live on the website from the built-in catalogue</b>
@@ -1377,7 +1943,15 @@ export default function CrmApp() {
                     </button>
                   </div>
                 )}
-                <MachineryImportPanel token={session.access_token} canWrite={canWrite('machinery')} notify={setNotice} onImported={loadAll} />
+                <MachineryImportPanel
+                  token={session.access_token}
+                  storageBlocked={!!loadIssues.machinery?.writesBlocked}
+                  canWrite={canWrite('machinery')}
+                  canSetDefault={hasPerm(perms, profile?.role, 'settings.write')}
+                  machines={rows.machinery || []}
+                  notify={setNotice}
+                  onImported={loadAll}
+                />
               </>
             )}
             {/* Merged cars panel: CRM inventory and the website showroom are
@@ -1418,7 +1992,7 @@ export default function CrmApp() {
                     className="crm-sync"
                     onClick={syncWebsiteStock}
                     disabled={syncing}
-                    title="Make the public website stock match the latest seed (25 cars: 12 showroom + 13 Goo-net). Cars not in the seed are hidden, not deleted."
+                    title="Make the seed cars on the public website match the latest seed. Imported Japan-stock cars are never touched; other cars not in the seed are hidden, not deleted."
                    type="button">
                     <RefreshCw className={syncing ? 'crm-sync-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync website stock'}
                   </button>
@@ -1436,6 +2010,7 @@ export default function CrmApp() {
               onManagePhotos={canWrite(activeEntity) ? row => setPhotoTarget({ entity: activeEntity, row }) : null}
               onViewGallery={row => setGalleryView(row)}
               onQuickPatch={canWrite(activeEntity) ? (row, patch) => quickPatch(activeEntity, row, patch) : null}
+              onAiAssist={activeEntity === 'leads' && canWrite('leads') ? row => call('/api/crm?entity=leads&ai=assist', session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id }) }) : null}
               statusOptions={configs[activeEntity]?.statusOptions}
               query={query}
               onClearSearch={() => setQuery('')}
@@ -1498,6 +2073,14 @@ export default function CrmApp() {
             const inVehicles = (rows.vehicles || []).some(x => x.id === r.id);
             setPhotoTarget({ entity: inGoonet ? 'goonet' : (inVehicles ? 'vehicles' : 'listings'), row: r });
           }}
+        />
+      )}
+
+      {palette && (
+        <CrmPalette
+          onClose={() => setPalette(false)}
+          rows={rows}
+          go={(t, q) => { setTab(t); setQuery(q || ''); }}
         />
       )}
     </div>
@@ -1576,6 +2159,28 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
   const overdueLeads = openLeads.filter(x => isOverdue(x.next_follow_up));
   const overdueTasks = tasks.filter(x => x.status !== 'done' && isOverdue(x.due_date));
   const awaitingQuotes = quotes.filter(x => x.status === 'sent');
+
+  // Calls by agent (2026-11): every outcome logged on the Call desk writes a
+  // "Call logged — …" audit entry with the agent as actor, so the day's
+  // calling effort can be read straight off the activity feed — no extra
+  // table, no extra fetch. CALL_TARGET_PER_DAY is a soft benchmark, not a
+  // quota stored anywhere.
+  const activities = rows.activities || [];
+  const agentCalls = (() => {
+    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    const weekStart = Date.now() - 7 * 864e5;
+    const by = {};
+    activities.forEach(a => {
+      if (!/^Call logged/.test(a.action || '')) return;
+      const t = new Date(a.created_at).getTime();
+      if (!(t >= weekStart)) return;
+      const k = a.actor || 'Team';
+      by[k] = by[k] || { today: 0, week: 0 };
+      by[k].week += 1;
+      if (t >= dayStart.getTime()) by[k].today += 1;
+    });
+    return Object.entries(by).sort((a, b) => b[1].today - a[1].today || b[1].week - a[1].week);
+  })();
 
   return (
     <div className="crm-dashboard">
@@ -1739,6 +2344,35 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
         <section className="crm-panel crm-span">
           <div className="crm-panel-head">
             <div>
+              <small>CALLING ACTIVITY</small>
+              <h3>Calls by agent</h3>
+            </div>
+            <button onClick={() => setTab('calls')} type="button">Call desk <ChevronRight /></button>
+          </div>
+          {agentCalls.length === 0 ? (
+            <p className="crm-agent-calls-empty">
+              No calls logged in the last 7 days. Outcomes logged on the Call desk appear here per agent.
+            </p>
+          ) : (
+            <div className="crm-agent-calls">
+              {agentCalls.map(([name, c]) => (
+                <div key={name} className="crm-agent-call-row">
+                  <span>
+                    <b>{name}</b>
+                    <em>{c.week} this week</em>
+                  </span>
+                  <i><u className={c.today >= CALL_TARGET_PER_DAY ? 'is-hit' : ''} style={{ width: Math.min(100, (c.today / CALL_TARGET_PER_DAY) * 100) + '%' }} /></i>
+                  <small>{c.today} / {CALL_TARGET_PER_DAY} today</small>
+                </div>
+              ))}
+              <p className="crm-agent-calls-note">Target is {CALL_TARGET_PER_DAY} logged calls per agent per day.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="crm-panel crm-span">
+          <div className="crm-panel-head">
+            <div>
               <small>LIVE LOGISTICS</small>
               <h3>Vehicles in transit across global ports</h3>
             </div>
@@ -1754,7 +2388,12 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
                 <h4>{x.vehicle}</h4>
                 <p>{x.origin} <i /> {x.destination}</p>
                 <div><u style={{ width: x.progress + '%' }} /></div>
-                <small>{x.vessel} · ETA {date(x.eta)}</small>
+                <small>
+                  {x.vessel
+                    ? <a className="crm-vessel-link" href={vesselTrackUrl(x.vessel)} target="_blank" rel="noreferrer" title="Live vessel position on VesselFinder (free AIS tracking)">{x.vessel} <ExternalLink size={10} /></a>
+                    : '—'}
+                  {' · ETA '}{date(x.eta)}
+                </small>
               </article>
             ))}
           </div>
@@ -1785,10 +2424,656 @@ function imgFallback(e) {
   el.src = '/assets/ar7-mark.png';
 }
 
-export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish, onArchive, onAddToDesk }) {
+// ---------------------------------------------------------------------------
+// Call desk — free cold calling for the owner and every agent (2026-11-11).
+// ---------------------------------------------------------------------------
+// HOW IT IS FREE: the desk never buys telephony. "Call" opens the agent's own
+// phone dialler (tel:), "WhatsApp" opens a chat with the drafted message
+// pre-filled (wa.me), "SMS" pre-fills a text (sms:) — the agent's existing
+// phone plan or WhatsApp (free over data) carries the call. The AI writes the
+// script and the messages; a HUMAN always speaks and presses send.
+// Fully automated AI VOICE calls are deliberately absent: they require a paid
+// telephony provider (Twilio and the like) and, in most target markets,
+// consent rules for robocalls. The desk says so instead of pretending.
+const CALL_OUTCOMES = [
+  { id: 'no-answer', label: 'No answer', icon: PhoneOff, days: 1, hint: 'Follow-up moves to tomorrow.' },
+  { id: 'voicemail', label: 'Left a message', icon: Voicemail, days: 2, hint: 'Follow-up moves 2 days out.' },
+  { id: 'callback', label: 'Asked to call back', icon: PhoneForwarded, days: 1, hint: 'Pick the date below.' },
+  { id: 'interested', label: 'Interested — quote now', icon: Check, status: 'qualified', days: 0, hint: 'Marked qualified, follow-up today.' },
+  { id: 'not-interested', label: 'Not interested', icon: Ban, status: 'lost', hint: 'Marked lost.' }
+];
+
+// Message template library (2026-11-12). One click fills the WhatsApp/SMS
+// link with the right message for the moment — no re-typing, no copy drift.
+// Templates only reference facts already on the lead record; prices and
+// stock claims stay in quotations where they are verified.
+const CALL_TEMPLATES = [
+  { id: 'intro', label: 'Introduction', text: l => `Hello ${firstNameOf(l)}! This is AR7 Traders in Japan about ${l.vehicle_interest || 'your vehicle enquiry'}. Is now a good moment for a quick chat?` },
+  { id: 'missed', label: 'After no answer', text: l => `Hello ${firstNameOf(l)}, AR7 Traders (Japan) here — I tried calling about ${l.vehicle_interest || 'your vehicle enquiry'} but could not reach you. What time suits you for a quick call today or tomorrow?` },
+  { id: 'options', label: 'Send options', text: l => `Hello ${firstNameOf(l)}! Good news — I have matching options for ${l.vehicle_interest || 'the vehicle you asked about'} ready to share, with photos and inspection grades. Shall I send them here on WhatsApp?` },
+  { id: 'quote', label: 'Quote follow-up', text: l => `Hello ${firstNameOf(l)}, following up on the quotation we sent for ${l.vehicle_interest || 'your vehicle'}. Do you have any questions on the price or shipping to ${l.country || 'your port'}? Happy to adjust it.` },
+  { id: 'reserve', label: 'Reserve / next step', text: l => `Hello ${firstNameOf(l)}! To reserve ${l.vehicle_interest || 'the vehicle'} before it goes back to auction, I can send the invoice and bank details today. Shall I proceed?` }
+];
+const firstNameOf = l => String(l?.name || '').trim().split(' ')[0] || 'there';
+
+// Soft benchmark for the dashboard's calls-by-agent panel. Not a quota and
+// not stored anywhere — just the line agents measure their day against.
+const CALL_TARGET_PER_DAY = 10;
+
+// Free vessel tracking (2026-11): shipments already store the vessel name, so
+// a VesselFinder search link gives live AIS position with no API key and no
+// cost — same free-by-design rule as the Call desk's tel:/wa.me links.
+const vesselTrackUrl = name => 'https://www.vesselfinder.com/vessels?name=' + encodeURIComponent(String(name || '').trim());
+
+// Local-language template variants (2026-11). The library stays personalised
+// from the lead record only — no price or stock claims in any language; those
+// belong in verified quotations. The default language is picked from the
+// lead's country, deliberately conservative: English stays the default where
+// business runs in English (Kenya, Uganda, UAE, Qatar…) and the agent can
+// switch any row by hand.
+const TEMPLATE_LANGS = [
+  { id: 'en', label: 'English' },
+  { id: 'fr', label: 'Français' },
+  { id: 'sw', label: 'Kiswahili' },
+  { id: 'ur', label: 'Urdu (Roman)' },
+  { id: 'ar', label: 'العربية' },
+  { id: 'pt', label: 'Português' }
+];
+const COUNTRY_TEMPLATE_LANG = {
+  'dr congo': 'fr', 'drc': 'fr', 'democratic republic of congo': 'fr', 'congo': 'fr',
+  'burundi': 'fr', 'rwanda': 'fr', 'senegal': 'fr', 'ivory coast': 'fr', "côte d'ivoire": 'fr',
+  'cameroon': 'fr', 'mali': 'fr', 'guinea': 'fr', 'benin': 'fr', 'togo': 'fr', 'madagascar': 'fr', 'djibouti': 'fr',
+  'tanzania': 'sw',
+  'pakistan': 'ur',
+  'saudi arabia': 'ar', 'libya': 'ar', 'sudan': 'ar', 'yemen': 'ar', 'iraq': 'ar', 'jordan': 'ar',
+  'mozambique': 'pt', 'angola': 'pt', 'brazil': 'pt'
+};
+const templateLangFor = l => COUNTRY_TEMPLATE_LANG[String(l?.country || '').trim().toLowerCase()] || 'en';
+const TEMPLATE_TEXTS = {
+  fr: {
+    intro: l => `Bonjour ${firstNameOf(l)} ! Ici AR7 Traders au Japon, au sujet de ${l.vehicle_interest || 'votre demande de véhicule'}. Est-ce un bon moment pour un bref échange ?`,
+    missed: l => `Bonjour ${firstNameOf(l)}, AR7 Traders (Japon) — j'ai essayé de vous appeler au sujet de ${l.vehicle_interest || 'votre demande de véhicule'} sans succès. Quel horaire vous conviendrait aujourd'hui ou demain ?`,
+    options: l => `Bonjour ${firstNameOf(l)} ! Bonne nouvelle — j'ai des options correspondant à ${l.vehicle_interest || 'votre recherche'}, avec photos et rapports d'inspection. Puis-je vous les envoyer ici sur WhatsApp ?`,
+    quote: l => `Bonjour ${firstNameOf(l)}, je fais suite au devis envoyé pour ${l.vehicle_interest || 'votre véhicule'}. Avez-vous des questions sur le prix ou l'expédition vers ${l.country || 'votre port'} ? Nous pouvons l'ajuster.`,
+    reserve: l => `Bonjour ${firstNameOf(l)} ! Pour réserver ${l.vehicle_interest || 'le véhicule'} avant son retour aux enchères, je peux envoyer la facture et les coordonnées bancaires aujourd'hui. Puis-je procéder ?`
+  },
+  sw: {
+    intro: l => `Habari ${firstNameOf(l)}! Hapa ni AR7 Traders kutoka Japani, kuhusu ${l.vehicle_interest || 'gari uliyoulizia'}. Je, huu ni wakati mzuri kuzungumza kidogo?`,
+    missed: l => `Habari ${firstNameOf(l)}, AR7 Traders (Japani) — nilijaribu kukupigia simu kuhusu ${l.vehicle_interest || 'gari uliyoulizia'} lakini sikukupata. Wakati gani unakufaa leo au kesho?`,
+    options: l => `Habari ${firstNameOf(l)}! Habari njema — nina magari yanayolingana na ${l.vehicle_interest || 'uliyoulizia'}, pamoja na picha na ripoti za ukaguzi. Nikutumie hapa WhatsApp?`,
+    quote: l => `Habari ${firstNameOf(l)}, nafuatilia nukuu ya bei tuliyokutumia kwa ${l.vehicle_interest || 'gari yako'}. Una swali lolote kuhusu bei au usafirishaji hadi ${l.country || 'bandari yako'}? Tunaweza kurekebisha.`,
+    reserve: l => `Habari ${firstNameOf(l)}! Ili kuhifadhi ${l.vehicle_interest || 'gari hii'} kabla haijarudi mnadani, naweza kukutumia ankara na maelezo ya benki leo. Niendelee?`
+  },
+  ur: {
+    intro: l => `Assalam o alaikum ${firstNameOf(l)}! Ye AR7 Traders Japan se hai, ${l.vehicle_interest || 'aap ki gari ki enquiry'} ke baare mein. Kya abhi baat karne ka munasib waqt hai?`,
+    missed: l => `Assalam o alaikum ${firstNameOf(l)}, AR7 Traders (Japan) — maine ${l.vehicle_interest || 'aap ki enquiry'} ke baare mein call ki thi magar raabta nahi ho saka. Aaj ya kal kis waqt call karun?`,
+    options: l => `Assalam o alaikum ${firstNameOf(l)}! Khushkhabri — ${l.vehicle_interest || 'aap ki pasand'} se milti julti options tayyar hain, photos aur inspection grades ke saath. Yahin WhatsApp par bhej dun?`,
+    quote: l => `Assalam o alaikum ${firstNameOf(l)}, ${l.vehicle_interest || 'aap ki gari'} ke liye bheji gayi quotation ka follow-up kar raha hun. Price ya ${l.country || 'aap ke port'} tak shipping par koi sawal ho to zaroor batayen.`,
+    reserve: l => `Assalam o alaikum ${firstNameOf(l)}! ${l.vehicle_interest || 'gari'} ko auction mein wapas jaane se pehle reserve karne ke liye aaj hi invoice aur bank details bhej sakta hun. Ijazat hai?`
+  },
+  ar: {
+    intro: l => `مرحباً ${firstNameOf(l)}! معك AR7 Traders من اليابان بخصوص ${l.vehicle_interest || 'استفسارك عن السيارة'}. هل هذا وقت مناسب لمكالمة قصيرة؟`,
+    missed: l => `مرحباً ${firstNameOf(l)}، AR7 Traders (اليابان) — حاولت الاتصال بك بخصوص ${l.vehicle_interest || 'استفسارك'} دون رد. ما الوقت المناسب لك اليوم أو غداً؟`,
+    options: l => `مرحباً ${firstNameOf(l)}! خبر سار — لدينا خيارات مطابقة لـ ${l.vehicle_interest || 'ما تبحث عنه'} مع الصور وتقارير الفحص. هل أرسلها لك هنا على واتساب؟`,
+    quote: l => `مرحباً ${firstNameOf(l)}، بخصوص عرض السعر الذي أرسلناه لـ ${l.vehicle_interest || 'سيارتك'} — هل لديك أي استفسار عن السعر أو الشحن إلى ${l.country || 'ميناء بلدك'}؟ يسعدنا التعديل.`,
+    reserve: l => `مرحباً ${firstNameOf(l)}! لحجز ${l.vehicle_interest || 'السيارة'} قبل عودتها إلى المزاد، يمكنني إرسال الفاتورة والتفاصيل البنكية اليوم. هل أتابع؟`
+  },
+  pt: {
+    intro: l => `Olá ${firstNameOf(l)}! Aqui é a AR7 Traders no Japão, sobre ${l.vehicle_interest || 'o seu pedido de veículo'}. É um bom momento para uma conversa rápida?`,
+    missed: l => `Olá ${firstNameOf(l)}, AR7 Traders (Japão) — tentei ligar sobre ${l.vehicle_interest || 'o seu pedido'} mas não consegui falar consigo. Que horário lhe convém hoje ou amanhã?`,
+    options: l => `Olá ${firstNameOf(l)}! Boas notícias — tenho opções compatíveis com ${l.vehicle_interest || 'o que procura'}, com fotos e relatórios de inspeção. Posso enviar aqui pelo WhatsApp?`,
+    quote: l => `Olá ${firstNameOf(l)}, dando seguimento à cotação enviada para ${l.vehicle_interest || 'o seu veículo'}. Tem alguma dúvida sobre o preço ou o envio para ${l.country || 'o seu porto'}? Podemos ajustar.`,
+    reserve: l => `Olá ${firstNameOf(l)}! Para reservar ${l.vehicle_interest || 'o veículo'} antes de voltar ao leilão, posso enviar a fatura e os dados bancários hoje. Posso prosseguir?`
+  }
+};
+
+// One lead's full story: every audit entry for it, newest first. The data is
+// already on screen (the activities the CRM loads) — this just focuses it.
+function LeadTimelineModal({ lead, activities, onClose }) {
+  const entries = (activities || [])
+    .filter(a => a.entity_type === 'lead' && String(a.entity_id) === String(lead.id))
+    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const fmtWhen = iso => iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <div className="crm-modal-bg" onMouseDown={onClose}>
+      <div className="crm-ai-modal crm-timeline-modal" onMouseDown={e => e.stopPropagation()}>
+        <header>
+          <div>
+            <small><Clock3 size={13} /> LEAD TIMELINE</small>
+            <h2>{lead.name || 'Lead'}</h2>
+          </div>
+          <button onClick={onClose} type="button" aria-label="Close"><X /></button>
+        </header>
+        <div className="crm-timeline-body">
+          <p className="crm-timeline-facts">
+            {[lead.country, lead.vehicle_interest, lead.source && `via ${lead.source}`,
+              lead.budget && `budget $${Number(lead.budget).toLocaleString('en-US')}`,
+              lead.assigned_to && `assigned to ${lead.assigned_to}`].filter(Boolean).join(' · ')}
+          </p>
+          <ul className="crm-timeline-list">
+            {entries.map(entry => (
+              <li key={entry.id} className={/^Call logged/.test(entry.action || '') ? 'is-call' : ''}>
+                <span className="crm-timeline-dot" aria-hidden="true" />
+                <div>
+                  <b>{entry.action}</b>
+                  <small>{entry.actor || 'System'} · {fmtWhen(entry.created_at)}</small>
+                </div>
+              </li>
+            ))}
+            <li className="is-created">
+              <span className="crm-timeline-dot" aria-hidden="true" />
+              <div><b>Lead received{lead.source ? ` from ${lead.source}` : ''}</b><small>{fmtWhen(lead.created_at)}</small></div>
+            </li>
+          </ul>
+          {entries.length === 0 && <p className="crm-ai-note">No logged activity yet — outcomes you log on the Call desk will appear here.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, notify }) {
+  const [assist, setAssist] = useState(null);
+  const [logFor, setLogFor] = useState(null);
+  const [callbackDate, setCallbackDate] = useState('');
+  const [logged, setLogged] = useState({});
+  const [timelineFor, setTimelineFor] = useState(null);
+  const [templateFor, setTemplateFor] = useState({});
+  const [langFor, setLangFor] = useState({});
+  const today = new Date().toISOString().slice(0, 10);
+  const plusDays = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const digits = p => String(p || '').replace(/\D/g, '');
+
+  const queue = useMemo(() => {
+    const stageRank = s => ({ new: 0, qualified: 1, proposal: 2, negotiation: 3 })[String(s || '').toLowerCase()] ?? 4;
+    return [...(leads || [])]
+      .filter(l => digits(l.phone).length >= 7)
+      .filter(l => !['won', 'lost'].includes(String(l.status || '').toLowerCase()))
+      .sort((a, b) => {
+        const aDue = a.next_follow_up && a.next_follow_up <= today ? 0 : 1;
+        const bDue = b.next_follow_up && b.next_follow_up <= today ? 0 : 1;
+        return aDue - bDue || stageRank(a.status) - stageRank(b.status)
+          || String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      });
+  }, [leads, today]);
+  const dueCount = queue.filter(l => l.next_follow_up && l.next_follow_up <= today).length;
+
+  const openAssist = async lead => {
+    if (!aiAssist) { notify('Your role cannot draft outreach — ask for the "Add / edit leads" permission.'); return; }
+    setAssist({ lead, loading: true });
+    try { setAssist({ lead, data: await aiAssist(lead) }); }
+    catch (e) { setAssist({ lead, error: e.message || 'AI assist failed' }); }
+  };
+
+  // Free browser-to-browser voice call: open the agent side of a fresh room
+  // and put the customer link on the clipboard, ready to paste into WhatsApp
+  // or SMS. No telephony account, no per-minute cost (see src/webcall.jsx).
+  const startWebCall = async lead => {
+    const a = () => Math.random().toString(36).slice(2, 6);
+    const room = 'ar7-' + a() + a();
+    const link = location.origin + '/call/' + room;
+    let copied = true;
+    try { await navigator.clipboard.writeText(link); } catch { copied = false; }
+    window.open('/call/' + room, '_blank', 'noopener');
+    notify(copied
+      ? `Web call room opened — the invite link is on your clipboard. Paste it to ${lead?.name || 'the customer'} on WhatsApp or SMS; they join free from their browser.`
+      : `Web call room opened — share this link so they can join: ${link}`);
+  };
+
+  const logOutcome = async (lead, outcome) => {
+    if (!canWrite) { notify('Your role cannot update leads.'); return; }
+    const patch = { call_outcome: outcome.label };
+    if (outcome.status) patch.status = outcome.status;
+    if (outcome.id === 'callback') patch.next_follow_up = callbackDate || plusDays(1);
+    else if (outcome.days !== undefined) patch.next_follow_up = plusDays(outcome.days);
+    await quickPatch(lead, patch);
+    setLogged(v => ({ ...v, [lead.id]: outcome.label }));
+    setLogFor(null); setCallbackDate('');
+  };
+
+  // The message a row's WhatsApp/SMS links pre-fill — picked per lead from
+  // the template library (defaults to the introduction).
+  // The message language defaults from the lead's country (conservative map —
+  // English wherever business runs in English) and the agent can override it
+  // per row. A missing translation falls back to the English template.
+  const waText = lead => {
+    const tid = templateFor[lead.id] || 'intro';
+    const lang = langFor[lead.id] || templateLangFor(lead);
+    const localized = (TEMPLATE_TEXTS[lang] || {})[tid];
+    if (localized) return localized(lead);
+    return (CALL_TEMPLATES.find(t => t.id === tid) || CALL_TEMPLATES[0]).text(lead);
+  };
+
+  // Real call stats from the audit trail ("Call logged — …" entries), plus
+  // outcomes logged this session that the activities list has not re-fetched.
+  const callStats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const calls = (activities || []).filter(a => /^Call logged/.test(a.action || ''));
+    const sessionExtra = Object.keys(logged).length;
+    return {
+      today: calls.filter(a => String(a.created_at || '').slice(0, 10) === today).length + sessionExtra,
+      week: calls.filter(a => String(a.created_at || '') >= weekAgo).length + sessionExtra
+    };
+  }, [activities, logged]);
+
+  return (
+    <div className="crm-call-desk">
+      <div className="crm-call-explain">
+        <p><b><PhoneCall size={14} /> Free calling, by design.</b> “Call” dials from <i>your</i> phone, “WhatsApp” opens the chat with the first message pre-filled (free over data), “SMS” pre-fills a text, and <b>“Web call”</b> opens a free browser-to-browser voice room — send the customer the link and talk with no telephony subscription and no per-minute fees. <b>AI script</b> writes your talking points, objection answers and follow-up messages from the lead’s own enquiry and live stock; you speak, you press send. The ≈ clock shows the lead’s approximate local time so nobody gets a 3 a.m. call.</p>
+        <p className="crm-hint">Fully automated AI <i>voice</i> calls need a paid telephony provider (e.g. Twilio) and robocall consent rules per country — this desk is honest about that and keeps humans on the line. Ask your developer to connect a provider if you ever want it.</p>
+      </div>
+      <div className="crm-call-stats" role="status">
+        <span><b>{queue.length}</b> leads with a phone number to work</span>
+        <span className={dueCount ? 'is-due' : ''}><b>{dueCount}</b> due or overdue today</span>
+        <span><b>{callStats.today}</b> calls logged today</span>
+        <span><b>{callStats.week}</b> this week</span>
+      </div>
+      {queue.length === 0 && (
+        <div className="crm-empty"><PhoneCall /><h3>No leads to call</h3><p>Leads with a phone number appear here automatically, overdue follow-ups first. Won and lost leads are filtered out.</p></div>
+      )}
+      <ul className="crm-call-list">
+        {queue.map(lead => {
+          const overdue = lead.next_follow_up && lead.next_follow_up <= today;
+          const wa = digits(lead.phone);
+          const lt = localTimeFor(lead.country);
+          return (
+            <li key={lead.id} className={'crm-call-row' + (overdue ? ' is-due' : '')}>
+              <div className="crm-call-who">
+                <b>{lead.name || 'Unnamed lead'}</b>
+                <small>{[lead.country, lead.vehicle_interest || 'vehicle enquiry', lead.source].filter(Boolean).join(' · ')}</small>
+                <small className="crm-call-meta">
+                  <span className={'crm-call-chip st-' + (lead.status || 'new')}>{lead.status || 'new'}</span>
+                  {lt && <span className={lt.part === 'night' ? 'crm-call-due' : ''} title={`Approximate local time in ${lead.country} (standard time, DST not applied)`}>
+                    <Clock3 size={12} /> ≈{lt.time}{lt.part === 'night' ? ' — likely asleep' : lt.part === 'edge' ? ' — early/late' : ' local'}
+                  </span>}
+                  {lead.next_follow_up && <span className={overdue ? 'crm-call-due' : ''}><CalendarClock size={12} /> {overdue ? 'due ' : 'next '} {lead.next_follow_up}</span>}
+                  {lead.budget ? <span>budget ${Number(lead.budget).toLocaleString('en-US')}</span> : null}
+                  {logged[lead.id] && <span className="crm-call-logged"><Check size={12} /> {logged[lead.id]}</span>}
+                </small>
+              </div>
+              <div className="crm-call-actions">
+                <select className="crm-call-template" aria-label="Message template" value={templateFor[lead.id] || 'intro'}
+                  onChange={e => setTemplateFor(v => ({ ...v, [lead.id]: e.target.value }))}
+                  title="Which message WhatsApp and SMS pre-fill for this lead">
+                  {CALL_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <select className="crm-call-template crm-call-lang" aria-label="Message language" value={langFor[lead.id] || templateLangFor(lead)}
+                  onChange={e => setLangFor(v => ({ ...v, [lead.id]: e.target.value }))}
+                  title="Language the WhatsApp and SMS message is written in — picked from the lead's country, switchable per lead">
+                  {TEMPLATE_LANGS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <a className="crm-call-act is-call" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><PhoneCall size={14} /> Call</a>
+                {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(waText(lead))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
+                <a className="crm-call-act" href={'sms:' + String(lead.phone).replace(/[^+\d]/g, '') + '?&body=' + encodeURIComponent(waText(lead))}><Mail size={14} /> SMS</a>
+                <button type="button" className="crm-call-act" onClick={() => startWebCall(lead)} title="Free browser-to-browser voice call — opens your side and copies the customer's invite link"><Headphones size={14} /> Web call</button>
+                <button type="button" className="crm-call-act is-ai" onClick={() => openAssist(lead)}><Sparkles size={14} /> AI script</button>
+                <button type="button" className="crm-call-act" onClick={() => setTimelineFor(lead)}><Clock3 size={14} /> Timeline</button>
+                <button type="button" className="crm-call-act" onClick={() => { setLogFor(logFor === lead.id ? null : lead.id); setCallbackDate(''); }}><ClipboardCopy size={14} /> Log outcome</button>
+              </div>
+              {logFor === lead.id && (
+                <div className="crm-call-log">
+                  {CALL_OUTCOMES.map(outcome => (
+                    <button key={outcome.id} type="button" title={outcome.hint} onClick={() => logOutcome(lead, outcome)}>
+                      <outcome.icon size={13} /> {outcome.label}
+                    </button>
+                  ))}
+                  <label>Callback date <input type="date" value={callbackDate} min={today} onChange={e => setCallbackDate(e.target.value)} /></label>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {assist && <AiAssistModal assist={assist} onClose={() => setAssist(null)} />}
+      {timelineFor && <LeadTimelineModal lead={timelineFor} activities={activities} onClose={() => setTimelineFor(null)} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  WhatsApp desk — the business WhatsApp inbox inside the CRM.
+//
+//  Backed by /api/crm?entity=wa (api/_wa.js). Until the owner connects a Meta
+//  Cloud API number (WHATSAPP_TOKEN / WHATSAPP_PHONE_ID / WHATSAPP_VERIFY_TOKEN
+//  in Vercel — see WHATSAPP-DESK.md) the desk shows the honest setup path
+//  instead of a dead UI. Replies are free inside Meta's 24-hour service
+//  window; the desk never sends paid template messages.
+// ---------------------------------------------------------------------------
+function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
+  const [state, setState] = useState({ loading: true, configured: false, conversations: [] });
+  const [active, setActive] = useState(null);           // wa_id of the open thread
+  const [thread, setThread] = useState({ loading: false, messages: [] });
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [auto, setAuto] = useState(null);               // 'on' | 'off' | null (unknown)
+  const [newTo, setNewTo] = useState('');
+
+  const load = async () => {
+    if (!token) { setState({ loading: false, demo: true, configured: false, conversations: [] }); return; }
+    try { setState({ loading: false, ...(await call('/api/crm?entity=wa', token)) }); }
+    catch (e) { setState({ loading: false, configured: false, conversations: [], error: e.message }); }
+  };
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!token) return;
+    call('/api/settings', token).then(s => setAuto(s?.wa_auto_reply === 'on' ? 'on' : 'off')).catch(() => { });
+  }, [token]);
+
+  const openThread = async waId => {
+    setActive(waId); setDraft('');
+    setThread({ loading: true, messages: [] });
+    try {
+      const r = await call('/api/crm?entity=wa&with=' + encodeURIComponent(waId), token);
+      setThread({ loading: false, messages: r.messages || [] });
+    } catch (e) { setThread({ loading: false, messages: [], error: e.message }); }
+  };
+
+  const sendReply = async () => {
+    const body = draft.trim();
+    if (!body || !active) return;
+    if (!canWrite) { notify('Your role cannot send messages — ask for the "Add / edit leads" permission.'); return; }
+    setBusy(true);
+    try {
+      await call('/api/crm?entity=wa', token, { method: 'POST', body: JSON.stringify({ to: active, body }) });
+      setDraft('');
+      await openThread(active);
+    } catch (e) { notify(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const aiDraft = async () => {
+    if (!active) return;
+    setDrafting(true);
+    try {
+      const r = await call('/api/crm?entity=wa', token, { method: 'POST', body: JSON.stringify({ ai: 'draft', wa_id: active }) });
+      setDraft(r.text || '');
+      notify(r.source === 'ai' ? 'AI draft ready — review it, edit it, then press Send.' : 'Draft ready (rule-based — connect GEMINI_API_KEY for smarter drafts).');
+    } catch (e) { notify(e.message); }
+    finally { setDrafting(false); }
+  };
+
+  const toggleAuto = async () => {
+    const next = auto === 'on' ? 'off' : 'on';
+    try {
+      await call('/api/settings', token, { method: 'PATCH', body: JSON.stringify({ wa_auto_reply: next }) });
+      setAuto(next);
+      notify(next === 'on'
+        ? 'AI auto-reply is ON — the agent answers new WhatsApp messages itself. Watch the thread and switch it off any time.'
+        : 'AI auto-reply is OFF — the AI only drafts; a person presses Send.');
+    } catch (e) { notify(e.message); }
+  };
+
+  const fmtWhen = iso => { try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+
+  return (
+    <div className="crm-call-desk crm-wa-desk">
+      <div className="crm-call-explain">
+        <p><b><MessageCircle size={14} /> Your business WhatsApp, inside the CRM.</b> Customers message your WhatsApp Business number; the conversation lands here for any team member to answer — with an <b>AI draft</b> one click away. Replies inside Meta's 24-hour service window are <b>free</b>. Calls stay free too: use the customer's wa.me link on the Call desk, or send them a <i>Web call</i> link.</p>
+        {!state.configured && !state.loading && (
+          <p className="crm-hint"><b>Not connected yet.</b> This desk needs a (free) Meta WhatsApp Business Cloud API number: create it in Meta Business Manager, then add <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code> and <code>WHATSAPP_VERIFY_TOKEN</code> in Vercel and register the webhook. Step-by-step guide: <b>WHATSAPP-DESK.md</b> in the repository. Honest cost note: receiving and replying within 24 h is free; starting a conversation (template messages) is billed by Meta per message.</p>
+        )}
+        {state.demo && <p className="crm-hint">Demo mode — sign in to the live CRM to use the WhatsApp desk.</p>}
+        {canToggleAuto && state.configured && (
+          <p className="crm-hint">
+            <button type="button" className="crm-call-act is-ai" onClick={toggleAuto}>
+              <Bot size={14} /> AI auto-reply: {auto === 'on' ? 'ON' : 'OFF'}
+            </button>
+            &nbsp;Off = AI drafts, a person sends (recommended). On = the AI answers new messages by itself and signs as “AI agent”.
+          </p>
+        )}
+      </div>
+
+      <div className="crm-wa-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,300px) 1fr', gap: 14, alignItems: 'start' }}>
+        <div className="crm-wa-list">
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            <input value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="+2547… start a chat" aria-label="WhatsApp number to open"
+              style={{ flex: 1 }} />
+            <button type="button" className="crm-call-act" onClick={() => { const d = newTo.replace(/\D/g, ''); if (d.length >= 7) { openThread(d); setNewTo(''); } else notify('Enter the full international number, e.g. +254 711 223344'); }}>Open</button>
+          </div>
+          {state.loading && <p className="crm-hint">Loading conversations…</p>}
+          {state.error && <p className="crm-hint">{state.error}</p>}
+          {!state.loading && !(state.conversations || []).length && <p className="crm-hint">No conversations yet. When a customer messages your WhatsApp number, the thread appears here.</p>}
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(state.conversations || []).map(c => (
+              <li key={c.wa_id}>
+                <button type="button" onClick={() => openThread(c.wa_id)}
+                  className={'crm-call-act' + (active === c.wa_id ? ' is-wa' : '')}
+                  style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                  <b>{c.name || '+' + c.wa_id}</b>
+                  <small style={{ opacity: .75 }}>{c.last_dir === 'out' ? 'You: ' : ''}{String(c.last || '').slice(0, 48)}{String(c.last || '').length > 48 ? '…' : ''}</small>
+                  <small style={{ opacity: .55 }}>{fmtWhen(c.last_at)} · {c.count} msg</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="crm-wa-thread">
+          {!active && <div className="crm-empty"><MessageCircle /><h3>Pick a conversation</h3><p>Open a thread on the left, or start one with a customer's number. Remember: free-form replies reach customers who wrote to you in the last 24 hours; otherwise WhatsApp requires a paid template message.</p></div>}
+          {active && (<>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <b>+{active}</b>
+              <a className="crm-call-act is-wa" href={'https://wa.me/' + active} target="_blank" rel="noreferrer"><PhoneCall size={13} /> Voice call (your phone)</a>
+              <button type="button" className="crm-call-act" onClick={() => openThread(active)}><RefreshCw size={13} /> Refresh</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '48vh', overflowY: 'auto', padding: '4px 2px' }}>
+              {thread.loading && <p className="crm-hint">Loading messages…</p>}
+              {thread.error && <p className="crm-hint">{thread.error}</p>}
+              {!thread.loading && !thread.messages.length && <p className="crm-hint">No stored messages with this number yet — your first message below starts the thread (24-hour rule applies).</p>}
+              {thread.messages.map(m => (
+                <div key={m.id} style={{
+                  alignSelf: m.direction === 'out' ? 'flex-end' : 'flex-start', maxWidth: '78%',
+                  background: m.direction === 'out' ? 'rgba(47,158,104,.18)' : 'rgba(128,128,128,.14)',
+                  border: '1px solid rgba(128,128,128,.18)', borderRadius: 10, padding: '7px 11px'
+                }}>
+                  <div style={{ whiteSpace: 'pre-wrap', fontSize: '.92rem' }}>{m.body}</div>
+                  <small style={{ opacity: .6 }}>{m.direction === 'out' ? (m.actor || 'Staff') + ' · ' : ''}{fmtWhen(m.created_at)}{m.status ? ' · ' + m.status : ''}</small>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'flex-end' }}>
+              <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={2} placeholder="Write a reply…" aria-label="WhatsApp reply"
+                style={{ flex: 1, resize: 'vertical' }} />
+              <button type="button" className="crm-call-act is-ai" onClick={aiDraft} disabled={drafting} title="AI writes a draft from the conversation and live stock — you review and send">
+                <Sparkles size={14} /> {drafting ? 'Drafting…' : 'AI draft'}
+              </button>
+              <button type="button" className="crm-call-act is-wa" onClick={sendReply} disabled={busy || !draft.trim()}>
+                <Send size={14} /> {busy ? 'Sending…' : 'Send'}
+              </button>
+            </div>
+          </>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  Prospect radar — public business contacts of used-car importers, collected
+//  by scripts/prospect-scan.mjs (weekly GitHub Action) or added by hand, then
+//  reviewed by a person and converted into Leads. Nothing is auto-emailed.
+// ---------------------------------------------------------------------------
+function ProspectsView({ rows, canWrite, canLead, notify, quickPatch, onAdd, onConvert }) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ company: '', website: '', country: '', email: '', phone: '' });
+  const [busyId, setBusyId] = useState(null);
+  const STATUSES = ['new', 'contacted', 'qualified', 'converted', 'ignored'];
+
+  const submitAdd = async e => {
+    e.preventDefault();
+    if (!form.company.trim()) { notify('Company name is required'); return; }
+    try {
+      await onAdd({
+        company: form.company.trim(), website: form.website.trim() || null, country: form.country.trim() || null,
+        emails: form.email.trim() ? [form.email.trim().toLowerCase()] : [], phones: form.phone.trim() ? [form.phone.trim()] : [],
+        source_url: null, status: 'new'
+      });
+      setForm({ company: '', website: '', country: '', email: '', phone: '' }); setAdding(false);
+    } catch { /* save() already notified */ }
+  };
+
+  const convert = async p => {
+    if (!canLead) { notify('Your role cannot create leads.'); return; }
+    setBusyId(p.id);
+    try { await onConvert(p); } catch (e) { notify(e.message); }
+    finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="crm-call-desk crm-prospects">
+      <div className="crm-call-explain">
+        <p><b><Radar size={14} /> Fuel for outreach.</b> The weekly scanner reads the public directory pages you list (trade associations, importer directories, “find a dealer” pages) and files each company's <b>published business contacts</b> here. A person reviews, then <b>Convert to lead</b> moves them into the pipeline and the Call desk. Nothing is ever emailed automatically — that is how sender domains get blacklisted.</p>
+        <p className="crm-hint">Add source pages in <code>scripts/prospect-sources.txt</code> (or the <code>PROSPECT_SOURCES</code> repository variable), then run the <b>Prospect radar</b> workflow from GitHub → Actions. Public business contact details only; respect every unsubscribe/removal request.</p>
+      </div>
+      <div className="crm-call-stats" role="status">
+        <span><b>{rows.length}</b> prospects</span>
+        <span><b>{rows.filter(p => (p.status || 'new') === 'new').length}</b> waiting for review</span>
+        <span><b>{rows.filter(p => p.status === 'converted').length}</b> converted to leads</span>
+        {canWrite && <button type="button" className="crm-call-act" onClick={() => setAdding(a => !a)}><Plus size={14} /> Add by hand</button>}
+      </div>
+      {adding && (
+        <form className="crm-call-log" onSubmit={submitAdd} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <input required placeholder="Company *" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} aria-label="Company" />
+          <input placeholder="Website" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} aria-label="Website" />
+          <input placeholder="Country" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} aria-label="Country" />
+          <input placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} aria-label="Email" type="email" />
+          <input placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} aria-label="Phone" />
+          <button type="submit" className="crm-call-act is-wa"><Save size={14} /> Save prospect</button>
+        </form>
+      )}
+      {rows.length === 0 && (
+        <div className="crm-empty"><Radar /><h3>No prospects yet</h3><p>Run the Prospect radar workflow (GitHub → Actions) after adding source pages, or add companies by hand.</p></div>
+      )}
+      <ul className="crm-call-list">
+        {rows.map(p => {
+          const wa = String((p.phones || [])[0] || '').replace(/\D/g, '');
+          return (
+            <li key={p.id} className="crm-call-row">
+              <div className="crm-call-who">
+                <b>{p.company || 'Unknown company'}</b>
+                <small>
+                  {[p.country, p.website ? p.website.replace(/^https?:\/\//, '') : null].filter(Boolean).join(' · ')}
+                  {p.source_url ? <> · <a href={p.source_url} target="_blank" rel="noreferrer">source <ExternalLink size={10} /></a></> : null}
+                </small>
+                <small className="crm-call-meta">
+                  <span className={'crm-call-chip st-' + (p.status || 'new')}>{p.status || 'new'}</span>
+                  {(p.emails || []).map(e => <a key={e} href={'mailto:' + e}>{e}</a>)}
+                  {(p.phones || []).map(ph => <span key={ph}>{ph}</span>)}
+                  {p.note ? <span>{p.note}</span> : null}
+                </small>
+              </div>
+              <div className="crm-call-actions">
+                {p.website && <a className="crm-call-act" href={p.website} target="_blank" rel="noreferrer"><Globe size={14} /> Website</a>}
+                {(p.emails || [])[0] && <a className="crm-call-act" href={'mailto:' + p.emails[0]}><Mail size={14} /> Email</a>}
+                {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
+                {canWrite && (
+                  <select className="crm-call-template" aria-label="Prospect status" value={p.status || 'new'}
+                    onChange={e => quickPatch(p, { status: e.target.value })}>
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
+                {p.status !== 'converted' && (
+                  <button type="button" className="crm-call-act is-ai" disabled={busyId === p.id} onClick={() => convert(p)}>
+                    <Users size={14} /> {busyId === p.id ? 'Converting…' : 'Convert to lead'}
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// AI assist modal for one lead: readiness score with its evidence, matching
+// published stock, and outreach drafts to COPY — there is no send button on
+// purpose. The server note explains honestly whether Gemini or the
+// deterministic rules wrote the drafts.
+function AiAssistModal({ assist, onClose }) {
+  const { lead, loading, data, error } = assist;
+  const [copied, setCopied] = useState(null);
+  const copy = async (what, text) => {
+    try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(null), 1600); } catch {}
+  };
+  const waHref = data && lead.phone
+    ? 'https://wa.me/' + String(lead.phone).replace(/\D/g, '') + '?text=' + encodeURIComponent(data.drafts.whatsapp)
+    : null;
+  const mailHref = data && lead.email
+    ? 'mailto:' + lead.email + '?subject=' + encodeURIComponent(data.drafts.email_subject) + '&body=' + encodeURIComponent(data.drafts.email_body)
+    : null;
+  return (
+    <div className="crm-modal-bg" onMouseDown={onClose}>
+      <div className="crm-ai-modal" onMouseDown={e => e.stopPropagation()}>
+        <header>
+          <div>
+            <small><Sparkles size={13} /> AI ASSIST · DRAFTS ONLY — NOTHING IS SENT</small>
+            <h2>{lead.name || 'Lead'}</h2>
+          </div>
+          {data && <em className={'crm-ai-provider ' + data.provider}>{data.provider === 'gemini' ? 'Gemini draft' : 'Rule-based draft'}</em>}
+          <button onClick={onClose} type="button" aria-label="Close"><X /></button>
+        </header>
+        {loading && <div className="crm-ai-busy"><RefreshCw className="spin" /> Scoring the lead and drafting outreach…</div>}
+        {error && <div className="crm-ai-error"><ShieldAlert /> {error}</div>}
+        {data && <div className="crm-ai-body">
+          <section className="crm-ai-score">
+            <div className="crm-ai-score-num"><b>{data.score.score}</b><span>/10</span><small>follow-up priority</small></div>
+            <ul>
+              {(data.score.evidence || []).map((e, i) => <li key={i} className="plus">+{e.points} {e.reason}</li>)}
+              {(data.score.missing || []).slice(0, 3).map((m, i) => <li key={'m' + i} className="miss">missing: {m}</li>)}
+            </ul>
+          </section>
+          {data.sanitised?.flags?.length > 0 && <p className="crm-ai-flag"><ShieldAlert size={13} /> Instruction-like text was removed from the customer message before drafting.</p>}
+          <section>
+            <h3>Matching published stock</h3>
+            {data.cars.matches.length === 0 && data.machines.matches.length === 0
+              ? <p className="crm-ai-note">{data.cars.note}</p>
+              : <ul className="crm-ai-stock">
+                  {data.cars.matches.map(m => <li key={m.stock_no || m.name}><a href={m.href} target="_blank" rel="noreferrer">{m.name} <ExternalLink size={11} /></a><span>{m.priceUsd ? 'USD ' + Math.round(m.priceUsd).toLocaleString('en-US') + ' FOB (indicative)' : 'price on request'}{m.location ? ' · ' + m.location : ''}</span><small>{m.reason}</small></li>)}
+                  {data.machines.matches.map(m => <li key={m.ref}><a href={m.href} target="_blank" rel="noreferrer">{m.name} <ExternalLink size={11} /></a><span>{m.priceUsd ? 'USD ' + Math.round(m.priceUsd).toLocaleString('en-US') + ' FOB (indicative)' : 'price on request'}</span><small>{m.reason}</small></li>)}
+                </ul>}
+          </section>
+          <section>
+            <div className="crm-ai-draft-head"><h3>E-mail draft</h3><div>{mailHref && <a className="crm-ai-act" href={mailHref}><Mail size={13} /> Open in e-mail</a>}<button className="crm-ai-act" onClick={() => copy('email', 'Subject: ' + data.drafts.email_subject + '\n\n' + data.drafts.email_body)} type="button"><Copy size={13} /> {copied === 'email' ? 'Copied!' : 'Copy'}</button></div></div>
+            <p className="crm-ai-subject">{data.drafts.email_subject}</p>
+            <pre>{data.drafts.email_body}</pre>
+          </section>
+          <section>
+            <div className="crm-ai-draft-head"><h3>WhatsApp draft</h3><div>{waHref && <a className="crm-ai-act" href={waHref} target="_blank" rel="noreferrer"><MessageCircle size={13} /> Open in WhatsApp</a>}<button className="crm-ai-act" onClick={() => copy('wa', data.drafts.whatsapp)} type="button"><Copy size={13} /> {copied === 'wa' ? 'Copied!' : 'Copy'}</button></div></div>
+            <pre>{data.drafts.whatsapp}</pre>
+          </section>
+          {data.drafts.call_script && <section>
+            <div className="crm-ai-draft-head"><h3>Phone call script</h3><div>{lead.phone && <a className="crm-ai-act" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><Phone size={13} /> Call now</a>}<button className="crm-ai-act" onClick={() => copy('call', data.drafts.call_script)} type="button"><Copy size={13} /> {copied === 'call' ? 'Copied!' : 'Copy'}</button></div></div>
+            <pre>{data.drafts.call_script}</pre>
+          </section>}
+          {data.note && <p className="crm-ai-note">{data.note}</p>}
+          <p className="crm-ai-disclaimer">{data.disclaimer} {data.score.disclaimer}</p>
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onViewGallery, onQuickPatch, statusOptions, query, onClearSearch, defaultViewMode = 'table', onPublish, onUnpublish, onArchive, onAddToDesk, onAiAssist }) {
   const { fmt } = useCurrency();
   const [viewMode, setViewMode] = useState(defaultViewMode);
   const [chipFilter, setChipFilter] = useState('all');
+  // 2026-11-08: bulk lead actions — ids ticked on the lead cards. A bar
+  // appears while anything is selected: move every ticked lead to a stage
+  // or schedule their next follow-up in one go (each change goes through
+  // the same quickPatch/permission path as a single edit).
+  const [bulkSel, setBulkSel] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  // Per-lead AI assist: { lead, loading, data, error }. The modal only shows
+  // what the server returned — drafts for a person to copy, never a send.
+  const [assist, setAssist] = useState(null);
+  const runAssist = async lead => {
+    setAssist({ lead, loading: true });
+    try { setAssist({ lead, data: await onAiAssist(lead) }); }
+    catch (e) { setAssist({ lead, error: e.message || 'AI assist failed' }); }
+  };
   const [sort, setSort] = useState(null); // { key, dir: 'asc' | 'desc' }
   const leadFilter = chipFilter; // shared chip state, named for the leads branch below
   const isVehicleType = entity === 'vehicles' || entity === 'listings';
@@ -1798,6 +3083,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
   useEffect(() => {
     setChipFilter('all');
     setSort(null);
+    setBulkSel([]); // 2026-11-08: a selection never survives a tab switch
   }, [entity]);
 
   // Status chips (vehicles + listings): one chip per status present in the
@@ -1898,8 +3184,37 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
     // warning; the "Next" row schedules the following touch separately, so
     // the two actions can never be confused.
     const followDone = (x, next) => onQuickPatch(x, { next_follow_up: next });
+    // 2026-11-08: bulk bar helpers. Applies the patch lead-by-lead through
+    // onQuickPatch so permissions, offline mode and notices all behave
+    // exactly as they do for a single-card edit.
+    const pickedLeads = rows.filter(x => bulkSel.includes(x.id));
+    const togglePick = x => setBulkSel(v => v.includes(x.id) ? v.filter(i => i !== x.id) : [...v, x.id]);
+    const bulkApply = async patch => {
+      if (bulkBusy || !onQuickPatch || !pickedLeads.length) return;
+      setBulkBusy(true);
+      try { for (const x of pickedLeads) await onQuickPatch(x, patch); }
+      finally { setBulkBusy(false); setBulkSel([]); }
+    };
     return (
       <div className="crm-lead-wrap">
+        {onQuickPatch && bulkSel.length > 0 && (
+          <div className="crm-bulk-bar" role="region" aria-label="Bulk lead actions">
+            <b>{bulkSel.length} lead{bulkSel.length > 1 ? 's' : ''} selected</b>
+            <label>Move to stage
+              <select disabled={bulkBusy} value="" onChange={e => { if (e.target.value) bulkApply({ status: e.target.value }); }}>
+                <option value="" disabled>Choose…</option>
+                {(statusOptions || []).map(o => <option key={o} value={o}>{pretty(o)}</option>)}
+              </select>
+            </label>
+            <span className="crm-bulk-follow">Follow-up
+              <button disabled={bulkBusy} onClick={() => bulkApply({ next_follow_up: addDays(3) })} type="button">+3 days</button>
+              <button disabled={bulkBusy} onClick={() => bulkApply({ next_follow_up: addDays(7) })} type="button">+1 week</button>
+              <button disabled={bulkBusy} onClick={() => bulkApply({ next_follow_up: null })} type="button">Mark done</button>
+            </span>
+            <button className="crm-bulk-clear" disabled={bulkBusy} onClick={() => setBulkSel([])} type="button">Clear</button>
+            {bulkBusy && <em>Updating…</em>}
+          </div>
+        )}
         <div className="crm-chips">
           {[['all', 'All'], ['overdue', 'Overdue'], ['new', 'New'], ['open', 'In progress'], ['won', 'Won'], ['lost', 'Lost']].map(([id, label]) => (
             <button key={id} className={'crm-chip ' + (leadFilter === id ? 'active' : '') + (id === 'overdue' && counts.overdue > 0 ? ' alert' : '')} onClick={() => setChipFilter(id)} type="button">
@@ -1912,9 +3227,10 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
         ) : (
           <div className="crm-lead-grid">
             {leadRows.map(x => (
-              <article key={x.id}>
+              <article key={x.id} className={bulkSel.includes(x.id) ? 'is-picked' : ''}>
                 <div>
                   <span>{(x.name || '?').slice(0, 2).toUpperCase()}</span>
+                  {onQuickPatch && <input type="checkbox" className="crm-bulk-pick" title="Select for bulk actions" aria-label={'Select lead ' + (x.name || '')} checked={bulkSel.includes(x.id)} onChange={() => togglePick(x)} />}
                   {onQuickPatch && statusOptions ? statusPicker(x, x.status) : <em className={'crm-status ' + statusClass(x.status)}>{pretty(x.status)}</em>}
                 </div>
                 <h3>{x.name}</h3>
@@ -1950,6 +3266,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                 <footer>
                   <a href={'mailto:' + x.email} title="Send email"><Mail /></a>
                   <a href={'https://wa.me/' + (x.phone || '').replace(/\D/g, '')} target="_blank" rel="noreferrer" title="Chat on WhatsApp"><MessageCircle /></a>
+                  {onAiAssist && <button className="crm-ai-btn" title="Score this lead and draft outreach with AI" onClick={() => runAssist(x)} type="button"><Sparkles /> AI assist</button>}
                   <button onClick={() => onEdit(x)} type="button">Open lead <ChevronRight /></button>
                   {onDelete && <button className="crm-del" title="Delete lead" onClick={() => onDelete(x)} type="button"><Trash2 /></button>}
                 </footer>
@@ -1957,6 +3274,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
             ))}
           </div>
         )}
+        {assist && <AiAssistModal assist={assist} onClose={() => setAssist(null)} />}
       </div>
     );
   }
@@ -2138,9 +3456,9 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       {entity === 'machinery' && onPublish && onUnpublish && (
                         row.published === false
                           ? <button className="crm-btn-publish" onClick={() => onPublish(row)} title="Put this machine back on the website (confirmation required)" type="button"><Globe size={13} /> Publish</button>
-                          : <button className="crm-del" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time (confirmation required)." type="button"><Ban size={13} /> Unpublish</button>
+                          : <button className="crm-del crm-del-labeled" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time (confirmation required)." type="button"><Ban size={13} /> Unpublish</button>
                       )}
-                      {entity === 'machinery' && onArchive && row.status !== 'Archived' && <button className="crm-del crm-archive-action" onClick={() => onArchive(row)} title="Archive and unpublish this canonical machine record (confirmation required)" type="button"><Archive size={13} /> Archive</button>}
+                      {entity === 'machinery' && onArchive && row.status !== 'Archived' && <button className="crm-del crm-del-labeled crm-archive-action" onClick={() => onArchive(row)} title="Archive and unpublish this canonical machine record (confirmation required)" type="button"><Archive size={13} /> Archive</button>}
                       {onEdit && <button onClick={() => onEdit(row)} type="button">Edit</button>}
                       {onDelete && <button className="crm-del" title="Delete record (confirmation required)" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
                       </>}
@@ -2229,6 +3547,20 @@ function renderCell(k, v, fmt = money) {
       : <em className="crm-status active">Live</em>;
   }
   if (k === 'progress') return <span className="table-progress"><i style={{ width: v + '%' }} /><b>{v}%</b></span>;
+  // Vessel names link to live AIS position on VesselFinder — free, no API
+  // key, no account. stopPropagation keeps the row's edit click intact.
+  if (k === 'vessel') {
+    if (!v) return <span className="crm-cell-muted">—</span>;
+    return (
+      <span className="crm-vessel-cell">
+        {v}
+        <a href={vesselTrackUrl(v)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+          title="Live vessel position on VesselFinder (free AIS tracking)">
+          <ExternalLink size={11} /> Track
+        </a>
+      </span>
+    );
+  }
   return v ?? '—';
 }
 
@@ -2380,6 +3712,9 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
+  // On-demand importer search ("Toyota Alphard 2020") — submitted to the same
+  // /api/goonet-sync run, which searches the exchange for that car only.
+  const [findQuery, setFindQuery] = useState('');
   const isAdmin = profile?.role === 'admin';
 
   // "Where has this car already been copied to?" is answered from the actual
@@ -2474,13 +3809,14 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   }
 
   const settingsFields = [
-    ['goonet_search_url', 'Goo-net search page', 'Newest-first listing to crawl, e.g. https://www.goo-net.com/usedcar/price-100-300/'],
+    ['goonet_search_url', 'Goo-net Exchange search page', 'Search results to crawl, e.g. https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search'],
     ['goonet_min_photos', 'Minimum photos (quality gate)', 'Cars with fewer good photos are skipped'],
     ['goonet_min_year', 'Oldest model year', 'Cars older than this year are skipped'],
     ['goonet_max_new_per_run', 'Max new cars per run', 'Small batches keep the site fast on free hosting'],
     ['goonet_max_delist_per_run', 'Delist checks per run', 'How many existing cars are verified per run'],
     ['goonet_weekly_delist_limit', 'Weekly delist limit', 'Max older cars the weekly maintenance removes'],
     ['goonet_weekly_promote_limit', 'Weekly auto-promote limit', 'Max fresh cars promoted to the website per week'],
+    ['goonet_max_promote_per_run', 'Auto-promote per run', 'Max fresh imports each run copies onward (blank = same as max new cars)'],
     ['goonet_jpy_usd_rate', 'JPY → USD rate', 'Used for estimated US prices']
   ];
 
@@ -2509,6 +3845,21 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
         </div>
       </div>
 
+      {isAdmin && (
+        <form className="crm-goonet-ondemand" onSubmit={e => { e.preventDefault(); const q = findQuery.trim(); if (q && !syncing) onRun(q); }}>
+          <label>
+            <Search size={14} />
+            <input value={findQuery} onChange={e => setFindQuery(e.target.value)} disabled={syncing}
+              placeholder='Find a specific car on Goo-net Exchange — e.g. "Toyota Alphard 2020", "Lexus RX", "jimny", "prado 2018 2022"' />
+          </label>
+          <button className="crm-sync" type="submit" disabled={syncing || !findQuery.trim()}
+            title="Search the exchange for this car only and import the matches through the same quality gate">
+            <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Searching…' : 'Search & import'}
+          </button>
+          <small>Searches only this car (make + model, optional year or range) and imports matches through the normal quality gate. The scheduled crawl and its bookmark are untouched.</small>
+        </form>
+      )}
+
       {showSettings && (
         <form className="crm-settings-form crm-goonet-settings" onSubmit={saveSettings}>
           <div className="crm-editor-fields">
@@ -2520,9 +3871,19 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
               </label>
             ))}
             <label className="crm-check-field">
-              <span>Auto-promote fresh cars to the website each week</span>
+              <span>Auto-promote passing imports (each run + weekly sweep)</span>
               <input type="checkbox" checked={(settingsForm?.goonet_auto_promote ?? 'true') === 'true'} disabled={!isAdmin}
                 onChange={e => setSettingsForm(v => ({ ...v, goonet_auto_promote: e.target.checked ? 'true' : 'false' }))} />
+            </label>
+            <label>
+              Auto-promote destination
+              <select value={settingsForm?.goonet_auto_promote_target ?? 'both'} disabled={!isAdmin}
+                onChange={e => setSettingsForm(v => ({ ...v, goonet_auto_promote_target: e.target.value }))}>
+                <option value="both">Website + CRM inventory (both)</option>
+                <option value="listings">Website only</option>
+                <option value="vehicles">CRM inventory only</option>
+              </select>
+              <small>Where a passing import is copied the moment it lands</small>
             </label>
           </div>
           <footer>
@@ -2627,7 +3988,10 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
       {!filtered.length ? (
         <div className="crm-empty"><Search /><h3>No imported cars in this view</h3><p>{rows.length ? 'Try another filter or search.' : 'Run the importer or add a car manually with Add.'}</p></div>
       ) : (
-        <div className="crm-table-wrap">
+        /* `crm-cards-sm`: below 700px each row becomes a labelled card (see
+           crm.css), because an 11-column table cannot fit a phone — the row's
+           actions would otherwise have to be hunted for by scrolling sideways. */
+        <div className="crm-table-wrap crm-cards-sm">
           <table>
             <thead>
               <tr>
@@ -2646,25 +4010,25 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                 const ref = row.stock_no || row.goonet_id || '';
                 return (
                   <tr key={row.id || row.stock_no} className={row.available === false ? 'row-muted' : ''}>
-                    <td className="td-photo">
+                    <td className="td-photo" data-label="Photo">
                       <div className="table-thumb-wrap" role="button" tabIndex={0} aria-label="View photos" onClick={() => onViewGallery && onViewGallery(row)} onKeyDown={KEY_ACTIVATE(() => onViewGallery && onViewGallery(row))} title="Click to view photos">
                         <img width="96" height="64" src={cover} alt="" loading="lazy" onError={imgFallback}  decoding="async"/>
                         <span className="thumb-count"><Camera size={10} /> {photos.length}</span>
                       </div>
                     </td>
-                    <td>{row.stock_no || row.goonet_id || '—'}</td>
-                    <td><b>{row.make} {row.model}</b></td>
-                    <td>{row.year || '—'}</td>
-                    <td>{row.km ? row.km + ' km' : '—'}</td>
-                    <td>{row.price || (row.price_usd ? fmt(row.price_usd) : '—')}</td>
-                    <td>{row.photo_count ?? photos.length}</td>
-                    <td><span className="crm-score" title="Quality score set by the importer"><b>{row.quality_score ?? '—'}</b><i style={{ width: Math.min(100, row.quality_score || 0) + '%' }} /></span></td>
-                    <td>
+                    <td data-label="Stock no.">{row.stock_no || row.goonet_id || '—'}</td>
+                    <td data-label="Vehicle" className="crm-cell-title"><b>{row.make} {row.model}</b></td>
+                    <td data-label="Year">{row.year || '—'}</td>
+                    <td data-label="Km">{row.km ? row.km + ' km' : '—'}</td>
+                    <td data-label="Price">{row.price || (row.price_usd ? fmt(row.price_usd) : '—')}</td>
+                    <td data-label="Photos">{row.photo_count ?? photos.length}</td>
+                    <td data-label="Quality"><span className="crm-score" title="Quality score set by the importer"><b>{row.quality_score ?? '—'}</b><i style={{ width: Math.min(100, row.quality_score || 0) + '%' }} /></span></td>
+                    <td data-label="Status">
                       {row.available === false
                         ? <em className="crm-status dormant">Delisted</em>
                         : <em className={'crm-status ' + statusClass(row.status || 'New Arrival')}>{row.status || 'New Arrival'}</em>}
                     </td>
-                    <td>
+                    <td data-label="Promoted">
                       {promo.any
                         ? <em className="crm-status active" title={[
                           promo.onWebsite ? 'On the website (Website cars)' : null,
@@ -2674,26 +4038,40 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                         </em>
                         : <em className="crm-status">—</em>}
                     </td>
-                    <td>{importDate}</td>
-                    <td className="crm-row-actions">
-                      <div className="goonet-actions">
-                        {row.available !== false && (
-                          <>
-                            {promo.onWebsite
-                              ? <button className="is-added" disabled title={`Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab. Use Edit to change it there.`} type="button"><Check size={13} /> On website</button>
-                              : <button title="Publish this car on the website (Japan stock page + inventory)" onClick={() => onPromote(row, 'listings')} type="button"><Globe size={13} /> Website</button>}
-                            {promo.inInventory
-                              ? <button className="is-added" disabled title={`Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.`} type="button"><Check size={13} /> In inventory</button>
-                              : <button title="Copy this car into CRM inventory" onClick={() => onPromote(row, 'vehicles')} type="button"><CarFront size={13} /> Inventory</button>}
-                          </>
-                        )}
-                        {row.available !== false
-                          ? <button className="crm-del" title="Delist (remove from website)" onClick={() => onDelist(row)} type="button"><Ban size={13} /> Delist</button>
-                          : <button title="Re-list on the website" onClick={() => onDelist(row)} type="button"><Check size={13} /> Re-list</button>}
-                        <button title="Manage photo gallery" onClick={() => onManagePhotos && onManagePhotos(row)} type="button"><Camera size={13} /> Photos</button>
-                        <button onClick={() => onEdit(row)} type="button">Edit</button>
-                        {onDelete && <button className="crm-del" title="Delete record" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
-                      </div>
+                    <td data-label="Imported">{importDate}</td>
+                    <td className="crm-row-actions" data-label="Actions">
+                      {/* 2026-10-11: Edit is the first control in the pinned cell
+                          and the rest live in a labelled overflow menu — see
+                          <RowActions>. Six inline pills made Edit the control
+                          clipped at the right edge of the scroller at every
+                          viewport (measured: 43px past the visible area). */}
+                      <RowActions
+                        className="goonet-actions"
+                        label={`More actions for ${row.make || ''} ${row.model || ''} ${ref}`.trim()}
+                        primary={{ key: 'edit', label: 'Edit', title: `Edit ${ref || 'this car'}`, onSelect: () => onEdit(row) }}
+                        items={[
+                          promo.onWebsite
+                            ? { key: 'website', label: 'On website (already published)', icon: <Check size={13} />, disabled: true, className: 'is-added',
+                                title: `Already on the website${ref ? ' (stock ' + ref + ')' : ''} — find it in the Website cars tab; Edit changes it there.` }
+                            : { key: 'website', label: 'Publish to website', icon: <Globe size={13} />, disabled: row.available === false,
+                                title: 'Publish this car on the website (Japan stock page + inventory)', onSelect: () => onPromote(row, 'listings') },
+                          promo.inInventory
+                            ? { key: 'inventory', label: 'In inventory (already added)', icon: <Check size={13} />, disabled: true, className: 'is-added',
+                                title: `Already in CRM inventory${ref ? ' (stock ' + ref + ')' : ''} — find it in the Inventory tab.` }
+                            : { key: 'inventory', label: 'Copy to inventory', icon: <CarFront size={13} />, disabled: row.available === false,
+                                title: 'Copy this car into CRM inventory', onSelect: () => onPromote(row, 'vehicles') },
+                          { key: 'photos', label: 'Manage photos', icon: <Camera size={13} />,
+                            title: 'Manage photo gallery', onSelect: () => onManagePhotos && onManagePhotos(row) },
+                          { divider: true },
+                          row.available !== false
+                            ? { key: 'delist', label: 'Delist from website', icon: <Ban size={13} />, danger: true,
+                                title: 'Delist (remove from the website; the record is kept)', onSelect: () => onDelist(row) }
+                            : { key: 'relist', label: 'Re-list on website', icon: <Check size={13} />,
+                                title: 'Re-list on the website', onSelect: () => onDelist(row) },
+                          onDelete && { key: 'delete', label: 'Delete record', icon: <Trash2 size={13} />, danger: true,
+                            title: 'Delete this record permanently — asks for confirmation', onSelect: () => onDelete(row) }
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
@@ -3285,7 +4663,7 @@ function ProfileModal({ who, token, profile, perms, notify, onClose, onChanged }
     setErr('');
     try {
       if (self) {
-        if (!supabase || DEMO) throw new Error('Password changes are not available in demo mode');
+        if (!supabase || DEMO) throw new Error('Password changes are not available in offline mode');
         const { error } = await supabase.auth.updateUser({ password: pw });
         if (error) throw error;
       } else {
@@ -4826,7 +6204,15 @@ function machineryCandidateKey(machine, index) {
   return String(machine?.source?.url || machine?.source_url || machine?.ref || `${machine?.name || 'machine'}-${index}`);
 }
 
-export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
+export function MachineryImportPanel({ token, canWrite, canSetDefault = false, notify, onImported, machines = [], storageBlocked = false }) {
+  // storageBlocked: the machinery table does not exist (the tab's alert says so).
+  // Everything here that reads or writes STORED machines is dead until the
+  // migration runs, and offering it would just replay the same failure as a
+  // button. The supplier-side previews are not blocked — they touch no row of
+  // ours — so an operator can still see the market while the owner migrates.
+  const blockedTitle = storageBlocked
+    ? 'Machinery storage is missing — run supabase/MIGRATION-2026-10-machinery.sql first'
+    : undefined;
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   // 2026-10-07: owner policy — imports carry the supplier-listing basis by
@@ -4841,6 +6227,37 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
   // category page in one run, the way the car importer takes the whole seed.
   const [scrapeCat, setScrapeCat] = useState('excavators');
   const [scrapeAll, setScrapeAll] = useState(false);
+  // 2026-10-07: how many machines ONE run may pull. Per-run by default (this
+  // input, remembered for the operator in localStorage), and — for staff with
+  // settings.write — "Make default" writes machinery_scraper_batch so the whole
+  // desk and the nightly run agree. The server clamps to MAX_SCRAPER_MACHINES.
+  const [batch, setBatch] = useState(() => {
+    try {
+      const v = Math.floor(Number(localStorage.getItem('ar7.machinery.scraperBatch')));
+      return Number.isFinite(v) && v > 0 ? Math.min(SCRAPER_RUN_LIMIT, Math.max(1, v)) : 8;
+    } catch { return 8; }
+  });
+  const editBatch = v => {
+    const n = Math.min(SCRAPER_RUN_LIMIT, Math.max(1, Math.floor(Number(v) || 1)));
+    setBatch(n);
+    try { localStorage.setItem('ar7.machinery.scraperBatch', String(n)); } catch { /* private mode */ }
+  };
+  // The receipt: what actually happened to every selected machine on confirm.
+  const [receipt, setReceipt] = useState(null);
+  // Refused candidate keys, so an operator can fix type/brand/model in place
+  // and re-confirm instead of re-scraping.
+  const [refusedKeys, setRefusedKeys] = useState(() => new Set());
+  const [purgeBusy, setPurgeBusy] = useState(false);
+  const [visibilityAudit, setVisibilityAudit] = useState(null);
+  const [auditBusy, setAuditBusy] = useState(false);
+  const inspectStored = async () => {
+    setAuditBusy(true); setError('');
+    try {
+      const out = await call('/api/site-content?machinery=audit', token);
+      setVisibilityAudit(out);
+    } catch (e) { setError('Inventory audit: ' + e.message); }
+    finally { setAuditBusy(false); }
+  };
 
   // A new link invalidates the preview immediately — importing after editing
   // the box would write something the operator never read.
@@ -4889,7 +6306,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         // In demo mode there is no live database: report what a real confirm
         // would have written and ask the parent to reload its local rows.
         const names = list.slice(0, 3).map(m => m.name).join(', ');
-        notify(`Imported ${list.length} machine(s) — ${names}${list.length > 3 ? '…' : ''} — published and on the website (demo mode)`);
+        notify(`Imported ${list.length} machine(s) — ${names}${list.length > 3 ? '…' : ''} — published and on the website (offline mode)`);
         setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
         onImported && onImported();
         return;
@@ -4900,17 +6317,68 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         adapter: preview.confirmWith?.adapter || null,
         source: preview.isScraper ? 'scraper' : 'supplier-link'
       }, token);
-      const parts = [];
-      if (out.imported) parts.push(`${out.imported} imported`);
-      if (out.updated) parts.push(`${out.updated} updated`);
-      if (out.rePriced?.length) parts.push(`${out.rePriced.length} re-priced`);
-      notify(parts.join(', ') + ' — selected machines are published on the website');
-      setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
+      const account = describeImportOutcome(out, list.length);
+      setReceipt(account);
+      // Only a clean, complete write clears the preview. Anything refused stays
+      // on screen with its reason, fixable in place (see the inline editor).
+      if (account.everythingWrote) {
+        setPreview(null); setUrl(''); setRights('supplier-listing'); setSelectedCandidateKeys(new Set());
+        setRefusedKeys(new Set());
+      } else {
+        setRefusedKeys(refusedCandidateKeys(candidateRows, selectedCandidateKeys, account.refused));
+      }
+      notify(account.everythingWrote
+        ? `${account.headline} — published on the website`
+        : `${account.headline} — ${account.missed} of ${list.length} selected were NOT written (see the receipt)`);
       onImported && onImported();
     } catch (e) {
-      setError(e.message);
+      // A 422 refusal is also a receipt: the server lists every refused row and
+      // why. Show it as one, not as a bare error string.
+      const account = describeImportOutcome(e.body || {}, list.length);
+      if (account.lines.length || account.nothingWritten) {
+        setReceipt(account);
+        setRefusedKeys(refusedCandidateKeys(candidateRows, selectedCandidateKeys, account.refused));
+        setError(`${e.message} — nothing was written.`);
+      } else {
+        setError(e.message);
+      }
     } finally { setBusy(false); }
   };
+
+  // A refused candidate is fixable in the desk: correct the type, brand or
+  // model the scraper guessed and re-confirm. Re-scraping would just guess the
+  // same wrong value again.
+  const patchCandidate = (key, field, value) => setPreview(prev => {
+    if (!prev) return prev;
+    const machinesNext = (prev.machines || []).map((machine, index) =>
+      machineryCandidateKey(machine, index) === key ? { ...machine, [field]: value } : machine);
+    return { ...prev, machines: machinesNext, machine: machinesNext[0] || prev.machine };
+  });
+
+  // Stale + unpublished rows a person may clear. `step=stale` only flags; this
+  // is the archive/delete end of that path, and it is explicit per click.
+  const staleUnpublished = (machines || []).filter(m =>
+    m.published === false && m.source_missing_since &&
+    (Date.now() - Date.parse(m.source_missing_since)) > 14 * 86400000);
+  const runPurge = async remove => {
+    if (!window.confirm(remove
+      ? `DELETE ${staleUnpublished.length} unpublished machine(s) whose source has been gone 14+ days? Archived rows and rows missing twice that long are removed permanently. Published machines are never touched.`
+      : `Archive ${staleUnpublished.length} unpublished machine(s) whose source has been gone 14+ days? The rows stay in the desk and can be re-published.`)) return;
+    setPurgeBusy(true);
+    try {
+      const out = await call('/api/site-content?machinery=purge-stale', token, {
+        method: 'POST', body: JSON.stringify({ olderThanDays: 14, remove })
+      });
+      notify(remove
+        ? `Deleted ${out.deleted?.length || 0} machine(s); kept ${out.kept?.length || 0}`
+        : `Archived ${out.archived?.length || 0} machine(s); ${out.kept?.length || 0} were already archived`);
+      onImported && onImported();
+    } catch (e) { setError('Purge: ' + e.message); }
+    finally { setPurgeBusy(false); }
+  };
+
+  const deskTotal = (machines || []).filter(m => !m._notInDesk).length;
+  const deskPublished = (machines || []).filter(m => !m._notInDesk && m.published !== false).length;
 
   if (!canWrite) {
     return (
@@ -4925,10 +6393,131 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
 
   return (
     <div className="crm-import-panel">
+      {/* The honest state of the desk, above the import controls: published is
+          the default and the only way a machine leaves the public catalogue is
+          a person hiding it. */}
+      <p className="crm-hint crm-desk-count">
+        <Check size={13} /> {deskPublished} of {deskTotal} desk machines are published on the website
+        {deskTotal - deskPublished > 0
+          ? ` — ${deskTotal - deskPublished} not published (review their stored status and hold reason).`
+          : ', and none are hidden.'}
+      </p>
+      {storageBlocked && (
+        <p className="crm-import-blocked" role="status">
+          <ShieldAlert size={13} /> Stored machines cannot be read or written until
+          supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are
+          disabled. A supplier link or scraper preview still works — it reads the supplier, not our database.
+        </p>
+      )}
+      <button type="button" className="crm-add" onClick={inspectStored} disabled={auditBusy || busy || storageBlocked} title={blockedTitle}>
+        {auditBusy ? 'Checking stored imports…' : 'Find stored / hidden imports'}
+      </button>
+      {visibilityAudit && <section className="crm-scraper-result" aria-label="Stored machinery visibility">
+        <b>{visibilityAudit.total} stored · {visibilityAudit.imported} imported · {visibilityAudit.published} published · {visibilityAudit.hiddenImported} hidden imports</b>
+        <p>This reads the database, not the built-in sample catalogue. A preview alone does not save anything. Review unpublished rows below; archived rows are never restored automatically.</p>
+        <button type="button" disabled={auditBusy || !visibilityAudit.hiddenImported || storageBlocked} title={blockedTitle} onClick={async () => {
+          if (!window.confirm('Publish all valid Available imported machines currently hidden? Archived, sold, reserved and invalid rows are excluded. Up to 100 records per run.')) return;
+          setAuditBusy(true);
+          try {
+            const out = await call('/api/site-content?machinery=recover-imports', token, {method:'POST',body:JSON.stringify({confirm:true})});
+            setVisibilityAudit(out.inventory);
+            notify(`Restored ${out.restored.length} imports; ${out.failed.length} failed; ${out.remaining} eligible rows remain.`);
+            onImported && onImported();
+          } catch (e) {setError('Recovery: '+e.message);}
+          finally {setAuditBusy(false);}
+        }}>Publish all eligible hidden imports</button>
+        <ul>{(visibilityAudit.items || []).filter(r => r.visibility !== 'published').map(r => <li key={r.id}>
+          <b>{r.ref} — {r.name}</b> · {r.visibility}
+          {r.hold_reason && <span> · Recorded hold: {r.hold_reason}</span>}
+          {r.invalid?.length > 0 && <span> · Fix in desk: {r.invalid.join('; ')}</span>}
+          {r.visibility === 'unpublished' && r.status !== 'Archived' && !r.invalid?.length && <button type="button" disabled={auditBusy || storageBlocked} title={blockedTitle} onClick={async () => {
+            if (!window.confirm(`Publish the existing ${r.ref} listing to the website? This does not create a duplicate.`)) return;
+            setAuditBusy(true);
+            try {
+              await call('/api/site-content?machinery=publish', token, { method: 'POST', body: JSON.stringify({ id: r.id }) });
+              notify(`Published existing listing ${r.ref}`);
+              await inspectStored();
+              onImported && onImported();
+            } catch (e) { setError('Publish: ' + e.message); }
+            finally { setAuditBusy(false); }
+          }}>Publish existing listing</button>}
+        </li>)}</ul>
+      </section>}
+      {staleUnpublished.length > 0 && (
+        <div className="crm-scraper-result crm-scraper-stale" data-kind="partial">
+          <b><Ban size={13} /> {staleUnpublished.length} unpublished machine(s) have been missing from their source for 14+ days</b>
+          <span>They still cost a row and a place in the review queue. step=stale only flags; this is the deliberate end of that path.</span>
+          <div>
+            <button type="button" onClick={() => runPurge(false)} disabled={purgeBusy || storageBlocked} title={blockedTitle}>Archive them</button>
+            <button type="button" onClick={() => runPurge(true)} disabled={purgeBusy || storageBlocked} title={blockedTitle}>Delete archived / 28-day rows</button>
+          </div>
+        </div>
+      )}
+      {receipt && (
+        <section
+          className="crm-scraper-result"
+          data-kind={receipt.nothingWritten ? 'none' : receipt.partial ? 'partial' : 'ok'}
+          aria-live="polite"
+          aria-label="What the last import wrote"
+        >
+          <b>
+            {receipt.nothingWritten ? <Ban size={13} /> : receipt.partial ? <ShieldAlert size={13} /> : <Check size={13} />}
+            {' '}{receipt.headline}
+            {receipt.selectedCount != null
+              ? ` of ${receipt.selectedCount} selected`
+              : ''}
+          </b>
+          <span>
+            {receipt.missed === 0
+              ? 'Every selected machine was written and is published on the public catalogue.'
+              : `${receipt.missed} of the selection did NOT make it. A preview writes nothing at all — only “Confirm import” writes, and each row below carries the reason the server gave.`}
+          </span>
+          {receipt.lines.length > 0 && (
+            <ul>
+              {receipt.lines.map((line, i) => (
+                <li key={i} data-kind={line.kind}>
+                  <b>{line.ref}</b>
+                  <span>{line.kind === 'invalid' ? 'refused: ' : line.kind === 'skipped' ? 'skipped: ' : 'failed: '}{line.why}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {receipt.nothingWritten && !receipt.lines.length && (
+            <span>Nothing was written and the server gave no per-row reason — check the connection and try the preview again.</span>
+          )}
+        </section>
+      )}
       <div className="crm-import-toggles">
         <button className="crm-import-toggle" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}>
           <Link2 size={13} /> {open ? 'Hide' : 'Import from a supplier link'}
         </button>
+        <label className="crm-import-toggle crm-scraper-batch" title="How many machines this run may pull (1–24)">
+          Machines per run
+          <input
+            type="number" min={1} max={SCRAPER_RUN_LIMIT} step={1} value={batch}
+            onChange={e => editBatch(e.target.value)}
+            aria-label="Machines per scraper run"
+          />
+        </label>
+        {canSetDefault && (
+          <button
+            className="crm-import-toggle crm-scraper-default"
+            type="button"
+            title="Save this as machinery_scraper_batch for the whole desk and the nightly run"
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await call('/api/settings', token, { method: 'PATCH', body: JSON.stringify({ machinery_scraper_batch: String(batch) }) });
+                updateSettingsCache && updateSettingsCache();
+                notify(`Machines per run saved as the desk default (${batch})`);
+              } catch (e) { setError('Saving the default: ' + e.message); }
+              finally { setBusy(false); }
+            }}
+            disabled={busy}
+          >
+            <Check size={13} /> Make default
+          </button>
+        )}
         <select
           className="crm-import-toggle crm-scraper-cat"
           value={scrapeAll ? 'all' : scrapeCat}
@@ -4945,7 +6534,8 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
         <button className="crm-import-toggle crm-scraper-toggle" type="button" onClick={async () => {
           setBusy(true); setError(''); setPreview(null); setSelectedCandidateKeys(new Set());
           try {
-            const out = await machineryImport('scraper', scrapeAll ? { categories: ['all'], limit: SCRAPER_RUN_LIMIT } : { category: scrapeCat, limit: SCRAPER_RUN_LIMIT }, token);
+            const out = await machineryImport('scraper', scrapeAll ? { categories: ['all'], limit: batch } : { category: scrapeCat, limit: batch }, token);
+            setReceipt(null); setRefusedKeys(new Set());
             const candidates = Array.isArray(out?.machines) ? out.machines.slice(0, SCRAPER_RUN_LIMIT) : [];
             if (candidates.length) {
               notify(`Scraper found ${candidates.length} machine(s) — review and select candidates`);
@@ -4962,14 +6552,16 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
               setSelectedCandidateKeys(new Set(candidates.map((machine, index) => machineryCandidateKey(machine, index))));
               setOpen(true);
             } else {
-              const why = out?.warnings?.length ? ` — ${out.warnings[0]}` : '';
+              const why = out?.existingHidden?.length
+                ? ` — ${out.existingHidden.length} imported rows are already stored but unpublished. Use Find stored / hidden imports.`
+                : out?.warnings?.length ? ` — ${out.warnings[0]}` : '';
               notify(`Scraper found no new machines this run${why}`);
             }
           } catch (e) {
             setError('Scraper: ' + e.message);
           } finally { setBusy(false); }
         }} disabled={busy}>
-          <RefreshCw size={13} /> Run scraper (up to {SCRAPER_RUN_LIMIT})
+          <RefreshCw size={13} /> Run scraper (up to {batch})
         </button>
       </div>
 
@@ -5037,6 +6629,23 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
                         </span>
                         <small>Photo basis recorded: {sm.source?.rights || rights || 'supplier-listing'} · a watermarked copy is flagged for replacement, not dropped.</small>
                         {sm.source?.url && <a href={sm.source.url} target="_blank" rel="noopener noreferrer">Open supplier source <ExternalLink size={12}/></a>}
+                        {refusedKeys.has(key) && (
+                          <div className="crm-scraper-fix" aria-label={`Fix ${sm.name || sm.model || 'this candidate'} and re-confirm`}>
+                            <b><ShieldAlert size={12} /> Refused last confirm — correct it here and confirm again, no re-scrape needed</b>
+                            <label>Type
+                              <select value={sm.type || ''} onChange={e => patchCandidate(key, 'type', e.target.value)} aria-label="Machine type">
+                                <option value="">— choose —</option>
+                                {MACHINE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            </label>
+                            <label>Brand
+                              <input value={sm.brand || ''} onChange={e => patchCandidate(key, 'brand', e.target.value)} aria-label="Brand" />
+                            </label>
+                            <label>Model
+                              <input value={sm.model || ''} onChange={e => patchCandidate(key, 'model', e.target.value)} aria-label="Model" />
+                            </label>
+                          </div>
+                        )}
                         {previewRow.warnings?.length > 0 && <ul className="crm-import-warnings">{previewRow.warnings.map((warning, wi) => <li key={wi}><ShieldAlert size={12}/>{warning}</li>)}</ul>}
                         {machineSpecs.length > 0 && <details><summary>Read {machineSpecs.length} supplier specification{machineSpecs.length === 1 ? '' : 's'}</summary><dl className="crm-import-specs">{machineSpecs.map(([label, value], si) => <div key={si}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>}
                       </div>
@@ -5063,7 +6672,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
                   <small>READ FROM {preview.source?.label || 'the link'}</small>
                   <h3>{m.name}</h3>
                   <p>
-                    {m.brand} · {m.type} · {m.year}
+                    {m.brand} · {m.type} · {machineYearText(m, 'year not stated')}
                     {m.supplierPrice ? ` · $${Number(m.supplierPrice).toLocaleString()} supplier` : ' · no price found'}
                     {m.listPrice ? ` → $${Number(m.listPrice).toLocaleString()} list` : ''}
                   </p>
@@ -5101,7 +6710,7 @@ export function MachineryImportPanel({ token, canWrite, notify, onImported }) {
 
               <div className="crm-import-actions">
                 <button type="button" className="crm-ghost-btn" onClick={() => { setPreview(null); setSelectedCandidateKeys(new Set()); setError(''); }}>Discard preview</button>
-                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy || selectedMachines.length === 0}>
+                <button type="button" className="crm-btn-add-photo" onClick={runImport} disabled={busy || selectedMachines.length === 0 || storageBlocked} title={blockedTitle}>
                   <Check size={13} /> {busy
                     ? 'Writing selected machines…'
                     : `Confirm import ${selectedMachines.length} machine${selectedMachines.length === 1 ? '' : 's'}`}

@@ -118,13 +118,34 @@ let unmounted = false;
 ok(!crash(), 'the site mounts without the boot error boundary');
 ok(document.querySelector('.site'), 'the site shell renders');
 {
-  const stockLinks = [...document.querySelectorAll('.hero-copy .hero-vignettes a')];
-  ok(stockLinks.length === 2 && /Cars/.test(stockLinks[0]?.textContent) && /Japan stock/.test(stockLinks[0]?.textContent),
-    'the hero clearly links to Cars / Japan stock from the hero-copy column');
-  ok(stockLinks.length === 2 && /Machines/.test(stockLinks[1]?.textContent) && /China desk/.test(stockLinks[1]?.textContent),
-    'the hero clearly links to Machines / China desk from the hero-copy column');
+  // 2026-10-07 hero rebuild: the `.hero-vignettes` chip pair is gone. Both
+  // desks are still one click away — as the hero's own two CTA anchors, which
+  // unlike the old `onClick={()=>go('inventory')}` button are real hrefs, so
+  // Ctrl/Cmd-click, middle-click and crawlers all work.
+  // 2026-11-10 hero v3: the CTA row moved into the stage foot band under the
+  // photograph, merged with the facts chips into one horizontal strip.
+  const stockLinks = [...document.querySelectorAll('.hero .stage-foot .hero-cta a')];
+  ok(stockLinks.length === 2, `the hero CTA row is two real anchors (got ${stockLinks.length})`);
   ok(stockLinks[0]?.getAttribute('href') === '/inventory' && stockLinks[1]?.getAttribute('href') === '/machinery',
-    'both origin links are keyboard-focusable same-site links to their real desks');
+    'both desks are keyboard-focusable same-site anchors to their real pages');
+  ok(stockLinks.every(a => a.classList.contains('primary') || a.classList.contains('ghost-btn')),
+    'the two anchors keep the hero CTA styling, not a bare text link');
+  ok(!document.querySelector('.hero-copy .hero-vignettes'),
+    'the duplicated vignette chips no longer float over the photograph');
+  // 2026-11-10 hero v3: the facts row lives in the stage's foot band under
+  // the photograph (.stage-foot) — nothing is layered on the stage photograph.
+  const facts = document.querySelector('.hero .stage-foot .hero-facts');
+  ok(!!facts, 'the hero renders its facts row inside the stage foot band');
+  ok(!!facts?.querySelector('.route-strip') && !!facts?.querySelector('.auction-chip'),
+    'the facts row carries the shipping-lane strip and the next-auction chip');
+  ok(!document.querySelector('.hero-visual .floating-card') && !document.querySelector('.hero-visual .floating-badge'),
+    'no card or badge is absolutely positioned on the vehicle photograph');
+  ok(!document.querySelector('.hero-visual .spark'), 'the six decorative sparkles are gone from the photo box');
+  ok((facts?.textContent || '').includes('Shipping lane · ') && (facts?.textContent || '').includes('Next auction · '),
+    'both facts cards label themselves');
+  // 2026-11-09 (owner direction): the "sample" tag was removed from both cards.
+  ok((facts?.querySelectorAll('.card-demo') || []).length === 0,
+    'neither facts card carries the retired "sample" tag');
   const counter = document.querySelector('.hero-card .car-counter');
   const before = counter?.textContent.trim();
   const next = document.querySelector('.hero-carousel-controls button[aria-label="Next"]');
@@ -140,12 +161,12 @@ ok(document.querySelector('.site'), 'the site shell renders');
 // path -> text that must be on screen once we get there. Without this, a
 // navigation that silently fails would pass the "keeps the app alive" check.
 const ROUTES = [
-  ['/', 'Cars from Japan'],
+  ['/', 'Any vehicle. Any machine.'], // 2026-11-10 round 5: headline rewritten — scope in six words, drive sides live in the lead
   ['/inventory', 'inv-toolbar'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],   // retired page: resolves to the merged /inventory list
   ['/services', 'AR7 SERVICE'],
   ['/machinery', 'Machines sourced from China'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],
   ['/brands', 'brands'],
   ['/tools', 'Calculator'],
   ['/auction', 'AUCTION'],
@@ -156,12 +177,17 @@ const ROUTES = [
   ['/faq', 'POPULAR QUESTIONS'],
   ['/about', 'ABOUT'],
   ['/contact', 'Contact'],
-  ['/destinations', 'DEMO ROUTE CALCULATOR'],
+  // 2026-11-08: the hub's kicker dropped the word "demo" from visible copy.
+  ['/destinations', 'ROUTE FINDER'],
+  // 2026-10-08: each market has its own page; mounting it must show that
+  // market's H1, not the hub's picker.
+  ['/destinations/kenya', 'Import a used car from Japan to Kenya'],
+  ['/destinations/united-kingdom', 'Import a used car from Japan to United Kingdom'],
   ['/world', 'world-page'],
   ['/account', 'AR7'],
   ['/studio', 'AR7'],
   ['/portal', 'portal-demo'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],
   ['/crm', 'crm-'],
   ['/inventory', 'inv-toolbar'],
   ['/services', 'AR7 SERVICE']
@@ -184,12 +210,16 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   if (invBtn) {
     await act(async () => { invBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
     ok(invBtn.getAttribute('aria-expanded') === 'true', 'clicking Inventory sets aria-expanded');
+    // /japan-stock is retired: the dropdown carries no link to it any more,
+    // and imported dealer cars live in All Inventory.
     const jpLink = [...document.querySelectorAll('.inventory-panel a')].find(a => (a.textContent || '').trim() === 'Japan dealer stock');
-    ok(!!jpLink, 'Japan dealer stock is in the Inventory dropdown');
-    if (jpLink) {
-      await act(async () => { jpLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
-      ok(location.pathname === '/japan-stock' || document.body.textContent.includes('LIVE JAPAN DEALER STOCK'),
-        'clicking Japan dealer stock lands on the Japan dealer stock page');
+    ok(!jpLink, 'the retired Japan dealer stock page is no longer linked from the Inventory dropdown');
+    const invLink = [...document.querySelectorAll('.inventory-panel a')].find(a => (a.textContent || '').trim() === 'All Inventory');
+    ok(!!invLink, 'All Inventory is in the Inventory dropdown');
+    if (invLink) {
+      await act(async () => { invLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+      ok(location.pathname === '/inventory' || document.body.innerHTML.includes('inv-toolbar'),
+        'clicking All Inventory lands on the merged inventory page');
     }
     await act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     ok(invBtn.getAttribute('aria-expanded') === 'false', 'Escape closes the Inventory panel');
@@ -303,6 +333,26 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(dom.window.location.pathname === relatedHref && relatedHref !== path,
       `a related-machine link opens that machine (${dom.window.location.pathname})`);
     ok(!!document.querySelector('.mch-detail-page'), 'and still renders a machine detail page');
+  }
+
+  // The detail page's enquiry buttons must actually open the dialog — the
+  // owner reported "Request a quotation" doing nothing in production
+  // (2026-11-04; a stale-deploy chunk failure). This pins the happy path end
+  // to end: click → enquiry dialog with the machinery copy.
+  await goto(path);
+  ok(!!document.querySelector('.mch-crumbs'),
+    'the machine page shows a breadcrumb trail (Machinery / type / ref)');
+  const quoteBtn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Request a quotation');
+  ok(!!quoteBtn, 'the detail page offers a Request a quotation button');
+  if (quoteBtn) {
+    await act(async () => { quoteBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    await act(async () => { await new Promise(r => setTimeout(r, 250)); });
+    ok(!!document.querySelector('.modal-backdrop'), 'clicking it opens the enquiry dialog');
+    ok(document.body.textContent.includes('Request a machinery quotation'),
+      'and the dialog carries the machinery-desk copy, not the generic contact form');
+    const closeBtn = document.querySelector('.modal-x');
+    if (closeBtn) await act(async () => { closeBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    ok(!document.querySelector('.modal-backdrop'), 'the dialog closes cleanly');
   }
 
   // Ctrl/Cmd-click must NOT be hijacked: that is how a buyer opens a machine

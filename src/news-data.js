@@ -31,6 +31,20 @@ export function articleSlug(input) {
 
 const RAW_NEWS = [
   {
+    cat: 'BUYING GUIDE', date: 'Oct 09, 2026', min: 3,
+    img: '/assets/japanese-car-auction-inspection-shipping-1.webp',
+    title: 'Checking your Japanese vehicle export documents',
+    ex: 'Check the chassis reference, consignee and destination before your car leaves Japan.',
+    body: 'Start with the exact vehicle reference. Compare the chassis number on the commercial invoice, Japanese Export Certificate and available vehicle photographs. Ask for any discrepancy to be resolved in writing before payment or shipment. A model name alone is not enough to identify a particular car.\n\nConfirm the consignee name, contact details, discharge port and document delivery address with your clearing agent. The Bill of Lading records the shipment; ask whether originals or an agreed release procedure will be used. Do not assume a scan alone will release your vehicle.\n\nRequirements differ by destination. Your broker should confirm translation, pre-shipment inspection and import-approval requirements before purchase. The destination guides on this site describe the planning document pack, but they are not a substitute for current instructions from the relevant authority.\n\nKeep the quotation, payment receipts, inspection material and shipping correspondence together. Ask the export desk when each document will be available and who is responsible for each outstanding step. Destination duties, taxes, storage and registration are separate from Japan export preparation; confirm those costs with your broker.'
+  },
+  {
+    cat: 'LOGISTICS', date: 'Oct 09, 2026', min: 3,
+    img: '/assets/japanese-car-auction-inspection-shipping-2.webp',
+    title: 'Comparing FOB and CIF vehicle quotations',
+    ex: 'Compare the same car, port and included costs instead of choosing the lowest headline number.',
+    body: 'A useful comparison starts with the same vehicle: chassis reference, year, mileage, condition and included accessories. Two similar model names can hide very different condition or specification. Ask which inspection material supports the quoted car.\n\nAn FOB quotation covers the vehicle and agreed export preparation up to loading in Japan. A CIF quotation adds the agreed sea freight and marine insurance to the named destination port. Ask for the actual inclusions in writing rather than treating a website calculator as a binding offer.\n\nCompare the loading and discharge ports, shipping method, currency, quotation validity and payment terms. Ask whether inland transport and documentation charges are included. For insurance, confirm the cover, exclusions, excess and claims procedure; an insurance line on an invoice does not explain all of these.\n\nNeither headline figure is a complete promise of your final local cost. Your clearing agent must confirm destination handling, customs duties, local taxes, compliance work and registration. Allow for schedule changes and ask how any revised freight charge would be approved before booking. Keep the agreed quotation with your vehicle documents so every later charge can be checked against it.'
+  },
+  {
     cat: 'MARKET WATCH', date: 'Aug 18, 2026', min: 4,
     img: '/assets/japanese-car-auction-inspection-shipping-3.webp',
     title: 'Why Land Cruiser demand keeps climbing in Pakistan',
@@ -46,9 +60,9 @@ const RAW_NEWS = [
   },
   {
     cat: 'LOGISTICS', date: 'Aug 04, 2026', min: 3,
-    img: '/assets/japanese-car-auction-inspection-shipping-5.webp',
+    img: '/assets/japan-vehicle-export-port-aerial-1.jpg',
     title: 'RoRo vs container: which shipping method fits your car?',
-    ex: 'Costs, protection and loading windows for both methods — with demo numbers.',
+    ex: 'Costs, protection and loading windows for both methods — with sample numbers.',
     body: 'RoRo (roll-on, roll-off) is the most economical way to move a drivable car between continents, with your vehicle secured on an enclosed car-carrier deck. Container shipping adds an estimated $1,800–$2,500 on Japan–Karachi routes (a planning estimate that varies by carrier and schedule) and gives you a sealed hold.\n\nWe generally recommend RoRo for standard stock under $45,000 and containers for high-value, low-ground-clearance or multi-car orders.\n\nEvery AR7 shipment includes marine transit insurance at an estimated 1.6% of vehicle value, whether RoRo or container.'
   },
   {
@@ -133,8 +147,13 @@ export function articleSeo(article) {
   const slug = articleSlug(article.title);
   const rawDesc = String(article.excerpt || article.ex || article.body || '').trim();
   const description = rawDesc.length > 160 ? rawDesc.slice(0, 157).trimEnd() + '…' : rawDesc;
+  // The brand suffix is a nicety, not a requirement: when it would push the
+  // <title> past Google's ~60-character display cutoff (2026-11-07 crawl
+  // flagged two long guide titles), the article title stands alone. The slug
+  // derives from article.title, so this never changes a URL.
+  const withBrand = `${article.title} | AR7 Traders`;
   return {
-    title: `${article.title} | AR7 Traders`,
+    title: withBrand.length > 60 ? article.title : withBrand,
     description,
     canonicalPath: `/news/${encodeURIComponent(slug)}`,
     ogImage: article.img || article.image || '/assets/og/auction.jpg',

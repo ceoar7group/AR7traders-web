@@ -185,6 +185,44 @@ say('\n-- the car side is untouched --');
   ok(touched.every(t => t === 'machinery'), `the machinery job only reads the machinery table (${[...new Set(touched)].join(', ')})`);
 }
 
+say('\n-- nightly refresh preserves deliberate visibility and availability --');
+{
+  pages.set('https://supplier.example/p/dx300', PAGE(50000));
+  const db = fakeDb([{ ...MACHINE, published: false, status: 'Reserved', hold_reason: 'Owner review' }]);
+  const res = fakeRes();
+  await sync(req({ job: 'machinery', key: 'test-key' }), res, { db });
+  ok(res.statusCode === 200, 'hidden source refresh completes');
+  ok(db._tables.machinery[0].published === false, 'does not republish a hidden row');
+  ok(db._tables.machinery[0].status === 'Reserved', 'does not reset availability');
+  ok(db._tables.machinery[0].hold_reason === 'Owner review', 'keeps the owner review reason');
+  ok(res.json().inventory.hiddenImported === 1, 'reports that the prior import exists but is hidden');
+}
+say('\n-- audit mode is authenticated and read only --');
+{
+  const db = fakeDb([{ ...MACHINE, published: false }]);
+  const before = JSON.stringify(db._tables);
+  const res = fakeRes();
+  await sync(req({ job: 'machinery-audit', key: 'test-key' }), res, { db });
+  ok(res.statusCode === 200 && res.json().readOnly, 'audit returns a read-only inventory');
+  ok(res.json().inventory.hiddenImported === 1, 'audit locates the unpublished prior import');
+  ok(before === JSON.stringify(db._tables), 'audit writes nothing');
+  const denied = fakeRes();
+  await sync(req({ job: 'machinery-audit' }), denied, { db });
+  ok(denied.statusCode === 401, 'anonymous visitors cannot inspect hidden rows');
+}
+
 globalThis.fetch = realFetch;
+say('\n-- blocked sources are not marked as removed --');
+{
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 403 });
+  const db = fakeDb([MACHINE]);
+  const res = fakeRes();
+  await sync(req({ job: 'machinery', key: 'test-key' }), res, { db });
+  ok(!db._tables.machinery[0].source_missing_since, 'a bot gate does not mark stock stale');
+  ok(res.json().failed.length === 1, 'blocked check is reported');
+  globalThis.fetch = oldFetch;
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -115,6 +115,21 @@
   display:flex;gap:10px;align-items:flex-start;margin-top:26px;
   font-size:12.5px;line-height:1.65;color:#6d7d74;
 }
+/* Refer a friend (2026-11-18) */
+.ma-refer-card{border:1px solid #d8e4dc;border-radius:16px;padding:20px 22px;background:linear-gradient(135deg,#f4faf6,#eaf4ee);display:grid;gap:12px;max-width:560px}
+:root[data-theme="dark"] .ma-refer-card{background:#0d241879;border-color:#1e3327}
+.ma-refer-code{display:flex;align-items:baseline;gap:12px}
+.ma-refer-code span{font:700 9px Manrope,sans-serif;letter-spacing:1.6px;color:#6d7d74}
+.ma-refer-code b{font:800 24px Manrope,sans-serif;letter-spacing:2px;color:#0b5c3a}
+:root[data-theme="dark"] .ma-refer-code b{color:#d9b25c}
+.ma-refer-card p{margin:0;font-size:12.5px;line-height:1.65;color:#51645a}
+:root[data-theme="dark"] .ma-refer-card p{color:#9fb5a8}
+.ma-refer-actions{display:flex;gap:10px;flex-wrap:wrap}
+.ma-refer-actions button,.ma-refer-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:11px;font:700 12.5px Manrope,sans-serif;cursor:pointer;text-decoration:none}
+.ma-refer-actions button{border:0;background:#0b5c3a;color:#fff}
+.ma-refer-actions a{border:1px solid #0b5c3a44;color:#0b5c3a;background:#fff}
+:root[data-theme="dark"] .ma-refer-actions a{background:transparent;color:#d9b25c;border-color:#d9b25c55}
+.ma-refer-card small{font-size:11.5px;color:#6d7d74}
 .ma-foot svg{width:16px;height:16px;flex:none;margin-top:2px;color:#0b5c3a}
 
 .ma-empty{
@@ -180,3 +195,75 @@
   .ma-panel .form-row{grid-template-columns:1fr}
   .ma-panel footer button{flex:1;justify-content:center}
 }
+
+/* ── Saved searches & stock alerts (2026-11-07) ─────────────────────────────
+   The buyer's standing orders. Cards show the criteria as chips, how many
+   cars match right now, and a NEW badge when the nightly sweep found stock
+   the search hasn't been shown yet. */
+.ma-alerts{margin-top:8px}
+.ma-alerts .ma-title{display:flex;align-items:center;gap:10px}
+.ma-alerts .ma-title svg{width:20px;color:var(--gold)}
+.ma-alerts-empty{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--bg);border:1px dashed var(--line);border-radius:14px;padding:16px 18px}
+.ma-alerts-empty p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}
+.ma-alerts-empty .outline-btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;flex:none}
+.ma-alert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.ma-alert-grid article{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px;display:grid;gap:9px;align-content:start}
+.ma-alert-grid article.has-new{border-color:color-mix(in srgb,var(--gold) 55%,var(--line));box-shadow:0 8px 24px rgba(176,138,48,.12)}
+.ma-alert-grid header{display:flex;align-items:center;gap:10px}
+.ma-alert-grid header b{font:800 14px Manrope;letter-spacing:-.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ma-new{margin-left:auto;flex:none;font:800 9px Manrope;letter-spacing:.8px;color:#1b1405;background:linear-gradient(145deg,var(--gold),color-mix(in srgb,var(--gold) 62%,#7a5d1d));border-radius:99px;padding:4px 9px;font-style:normal}
+.ma-alert-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ma-alert-chips span{font:700 9.5px Manrope;color:var(--muted);border:1px solid var(--line);background:var(--bg);border-radius:99px;padding:4px 9px}
+.ma-alert-grid small{color:var(--muted);font-size:11px}
+.ma-alert-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ma-alert-actions .outline-btn{display:inline-flex;align-items:center;gap:7px;text-decoration:none;cursor:pointer;height:36px;padding:0 12px;font-size:11px}
+.ma-alert-actions .outline-btn svg{width:14px;height:14px}
+.ma-alert-actions .outline-btn.danger{color:#b4443c;border-color:color-mix(in srgb,#b4443c 40%,var(--line))}
+.ma-alert-actions .outline-btn.danger:hover{background:color-mix(in srgb,#b4443c 10%,var(--card))}
+
+/* ===== 2026-11-08: saved cars (synced favourites) ================ */
+.ma-favs .ma-muted { margin: 4px 0 14px; }
+.ma-fav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ma-fav-chips .outline-btn {
+  font-size: 13px;
+  padding: 7px 14px;
+}
+
+/* ===== 2026-11-08: responsive polish — my-account section ========
+   The signed-in dashboard had no breakpoints of its own: KPI tiles
+   now step 4 -> 2 across tablets and phones, order cards stack, the
+   header actions become thumb-sized half-width buttons, and saved-car
+   chips fill the row in pairs. */
+@media (min-width: 651px) and (max-width: 1000px) {
+  .ma-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 650px) {
+  .ma-head h1 { font-size: 33px; letter-spacing: -1.2px; }
+  .ma-head-actions { width: 100%; }
+  .ma-head-actions .outline-btn,
+  .ma-head-actions a.outline-btn { flex: 1 1 calc(50% - 5px); justify-content: center; min-height: 44px; }
+  .ma-kpis { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ma-orders { grid-template-columns: 1fr; }
+  .ma-fav-chips .outline-btn { flex: 1 1 calc(50% - 5px); justify-content: center; }
+}
+
+/* Where is my car? (2026-11) — customer-side shipment tracking. */
+.ma-ships{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.ma-ships article{background:#fff;border:1px solid var(--line,#e3e9e5);border-radius:16px;padding:18px}
+:root[data-theme="dark"] .ma-ships article{background:#0f1d16;border-color:#1e3327}
+.ma-ships header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ma-ships header b{font-size:16px;letter-spacing:-.4px}
+.ma-ships>article>small{display:block;color:#7c8b83;font-size:11px;margin:5px 0 12px}
+.ma-ship-steps{display:flex;gap:4px;margin-bottom:10px}
+.ma-ship-steps span{flex:1;display:grid;justify-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#9aa8a0}
+.ma-ship-steps span i{width:100%;height:4px;border-radius:99px;background:#dde6e0}
+:root[data-theme="dark"] .ma-ship-steps span i{background:#1e3327}
+.ma-ship-steps span.done{color:var(--green-text,#0b603b)}
+.ma-ship-steps span.done i{background:var(--gold,#c9a227)}
+.ma-vessel{color:var(--green-text,#0b603b);font-weight:700;text-decoration:none}
+.ma-vessel:hover{text-decoration:underline}
+@media(max-width:760px){.ma-ships{grid-template-columns:1fr}}

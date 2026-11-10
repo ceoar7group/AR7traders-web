@@ -154,7 +154,7 @@ global.fetch = async (url) => {
   else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; }
   else if (u.includes('/usedcar/spread/goo/15/988026062900208975002')) { body = notFoundHtml; }
   else if (u.includes('/usedcar/spread/goo/15/988026081900208975001')) { body = detailHtml; }
-  else if (u.includes('price--100')) { body = listingHtml; }
+  else if (u.includes('summary.php')) { body = listingHtml; }
   else if (u.includes('/usedcar/spread/goo/')) { body = detailHtml; }
   else { status = 404; }
   return { ok: status < 400, status, text: async () => body };
@@ -192,11 +192,14 @@ ok(inserted[0]?.quality_score > 0, 'inserted car has a quality score');
 ok(delistedOld?.available === false, 'delisted car marked unavailable');
 ok(Number(settings.goonet_bookmark_page) === 2, 'bookmark advanced to page 2');
 ok(fetchCalls.length >= 3, 'fetch was called for listing + detail + delist check');
-ok(fetchCalls.some(u => u.includes('price--100')), 'the listing page was fetched');
-ok(fetchCalls[0] === 'https://www.goo-net.com/', 'the run warms up a cookie jar against goo-net first');
+ok(fetchCalls.some(u => u.includes('summary.php')), 'the listing page was fetched');
+ok(fetchCalls[0].includes('summary.php'), 'the exchange listing needs no warm-up — the first call is the listing itself');
+ok(fetchCalls.indexOf('https://www.goo-net.com/') > 0
+  && fetchCalls.indexOf('https://www.goo-net.com/') < fetchCalls.findIndex(u => u.includes('/usedcar/spread/goo/')),
+  'the cookie jar is still warmed against goo-net before the first domestic detail fetch');
 ok(activities.length >= 1, 'activity log written');
 ok(activities.some(a => String(a.action || '').includes('Delisted')), 'delist logged');
-ok(!fetchCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net.com/usedcar/price--100/'),
+ok(!fetchCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search'),
   'no relay needed when goo-net answers with a real listing page');
 ok(!fetchCalls.some(u => u.startsWith('https://r.jina.ai/') && u.includes('988026062900208975002')),
   'delist checks never go through the relay');
@@ -227,7 +230,7 @@ const res2 = fakeRes();
 await handler(req, res2, { db: db2.db });
 
 ok(res2.statusCode === 200, 'stub run still responds 200');
-ok(relayCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net.com/usedcar/price--100/'),
+ok(relayCalls.some(u => u === 'https://r.jina.ai/https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search'),
   'the stub listing page was re-fetched through the relay');
 ok(res2.body?.cardsSeen >= 2, 'relayed page yields real cards instead of the 1-card stub');
 ok(res2.body?.note === 'goo-net blocked the direct request (bot protection) — page fetched via relay.',
@@ -259,7 +262,7 @@ global.fetch = async (url) => {
   let body = '', status = 200;
   if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
   else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; } // relay unavailable
-  else if (u.includes('/usedcar/')) body = gatedStubHtml;                    // every page is the stub
+  else if (u.includes('/usedcar/') || u.includes('summary.php')) body = gatedStubHtml; // every page is the stub
   else body = '<html><body>goo-net</body></html>';
   return { ok: status < 400, status, text: async () => body };
 };
@@ -338,7 +341,7 @@ global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
   if (u.startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => listingHtml };
-  if (u.includes('price--100')) {
+  if (u.includes('summary.php')) {
     await sleep(8300);                       // a slow, stubbed first answer
     return { ok: true, status: 200, text: async () => '<html><body>セキュリティ</body></html>' };
   }
@@ -375,7 +378,7 @@ const detailUrls6 = [];
 global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => noTitleListing };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => noTitleListing };
   if (u.includes('/usedcar/spread/goo/')) { detailUrls6.push(u); return { ok: true, status: 200, text: async () => detailHtml }; }
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -411,7 +414,7 @@ global.fetch = async (url) => {
   const u = String(url);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
   if (u.startsWith('https://r.jina.ai/')) { relayCalls7.push(u); return { ok: true, status: 200, text: async () => detailHtml }; }
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
   return { ok: true, status: 200, text: async () => gateStub7 };   // every detail page is gated
 };
 
@@ -458,7 +461,7 @@ global.fetch = async (url) => {
     llmCalls8.push(u);
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: llmCardsReply }] } }] }) };
   }
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => llmListingPage };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => llmListingPage };
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -492,7 +495,7 @@ global.fetch = async (url) => {
   const u = String(url);
   fetchCalls9.push(u);
   if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
-  if (u.includes('price--100')) return { ok: true, status: 200, text: async () => llmListingPage };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => llmListingPage };
   if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
   return { ok: false, status: 404, text: async () => '' };
 };
@@ -525,6 +528,384 @@ await stockHandler(
 ok(diagRes.statusCode === 200 && String(diagRes.body?.sample || '').length > 0 && String(diagRes.body?.sample).includes('LIVE80')
   && diagRes.body?.run === 'parseMiss',
   'GET /api/goonet-stock?action=diag serves the stored sample to an admin');
+
+// ---- Tenth run: the direct listing fetch ABORTS, the relay rescues it ------
+// The live incident of 2026-11: the bookmarked deep page
+// (…/usedcar/index-30.html) never answered, the direct request was cancelled
+// by our own timer, and the run died with an opaque 502 ("This operation was
+// aborted") without ever trying anything else. A connection that never
+// completed must earn the same relay attempt as a bot stub.
+resetFetchState();
+const abortError = () => { const e = new Error('This operation was aborted'); e.name = 'AbortError'; throw e; };
+const db10 = memDb();
+const deepSettings = seedSettings
+  .filter(([k]) => k !== 'goonet_search_url' && k !== 'goonet_bookmark_page')
+  .concat([['goonet_search_url', 'https://www.goo-net.com/usedcar/'], ['goonet_bookmark_page', '30']]);
+// The saved domestic non-price search translates to the default exchange
+// search; its page 30 is the offset=580 URL, and the fallback search is the
+// only URL carrying b_to_b_price_max=1000000.
+const BOOKMARKED_PAGE = 'offset=580';
+const FALLBACK_MARK = 'b_to_b_price_max=1000000&search_type=price_search';
+db10.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db10.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes(BOOKMARKED_PAGE)) abortError();
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res10 = fakeRes();
+await handler(req, res10, { db: db10.db });
+const settings10 = Object.fromEntries(db10.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res10.statusCode === 200, 'direct abort + relay success: the run completes (not a 502)');
+eq(res10.body?.via, 'relay', 'direct abort + relay success: the report says the page came via relay');
+ok(res10.body?.inserted >= 1, `direct abort + relay success: cars import through the quality gates (inserted ${res10.body?.inserted})`);
+ok(Number(settings10.goonet_bookmark_page) === 31, 'direct abort + relay success: the relayed read of the bookmarked page advances the bookmark');
+
+// ---- Eleventh run: direct aborts AND relay aborts → fallback page 1 --------
+// Both legs of the bookmarked fetch die. The run must make ONE bounded retry,
+// then read page 1 of the fallback search instead — and hold the bookmark,
+// because the bookmarked page itself was never read.
+resetFetchState();
+const db11 = memDb();
+db11.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db11.tables.japan_dealer_stock = [];
+const calls11 = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  calls11.push(u);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes(BOOKMARKED_PAGE)) abortError();   // direct AND relay (the relay URL embeds it)
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res11 = fakeRes();
+await handler(req, res11, { db: db11.db });
+const settings11 = Object.fromEntries(db11.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res11.statusCode === 200, 'abort + abort + fallback: the run completes');
+ok(res11.body?.fallbackUsed === true && String(res11.body?.fallbackUrl || '').includes(FALLBACK_MARK),
+  'abort + abort + fallback: the report names the fallback page that was read');
+ok(res11.body?.inserted >= 1, `abort + abort + fallback: cars import from the fallback page (inserted ${res11.body?.inserted})`);
+ok(Number(settings11.goonet_bookmark_page) === 30,
+  'abort + abort + fallback: the bookmark is HELD — a fallback read proves nothing about page 30');
+ok(calls11.filter(u => u.includes(BOOKMARKED_PAGE) && !u.startsWith('https://r.jina.ai/')).length === 2,
+  'abort + abort + fallback: exactly one bounded retry of the bookmarked page (2 direct attempts total)');
+ok(String(res11.body?.note || '').includes('held on page 30'),
+  'abort + abort + fallback: the note says the bookmark was held');
+
+// ---- Twelfth run: goo-net answers 403 → NO retry, NO fallback --------------
+// A 403/429 is the gate refusing on purpose. The only sanctioned attempt is
+// the single relay try inside fetchPage; the importer must not add a retry
+// storm or hammer the fallback search from the same blocked host.
+resetFetchState();
+const db12 = memDb();
+db12.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db12.tables.japan_dealer_stock = [];
+const calls12 = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  calls12.push(u);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) return { ok: false, status: 500, text: async () => '' };
+  return { ok: false, status: 403, text: async () => '<html><body>セキュリティによるアクセス制限</body></html>' };
+};
+
+const res12 = fakeRes();
+await handler(req, res12, { db: db12.db });
+const settings12 = Object.fromEntries(db12.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res12.statusCode === 502 && res12.body?.failure?.kind === 'blocked',
+  '403 run: reported as blocked, not as a timeout or crash');
+ok(calls12.filter(u => u.includes(BOOKMARKED_PAGE) && !u.startsWith('https://r.jina.ai/')).length === 1,
+  '403 run: the blocked page is fetched exactly once — no retry storm');
+ok(!calls12.some(u => u.includes(FALLBACK_MARK)),
+  '403 run: the fallback search is never hammered from a blocked host');
+ok(Number(settings12.goonet_bookmark_page) === 30, '403 run: the bookmark is held');
+ok(String(res12.body?.error || '').includes('Do not retry'),
+  '403 run: the error tells the owner not to retry in a loop');
+
+// ---- Thirteenth run: EVERYTHING times out — diagnosable, bounded, counted --
+// Direct, relay and fallback all abort. The response must classify the state
+// as a timeout (never the raw "This operation was aborted"), report both
+// legs and the fallback, hold the bookmark, and count consecutive failures
+// of the same page so a stuck bookmark surfaces an owner action.
+resetFetchState();
+const db13 = memDb();
+db13.tables.site_settings = deepSettings.map(([key, value]) => ({ key, value }));
+db13.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  abortError();
+};
+
+const res13 = fakeRes();
+await handler(req, res13, { db: db13.db });
+const settings13 = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+const f13 = res13.body?.failure || {};
+
+ok(res13.statusCode === 502 && f13.kind === 'timeout', 'all-timeout run: classified as a timeout, not a crash');
+ok(!String(res13.body?.error || '').includes('This operation was aborted'),
+  'all-timeout run: the raw abort message never reaches the owner');
+ok(String(res13.body?.error || '').includes('timed out')
+  && String(res13.body?.error || '').includes(BOOKMARKED_PAGE)
+  && String(res13.body?.error || '').includes('held on page 30'),
+  'all-timeout run: the error names the page, the timeout, and the held bookmark');
+ok(f13.retried === true && f13.relayAttempted === true && f13.fallbackTried === true,
+  'all-timeout run: the report shows retry, relay and fallback were all attempted');
+ok(typeof f13.relayError === 'string' && f13.relayKey === 'free (no key)',
+  'all-timeout run: relay error and relay key state are reported');
+ok(Number(settings13.goonet_bookmark_page) === 30, 'all-timeout run: the bookmark is held');
+ok(settings13.goonet_fetch_fail_count === '1' && settings13.goonet_fetch_fail_page === '30',
+  'all-timeout run: the consecutive-failure counter starts');
+
+// Two more failing runs on the same page → the report escalates to the owner.
+resetFetchState();
+const res13b = fakeRes();
+await handler(req, res13b, { db: db13.db });
+resetFetchState();
+const res13c = fakeRes();
+await handler(req, res13c, { db: db13.db });
+const settings13c = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(settings13c.goonet_fetch_fail_count === '3', 'stuck bookmark: three failures on page 30 are counted');
+ok(String(res13c.body?.failure?.suggestedAction || '').includes('Reset the bookmark'),
+  'stuck bookmark: after repeated failures the report names the owner action');
+
+// With the EXPLICIT setting on, the next failure auto-resets to page 1.
+db13.tables.site_settings.push({ key: 'goonet_auto_reset_bookmark', value: 'true' });
+resetFetchState();
+const res13d = fakeRes();
+await handler(req, res13d, { db: db13.db });
+const settings13d = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res13d.body?.failure?.bookmarkReset === true && settings13d.goonet_bookmark_page === '1',
+  'stuck bookmark: auto-reset to page 1 happens ONLY under the explicit goonet_auto_reset_bookmark setting');
+
+// And a later successful read of the bookmarked page clears the counter.
+resetFetchState();
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
+  return { ok: false, status: 404, text: async () => '' };
+};
+const res13e = fakeRes();
+await handler(req, res13e, { db: db13.db });
+const settings13e = Object.fromEntries(db13.tables.site_settings.map(r => [r.key, r.value]));
+ok(res13e.statusCode === 200 && settings13e.goonet_fetch_fail_count === '0',
+  'a successful read of the bookmarked page clears the failure counter');
+
+// ---- Fourteenth run: a passing import flows straight to the site ----------
+// P3 (2026-11-03): japan_dealer_stock stays the provenance table, but a car
+// that passes the quality gate is promoted in the SAME run — to the public
+// website and the CRM inventory (goonet_auto_promote_target, default 'both'),
+// bounded by goonet_max_promote_per_run. Rows imported on EARLIER runs (the
+// unpromoted backlog) are an owner decision and must never be swept up.
+const healthyFetch = () => {
+  global.fetch = async (url) => {
+    const u = String(url);
+    if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+    if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+    if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
+    return { ok: false, status: 404, text: async () => '' };
+  };
+};
+// Settings that keep the weekly sweeps quiet so only the per-run path acts.
+const promoteSeed = extra => seedSettings
+  .concat([
+    ['goonet_last_weekly_delist', new Date().toISOString()],
+    ['goonet_last_weekly_promote', new Date().toISOString()]
+  ], extra)
+  .map(([key, value]) => ({ key, value }));
+const backlogRow = () => ({
+  id: 'backlog-1', goonet_id: 'BACKLOG1', stock_no: 'BACKLOG1',
+  make: 'Toyota', model: 'Aqua', year: 2018, available: true, promoted: 'none',
+  goonet_url: 'https://www.goo-net.com/usedcar/spread/goo/15/BACKLOG1.html',
+  last_seen_at: new Date().toISOString(), imported_at: '2026-01-01T00:00:00Z',
+  quality_score: 99
+});
+
+resetFetchState();
+healthyFetch();
+const db14 = memDb();
+db14.tables.site_settings = promoteSeed([]);
+db14.tables.japan_dealer_stock = [backlogRow()];
+const res14 = fakeRes();
+await handler(req, res14, { db: db14.db });
+
+const fresh14 = (db14.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+const listing14 = (db14.tables.site_listings || []).filter(r => r.stock_no === fresh14?.stock_no);
+const vehicle14 = (db14.tables.vehicles || []).filter(r => r.stock_no === fresh14?.stock_no);
+const backlog14 = db14.tables.japan_dealer_stock.find(r => r.id === 'backlog-1');
+
+ok(res14.statusCode === 200 && res14.body?.inserted >= 1, `auto-promote: the run imported (inserted ${res14.body?.inserted})`);
+ok(res14.body?.promoted >= 1, `auto-promote: the report counts the same-run promotion (promoted ${res14.body?.promoted})`);
+ok(fresh14?.promoted === 'both', `auto-promote: the fresh row is marked 'both' (got '${fresh14?.promoted}')`);
+ok(listing14.length === 1, `auto-promote: exactly one website listing was published (got ${listing14.length})`);
+ok(vehicle14.length === 1, `auto-promote: exactly one CRM inventory row was created (got ${vehicle14.length})`);
+ok(listing14[0]?.published === true, 'auto-promote: the website copy is published');
+ok(backlog14?.promoted === 'none', 'auto-promote: the unpromoted BACKLOG row from an earlier run is left alone');
+ok(!(db14.tables.site_listings || []).some(r => r.stock_no === 'BACKLOG1')
+  && !(db14.tables.vehicles || []).some(r => r.stock_no === 'BACKLOG1'),
+  'auto-promote: no backlog copy reaches the website or the inventory without owner approval');
+
+// Second pass over the same listing: the already-imported car is recognised,
+// never re-imported, and still appears exactly ONCE in each destination.
+resetFetchState();
+healthyFetch();
+const res14b = fakeRes();
+await handler(req, res14b, { db: db14.db });
+ok((db14.tables.japan_dealer_stock || []).filter(r => r.goonet_id === '988026081900208975001').length === 1,
+  'auto-promote rerun: the known car is not re-imported into provenance');
+ok((db14.tables.site_listings || []).filter(r => r.stock_no === fresh14?.stock_no).length === 1
+  && (db14.tables.vehicles || []).filter(r => r.stock_no === fresh14?.stock_no).length === 1,
+  'auto-promote rerun: the car still appears exactly once in each destination (no duplicates)');
+
+// Target 'listings': the copy goes to the website only, and the provenance
+// flag says exactly that.
+resetFetchState();
+healthyFetch();
+const db14c = memDb();
+db14c.tables.site_settings = promoteSeed([['goonet_auto_promote_target', 'listings']]);
+db14c.tables.japan_dealer_stock = [];
+const res14c = fakeRes();
+await handler(req, res14c, { db: db14c.db });
+const fresh14c = (db14c.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+ok(fresh14c?.promoted === 'listings', `target listings: the row is marked 'listings' (got '${fresh14c?.promoted}')`);
+ok((db14c.tables.vehicles || []).length === 0, 'target listings: the CRM inventory is untouched');
+ok((db14c.tables.site_listings || []).some(r => r.stock_no === fresh14c?.stock_no), 'target listings: the website copy exists');
+
+// Auto-promote switched OFF: imports land in provenance and stay there.
+resetFetchState();
+healthyFetch();
+const db14d = memDb();
+db14d.tables.site_settings = promoteSeed([['goonet_auto_promote', 'false']]).filter(r => r.key !== 'goonet_auto_promote' || r.value === 'false');
+db14d.tables.japan_dealer_stock = [];
+const res14d = fakeRes();
+await handler(req, res14d, { db: db14d.db });
+const fresh14d = (db14d.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+ok(res14d.body?.inserted >= 1 && fresh14d?.promoted === 'none',
+  'auto-promote off: the import lands but is not promoted');
+ok((db14d.tables.site_listings || []).length === 0 && (db14d.tables.vehicles || []).length === 0,
+  'auto-promote off: neither destination is written');
+
+// Per-run bound of 0: same as off for the promotion step, import unaffected.
+resetFetchState();
+healthyFetch();
+const db14e = memDb();
+db14e.tables.site_settings = promoteSeed([['goonet_max_promote_per_run', '0']]);
+db14e.tables.japan_dealer_stock = [];
+const res14e = fakeRes();
+await handler(req, res14e, { db: db14e.db });
+const fresh14e = (db14e.tables.japan_dealer_stock || []).find(r => r.goonet_id === '988026081900208975001');
+ok(res14e.body?.inserted >= 1 && fresh14e?.promoted === 'none' && (db14e.tables.site_listings || []).length === 0,
+  'goonet_max_promote_per_run 0: the bound is respected — import yes, promotion no');
+
+// ---- Fifteenth run: a SLOW relay (slower than the old 7s ceiling) ---------
+// The 2026-11-04 production incident: goo-net black-holed the direct request
+// (reads as a timeout) and r.jina.ai — key configured, perfectly willing —
+// was cancelled by OUR OWN 7s timer on every leg. The relay renders the page
+// and routinely needs 10–20s, so fetchPage now gives the listing relay leg
+// RELAY_TIMEOUT_MS (20s). This run's relay answers after 8.5s: under the old
+// timer it died as "timed out after 7000ms"; now it must rescue the run.
+resetFetchState();
+const db15 = memDb();
+db15.tables.site_settings = promoteSeed([]);
+db15.tables.japan_dealer_stock = [];
+
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+  if (u.startsWith('https://r.jina.ai/')) {
+    await new Promise(r => setTimeout(r, 8500));   // slower than the old 7s ceiling
+    return { ok: true, status: 200, text: async () => listingHtml };
+  }
+  if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+  if (u.includes('summary.php')) { const e = new Error('This operation was aborted'); e.name = 'AbortError'; throw e; }
+  return { ok: false, status: 404, text: async () => '' };
+};
+
+const res15 = fakeRes();
+await handler(req, res15, { db: db15.db });
+const settings15 = Object.fromEntries(db15.tables.site_settings.map(r => [r.key, r.value]));
+
+ok(res15.statusCode === 200, 'slow relay: the run completes');
+eq(res15.body?.via, 'relay', 'slow relay: the page came via relay (not cancelled at 7s)');
+ok(res15.body?.inserted >= 1, `slow relay: cars import through the quality gates (inserted ${res15.body?.inserted})`);
+ok(Number(settings15.goonet_bookmark_page) === 2, 'slow relay: a relayed read of the bookmarked page advances the bookmark');
+ok(settings15.goonet_fetch_fail_count === undefined || settings15.goonet_fetch_fail_count === '0',
+  'slow relay: no failure is counted for a run the relay rescued');
+
+// ---- Sixteenth run: on-demand keyword search --------------------------------
+// "Toyota Alphard" must crawl the exchange's make/model landing (the only
+// server-rendered search it has), import through the same gate, and leave
+// the scheduled crawl's bookmark exactly where it was.
+console.log('\n-- on-demand keyword search --');
+{
+  resetFetchState();
+  const kwCalls = [];
+  global.fetch = async (url) => {
+    const u = String(url);
+    kwCalls.push(u);
+    if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+    if (u.includes('/usedcars/TOYOTA/ALPHARD/')) return { ok: true, status: 200, text: async () => listingHtml };
+    if (u.includes('/usedcar/spread/goo/')) return { ok: true, status: 200, text: async () => detailHtml };
+    if (u.includes('summary.php')) return { ok: true, status: 200, text: async () => listingHtml };
+    return { ok: false, status: 404, text: async () => '' };
+  };
+  const dbK = memDb();
+  dbK.tables.site_settings = promoteSeed([]);
+  const reqK = { method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'Toyota Alphard' } };
+  const resK = fakeRes();
+  await handler(reqK, resK, { db: dbK.db });
+  const setK = Object.fromEntries(dbK.tables.site_settings.map(r => [r.key, r.value]));
+  ok(resK.statusCode === 200, 'keyword run responded 200');
+  ok(kwCalls[0] === 'https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD/',
+    'the keyword became the exchange model landing URL and was fetched first');
+  ok(resK.body?.keyword === 'Toyota Alphard' && String(resK.body?.keywordSearch || '').includes('/usedcars/TOYOTA/ALPHARD/'),
+    'the report names the keyword and the search it ran');
+  ok((resK.body?.inserted || 0) >= 1, 'keyword run imported through the same gate');
+  ok(String(setK.goonet_bookmark_page) === '1' && resK.body?.bookmarkAdvanced === false,
+    'the scheduled crawl bookmark was not touched by the keyword run');
+  ok(!kwCalls.some(u => u.includes('b_to_b_price_max=1000000')),
+    'a keyword run never falls back to the generic cheap search');
+  ok(String(resK.body?.note || '').includes('On-demand search'), 'the note explains this was an on-demand search');
+
+  // A year in the keyword filters the matches: the fixture car is a 2014.
+  resetFetchState();
+  const db2020 = memDb();
+  db2020.tables.site_settings = promoteSeed([]);
+  const res2020 = fakeRes();
+  await handler({ method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'Toyota Alphard 2020' } }, res2020, { db: db2020.db });
+  ok(res2020.statusCode === 200 && (res2020.body?.inserted || 0) === 0,
+    'a 2020 keyword imports nothing from a page of 2014 cars');
+  ok((res2020.body?.skipped || []).some(x => String(x).includes('outside the requested 2020')),
+    'the year mismatch is named in the skip reasons');
+
+  // Honest refusals: gibberish and make-only both explain themselves.
+  resetFetchState();
+  const resBad = fakeRes();
+  await handler({ method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'xyzzy blargh' } }, resBad, { db: memDb().db });
+  ok(resBad.statusCode === 400 && String(resBad.body?.error || '').includes('Could not recognize'),
+    'an unrecognizable keyword answers 400 with guidance');
+  const resMake = fakeRes();
+  await handler({ method: 'POST', query: { key: 'test-key' }, headers: {}, body: { keyword: 'toyota' } }, resMake, { db: memDb().db });
+  ok(resMake.statusCode === 400 && String(resMake.body?.error || '').includes('Add the model'),
+    'a make-only keyword asks for the model (the exchange has no make-only search)');
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

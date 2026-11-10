@@ -51,8 +51,8 @@ const jpegSize = (buf) => {
 
 // ---- home -----------------------------------------------------------------
 applySeo('home', null);
-ok(document.title.includes('Japanese Car Exporter'), 'home title is the exporter headline');
-ok(meta('meta[name="description"]')?.includes('Auction-sourced'), 'home description meta is set');
+ok(document.title.includes('Car Exporter from Japan & China'), 'home title is the Japan & China exporter headline');
+ok(meta('meta[name="description"]')?.includes('Japanese auctions'), 'home description meta is set');
 ok(!meta('meta[name="description"]')?.includes('35+'), 'home description no longer claims 35+ countries');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/', 'home canonical is the root URL');
 ok(meta('meta[name="robots"]')?.startsWith('index,follow'), 'home is indexable');
@@ -202,7 +202,10 @@ ok(jsonld('machinery-faq-jsonld') === null, 'machinery FAQ markup does not ride 
 for (const a of NEWS) {
   const slug = articleSlug(a);
   applySeo('news', slug);
-  ok(document.title === `${a.title} | AR7 Traders`, `/news/${slug} gets its own title`);
+  // 2026-11-07: the brand suffix is conditional (dropped past 60 chars so
+  // Google shows the full title) — src/news-data.js articleSeo.
+  const expectedTitle = `${a.title} | AR7 Traders`.length > 60 ? a.title : `${a.title} | AR7 Traders`;
+  ok(document.title === expectedTitle, `/news/${slug} gets its own title`);
   ok(meta('meta[name="description"]') === a.ex, `/news/${slug} gets its own description`);
   ok(document.head.querySelector('link[rel="canonical"]')?.href === `https://ar7traders.com/news/${slug}`,
     `/news/${slug} canonical points at the guide URL`);
@@ -381,7 +384,27 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // 2026-10-03: +4 machinery type pages (/machinery/<type>), then +12 machine
   // detail pages (/machinery/<type>/<REF>) — a unit nobody can find in a
   // search result is a unit nobody quotes.
-  ok(locs.length === 37, `sitemap lists 37 URLs (found ${locs.length})`);
+  // 2026-10-08: +6 market pages (/destinations/<market>) — one indexable URL
+  // per market we ship to, because "import a used car from japan to kenya" has
+  // to be answerable by a page of its own. The count stays hard-coded on
+  // purpose: every URL added to the sitemap should make someone update it.
+  // 2026-10-09: Australia, USA and two document/quotation guides.
+  // 2026-11-03: /japan-stock retired (merged into /inventory) — 47 → 46.
+  // 2026-11-07: /privacy, /cookies and /terms — the footer's legal links now
+  // reach real pages instead of /faq — 46 → 49.
+  // 2026-11-08: market expansion (owner direction) — 19 new destination
+  // guides (East/Southern Africa, Caribbean, Pacific, South Asia, Gulf,
+  // RHD Europe, Mongolia) — 49 → 68.
+  ok(locs.length === 68, `sitemap lists 68 URLs (found ${locs.length})`);
+  {
+    const { DEST, destinationHref } = await import('../src/destinations.js');
+    for (const d of DEST) {
+      const u = 'https://ar7traders.com' + destinationHref(d[0]);
+      ok(locs.includes(u), `sitemap includes the market page ${destinationHref(d[0])}`);
+      ok(locs.filter(x => x === u).length === 1, `and lists ${destinationHref(d[0])} exactly once — one canonical per market`);
+    }
+    ok(new Set(locs).size === locs.length, `no URL appears twice in the sitemap (${locs.length} entries, ${new Set(locs).size} unique)`);
+  }
   {
     const { MACHINES, machineHref } = await import('../src/machinery-data.js');
     for (const m of MACHINES) {
@@ -405,7 +428,7 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // present (vehicle detail URLs are dynamic and intentionally excluded).
   const sitemapPages = locs.map(l => new URL(l).pathname.replace(/^\//, '').split('/')[0] || 'home');
   for (const p of ['home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
-    'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'shipping', 'japan-stock']) {
+    'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'shipping']) {
     ok(sitemapPages.includes(p), `sitemap covers /${p === 'home' ? p : p}`);
   }
 }
@@ -417,13 +440,13 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // accidental re-grouping has to be a conscious, reviewed change.
   const EXPECTED = {
     home: '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
-    inventory: '/assets/og/inventory.jpg', brands: '/assets/og/inventory.jpg', 'japan-stock': '/assets/og/inventory.jpg',
+    inventory: '/assets/og/inventory.jpg', brands: '/assets/og/inventory.jpg',
     auction: '/assets/og/auction.jpg', services: '/assets/og/auction.jpg', howbuy: '/assets/og/auction.jpg',
     shipping: '/assets/og/shipping.jpg', destinations: '/assets/og/shipping.jpg', world: '/assets/og/shipping.jpg',
     faq: '/assets/og/help.jpg', news: '/assets/og/help.jpg', reviews: '/assets/og/help.jpg',
     contact: '/assets/og/help.jpg', about: '/assets/og/help.jpg', tools: '/assets/og/help.jpg'
   };
-  ok(Object.keys(EXPECTED).length === 16, 'the OG map covers all 16 public routes');
+  ok(Object.keys(EXPECTED).length === 15, 'the OG map covers all 15 public routes');
   ok(Object.keys(EXPECTED).every(p => PAGE_SEO[p]), 'every OG-mapped route has PAGE_SEO metadata');
   for (const [page, asset] of Object.entries(EXPECTED)) {
     applySeo(page, null);

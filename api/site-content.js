@@ -65,7 +65,9 @@ export { carRef, hrefFor };
 // below is added here.
 import {
   listMachines, createMachine, updateMachine, setPublished, deleteMachine,
-  MACHINERY_TABLE, toPublic
+  MACHINERY_TABLE, purgeStale, toPublic, readMachineryRows, machineryVisibility, recoverImportedMachines,
+  machineryDoctor, machineryStorageStatus, builtinCatalogueMachines,
+  MACHINERY_MIGRATION_FILE, MACHINERY_SCHEMA_RELOAD
 } from './_machinery.js';
 // The import agent: another shared module, so the machinery desk, the paste-a
 // -link box and the nightly job all cost zero extra functions.
@@ -78,6 +80,20 @@ import { runScraper } from './_machinery-scraper.js';
 // Search Console and IndexNow share this function, preserving the 12-function
 // Vercel limit. The workflow is staff-only and records submissions in activities.
 import { handleSeoWorkflow } from './_seo-workflows.js';
+// Automation history + undo: a shared module dispatched on ?activity=list|undo
+// (same 12-function-cap pattern as ?seo= and ?agents=). Every write this file
+// makes to the public website is also snapshotted there so an administrator
+// can undo it later from CRM → AI Growth → History.
+import { handleActivity, logAutomation } from './_activity.js';
+// The AI Growth agents. Another shared module: the orchestrator, the three
+// agents, the run/draft store and the approval gate all live in api/_agents.js
+// and are dispatched here on ?agents=<action>, so the dashboard, the scheduler
+// and the CRM wizard still cost zero extra Serverless Functions.
+import {
+  runAgent, runScheduledAgents, growthOverview, draftDetail, approveDraft,
+  executeDraft, cancelDraft, cancelRun, readAgents, updateAgent, agentSettings,
+  AI_GROWTH_MIGRATION_FILE
+} from './_agents.js';
 export { machinePath, machineTypePath };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
@@ -87,10 +103,14 @@ export const config = { maxDuration: 60 };
 
 const SITEMAP_BASE = 'https://ar7traders.com';
 const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
+// When the machinery sitemap is serving the built-in catalogue, it caches
+// briefly: the moment the migration is run (or the read recovers), the next
+// crawl must see the real rows rather than a stale fallback.
+const SITEMAP_FALLBACK_CACHE = 'public, max-age=60, s-maxage=120';
 const SITEMAP_MAX_ROWS = 5000;
-// Imported dealer cars are capped separately: the public /japan-stock page
-// reads at most 300 rows, so the sitemap stays in the same order of magnitude
-// while still covering every imported car a visitor can reach.
+// Imported dealer cars are capped separately: the public inventory surface
+// reads at most 300 imported rows, so the sitemap stays in the same order of
+// magnitude while still covering every imported car a visitor can reach.
 const SITEMAP_MAX_IMPORTED = 1000;
 const SITEMAP_UNAVAILABLE = /sold|delist|private|hidden|archived|removed/i;
 
@@ -434,26 +454,176 @@ export function buildMachineryXml(machines = []) {
 }
 
 export async function sitemapMachinery(req, res, injected = {}) {
+  const method = req.method || 'GET';
+  if (method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+
+  // WHAT THIS SITEMAP ADVERTISES, AND WHY IT IS NOT "THE DATABASE OR NOTHING"
+  //
+  // 2026-10-12: this used to answer 503 whenever the machinery read failed —
+  // and in production the read fails every time, because the `machinery` table
+  // does not exist yet. But the WEBSITE does not fail with it: hydrateMachines()
+  // keeps the built-in catalogue in place when a response is empty or fails, so
+  // /machinery/excavators/AR7-MC-001 is a live, linked, indexable page.
+  // robots.txt declares this sitemap, so the owner's Search Console showed a
+  // fetch error for a site that was serving those pages perfectly well.
+  //
+  // So the rule is the same one the client follows and the doctor reports: this
+  // sitemap lists exactly what the site is serving — the published database rows
+  // when there are any, otherwise the built-in catalogue — and names which in
+  // X-Machinery-Source. A storage problem stays loudly visible where it can be
+  // acted on (the CRM's storage alert, ?machinery=doctor, the workflow preflight
+  // and the log line below); it does not hide live pages from a crawler.
+  let machines = [];
+  let storageState = null;
   try {
     const db = injected.db || adminClient();
-    // Published rows only. listMachines() maps through toPublic(), which has
-    // already dropped every photo without a rights basis, so this never
-    // advertises a page whose imagery we are not entitled to show.
-    const machines = await listMachines(db, { publishedOnly: true });
-    res.status(200);
-    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-    res.setHeader('Cache-Control', SITEMAP_CACHE);
-    res.end(buildMachineryXml(machines));
+    // Published rows only. listMachines() maps through toPublic(), which already
+    // dropped every photo without a rights basis; this sitemap emits no images,
+    // so the pages it advertises are the ones we are entitled to serve.
+    machines = await listMachines(db, { publishedOnly: true });
   } catch (e) {
-    console.error('sitemap-machinery:', e);
-    return sendPlain(res, 503, 'Machinery sitemap temporarily unavailable');
+    storageState = e.storage?.state || 'unreadable';
+    // A missing table is a configuration fact, not a transient fault. Named in
+    // the log, where the owner can act on it, instead of only in a status code
+    // nobody reads.
+    console.error('sitemap-machinery:', e.message, `[${storageState}]`);
+    if (e.storage?.ownerAction) console.error('sitemap-machinery owner action:', e.storage.ownerAction);
   }
+
+  let source = 'database';
+  if (!machines.length) {
+    // No readable rows means the site is showing the built-in catalogue, so the
+    // sitemap advertises the same pages. This is also the empty-database case:
+    // `hydrateMachines()` refuses an empty list for exactly the same reason.
+    // `injected.fallback` is only for tests; undefined keeps the shipped
+    // catalogue (a default parameter, so an explicit [] means "no fallback").
+    machines = builtinCatalogueMachines(injected.fallback);
+    source = 'bundled-catalogue';
+    console.error('sitemap-machinery: serving the built-in catalogue the website is showing'
+      + ` (${machines.length} machine(s)${storageState ? `; storage ${storageState}` : '; no published rows'})`);
+  }
+
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', source === 'database' ? SITEMAP_CACHE : SITEMAP_FALLBACK_CACHE);
+  res.setHeader('X-Machinery-Source', source);
+  if (storageState) res.setHeader('X-Machinery-Storage', storageState);
+  res.status(200);
+  res.end(buildMachineryXml(machines));
 }
 
 function clean(entity, body) {
   const out = {};
   for (const k of allowed[entity] || []) if (k in (body || {})) out[k] = body[k];
   return out;
+}
+
+/**
+ * AI Growth — the agent dashboard's API surface.
+ *
+ * Everything here is staff-only: it needs `site.write`, the same permission
+ * that gates listings and articles, because the drafts it produces become
+ * public content once approved. Scheduled runs do NOT come through here: they
+ * use the sync key on api/goonet-sync.js?job=agents, exactly like the stock
+ * importers, so no Vercel cron and no new function is needed.
+ *
+ * The actions are deliberately small and named after what they do:
+ *   GET  ?agents=overview            — read-only dashboard model
+ *   GET  ?agents=config              — agent configuration
+ *   POST ?agents=config-update       — enable/pause/schedule/limits per agent
+ *   POST ?agents=run                 — run one agent (bounded, leased, idempotent)
+ *   POST ?agents=approve|cancel|execute — the approval gate and the only side effects
+ *   GET  ?agents=draft&id=…          — one draft with its run steps and messages
+ */
+async function agentDispatch(req, res, action, injected = {}) {
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
+
+  let auth;
+  try {
+    auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+  } catch (e) {
+    return send(res, e.status || 401, { error: e.message || 'Unauthorized' });
+  }
+  try {
+    await assertSiteWrite(auth.profile, injected);
+  } catch (e) {
+    return send(res, e.status || 403, { error: e.message || 'Not allowed' });
+  }
+
+  const method = String(req.method || 'GET').toUpperCase();
+  const body = req.body || {};
+  const env = injected.env || process.env;
+  const fetchImpl = injected.fetch || globalThis.fetch;
+  const giveUp = e => send(res, e.status || 500, {
+    error: e.message || 'AI Growth request failed',
+    state: e.state || null,
+    ownerAction: e.ownerAction || (e.state === 'missing-tables' ? `Apply ${AI_GROWTH_MIGRATION_FILE} in Supabase → SQL Editor.` : null)
+  });
+
+  try {
+    if (action === 'overview' && method === 'GET') {
+      const overview = await growthOverview(db, { limit: Number(req.query.limit) || 25 });
+      // The provider configuration is reported without the key: configured or
+      // not, which model, and whether a connection test has been run.
+      overview.provider = {
+        configured: !!String(env.GEMINI_API_KEY || '').trim(),
+        name: overview.providerConfigured ? 'gemini' : 'formatter',
+        model: overview.providerModel,
+        tier: 'free',
+        note: 'Server-only key. This response never contains it.'
+      };
+      return send(res, 200, overview);
+    }
+    if (action === 'config' && method === 'GET') {
+      const [agents, settings] = await Promise.all([readAgents(db), agentSettings(db)]);
+      return send(res, 200, {
+        agents, settings: {
+          enabled: settings.ai_growth_enabled === 'true',
+          emergencyStop: settings.ai_growth_emergency_stop === 'true',
+          dryRunDefault: settings.ai_growth_dry_run_default === 'true',
+          maxRunsPerDay: Number(settings.ai_growth_max_runs_per_day) || 6
+        }
+      });
+    }
+    if (action === 'config-update' && method === 'POST') {
+      if (body.global && typeof body.global === 'object') {
+        const allowed = ['ai_growth_enabled', 'ai_growth_emergency_stop', 'ai_growth_dry_run_default', 'ai_growth_max_runs_per_day'];
+        const rows = allowed.filter(k => k in body.global).map(k => ({
+          key: k, value: String(body.global[k]), updated_at: new Date().toISOString()
+        }));
+        if (rows.length) {
+          const { error } = await db.from('site_settings').upsert(rows, { onConflict: 'key' });
+          if (error) throw Object.assign(new Error(error.message), { status: 500 });
+        }
+      }
+      if (body.agent) return send(res, 200, await updateAgent(db, body.agent, body, auth.profile));
+      return send(res, 200, { ok: true });
+    }
+    if (action === 'run' && method === 'POST') return send(res, 200, await runAgent(db, body.agent, {
+      actor: auth.profile, trigger: 'manual', mode: body.mode || null,
+      idempotencyKey: body.idempotencyKey || null, items: body.items || null,
+      recentRefs: body.recentRefs || [], opportunities: body.opportunities || null, env, fetch: fetchImpl
+    }));
+    if (action === 'run-scheduled' && method === 'POST') return send(res, 200, await runScheduledAgents(db, {
+      agent: body.agent || null, mode: body.mode || null, actor: auth.profile, env, fetch: fetchImpl
+    }));
+    if (action === 'approve' && method === 'POST') return send(res, 200, await approveDraft(db, body.id, auth.profile, { approve: body.approve !== false, note: body.note || '' }));
+    if (action === 'cancel' && method === 'POST') {
+      if (body.runId) return send(res, 200, await cancelRun(db, body.runId, auth.profile, { reason: body.reason || '' }));
+      return send(res, 200, await cancelDraft(db, body.id, auth.profile, { reason: body.reason || '' }));
+    }
+    if (action === 'execute' && method === 'POST') return send(res, 200, await executeDraft(db, body.id, auth.profile, { env }));
+    if (action === 'draft' && method === 'GET') {
+      if (!req.query.id) return send(res, 400, { error: 'A draft id is required' });
+      return send(res, 200, await draftDetail(db, req.query.id));
+    }
+  } catch (e) { return giveUp(e); }
+
+  return send(res, 400, { error: `Unknown AI Growth action: ${action}` });
 }
 
 /**
@@ -464,14 +634,22 @@ function clean(entity, body) {
  * edit it.
  */
 async function machineryDispatch(req, res, action, injected = {}) {
-  const db = injected.db || adminClient();
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
   const sendErr = e => send(res, e.status || 500, {
     error: e.message || 'Machinery request failed',
-    details: e.details
+    details: e.details,
+    // 2026-10-11: the CRM shows these two fields verbatim. A missing table used
+    // to arrive as "Machinery request failed"; now it arrives as the state of
+    // the storage, the SQL file to run, and the action that fixes it.
+    stage: e.stage || null,
+    storage: e.storage || null,
+    ownerAction: e.storage?.ownerAction || null
   });
 
   // ---- Public read. Anonymous visitors only ever see published rows, and
-  // listMachines() has already stripped any photo without a rights basis.
+  // Photos are not a publication gate; stored provenance remains available in the desk.
   if (action === 'list' && req.method === 'GET' && req.query.all !== '1') {
     try {
       return send(res, 200, await listMachines(db, {
@@ -497,8 +675,18 @@ async function machineryDispatch(req, res, action, injected = {}) {
 
   const id = req.body?.id || req.query.id;
   try {
+    if (action === 'recover-imports' && req.method === 'POST')
+      return send(res, 200, await recoverImportedMachines(db, auth.profile, req.body || {}));
+    if (action === 'audit' && req.method === 'GET')
+      return send(res, 200, machineryVisibility(await readMachineryRows(db)));
+    // 2026-10-11: the desk's own doctor. Read-only, staff-only, and the first
+    // thing to run when "nothing imports": it reports whether the storage
+    // exists at all, what it holds, whether the public catalogue is showing
+    // database rows or the built-in fallback, and the exact owner action.
+    if (action === 'doctor' && req.method === 'GET')
+      return send(res, 200, await machineryDoctor(db));
     if (action === 'list' && req.method === 'GET')
-      return send(res, 200, await listMachines(db, {publishedOnly: false}));
+      return send(res, 200, await readMachineryRows(db));
     if (action === 'create' && req.method === 'POST')
       return send(res, 201, await createMachine(db, req.body, auth.profile));
     if (action === 'update' && req.method === 'PATCH')
@@ -512,6 +700,16 @@ async function machineryDispatch(req, res, action, injected = {}) {
     if (action === 'archive')
       return send(res, 200, await setPublished(db, id, false, auth.profile,
         {archive: true, reason: 'archived from the CRM'}));
+    // 2026-10-08: the deliberate end of the staleness path. step=stale only
+    // flags; this archives (default) or deletes rows a person has already
+    // unpublished and whose source has been gone for N days. Same site.write
+    // gate as every other write on this desk.
+    if (action === 'purge-stale' && req.method === 'POST')
+      return send(res, 200, await purgeStale(db, {
+        olderThanDays: req.body?.olderThanDays,
+        remove: req.body?.remove === true,
+        actor: auth.profile
+      }));
   } catch (e) { return sendErr(e); }
 
   return send(res, 400, {error: `Unknown machinery action: ${action}`});
@@ -534,11 +732,19 @@ async function machineryDispatch(req, res, action, injected = {}) {
  * the website nobody typed, from a source we do not control.
  */
 async function importDispatch(req, res, injected = {}) {
-  const db = injected.db || adminClient();
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
   const step = String(req.query.step || req.body?.step || '').toLowerCase();
   const sendErr = e => send(res, e.status || 500, {
     error: e.message || 'Machinery import failed',
-    details: e.details
+    details: e.details,
+    // The storage diagnosis rides along: "the table does not exist" is not a
+    // failed import, it is an unconfigured database, and the two must not be
+    // reported with the same sentence.
+    stage: e.stage || null,
+    storage: e.storage || null,
+    ownerAction: e.storage?.ownerAction || null
   });
 
   // requireUser() throws with a status on failure — it does NOT return {ok}.
@@ -576,7 +782,7 @@ async function importDispatch(req, res, injected = {}) {
       if (!result.ok) return send(res, 422, { error: result.error, warnings: result.warnings || [] });
 
       // Say what it WOULD do, without doing any of it.
-      const { data: existing } = await db.from(MACHINERY_TABLE).select('*');
+      const existing = await readMachineryRows(db);
       const row = toRow(result.machine, { rights: body.rights || null, adapter: result.source?.adapter });
       const plan = planImport(Array.isArray(existing) ? existing : [], [row]);
 
@@ -606,7 +812,7 @@ async function importDispatch(req, res, injected = {}) {
         return send(res, 400, { error: `Import at most ${MAX_IMPORT_BATCH} machines at a time` });
       }
 
-      const { data: existing } = await db.from(MACHINERY_TABLE).select('*');
+      const existing = await readMachineryRows(db);
       const rows = candidates.map(m => (m && m.row)
         ? m.row
         : toRow(m, { rights: m?.source?.rights || body.rights || null, adapter: m?.source?.adapter || body.adapter || 'product-page' }));
@@ -636,7 +842,7 @@ async function importDispatch(req, res, injected = {}) {
 
     // ---- SCRAPER: crawl the Made-in-China category pages, preview only ----
     // Reads category pages + product pages (robots.txt first, 1s between
-    // fetches, max six machines) and returns previews through the same
+    // fetches, max 24 machines) and returns previews through the same
     // previewMachine() pipeline as step=preview. Writes nothing — the
     // operator's confirm click is what imports, exactly as with a pasted link.
     if (step === 'scraper') {
@@ -681,6 +887,36 @@ async function seoDispatch(req, res, action, injected = {}) {
 }
 
 export default async function handler(req, res, injected = {}) {
+  // ---- Capability probe -----------------------------------------------------
+  // The nightly workflow calls this BEFORE dispatching a job, so an old
+  // deployment cannot be handed a job name it does not understand. 2026-10-11:
+  // it now also answers the question the failures were really about — is the
+  // machinery table there? `storage.ok:false` is not a transient error: it means
+  // the migration has not been applied, and it is reported as HTTP 503 with the
+  // file to run, so the workflow fails loudly with the cause instead of
+  // detonating later inside the sync job as a bare HTTP 500.
+  if (req.method === 'GET' && req.query.capabilities === 'machinery') {
+    // `probe=storage` asks for the read. It is opt-in so the shipped workflow,
+    // which only parses version/audit/recoverImports, keeps working untouched.
+    if (String(req.query.probe || '') !== 'storage')
+      return send(res, 200, {version:2, audit:true, recoverImports:true});
+    let db;
+    try { db = injected.db || adminClient(); }
+    catch (e) {
+      return send(res, 503, {
+        version: 2, audit: true, recoverImports: true,
+        storage: { ok: false, state: 'database-configuration', message: e.message },
+        migration: MACHINERY_MIGRATION_FILE, schemaReload: MACHINERY_SCHEMA_RELOAD,
+        ownerAction: 'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in Vercel → Settings → Environment Variables.'
+      });
+    }
+    const storage = await machineryStorageStatus(db);
+    return send(res, storage.ok ? 200 : 503, {
+      version: 2, audit: true, recoverImports: true, storage,
+      migration: MACHINERY_MIGRATION_FILE, schemaReload: MACHINERY_SCHEMA_RELOAD,
+      ownerAction: storage.ok ? null : storage.ownerAction
+    });
+  }
   // ---- Vehicle sitemap dispatch: /api/sitemap-vehicles.xml rewrites here
   // with ?sitemap=vehicles. Kept inside this function so the deployment
   // stays at 12 Serverless Functions (Vercel Hobby cap) — see the block
@@ -699,6 +935,29 @@ export default async function handler(req, res, injected = {}) {
   // calls are dispatched through this existing function (no new Vercel route).
   const seoAction = String(req.query.seo || '');
   if (seoAction) return seoDispatch(req, res, seoAction, injected);
+
+  // ---- AI Growth agents: ?agents=overview|config|run|approve|execute|cancel|draft
+  const agentAction = String(req.query.agents || '');
+  if (agentAction) return agentDispatch(req, res, agentAction, injected);
+
+  // ---- Automation history & undo: ?activity=list|undo (staff; undo is
+  // admin-only, enforced inside handleActivity).
+  const activityAction = String(req.query.activity || '');
+  if (activityAction) {
+    const db = injected.db || adminClient();
+    let auth;
+    try {
+      auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+    } catch (error) {
+      return send(res, error.status || 401, {error: error.message || 'Unauthorized'});
+    }
+    try {
+      await assertSiteWrite(auth.profile, injected);
+    } catch (error) {
+      return send(res, error.status || 403, {error: error.message || 'Not allowed'});
+    }
+    return handleActivity(req, res, activityAction, {db, auth});
+  }
 
   // ---- Machinery desk: ?machinery=list|create|update|delete|publish|
   // unpublish|archive. Dispatched here rather than in its own file so the
@@ -756,6 +1015,14 @@ export default async function handler(req, res, injected = {}) {
     return send(res, e.status || 403, {error: e.message || 'Not allowed'});
   }
 
+  // Who/what performed this change, for the undo-capable history. The desks
+  // pass ?via= so Topic Scout's one-click publishes read differently from a
+  // person editing in the News desk. Unknown values fall back to the generic
+  // desk label rather than being trusted verbatim.
+  const VIA = {'topic-scout': 'topic-scout', 'seo-desk': 'seo-desk', 'news-desk': 'news-desk'};
+  const via = VIA[String(req.query.via || '')] || 'website-desk';
+  const label = row => row?.title || row?.name || [row?.make, row?.model].filter(Boolean).join(' ') || `${entity.slice(0, -1)} ${String(row?.id || '').slice(0, 8)}`;
+
   if (req.method === 'POST') {
     const payload = clean(entity, req.body);
     const {data, error} = await db.from(table).insert(payload).select().single();
@@ -764,11 +1031,21 @@ export default async function handler(req, res, injected = {}) {
       action: `Created website ${entity.slice(0, -1)}`,
       actor: auth.user.email, entity_type: 'site_' + entity, entity_id: data.id
     });
+    await logAutomation(db, {
+      actor: auth.user.email, source: via,
+      action: entity === 'articles' ? (data.published ? 'article-publish' : 'article-create') : 'content-create',
+      summary: entity === 'articles'
+        ? (data.published ? `Published the article “${label(data)}” to the website` : `Created the unpublished draft “${label(data)}”`)
+        : `Created website ${entity.slice(0, -1)} “${label(data)}”`,
+      entityType: table, entityId: data.id, before: null, after: data, undoKind: 'delete-row'
+    });
     return send(res, 200, data);
   }
 
   if (req.method === 'PATCH') {
     if (!req.body?.id) return send(res, 400, {error: 'Missing id'});
+    // Snapshot the row BEFORE the change — this is what undo restores.
+    const {data: beforeRow} = await db.from(table).select('*').eq('id', req.body.id).maybeSingle();
     const payload = {...clean(entity, req.body), updated_at: new Date().toISOString()};
     const {data, error} = await db.from(table).update(payload).eq('id', req.body.id).select().single();
     if (error) return send(res, 500, {error: error.message});
@@ -776,18 +1053,38 @@ export default async function handler(req, res, injected = {}) {
       action: `Updated website ${entity.slice(0, -1)}`,
       actor: auth.user.email, entity_type: 'site_' + entity, entity_id: data.id
     });
+    const wasPublished = beforeRow?.published === true, isPublished = data.published === true;
+    await logAutomation(db, {
+      actor: auth.user.email, source: via,
+      action: entity === 'articles' && wasPublished !== isPublished
+        ? (isPublished ? 'article-publish' : 'article-unpublish')
+        : 'content-update',
+      summary: entity === 'articles' && wasPublished !== isPublished
+        ? (isPublished ? `Published the article “${label(data)}” to the website` : `Unpublished the article “${label(data)}” from the website`)
+        : `Updated website ${entity.slice(0, -1)} “${label(data)}”`,
+      entityType: table, entityId: data.id, before: beforeRow || null, after: data,
+      undoKind: beforeRow ? 'restore-row' : null
+    });
     return send(res, 200, data);
   }
 
   if (req.method === 'DELETE') {
     const id = req.query.id;
     if (!id) return send(res, 400, {error: 'Missing id'});
+    // Snapshot first: undo of a deletion re-inserts this exact row.
+    const {data: beforeRow} = await db.from(table).select('*').eq('id', id).maybeSingle();
     const {error} = await db.from(table).delete().eq('id', id);
     if (error) return send(res, 500, {error: error.message});
     // Unlike api/crm.js, deletions ARE audited here.
     await db.from('activities').insert({
       action: `Deleted website ${entity.slice(0, -1)}`,
       actor: auth.user.email, entity_type: 'site_' + entity, entity_id: id
+    });
+    await logAutomation(db, {
+      actor: auth.user.email, source: via, action: 'content-delete',
+      summary: `Deleted website ${entity.slice(0, -1)} “${label(beforeRow || {id})}”`,
+      entityType: table, entityId: id, before: beforeRow || null, after: null,
+      undoKind: beforeRow ? 'restore-row' : null
     });
     return send(res, 200, {ok: true});
   }

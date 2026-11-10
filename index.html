@@ -4,6 +4,13 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <meta name="theme-color" content="#063f29"/>
+<script>
+/* 2026-11-08 audit: apply the saved theme BEFORE first paint so dark / blue&gold
+   visitors never get a white flash while the bundle loads. Mirrors the
+   tri-state contract in src/main.jsx (localStorage 'ar7-theme'). */
+(function(){try{document.documentElement.style.setProperty('--vpw',document.documentElement.clientWidth+'px');}catch(e){}})();
+(function(){try{var t=localStorage.getItem('ar7-theme');if(t==='dark'||t==='blue'){document.documentElement.setAttribute('data-theme','dark');var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#08140f');}}catch(e){}})();
+</script>
 <!-- Keep the pre-React first paint intentional while the public app bundle loads. -->
 <style>
   #ar7-boot { display:none; }
@@ -17,7 +24,7 @@
   #ar7-boot[data-failed] .boot-progress { display:none; }
   #ar7-boot .boot-error { display:none; max-width:330px; margin:18px 0 0; color:#d7e7dc; font-size:12px; line-height:1.6; }
   #ar7-boot[data-failed] .boot-error { display:block; }
-  #ar7-boot .boot-retry { display:none; margin-top:18px; min-height:44px; padding:0 18px; border:1px solid #e4ad43; border-radius:10px; background:#e4ad43; color:#153323; font:700 12px Manrope,system-ui,sans-serif; cursor:pointer; }
+  #ar7-boot .boot-retry { display:none; margin-top:18px; min-height:44px; padding:0 18px; border:1px solid #f0a848; border-radius:10px; background:#f0a848; color:#153323; font:700 12px Manrope,system-ui,sans-serif; cursor:pointer; }
   #ar7-boot[data-failed] .boot-retry { display:inline-flex; align-items:center; justify-content:center; }
   #ar7-boot .boot-card { width:min(360px,100%); display:grid; justify-items:center; text-align:center; }
   #ar7-boot .boot-mark {
@@ -27,13 +34,17 @@
   #ar7-boot .boot-brand { margin:19px 0 5px; font-size:17px; font-weight:800; letter-spacing:.2em; }
   #ar7-boot .boot-caption { color:#c2d6ca; font-size:10px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; }
   #ar7-boot .boot-progress { width:124px; height:3px; margin-top:27px; overflow:hidden; border-radius:4px; background:#ffffff25; }
-  #ar7-boot .boot-progress i { display:block; width:42%; height:100%; border-radius:inherit; background:#e4ad43; animation:ar7BootProgress 1.25s ease-in-out infinite; }
+  #ar7-boot .boot-progress i { display:block; width:42%; height:100%; border-radius:inherit; background:#f0a848; animation:ar7BootProgress 1.25s ease-in-out infinite; }
   @keyframes ar7BootFloat { 50% { transform:translateY(-5px); } }
   @keyframes ar7BootProgress { from { transform:translateX(-110%); } to { transform:translateX(250%); } }
   @media(prefers-reduced-motion:reduce) {
     #ar7-boot .boot-mark,#ar7-boot .boot-progress i { animation:none; }
     #ar7-boot .boot-progress i { width:100%; opacity:.75; }
   }
+  /* 2026-11-08 audit: the boot screen follows the saved theme (set on <html>
+     by the inline script above) so a blue&gold visitor boots into navy, not
+     emerald, and a dark visitor into a deeper green. */
+  html[data-theme=dark] #ar7-boot { background:radial-gradient(ellipse at 50% 40%,#0a3f2a 0%,#052a1c 42%,#01160d 100%); }
 </style>
 <script>
   document.documentElement.classList.add('ar7-js');
@@ -51,8 +62,8 @@
 </script>
 <!-- Build marker - lets anyone confirm which build of the site they are viewing
      (also printed in the browser console). Update when releasing. -->
-<meta name="build-id" content="ar7-2026-09-28-seo"/>
-<script>console.log('AR7 Traders build ar7-2026-09-28-seo · every page link is a real URL — right-click / Ctrl+click opens any page in a new tab');</script>
+<meta name="build-id" content="ar7-2026-11-08-showroom2"/>
+<script>console.log('AR7 Traders build ar7-2026-11-08-showroom2 · every page link is a real URL — right-click / Ctrl+click opens any page in a new tab');</script>
 <script>
 (function(){
   try{
@@ -76,19 +87,26 @@
 })();
 </script>
 
-<title>Japanese Car Exporter | Cars &amp; Machinery | AR7 Traders</title>
-<meta name="description" content="Auction-sourced Japanese cars and Chinese construction machinery, inspected and shipped to Pakistan, the UAE, Kenya and worldwide with one clear price to your port."/>
+<title>Car Exporter from Japan &amp; China | Cars &amp; Machinery | AR7 Traders</title>
+<meta name="description" content="RHD cars from Japanese auctions, LHD cars from vetted Chinese suppliers and heavy machinery — inspected and shipped worldwide with one clear price to your port."/>
 <meta name="keywords" content="Japanese car exporter, used cars from Japan, Japan car auction, import cars Japan, JDM export, car export Pakistan, car import Kenya, Toyota Land Cruiser export, RoRo shipping, auction sheet translation"/>
 <meta name="author" content="AR7 Traders"/>
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"/>
-<link rel="canonical" href="https://ar7traders.com/"/>
+<!-- 2026-11-18 (Search Console: 93 pages "not indexed"): this file is the
+     shell Vercel serves for EVERY client-rendered route, so a hardcoded
+     canonical pointing at the homepage told Google's first HTML pass that
+     every vehicle page was "an alternate of /" — the top cause of
+     "Alternate page with proper canonical tag" exclusions. applySeo() in
+     src/seo.js inserts the correct per-route canonical as soon as the app
+     boots, and the prerendered destination/news pages bake theirs at build.
+     Do NOT re-add a static canonical here. -->
 
 <!-- Open Graph (WhatsApp, Facebook, LinkedIn link previews) -->
 <meta property="og:type" content="website"/>
 <meta property="og:site_name" content="AR7 Traders"/>
 <meta property="og:locale" content="en"/>
-<meta property="og:title" content="AR7 Traders | Japanese Car Exporter — Auction Vehicles Shipped Worldwide"/>
-<meta property="og:description" content="Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price."/>
+<meta property="og:title" content="AR7 Traders | Car Exporter from Japan &amp; China — Vehicles &amp; Machinery Shipped Worldwide"/>
+<meta property="og:description" content="RHD cars from Japan, LHD cars from China and heavy machinery — inspected, documented and shipped to your port with one clear price."/>
 <meta property="og:url" content="https://ar7traders.com/"/>
 <meta property="og:image" content="https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg"/>
 <meta property="og:image:width" content="1240"/>
@@ -97,19 +115,28 @@
 
 <!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="AR7 Traders | Japanese Car Exporter"/>
-<meta name="twitter:description" content="Auction-sourced vehicles from Japan, inspected, documented and shipped to your port."/>
+<meta name="twitter:title" content="AR7 Traders | Car Exporter from Japan &amp; China"/>
+<meta name="twitter:description" content="RHD cars from Japan, LHD cars from China and heavy machinery — inspected, documented and shipped to your port."/>
 <meta name="twitter:image" content="https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg"/>
 
 <link rel="icon" href="/assets/ar7-mark.png"/>
 <link rel="apple-touch-icon" href="/assets/ar7-mark.png"/>
 
-<link rel="preload" as="image" href="/assets/lux/rolls-royce-ghost.webp" fetchpriority="high"/>
-<link rel="preload" as="image" href="/assets/lux/bentley-continental-gt.webp"/>
-<link rel="preload" as="image" href="/assets/ar7-mark.png"/>
+<!-- 2026-11-08 audit: the home hero is the showroom stage (PR #111/#112) and
+     its first slide is hero-01 — preloading the retired lux/ cards wasted
+     ~170 KB of high-priority bandwidth on every visit while the REAL LCP
+     image queued behind them. The preload now matches the stage's own
+     srcset/sizes so phones fetch only the 760w variant — which is ALSO what
+     the blurred .hero-slide-bg backdrop (the measured LCP element) paints
+     from, so the LCP file is discovered right here, at high priority. -->
+<link rel="preload" as="image" href="/assets/showroom/hero-01.webp" imagesrcset="/assets/showroom/hero-01-760.webp 760w, /assets/showroom/hero-01.webp 1268w" imagesizes="(max-width:900px) 80vw, 36vw" fetchpriority="high"/>
+<link rel="preload" as="image" href="/assets/ar7-mark-128.webp"/>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-400.woff2" crossorigin/>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-600.woff2" crossorigin/>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-700.woff2" crossorigin/>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-800.woff2" crossorigin/>
 
+<script type="application/ld+json" id="breadcrumb-jsonld">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://ar7traders.com/"}]}</script>
 <script type="application/ld+json" id="business-jsonld">
 {
   "@context": "https://schema.org",
@@ -118,7 +145,7 @@
       "@type": "AutoDealer",
       "@id": "https://ar7traders.com/#business",
       "name": "AR7 Traders",
-      "description": "Exporter of auction-sourced Japanese vehicles to buyers worldwide.",
+      "description": "Exporter of Japanese and Chinese vehicles and heavy machinery to buyers worldwide.",
       "url": "https://ar7traders.com/",
       "logo": "https://ar7traders.com/assets/ar7-mark.png",
       "image": "https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg",
@@ -131,26 +158,33 @@
         "addressCountry": "JP"
       },
       "areaServed": [
-        {
-          "@type": "Country",
-          "name": "Pakistan"
-        },
-        {
-          "@type": "Country",
-          "name": "United Arab Emirates"
-        },
-        {
-          "@type": "Country",
-          "name": "Kenya"
-        },
-        {
-          "@type": "Country",
-          "name": "United Kingdom"
-        },
-        {
-          "@type": "Country",
-          "name": "Tanzania"
-        }
+        { "@type": "Country", "name": "Pakistan" },
+        { "@type": "Country", "name": "United Arab Emirates" },
+        { "@type": "Country", "name": "Kenya" },
+        { "@type": "Country", "name": "United Kingdom" },
+        { "@type": "Country", "name": "Tanzania" },
+        { "@type": "Country", "name": "New Zealand" },
+        { "@type": "Country", "name": "Australia" },
+        { "@type": "Country", "name": "United States" },
+        { "@type": "Country", "name": "Uganda" },
+        { "@type": "Country", "name": "Zambia" },
+        { "@type": "Country", "name": "Zimbabwe" },
+        { "@type": "Country", "name": "Mozambique" },
+        { "@type": "Country", "name": "Democratic Republic of the Congo" },
+        { "@type": "Country", "name": "Botswana" },
+        { "@type": "Country", "name": "Jamaica" },
+        { "@type": "Country", "name": "Trinidad and Tobago" },
+        { "@type": "Country", "name": "Guyana" },
+        { "@type": "Country", "name": "Fiji" },
+        { "@type": "Country", "name": "Papua New Guinea" },
+        { "@type": "Country", "name": "Sri Lanka" },
+        { "@type": "Country", "name": "Bangladesh" },
+        { "@type": "Country", "name": "Mongolia" },
+        { "@type": "Country", "name": "Ireland" },
+        { "@type": "Country", "name": "Cyprus" },
+        { "@type": "Country", "name": "Malta" },
+        { "@type": "Country", "name": "Oman" },
+        { "@type": "Country", "name": "Qatar" }
       ],
       "contactPoint": [
         {
@@ -290,7 +324,7 @@
     <h2 style="font-size:19px;margin:0 0 10px">Explore</h2>
     <p style="line-height:1.9;color:#33413a;font-size:15px;margin:0 0 32px">
       <a href="/machinery">Machinery &amp; equipment</a> · <a href="/brands">Brands we export</a> · <a href="/destinations">Shipping destinations</a> ·
-      <a href="/japan-stock">Fresh Japan dealer stock</a> · <a href="/news">News &amp; buying guides</a> ·
+      <a href="/inventory">Fresh Japan dealer stock</a> · <a href="/news">News &amp; buying guides</a> ·
       <a href="/reviews">Customer reviews</a> · <a href="/faq">FAQ</a> · <a href="/about">About us</a> ·
       <a href="/contact">Contact the Japan export desk</a>
     </p>

@@ -46,7 +46,7 @@ const flag = n => args.includes('--' + n);
 //
 // The flat list comes from src/routing.js PAGES rather than a copy here: a copy
 // is a list that goes stale the first time somebody adds a page, and it already
-// had (this check flagged /japan-stock, which is a real, shipped route).
+// had (this check once flagged a real shipped route as broken).
 const { PAGES } = await import('../src/routing.js');
 const PAGES_SLASHED = new Set([...PAGES].map(p => '/' + p));
 const ROUTE_PATTERNS = [

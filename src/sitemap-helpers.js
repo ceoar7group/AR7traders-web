@@ -59,6 +59,21 @@ export function machineHrefFor(type, ref) {
   return machinePath(type, ref);
 }
 
+/**
+ * One market's own URL: `/destinations/kenya`.
+ *
+ * 2026-10-08 (traffic): the `/destinations` picker is a control on one page —
+ * useful to a visitor already here, invisible to a search engine. "import a
+ * used car from japan to kenya" is a query with a real answer, and it needs a
+ * URL of its own to be answered by: one H1, that market's route facts, its
+ * documents, its FAQ markup and one canonical. This is the single definition of
+ * that path, shared by the router, the sitemap, the SEO module and the API.
+ */
+export function destinationPath(country) {
+  const s = slugify(String(country || '').trim());
+  return s ? `/destinations/${s}` : '/destinations';
+}
+
 export function hrefFor(page, carId) {
   if (!page || page === 'home') return '/';
   if ((page === 'inventory' || page === 'news') && carId) {

@@ -190,3 +190,37 @@ readability but are not a guarantee of inclusion in AI answers.
   Bing is an owner action — this session submitted nothing; indexing
   requests for `/`, `/inventory`, `/howbuy` were already made once and must
   not be repeated.
+
+## 2026-10-08 — owner env actions (the four the code cannot do for you)
+
+The market landing pages (`/destinations/<market>`, see
+`pr-visuals/2026-10-08/README.md`) are live in this branch and audited 100/100
+by `npm run seo`. Everything below is a **human** step with a credential; none
+of it is code, and none of it is done. Until these exist, `npm run seo:connect`
+correctly reports every connector as not connected — that is the honest state,
+not a bug.
+
+| variable | what it unlocks | exact owner steps |
+| --- | --- | --- |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Real queries, impressions, clicks and coverage errors in `npm run seo:live` / `seo:connect` | Google Cloud → IAM → create a service account (no role needed), enable the Search Console API, create a JSON key, paste the whole JSON as this variable. Then **add the service account's email as a user of the GSC property** — without that the API answers "not authorised" and the connector stays red. |
+| `GSC_SITE_URL` | Tells the connector which property to read (`sc-domain:ar7traders.com` for the domain property verified on 2026-09-28) | Set it to exactly the property string GSC shows, including the `sc-domain:` or `https://` prefix. |
+| `GA4_PROPERTY_ID` | Organic traffic and landing-page reporting (`properties/NNNNNNNN`) | GA4 Admin → Property settings → copy the property ID. Grant the same service account **Viewer** on the property. Without GA4 there is nothing to measure the market pages against — their whole purpose is ranking for named queries, and this is the only way to see it. |
+| `AR7_INDEXNOW_KEY` | Instant re-crawl on Bing/Yandex when stock or guides change | Optional and self-serving: `npm run seo:fix` generates the key and publishes the key file. Set the variable to the same string afterwards so deploys reuse it instead of minting a new one. |
+
+### Once those four exist, in order
+
+1. `npm run seo:connect` — expect all four connectors green.
+2. Submit the sitemap **once**: `https://ar7traders.com/sitemap.xml` (GSC already
+   accepted it on 2026-09-28; it now lists 43 URLs, so this is a refresh, not a
+   new submission — do not repeat per-URL indexing requests).
+3. Request indexing for the **six new market URLs only**, once each:
+   `/destinations/kenya`, `/destinations/pakistan`, `/destinations/uae`,
+   `/destinations/united-kingdom`, `/destinations/new-zealand`,
+   `/destinations/tanzania`.
+4. Bing: `npm run seo:indexnow` (uses the key) — this is the one-time Bing
+   submission; IndexNow then keeps Bing current on every deploy.
+5. Watch GSC coverage for the six URLs; a "Discovered – currently not indexed"
+   state in week one is normal and is not a defect.
+
+Nothing in this branch submits anything on its own. The site ships, the audit
+stays green, and the owner decides when search engines are told.

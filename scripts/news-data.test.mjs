@@ -14,7 +14,7 @@ const ok = (cond, msg) => {
 
 console.log('news-data & destinations unit tests');
 
-ok(Array.isArray(NEWS) && NEWS.length === 4, `NEWS contains 4 guides (got ${NEWS?.length})`);
+ok(Array.isArray(NEWS) && NEWS.length === 6, `NEWS contains 6 guides (got ${NEWS?.length})`);
 ok(Array.isArray(NEWS_CATEGORIES) && NEWS_CATEGORIES.length === 4, `NEWS_CATEGORIES contains 4 topics (${NEWS_CATEGORIES.join(', ')})`);
 
 for (const a of NEWS) {
@@ -25,7 +25,11 @@ for (const a of NEWS) {
   ok(articleBySlug(slug) === a, `articleBySlug("${slug}") resolves the article`);
   ok(articleBySlug(encodeURIComponent(slug)) === a, `articleBySlug handles URL-encoded slug`);
   const seo = articleSeo(a);
-  ok(seo && seo.title.includes(a.title) && seo.title.endsWith('| AR7 Traders'), `articleSeo title includes guide title (${seo?.title})`);
+  // 2026-11-07: the brand suffix is conditional — it is dropped when it would
+  // push the <title> past Google's ~60-character display cutoff (flagged on
+  // two guides by the live crawl). The guide's own title always leads.
+  ok(seo && seo.title.includes(a.title) && seo.title.length <= 60, `articleSeo title carries the guide title within 60 chars (${seo?.title})`);
+  ok(seo && (`${a.title} | AR7 Traders`.length > 60 || seo.title.endsWith('| AR7 Traders')), 'the brand suffix appears whenever it fits');
   ok(seo && seo.canonicalPath === `/news/${slug}`, `articleSeo canonicalPath is /news/${slug}`);
   ok(seo && seo.ogImage === a.img && fs.existsSync('public' + a.img), `articleSeo ogImage points to an existing asset in public/ (${a.img})`);
 }
@@ -75,7 +79,8 @@ console.log('published site_articles hydration');
 }
 
 // DEST structure (7 fields per row, transit planning figure, no duty % quoted)
-ok(Array.isArray(DEST) && DEST.length === 6, `DEST has 6 destination markets (got ${DEST?.length})`);
+// 2026-11-08: market expansion (owner direction) grew the guides 8 -> 27.
+ok(Array.isArray(DEST) && DEST.length === 27, `DEST has 27 destination markets (got ${DEST?.length})`);
 for (const row of DEST) {
   ok(Array.isArray(row) && row.length === 7, `${row[0]} row has 7 fields ([country, port, transit, models, freight, whatToExpect, onArrival])`);
   ok(typeof row[5] === 'string' && row[5].length >= 60, `${row[0]} has a substantive "what to expect" guide`);

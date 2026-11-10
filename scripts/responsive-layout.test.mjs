@@ -58,11 +58,15 @@ assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \{[^}]*overflow: hid
 assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \{[^}]*radial-gradient/s);
 assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \.iglobe \{[^}]*width: 100%;[^}]*height: 100%/s);
 assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \.iglobe-sphere \{[^}]*background: none/s);
-// The globe spins in every direction: the map strip overhangs the face and is
-// translated on both axes, and the script clamps the latitude so the strip can
-// never run out and expose an empty edge.
-assert.match(main, /--lat/);
-assert.match(main, /maxLat/);
+// 2026-11-10: the globes were redesigned as TRUE orthographic spheres — the
+// map-strip (--lat/maxLat) mechanics are gone. The engine owns free rotation
+// now: it clamps latitude at the poles and spins endlessly in longitude, and
+// main.jsx mounts it lazily so first load never pays for the geometry.
+const globeEngine = readFileSync(new URL('../src/globe3d.js', import.meta.url), 'utf8');
+assert.match(main, /import\('\.\/globe3d\.js'\)/);
+assert.match(globeEngine, /Math\.max\(-85, Math\.min\(85, st\.phi\)\)/);
+assert.match(globeEngine, /st\.lam -= dx \* k/);
+assert.match(globeEngine, /st\.phi \+= dy \* k/);
 assert.match(layoutCss, /\.nav-panel-actions/);
 assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-switch\s*\{[^}]*position:\s*static/s);
 // CRM: the shell's content track can shrink and the row actions stay pinned to
@@ -118,31 +122,58 @@ assert.match(layoutCss, /\.hero \{\s*min-height: 0;[\s\S]*?max-height: none;\s*p
 assert.match(pagesCss, /@media\(max-width:650px\)\{\.page-hero\{padding-top:var\(--hero-lead\)\}/);
 assert.match(layoutCss, /scroll-padding-top: calc\(var\(--head-h\) \+ 14px\)/);
 assert.match(currencyCss, /@media\s*\(max-width:\s*899px\)/);
-assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/lux\/rolls-royce-ghost\.webp\"\s+fetchpriority=\"high\"/);
+// 2026-11-08 audit: the home hero is the showroom stage, so the high-priority
+// preload must point at its real first slide (hero-01, with the same
+// srcset/sizes as the stage <img>) — not the retired lux/ card photo.
+assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/showroom\/hero-01\.webp\"[^>]*fetchpriority=\"high\"/);
+assert.match(html, /imagesrcset=\"\/assets\/showroom\/hero-01-760\.webp 760w[^"]*\"/);
+assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+\/assets\/lux\//);
 assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+used-japanese-cars-auction-export-toyota/);
 assert.match(main, /DeferredBigGlobe/);
-assert.match(main, /loading=\{n===0\?'eager':'lazy'\}/);
+// 2026-11-08: the hero became the showroom stage (PR #111) — the guard's
+// intent is unchanged (only the lead photo may load eagerly), but the slide
+// variable is now the centre-offset `a`: eager for the visible trio, lazy
+// beyond, and slides further than a=2 do not mount an <img> at all.
+assert.match(main, /loading=\{a<=1\?'eager':'lazy'\}/);
+assert.match(main, /fetchPriority=\{off===0\?'high':'low'\}/);
 assert.match(main, /prefers-reduced-motion/);
 
-// Hero visual: below 1000px the photo, the sample cards, the badge and the
-// globe stack as grid rows (photo first, nothing overlapping it) instead of
-// layering on top of each other in a fixed-height box.
-assert.match(layoutCss, /@media \(max-width: 1000px\)[\s\S]*\.hero \.hero-visual \{[\s\S]*?display: grid/);
-assert.match(layoutCss, /\.hero \.hero-visual \.car-main \{[^}]*grid-column: 1 \/ -1/s);
-assert.match(layoutCss, /\.hero \.hero-visual \.car-main \{[^}]*order: 1/s);
-assert.match(layoutCss, /\.hero \.hero-visual \.floating-card \{[^}]*position: relative/s);
-assert.match(layoutCss, /\.hero \.hero-visual \.floating-card \{[^}]*animation: none/s);
-assert.match(layoutCss, /\.hero \.hero-visual \.floating-badge \{[^}]*order: 4/s);
-assert.match(layoutCss, /\.hero \.hero-visual > \.hero-orb \{[^}]*order: 5/s);
+// 2026-10-07 hero rebuild: the photograph IS the card — no `.floating-card` /
+// `.floating-badge` / `.hero-vignette` / `.spark` sits on the vehicle at any
+// width (deleted everywhere, not merely overridden: one owner per rule).
+// 2026-11-10 hero v3: the visual is a three-row stage — slim search console
+// (.stage-top, row 1) above the photograph (row 2) with the CTA + facts band
+// (.stage-foot, row 3) underneath. The arrows share row 2 with the photo.
+assert.match(stylesCss, /\.hero-visual\{position:relative;display:grid;grid-template-rows:auto minmax\(0,1fr\) auto;/);
+assert.match(stylesCss, /\.stage-top\{grid-row:1;grid-column:1\/-1;/);
+// 2026-11-10 round 5: the foot band carries z-index:12 — the crossfading
+// slides (zIndex<=10) were ghosting OVER the CTA buttons on tablets.
+assert.match(stylesCss, /\.stage-foot\{grid-row:3;grid-column:1\/-1;position:relative;z-index:12;display:flex;flex-wrap:wrap;/);
+assert.match(stylesCss, /\.car-main\{grid-row:2;grid-column:1\/-1;/);
+assert.match(stylesCss, /\.hero-facts\{min-width:0;flex:1 1 340px;display:grid;/);
+assert.match(main, /className="hero-facts"/);
+assert.match(main, /className="route-strip"/);
+assert.match(main, /className="auction-chip"/);
+// Nothing that used to overlay the photograph may survive in markup or CSS.
+for (const dead of ['floating-card', 'floating-badge', 'hero-vignette']) {
+  assert.doesNotMatch(main, new RegExp('className="' + dead), `the hero no longer renders .${dead}`);
+  assert.doesNotMatch(layoutCss, new RegExp('\\.' + dead + '\\s*[,{]'), `no .${dead} rule survives in site-layout.css`);
+  assert.doesNotMatch(landingCss, new RegExp('\\.' + dead + '\\s*[,{.]'), `no .${dead} rule survives in landing-v2.css`);
+  assert.doesNotMatch(stylesCss, new RegExp('\\.' + dead + '\\s*[,{]'), `no .${dead} rule survives in styles.css`);
+}
+assert.doesNotMatch(main, /className="spark /, 'the six gold sparkles are gone from the hero');
+assert.doesNotMatch(landingCss, /\.spark\{|\.spark\.s1/, 'the sparkle rules are deleted, not just unused');
+assert.doesNotMatch(main, /--mx|--my|onMouseMove=\{onMove\}/, 'the mouse parallax that moved the floating cards is gone');
 // The hero box must be free to grow: the old 940px cap let the badge and the
 // globe spill over the marquee below it.
 assert.match(layoutCss, /@media \(max-width: 1000px\)[\s\S]*?\.hero \{\s*max-height: none/);
-// On phones each sample card takes the full row and the auction icon can no
-// longer be squeezed flat by its nowrap copy.
-assert.match(layoutCss, /@media \(max-width: 560px\)[\s\S]*?\.hero \.hero-visual \.floating-card \{\s*grid-column: 1 \/ -1/s);
-assert.match(layoutCss, /\.auction-card > svg \{[^}]*flex: 0 0 auto/s);
-assert.match(layoutCss, /\.hero-visual \.rotating-card-copy \{[^}]*flex-direction: column/s);
-assert.match(layoutCss, /\.hero-visual \.card-foot \{[^}]*margin-top: auto/s);
+// Below 1000px the two facts cards stack: side by side on a phone each was
+// ~170px wide, which truncated the lane and squeezed the countdown.
+assert.match(layoutCss, /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-facts \{\s*grid-template-columns: minmax\(0, 1fr\);/s);
+// 2026-11-10 round 5 (owner: chips "very thick… very wide"): each chip is ONE
+// slim row now, the same height as the CTA buttons beside it.
+assert.match(layoutCss, /\.hero-facts \.rotating-card-copy \{[^}]*flex-direction: row/s);
+assert.match(stylesCss, /\.route-strip,\.auction-chip\{[^}]*min-height:44px/);
 assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.inventory-panel:before \{\s*content: 'Inventory'/);
 assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.nav-drop-panel > a \{[^}]*justify-content: flex-start/s);
 
@@ -177,32 +208,58 @@ assert.match(main, /gallery-expand/);
 const targetHeroWidths = [1920, 1366, 1024, 768, 390];
 for (const width of targetHeroWidths) {
   const expectedMode = width <= 1000 ? 'stacked' : 'collage';
-  const stackedRule = /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-visual \{[\s\S]*?display: grid/.test(layoutCss);
-  const collageRule = /\.hero-visual\{height:clamp\(430px,min\(60vh,46vw\),620px\)\}/.test(stylesCss);
+  const stackedRule = /@media \(max-width: 1000px\)[\s\S]*?\.hero \.hero-visual \{[\s\S]*?grid-template-rows: auto auto auto auto/.test(layoutCss);
+  const collageRule = /\.hero-visual\{position:relative;display:grid;grid-template-rows:auto minmax\(0,1fr\) auto;gap:10px;min-height:clamp\(430px,min\(68vh,52vw\),640px\)\}/.test(stylesCss);
   const actualMode = width <= 1000 ? (stackedRule ? 'stacked' : 'missing') : (collageRule ? 'collage' : 'missing');
   assert.equal(actualMode, expectedMode, `${width}px hero uses its declared ${expectedMode} geometry`);
-  assert.match(layoutCss, /\.hero \.hero-copy \.hero-vignettes \{[^}]*position: relative/s,
-    `${width}px origin links remain in the copy flow rather than floating over photos`);
-  assert.match(layoutCss, /\.hero \.hero-copy \.hero-vignette \{[^}]*min-height: 50px/s,
-    `${width}px origin links keep a touch/keyboard target height`);
+  // Both desks stay one click away at every width, as real anchors: the CTA row
+  // is `/inventory` + `/machinery`, so Ctrl/Cmd-click and middle-click work and
+  // the links are crawlable out of the hero.
+  assert.match(main, /<PageLink className="primary" to="inventory" navigate=\{navigate\}>/,
+    `${width}px hero primary CTA is an anchor to /inventory, not a JS button`);
+  assert.match(main, /<PageLink className="ghost-btn" to="machinery" navigate=\{navigate\}>/,
+    `${width}px hero keeps the machinery desk one click away`);
+  assert.match(layoutCss, /\.hero \.hero-cta a:focus-visible/,
+    `${width}px hero CTA anchors keep a visible focus ring`);
 }
-assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*top: 50%[^}]*left: 5px[^}]*right: 5px/s,
-  'desktop carousel arrows are centered vertically at the photo edges');
-assert.ok(layoutCss.includes('.hero-carousel-controls {top:clamp(28px, 6vw, 72px)}'),
-  'the stacked arrows park on the top of the vehicle window, not a fixed 150px offset');
-assert.ok(layoutCss.includes('.hero-carousel-controls {top:clamp(30px, 9vw, 56px);left:6px;right:6px}'),
-  'phone arrows track the smaller photo without colliding with the sample cards');
+// The arrows share grid row 1 with the photograph, so they centre on the PHOTO
+// by construction. Three per-breakpoint `top:` offsets used to guess at it;
+// with the facts row added underneath, `top:50%` of `.hero-visual` would have
+// landed them below the car. There is now no magic number to drift.
+assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*grid-row: 2;[^}]*grid-column: 1 \/ -1;[^}]*align-items: center;/s,
+  'carousel arrows are grid-placed on the photo row and centred on it');
+assert.doesNotMatch(layoutCss, /\.hero-carousel-controls \{[^}]*top:\s*clamp\(/s,
+  'no per-breakpoint top offset is left to guess where the photo is');
 assert.match(layoutCss, /\.hero-carousel-controls button \{[^}]*width: 42px[^}]*height: 42px/s);
 assert.match(layoutCss, /\.hero-carousel-controls button \{width:40px;height:40px\}/);
-assert.match(layoutCss, /\.hero \.hero-copy \.hero-vignette:focus-visible/);
 assert.match(main, /!query\.matches&&!document\.hidden&&!el\.matches\(':hover,:focus-within'\)/,
   'the rotating hero pauses for reduced motion, hover, hidden pages, and keyboard focus');
 assert.match(main, /prefers-reduced-motion: reduce/);
-assert.ok(layoutCss.includes('@media (prefers-reduced-motion:reduce)') && layoutCss.includes('.hero .hero-visual .floating-card'));
+// Reduced motion: ONE owner (src/site-layout.css §10) stops every moving part
+// of the facts row — the lane line drawing in, the ship sailing on it, the
+// auction chip's live dot and the card swap. The lane line still shows the
+// route's real progress; it just does not animate to it.
+const heroMotion = layoutCss.slice(layoutCss.indexOf('ONE owner for hero motion preferences'));
+for (const stopped of ['.hero-facts .rotating-card-copy', '.hero-facts .card-live',
+                       '.route-strip .progress span', '.route-strip .route-ship']) {
+  assert.ok(heroMotion.includes(stopped),
+    `prefers-reduced-motion stops ${stopped}`);
+}
+assert.match(layoutCss, /\.route-strip \.progress span \{width:var\(--route-progress\)!important/,
+  'under reduced motion the lane line still shows the real progress, without animating');
 assert.ok(landingCss.includes('@media (prefers-reduced-motion: reduce)') && landingCss.includes('.ticker>div'));
-assert.match(main, /className="floating-card auction-card" aria-hidden="true"/);
-assert.match(main, /className="floating-card route-card" aria-hidden="true"/);
-assert.match(main, /className="floating-badge" aria-hidden="true"/);
+assert.match(main, /className="hero-facts"/);
+assert.match(main, /Shipping lane · \{routeIdx\+1\}\/\{heroRoutes\.length\}/);
+assert.match(main, /Next auction · \{auction\.city\}/);
+// 2026-11-10 round 5: one-line chip — the countdown stands alone, no prose.
+assert.match(main, /\{formatCountdown\(remaining\)\}/);
 assert.match(main, /className="ticker"/);
+// 2026-11-09 (owner direction): the visible "sample" tag is gone from both
+// facts cards — the owner wants the lane strip and auction chip presented as
+// part of the live desk. The guard now pins its ABSENCE so it cannot creep
+// back in a refactor.
+const demoTags = (main.match(/card-demo/g) || []).length;
+assert.ok(demoTags === 0,
+  `the facts cards must not carry the "sample" tag any more (found ${demoTags})`);
 
 console.log('Responsive layout, hero viewport contracts and first-paint checks passed.');

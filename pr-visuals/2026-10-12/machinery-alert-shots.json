@@ -1,0 +1,791 @@
+{
+  "base": "http://127.0.0.1:5199",
+  "harness": ".crm-alert-harness.html",
+  "capturedAt": "2026-10-11T22:07:00.656Z",
+  "viewports": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "themes": {
+        "emerald": {
+          "themeAttr": "emerald",
+          "shellBg": "rgb(3, 20, 14)",
+          "alert": {
+            "visible": true,
+            "width": 1180,
+            "height": 194
+          },
+          "overflowX": 0,
+          "clippedButtons": [],
+          "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
+          "readings": [
+            {
+              "label": "alert headline",
+              "selector": ".crm-storage-alert b",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage does not exist yet"
+            },
+            {
+              "label": "alert explanation",
+              "selector": ".crm-storage-alert p",
+              "ratio": 14.66,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Could not find the table 'public.machinery' in the schema ca"
+            },
+            {
+              "label": "the fix line",
+              "selector": ".crm-storage-alert .crm-storage-fix",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "state / table",
+              "selector": ".crm-storage-alert code",
+              "ratio": 14.7,
+              "required": 4.5,
+              "size": 11,
+              "bold": false,
+              "text": "missing-table"
+            },
+            {
+              "label": "diagnostic button",
+              "selector": ".crm-storage-alert > button",
+              "ratio": 18.26,
+              "required": 4.5,
+              "size": 13.3333,
+              "bold": false,
+              "text": "Run storage diagnostic"
+            },
+            {
+              "label": "report headline",
+              "selector": ".crm-storage-report-head b",
+              "ratio": 7.18,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage needs attention"
+            },
+            {
+              "label": "check verdict",
+              "selector": ".crm-storage-report li b",
+              "ratio": 7.18,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fail — Machinery storage readable"
+            },
+            {
+              "label": "check detail",
+              "selector": ".crm-storage-report li span",
+              "ratio": 8.6,
+              "required": 4.5,
+              "size": 11.5,
+              "bold": false,
+              "text": "public.machinery: Could not find the table 'public.machinery"
+            },
+            {
+              "label": "check fix",
+              "selector": ".crm-storage-report .crm-storage-fix",
+              "ratio": 7.18,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.66,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
+            }
+          ]
+        },
+        "dark": {
+          "themeAttr": "dark",
+          "shellBg": "rgb(10, 14, 12)",
+          "alert": {
+            "visible": true,
+            "width": 1180,
+            "height": 194
+          },
+          "overflowX": 0,
+          "clippedButtons": [],
+          "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
+          "readings": [
+            {
+              "label": "alert headline",
+              "selector": ".crm-storage-alert b",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage does not exist yet"
+            },
+            {
+              "label": "alert explanation",
+              "selector": ".crm-storage-alert p",
+              "ratio": 15.27,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Could not find the table 'public.machinery' in the schema ca"
+            },
+            {
+              "label": "the fix line",
+              "selector": ".crm-storage-alert .crm-storage-fix",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "state / table",
+              "selector": ".crm-storage-alert code",
+              "ratio": 15.97,
+              "required": 4.5,
+              "size": 11,
+              "bold": false,
+              "text": "missing-table"
+            },
+            {
+              "label": "diagnostic button",
+              "selector": ".crm-storage-alert > button",
+              "ratio": 18.26,
+              "required": 4.5,
+              "size": 13.3333,
+              "bold": false,
+              "text": "Run storage diagnostic"
+            },
+            {
+              "label": "report headline",
+              "selector": ".crm-storage-report-head b",
+              "ratio": 7.65,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage needs attention"
+            },
+            {
+              "label": "check verdict",
+              "selector": ".crm-storage-report li b",
+              "ratio": 7.65,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fail — Machinery storage readable"
+            },
+            {
+              "label": "check detail",
+              "selector": ".crm-storage-report li span",
+              "ratio": 8.44,
+              "required": 4.5,
+              "size": 11.5,
+              "bold": false,
+              "text": "public.machinery: Could not find the table 'public.machinery"
+            },
+            {
+              "label": "check fix",
+              "selector": ".crm-storage-report .crm-storage-fix",
+              "ratio": 7.65,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 15.27,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
+            }
+          ]
+        },
+        "light": {
+          "themeAttr": "light",
+          "shellBg": "rgb(242, 246, 243)",
+          "alert": {
+            "visible": true,
+            "width": 1180,
+            "height": 194
+          },
+          "overflowX": 0,
+          "clippedButtons": [],
+          "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
+          "readings": [
+            {
+              "label": "alert headline",
+              "selector": ".crm-storage-alert b",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage does not exist yet"
+            },
+            {
+              "label": "alert explanation",
+              "selector": ".crm-storage-alert p",
+              "ratio": 14.26,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Could not find the table 'public.machinery' in the schema ca"
+            },
+            {
+              "label": "the fix line",
+              "selector": ".crm-storage-alert .crm-storage-fix",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "state / table",
+              "selector": ".crm-storage-alert code",
+              "ratio": 16.31,
+              "required": 4.5,
+              "size": 11,
+              "bold": false,
+              "text": "missing-table"
+            },
+            {
+              "label": "diagnostic button",
+              "selector": ".crm-storage-alert > button",
+              "ratio": 18.26,
+              "required": 4.5,
+              "size": 13.3333,
+              "bold": false,
+              "text": "Run storage diagnostic"
+            },
+            {
+              "label": "report headline",
+              "selector": ".crm-storage-report-head b",
+              "ratio": 6.54,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage needs attention"
+            },
+            {
+              "label": "check verdict",
+              "selector": ".crm-storage-report li b",
+              "ratio": 6.54,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fail — Machinery storage readable"
+            },
+            {
+              "label": "check detail",
+              "selector": ".crm-storage-report li span",
+              "ratio": 6.38,
+              "required": 4.5,
+              "size": 11.5,
+              "bold": false,
+              "text": "public.machinery: Could not find the table 'public.machinery"
+            },
+            {
+              "label": "check fix",
+              "selector": ".crm-storage-report .crm-storage-fix",
+              "ratio": 6.54,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.26,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "themes": {
+        "emerald": {
+          "themeAttr": "emerald",
+          "shellBg": "rgb(3, 20, 14)",
+          "alert": {
+            "visible": true,
+            "width": 342,
+            "height": 411
+          },
+          "overflowX": 0,
+          "clippedButtons": [],
+          "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
+          "readings": [
+            {
+              "label": "alert headline",
+              "selector": ".crm-storage-alert b",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage does not exist yet"
+            },
+            {
+              "label": "alert explanation",
+              "selector": ".crm-storage-alert p",
+              "ratio": 14.66,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Could not find the table 'public.machinery' in the schema ca"
+            },
+            {
+              "label": "the fix line",
+              "selector": ".crm-storage-alert .crm-storage-fix",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "state / table",
+              "selector": ".crm-storage-alert code",
+              "ratio": 14.7,
+              "required": 4.5,
+              "size": 11,
+              "bold": false,
+              "text": "missing-table"
+            },
+            {
+              "label": "diagnostic button",
+              "selector": ".crm-storage-alert > button",
+              "ratio": 18.26,
+              "required": 4.5,
+              "size": 13.3333,
+              "bold": false,
+              "text": "Run storage diagnostic"
+            },
+            {
+              "label": "report headline",
+              "selector": ".crm-storage-report-head b",
+              "ratio": 7.18,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage needs attention"
+            },
+            {
+              "label": "check verdict",
+              "selector": ".crm-storage-report li b",
+              "ratio": 7.18,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fail — Machinery storage readable"
+            },
+            {
+              "label": "check detail",
+              "selector": ".crm-storage-report li span",
+              "ratio": 8.6,
+              "required": 4.5,
+              "size": 11.5,
+              "bold": false,
+              "text": "public.machinery: Could not find the table 'public.machinery"
+            },
+            {
+              "label": "check fix",
+              "selector": ".crm-storage-report .crm-storage-fix",
+              "ratio": 7.18,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.66,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.16,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
+            }
+          ]
+        },
+        "dark": {
+          "themeAttr": "dark",
+          "shellBg": "rgb(10, 14, 12)",
+          "alert": {
+            "visible": true,
+            "width": 342,
+            "height": 411
+          },
+          "overflowX": 0,
+          "clippedButtons": [],
+          "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
+          "readings": [
+            {
+              "label": "alert headline",
+              "selector": ".crm-storage-alert b",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage does not exist yet"
+            },
+            {
+              "label": "alert explanation",
+              "selector": ".crm-storage-alert p",
+              "ratio": 15.27,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Could not find the table 'public.machinery' in the schema ca"
+            },
+            {
+              "label": "the fix line",
+              "selector": ".crm-storage-alert .crm-storage-fix",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "state / table",
+              "selector": ".crm-storage-alert code",
+              "ratio": 15.97,
+              "required": 4.5,
+              "size": 11,
+              "bold": false,
+              "text": "missing-table"
+            },
+            {
+              "label": "diagnostic button",
+              "selector": ".crm-storage-alert > button",
+              "ratio": 18.26,
+              "required": 4.5,
+              "size": 13.3333,
+              "bold": false,
+              "text": "Run storage diagnostic"
+            },
+            {
+              "label": "report headline",
+              "selector": ".crm-storage-report-head b",
+              "ratio": 7.65,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage needs attention"
+            },
+            {
+              "label": "check verdict",
+              "selector": ".crm-storage-report li b",
+              "ratio": 7.65,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fail — Machinery storage readable"
+            },
+            {
+              "label": "check detail",
+              "selector": ".crm-storage-report li span",
+              "ratio": 8.44,
+              "required": 4.5,
+              "size": 11.5,
+              "bold": false,
+              "text": "public.machinery: Could not find the table 'public.machinery"
+            },
+            {
+              "label": "check fix",
+              "selector": ".crm-storage-report .crm-storage-fix",
+              "ratio": 7.65,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 15.27,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 7.32,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
+            }
+          ]
+        },
+        "light": {
+          "themeAttr": "light",
+          "shellBg": "rgb(242, 246, 243)",
+          "alert": {
+            "visible": true,
+            "width": 342,
+            "height": 411
+          },
+          "overflowX": 0,
+          "clippedButtons": [],
+          "smallTargets": [],
+          "disabledButtons": [
+            {
+              "text": "Find stored / hidden imports",
+              "opacity": 0.5
+            }
+          ],
+          "enabledPanelButtons": [
+            "Import from a supplier link",
+            "Make default",
+            "Run scraper (up to 8)"
+          ],
+          "blockedNotice": {
+            "visible": true,
+            "text": "Stored machines cannot be read or written until supabase/MIGRATION-2026-10-machinery.sql has been run, so the buttons that touch them are disabled. A supplier link or scraper preview still works — it reads the supplier, not our database."
+          },
+          "readings": [
+            {
+              "label": "alert headline",
+              "selector": ".crm-storage-alert b",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage does not exist yet"
+            },
+            {
+              "label": "alert explanation",
+              "selector": ".crm-storage-alert p",
+              "ratio": 14.26,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Could not find the table 'public.machinery' in the schema ca"
+            },
+            {
+              "label": "the fix line",
+              "selector": ".crm-storage-alert .crm-storage-fix",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "state / table",
+              "selector": ".crm-storage-alert code",
+              "ratio": 16.31,
+              "required": 4.5,
+              "size": 11,
+              "bold": false,
+              "text": "missing-table"
+            },
+            {
+              "label": "diagnostic button",
+              "selector": ".crm-storage-alert > button",
+              "ratio": 18.26,
+              "required": 4.5,
+              "size": 13.3333,
+              "bold": false,
+              "text": "Run storage diagnostic"
+            },
+            {
+              "label": "report headline",
+              "selector": ".crm-storage-report-head b",
+              "ratio": 6.54,
+              "required": 4.5,
+              "size": 13.5,
+              "bold": true,
+              "text": "Machinery storage needs attention"
+            },
+            {
+              "label": "check verdict",
+              "selector": ".crm-storage-report li b",
+              "ratio": 6.54,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fail — Machinery storage readable"
+            },
+            {
+              "label": "check detail",
+              "selector": ".crm-storage-report li span",
+              "ratio": 6.38,
+              "required": 4.5,
+              "size": 11.5,
+              "bold": false,
+              "text": "public.machinery: Could not find the table 'public.machinery"
+            },
+            {
+              "label": "check fix",
+              "selector": ".crm-storage-report .crm-storage-fix",
+              "ratio": 6.54,
+              "required": 4.5,
+              "size": 12,
+              "bold": true,
+              "text": "Fix: Run supabase/MIGRATION-2026-10-machinery.sql in the Sup"
+            },
+            {
+              "label": "panel notice",
+              "selector": ".crm-import-blocked",
+              "ratio": 14.26,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": "Stored machines cannot be read or written until supabase/MIG"
+            },
+            {
+              "label": "panel notice icon",
+              "selector": ".crm-import-blocked svg",
+              "ratio": 5.72,
+              "required": 4.5,
+              "size": 12,
+              "bold": false,
+              "text": ""
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

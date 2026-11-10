@@ -44,13 +44,18 @@ export function vehicleWhatsAppHref(settings, car, stockRef) {
   return number ? waLink(number, vehicleWhatsAppMessage(car, stockRef)) : '';
 }
 
-export function VehicleActions({ car, stockRef, settings, saved, copied, onEnquire, onChat, onToggleSave, onCopy }) {
+export function VehicleActions({ car, stockRef, settings, saved, copied, onOffer, onEnquire, onChat, onToggleSave, onCopy }) {
   const name = vehicleName(car);
   const subject = name ? `the ${name}` : 'this vehicle';
   const waHref = vehicleWhatsAppHref(settings, car, stockRef);
   return (
     <div className="detail-actions" role="group" aria-label={`Actions for ${subject}`}>
-      <button className="primary" onClick={onEnquire} type="button">Enquire now <ArrowRight/></button>
+      {onOffer && (
+        <button className="primary" onClick={onOffer} type="button" aria-haspopup="dialog">
+          Make an offer <ArrowRight/>
+        </button>
+      )}
+      <button className={onOffer ? 'outline-btn detail-enquire' : 'primary'} onClick={onEnquire} type="button" aria-haspopup="dialog">Enquire now <ArrowRight/></button>
       <div className="detail-actions-row">
         {waHref && (
           <a

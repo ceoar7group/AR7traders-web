@@ -1,0 +1,102 @@
+name: AI Growth agents
+
+# Runs the three growth agents (Lead Gen & CRM, SEO Engine, Social Media) on a
+# schedule, and on demand.
+#
+# Same pattern as goonet-sync.yml and machinery-sync.yml: a free GitHub Actions
+# schedule calling one small existing Vercel function with the sync key. No
+# Vercel cron add-on, no extra Serverless Function (the Vercel Hobby limit is 12
+# and the repo is at 12), and nothing runs when the site is idle.
+#
+# WHAT AN AGENT RUN CAN AND CANNOT DO
+#   • It can only produce DRAFTS. Publishing an article, sending a message and
+#     posting to a channel each require a separate, explicit approval in
+#     CRM → AI Growth, and sending additionally requires a configured,
+#     authorised provider connection.
+#   • Every agent is DISABLED until the owner enables it in CRM → AI Growth, and
+#     dry-run by default. This workflow therefore reports "0 agent(s) ran" on a
+#     fresh install instead of doing anything.
+#   • Each run is bounded (max items per run), leased (two runs cannot overlap),
+#     idempotent per agent per hour (a retried schedule cannot double-post) and
+#     stops immediately on the emergency stop, a disabled agent or the daily
+#     ceiling — the response says which one it was.
+#   • The three schedules below are staggered so two agents never compete for
+#     the same function budget, and they sit well away from the 03:00 Goo-net
+#     and 03:40 machinery runs.
+on:
+  schedule:
+    - cron: '5 7 * * 1-5'    # Lead Gen & CRM — weekday mornings
+    - cron: '35 6 * * 2,5'   # SEO Engine — Tuesday and Friday
+    - cron: '10 8 * * *'     # Social Media — daily
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: 'leads | seo | social — blank runs every enabled agent'
+        type: string
+        default: ''
+      mode:
+        description: 'dry-run (no external effects) or review (drafts for approval)'
+        type: choice
+        options: ['', dry-run, review]
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-growth
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trigger the AI Growth agents on Vercel
+        env:
+          SYNC_URL: ${{ secrets.GOONET_SYNC_URL }}
+          SYNC_KEY: ${{ secrets.GOONET_SYNC_KEY }}
+          AGENT: ${{ inputs.agent || '' }}
+          MODE: ${{ inputs.mode || '' }}
+        run: |
+          if [ -z "$SYNC_KEY" ]; then
+            echo "::error::GOONET_SYNC_KEY secret is not set. Add it in GitHub → Settings → Secrets, matching the GOONET_SYNC_KEY env var in Vercel."
+            exit 1
+          fi
+          URL="${SYNC_URL:-https://ar7traders.com}/api/goonet-sync?key=${SYNC_KEY}&job=agents"
+          [ -n "$AGENT" ] && URL="${URL}&agent=${AGENT}"
+          [ -n "$MODE" ] && URL="${URL}&mode=${MODE}"
+          # -L follows the canonical-domain redirect (www → apex).
+          CODE=$(curl -sSL -m 120 -o /tmp/agents.json -w "%{http_code}" "$URL")
+          echo "HTTP status: $CODE"
+          cat /tmp/agents.json; echo
+          if [ "$CODE" != "200" ]; then
+            node -e "
+              const r=require('/tmp/agents.json');
+              if (r.error) console.log('::error::'+r.error+(r.details?(' — '+r.details):''));
+              if (r.ownerAction) console.log('::error::'+r.ownerAction);
+            " || true
+            echo "::error::AI Growth returned HTTP $CODE — see the diagnostic above"
+            exit 1
+          fi
+          node -e "
+            const r=require('/tmp/agents.json');
+            const rows=(r.results||[]);
+            for (const row of rows) {
+              const line=row.agent+': '+row.state+
+                (row.drafts?(' — '+row.drafts+' draft(s) awaiting review'):'')+
+                (row.reason?(' — '+row.reason):'');
+              console.log('::notice::'+line);
+            }
+            if (!rows.length) console.log('::notice::0 agent(s) ran: '+(r.note||'every agent is disabled, paused, or the emergency stop is on.'));
+          "
+          if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+            node -e "
+              const fs=require('fs');
+              const r=require('/tmp/agents.json');
+              const rows=(r.results||[]).map(x=>'- **'+x.agent+'** — '+x.state+(x.drafts?(' ('+x.drafts+' draft(s) awaiting review)'):'')+(x.reason?(' — '+x.reason):''));
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+                '## AI Growth\n\n'+(r.note||'')+'\n\n'+(rows.join('\n')||'No agent ran: every agent is disabled or paused, or the emergency stop is on.')+'\n\n_Agents produce drafts only. Nothing is published, sent or posted without an approval in CRM → AI Growth._\n');
+            " || true
+          fi

@@ -308,8 +308,8 @@ export const REVIEW_SEO_TOPICS = [
     title: 'Wholesale Sourcing for Car Businesses Worldwide',
     body: 'Backed by 900+ cars sold across our founder’s automotive career, we work with independent dealerships, showroom buyers and commercial fleet operators who import multiple vehicles each quarter. Trade partners get consolidated multi-lot auction bidding, live Goo-net dealer stock access, grouped inland transport in Japan and priority document dispatch.',
     keywords: ['wholesale Japanese used cars', 'car dealership supplier Japan', 'Goo-net dealer stock export', 'repeat trade buyers'],
-    link: 'japan-stock',
-    linkLabel: 'Browse Japan dealer stock'
+    link: 'inventory',
+    linkLabel: 'Browse all Japan inventory'
   }
 ];
 
@@ -698,7 +698,7 @@ export function ReviewsShowcase({ navigate, openAuction, founderClaim = { figure
           <PageLink to={inventoryHref('Lexus')} navigate={navigate}>Lexus LC 500 &amp; Luxury Export Dubai Jebel Ali</PageLink>
           <PageLink to={inventoryHref('Toyota')} navigate={navigate}>QISJ Inspected Toyota Harrier to Mombasa Kenya</PageLink>
           <PageLink to={inventoryHref('Mazda')} navigate={navigate}>Mazda CX-60 &amp; Hybrid Import Auckland NZ</PageLink>
-          <PageLink to="japan-stock" navigate={navigate}>Fresh Japan Dealer Stock</PageLink>
+          <PageLink to="inventory" navigate={navigate}>Fresh Japan Dealer Stock</PageLink>
           <PageLink to="auction" navigate={navigate}>USS Tokyo &amp; TAA Auction Sheet Translation</PageLink>
           <PageLink to="tools" navigate={navigate}>CIF Landed Cost &amp; Import Duty Calculator</PageLink>
           <PageLink to="shipping" navigate={navigate}>RoRo vs Container Sea Freight from Japan</PageLink>

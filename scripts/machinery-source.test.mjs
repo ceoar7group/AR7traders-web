@@ -119,5 +119,46 @@ const dlOnly = extractProduct('<html><head><title>Used Sany SY215C Excavator 202
 eq(dlOnly.specs.length, 3, 'a page whose specs live only in a dl yields all of them');
 eq(dlOnly.year, 2021, 'and the labelled year is read');
 
+// ---- 2026-10-08: no fabricated year, no fabricated hour meter ----------------
+// The importer used to write `year: product.year || new Date().getFullYear()`
+// and `hours: 0`. Both are inventions: a listing that claims a model year
+// nobody verified, and a machine that claims to have never worked. Absent now
+// means NULL, and every renderer reads it through machineYear/machineHours.
+say('\n-- an unstated year and hour meter stay null --');
+{
+  const { machineYear, machineHours, machineYearText } = await import('../src/machinery-data.js');
+  const noFacts = extractProduct('<html><head><title>Used Sany SY215C Excavator for sale</title></head><body>'
+    + '<table><tr><th>Condition</th><td>Used</td></tr><tr><th>Type</th><td>Hydraulic Excavator</td></tr></table>'
+    + '</body></html>');
+  eq(noFacts.year, null, 'a page with no year anywhere yields year=null');
+  eq(noFacts.hours, null, 'and no hour meter yields hours=null');
+  const m = toMachine(noFacts, { markup: 0.25, rights: 'supplier-listing', adapter: 'product-page' });
+  eq(m.year, null, 'toMachine keeps the null year');
+  ok(m.year !== new Date().getFullYear(), 'specifically it is NOT the current calendar year');
+  eq(m.hours, null, 'and keeps the null hour meter');
+  ok(m.hours !== 0, 'specifically it is NOT a confident zero');
+
+  const stated = extractProduct('<html><head><title>Doosan DX300LC-7</title></head><body>'
+    + '<table><tr><th>Year</th><td>2019</td></tr><tr><th>Working hours</th><td>6,800 hours</td></tr></table>'
+    + '</body></html>');
+  eq(stated.year, 2019, 'a labelled year is still read verbatim');
+  eq(stated.hours, 6800, 'and a labelled hour meter is read, commas and unit stripped');
+  const sm = toMachine(stated, { markup: 0.25, rights: 'supplier-listing', adapter: 'product-page' });
+  eq(sm.year, 2019, 'so a stated year reaches the machine');
+  eq(sm.hours, 6800, 'and a stated hour meter does too');
+
+  // Number(null) is 0 — the helpers must not let that through.
+  eq(machineYear({ year: null }), null, 'machineYear(null) is null, not 0');
+  eq(machineYear({ year: '' }), null, 'machineYear("") is null, not 0');
+  eq(machineYear({ year: '2019' }), 2019, 'machineYear("2019") is the number 2019');
+  eq(machineYear({}), null, 'a machine with no year field at all is null');
+  eq(machineHours({ hours: null }), null, 'machineHours(null) is null, not 0');
+  eq(machineHours({ hours: 0 }), null, 'a recorded zero reads as "not stated" — a machine that never ran is not a fact a listing proves');
+  eq(machineHours({ hours: 6800 }), 6800, 'machineHours(6800) is 6800');
+  eq(machineYearText({ year: null }), 'Year not stated', 'and the words a renderer prints for null are "Year not stated"');
+  eq(machineYearText({ year: 2019 }), 2019, 'or the year itself when there is one');
+  ok(!/null/.test(String(machineYearText({ year: null }))), 'never the string "null"');
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

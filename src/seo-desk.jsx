@@ -15,7 +15,7 @@
 // It is a staff route: noindex, and never linked from the public nav.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Save, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2 } from 'lucide-react';
+import { ArrowRight, Check, Copy, ExternalLink, FilePlus2, RefreshCw, Save, Search, Wrench, X, AlertTriangle, Megaphone, Tag, Send, Trash2, Sparkles, BookOpenCheck, ClipboardList, Image as ImageIcon } from 'lucide-react';
 import { auditDocument, summarise } from './seo-audit.js';
 import { applySeo, BASE } from './seo.js';
 import { staticAuditRoutes, publicLandingRoutes } from './seo-routes.js';
@@ -23,6 +23,9 @@ import { SITE_CANONICAL_ORIGIN, canonicalSiteUrl, isStaffNoindexPath, sitemapLoc
 import { NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH, getPublishedNews, getNewsCategories, setPublishedNews } from './news-data.js';
 import { updateSettingsCache } from './site-settings.js';
 import { campaignIsLive } from './offers.js';
+import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes, cleanArticleTitle } from './seo-topic-scout.js';
+import { MACHINES } from './machinery-data.js';
+import { DEST } from './destinations.js';
 import './seo-desk.css';
 
 const ROUTES = [
@@ -48,20 +51,35 @@ const AGENT_COMMANDS = [
 // Existing assets a guide may use for its og:image. Every path is a real file
 // under public/assets/ — scripts/seo-desk-create.test.jsx asserts that, so the
 // list can never drift from disk. (Custom paths are allowed too.)
+// 2026-11-10 asset audit: inspection-shipping-5 (dealer sign in shot) and
+// toyota-h-1 (BE FORWARD watermark) are OUT — competitor branding must never
+// ship on an AR7 guide. The three japan-*-1.jpg files are new, verified
+// brand-neutral scenes.
 export const GUIDE_ASSETS = [
   '/assets/japanese-car-auction-inspection-shipping-1.webp',
   '/assets/japanese-car-auction-inspection-shipping-2.webp',
   '/assets/japanese-car-auction-inspection-shipping-3.webp',
-  '/assets/japanese-car-auction-inspection-shipping-5.webp',
+  '/assets/japan-car-auction-hall-1.jpg',
+  '/assets/japan-vehicle-export-port-aerial-1.jpg',
+  '/assets/japan-car-carrier-trucks-1.jpg',
   '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
-  '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
+  '/assets/japan-used-car-export-stock-honda-vezel--4.webp',
+  '/assets/japan-used-car-export-stock-nissan-serena-1.webp',
   '/assets/machinery/hero-yard.webp',
-  '/assets/og/auction.jpg',
   '/assets/og/help.jpg',
   '/assets/og/inventory.jpg',
-  '/assets/og/shipping.jpg'
+  '/assets/og/shipping.jpg',
+  // 2026-11-10: four AR7-owned logistics scenes added after six destination
+  // checklists shipped wearing the same port aerial — the cover pool was
+  // smaller than one Topic Scout destination batch.
+  '/assets/covers/container-terminal-dusk.webp',
+  '/assets/covers/roro-ramp-loading.webp',
+  '/assets/covers/export-documents-desk.webp',
+  '/assets/covers/cargo-ship-at-sea.webp'
 ];
 
+/** How many per-URL crawl rows show before "View full list" (problems first). */
+const CRAWL_PREVIEW_ROWS = 10;
 const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 const readMins = body => Math.max(2, Math.round(String(body).split(/\s+/).filter(Boolean).length / 200));
 const prettyLabel = value => String(value || '').replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase());
@@ -138,7 +156,7 @@ export function sitemapBlock(slug, { today = new Date().toISOString().slice(0, 1
     '  </url>';
 }
 
-export default function SeoDesk({ navigate, token, canPublish = false, canPromote = false, notify = () => {} }) {
+export default function SeoDesk({ navigate, token, canPublish = false, canPromote = false, notify = () => {}, liveCars = [] }) {
   const categories = getNewsCategories();
   const [sitemapUrls, setSitemapUrls] = useState([]);
   const [robots, setRobots] = useState('');
@@ -156,6 +174,23 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   const [connectorBusy, setConnectorBusy] = useState(false);
   const [liveCrawl, setLiveCrawl] = useState({state: 'idle', rows: [], done: 0, total: 0, sources: [], sourceErrors: []});
   const crawlController = useRef(null);
+  // Per-URL diagnostics start as a short, problems-first digest; the full
+  // 400+ row list is one click away (owner request, 2026-11-07).
+  const [crawlShowAll, setCrawlShowAll] = useState(false);
+  const crawlCounts = useMemo(() => {
+    let fail = 0, warn = 0, clean = 0;
+    for (const row of liveCrawl.rows) {
+      if ((row.fails || 0) > 0 || row.error) fail++;
+      else if ((row.warns || 0) > 0) warn++;
+      else clean++;
+    }
+    return { fail, warn, clean };
+  }, [liveCrawl.rows]);
+  const visibleCrawlRows = useMemo(() => {
+    const rank = row => ((row.fails || 0) > 0 || row.error) ? 0 : (row.warns || 0) > 0 ? 1 : 2;
+    const sorted = [...liveCrawl.rows].sort((a, b) => rank(a) - rank(b));
+    return crawlShowAll ? sorted : sorted.slice(0, CRAWL_PREVIEW_ROWS);
+  }, [liveCrawl.rows, crawlShowAll]);
   const [indexingPreview, setIndexingPreview] = useState(null);
   const [indexingBusy, setIndexingBusy] = useState(false);
   const [indexingResult, setIndexingResult] = useState(null);
@@ -173,6 +208,10 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   const [created, setCreated] = useState(null); // { article, json, slug, url, published, clip }
   const [draftAudit, setDraftAudit] = useState(null);
   const [draftFacts, setDraftFacts] = useState('');
+  const [aiKind, setAiKind] = useState('guide');
+  const [aiSources, setAiSources] = useState('');
+  const [automationBusy, setAutomationBusy] = useState(false);
+  const [keywordReport, setKeywordReport] = useState(null);
   const [editorArticles, setEditorArticles] = useState([]);
   const [activeDraftId, setActiveDraftId] = useState(null);
   const [publishBusy, setPublishBusy] = useState(false);
@@ -186,9 +225,39 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       ...(body == null ? {} : {body: JSON.stringify(body)})
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `SEO workflow failed (${response.status}).`);
+    if (!response.ok) {
+      // The server answers a provider failure with { error, state, provider,
+      // ownerAction, saved:false, published:false }. Throwing a bare Error threw
+      // that away, so the desk could only say "something failed" — the operator
+      // needs the state and the exact fix, and needs to know nothing was saved.
+      const error = new Error(payload.error || `SEO workflow failed (${response.status}).`);
+      error.status = response.status;
+      error.state = payload.state || null;
+      error.ownerAction = payload.ownerAction || null;
+      error.provider = payload.provider || null;
+      error.saved = payload.saved === true;
+      error.published = payload.published === true;
+      error.body = payload;
+      throw error;
+    }
     return payload;
   }
+
+  // Which provider the server would actually use, read once per session. The
+  // generate fieldset used to hard-code "OPENAI_API_KEY must be configured",
+  // which stopped being true when Gemini (free tier) became the default.
+  const [aiProvider, setAiProvider] = useState(null);
+  useEffect(() => {
+    if (!token || !canPublish) return;
+    let alive = true;
+    (async () => {
+      try {
+        const status = await seoWorkflow('ai-status');
+        if (alive) setAiProvider(status);
+      } catch { if (alive) setAiProvider({ provider: 'unknown' }); }
+    })();
+    return () => { alive = false; };
+  }, [token, canPublish]);
 
   useEffect(() => {
     let alive = true;
@@ -324,11 +393,27 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const robotsValue = doc.querySelector('meta[name="robots"]')?.getAttribute('content') || '';
       const noindex = /noindex/i.test(robotsValue);
+      // Staff routes (/crm, /account, …) are PRIVATE ON PURPOSE: noindex,
+      // blocked in robots.txt and absent from the sitemap. Auditing one as if
+      // it should rank produced false FAILs ("not in the sitemap", "robots.txt
+      // disallows /crm") that ended up in the 2026-11-07 upgrade report as
+      // work to do. expectIndexable flips those checks to assert the OPPOSITE:
+      // a staff route that became crawlable is the failure.
       const audit = auditDocument(doc, {
         route: path === '/' ? 'home' : path.replace(/^\//, ''),
         label: path,
         url: canonical,
-        expectIndexable: true,
+        expectIndexable: !isStaffNoindexPath(path),
+        // 2026-11-10 (owner report: 460/493 pages "failed" Canonical URL):
+        // this crawl fetches the RAW HTML, so any route Vercel answers with
+        // the SPA shell has no canonical yet — applySeo() injects the
+        // per-route one when the app boots, exactly as scripts/seo-agent.mjs
+        // already acknowledges with sharedShell:true. Shell-served documents
+        // are recognised by the #ar7-boot loader that only the shell body
+        // carries into an un-booted page; prerendered pages also contain it
+        // but ship a baked canonical, so the sharedShell branch never fires
+        // for them (seo-audit.js only consults it when no canonical exists).
+        sharedShell: !!doc.getElementById('ar7-boot'),
         origin: location.origin,
         facts: {sitemapUrls: facts.sitemapUrls || [], robotsTxt: facts.robotsTxt || ''}
       });
@@ -488,6 +573,34 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     setDraftReviewed(false);
   };
 
+  // Cover image doctor (2026-11-10): the same duplicate-cover rule the Topic
+  // Scout enforces at proposal time, applied retroactively to everything in
+  // site_articles. Pure logic lives in seo-topic-scout.js (tested); this is
+  // just the PATCH loop.
+  const coverFixes = useMemo(() => suggestCoverFixes(editorArticles), [editorArticles]);
+  const [coverFixBusy, setCoverFixBusy] = useState(false);
+  const runCoverFixes = async () => {
+    if (!token || !canPublish || coverFixBusy || coverFixes.length === 0) return;
+    setCoverFixBusy(true);
+    try {
+      for (const fix of coverFixes) {
+        const response = await fetch('/api/site-content?entity=articles&via=cover-doctor', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ id: fix.id, image: fix.to })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Cover update failed (${response.status}) on “${fix.title}”.`);
+      }
+      await refreshArticleList();
+      notify(`Cover image doctor: ${coverFixes.length} article cover(s) replaced — every article now has a unique image.`);
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      setCoverFixBusy(false);
+    }
+  };
+
   const refreshArticleList = async () => {
     const response = await fetch('/api/site-content?entity=articles&all=1', {
       cache: 'no-store', headers: {Authorization: `Bearer ${token}`}
@@ -514,6 +627,42 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       facts: {robotsTxt: robots},
       skipBody: true
     });
+  };
+
+  const researchKeywords = async () => {
+    setAutomationBusy(true); setWorkflowError('');
+    try { setKeywordReport(await seoWorkflow('keywords','POST',{})); }
+    catch (e) { setWorkflowError(e.message); }
+    finally { setAutomationBusy(false); }
+  };
+  const generateAiDraft = async () => {
+    setAutomationBusy(true); setCreateErrors({});
+    try {
+      const out = await seoWorkflow('generate','POST',{topic:form.title,facts:draftFacts,kind:aiKind,
+        sources:aiSources.split(/\n/).map(s => s.trim()).filter(Boolean)});
+      setForm(current => ({...current,title:cleanArticleTitle(out.title),desc:out.desc,body:out.body,
+        cat:aiKind === 'news' ? 'MARKET WATCH' : 'BUYING GUIDE'}));
+      setCreateWarnings(out.warnings || []); setCreated(null); setDraftAudit(null);
+      setActiveDraftId(null); setDraftReviewed(false);
+      notify('AI draft generated. Review the claims and source notes, then save; nothing is public.');
+    } catch (e) {
+      // Nothing is written on a provider failure — say so, and say what to do.
+      setCreateErrors({ facts: [e.message, e.ownerAction].filter(Boolean).join(' ') });
+      setCreateWarnings([...(e.state ? [`Provider state: ${e.state}.`] : []),
+        'No draft was generated and nothing was saved or published.']);
+      notify('AI draft was not generated — see the reason under the facts box.');
+    }
+    finally { setAutomationBusy(false); }
+  };
+  const optimizeDraft = async () => {
+    setAutomationBusy(true);
+    try {
+      const out = await seoWorkflow('optimize-draft','POST',form);
+      setForm(current => ({...current,desc:out.desc}));
+      setCreateWarnings(out.warnings || []); setCreated(null); setDraftReviewed(false);
+      notify('Draft excerpt optimized from existing copy. Title, URL and factual body are unchanged; save to persist.');
+    } catch (e) { setCreateErrors({facts:e.message}); }
+    finally { setAutomationBusy(false); }
   };
 
   const generateFactDraft = () => {
@@ -552,7 +701,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       const payload = {title: article.title, category: article.cat, date: existingDraft?.date || article.date,
         read_min: article.min, image: article.img, excerpt: article.ex, body: article.body,
         published: false, sort_order: nextOrder, ...(activeDraftId ? {id: activeDraftId} : {})};
-      const response = await fetch('/api/site-content?entity=articles', {
+      const response = await fetch('/api/site-content?entity=articles&via=seo-desk', {
         method: activeDraftId ? 'PATCH' : 'POST',
         headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
         body: JSON.stringify(payload)
@@ -582,7 +731,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     if (!window.confirm(`Publish the reviewed guide “${created.article.title}” at /news/${created.slug}? It will become public and enter the dynamic news sitemap. Confirm that every factual claim and its source have been reviewed.`)) return;
     setPublishBusy(true);
     try {
-      const response = await fetch('/api/site-content?entity=articles', {
+      const response = await fetch('/api/site-content?entity=articles&via=seo-desk', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
         body: JSON.stringify({id: created.id, published: true})
@@ -597,6 +746,148 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       notify(`Guide published: ${article.title}. Refresh the crawl to verify the live page and sitemap.`);
     } catch (error) { notify(error.message || 'Guide publication failed.'); }
     finally { setPublishBusy(false); }
+  };
+
+  // ---- Topic Scout (2026-11-08) --------------------------------------------
+  // Business-tied topic suggestions with catalogue-derived facts. Clicking
+  // "Approve & publish" IS the human approval step: the desk generates the
+  // draft from those facts, validates it with the same rules the manual
+  // creator uses, saves it, and publishes it in one run — UNLESS the provider
+  // flags anything for editorial verification, in which case it stops at an
+  // unpublished draft and says why.
+  const [scoutBusy, setScoutBusy] = useState(null);
+  const [scoutLog, setScoutLog] = useState({});
+  const scoutTopics = useMemo(
+    () => buildTopicIdeas({ cars: liveCars, machines: MACHINES, dests: DEST, published: articles }),
+    [articles, liveCars]);
+
+  // ---- Industry News Scout (2026-11-11) ------------------------------------
+  // Owner request: "let it suggest and publish latest car or vehicle industry
+  // related news." The server (?seo=news-scan) returns verified RSS headlines
+  // (source, date, link). Each becomes a kind:'news' topic the SAME autopilot
+  // publishes — generateEditorialDraft refuses news without a dated, sourced
+  // facts block, so the AI can never invent a story.
+  const [newsScan, setNewsScan] = useState(null);
+  const [newsScanBusy, setNewsScanBusy] = useState(false);
+  const newsTopics = useMemo(() => {
+    const items = newsScan?.items || [];
+    const usedCovers = new Set(articles.map(a => a.img).filter(Boolean));
+    const usedSlugs = new Set(articles.map(a => articleSlug(a.title)));
+    return items.map((item, index) => {
+      const title = item.headline.length > 64 ? item.headline.slice(0, 61).replace(/\s+\S*$/, '') + '…' : item.headline;
+      const cover = GUIDE_ASSETS.find(asset => !usedCovers.has(asset)) || GUIDE_ASSETS[index % GUIDE_ASSETS.length];
+      usedCovers.add(cover);
+      return {
+        id: 'news-' + index + '-' + articleSlug(item.headline).slice(0, 40),
+        title, kind: 'news', cat: 'MARKET WATCH', img: cover,
+        why: `${item.source} · ${item.date}`,
+        sources: [item.link],
+        facts: [
+          `On ${item.date}, ${item.source} reported: ${item.headline}.`,
+          ...(item.snippet ? [`Report summary from the source: ${item.snippet}`] : []),
+          'AR7 Traders context (verified): AR7 Traders exports used vehicles and machinery from Japan worldwide, with RoRo and container shipping arranged from Japanese ports and prices quoted FOB or CIF in USD.'
+        ]
+      };
+    }).filter(topic => !usedSlugs.has(articleSlug(topic.title)));
+  }, [newsScan, articles]);
+
+  const runNewsScan = async () => {
+    setNewsScanBusy(true);
+    try { setNewsScan(await seoWorkflow('news-scan')); }
+    catch (error) { setNewsScan({ items: [], note: error.message || 'The news scan failed — try again in a minute.' }); }
+    finally { setNewsScanBusy(false); }
+  };
+
+  const runTopicAutopilot = async topic => {
+    if (!canPublish || !token) { notify('Your role cannot publish website guides. Ask a website editor.'); return; }
+    setScoutBusy(topic.id);
+    const log = (state, detail, extra = {}) => setScoutLog(cur => ({ ...cur, [topic.id]: { state, detail, ...extra } }));
+    try {
+      log('generating', 'Drafting from the catalogue facts via the AI provider…');
+      // News topics (Industry News Scout) carry their verified source links;
+      // catalogue topics carry none — the facts ARE the catalogue.
+      const out = await seoWorkflow('generate', 'POST', { topic: topic.title, facts: topic.facts.join('\n'), kind: topic.kind || 'guide', sources: topic.sources || [] });
+      // The generate endpoint appends one BOILERPLATE reminder to every draft
+      // ("[EDITOR REVIEW: verify every factual claim and source…]"). For Topic
+      // Scout that reminder is satisfied by construction — every supplied fact
+      // was computed from the live catalogue, not typed by a person — so the
+      // trailing boilerplate is stripped here. WITHOUT this, the needsReview
+      // test below always matched and autopilot could never publish (found
+      // 2026-11-07). Any OTHER [EDITOR REVIEW: …] flag — the ones the model
+      // itself writes when facts are thin — still stops publication.
+      const cleanBody = String(out.body || '')
+        .replace(/\n*\[EDITOR REVIEW: verify every factual claim and source, then remove this note before publication\.\]\s*$/i, '')
+        .trimEnd();
+      // 2026-11-10: the model occasionally appends the site name to its headline
+      // ("NZ Car Import Checklist: \u2026 | AR7 Traders" went live). Strip it before
+      // validation \u2014 the <title> template adds the suffix, the stored row never.
+      let draftForm = { title: cleanArticleTitle(out.title) || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: cleanBody };
+      let { errors, slug } = validateGuide(draftForm, articles);
+      // The model sometimes rewrites the headline into one that collides with
+      // an already-published slug (observed 2026-11-08: Gemini turned a fresh
+      // topic into "Used Suzuki Vehicles in Stock…", which was live). The
+      // approved topic title is unique by construction — fall back to it
+      // instead of failing the whole run.
+      if (errors.slug && draftForm.title !== topic.title) {
+        draftForm = { ...draftForm, title: topic.title };
+        ({ errors, slug } = validateGuide(draftForm, articles));
+      }
+      if (Object.keys(errors).length) throw new Error('The generated draft failed validation: ' + Object.values(errors).join(' '));
+      const needsReview = /\[EDITOR REVIEW:/i.test(draftForm.body || '');
+      const article = buildArticle(draftForm, slug);
+      const nextOrder = Math.min(0, ...editorArticles.map(a => Number(a.sort_order) || 0)) - 1;
+      log('saving', 'Draft passed validation — saving…');
+      const saveResponse = await fetch('/api/site-content?entity=articles&via=topic-scout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: article.title, category: article.cat, date: article.date,
+          read_min: article.min, image: article.img, excerpt: article.ex, body: article.body,
+          published: false, sort_order: nextOrder })
+      });
+      const saved = await saveResponse.json().catch(() => ({}));
+      if (!saveResponse.ok) throw new Error(saved.error || `Draft save failed (${saveResponse.status}).`);
+      if (needsReview) {
+        await refreshArticleList();
+        log('draft', 'Saved as an UNPUBLISHED draft: the AI flagged details that need editorial verification. Open it in the drafts list below, resolve the [EDITOR REVIEW] note, then publish.');
+        notify(`Draft saved (not published): ${article.title} — it needs an editorial check first.`);
+        return;
+      }
+      log('publishing', 'Publishing to /news/' + slug + '…');
+      const publishResponse = await fetch('/api/site-content?entity=articles&via=topic-scout', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: saved.id, published: true })
+      });
+      const publishResult = await publishResponse.json().catch(() => ({}));
+      if (!publishResponse.ok) throw new Error(publishResult.error || `Publication failed (${publishResponse.status}) — the article is saved as a draft.`);
+      await refreshArticleList();
+      log('published', 'Live and in the news sitemap.', { url: BASE + '/news/' + encodeURIComponent(slug) });
+      notify(`Guide published from approved topic: ${article.title}`);
+    } catch (error) {
+      // A 503 / overload is Google's side, not the operator's: say so, and say
+      // the one thing that actually helps — try again. A 504/502 is the same
+      // story seen from Vercel's gateway (the function ran out of time while
+      // the provider was slow — observed 2026-11-07), so it gets the same copy.
+      const transient = /50[234]|overload|unavailable|gateway|timed? ?out|rate.?limit/i.test(error.message || '');
+      const friendly = transient
+        ? 'Google\u2019s AI was busy for a moment (it happens at peak times). Nothing was saved or published. Just press \u201cApprove & publish\u201d again \u2014 the desk now also tries two backup models automatically.'
+        : (error.message || 'The run failed.') + ' Nothing was published.';
+      log('failed', friendly);
+      notify(transient ? 'The AI provider was briefly busy \u2014 press Approve & publish again.' : (error.message || 'Topic autopilot failed \u2014 nothing was published.'));
+    } finally { setScoutBusy(null); }
+  };
+
+  // Copyable audit upgrade report, built from the finished live crawl.
+  const [reportCopied, setReportCopied] = useState(false);
+  const copyUpgradeReport = async () => {
+    const report = buildUpgradeReport(liveCrawl.rows, { origin: SITE_CANONICAL_ORIGIN });
+    try { await navigator.clipboard.writeText(report); }
+    catch {
+      const area = document.createElement('textarea');
+      area.value = report; document.body.appendChild(area); area.select();
+      document.execCommand('copy'); area.remove();
+    }
+    setReportCopied(true); setTimeout(() => setReportCopied(false), 2500);
   };
 
   const saveCampaign = async e => {
@@ -664,6 +955,127 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       </div>
 
       <div className="shell page-content seo-desk-content">
+        <section className="seo-card seo-howto" aria-label="How this desk works">
+          <details>
+            <summary><BookOpenCheck size={16}/> How this desk works — the 4-step loop</summary>
+            <ol>
+              <li><b>1 · Audit.</b> "Run full crawl" fetches every public page the sitemaps list and runs the same checks Google cares about (title, description, canonical, structured data, images). Each page gets a score and named failures with fixes.</li>
+              <li><b>2 · Report.</b> When the crawl finishes, "Copy upgrade report" produces a prioritised report split into what you can fix from this desk and what needs a code change — paste that second half into your Arena coding session and the developer agent does it.</li>
+              <li><b>3 · Publish.</b> Topic Scout (below) suggests article topics built from your live stock and markets. Approving one generates, validates and publishes the guide in a single run — fresh indexed pages are the single biggest lever this desk has.</li>
+              <li><b>4 · Submit.</b> "Request indexing" tells Google about new and changed pages instead of waiting for it to wander by. Re-run the crawl after publishing to verify.</li>
+            </ol>
+            <p className="seo-muted">Rhythm that works: one approved topic per week, a crawl after every publish, and the report to your developer whenever the code section is non-empty.</p>
+            <p className="seo-muted"><b>Safety net:</b> everything this desk publishes or changes is recorded in AI Growth → History &amp; undo. If something should not have gone live, an administrator can undo it there and the previous version comes back exactly as it was.</p>
+          </details>
+        </section>
+
+        <section className="seo-card seo-topic-scout" aria-label="Topic scout">
+          <div className="seo-hub-title"><Sparkles size={18}/><div><h2>Topic Scout</h2><p>Article topics proposed from your live stock, machinery catalogue and shipping markets — with the verified facts the AI draft is allowed to use. <b>Approve &amp; publish</b> runs the whole pipeline: generate → validate → save → publish. If the AI flags anything for editorial checking, the run stops at an unpublished draft instead.</p></div></div>
+          {scoutTopics.length === 0 && <p className="seo-muted">Every current suggestion already exists as a published guide. New stock, markets or machinery will generate new topics.</p>}
+          <ul className="seo-scout-list">
+            {scoutTopics.map(topic => {
+              const state = scoutLog[topic.id];
+              return (
+                <li key={topic.id} className={'seo-scout-topic' + (state ? ' is-' + state.state : '')}>
+                  <div className="seo-scout-main">
+                    <b>{topic.title}</b>
+                    <small>{topic.cat} · {topic.why}</small>
+                    <details><summary>{topic.facts.length} verified facts the draft may use</summary><ul>{topic.facts.map((fact, i) => <li key={i}>{fact}</li>)}</ul></details>
+                    {state && <span className={'seo-scout-state ' + state.state} role="status">
+                      {state.state === 'published' ? <Check size={13}/> : state.state === 'failed' ? <AlertTriangle size={13}/> : <RefreshCw size={13} className="seo-spin"/>}
+                      {state.detail}
+                      {state.url && <> <a href={state.url} target="_blank" rel="noopener noreferrer">Open the live page <ExternalLink size={12}/></a></>}
+                    </span>}
+                  </div>
+                  <div className="seo-scout-actions">
+                    <button type="button" className="gold-btn" disabled={!canPublish || !token || scoutBusy !== null || state?.state === 'published'}
+                      onClick={() => runTopicAutopilot(topic)}>
+                      {scoutBusy === topic.id ? <><RefreshCw size={14} className="seo-spin"/> Working…</> : state?.state === 'published' ? <><Check size={14}/> Published</> : <><Send size={14}/> Approve &amp; publish</>}
+                    </button>
+                    <button type="button" className="seo-mini-action" disabled={scoutBusy !== null}
+                      onClick={() => { setCreating(true); setActiveDraftId(null); setCreated(null); setDraftReviewed(false); setDraftFacts(topic.facts.join('\n')); setForm({ title: topic.title, cat: topic.cat, img: topic.img, desc: '', body: '' }); notify('Topic loaded into the draft creator below for manual editing.'); }}>
+                      Edit manually instead
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {!canPublish && <small className="seo-muted">Your role can review topics but cannot publish guides.</small>}
+        </section>
+
+        <section className="seo-card seo-topic-scout" aria-label="Industry news scout">
+          <div className="seo-hub-title"><Megaphone size={18}/><div><h2>Industry News Scout</h2><p>Fresh vehicle-industry headlines (Japan exports, auctions, shipping, EV markets) pulled live from news feeds — each with its source, date and link. <b>Approve &amp; publish</b> turns one into a short, sourced news brief on your /news page through the same generate → validate → save → publish pipeline. Nothing is invented: the AI may only restate the verified headline facts, and every brief cites its source.</p></div></div>
+          <div className="seo-scout-actions" style={{marginBottom: 10}}>
+            <button type="button" className="seo-mini-action" disabled={newsScanBusy} onClick={runNewsScan}>
+              {newsScanBusy ? <><RefreshCw size={14} className="seo-spin"/> Scanning feeds…</> : <><RefreshCw size={14}/> {newsScan ? 'Re-scan industry news' : 'Scan the latest industry news'}</>}
+            </button>
+            {newsScan?.checkedAt && <small className="seo-muted">Checked {new Date(newsScan.checkedAt).toLocaleString()}</small>}
+          </div>
+          {newsScan && newsTopics.length === 0 && <p className="seo-muted">{newsScan.note || 'No fresh industry headlines right now.'}</p>}
+          {!newsScan && <p className="seo-muted">Press the button to fetch this fortnight’s industry headlines. The scan reads public news feeds from the server — your browser contacts nothing.</p>}
+          <ul className="seo-scout-list">
+            {newsTopics.map(topic => {
+              const state = scoutLog[topic.id];
+              return (
+                <li key={topic.id} className={'seo-scout-topic' + (state ? ' is-' + state.state : '')}>
+                  <div className="seo-scout-main">
+                    <b>{topic.title}</b>
+                    <small>{topic.cat} · {topic.why} · <a href={topic.sources[0]} target="_blank" rel="noopener noreferrer">Read the source <ExternalLink size={11}/></a></small>
+                    <details><summary>{topic.facts.length} verified facts the brief may use</summary><ul>{topic.facts.map((fact, i) => <li key={i}>{fact}</li>)}</ul></details>
+                    {state && <span className={'seo-scout-state ' + state.state} role="status">
+                      {state.state === 'published' ? <Check size={13}/> : state.state === 'failed' ? <AlertTriangle size={13}/> : <RefreshCw size={13} className="seo-spin"/>}
+                      {state.detail}
+                      {state.url && <> <a href={state.url} target="_blank" rel="noopener noreferrer">Open the live page <ExternalLink size={12}/></a></>}
+                    </span>}
+                  </div>
+                  <div className="seo-scout-actions">
+                    <button type="button" className="gold-btn" disabled={!canPublish || !token || scoutBusy !== null || state?.state === 'published'}
+                      onClick={() => runTopicAutopilot(topic)}>
+                      {scoutBusy === topic.id ? <><RefreshCw size={14} className="seo-spin"/> Working…</> : state?.state === 'published' ? <><Check size={14}/> Published</> : <><Send size={14}/> Approve &amp; publish</>}
+                    </button>
+                    <button type="button" className="seo-mini-action" disabled={scoutBusy !== null}
+                      onClick={() => { setCreating(true); setActiveDraftId(null); setCreated(null); setDraftReviewed(false); setDraftFacts(topic.facts.join('\n')); setForm({ title: topic.title, cat: topic.cat, img: topic.img, desc: '', body: '' }); notify('Headline loaded into the draft creator below for manual editing.'); }}>
+                      Edit manually instead
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        <section className="seo-card seo-cover-doctor" aria-label="Cover image doctor">
+          <div className="seo-hub-title"><ImageIcon size={18}/><div><h2>Cover image doctor</h2><p>Every article must wear its own cover: duplicate or missing images hurt click-through and look careless in link previews. This check runs over <b>all</b> articles (drafts included) and proposes a unique replacement from the site asset pools — brand-matched first.</p></div></div>
+          {coverFixes.length === 0
+            ? <p className="seo-muted"><Check size={13}/> All {editorArticles.length} article(s) have unique cover images. Nothing to fix.</p>
+            : <>
+              <ul className="seo-scout-list">
+                {coverFixes.map(fix => (
+                  <li key={fix.id} className="seo-scout-topic">
+                    <div className="seo-scout-main">
+                      <b>{fix.title}</b>
+                      <small>{fix.reason} · {fix.from ? <>replace <code>{fix.from}</code> with</> : 'assign'} <code>{fix.to}</code></small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="gold-btn" disabled={!canPublish || !token || coverFixBusy} onClick={runCoverFixes}>
+                {coverFixBusy ? <><RefreshCw size={14} className="seo-spin"/> Fixing…</> : <><Send size={14}/> Fix all {coverFixes.length} cover(s)</>}
+              </button>
+            </>}
+        </section>
+
+        <section className="seo-card" aria-label="Keyword research automation">
+          <h2>Keyword opportunities</h2>
+          <p>Research real Search Console queries when connected, plus catalogue-based topic ideas. No invented search volumes.</p>
+          <button type="button" className="gold-btn" disabled={!canPublish || !token || automationBusy} onClick={researchKeywords}>Research keywords</button>
+          {keywordReport && <>
+            <p>{keywordReport.note}</p>{keywordReport.providerError && <p role="alert">{keywordReport.providerError}</p>}
+            <ul>{(keywordReport.opportunities || []).slice(0,15).map((r,i) => <li key={i}><b>{r.query}</b> · {r.impressions} impressions · {r.clicks} clicks · position {Number(r.position).toFixed(1)} · {r.url}</li>)}</ul>
+            <ul>{(keywordReport.ideas || []).map(r => <li key={r.query}><b>{r.query}</b> — {r.target} <button type="button" onClick={() => {setCreating(true);setActiveDraftId(null);setCreated(null);setDraftReviewed(false);setForm({title:r.query,cat:'BUYING GUIDE',img:GUIDE_ASSETS[0],desc:'',body:''});}}>Draft this topic</button></li>)}</ul>
+          </>}
+        </section>
         <section className="seo-card seo-campaign-hub">
           <div className="seo-hub-title"><Megaphone size={18}/><div><h2>Campaign launchpad</h2><p>Publish the public PromoBar from this staff-only desk. This is campaign messaging only—real price savings remain attached to individual stock in Price offers.</p></div></div>
           <div className={'seo-campaign-status' + (campaign && campaignIsLive(campaign) ? ' live' : '')}>
@@ -723,6 +1135,22 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
               </label>
               <button type="button" className="gold-btn" onClick={generateFactDraft}>Generate factual draft text</button>
               <small className="seo-muted">Generated excerpt/body echo only these notes and add a review reminder. They are not independently verified.</small>
+              <label>AI content type<select aria-label="AI content type" value={aiKind} onChange={e => setAiKind(e.target.value)}><option value="guide">Buyer guide</option><option value="news">Source-backed news</option></select></label>
+              <label>Source URLs (one HTTPS URL per line)<textarea aria-label="AI source URLs" value={aiSources} onChange={e => setAiSources(e.target.value)} rows={2}/></label>
+              <p className="seo-muted">
+                Enter the topic in Title below. News requires a verified event date (YYYY-MM-DD) in the facts and at least one source URL. AI does not browse or verify those sources.{' '}
+                {aiProvider?.provider === 'gemini'
+                  ? `Drafts are generated with Gemini on the free tier (${aiProvider.gemini?.model || 'gemini-3.8-flash'}) using the server-only GEMINI_API_KEY.`
+                  : aiProvider?.provider === 'openai'
+                    ? 'Drafts are generated with OpenAI because SEO_AI_PROVIDER=openai is set on the server.'
+                    : aiProvider?.provider === 'formatter'
+                      ? 'GEMINI_API_KEY is not set on the server, so AI drafts are unavailable — use “Generate factual draft text” above.'
+                      : aiProvider
+                        ? 'The provider status could not be read; use “Generate factual draft text” if generation fails.'
+                        : 'Checking the draft provider…'}
+              </p>
+              <button type="button" className="gold-btn" onClick={generateAiDraft} disabled={!canPublish || !token || automationBusy}>{automationBusy ? 'Working…' : 'Generate AI draft'}</button>
+              <button type="button" className="gold-btn" onClick={optimizeDraft} disabled={!canPublish || !token || automationBusy || !form.body.trim()}>Fix draft SEO</button>
             </fieldset>
 
             <div className="seo-create-grid">
@@ -920,11 +1348,30 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
           )}
           {liveCrawl.sourceErrors?.length > 0 && <ul className="seo-workflow-error-list">{liveCrawl.sourceErrors.map((error, i) => <li key={i}>{error}</li>)}</ul>}
 
+          {liveCrawl.rows.length > 0 && (liveCrawl.state === 'complete' || liveCrawl.state === 'complete_with_warnings') && (
+            <div className="seo-report-bar" role="group" aria-label="Audit upgrade report">
+              <ClipboardList size={16}/>
+              <span><b>Upgrade report ready.</b> Prioritised fixes from this crawl, split into what this desk can do and what needs a code change — paste the code section into your Arena session and the developer agent implements it.</span>
+              <button type="button" className="gold-btn" onClick={copyUpgradeReport}>
+                {reportCopied ? <><Check size={14}/> Report copied</> : <><Copy size={14}/> Copy upgrade report</>}
+              </button>
+            </div>
+          )}
+
           {liveCrawl.rows.length > 0 && (
             <div className="seo-crawl-results">
               <h3>Per-URL crawl diagnostics <small>{liveCrawl.rows.length} URL(s)</small></h3>
+              {/* 2026-11-07 (owner request): a 414-row dump was unreadable.
+                  Lead with the verdict, show only the rows that need eyes
+                  (problems first), and keep the full list behind one click. */}
+              <div className="seo-crawl-summary" role="status">
+                <span className="fail">{crawlCounts.fail} failing</span>
+                <span className="warn">{crawlCounts.warn} with warnings</span>
+                <span className="pass">{crawlCounts.clean} clean</span>
+                {crawlCounts.fail === 0 && crawlCounts.warn === 0 && <em>Everything passed — the list below is for reference only.</em>}
+              </div>
               <ul>
-                {liveCrawl.rows.map(row => (
+                {visibleCrawlRows.map(row => (
                   <li key={row.url} className={'seo-crawl-row ' + (row.state || 'unknown')}>
                     <div className="seo-crawl-row-head">
                       <div><b>{row.path || row.url}</b><small>{row.httpStatus ? `HTTP ${row.httpStatus}` : row.error || 'No HTTP response'}{row.score != null ? ` · ${row.score}/100 · ${row.fails} fail · ${row.warns} warn` : ''}{row.noindex ? ' · noindex — excluded' : ''}</small></div>
@@ -942,6 +1389,14 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
                   </li>
                 ))}
               </ul>
+              {liveCrawl.rows.length > CRAWL_PREVIEW_ROWS && (
+                <div className="seo-crawl-more">
+                  {!crawlShowAll && <small>Showing the {visibleCrawlRows.length} most important of {liveCrawl.rows.length} — problems always sort first.</small>}
+                  <button type="button" className="seo-secondary-btn" onClick={() => setCrawlShowAll(v => !v)}>
+                    {crawlShowAll ? 'Show short list' : `View full list (${liveCrawl.rows.length} URLs)`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

@@ -23,11 +23,25 @@
 
 export const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-export const DEFAULT_SEARCH_URL = 'https://www.goo-net.com/usedcar/price-100-300/';
+// The importer reads goo-net's ENGLISH export portal (Goo-net Exchange), not
+// the domestic site. The 2026-11-04 probes from a GitHub Actions runner
+// settled why: www.goo-net.com silently DROPS connections from datacenter
+// IPs (a raw TCP timeout — no HTTP answer at all), which also starves every
+// relay crawl; www.goo-net-exchange.com answered the same runner 200 in under
+// a second, fully server-rendered, and is literally built for overseas
+// buyers — the same cars, in English, with FOB prices.
+export const EXCHANGE_HOST = 'www.goo-net-exchange.com';
+export const EXCHANGE_BASE = 'https://www.goo-net-exchange.com';
+// Cards per results page on the exchange (`limit` hidden field).
+export const EXCHANGE_PAGE_SIZE = 20;
+// Same ¥1,000,000–3,000,000 band the old domestic default (price-100-300)
+// asked for, in the exchange's FOB-price parameters.
+export const DEFAULT_SEARCH_URL = EXCHANGE_BASE + '/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search';
 
 // Wider, always-populated search used as a rescue when the bookmarked search
-// URL returns (almost) no cards.
-export const FALLBACK_SEARCH_URL = 'https://www.goo-net.com/usedcar/price--100/';
+// URL returns (almost) no cards. Mirrors the old domestic fallback
+// (price--100 = anything under ¥1,000,000).
+export const FALLBACK_SEARCH_URL = EXCHANGE_BASE + '/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search';
 
 // Free reader relay. goo-net serves datacenter IPs (Vercel, CI) a stub page
 // with no car data; the relay fetches the very same URL from a residential-ish
@@ -168,7 +182,7 @@ export const MODEL_MAP = {
   'Ｑ７': ['Q7', 'SUV'], 'レヴォーグ': ['Levorg', 'Wagon'], 'インプレッサ': ['Impreza', 'Sedan'],
   'フォレスター': ['Forester', 'SUV'], 'アウトランダー': ['Outlander', 'SUV'],
   'エクリプスクロス': ['Eclipse Cross', 'SUV'], 'デリカ': ['Delica', 'MPV'],
-  'ソリオ': ['Sonio', 'MPV'], 'フリード': ['Freed', 'MPV'], 'シエンタ': ['Sienta', 'MPV'],
+  'ソリオ': ['Solio', 'MPV'], 'フリード': ['Freed', 'MPV'], 'シエンタ': ['Sienta', 'MPV'],
   'ジャスティ': ['Justy', 'Kei'], 'タント': ['Tanto', 'Kei'], 'ｅ－Ｋ': ['eK', 'Kei'],
   'デイズ': ['Dayz', 'Kei'], 'ルークス': ['Roox', 'Kei'], 'サクラ': ['Sakura', 'Kei'],
   'リーフ': ['Leaf', 'Hatchback'], 'ＭＧ４': ['MG4', 'Hatchback'],
@@ -325,13 +339,65 @@ export function detectFuel(text) {
 // Longest match wins, mirroring detectModel. Returns null for unknown models —
 // an unknown body must stay null so the required-fields gate skips the car
 // rather than importing a guess.
+// English model names the exchange prints that the curated MODEL_MAP does
+// not carry (yet): the common export models seen on live exchange pages.
+// Same curation discipline as MODEL_MAP — a name only enters this list with
+// a body type that is true of every generation sold under it.
+const EN_BODY_HINTS = {
+  'jimny nomade': 'SUV', 'jimny sierra': 'SUV',
+  'roomy': 'MPV', 'thor': 'MPV', 'tank': 'MPV', 'esquire': 'MPV', 'granace': 'MPV',
+  'passo': 'Hatchback', 'vitz': 'Hatchback', 'boon': 'Hatchback', 'mazda2': 'Hatchback', 'mazda3': 'Hatchback',
+  'c-hr': 'SUV', 'juke': 'SUV', 'kicks': 'SUV', 'cr-v': 'SUV', 'xbee': 'SUV', 'ignis': 'SUV',
+  'crown crossover': 'SUV', 'crown sport': 'SUV', 'zr-v': 'SUV', 'wr-v': 'SUV', 'yaris cross': 'SUV',
+  'hiace': 'Van', 'regiusace': 'Van', 'probox': 'Van', 'succeed': 'Van', 'caravan': 'Van', 'nv200': 'Van',
+  'hilux': 'Pickup', 'triton': 'Pickup',
+  'dyna': 'Truck', 'canter': 'Truck', 'elf': 'Truck', 'atlas': 'Truck',
+  'carry': 'Kei', 'hijet': 'Kei', 'every': 'Kei', 'n-van': 'Kei', 'acty': 'Kei', 'sambar': 'Kei',
+  'taft': 'Kei', 'wake': 'Kei', 'canbus': 'Kei', 'n-wgn': 'Kei', 'pleo': 'Kei', 'lapin': 'Kei',
+  'mira e:s': 'Kei', 'ekwagon': 'Kei', 'ek wagon': 'Kei', 'ek cross': 'Kei', 'cast': 'Kei',
+  // Premium/export additions (2026-11-05, with the on-demand keyword search).
+  // Lexus two-letter names are make-qualified: a bare word-bounded 'is' or
+  // 'rx' would hit ordinary words and Mazda's RX-8. Titles carry the make
+  // ("LEXUS RX RX350 F SPORT"), so the qualified key always lands.
+  'lexus rx': 'SUV', 'lexus nx': 'SUV', 'lexus gx': 'SUV', 'lexus lx': 'SUV', 'lexus ux': 'SUV',
+  'lexus ls': 'Sedan', 'lexus is': 'Sedan', 'lexus es': 'Sedan', 'lexus gs': 'Sedan',
+  'lexus lc': 'Coupe', 'lexus rc': 'Coupe', 'lexus ct': 'Hatchback', 'lexus lm': 'MPV',
+  'land cruiser': 'SUV', 'hilux surf': 'SUV', 'fj cruiser': 'SUV',
+  'x-trail': 'SUV', 'outlander': 'SUV', 'forester': 'SUV', 'outback': 'SUV', 'escudo': 'SUV',
+  'odyssey': 'MPV', 'fairlady': 'Coupe', 'gt-r': 'Coupe', 'supra': 'Coupe', 'skyline': 'Sedan'
+};
+
+// Generic body words a title/model can carry outright. Word-bounded so
+// "Vanguard" never reads as a van and "Busan" never as a bus.
+const BODY_WORDS = [
+  ['convertible', 'Convertible'], ['cabriolet', 'Convertible'], ['spider', 'Convertible'],
+  ['roadster', 'Coupe'], ['coupe', 'Coupe'],
+  ['wagon', 'Wagon'], ['touring', 'Wagon'],
+  ['truck', 'Truck'], ['dump', 'Truck'], ['bus', 'Bus'], ['van', 'Van'],
+  ['hatchback', 'Hatchback'], ['sedan', 'Sedan'], ['suv', 'SUV']
+];
+
 export function bodyForModel(text) {
   const s = String(text || '');
   let best = null;
   for (const [jp, [, body]] of Object.entries(MODEL_MAP)) {
     if (s.includes(jp) && (!best || jp.length > best.jp.length)) best = { jp, body };
   }
-  return best ? best.body : null;
+  if (best) return best.body;
+  // English pass (the exchange prints English titles): the curated map's own
+  // English names first, then the exchange-era additions. Longest match wins,
+  // so "Yaris Cross" (SUV) can never be shadowed by "Yaris" (Hatchback).
+  const flat = s.toLowerCase().replace(/[\u3000]/g, ' ').replace(/\s+/g, ' ');
+  const wordHit = (name) => new RegExp('(?:^|[^a-z0-9])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|[^a-z0-9])').test(flat);
+  for (const [en, body] of Object.entries(MODEL_MAP).map(([, [en, body]]) => [en.toLowerCase(), body])
+    .concat(Object.entries(EN_BODY_HINTS))
+    .sort((a, b) => b[0].length - a[0].length)) {
+    if (wordHit(en)) return body;
+  }
+  for (const [word, body] of BODY_WORDS) {
+    if (wordHit(word)) return body;
+  }
+  return null;
 }
 
 export function detectModel(title, make) {
@@ -393,7 +459,11 @@ export function formatEngine(text) {
 }
 
 export function extractStockFromUrl(url) {
-  const m = String(url || '').match(/([A-Za-z0-9]+)\.html/);
+  const s = String(url || '');
+  // Exchange detail URLs: /usedcars/<MAKE>/<MODEL>/<digits>/
+  const ex = s.match(/\/usedcars\/[A-Z0-9_-]+\/[A-Z0-9_-]+\/(\d{12,})\/?/i);
+  if (ex) return ex[1];
+  const m = s.match(/([A-Za-z0-9]+)\.html/);
   return m ? m[1] : null;
 }
 
@@ -412,7 +482,7 @@ export function detailUrlFor(stock) {
 // approved Goo-net host exactly. The fetch is then rebuilt from the stock id
 // we parsed, so a query string or fragment can never ride along.
 // ---------------------------------------------------------------------------
-export const GOONET_CAR_HOSTS = ['www.goo-net.com', 'goo-net.com'];
+export const GOONET_CAR_HOSTS = ['www.goo-net.com', 'goo-net.com', EXCHANGE_HOST, 'goo-net-exchange.com'];
 
 export function parseGoonetCarUrl(input) {
   const raw = String(input == null ? '' : input).trim();
@@ -432,8 +502,15 @@ export function parseGoonetCarUrl(input) {
   if (!GOONET_CAR_HOSTS.includes(host)) {
     return { ok: false, reason: 'only Goo-net vehicle pages are accepted (host was ' + (host || 'empty') + ')' };
   }
+  // Exchange detail pages: /usedcars/<MAKE>/<MODEL>/<digits>/ — the URL is
+  // rebuilt from the parsed segments, so nothing extra can ride along.
+  const ex = u.pathname.match(/^\/usedcars\/([A-Z0-9_-]+)\/([A-Z0-9_-]+)\/(\d{12,})\/?$/i);
+  if (ex && (host === EXCHANGE_HOST || host === 'goo-net-exchange.com')) {
+    const stock = ex[3];
+    return { ok: true, stock, url: `${EXCHANGE_BASE}/usedcars/${ex[1].toUpperCase()}/${ex[2].toUpperCase()}/${stock}/`, input: raw };
+  }
   const m = u.pathname.match(/^\/usedcar\/spread\/goo\/\d+\/([0-9A-Za-z_-]+)\.html\/?$/);
-  if (!m) return { ok: false, reason: 'not a Goo-net vehicle detail page (/usedcar/spread/goo/<n>/<id>.html)' };
+  if (!m) return { ok: false, reason: 'not a Goo-net vehicle detail page (/usedcar/spread/goo/<n>/<id>.html or goo-net-exchange.com/usedcars/<make>/<model>/<id>/)' };
   const stock = m[1];
   if (stock.length < 8) return { ok: false, reason: 'stock id "' + stock + '" is too short to be a Goo-net vehicle id' };
   return { ok: true, stock, url: detailUrlFor(stock), input: raw };
@@ -649,6 +726,16 @@ export function resetFetchState() {
 function isGoonetUrl(url) {
   try { return new URL(String(url)).hostname === GOONET_HOST; }
   catch { return false; }
+}
+
+// Exchange URLs skip the domestic warm-up/cookie dance (the English portal
+// answers datacenter IPs plainly) but still earn the relay fallback when a
+// direct fetch fails at the network level.
+function isExchangeUrl(url) {
+  try {
+    const h = new URL(String(url)).hostname;
+    return h === EXCHANGE_HOST || h === 'goo-net-exchange.com';
+  } catch { return false; }
 }
 
 function collectCookies(res) {
@@ -942,14 +1029,27 @@ export function countDomCarLinks(html) {
   return new Set(scanCarLinks(html).dom.map(a => a.stock)).size;
 }
 
+// Distinct cars an EXCHANGE page links to: /usedcars/<MAKE>/<MODEL>/<id>/
+// anchors. The exchange equivalent of countSpreadLinks.
+const EXCHANGE_CARD_LINK_RE = /href="(?:https?:\/\/www\.goo-net-exchange\.com)?\/usedcars\/([A-Z0-9_]+)\/([A-Z0-9_]+)\/(\d{12,})\/?"/g;
+export function countExchangeCarLinks(html) {
+  const s = String(html || '');
+  const ids = new Set();
+  const re = new RegExp(EXCHANGE_CARD_LINK_RE.source, 'g');
+  let m;
+  while ((m = re.exec(s))) ids.add(m[3]);
+  return ids.size;
+}
+
 // True when the HTML we got back is not a real listing page.
 //
 // The car-link count is the only hard signal: a page that links 2+ distinct
 // cars can be read, whatever fine print it also contains. Gate wording is used
 // for diagnostics (and by the caller to name the blocker), never to overrule
-// results that are plainly there.
+// results that are plainly there. Exchange card links count the same as
+// domestic spread links — a page reading either way is real.
 export function looksLikeStub(html) {
-  return countSpreadLinks(html) < 2;
+  return countSpreadLinks(html) < 2 && countExchangeCarLinks(html) < 2;
 }
 
 // Which bot-gate phrases this HTML contains, if any. Empty for a real page.
@@ -969,6 +1069,7 @@ export function pageDiagnostics(html, meta = null) {
   return {
     contentLength: s.length,
     spreadLinks: countSpreadLinks(s),
+    exchangeCarLinks: countExchangeCarLinks(s),
     domCarLinks: new Set(links.dom.map(a => a.stock)).size,
     scriptCarLinks: new Set(links.occurrences.filter(o => o.inScript).map(o => o.stock)).size,
     jsonLdCars: structured.length,
@@ -1065,11 +1166,18 @@ async function rawFetch(url, { timeoutMs, maxBytes, headers }) {
       headersUsed: Object.keys(headers)
     };
   } catch (e) {
+    // An AbortError here is OUR timer firing, not goo-net refusing: the
+    // request ran past `timeoutMs` and was cancelled. Name it a timeout so
+    // callers can tell "too slow" apart from "blocked" — the raw message
+    // ("This operation was aborted") used to surface verbatim and read like
+    // a mysterious crash instead of the timeout it is.
+    const timedOut = e.name === 'AbortError' || /abort/i.test(e.message || '');
     return {
       ok: false, status: 0, html: '', truncated: false,
       byteLength: 0, charLength: 0, charset: null, charsetSource: null,
-      replacements: 0,
-      durationMs: Date.now() - start, error: e.message,
+      replacements: 0, timedOut,
+      durationMs: Date.now() - start,
+      error: timedOut ? `timed out after ${timeoutMs}ms (no answer from the server)` : e.message,
       headersUsed: Object.keys(headers)
     };
   } finally {
@@ -1078,7 +1186,10 @@ async function rawFetch(url, { timeoutMs, maxBytes, headers }) {
 }
 
 // Warm up once: hit the homepage like a browser would so we pick up the
-// session cookies goo-net expects on the following search request.
+// session cookies goo-net expects on the following search request. The
+// warm-up runs on its OWN small budget — it must never silently consume the
+// listing fetch's allowance (a slow homepage used to eat up to 4s of wall
+// time before the listing request even started).
 async function warmUp(timeoutMs) {
   if (warmedUp) return;
   warmedUp = true;
@@ -1092,21 +1203,146 @@ async function warmUp(timeoutMs) {
 // Fetch `url` through the free reader relay. Used whenever this host cannot
 // read goo-net itself — either because goo-net answered with its bot-gate stub
 // or because the connection failed at the network level.
-async function relayFetch(url, { timeoutMs, maxBytes }) {
+// How stale a relay-cached copy may be before we insist on a fresh crawl.
+// Production showed the relay repeatedly timing out at 20s while we sent
+// X-No-Cache, which forced the slowest cold-crawl path on every run AND
+// discarded the copy the relay likely finished (and cached) moments after our
+// client gave up. A quarter-hour tolerance lets the next run collect that
+// finished crawl instantly; listings don't move faster than that, and the
+// importer dedupes by goonet_id anyway.
+export const RELAY_CACHE_TOLERANCE_S = 900;
+
+// Which fetching engine the relay should use. The default used to be left to
+// the relay ('auto'), which routes tough pages into a headless-browser render
+// queue — and that queue is what kept eating the whole 20s budget (production
+// timed out with no answer at all). Every page this project reads is
+// server-rendered and parsed with regexes over the raw markup, so the relay's
+// lightweight plain-HTTP engine ('curl') is all we need, and it answers in
+// seconds instead of queueing. GOONET_RELAY_ENGINE overrides it without a
+// deploy ('browser'/'auto' to go back, 'off' to send no preference).
+export function relayEngine() {
+  const v = String(process.env.GOONET_RELAY_ENGINE ?? 'curl').trim().toLowerCase();
+  return (v === '' || v === 'off' || v === 'none' || v === 'default') ? '' : v;
+}
+
+// Which proxy pool the relay should fetch through (keyed-tier feature).
+// 'auto' lets the relay pick; a country code (e.g. 'jp') pins it.
+// GOONET_RELAY_PROXY overrides without a deploy; 'off' disables proxy
+// routing entirely.
+//
+// Callers pass the fallback that suits THEIR target. The 2026-11-04 probe
+// from a GitHub Actions runner settled why that matters for goo-net: a
+// direct fetch never even got a TCP answer (connection timed out after 30s),
+// and the relay's keyless crawl was refused with "Request failed: Timeout
+// was reached" — goo-net silently drops connections from foreign datacenter
+// IPs. 'auto' lets the relay pick any exit, which is how production kept
+// timing out WITH a key configured; pinning 'jp' is the one routing that
+// matches goo-net's geo-fence. made-in-china has no such fence and keeps
+// 'auto' (its scraper works today — leave it alone).
+export function relayProxy(fallback = 'auto') {
+  const v = String(process.env.GOONET_RELAY_PROXY ?? fallback).trim().toLowerCase();
+  return (v === '' || v === 'off' || v === 'none') ? '' : v;
+}
+
+// The one place relay request headers are built. Exported so the machinery
+// scraper's relay fallback sends exactly the same, tuned request instead of
+// growing its own slightly-different copy.
+export function relayRequestHeaders({ userAgent = UA, engine = null, proxy = null } = {}) {
   const relayHeaders = {
-    'User-Agent': UA,
+    'User-Agent': userAgent,
     'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
     'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
     'X-Return-Format': 'html',
-    'X-No-Cache': 'true',
+    // Accept a recent cached copy instead of demanding a cold crawl each time
+    // (X-No-Cache would do the latter — see RELAY_CACHE_TOLERANCE_S above).
+    'X-Cache-Tolerance': String(RELAY_CACHE_TOLERANCE_S),
+    // Snapshot as soon as the HTML document exists. The pages are
+    // server-rendered and our parsers are regexes over the raw markup, so
+    // there is nothing to gain from the relay waiting for scripts, images or
+    // network-idle — that wait is exactly what was eating the 20s budget.
+    'X-Respond-Timing': 'html',
     'X-With-Links-Summary': 'false'
   };
+  const chosenEngine = engine ?? relayEngine();
+  if (chosenEngine) relayHeaders['X-Engine'] = chosenEngine;
   // An API key lifts the relay off the rate-limited keyless tier. It is only
   // ever sent to the relay host itself (rawFetch headers are caller-built).
   const key = relayApiKey();
-  if (key) relayHeaders['Authorization'] = 'Bearer ' + key;
-  const relayed = await rawFetch(relayBaseUrl() + url, { timeoutMs, maxBytes, headers: relayHeaders });
-  return { relayed, relayPage: pageDiagnostics(relayed.html, relayed) };
+  if (key) {
+    relayHeaders['Authorization'] = 'Bearer ' + key;
+    // Route the relay's own fetch through its rotating proxy pool. The target
+    // sites stonewall datacenter IPs (goo-net: repeated 20s production
+    // timeouts; made-in-china: a flat 403); the proxy pool exists for exactly
+    // this and is a keyed-tier feature, hence inside the key guard.
+    const chosenProxy = proxy ?? relayProxy();
+    if (chosenProxy) relayHeaders['X-Proxy'] = chosenProxy;
+  }
+  return relayHeaders;
+}
+
+// How long the fast first rung of the relay ladder may take, and the least
+// time worth spending on the browser rung. The plain-HTTP engine answers (or
+// is refused) within a few seconds; whatever it does not use is handed to the
+// browser rung.
+export const RELAY_FAST_ATTEMPT_MS = 6000;
+export const RELAY_BROWSER_MIN_MS = 3000;
+
+// The relay ladder. Production walked us here one rung at a time:
+//   • browser-ish engines (the pre-#89 default) queued for headless Chrome
+//     and ate the whole 20s budget — four straight timeouts;
+//   • the plain-HTTP engine (curl) answers FAST, but goo-net serves a no-JS
+//     fetch nothing real, so the relay refuses with HTTP 422 in seconds.
+// Neither rung alone reads goo-net. Both together can: try the fast engine
+// first, and when it is refused, spend the ~17s it saved on one browser
+// attempt — which now also rides the proxy pool, the cache tolerance and the
+// snapshot-at-first-HTML timing that the old browser attempts never had.
+// Both rungs are reported, so a failure reads "fast engine: HTTP 422 —
+// browser engine: …" instead of hiding half the story.
+// Why did the relay refuse? Its error answers carry the reason in the BODY —
+// a JSON object with a readableMessage ("AssertionFailureError: …") — and we
+// were throwing that body away, leaving the owner staring at a bare
+// "HTTP 422" for days. This digs the sentence out (JSON first, then a
+// tag-stripped text fallback) and caps it to one notice-sized line.
+export function relayFailureReason(body) {
+  const text = String(body || '').trim();
+  if (!text) return '';
+  try {
+    const parsed = JSON.parse(text);
+    const msg = parsed.readableMessage || parsed.message || parsed.error || parsed.name || '';
+    if (msg) return String(msg).replace(/\s+/g, ' ').slice(0, 160);
+  } catch { /* not JSON — fall through to plain text */ }
+  const plain = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return plain.slice(0, 160);
+}
+
+function describeRelayAnswer(attempt) {
+  if (attempt.error) return attempt.error;
+  const reason = relayFailureReason(attempt.html);
+  return 'HTTP ' + attempt.status + (reason ? ` (${reason})` : '');
+}
+
+async function relayFetch(url, { timeoutMs, maxBytes }) {
+  const firstEngine = relayEngine();
+  const canClimb = Boolean(firstEngine) && firstEngine !== 'browser';
+  const firstBudget = canClimb ? Math.min(RELAY_FAST_ATTEMPT_MS, timeoutMs) : timeoutMs;
+  const started = Date.now();
+  // goo-net geo-fences: pin the proxy pool to Japan (see relayProxy above).
+  const proxy = relayProxy('jp');
+  const first = await rawFetch(relayBaseUrl() + url, { timeoutMs: firstBudget, maxBytes, headers: relayRequestHeaders({ proxy }) });
+  if (first.ok || !canClimb) {
+    if (!first.ok && !first.error) first.error = describeRelayAnswer(first);
+    return { relayed: first, relayPage: pageDiagnostics(first.html, first) };
+  }
+  const remaining = timeoutMs - (Date.now() - started);
+  const firstNote = `fast engine: ${describeRelayAnswer(first)}`;
+  if (remaining < RELAY_BROWSER_MIN_MS) {
+    first.error = firstNote + ' — no time left for the browser engine';
+    return { relayed: first, relayPage: pageDiagnostics(first.html, first) };
+  }
+  const second = await rawFetch(relayBaseUrl() + url, { timeoutMs: remaining, maxBytes, headers: relayRequestHeaders({ engine: 'browser', proxy }) });
+  if (!second.ok) second.error = `${firstNote} — browser engine: ${describeRelayAnswer(second)}`;
+  else second.engineTrail = firstNote;
+  return { relayed: second, relayPage: pageDiagnostics(second.html, second) };
 }
 
 // The byte/encoding facts for the response a caller actually parsed. Kept as
@@ -1124,8 +1360,21 @@ function fetchMeta(from) {
   };
 }
 
-export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing' } = {}) {
-  if (isGoonetUrl(url)) await warmUp(timeoutMs);
+// The relay needs more patience than goo-net itself. r.jina.ai RENDERS the
+// page before answering, and a heavy listing grid routinely takes 10–20s —
+// the 2026-11-04 production run proved it: direct black-holed (bot gate
+// dropping packets reads as a timeout), and the relay, key configured and
+// perfectly willing, was cancelled by OUR OWN 7s timer on every leg. One
+// patient relay attempt inside the run budget beats three impatient ones.
+export const RELAY_TIMEOUT_MS = 20000;
+
+export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, cookie = null, allowRelay = true, purpose = 'listing', warmUpMs = 2500, relayTimeoutMs = null } = {}) {
+  // Listing fetches get the patient relay by default; detail fetches keep the
+  // caller's timeout (the import loop fetches several per run on its own
+  // 30s allowance — six 20s relay waits there would stall the whole batch).
+  // Callers can always override, e.g. to cap by their remaining run budget.
+  const relayWait = relayTimeoutMs ?? (purpose === 'listing' ? Math.max(timeoutMs, RELAY_TIMEOUT_MS) : timeoutMs);
+  if (isGoonetUrl(url)) await warmUp(Math.min(warmUpMs, timeoutMs));
   const cookieToSend = cookie || cookieJar || DEFAULT_COOKIE;
   const headers = browserHeaders(url, cookieToSend);
   const direct = await rawFetch(url, { timeoutMs, maxBytes, headers });
@@ -1159,8 +1408,8 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     // same relay attempt. This used to return immediately, so an importer whose
     // direct socket was refused never even tried the relay and imported nothing.
     const networkDiag = { ...diagnostics, fallbackUsed: true, directDiagnostics: pageDiagnostics('') };
-    if (allowRelay && isGoonetUrl(url)) {
-      const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
+    if (allowRelay && (isGoonetUrl(url) || isExchangeUrl(url))) {
+      const { relayed, relayPage } = await relayFetch(url, { timeoutMs: relayWait, maxBytes });
       if (relayed.ok && !looksLikeStub(relayed.html)) {
         const relayMeta = fetchMeta(relayed);
         return {
@@ -1187,8 +1436,19 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
       }
       networkDiag.relayAttempted = true;
       networkDiag.relayDiagnostics = relayPage;
+      // The failure report must explain BOTH legs, not just the direct one:
+      // "direct timed out AND the relay answered 500" is a different owner
+      // action than "direct timed out and no relay was even tried".
+      networkDiag.relayStatus = relayed.status ?? 0;
+      networkDiag.relayError = relayed.error || (relayed.ok ? 'answered with a stub page' : 'HTTP ' + relayed.status);
+      networkDiag.relayTimedOut = relayed.timedOut === true;
     }
-    return { ok: false, status: 0, html: '', error: direct.error, via: 'direct', meta: fetchMeta(direct), diagnostics: networkDiag };
+    networkDiag.timedOut = direct.timedOut === true;
+    networkDiag.relayKey = relayApiKey() ? 'configured' : 'free (no key)';
+    // Which proxy pool the relay was asked to ride — the 2026-11-04 probe
+    // showed goo-net geo-fences, so 'jp' vs 'auto' is a diagnosis-grade fact.
+    networkDiag.relayProxy = relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)';
+    return { ok: false, status: 0, html: '', error: direct.error, timedOut: direct.timedOut === true, via: 'direct', meta: fetchMeta(direct), diagnostics: networkDiag };
   }
 
   const directPage = pageDiagnostics(direct.html, direct);
@@ -1208,11 +1468,11 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
     && (direct.html || '').length < GATE_PAGE_BYTES
     && directPage.gateMarkers.length > 0;
 
-  const shouldRelay = allowRelay && isGoonetUrl(url) && direct.status !== 404
+  const shouldRelay = allowRelay && (isGoonetUrl(url) || isExchangeUrl(url)) && direct.status !== 404
     && ((purpose !== 'detail' && looksLikeStub(direct.html)) || gateStubbedDetail);
 
   if (shouldRelay) {
-    const { relayed, relayPage } = await relayFetch(url, { timeoutMs, maxBytes });
+    const { relayed, relayPage } = await relayFetch(url, { timeoutMs: relayWait, maxBytes });
     // Only trust the relay when it genuinely saw more than we did: more cars
     // for a listing page; for a gate-stubbed detail page, a bigger body with
     // no gate wording (mergeCardAndDetail still refuses anything that does
@@ -1262,6 +1522,27 @@ export async function fetchPage(url, { timeoutMs = 8000, maxBytes = 4_000_000, c
   };
 }
 
+// Classify a failed listing fetch so the importer can pick the right
+// recovery — and the right words. Four states, four different owner actions:
+//   • timeout — OUR timer cancelled a request that ran too long. Transient:
+//     a bounded retry or a fallback page is worth one attempt.
+//   • network — DNS/TLS/socket failure before any HTTP answer. Transient too.
+//   • http-5xx — goo-net answered but with a server error. Transient.
+//   • blocked — 403/429: goo-net refused this host on purpose. NOT transient;
+//     retrying hammers a gate that will not open (the relay attempt inside
+//     fetchPage is the only sanctioned way around it, and it already ran).
+// Returns null when the fetch did not fail (ok, or a 404 the caller handles).
+export function classifyListingFailure(fetched) {
+  if (!fetched || fetched.ok || fetched.status === 404) return null;
+  const status = fetched.status || 0;
+  if (status === 403 || status === 429) return { kind: 'blocked', transient: false };
+  const timedOut = fetched.timedOut === true || /abort|timed out/i.test(String(fetched.error || ''));
+  if (timedOut) return { kind: 'timeout', transient: true };
+  if (status >= 500) return { kind: 'http-' + status, transient: true };
+  if (status === 0) return { kind: 'network', transient: true };
+  return { kind: 'http-' + status, transient: false };
+}
+
 // A delisted goo-net page is either an HTTP 404 or the live "this vehicle was
 // listed until …" notice. Anything ambiguous (network failure, timeout) is
 // treated as NOT delisted — we never unpublish on a network hiccup.
@@ -1294,8 +1575,157 @@ export function extractCarImages(html) {
 
 const PIC_RE = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
 
+// ---------------------------------------------------------------------------
+// Goo-net EXCHANGE parsing — the English export portal's server-rendered
+// markup. Captured live 2026-11-04 (probe-exchange-*.html on the working
+// branch): cards are <a class="spread_link_new_tab" href="/usedcars/<MAKE>/
+// <MODEL>/<21 digits>/"> blocks with an <h3 class="title">, a location line,
+// an FOB price in JPY, and a <ul class="details"> of year.month / colour /
+// mileage / displacement / steering / transmission.
+// ---------------------------------------------------------------------------
+
+// 'MERCEDES_BENZ' → 'Mercedes-Benz', 'ALFA_ROMEO' → 'Alfa Romeo',
+// 'TOYOTA' → 'Toyota', 'BMW' → 'BMW'. The EN brand map wins when it knows
+// the name, so exchange makes match the names the rest of the site uses.
+export function makeFromExchangeSlug(slug) {
+  const words = String(slug || '').split(/[_\s]+/).filter(Boolean);
+  if (!words.length) return null;
+  const pretty = words.map(w => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join(' ');
+  for (const [key, value] of Object.entries(EN_BRAND_MAP)) {
+    if (key.toLowerCase().replace(/[^a-z0-9]/g, '') === pretty.toLowerCase().replace(/[^a-z0-9]/g, '')) return value;
+  }
+  return pretty;
+}
+
+// 'JIMNY_NOMADE' → 'Jimny Nomade'. The URL slug IS the model (the exchange
+// routes by it), so it always wins; detectModel's token fallback would just
+// echo the title ("TOYOTA RAIZE") and is never wanted here.
+export function modelFromExchangeSlug(slug) {
+  const words = String(slug || '').split(/[_\s]+/).filter(Boolean);
+  if (!words.length) return null;
+  // Words carrying a digit are badge names and stay verbatim (RAV4, CX 5,
+  // 86); short words too (GT, RS); everything else is title-cased.
+  const pretty = words.map(w => (/\d/.test(w) || w.length <= 2 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join(' ');
+  // Prefer the site's own spelling when the model map knows this name
+  // (N BOX → N-BOX, CX 5 → CX-5), so exchange rows match the seed data.
+  for (const [, [en]] of Object.entries(MODEL_MAP)) {
+    if (en.toLowerCase().replace(/[^a-z0-9]/g, '') === pretty.toLowerCase().replace(/[^a-z0-9]/g, '')) return en;
+  }
+  return pretty;
+}
+
+// FOB price on a card/detail: "¥2,971,800" next to currency-jpy, or the
+// embedded currency JSON ('{"USD":"$18,858","JPY":"\u00a52,971,800"}').
+function exchangeYen(segment) {
+  let m = segment.match(/currency-jpy">\s*(?:¥|&yen;|\\u00a5)?([\d,]{4,})/);
+  if (!m) m = segment.match(/"JPY":"(?:\\u00a5|¥|&yen;)?([\d,]{4,})"/);
+  if (!m) return null;
+  const n = Number(m[1].replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+const EXCHANGE_FUEL = {
+  GASOLINE: 'Petrol', PETROL: 'Petrol', DIESEL: 'Diesel', HYBRID: 'Hybrid',
+  ELECTRIC: 'Electric', EV: 'Electric', LPG: 'LPG', OTHER: 'Other'
+};
+
+function parseExchangeDetails(liTexts) {
+  const out = { year: null, km: null, eng: null, st: null, tr: null, col: null };
+  for (const t of liTexts) {
+    const text = t.trim();
+    if (!text) continue;
+    const ym = text.match(/^((?:19|20)\d{2})\.\d{2}$/);
+    if (ym) { out.year = Number(ym[1]); continue; }
+    if (/km/i.test(text) && /\d/.test(text)) { out.km = out.km ?? kmToNumber(text); continue; }
+    if (/^\d[\d,]*\s*cc$/i.test(text)) { out.eng = out.eng ?? formatEngine(text.replace(/,/g, '')); continue; }
+    if (/^(right|left)$/i.test(text)) { out.st = /left/i.test(text) ? 'LHD' : 'RHD'; continue; }
+    if (/^(AT|MT|CVT|SAT|MTA|AMT|DCT)$/i.test(text)) { out.tr = text.toUpperCase(); continue; }
+    if (!out.col && /^[A-Za-z][A-Za-z0-9 .\-]{1,30}$/.test(text)) out.col = text;
+  }
+  return out;
+}
+
+export function parseExchangeListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
+  const s = String(html || '');
+  const re = new RegExp(EXCHANGE_CARD_LINK_RE.source, 'g');
+  const marks = [];
+  const seen = new Set();
+  let m;
+  while ((m = re.exec(s))) {
+    if (seen.has(m[3])) continue;
+    seen.add(m[3]);
+    marks.push({ makeSlug: m[1], modelSlug: m[2], stock: m[3], pos: m.index });
+  }
+  const cars = [];
+  for (let i = 0; i < marks.length; i++) {
+    const mark = marks[i];
+    const end = i + 1 < marks.length ? marks[i + 1].pos : Math.min(s.length, mark.pos + 8000);
+    const segment = s.slice(mark.pos, end);
+    const title = ((segment.match(/<h3[^>]*class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/h3>/) || [])[1] || '')
+      .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || null;
+    const location = ((segment.match(/<p[^>]*class="[^"]*location[^"]*"[^>]*>([\s\S]*?)<\/p>/) || [])[1] || '')
+      .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').replace(/\s*Japan\s*$/i, '').trim() || null;
+    const image = (segment.match(/(?:data-src|src)="(https:\/\/picture1\.goo-net\.com\/[^"]+?\.(?:jpg|jpeg|png))"/) || [])[1] || null;
+    const priceJpy = exchangeYen(segment);
+    const detailsBlock = (segment.match(/<ul[^>]*class="[^"]*details[^"]*"[^>]*>([\s\S]*?)<\/ul>/) || [])[1] || '';
+    const liTexts = [...detailsBlock.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)]
+      .map(x => x[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+    const d = parseExchangeDetails(liTexts);
+    const make = makeFromExchangeSlug(mark.makeSlug) || detectMake(title || '') || 'Unknown';
+    const model = modelFromExchangeSlug(mark.modelSlug);
+    if (!title && !priceJpy) continue;
+    cars.push({
+      goonet_id: mark.stock,
+      stock_no: mark.stock,
+      make,
+      model,
+      title,
+      url: `${EXCHANGE_BASE}/usedcars/${mark.makeSlug}/${mark.modelSlug}/${mark.stock}/`,
+      year: d.year,
+      km: d.km,
+      price_jpy: priceJpy,
+      price_usd: yenToUsd(priceJpy),
+      price: usdText(yenToUsd(priceJpy)),
+      image,
+      images: image ? [image] : [],
+      photo_count: image ? 1 : 0,
+      tr: d.tr,
+      eng: d.eng,
+      st: d.st,
+      col: d.col,
+      ext_rating: null,
+      int_rating: null,
+      repair_history: null,
+      location,
+      grade: null
+    });
+  }
+  // Pagination: the results form carries the full match count; 20 cards per
+  // page. Capped so a six-figure total can never send the bookmark into the
+  // hundreds of thousands.
+  const total = Number((s.match(/name="total"\s+value="(\d+)"/) || [])[1] || 0);
+  const pages = total > 0 ? Math.min(500, Math.ceil(total / EXCHANGE_PAGE_SIZE)) : (cars.length ? 2 : 1);
+  return {
+    cars,
+    pagination: { total: pages },
+    diagnostics: {
+      parseStatus: cars.length ? 'success' : 'no_cards_matched',
+      cardCount: cars.length,
+      domCards: cars.length,
+      structuredCandidates: 0,
+      structuredCards: 0,
+      domCarLinks: seen.size,
+      cardSource: 'exchange',
+      fallbackTemplate: cars.length === 0
+    }
+  };
+}
+
 export function parseListingPage(html, baseUrl = DEFAULT_SEARCH_URL) {
   const s = String(html || '');
+  // Exchange markup is unmistakable (card links /usedcars/<MAKE>/<MODEL>/<id>/)
+  // and shares nothing with the domestic parser's segmentation.
+  if (countExchangeCarLinks(s) > 0) return parseExchangeListingPage(s, baseUrl);
   if (!s.trim()) {
     return {
       cars: [],
@@ -1520,8 +1950,131 @@ function parseCardRegion(s, prevPos, mark, nextPos, baseUrl) {
 // ---------------------------------------------------------------------------
 // Detail page parsing — full specs + complete photo gallery.
 // ---------------------------------------------------------------------------
+// The exchange detail page: dt/dd spec pairs in English, a schema.org
+// Product JSON-LD block (name / image / color / brand / JPY price), and a
+// full /J/ photo gallery on picture1.goo-net.com.
+export function exchangeCarImages(html, stock) {
+  const s = String(html || '');
+  const id = String(stock || '');
+  // A 21-digit exchange stock id is <dealer:10><car:8><seq:3>; the car's own
+  // photos carry the 8-digit car segment in their filename. Without it the
+  // page's "recommended cars" strip would donate other cars' photos.
+  const carSeg = id.length >= 18 ? id.slice(10, 18) : null;
+  // Second live scheme (seen 2026-11-05, e.g. a Hiace with 166 shots): the
+  // dealer-code path /090/0901425/J/0901425A… embeds the car segment with
+  // its leading zero dropped. Without this variant the parser saw 1 photo
+  // and the quality gate skipped a car that actually has a full gallery.
+  const carSegAlt = carSeg ? carSeg.replace(/^0+/, '') : null;
+  const out = [];
+  const re = /https:\/\/picture1\.goo-net\.com\/[^"')\s]+?\/J\/[^"')\s]+?\.(?:jpg|jpeg|png)/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const u = m[0];
+    if (carSeg && !u.includes(carSeg) && !(carSegAlt && carSegAlt.length >= 6 && u.includes(carSegAlt))) continue;
+    if (!out.includes(u)) out.push(u);
+  }
+  // Gallery order: the cover (…00100.jpg, old-style path) first, then the
+  // W-numbered shots in page order.
+  return out.slice(0, 40);
+}
+
+export function parseExchangeDetailPage(html, url) {
+  const s = String(html || '');
+  const stock = extractStockFromUrl(url);
+
+  // schema.org Product block — deterministic name/image/colour/brand/price.
+  let ld = null;
+  for (const m of s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+    try {
+      const data = JSON.parse(m[1]);
+      if (data && data['@type'] === 'Product') { ld = data; break; }
+    } catch { /* tolerate other blocks */ }
+  }
+
+  // dt/dd spec pairs ("Month/Year" → "06.2026", "Mileage" → "5 km", …).
+  const spec = {};
+  for (const m of s.matchAll(/<dt[^>]*>\s*([\s\S]{1,60}?)\s*<\/dt>\s*<dd[^>]*>([\s\S]{0,300}?)<\/dd>/g)) {
+    const key = m[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const value = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (key && value && !(key in spec)) spec[key] = value;
+  }
+
+  const h1 = (s.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1];
+  const title = (h1 ? stripTags(h1).replace(/\s+/g, ' ').trim() : '') || (ld && ld.name) || null;
+
+  const slugs = String(url || '').match(/\/usedcars\/([A-Z0-9_-]+)\/([A-Z0-9_-]+)\/\d/i);
+  const make = (slugs && makeFromExchangeSlug(slugs[1]))
+    || (ld && ld.brand && makeFromExchangeSlug(String(ld.brand.name || '').replace(/\s+/g, '_').toUpperCase()))
+    || detectMake(title || '') || null;
+  const model = modelFromExchangeSlug(slugs ? slugs[2] : '');
+
+  const year = Number((String(spec['Month/Year'] || '').match(/(19|20)\d{2}/) || [])[0]) || null;
+  const km = kmToNumber(spec['Mileage']);
+  const fuelRaw = String(spec['Fuel'] || '').toUpperCase().replace(/[^A-Z]/g, '');
+  const fuel = EXCHANGE_FUEL[fuelRaw] || (spec['Fuel'] ? spec['Fuel'][0].toUpperCase() + spec['Fuel'].slice(1).toLowerCase() : null);
+  const st = spec['Steering'] ? (/left/i.test(spec['Steering']) ? 'LHD' : 'RHD') : null;
+  const drv = spec['Drive System'] ? spec['Drive System'].slice(0, 8) : null;
+  const eng = formatEngine(String(spec['Displacement'] || '').replace(/,/g, ''));
+  const tr = spec['Transmission'] ? spec['Transmission'].toUpperCase().slice(0, 12) : null;
+  const col = spec['Color'] || (ld && ld.color) || null;
+  const repairRaw = spec['Repaired'] || spec['Repair History'] || '';
+  const repair = repairRaw ? (/no/i.test(repairRaw) ? 'No' : 'Yes') : null;
+  // Body type: the exchange prints no body row (same gap the domestic site
+  // had — GOONET-SYNC.md fix #5), so it comes from the curated model map
+  // (English pass included). One definitional backstop: a kei car IS an
+  // engine of 660cc or less — Japanese law, not a guess.
+  const ccNum = Number(String(spec['Displacement'] || '').replace(/[^0-9]/g, ''));
+  const body = bodyForModel([model, title].filter(Boolean).join(' '))
+    || (ccNum > 0 && ccNum <= 660 ? 'Kei' : null);
+  const location = ((s.match(/alt="Location"[^>]*>\s*([^<]{2,60})</) || [])[1] || '')
+    .replace(/\s+/g, ' ').replace(/\s*Japan\s*$/i, '').trim() || null;
+
+  const priceJpy = (() => {
+    const n = ld && ld.offers ? Number(ld.offers.price) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+    return exchangeYen(s);
+  })();
+
+  const images = exchangeCarImages(s, stock);
+  const cover = (ld && typeof ld.image === 'string' && /^https:\/\/picture1\.goo-net\.com\//.test(ld.image)) ? ld.image : null;
+  if (cover && !images.includes(cover)) images.unshift(cover);
+
+  return {
+    goonet_id: stock,
+    make,
+    model,
+    title,
+    url,
+    year,
+    km,
+    fuel,
+    body,
+    st,
+    drv,
+    eng,
+    seats: seatsNumber(spec['Capacity'] || spec['Seats'] || ''),
+    tr,
+    col,
+    repair_history: repair,
+    location,
+    ext_rating: null,
+    int_rating: null,
+    price_jpy: priceJpy || null,
+    price_usd: yenToUsd(priceJpy),
+    price: usdText(yenToUsd(priceJpy)),
+    image: images[0] || null,
+    images,
+    photo_count: images.length
+  };
+}
+
 export function parseDetailPage(html, url) {
   const s = String(html || '');
+  // The exchange's English detail markup has its own parser; the URL names
+  // the host, and the markup itself carries the exchange's asset host.
+  if (isExchangeUrl(url) || s.includes('goo-net-exchange.com/common/')) {
+    return parseExchangeDetailPage(s, url);
+  }
   const text = stripTags(s).replace(/\s+/g, ' ');
   const stock = extractStockFromUrl(url) || detectMake(s) ? extractStockFromUrl(url) : null;
 
@@ -1810,9 +2363,218 @@ export function colourAfter(text, label = '車体色', opts = {}) {
 
 
 export function listingPageUrlFor(baseUrl, page) {
-  const clean = String(baseUrl || DEFAULT_SEARCH_URL).replace(/index-\d+\.html$/, '');
+  const base = String(baseUrl || DEFAULT_SEARCH_URL);
+  // Exchange results paginate by GET offset (20 cards per page — verified
+  // live 2026-11-04 on summary.php and 2026-11-05 on the make/model landing
+  // /usedcars/TOYOTA/ALPHARD/?offset=20, which returned the next 18 cards).
+  if (base.includes('/php/search/summary.php') || base.includes(EXCHANGE_HOST)) {
+    try {
+      const u = new URL(base);
+      u.searchParams.delete('offset');
+      if (page > 1) u.searchParams.set('offset', String((page - 1) * EXCHANGE_PAGE_SIZE));
+      return u.toString();
+    } catch { return base; }
+  }
+  const clean = base.replace(/index-\d+\.html$/, '');
   if (page <= 1) return clean;
   return clean.replace(/\/$/, '') + '/index-' + page + '.html';
+}
+
+// A goonet_search_url saved before the exchange switch still points at the
+// domestic site this host cannot reach. Translate the one shape the setting
+// ever took — /usedcar/price-<min>-<max>/ in 万円 — into the equivalent
+// exchange FOB search, so the switch needs no owner action. Anything else on
+// the domestic host falls back to the default exchange search; exchange URLs
+// and empty values pass through untouched.
+export function translateSearchUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  let u;
+  try { u = new URL(raw); } catch { return raw; }
+  const host = u.hostname.toLowerCase();
+  if (host !== 'www.goo-net.com' && host !== 'goo-net.com') return raw;
+  const m = u.pathname.match(/\/usedcar\/price-(\d*)-(\d*)\/?/);
+  if (m && (m[1] || m[2])) {
+    const p = new URLSearchParams();
+    if (m[1]) p.set('b_to_b_price_min', String(Number(m[1]) * 10000));
+    if (m[2]) p.set('b_to_b_price_max', String(Number(m[2]) * 10000));
+    p.set('search_type', 'price_search');
+    return EXCHANGE_BASE + '/php/search/summary.php?' + p.toString();
+  }
+  return DEFAULT_SEARCH_URL;
+}
+
+// ---------------------------------------------------------------------------
+// On-demand keyword search ("Toyota Alphard 2020", "jimny", "lexus rx").
+//
+// The exchange has NO working free-word GET search — probed live 2026-11-05:
+// summary.php?free_word=alphard returns the same generic card list as no
+// filter at all, and search_type=maker_search answers HTTP 500. What DOES
+// work is the make/model landing path, fully server-rendered with the same
+// card markup parseListingPage already reads:
+//   /usedcars/TOYOTA/ALPHARD/        → 20 Alphards (verified live)
+//   /usedcars/TOYOTA/                → make-only landing
+// So a keyword is translated into that path via a curated catalogue of the
+// models the exchange actually lists. Slug rule (verified against live
+// hrefs: YARIS_CROSS, LAND_CRUISER_250, FAIRLADY_Z, ALPHARD_HYBRID,
+// JIMNY_NOMADE, HILUX_SURF): uppercase, non-alphanumerics become "_".
+// Years in the keyword don't travel in the URL (the landing takes none) —
+// the sync run filters parsed cards by them instead.
+export const EXCHANGE_MAKE_ALIASES = {
+  'toyota': 'TOYOTA', 'lexus': 'LEXUS', 'nissan': 'NISSAN', 'honda': 'HONDA',
+  'mazda': 'MAZDA', 'suzuki': 'SUZUKI', 'subaru': 'SUBARU',
+  'daihatsu': 'DAIHATSU', 'mitsubishi': 'MITSUBISHI', 'isuzu': 'ISUZU',
+  'hino': 'HINO', 'mercedes benz': 'MERCEDES_BENZ', 'mercedes': 'MERCEDES_BENZ',
+  'benz': 'MERCEDES_BENZ', 'bmw': 'BMW', 'audi': 'AUDI',
+  'volkswagen': 'VOLKSWAGEN', 'vw': 'VOLKSWAGEN', 'volvo': 'VOLVO',
+  'porsche': 'PORSCHE', 'land rover': 'LAND_ROVER', 'range rover': 'LAND_ROVER',
+  'jaguar': 'JAGUAR', 'jeep': 'JEEP', 'mini': 'MINI', 'peugeot': 'PEUGEOT',
+  'renault': 'RENAULT', 'fiat': 'FIAT'
+};
+
+// make slug → the model names buyers actually ask for on that make. Names
+// double as display labels; the slug is derived from the name.
+export const EXCHANGE_MODEL_CATALOGUE = {
+  TOYOTA: ['Alphard', 'Alphard Hybrid', 'Vellfire', 'Voxy', 'Noah', 'Esquire',
+    'Sienta', 'Roomy', 'Tank', 'Raize', 'Yaris', 'Yaris Cross', 'Vitz',
+    'Passo', 'Aqua', 'Prius', 'Prius Alpha', 'Corolla', 'Corolla Axio',
+    'Corolla Fielder', 'Corolla Cross', 'Corolla Sport', 'Camry', 'Crown',
+    'Crown Sport', 'Mark X', 'Allion', 'Premio', 'Harrier', 'Harrier Hybrid',
+    'RAV4', 'C-HR', 'Land Cruiser', 'Land Cruiser 60', 'Land Cruiser 70',
+    'Land Cruiser 80', 'Land Cruiser 100', 'Land Cruiser 200',
+    'Land Cruiser 250', 'Land Cruiser 300', 'Land Cruiser Prado',
+    'FJ Cruiser', 'Hilux', 'Hilux Surf', 'Hiace Van', 'Hiace Wagon',
+    'Regiusace Van', 'Probox', 'Succeed', 'Dyna', 'Coaster', 'Estima',
+    'Wish', 'Porte', 'Ractis', 'Rush', 'Vanguard', 'Supra', '86', 'Century',
+    'Granace', 'Avanza', 'Fortuner'],
+  NISSAN: ['Note', 'March', 'Serena', 'Elgrand', 'X-Trail', 'Juke', 'Kicks',
+    'Dayz', 'Dayz Roox', 'Roox', 'Moco', 'Skyline', 'Fuga', 'Cima',
+    'Fairlady Z', 'GT-R', 'Leaf', 'Sylphy', 'Teana', 'Tiida', 'Cube',
+    'NV200 Vanette', 'Caravan', 'Civilian', 'Atlas', 'Wingroad', 'AD',
+    'Safari', 'Patrol', 'Murano', 'Dualis', 'Lafesta'],
+  HONDA: ['Fit', 'Fit Hybrid', 'Vezel', 'Grace', 'Freed', 'Stepwgn',
+    'Odyssey', 'Odyssey Hybrid', 'Shuttle', 'Civic', 'Civic Type R',
+    'Accord', 'CR-V', 'ZR-V', 'WR-V', 'Insight', 'N-BOX', 'N-WGN', 'N-ONE',
+    'N-VAN', 'Acty', 'Vamos', 'Legend', 'S660', 'S2000', 'Stream',
+    'Crossroad'],
+  MAZDA: ['Demio', 'Mazda2', 'Mazda3', 'Mazda6', 'Axela', 'Atenza', 'CX-3',
+    'CX-30', 'CX-5', 'CX-60', 'CX-8', 'Premacy', 'Biante', 'MPV',
+    'Roadster', 'RX-7', 'RX-8', 'Bongo Van', 'Carol', 'Flair', 'Scrum',
+    'Titan'],
+  SUZUKI: ['Alto', 'Alto Lapin', 'Wagon R', 'Wagon R Smile', 'Spacia',
+    'Hustler', 'Every', 'Every Wagon', 'Carry', 'Jimny', 'Jimny Sierra',
+    'Jimny Nomade', 'Swift', 'Swift Sport', 'Solio', 'Ignis', 'Baleno',
+    'Escudo', 'SX4', 'Xbee', 'Palette', 'MR Wagon', 'Cervo'],
+  SUBARU: ['Impreza', 'WRX', 'Legacy', 'Levorg', 'Forester', 'Outback',
+    'XV', 'BRZ', 'Sambar', 'Stella', 'Pleo', 'Chiffon', 'Exiga'],
+  DAIHATSU: ['Mira', 'Move', 'Move Canbus', 'Tanto', 'Taft', 'Wake', 'Cast',
+    'Copen', 'Rocky', 'Terios', 'Terios Kid', 'Hijet Truck', 'Hijet Cargo',
+    'Atrai', 'Thor', 'Boon'],
+  MITSUBISHI: ['eK Wagon', 'eK Cross', 'eK Space', 'Pajero', 'Pajero Mini',
+    'Outlander', 'Eclipse Cross', 'RVR', 'Delica', 'Delica Mini', 'Lancer',
+    'Lancer Evolution', 'Mirage', 'Minicab', 'Triton'],
+  LEXUS: ['LS', 'LX', 'GX', 'RX', 'NX', 'UX', 'ES', 'IS', 'GS', 'CT', 'LC',
+    'RC', 'LM'],
+  ISUZU: ['Elf', 'Forward', 'Giga', 'Bighorn', 'D-Max', 'MU-X'],
+  HINO: ['Dutro', 'Ranger', 'Profia'],
+  MERCEDES_BENZ: ['A-Class', 'B-Class', 'C-Class', 'E-Class', 'S-Class',
+    'G-Class', 'V-Class', 'GLA', 'GLB', 'GLC', 'GLE', 'GLS', 'CLA', 'CLS',
+    'SL', 'AMG GT'],
+  BMW: ['1 Series', '2 Series', '3 Series', '4 Series', '5 Series',
+    '7 Series', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'Z4', 'M2', 'M3',
+    'M4', 'M5'],
+  AUDI: ['A1', 'A3', 'A4', 'A5', 'A6', 'A8', 'Q2', 'Q3', 'Q5', 'Q7', 'TT'],
+  VOLKSWAGEN: ['Golf', 'Polo', 'Tiguan', 'Passat', 'Beetle', 'Touareg'],
+  PORSCHE: ['911', 'Cayenne', 'Macan', 'Panamera', 'Boxster', 'Cayman'],
+  LAND_ROVER: ['Range Rover', 'Range Rover Sport', 'Range Rover Evoque',
+    'Range Rover Velar', 'Defender', 'Discovery'],
+  JEEP: ['Wrangler', 'Grand Cherokee', 'Cherokee', 'Compass', 'Renegade'],
+  VOLVO: ['V40', 'V60', 'V90', 'XC40', 'XC60', 'XC90', 'S60', 'S90']
+};
+
+export const modelSlug = name =>
+  String(name || '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+// " cr-v " and "CR-V" must meet in the middle: lowercase, non-alphanumerics
+// to single spaces, so matching is insensitive to hyphens/dots/case.
+const kwNorm = s => ' ' + String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+
+// What buyers type → what the catalogue calls it. Applied on the normalized
+// text, guarded so an already-full name is never double-expanded.
+// [what they typed, what it means, ...phrases that veto the expansion]
+const KEYWORD_NICKNAMES = [
+  ['landcruiser', 'land cruiser'],
+  ['prado', 'land cruiser prado'],
+  ['surf', 'hilux surf'],
+  ['hiace', 'hiace van', 'hiace van', 'hiace wagon'],
+  ['regiusace', 'regiusace van'],
+  ['gtr', 'gt r'],
+  ['nbox', 'n box'],
+  ['nvan', 'n van'],
+  ['crv', 'cr v'],
+  ['chr', 'c hr'],
+  ['xtrail', 'x trail'],
+  ['vellfire hybrid', 'vellfire'],
+  ['stepwagon', 'stepwgn']
+];
+
+export function parseCarKeyword(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return null;
+  let norm = kwNorm(raw);
+  for (const [from, to, ...vetoes] of KEYWORD_NICKNAMES) {
+    const blocked = [to, ...vetoes].some(v => norm.includes(' ' + v + ' '));
+    if (!blocked && norm.includes(' ' + from + ' ')) {
+      norm = norm.replace(' ' + from + ' ', ' ' + to + ' ');
+    }
+  }
+
+  // Years: every plausible 4-digit year in the text. One year means exactly
+  // that year; two or more bound the range.
+  const years = (norm.match(/\b(19[5-9]\d|20[0-4]\d)\b/g) || []).map(Number);
+  const yearMin = years.length ? Math.min(...years) : null;
+  const yearMax = years.length ? Math.max(...years) : null;
+  for (const y of years) norm = norm.replace(' ' + y + ' ', ' ');
+
+  // Make: longest alias wins ("land rover" before "mini" could ever misfire).
+  let makeSlug = null;
+  for (const alias of Object.keys(EXCHANGE_MAKE_ALIASES).sort((a, b) => b.length - a.length)) {
+    if (norm.includes(' ' + alias + ' ')) {
+      makeSlug = EXCHANGE_MAKE_ALIASES[alias];
+      norm = norm.replace(' ' + alias + ' ', ' ');
+      break;
+    }
+  }
+
+  // Model: longest name wins ("Land Cruiser Prado" beats "Land Cruiser",
+  // "Alphard Hybrid" beats "Alphard"). When a make was named, its own
+  // catalogue is searched first; otherwise the model announces the make.
+  const makesToSearch = makeSlug
+    ? [makeSlug, ...Object.keys(EXCHANGE_MODEL_CATALOGUE).filter(m => m !== makeSlug)]
+    : Object.keys(EXCHANGE_MODEL_CATALOGUE);
+  let modelName = null, modelMake = null;
+  for (const mk of makesToSearch) {
+    for (const name of (EXCHANGE_MODEL_CATALOGUE[mk] || [])) {
+      const n = kwNorm(name);
+      if (norm.includes(n) && (!modelName || n.length > kwNorm(modelName).length)) {
+        modelName = name; modelMake = mk;
+      }
+    }
+    if (modelName && mk === makeSlug) break; // a hit on the named make is final
+  }
+  if (modelName) makeSlug = modelMake;
+  if (!makeSlug) return null; // nothing recognizable — the caller explains
+
+  const url = EXCHANGE_BASE + '/usedcars/' + makeSlug + '/'
+    + (modelName ? modelSlug(modelName) + '/' : '');
+  return {
+    url, makeSlug,
+    modelName: modelName || null,
+    modelSlug: modelName ? modelSlug(modelName) : null,
+    yearMin, yearMax,
+    label: [makeSlug.replace(/_/g, ' '), modelName, yearMin && yearMax && yearMin !== yearMax
+      ? yearMin + '–' + yearMax : (yearMin || '')].filter(Boolean).join(' ').trim()
+  };
 }
 
 // ---------------------------------------------------------------------------

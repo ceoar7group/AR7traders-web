@@ -11,7 +11,7 @@ import {computePlan, applyPlan, summarize} from './sync-core.mjs';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const seed = JSON.parse(readFileSync(path.join(dir, '../src/site-content.seed.json'), 'utf8')).listings;
 
-const SHOWROOM = 12;                       // showroom block size (sort_order 1–12)
+const SHOWROOM = 18;                       // showroom block size (the seed's curated collection)
 const TOTAL = seed.length;                 // all seed cars
 const GOONET = TOTAL - SHOWROOM;           // Japan-stock cars in the seed
 const OLD_IMPORT = 42;                     // simulated stale "old import" row count
@@ -59,12 +59,14 @@ function makeDb(tables) {
   };
 }
 
-// The live DB as of 2026-08-26: the old 42-car import, all published, no galleries.
+// A simulated live DB: 42 published rows without galleries. The first 12 carry
+// the seed's own showroom stock numbers (a prior sync of the same cars), the
+// rest are stale AR7-26013+ rows from the old import.
 function oldImport() {
   const rows = [];
   for (let i = 1; i <= OLD_IMPORT; i++) {
     rows.push({
-      id: 'old-' + i, stock_no: 'AR7-26' + String(i).padStart(3, '0'),
+      id: 'old-' + i, stock_no: i <= SHOWROOM ? seed[i - 1].stock_no : 'AR7-26' + String(i).padStart(3, '0'),
       make: 'Toyota', model: 'Old Car ' + i, year: 2020, km: '100',
       fuel: 'Petrol', body: 'SUV', price: '$10,000',
       image: '/assets/old-' + i + '.jpg', images: null, gallery: null,
@@ -108,8 +110,8 @@ console.log(`\n1) old ${OLD_IMPORT}-car import → seed sync (default: hide stal
 
   check(`table has ${OLD_IMPORT + GOONET} rows (${OLD_IMPORT} old + ${GOONET} new, nothing deleted — reversible)`, after.length === OLD_IMPORT + GOONET, 'got ' + after.length);
   check(`exactly ${TOTAL} published cars`, published.length === TOTAL, 'got ' + published.length);
-  check('first 12 published are showroom AR7-26001–26012',
-    published.slice(0, SHOWROOM).every((r, i) => r.stock_no === 'AR7-26' + String(i + 1).padStart(3, '0')),
+  check('first 12 published are the seed showroom cars in order',
+    published.slice(0, SHOWROOM).every((r, i) => r.stock_no === seed[i].stock_no),
     published.slice(0, SHOWROOM).map(r => r.stock_no).join(','));
   check('published cars carry the seed galleries', published.every(r => Array.isArray(r.images) && r.images.length > 0));
   console.log('    summary: ' + summarize(plan, done));
@@ -122,6 +124,38 @@ console.log(`\n1) old ${OLD_IMPORT}-car import → seed sync (default: hide stal
   // stale rows already hidden stay untouched
   const plan3 = computePlan(seed, after, {hardDelete: false});
   check('already-hidden rows are not re-updated', plan3.toUnpublish.length === 0);
+}
+
+// ---- 1b. importer-managed rows are protected ---------------------------------
+// 2026-11-05 incident: the importer promotes its cars into site_listings with
+// their own stock numbers; a seed sync hid all 162 of them. The guard: rows
+// whose stock_no is in `protectedStocks` are never unpublished or deleted.
+console.log('\n1b) importer-managed rows survive the sync');
+{
+  const rows = oldImport();
+  const importer = [...Array(5)].map((_, i) => ({
+    id: 'imp-' + i, stock_no: '070000' + i + 'A30261101W00' + i,
+    make: 'Toyota', model: 'Imported ' + i, year: 2024, km: '10,000',
+    fuel: 'Petrol', body: 'SUV', price: '$20,000',
+    image: 'x.jpg', images: ['x.jpg'], grade: null, status: 'In Stock',
+    location: 'Chiba', tr: 'AT', drv: '2WD', eng: '2,000cc', seats: 5,
+    col: 'White', st: 'RHD', published: true, sort_order: 100 + i
+  }));
+  const protectedStocks = new Set(importer.map(r => r.stock_no));
+  const all = rows.concat(importer);
+  const planGuarded = computePlan(seed, all, {hardDelete: false, protectedStocks});
+  check('protected rows are never unpublished',
+    planGuarded.toUnpublish.every(r => !protectedStocks.has(String(r.stock_no))));
+  check('protected row count is reported', planGuarded.protectedCount === importer.length,
+    'got ' + planGuarded.protectedCount);
+  check('summary names the untouched importer cars',
+    summarize(planGuarded, null).includes(importer.length + ' importer-managed cars left untouched'));
+  const planDelete = computePlan(seed, all, {hardDelete: true, protectedStocks});
+  check('hard-delete also spares protected rows',
+    planDelete.toDelete.every(r => !protectedStocks.has(String(r.stock_no))));
+  const planUnguarded = computePlan(seed, all, {hardDelete: false});
+  check('without the guard the importer rows WOULD be hidden (the incident)',
+    planUnguarded.toUnpublish.some(r => protectedStocks.has(String(r.stock_no))));
 }
 
 // ---- 2. hard-delete mode -----------------------------------------------------

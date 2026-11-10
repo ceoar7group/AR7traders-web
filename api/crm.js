@@ -19,10 +19,13 @@ import {CRM_COLUMNS} from './_columns.js';
 // `activities` is deliberately read-only: it is the audit trail, and the
 // server writes to it itself. Staff cannot add, edit or delete entries
 // (WHATS-NEW.md §2).
-const entities={leads:'leads',customers:'customers',vehicles:'vehicles',quotes:'quotes',shipments:'shipments',tasks:'tasks',activities:'activities'};
+const entities={leads:'leads',customers:'customers',vehicles:'vehicles',quotes:'quotes',shipments:'shipments',tasks:'tasks',activities:'activities',prospects:'prospects'};
 const WRITE_PERM={
   leads:'leads.write',customers:'customers.write',vehicles:'vehicles.write',
-  quotes:'quotes.write',shipments:'shipments.write',tasks:'tasks.write'
+  quotes:'quotes.write',shipments:'shipments.write',tasks:'tasks.write',
+  // Prospects (the outreach radar) and the WhatsApp desk are sales outreach
+  // material — same gate as writing a lead, no new permission to administer.
+  prospects:'leads.write'
 };
 const READ_ONLY=['activities'];
 // Writable columns live in api/_columns.js so the approval flow filters
@@ -49,7 +52,28 @@ export default async function handler(req,res,injected={}){
   const db=injected.db||auth.db;
   const entity=String(req.query.entity||'');
   if(entity==='me')return send(res,200,profile);
+  // WhatsApp desk (?entity=wa) — list conversations / read a thread / send a
+  // reply / AI draft. Lives in api/_wa.js (a shared module, not a 13th
+  // function). Reads are open to any signed-in staff like other CRM reads;
+  // sending and drafting are outreach, so they need leads.write.
+  if(entity==='wa'){
+   if(req.method!=='GET')await assertPerm(profile,'leads.write',injected);
+   const {waDesk}=injected.waDesk?{waDesk:injected.waDesk}:await import('./_wa.js');
+   return await waDesk(req,res,{db,profile,user,env:injected.env||process.env,send,log,fetchImpl:injected.fetch||globalThis.fetch});
+  }
   if(!entities[entity])return send(res,400,{error:'Unknown CRM entity'});
+  // AI assist for one lead: score + stock matches + outreach drafts.
+  // Drafts only — nothing is sent, nothing is stored on the lead. Requires
+  // leads.write because the output is outreach material, not a read-only view.
+  if(entity==='leads'&&String(req.query.ai||'')==='assist'){
+   if(req.method!=='POST')return send(res,405,{error:'Method not allowed'});
+   await assertPerm(profile,WRITE_PERM.leads,injected);
+   const id=req.body?.id;if(!id)return send(res,400,{error:'Lead id is required'});
+   const {leadAssist}=injected.leadAssist?{leadAssist:injected.leadAssist}:await import('./_lead-assist.js');
+   const result=await leadAssist(db,id,{env:injected.env||process.env,fetch:injected.fetch||globalThis.fetch});
+   await db.from('activities').insert({action:'AI assist drafted outreach for a lead',actor:profile.full_name,entity_type:'lead',entity_id:id,created_by:user.id});
+   return send(res,200,result)
+  }
   if(req.method==='GET'){
    const {data,error}=await db.from(entities[entity]).select('*').order(entity==='tasks'?'due_date':'created_at',{ascending:false}).limit(500);if(error)throw error;return send(res,200,data||[])
   }
@@ -62,12 +86,18 @@ export default async function handler(req,res,injected={}){
    await db.from('activities').insert({action:`Created ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:data.id,created_by:user.id});return send(res,201,data)
   }
   if(req.method==='PATCH'){
-   const id=req.body?.id;if(!id)return send(res,400,{error:'Record id is required'});const payload={...clean(entity,req.body),updated_at:new Date().toISOString()};const {data,error}=await db.from(entities[entity]).update(payload).eq('id',id).select().single();if(error)throw error;await db.from('activities').insert({action:`Updated ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:id,created_by:user.id});return send(res,200,data)
+   const id=req.body?.id;if(!id)return send(res,400,{error:'Record id is required'});const payload={...clean(entity,req.body),updated_at:new Date().toISOString()};const {data,error}=await db.from(entities[entity]).update(payload).eq('id',id).select().single();if(error)throw error;
+   // Call Desk (2026-11-12): a logged call outcome is a first-class audit
+   // entry — "Call logged — No answer" — not a generic "Updated lead record".
+   // That makes the lead timeline readable and the daily call stats real.
+   // call_outcome is NOT a column (clean() strips it); it only shapes the log.
+   const outcome=entity==='leads'&&typeof req.body?.call_outcome==='string'?String(req.body.call_outcome).trim().slice(0,60):'';
+   await db.from('activities').insert({action:outcome?`Call logged — ${outcome}`:`Updated ${entity.slice(0,-1)} record`,actor:profile.full_name,entity_type:entity.slice(0,-1),entity_id:id,created_by:user.id});return send(res,200,data)
   }
   if(req.method==='DELETE'){
    const id=req.query.id;if(!id)return send(res,400,{error:'Record id is required'});
    const {data:row}=await db.from(entities[entity]).select('*').eq('id',id).single();
-   const label=row?.name||row?.title||row?.stock_no||row?.quote_no||row?.tracking_no||entity;
+   const label=row?.name||row?.title||row?.company||row?.stock_no||row?.quote_no||row?.tracking_no||entity;
    // Staff without direct-delete rights raise an approval request instead
    // of being refused outright, so the work still moves.
    const direct=injected.permsFor
@@ -89,5 +119,12 @@ export default async function handler(req,res,injected={}){
    return send(res,200,{ok:true})
   }
   return send(res,405,{error:'Method not allowed'})
- }catch(e){console.error(e);return send(res,e.status||500,{error:e.message||'CRM request failed'})}
+ }catch(e){
+  // Never log the raw database error: constraint/row messages can carry a
+  // customer's phone, email or name. The browser gets a stable 5xx message;
+  // operators get only the stage and a non-personal code.
+  const status=e.status||500;
+  console.error('crm request failed',{method:String(req.method||'').slice(0,10),entity:String(req.query?.entity||'').slice(0,24),code:String(e.code||status).slice(0,40)});
+  return send(res,status,{error:status>=500?'CRM request failed. Please try again.':(e.message||'CRM request failed')})
+ }
 }

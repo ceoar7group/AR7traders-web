@@ -13,7 +13,7 @@ import {
   isDelistedPage, listingPageUrlFor, after, numberAfter, ratingAfter,
   BRAND_MAP, MODEL_MAP,
   countSpreadLinks, countDomCarLinks, looksLikeStub, botGateMarkers, pageDiagnostics, fetchPage, resetFetchState,
-  relayBaseUrl, relayApiKey,
+  relayBaseUrl, relayApiKey, relayEngine, relayProxy, relayRequestHeaders, relayFailureReason,
   llmConfigured, extractCardsWithLlm, markupSample, EVIDENCE_SAMPLE_BYTES,
   rawYen, priceTextToYen,
   FALLBACK_SEARCH_URL, JINA_RELAY, UA,
@@ -21,7 +21,11 @@ import {
   normalizeCharsetLabel, isUtf8Bytes, bomCharset, firstIndexOutsideScripts,
   scanCarLinks, parseJsonLdCarItems, normalizeCarUrl,
   buildParserDiagnostic, buildLlmCardWindows, scrubSecrets, structuredDataSample,
-  parseGoonetCarUrl, parseGoonetCarUrls, GOONET_CAR_HOSTS
+  parseGoonetCarUrl, parseGoonetCarUrls, GOONET_CAR_HOSTS,
+  DEFAULT_SEARCH_URL, EXCHANGE_BASE, EXCHANGE_HOST, EXCHANGE_PAGE_SIZE,
+  countExchangeCarLinks, parseExchangeListingPage, parseExchangeDetailPage,
+  makeFromExchangeSlug, modelFromExchangeSlug, exchangeCarImages, translateSearchUrl,
+  parseCarKeyword, modelSlug
 } from './goonet-core.mjs';
 import { legacyEncoder, byteResponse } from './legacy-jp.mjs';
 
@@ -321,7 +325,8 @@ ok(diag.stub === true, 'pageDiagnostics flags a stub');
 ok(diag.contentLength > 0, 'pageDiagnostics reports content length');
 eq(pageDiagnostics(realHtml).markers, [], 'pageDiagnostics: no markers on a clean page');
 
-eq(FALLBACK_SEARCH_URL, 'https://www.goo-net.com/usedcar/price--100/', 'fallback search url');
+eq(FALLBACK_SEARCH_URL, 'https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search',
+  'fallback search url is the exchange under-¥1M search (the domestic host drops datacenter connections — probe 2026-11-04)');
 eq(JINA_RELAY, 'https://r.jina.ai/', 'jina relay base');
 
 // ---- fetchPage: cookies, headers, relay fallback ---------------------------
@@ -392,8 +397,12 @@ ok(r.directDiagnostics.stub === true, 'relay result reports the direct diagnosti
 const relayCall = calls.find(c => c.url.startsWith(JINA_RELAY));
 eq(relayCall.url, JINA_RELAY + listUrl, 'relay fetches the same url');
 eq(relayCall.headers['X-Return-Format'], 'html', 'relay asks for html');
-eq(relayCall.headers['X-No-Cache'], 'true', 'relay bypasses cache');
+eq(relayCall.headers['X-Cache-Tolerance'], '900', 'relay accepts a recent cached crawl instead of forcing a cold one');
+ok(!relayCall.headers['X-No-Cache'], 'relay no longer discards the cache (that forced a 20s cold crawl every run)');
+eq(relayCall.headers['X-Respond-Timing'], 'html', 'relay snapshots the raw HTML without waiting for render/network-idle');
+eq(relayCall.headers['X-Engine'], 'curl', 'relay uses the plain-HTTP engine, never the headless-browser render queue');
 eq(relayCall.headers['X-With-Links-Summary'], 'false', 'relay skips the links summary');
+ok(!relayCall.headers['X-Proxy'], 'proxy routing is a keyed-tier feature: not requested without a key');
 ok(!relayCall.headers['Cookie'], 'goo-net cookies are not leaked to the relay host');
 
 // 3) relay no better → keep the direct response
@@ -445,6 +454,72 @@ r = await fetchPage(listUrl, { timeoutMs: 2000 });
 ok(!r.ok && r.status === 0, 'an unreachable goo-net still reports a failed fetch');
 ok(r.diagnostics.relayAttempted === true, 'the report records that the relay was tried');
 ok(calls.some(c => c.url.startsWith(JINA_RELAY)), 'the relay really was called before giving up');
+eq(r.diagnostics.relayError, 'fast engine: HTTP 500 — browser engine: HTTP 500',
+  'the failure names BOTH rungs of the relay ladder');
+
+// 7a2) the relay's refusal body is read, not discarded: Jina's 422 carries
+//      the actual reason as JSON, and the owner notice must show it.
+eq(relayFailureReason(JSON.stringify({ readableMessage: 'AssertionFailureError: the crawler could not read the page' })),
+  'AssertionFailureError: the crawler could not read the page', 'a JSON readableMessage is surfaced verbatim');
+eq(relayFailureReason('{"message":"quota exhausted"}'), 'quota exhausted', 'plain message fields work too');
+eq(relayFailureReason('<html><body>Service unavailable</body></html>'), 'Service unavailable', 'an HTML body is tag-stripped');
+eq(relayFailureReason(''), '', 'an empty body stays empty');
+ok(relayFailureReason('x'.repeat(500)).length <= 160, 'the reason is capped to one notice-sized line');
+
+resetFetchState();
+calls = mockFetch(u => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) return { status: 422, body: JSON.stringify({ readableMessage: 'AssertionFailureError: target denied' }), contentType: 'application/json' };
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+eq(r.diagnostics.relayError,
+  'fast engine: HTTP 422 (AssertionFailureError: target denied) — browser engine: HTTP 422 (AssertionFailureError: target denied)',
+  'both rungs report the relay-stated reason, not a bare status code');
+
+// 7b) the relay engine ladder: goo-net refuses the fast no-JS engine with a
+//     422, so the relay climbs to the browser engine with the time it saved.
+//     This is the exact production failure of 2026-11-04 ("Relay: HTTP 422").
+resetFetchState();
+let relayHits = [];
+calls = mockFetch((u, opts) => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) {
+    relayHits.push((opts.headers || {})['X-Engine']);
+    return relayHits.length === 1 ? { status: 422 } : { body: realHtml };
+  }
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+ok(r.ok && r.via === 'relay', 'a 422-refused fast engine is rescued by the browser rung');
+eq(relayHits, ['curl', 'browser'], 'the ladder tries the fast engine first, then the browser');
+ok(r.html.includes('年式'), 'the browser rung page is what the caller parses');
+
+// 7c) a short relay budget leaves no room to climb — one rung, honest story
+resetFetchState();
+relayHits = [];
+calls = mockFetch((u, opts) => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) { relayHits.push((opts.headers || {})['X-Engine']); return { status: 422 }; }
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000, relayTimeoutMs: 2000 });
+eq(relayHits, ['curl'], 'with 2s of relay budget only the fast rung runs');
+ok(String(r.diagnostics.relayError).includes('no time left for the browser engine'),
+  'the report says why the browser rung was skipped');
+
+// 7d) GOONET_RELAY_ENGINE=browser makes the browser the one and only rung
+resetFetchState();
+process.env.GOONET_RELAY_ENGINE = 'browser';
+relayHits = [];
+calls = mockFetch((u, opts) => {
+  if (u === 'https://www.goo-net.com/') return { body: 'home' };
+  if (u.startsWith(JINA_RELAY)) { relayHits.push((opts.headers || {})['X-Engine']); return { body: realHtml }; }
+  throw new Error('fetch failed');
+});
+r = await fetchPage(listUrl, { timeoutMs: 2000 });
+ok(r.ok && r.via === 'relay' && String(relayHits) === 'browser', 'a pinned browser engine is used directly, no ladder');
+delete process.env.GOONET_RELAY_ENGINE;
 
 // 8) allowRelay: false (delist checks) must not dial the relay on a dead socket
 resetFetchState();
@@ -467,6 +542,31 @@ process.env.GOONET_RELAY_KEY = 'alt_key';
 eq(relayApiKey(), 'alt_key', 'GOONET_RELAY_KEY is picked up too');
 delete process.env.GOONET_RELAY_KEY;
 
+// 9b) relay engine / proxy knobs: sensible defaults, env-overridable, 'off' silences them
+eq(relayEngine(), 'curl', 'relay engine defaults to the fast plain-HTTP path');
+process.env.GOONET_RELAY_ENGINE = 'browser';
+eq(relayEngine(), 'browser', 'GOONET_RELAY_ENGINE can send the relay back to the browser engine');
+process.env.GOONET_RELAY_ENGINE = 'off';
+eq(relayEngine(), '', 'GOONET_RELAY_ENGINE=off sends no engine preference');
+eq(relayRequestHeaders()['X-Engine'], undefined, 'and the header disappears accordingly');
+delete process.env.GOONET_RELAY_ENGINE;
+eq(relayProxy(), 'auto', 'relay proxy defaults to the auto pool');
+eq(relayProxy('jp'), 'jp', 'callers can pass their own fallback (goo-net pins jp — the 2026-11-04 probe proved its geo-fence)');
+process.env.GOONET_RELAY_PROXY = 'jp';
+eq(relayProxy(), 'jp', 'GOONET_RELAY_PROXY can pin a proxy country');
+process.env.GOONET_RELAY_PROXY = 'us';
+eq(relayProxy('jp'), 'us', 'the env knob beats any caller fallback — tuning stays deploy-free');
+process.env.GOONET_RELAY_PROXY = 'jp';
+process.env.JINA_API_KEY = 'k';
+eq(relayRequestHeaders()['X-Proxy'], 'jp', 'a pinned proxy country rides into the keyed headers');
+eq(relayRequestHeaders({ proxy: 'auto' })['X-Proxy'], 'auto', 'a per-call proxy override wins (machinery keeps auto while goo-net pins jp)');
+process.env.GOONET_RELAY_PROXY = 'off';
+eq(relayRequestHeaders()['X-Proxy'], undefined, 'GOONET_RELAY_PROXY=off keeps proxy routing out even with a key');
+delete process.env.GOONET_RELAY_PROXY;
+delete process.env.JINA_API_KEY;
+eq(relayRequestHeaders({ userAgent: 'AR7-Test/1.0' })['User-Agent'], 'AR7-Test/1.0',
+  'callers (the machinery scraper) can present their own honest user agent to the relay');
+
 // 10) the relay call carries the API key when one is configured
 resetFetchState();
 process.env.JINA_API_KEY = 'jina_secret_123';
@@ -478,6 +578,7 @@ calls = mockFetch(u => {
 r = await fetchPage(listUrl, { timeoutMs: 2000 });
 const keyedRelay = calls.find(c => c.url.startsWith(JINA_RELAY));
 eq(keyedRelay.headers['Authorization'], 'Bearer jina_secret_123', 'the relay call carries the configured API key');
+eq(keyedRelay.headers['X-Proxy'], 'jp', 'the goo-net relay pins the Japan proxy pool (goo-net drops foreign datacenter connections — probe 2026-11-04)');
 eq(r.via, 'relay', 'a keyed relay still replaces a stub listing');
 delete process.env.JINA_API_KEY;
 
@@ -998,6 +1099,258 @@ const forged = parseListingPage('<html><body><script>var x="/usedcar/spread/goo/
 ok(forged.cars.length <= 1 && forged.cars[0]?.make === 'Unknown',
   'a stock id that exists only in a script yields a candidate with no invented make');
 ok(!qualityScore(forged.cars[0] || {}, { minPhotos: 5 }).pass, 'and that candidate cannot pass the quality gate');
+
+
+// ---------------------------------------------------------------------------
+// Goo-net EXCHANGE — the English export portal the importer now reads.
+// Fixtures mirror the live markup captured 2026-11-04 (probe-exchange-*.html).
+// ---------------------------------------------------------------------------
+console.log('\n-- exchange: constants and URL plumbing --');
+{
+  eq(DEFAULT_SEARCH_URL,
+    'https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search',
+    'the default search is the exchange FOB ¥1M–3M band (the old domestic default in exchange parameters)');
+  eq(listingPageUrlFor(DEFAULT_SEARCH_URL, 1), DEFAULT_SEARCH_URL, 'page 1 of an exchange search is the search itself');
+  ok(listingPageUrlFor(DEFAULT_SEARCH_URL, 3).endsWith('&offset=40'),
+    'page 3 rides GET offset=40 (20 cards per page — verified live: offset returns the next cards)');
+  eq(new URL(listingPageUrlFor(listingPageUrlFor(DEFAULT_SEARCH_URL, 3), 2)).searchParams.get('offset'), '20',
+    'paging an already-paged URL replaces the offset instead of stacking it');
+  eq(listingPageUrlFor('https://www.goo-net.com/usedcar/price-100-300/', 2),
+    'https://www.goo-net.com/usedcar/price-100-300/index-2.html',
+    'legacy domestic URLs still paginate the old way (owner-pinned searches keep working)');
+
+  eq(translateSearchUrl('https://www.goo-net.com/usedcar/price-100-300/'),
+    'https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search',
+    'a saved domestic price search translates to the same FOB band on the exchange — no owner action needed');
+  eq(translateSearchUrl('https://www.goo-net.com/usedcar/price--100/'),
+    'https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_max=1000000&search_type=price_search',
+    'an open-ended domestic price band translates too');
+  eq(translateSearchUrl(DEFAULT_SEARCH_URL), DEFAULT_SEARCH_URL, 'exchange URLs pass through untouched');
+  eq(translateSearchUrl('https://www.goo-net.com/usedcar/brand-TOYOTA/'), DEFAULT_SEARCH_URL,
+    'any other domestic search falls back to the default exchange search (that host is unreadable from here)');
+  eq(translateSearchUrl(''), '', 'an empty setting stays empty so the caller applies its own default');
+}
+
+console.log('\n-- exchange: make/model naming --');
+{
+  eq(makeFromExchangeSlug('TOYOTA'), 'Toyota', 'TOYOTA → Toyota');
+  eq(makeFromExchangeSlug('MERCEDES_BENZ'), 'Mercedes-Benz', 'MERCEDES_BENZ matches the EN brand map spelling');
+  eq(makeFromExchangeSlug('BMW'), 'BMW', 'short marques stay uppercase');
+  eq(makeFromExchangeSlug('ALFA_ROMEO'), 'Alfa Romeo', 'two-word marques title-case');
+  eq(modelFromExchangeSlug('RAV4'), 'RAV4', 'digit-bearing badges stay verbatim');
+  eq(modelFromExchangeSlug('CX_5'), 'CX-5', 'the model map supplies the site’s own spelling');
+  eq(modelFromExchangeSlug('N_BOX'), 'N-BOX', 'N_BOX → N-BOX');
+  eq(modelFromExchangeSlug('JIMNY_NOMADE'), 'Jimny Nomade', 'unknown models title-case word by word');
+}
+
+// One exchange card, shaped exactly like the live list view.
+const exchangeCard = (id, make, model, extra = {}) => `
+<li><a class="spread_link_new_tab" href="/usedcars/${make}/${model}/${id}/">
+<div class="photo"><p><img data-src="https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}00.jpg" alt="${make} ${model}" class="lazyload"></p></div>
+<div class="sub-content"><h3 class="title">${extra.title || (make + ' ' + model + ' Z')}</h3>
+<p class="location">${extra.location || 'Hyogo Japan'}</p>
+<p class="price currency-jpy">¥${extra.price || '2,971,800'}</p>
+<input type="hidden" name="currency-price" value='{"USD":"$18,858","JPY":"\\u00a5${extra.price || '2,971,800'}"}'>
+<ul class="details"><li>${extra.ym || '2026.06'}</li><li>${extra.col || 'WHITE II'}</li><li> ${extra.km || '5'} km </li><li>1200cc</li><li>Right</li><li>AT</li></ul>
+</div></a></li>`;
+
+const exchangeListingHtml = `<!DOCTYPE html><html lang="en"><head><title>Japanese used cars</title></head><body>
+<form action="/php/search/summary.php"><input type="hidden" name="total" value="124645"><input type="hidden" name="limit" value="20"></form>
+<div id="list-cars"><ul class="list-listview">
+${exchangeCard('700071023230260905001', 'TOYOTA', 'RAIZE')}
+${exchangeCard('700070592930261030002', 'SUZUKI', 'JIMNY_NOMADE', { title: 'SUZUKI JIMNY NOMADE', location: 'Shiga Japan', price: '3,795,700', ym: '2026.01', km: '1,200' })}
+</ul></div>
+<img src="https://www.goo-net-exchange.com/common/assets/img/common/icon/certified-item.svg">
+</body></html>`;
+
+console.log('\n-- exchange: listing page parses into complete cards --');
+{
+  const r = parseListingPage(exchangeListingHtml);
+  eq(r.diagnostics.cardSource, 'exchange', 'exchange markup routes to the exchange parser');
+  eq(r.cars.length, 2, 'both cards parsed');
+  const [raize, jimny] = r.cars;
+  eq(raize.goonet_id, '700071023230260905001', 'stock id from the card link');
+  eq(raize.make, 'Toyota', 'make from the URL slug');
+  eq(raize.model, 'Raize', 'model from the URL slug');
+  eq(raize.title, 'TOYOTA RAIZE Z', 'title from the h3');
+  eq(raize.price_jpy, 2971800, 'FOB price in yen');
+  eq(raize.year, 2026, 'year from the year.month detail');
+  eq(raize.km, '5', 'mileage');
+  eq(raize.eng, '1,200cc', 'displacement');
+  eq(raize.st, 'RHD', 'steering');
+  eq(raize.tr, 'AT', 'transmission');
+  eq(raize.col, 'WHITE II', 'colour');
+  eq(raize.location, 'Hyogo', 'location without the Japan suffix');
+  eq(raize.url, 'https://www.goo-net-exchange.com/usedcars/TOYOTA/RAIZE/700071023230260905001/', 'absolute detail URL');
+  ok(raize.image && raize.image.startsWith('https://picture1.goo-net.com/'), 'cover photo from the card');
+  eq(jimny.model, 'Jimny Nomade', 'second card model');
+  eq(jimny.km, '1200', 'comma mileage parsed');
+  eq(r.pagination.total, 500, 'six-figure totals cap the page count at 500 (124,645 cars ÷ 20 would be 6,233)');
+  ok(!looksLikeStub(exchangeListingHtml), 'an exchange listing page is never mistaken for a bot-gate stub');
+  eq(countExchangeCarLinks(exchangeListingHtml), 2, 'the exchange car-link count sees both cards');
+  eq(pageDiagnostics(exchangeListingHtml).exchangeCarLinks, 2, 'and pageDiagnostics reports it');
+}
+
+const exchangeDetailHtml = `<!DOCTYPE html><html lang="en"><head>
+<script type="application/ld+json">{"@context":"https://schema.org/","@type":"Product","url":"https://www.goo-net-exchange.com/usedcars/TOYOTA/RAIZE/700071023230260905001/","name":"TOYOTA RAIZE Z","image":"https://picture1.goo-net.com/7000710232/30260905/J/70007102323026090500100.jpg","color":"WHITE II","brand":{"@type":"Brand","name":"TOYOTA"},"offers":{"@type":"Offer","priceCurrency":"JPY","price":"2971800"}}</script>
+</head><body>
+<img src="https://www.goo-net-exchange.com/common/assets/img/common/icon/icn_location.svg" alt="Location"> Hyogo Japan </p>
+<h1>TOYOTA RAIZE Z</h1>
+<dl><dt>Month/Year</dt><dd>06.2026</dd></dl>
+<dl><dt>Color</dt><dd>WHITE II</dd></dl>
+<dl><dt>Mileage</dt><dd> 5 km </dd></dl>
+<dl><dt>Repaired</dt><dd>No Repair</dd></dl>
+<dl><dt>Steering</dt><dd>Right</dd></dl>
+<dl><dt>Transmission</dt><dd>AT</dd></dl>
+<dl><dt>Fuel</dt><dd>GASOLINE</dd></dl>
+<dl><dt>Drive System</dt><dd>2WD</dd></dl>
+<dl><dt>Doors</dt><dd>5D</dd></dl>
+<dl><dt>Displacement</dt><dd>1200cc</dd></dl>
+<img src="https://picture1.goo-net.com/071/0710232/J/0710232A30260905W00101.jpg">
+<img src="https://picture1.goo-net.com/071/0710232/J/0710232A30260905W00102.jpg">
+<img src="https://picture1.goo-net.com/071/0710232/P/0710232A30260905W00101.jpg">
+<img src="https://picture1.goo-net.com/7000705929/30261027/J/70007059293026102700300.jpg">
+</body></html>`;
+
+console.log('\n-- exchange: detail page parses English specs + JSON-LD --');
+{
+  const d = parseDetailPage(exchangeDetailHtml, 'https://www.goo-net-exchange.com/usedcars/TOYOTA/RAIZE/700071023230260905001/');
+  eq(d.goonet_id, '700071023230260905001', 'stock from the URL');
+  eq(d.make, 'Toyota', 'make');
+  eq(d.model, 'Raize', 'model');
+  eq(d.title, 'TOYOTA RAIZE Z', 'title from h1');
+  eq(d.year, 2026, 'year from Month/Year');
+  eq(d.km, '5', 'mileage');
+  eq(d.fuel, 'Petrol', 'GASOLINE maps to the site’s Petrol');
+  eq(d.st, 'RHD', 'Right → RHD');
+  eq(d.drv, '2WD', 'drive system');
+  eq(d.eng, '1,200cc', 'displacement formatted like the rest of the site');
+  eq(d.tr, 'AT', 'transmission');
+  eq(d.col, 'WHITE II', 'colour');
+  eq(d.repair_history, 'No', 'No Repair → No');
+  eq(d.body, 'SUV', 'body comes from the curated model map, English pass (the exchange prints no body row)');
+  eq(d.location, 'Hyogo', 'location');
+  eq(d.price_jpy, 2971800, 'price from the JSON-LD offer');
+  eq(d.image, 'https://picture1.goo-net.com/7000710232/30260905/J/70007102323026090500100.jpg', 'JSON-LD cover first');
+  eq(d.photo_count, 3, 'gallery: cover + the two /J/ shots of THIS car');
+  ok(!d.images.some(u => u.includes('30261027')), 'the recommended-cars strip cannot donate another car’s photos');
+  ok(!d.images.some(u => u.includes('/P/')), 'thumbnails are never imported');
+
+  const merged = mergeCardAndDetail(parseListingPage(exchangeListingHtml).cars[0], d);
+  eq(merged.make, 'Toyota', 'card+detail merge keeps the make');
+  eq(merged.photo_count, 3, 'merge keeps the richer gallery');
+  const gate = qualityScore({ ...merged, images: [1,2,3,4,5].map(i => `https://picture1.goo-net.com/071/0710232/J/0710232A30260905W0010${i}.jpg`) }, { minPhotos: 5 });
+  ok(gate.pass, 'a complete exchange car passes the quality gate (no condition rating is forgiven): ' + gate.reasons.join(', '));
+}
+
+console.log('\n-- exchange: body type is derived, never left to a missing row --');
+{
+  // The 2026-11-04 production run read the exchange perfectly and then
+  // skipped all 17 cars with "missing fields: body" — the exchange, like the
+  // domestic site (GOONET-SYNC.md fix #5), prints no body-type row, and
+  // bodyForModel only knew the Japanese model names. The English pass:
+  eq(bodyForModel('TOYOTA RAIZE Z'), 'SUV', 'Raize reads as SUV from the curated map’s own English name');
+  eq(bodyForModel('Toyota Yaris Cross Z'), 'SUV', 'Yaris Cross is SUV — longest match wins');
+  eq(bodyForModel('Toyota Yaris G'), 'Hatchback', 'plain Yaris stays a hatchback');
+  eq(bodyForModel('Toyota Roomy'), 'MPV', 'exchange-era additions cover common exports the map lacked');
+  eq(bodyForModel('Suzuki Jimny Nomade'), 'SUV', 'Jimny Nomade (the 1.5L 5-door) is SUV, not Kei');
+  eq(bodyForModel('Suzuki Jimny XC'), 'Kei', 'the kei Jimny stays Kei');
+  eq(bodyForModel('Suzuki Solio'), 'MPV', 'Solio resolves (the map used to misspell it "Sonio")');
+  eq(bodyForModel('Toyota Dyna'), 'Truck', 'work vehicles classify');
+  eq(bodyForModel('Toyota Vanguard'), null, 'word boundaries: Vanguard is never read as a van');
+  eq(bodyForModel('Some Convertible Thing'), 'Convertible', 'generic body words still classify');
+  eq(bodyForModel('Completely Unknown Model'), null, 'an unknown model stays null — skipped honestly, never guessed');
+
+  // Kei backstop: a kei car IS a ≤660cc engine (Japanese law, not a guess).
+  const keiDetail = exchangeDetailHtml
+    .replace(/RAIZE/g, 'MISTERIO').replace(/Raize/g, 'Misterio')
+    .replace('<dd>1200cc</dd>', '<dd>660cc</dd>')
+    .replace(/TOYOTA RAIZE Z/g, 'TOYOTA MISTERIO Z');
+  const kd = parseDetailPage(keiDetail, 'https://www.goo-net-exchange.com/usedcars/TOYOTA/MISTERIO/700071023230260905001/');
+  eq(kd.body, 'Kei', 'an unknown model with a 660cc engine is a kei car by definition');
+
+  // End to end: a merged exchange car carries every required import field.
+  const card = parseListingPage(exchangeListingHtml).cars[0];
+  const detail = parseDetailPage(exchangeDetailHtml, card.url);
+  const merged = mergeCardAndDetail(card, detail);
+  const required = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
+  eq(required.filter(f => !merged[f] || merged[f] === 'Unknown').join(','), '',
+    'no required field is missing — the "missing fields: body" skip storm cannot recur for mapped models');
+}
+
+console.log('\n-- on-demand keyword → exchange search URL --');
+{
+  const B = 'https://www.goo-net-exchange.com';
+  const u = q => parseCarKeyword(q)?.url || null;
+  eq(u('Toyota Alphard 2020'), B + '/usedcars/TOYOTA/ALPHARD/', 'make + model + year → model landing');
+  eq(parseCarKeyword('Toyota Alphard 2020').yearMin, 2020, 'a single year bounds both ends');
+  eq(parseCarKeyword('prado 2018 2022').yearMax, 2022, 'two years make a range');
+  eq(u('prado'), B + '/usedcars/TOYOTA/LAND_CRUISER_PRADO/', 'nicknames expand (prado → Land Cruiser Prado)');
+  eq(u('jimny'), B + '/usedcars/SUZUKI/JIMNY/', 'a model alone announces its make');
+  eq(u('alphard hybrid'), B + '/usedcars/TOYOTA/ALPHARD_HYBRID/', 'longest model name wins');
+  eq(u('hiace wagon'), B + '/usedcars/TOYOTA/HIACE_WAGON/', 'hiace wagon is not rewritten to the van');
+  eq(u('hiace'), B + '/usedcars/TOYOTA/HIACE_VAN/', 'bare hiace means the van everyone exports');
+  eq(u('honda cr-v'), B + '/usedcars/HONDA/CR_V/', 'hyphens normalize into the slug underscore');
+  eq(u('mercedes e-class'), B + '/usedcars/MERCEDES_BENZ/E_CLASS/', 'european makes resolve');
+  eq(u('fairlady z'), B + '/usedcars/NISSAN/FAIRLADY_Z/', 'multi-word slugs match the live href shape');
+  eq(u('toyota'), B + '/usedcars/TOYOTA/', 'make-only yields the make landing (the API asks for a model)');
+  eq(parseCarKeyword('toyota')?.modelSlug, null, 'make-only carries no model slug');
+  eq(parseCarKeyword('random words here'), null, 'gibberish is refused, not guessed');
+  eq(modelSlug('Land Cruiser 250'), 'LAND_CRUISER_250', 'slug rule matches the live hrefs');
+  // Model landings paginate by GET offset exactly like summary.php —
+  // verified live 2026-11-05: /usedcars/TOYOTA/ALPHARD/?offset=20 returned
+  // the next, different cards.
+  eq(listingPageUrlFor(B + '/usedcars/TOYOTA/ALPHARD/', 2), B + '/usedcars/TOYOTA/ALPHARD/?offset=20',
+    'model landing page 2 → ?offset=20');
+  eq(listingPageUrlFor(B + '/usedcars/TOYOTA/ALPHARD/', 1), B + '/usedcars/TOYOTA/ALPHARD/',
+    'model landing page 1 is the bare landing');
+}
+
+console.log('\n-- exchange: owner-pasted URLs and delisting --');
+{
+  const p1 = parseGoonetCarUrl('https://www.goo-net-exchange.com/usedcars/TOYOTA/RAIZE/700071023230260905001/');
+  ok(p1.ok, 'an exchange detail URL is accepted');
+  eq(p1.stock, '700071023230260905001', 'stock extracted');
+  eq(p1.url, 'https://www.goo-net-exchange.com/usedcars/TOYOTA/RAIZE/700071023230260905001/', 'URL rebuilt from parsed segments');
+  ok(!parseGoonetCarUrl('https://www.goo-net-exchange.com.evil.tld/usedcars/TOYOTA/RAIZE/700071023230260905001/').ok,
+    'a lookalike host is still rejected');
+  ok(!parseGoonetCarUrl('https://www.goo-net.com/usedcars/TOYOTA/RAIZE/700071023230260905001/').ok,
+    'the exchange path on the domestic host is rejected (hosts and paths stay paired)');
+  const legacy = parseGoonetCarUrl('https://www.goo-net.com/usedcar/spread/goo/15/988026062900208975002.html');
+  ok(legacy.ok, 'legacy domestic detail URLs still validate');
+  eq(extractStockFromUrl('https://www.goo-net-exchange.com/usedcars/SUZUKI/JIMNY_NOMADE/700070592930261030002/'),
+    '700070592930261030002', 'stock from an exchange URL');
+  ok(isDelistedPage({ ok: false, status: 404, html: '<html>Not found</html>' }),
+    'the exchange answers a dead listing with a plain 404 — verified live — and 404 already means delisted');
+  ok(!isDelistedPage({ ok: false, status: 0, html: '' }),
+    'a network failure still never counts as delisted (old domestic rows are safe forever)');
+}
+
+console.log('\n-- exchange: fetchPage treats the exchange as a first-class host --');
+{
+  resetFetchState();
+  let exCalls = mockFetch(u => {
+    if (u.startsWith('https://www.goo-net-exchange.com/')) return { body: exchangeListingHtml };
+    return { body: 'unexpected' };
+  });
+  const r = await fetchPage(DEFAULT_SEARCH_URL, { timeoutMs: 2000 });
+  ok(r.ok, 'an exchange listing fetch succeeds directly');
+  eq(r.via, 'direct', 'no relay needed — the exchange answers datacenter IPs');
+  ok(!exCalls.some(c => c.url === 'https://www.goo-net.com/'), 'no domestic warm-up call for an exchange URL');
+  ok(!exCalls.some(c => c.url.startsWith(JINA_RELAY)), 'and no relay call when the page is real');
+  ok(!exCalls.some(c => (c.headers || {})['Cookie']), 'the domestic cookie jar never leaks to the exchange host');
+  eq(parseListingPage(r.html).cars.length, 2, 'the fetched page parses into cards end-to-end');
+
+  // A network-dead exchange fetch still earns the relay ladder.
+  resetFetchState();
+  exCalls = mockFetch(u => {
+    if (u.startsWith(JINA_RELAY)) return { body: exchangeListingHtml };
+    throw new Error('ECONNRESET');
+  });
+  const r2 = await fetchPage(DEFAULT_SEARCH_URL, { timeoutMs: 2000 });
+  eq(r2.via, 'relay', 'a dead exchange socket still falls back to the relay');
+  eq(parseListingPage(r2.html).diagnostics.cardSource, 'exchange', 'and the relayed page parses as exchange');
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

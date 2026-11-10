@@ -30,6 +30,7 @@ const {
   runScraper, SCRAPER_CATEGORIES, SCRAPER_ORIGIN, SCRAPER_UA,
   MAX_SCRAPER_MACHINES, SCRAPER_DELAY_MS, ROBOTS_BLOCKED
 } = await import('../api/_machinery-scraper.js');
+const { fetchWithRetry, describeFetchFailure } = await import('../api/_machinery-scraper.js');
 
 // ---- fixtures ---------------------------------------------------------------
 
@@ -144,6 +145,11 @@ function fakeDb(seed = {}) {
           for (const r of hits) Object.assign(r, clone(api._p));
           return resolve({ data: hits[0] ? clone(hits[0]) : null, error: null });
         }
+        if (api._m === 'delete') {
+          const hits = apply(rows, api._f);
+          for (const h of hits) rows.splice(rows.indexOf(h), 1);
+          return resolve({ data: hits.map(clone), error: null });
+        }
         const found = apply(rows, api._f);
         if (api._single) return resolve({ data: found[0] ? clone(found[0]) : null, error: null });
         return resolve({ data: found.map(clone), error: null });
@@ -237,7 +243,13 @@ say('\n-- a scraper run end to end (fixtures, no network) --');
     `two readable, allowed product pages become two previews (${b.machines?.length})`);
 
   const m = b.machines[0];
-  ok(!!m.name && !!m.brand && !!m.type && !!m.year, 'each preview has the machine shape (name, brand, type, year)');
+  ok(!!m.name && !!m.brand && !!m.type, 'each preview has the machine shape (name, brand, type)');
+  ok(m.year === null,
+    `a page that states no year yields a NULL year, not an invented one (got ${m.year})`);
+  ok(m.hours === null, `and no hour meter yields null hours, not a confident 0 (got ${m.hours})`);
+  ok(b.previews?.[0]?.warnings?.some(w => /no model year/i.test(w)) ||
+     b.warnings?.some(w => /no model year/i.test(w)),
+    'the preview warns that the machine will be listed without a model year');
   ok(m.brand === 'Doosan', `the brand was classified (${m.brand})`);
   ok(m.type === 'Excavators', `the type was classified (${m.type})`);
   ok(m.supplierPrice === 48000, `the supplier price was read (${m.supplierPrice})`);
@@ -358,6 +370,43 @@ say('\n-- a marketplace-only gallery lists the machine with its photo --');
     'and the watermark is reported for replacement rather than the photo being dropped');
 }
 
+say('\n-- a stated year is read; an unstated one is never invented --');
+{
+  const withYear = `<!doctype html><html><head>
+<title>Doosan DX300LC-7 Crawler Excavator - Used Excavator price | Made-in-china.com</title>
+<script type="application/ld+json">{"@type":"Product","name":"Doosan DX300LC-7 Crawler Excavator","offers":{"price":47000,"priceCurrency":"USD"},"image":[]}</script>
+</head><body><h1>Doosan DX300LC-7 Crawler Excavator</h1>
+<table><tr><th>Condition</th><td>Used</td></tr><tr><th>Type</th><td>Crawler Excavator</td></tr>
+<tr><th>Year</th><td>2019</td></tr><tr><th>Hours</th><td>6,800</td></tr></table>
+</body></html>`;
+  const { previewMachine } = await import('../api/_machinery-import.js');
+  const stated = await previewMachine({ url: PRODUCT_URL_A, html: withYear });
+  ok(stated.ok === true, 'a page with a stated year previews');
+  ok(stated.machine.year === 2019, `the stated year is read verbatim (${stated.machine.year})`);
+  ok(stated.machine.hours === 6800, `and the stated hour meter is read (${stated.machine.hours})`);
+  ok(!stated.warnings.some(w => /no model year/i.test(w)), 'no missing-year warning when the page states one');
+
+  const unstated = await previewMachine({ url: PRODUCT_URL_A, html: productPage('Doosan Dx300lc Crawler Excavator on Sale', 48000, []) });
+  ok(unstated.machine.year === null, `an unstated year stays null (${unstated.machine.year})`);
+  ok(unstated.machine.year !== new Date().getFullYear(),
+    'specifically: it is NOT the current calendar year');
+  ok(unstated.warnings.some(w => /no model year/i.test(w)),
+    'and the preview says the machine will be listed without one');
+
+  // Confirm stores exactly what the preview showed: null, published, no lie.
+  const db = fakeDb();
+  const { toRow, planImport, applyImport } = await import('../api/_machinery-import.js');
+  const row = toRow(unstated.machine, { adapter: 'product-page' });
+  ok(row.year === null, `toRow carries the null year through (${row.year})`);
+  ok(row.hours === null, `and the null hours (${row.hours})`);
+  const plan = planImport([], [row]);
+  ok(plan.errors.length === 0, `a null year is not a validation error (${JSON.stringify(plan.errors)})`);
+  await applyImport(db, plan, ADMIN);
+  const stored = db._tables.machinery[0];
+  ok(stored.year === null && stored.published === true,
+    'the stored row has no year and is still published — listed without the year, not refused or faked');
+}
+
 say('\n-- several categories in one run --');
 {
   const db = fakeDb();
@@ -414,6 +463,237 @@ say('\n-- the previewed machines go through the existing confirm step --');
   // Running the scraper again over the same category finds nothing new.
   const again = await scrape(db, { category: 'excavators' }, { fetch: world.fetchImpl, sleep: world.sleepImpl });
   ok(again.json().machines.length === 0, 'a second run over the same category dedupes everything');
+}
+
+// ---------------------------------------------------------------------------
+// 2026-10-08: the whole path, end to end, against the fixture world. The desk's
+// receipt (describeImportOutcome in src/crm.jsx, rendered by
+// scripts/crm-render.test.jsx) is only as good as this contract: every
+// previewed candidate the server ACCEPTS becomes a published row, and every
+// one it REFUSES comes back named, with the reason, in `invalid`/`skipped`/
+// `failed` — never silently dropped.
+say('\n-- end to end: accepted candidates publish, refused candidates explain --');
+{
+  const db = fakeDb();
+  // The same world the first end-to-end run uses: one product page on the
+  // second supplier host is robots-disallowed, so exactly two candidates
+  // survive to the preview.
+  const world = makeWorld({ robots2: SUPPLIER_ROBOTS + '\nDisallow: /product/cccCCC333/' });
+  const res = await scrape(db, { category: 'excavators' }, { fetch: world.fetchImpl, sleep: world.sleepImpl });
+  const previews = res.json().machines;
+  ok(previews.length === 2, `the run previewed ${previews.length} candidates`);
+
+  // Refuse one of them the way the server would: an unresolvable type.
+  const good = previews.filter(m => m.source?.url !== PRODUCT_URL_B);
+  const bad = previews.find(m => m.source?.url === PRODUCT_URL_B);
+  bad.type = 'Hovercraft';
+
+  const c = fakeRes();
+  await api(req('POST', { import: 'machinery', step: 'confirm' }, { machines: [...good, bad] }), c, { db, ...asUser(ADMIN) });
+  const out = c.json();
+  ok(c.statusCode === 200, `confirm writes the acceptable part of the batch (got ${c.statusCode})`);
+  ok(out.imported === good.length, `every accepted candidate was written (${out.imported}/${good.length})`);
+
+  const storedRefs = new Set(db._tables.machinery.map(r => r.source_url));
+  for (const m of good) {
+    ok(storedRefs.has(m.source.url), `accepted ${m.name} exists as a row`);
+  }
+  ok(db._tables.machinery.every(r => r.published === true),
+    'and each written row is published — a confirmed import has no approval gate');
+
+  ok(Array.isArray(out.invalid) && out.invalid.length === 1,
+    `the refused candidate came back in "invalid" (${out.invalid?.length})`);
+  const refusal = out.invalid[0];
+  ok(refusal.errors?.some(e => /type/i.test(e.message || '')),
+    `with the reason the server gave: ${refusal.errors?.[0]?.message}`);
+  ok(!storedRefs.has(bad.source.url), 'and the refused one was NOT written');
+
+  // Nothing written at all is also a receipt, not a mystery: a confirm whose
+  // whole batch is refused answers 422 with the per-row reasons.
+  const db2 = fakeDb();
+  const c2 = fakeRes();
+  await api(req('POST', { import: 'machinery', step: 'confirm' }, { machines: [{ ...bad }] }), c2, { db: db2, ...asUser(ADMIN) });
+  ok(c2.statusCode === 422, `a wholly refused confirm answers 422 (got ${c2.statusCode})`);
+  ok(c2.json().invalid?.length === 1, 'and carries the per-row reason');
+  ok(db2._tables.machinery.length === 0, 'with nothing written');
+}
+
+say('\n-- purge-stale: the deliberate end of the staleness path --');
+{
+  const { purgeStale } = await import('../api/_machinery.js');
+  const old = new Date(Date.now() - 40 * 86400000).toISOString();
+  const recent = new Date(Date.now() - 2 * 86400000).toISOString();
+  const db = fakeDb({ machinery: [
+    { id: 's1', ref: 'AR7-MC-001', type: 'Excavators', brand: 'Doosan', model: 'DX300', published: false, status: 'Available', source_missing_since: old },
+    { id: 's2', ref: 'AR7-MC-002', type: 'Excavators', brand: 'Sany', model: 'SY215', published: true, status: 'Available', source_missing_since: old },
+    { id: 's3', ref: 'AR7-MC-003', type: 'Loaders', brand: 'XCMG', model: 'LW500', published: false, status: 'Available', source_missing_since: recent }
+  ] });
+  const first = await purgeStale(db, { olderThanDays: 14, remove: false, actor: ADMIN });
+  ok(first.archived.length === 1 && first.archived[0] === 'AR7-MC-001',
+    `only the unpublished, 40-day-stale row is archived (${first.archived.join(',')})`);
+  ok(db._tables.machinery.find(r => r.id === 's2').status === 'Available',
+    'a PUBLISHED machine is never touched, however stale — a person hid nothing');
+  ok(db._tables.machinery.find(r => r.id === 's3').status === 'Available',
+    'nor is one missing for only two days');
+  ok(db._tables.machinery.length === 3, 'archive keeps every row');
+
+  const second = await purgeStale(db, { olderThanDays: 14, remove: true, actor: ADMIN });
+  ok(second.deleted.length === 1 && second.deleted[0] === 'AR7-MC-001',
+    `delete removes only the row a person already parked (${second.deleted.join(',')})`);
+  ok(db._tables.machinery.length === 2, 'and the row is gone');
+  ok(db._tables.activities.length >= 2, 'every purge step is in the audit log');
+}
+
+say('\n-- purge-stale is a gated write on the same desk --');
+{
+  const seed = () => ({ machinery: [
+    { id: 'p1', ref: 'AR7-MC-010', type: 'Excavators', brand: 'Doosan', model: 'DX300', published: false, status: 'Available',
+      source_missing_since: new Date(Date.now() - 40 * 86400000).toISOString() },
+    { id: 'p2', ref: 'AR7-MC-011', type: 'Loaders', brand: 'XCMG', model: 'LW500', published: true, status: 'Available',
+      source_missing_since: new Date(Date.now() - 90 * 86400000).toISOString() }
+  ] });
+
+  const anon = fakeRes();
+  await api(req('POST', { machinery: 'purge-stale' }, { olderThanDays: 14, remove: false }), anon, { db: fakeDb(seed()) });
+  ok(anon.statusCode === 401, `an anonymous caller cannot purge (got ${anon.statusCode})`);
+
+  const denied = fakeRes();
+  await api(req('POST', { machinery: 'purge-stale' }, { olderThanDays: 14, remove: false }), denied,
+    { db: fakeDb(seed()), ...asUser(SALES) });
+  ok(denied.statusCode === 403, `a role without site.write cannot purge either (got ${denied.statusCode})`);
+
+  const db = fakeDb(seed());
+  const res = fakeRes();
+  await api(req('POST', { machinery: 'purge-stale' }, { olderThanDays: 14, remove: false }), res, { db, ...asUser(ADMIN) });
+  ok(res.statusCode === 200, `site.write may archive stale unpublished rows (got ${res.statusCode})`);
+  ok(res.json().archived.length === 1 && res.json().archived[0] === 'AR7-MC-010',
+    `the response names what it archived (${res.json().archived.join(',')})`);
+  ok(db._tables.machinery.find(r => r.id === 'p2').status === 'Available',
+    'a published machine missing for 90 days is untouched — only a person hides a published machine');
+  ok(res.json().days === 14, 'and reports the threshold it used, so the desk can say what "stale" meant');
+
+  const removed = fakeRes();
+  await api(req('POST', { machinery: 'purge-stale' }, { olderThanDays: 14, remove: true }), removed, { db, ...asUser(ADMIN) });
+  ok(removed.json().deleted.length === 1 && db._tables.machinery.length === 1,
+    `remove:true deletes only the parked row (${removed.json().deleted.join(',')})`);
+}
+
+say('\n-- bounded retry/backoff respects blocks and the run deadline --');
+{
+  const sleeps = [];
+  let calls = 0;
+  const retried = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    retries: 2, backoffMs: 500, sleep: async ms => { sleeps.push(ms); },
+    fetchImpl: async () => {
+      calls++;
+      if (calls < 3) return { ok: false, status: 503, text: async () => '' };
+      return { ok: true, status: 200, text: async () => '<html>ok</html>' };
+    },
+  });
+  ok(retried.ok && retried.attempts === 3 && calls === 3, 'a transient 5xx is retried at most twice and then succeeds');
+  ok(JSON.stringify(sleeps) === JSON.stringify([500, 1000]), 'backoff is bounded and exponential');
+
+  let blockedCalls = 0;
+  const blocked = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    sleep: async () => { throw new Error('must not sleep'); },
+    fetchImpl: async () => { blockedCalls++; return { ok: false, status: 403, text: async () => '' }; },
+  });
+  ok(!blocked.ok && blocked.status === 403 && blockedCalls === 1 && blocked.attempts === 1, 'a 403 block is not hammered with direct retries');
+  ok(blocked.relaySkipped === 'no relay key configured', 'without a relay key a 403 stays a 403, and says why');
+
+  let limitedCalls = 0;
+  const limited = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    sleep: async () => { throw new Error('must not sleep'); },
+    fetchImpl: async () => { limitedCalls++; return { ok: false, status: 429, text: async () => '' }; },
+  });
+  ok(!limited.ok && limited.status === 429 && limitedCalls === 1, 'a 429 rate limit is surfaced, not hammered');
+
+  let clock = 0;
+  const deadline = await fetchWithRetry('https://www.made-in-china.com/product/fixture.html', {
+    deadline: 600, now: () => clock, backoffMs: 500,
+    sleep: async ms => { clock += ms; },
+    fetchImpl: async () => ({ ok: false, status: 503, text: async () => '' }),
+  });
+  ok(!deadline.ok && /budget/i.test(deadline.error || ''), 'the run deadline stops retry/backoff before the serverless budget is exceeded');
+}
+
+say('\n-- a datacenter-IP wall is rescued once through the keyed relay --');
+{
+  // 2026-11-04: made-in-china.com answered a flat 403 to Vercel's egress IPs
+  // on pages it serves to any browser. With a relay key configured, that one
+  // page is re-fetched through the same keyed reader relay the car importer
+  // uses — after robots.txt allowed it, with the honest UA shown to the relay.
+  process.env.JINA_API_KEY = 'relay_test_key';
+  const catUrl = 'https://www.made-in-china.com/manufacturers/used-excavator.html';
+  const seen = [];
+  const walled = async (url, opts = {}) => {
+    seen.push({ url: String(url), headers: opts.headers || {} });
+    if (String(url).startsWith('https://r.jina.ai/')) return { ok: true, status: 200, text: async () => '<html>category</html>' };
+    return { ok: false, status: 403, text: async () => '' };
+  };
+  const rescued = await fetchWithRetry(catUrl, { sleep: async () => { throw new Error('must not sleep'); }, fetchImpl: walled });
+  ok(rescued.ok && rescued.via === 'relay' && rescued.directStatus === 403, 'a 403-walled page is rescued through the relay');
+  ok(rescued.text === '<html>category</html>', 'the relayed HTML is what the caller parses');
+  const relayCall = seen.find(c => c.url.startsWith('https://r.jina.ai/'));
+  ok(relayCall && relayCall.url === 'https://r.jina.ai/' + catUrl, 'the relay is asked for the same url');
+  ok(relayCall.headers['Authorization'] === 'Bearer relay_test_key', 'the relay call carries the key');
+  ok(relayCall.headers['X-Proxy'] === 'auto', 'and routes through the rotating proxy pool');
+  ok(relayCall.headers['X-Engine'] === 'curl', 'with the plain-HTTP engine, never the render queue');
+  ok(relayCall.headers['User-Agent'] === SCRAPER_UA, 'the honest machinery user agent is what the relay is shown');
+  ok(seen.filter(c => c.url.startsWith('https://r.jina.ai/')).length === 1, 'the relay is tried exactly once');
+
+  const relayDown = await fetchWithRetry(catUrl, {
+    sleep: async () => {},
+    fetchImpl: async url => String(url).startsWith('https://r.jina.ai/')
+      ? { ok: false, status: 451, text: async () => '' }
+      : { ok: false, status: 403, text: async () => '' },
+  });
+  ok(!relayDown.ok && relayDown.status === 403 && relayDown.relayError === 'the relay answered 451',
+    'a failed relay keeps the honest 403 and records what the relay said');
+  ok(describeFetchFailure(relayDown) === 'the site answered 403 — the relay answered 451',
+    'the operator warning carries both halves of the story');
+
+  let relayAsked = 0;
+  const notFound = await fetchWithRetry(catUrl, {
+    sleep: async () => {},
+    fetchImpl: async url => {
+      if (String(url).startsWith('https://r.jina.ai/')) relayAsked++;
+      return { ok: false, status: 404, text: async () => '' };
+    },
+  });
+  ok(!notFound.ok && notFound.status === 404 && relayAsked === 0, 'a 404 is an honest answer, never relayed');
+
+  let relayAfterDeadline = 0;
+  const spent = await fetchWithRetry(catUrl, {
+    deadline: 100, now: () => 100, sleep: async () => {},
+    fetchImpl: async url => { if (String(url).startsWith('https://r.jina.ai/')) relayAfterDeadline++; return { ok: false, status: 403, text: async () => '' }; },
+  });
+  ok(!spent.ok && relayAfterDeadline === 0, 'an exhausted run budget leaves no room for a relay attempt');
+  delete process.env.JINA_API_KEY;
+
+  ok(describeFetchFailure({ ok: false, status: 403, relaySkipped: 'no relay key configured' })
+    === 'the site answered 403 — no relay key configured', 'a keyless 403 tells the operator what is missing');
+  ok(describeFetchFailure({ ok: false, status: 0, networkError: true, error: 'socket hang up' })
+    === 'network error: socket hang up', 'network failures still read honestly');
+}
+
+say('\n-- total run deadline keeps collected previews --');
+{
+  const world = makeWorld();
+  let clock = 0;
+  const out = await runScraper(fakeDb(), {
+    category: 'excavators', limit: 24, now: () => clock, budgetMs: 9000,
+    sleep: async ms => { clock += ms; },
+    fetch: async (url, options) => {
+      ok(options.timeoutMs <= 9000 - clock, 'fetch timeout fits remaining run budget');
+      const page = await world.fetchImpl(url);
+      clock += 1000;
+      return page;
+    }
+  });
+  ok(out.partial === true, 'deadline returns a partial receipt, not a lost HTTP timeout');
+  ok(out.machines.length > 0, 'already collected previews survive the deadline');
+  ok(out.warnings.some(w => w.includes('Time limit')), 'operator is told to confirm and run again');
 }
 
 say(`\n${pass} passed, ${fail} failed`);

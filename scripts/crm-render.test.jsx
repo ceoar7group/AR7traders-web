@@ -56,7 +56,7 @@ setGlobal('fetch', (url, options = {}) => {
 const React = (await import('react')).default;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { default: CrmApp, MachineryImportPanel } = await import('../src/crm.jsx');
+const { default: CrmApp, MachineryImportPanel, uniqueCarCount } = await import('../src/crm.jsx');
 
 let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
@@ -87,14 +87,33 @@ say('\nCRM boots');
 ok(!!document.querySelector('.crm-shell'), 'the CRM shell mounts in demo mode');
 ok(document.querySelector('.crm-side nav button'), 'the sidebar renders its tabs');
 
+// ---- the Cars badge counts cars, not table rows ------------------------------
+// Live incident 2026-11-04: after every imported car was promoted to BOTH the
+// CRM inventory and the website, the sidebar added the two tables (141 + 167)
+// and told the owner he had 308 cars. A car on both surfaces shares its
+// stock_no and must count once.
+say('\nThe Cars badge counts cars, not table rows');
+{
+  const vehicles = [{ stock_no: 'A1' }, { stock_no: 'B2' }, { stock_no: '' }];
+  const listings = [{ stock_no: 'A1' }, { stock_no: 'C3' }, {}];
+  eq(uniqueCarCount(vehicles, listings), 5, 'a car on both surfaces is counted once');
+  eq(uniqueCarCount([], listings), 3, 'website-only listings all count');
+  eq(uniqueCarCount(vehicles, []), 3, 'inventory-only vehicles all count');
+  eq(uniqueCarCount(null, null), 0, 'missing tables count zero, not crash');
+  eq(uniqueCarCount([{ stock_no: ' a1 ' }], [{ stock_no: 'A1' }]), 1, 'stock numbers match case- and space-insensitively');
+  eq(uniqueCarCount([{}, {}], [{}, {}]), 4, 'rows with no stock number cannot be matched and count as their own car');
+}
+
 // ---- every sidebar tab renders ---------------------------------------------
 say('\nEvery sidebar tab renders');
 // Inventory and Website cars merged into one "Cars" tab (2026-10): the two
 // record sets are sub-tabs inside the panel, pinned further down.
+// 2026-11-07: 'SEO desk' + the separate 'AI Growth' tab merged into ONE
+// 'Growth studio' tab (owner's request — two tabs confused operation).
 const TABS = ['Overview', 'Leads', 'Customers', 'Customer accounts', 'Cars', 'Profit & sourcing',
   'Japan dealer stock', 'Quotes', 'Shipments', 'Tasks', 'Shipping routes',
   'News & guides', 'Machinery desk', 'Approvals', 'Team & permissions', 'People & payroll', 'Website settings',
-  'Price offers', 'SEO desk', 'Site guardian', 'Activity log'];
+  'Price offers', 'Growth studio', 'Site guardian', 'Activity log'];
 for (const label of TABS) {
   const btn = await clickText('.crm-side nav button', label);
   if (!btn) { ok(false, `"${label}" tab is missing from the sidebar`); continue; }
@@ -114,11 +133,16 @@ for (const label of TABS) {
   }
 }
 
-say('\nSEO desk navigation remains singular and staff-only');
+say('\nGrowth navigation remains singular and staff-only');
 {
+  // 2026-11-07: label renamed 'SEO desk' → 'Growth studio' when the SEO desk
+  // and AI Growth merged into one tab. Still exactly one sidebar entry.
   const seoSidebar = [...document.querySelectorAll('.crm-side nav button')].filter(button =>
-    (button.querySelector(':scope > span')?.textContent || '').trim() === 'SEO desk');
-  ok(seoSidebar.length === 1, 'the primary SEO desk tab remains in the CRM sidebar');
+    (button.querySelector(':scope > span')?.textContent || '').trim() === 'Growth studio');
+  ok(seoSidebar.length === 1, 'the single Growth studio tab remains in the CRM sidebar');
+  ok(![...document.querySelectorAll('.crm-side nav button')].some(button =>
+    /^(SEO desk|AI Growth)$/.test((button.querySelector(':scope > span')?.textContent || '').trim())),
+    'the old separate SEO desk / AI Growth tabs are gone — merged, not duplicated');
   ok(!!document.querySelector('.crm-staff-tools small') && /STAFF TOOLS/.test(document.querySelector('.crm-staff-tools small').textContent),
     'the Staff Tools divider remains');
   ok(!document.querySelector('.crm-staff-tools a[href="/seo"]'), 'the duplicate shortcut below the divider is removed');
@@ -214,6 +238,11 @@ await clickText('.crm-side nav button', 'Japan dealer stock');
 {
   const rowsOf = () => [...document.querySelectorAll('.crm-goonet tbody tr')];
   const rowFor = model => rowsOf().find(tr => (tr.textContent || '').includes(model));
+  // 2026-10-11: the row's actions moved from six inline pills into Edit + a
+  // labelled overflow menu (the pills were clipped at the scroller's right
+  // edge). The wrapper keeps its .goonet-actions marker, and the menu labels
+  // are matched case-insensitively below because they are now written as
+  // sentences ("Copy to inventory") rather than single words.
   const actionsOf = model => [...(rowFor(model)?.querySelectorAll('.goonet-actions button') || [])];
   const labelOf = model => rowFor(model)?.querySelector('td:nth-child(10) em')?.textContent?.trim() || '';
 
@@ -236,7 +265,7 @@ await clickText('.crm-side nav button', 'Japan dealer stock');
   // the row to the "already added" state right away.
   const realConfirm = dom.window.confirm;
   dom.window.confirm = () => true;
-  const before = actionsOf('Harrier S').find(b => /Inventory/.test(b.textContent));
+  const before = actionsOf('Harrier S').find(b => /inventory/i.test(b.textContent));
   ok(!!before && !before.disabled, 'a car that is not in the inventory still offers the Inventory action');
   await act(async () => { before.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
   let notice = document.querySelector('.crm-notice span')?.textContent || '';
@@ -264,10 +293,10 @@ await clickText('.crm-side nav button', 'Japan dealer stock');
   ok(!!rowFor('Forester Test'), 'the refreshed list shows the new car');
   eq(labelOf('Forester Test'), '—', 'a car in neither place shows no promoted state');
   const freshActions = actionsOf('Forester Test').map(b => b.textContent.trim());
-  ok(freshActions.some(t => /^Website$/.test(t)) && freshActions.some(t => /^Inventory$/.test(t)),
+  ok(freshActions.some(t => /website/i.test(t)) && freshActions.some(t => /inventory/i.test(t)),
     `both actions are offered for a car that has not been copied yet (${freshActions.join(' / ')})`);
 
-  const subaru = actionsOf('Forester Test').find(b => /Inventory/.test(b.textContent));
+  const subaru = actionsOf('Forester Test').find(b => /inventory/i.test(b.textContent));
   await act(async () => { subaru.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })); });
   notice = document.querySelector('.crm-notice span')?.textContent || '';
   ok(/inventory/i.test(notice), `the add is confirmed in words ("${notice}")`);
@@ -511,7 +540,11 @@ say('\\nMachinery scraper review and explicit confirmation');
   }
   const request = scraperRequests.at(-1);
   ok(!!request, 'the scraper sends a same-origin preview request');
-  ok(JSON.parse(request?.options.body || '{}').limit === 24, 'the UI asks the API for up to 24 candidates');
+  // 2026-10-08: the per-run count is the operator's, defaulting to the server's
+  // machinery_scraper_batch (8). The ceiling is still 24 and is asserted in
+  // scripts/machinery-receipt.test.jsx, which also drives the input itself.
+  ok(JSON.parse(request?.options.body || '{}').limit === 8,
+    `the UI asks the API for the operator's per-run count, 8 by default (got ${JSON.parse(request?.options.body || '{}').limit})`);
   const candidateRows = [...host.querySelectorAll('.crm-scraper-list > li')];
   ok(candidateRows.length === scraperCandidates.length,
     `the UI shows every candidate the run returned (${candidateRows.length})`);
@@ -553,9 +586,87 @@ say('\\nMachinery scraper review and explicit confirmation');
   confirmButton = [...host.querySelectorAll('.crm-import-actions button')].find(button => /confirm import/i.test(button.textContent));
   if (confirmButton) await act(async () => { confirmButton.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
   ok(confirmations.length === 2 && imported === 1, 'accepting the confirmation proceeds through the demo-mode confirmation path');
-  ok(notices.some(message => /published.*demo mode/i.test(message)), 'the UI reports the demo publication state explicitly');
+  // 2026-11-08: the owner asked for the word "demo" to disappear from the UI;
+  // the offline-mode notice now says "offline mode" instead.
+  ok(notices.some(message => /published.*offline mode/i.test(message)), 'the UI reports the offline publication state explicitly');
   await act(async () => { panelRoot.unmount(); });
   host.remove();
+}
+
+// ---- Round 12 (2026-11): vessel tracking, calls-by-agent, template languages
+say('\nVessel tracking is free deep links, not an API');
+{
+  await clickText('.crm-side nav button', 'Overview');
+  // Dashboard logistics card: the vessel name itself is the tracking link.
+  const dashLinks = [...document.querySelectorAll('.crm-vessel-link')];
+  ok(dashLinks.length >= 3, `every in-transit vessel on the dashboard links to live AIS (${dashLinks.length} links)`);
+  ok(dashLinks.every(a => a.href.startsWith('https://www.vesselfinder.com/vessels?name=')),
+    'dashboard vessel links point at VesselFinder — no API key, no cost');
+  ok(dashLinks.some(a => a.href.includes(encodeURIComponent('AR7 Valiant'))),
+    'the vessel name is URL-encoded into the search');
+
+  // Shipments table: the vessel cell carries a Track link that does not
+  // hijack the row's edit click.
+  await clickText('.crm-side nav button', 'Shipments');
+  const cells = [...document.querySelectorAll('.crm-vessel-cell a')];
+  ok(cells.length >= 3, `every shipment row grows a Track link (${cells.length})`);
+  ok(cells.every(a => a.target === '_blank' && a.rel.includes('noreferrer')),
+    'tracking opens in a new tab with noreferrer');
+}
+
+say('\nDashboard shows calls by agent against the daily target');
+{
+  await clickText('.crm-side nav button', 'Overview');
+  const panel = [...document.querySelectorAll('.crm-panel')].find(p => /Calls by agent/.test(p.textContent));
+  ok(!!panel, 'the "Calls by agent" panel is on the overview');
+  const rowsEls = [...(panel?.querySelectorAll('.crm-agent-call-row') || [])];
+  ok(rowsEls.length >= 2, `both demo agents appear (${rowsEls.length} agents)`);
+  ok(rowsEls.every(r => / \/ 10 today$/.test(r.querySelector('small')?.textContent || '')),
+    'each agent is measured against the 10-calls-a-day target');
+  const omar = rowsEls.find(r => /Omar Ali/.test(r.textContent));
+  ok(!!omar && /2 this week/.test(omar.textContent), 'week counts include days before today');
+  ok(/Target is 10 logged calls/.test(panel?.textContent || ''), 'the target is stated, not implied');
+}
+
+say('\nWhatsApp templates speak the lead\u2019s language');
+{
+  await clickText('.crm-side nav button', 'Call desk');
+  const rowsEls = [...document.querySelectorAll('.crm-call-row')];
+  ok(rowsEls.length >= 3, `the call queue renders (${rowsEls.length} rows)`);
+  const langSelects = [...document.querySelectorAll('.crm-call-lang')];
+  ok(langSelects.length === rowsEls.length, 'every row gets a language picker');
+  ok(langSelects.every(s => s.options.length === 6), 'six languages: EN, FR, SW, UR (Roman), AR, PT');
+
+  const rowFor = name => rowsEls.find(r => r.textContent.includes(name));
+  const waOf = row => decodeURIComponent((row?.querySelector('.crm-call-act.is-wa')?.href || '').split('text=')[1] || '');
+
+  // Ahmed Khan (Pakistan) defaults to Roman Urdu — the WhatsApp norm there.
+  const ahmed = rowFor('Ahmed Khan');
+  ok(ahmed?.querySelector('.crm-call-lang')?.value === 'ur', 'a Pakistan lead defaults to Urdu (Roman)');
+  ok(/Assalam o alaikum Ahmed/.test(waOf(ahmed)), `the pre-filled message opens in Roman Urdu ("${waOf(ahmed).slice(0, 40)}…")`);
+
+  // Kenya stays English by design — business runs in English and the agent
+  // can switch to Kiswahili per row.
+  const daniel = rowFor('Daniel Mwangi');
+  ok(daniel?.querySelector('.crm-call-lang')?.value === 'en', 'a Kenya lead conservatively defaults to English');
+  const sel = daniel?.querySelector('.crm-call-lang');
+  await act(async () => {
+    sel.value = 'sw';
+    sel.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  ok(/Habari Daniel/.test(waOf(rowFor('Daniel Mwangi'))), 'switching the row to Kiswahili re-fills the message');
+
+  // No template in any language may claim a price or stock position.
+  const texts = [];
+  for (const lang of ['en', 'fr', 'sw', 'ur', 'ar', 'pt']) {
+    for (const row of rowsEls) {
+      const s = row.querySelector('.crm-call-lang');
+      await act(async () => { s.value = lang; s.dispatchEvent(new dom.window.Event('change', { bubbles: true })); });
+    }
+    [...document.querySelectorAll('.crm-call-row')].forEach(r => texts.push(waOf(r)));
+  }
+  ok(texts.length > 0 && texts.every(t => !/\$\s?\d|USD|JPY|KES|PKR|in stock|available now/i.test(t)),
+    'no template in any language claims a price or stock — that stays in verified quotations');
 }
 
 // ---- React logged nothing ---------------------------------------------------

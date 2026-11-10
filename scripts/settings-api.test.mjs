@@ -225,6 +225,65 @@ async function run(req, injected) {
   ok(res2.statusCode === 400, 'an absurd exchange-rate payload is rejected');
 }
 
+// ---- the machinery importer's rules are writable, bounded, and staff-only ----
+// 2026-10-08: the CRM's "Make default" for machines-per-run needs a legal place
+// to land. These six keys were already READ by machinerySettings() in
+// api/_machinery.js but not in WRITABLE_KEYS, so the desk had nowhere to save a
+// default. They are bounded here, and the batch bound is the polite one: a
+// setting may LOWER the hard ceiling (MAX_SCRAPER_MACHINES = 24) and never
+// raise it.
+{
+  const { db, tables } = memDb(SEED);
+  const res = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' },
+    body: { machinery_scraper_batch: '12', machinery_min_photos: '2', machinery_max_reprice_per_run: '40',
+      machinery_stale_after_days: '21', machinery_autopublish: 'true', machinery_allow_placeholder_photo: 'false' } },
+    { db, getUser: getUser(adminProfile), permsFor });
+  ok(res.statusCode === 200 && res.body.ok === true, `all six machinery rules are writable by settings.write (${res.statusCode})`);
+  ok(tables.site_settings.find(r => r.key === 'machinery_scraper_batch')?.value === '12',
+    'machines per run is stored as the desk default');
+  ok(tables.site_settings.find(r => r.key === 'machinery_autopublish')?.value === 'true',
+    'and the flags store as true/false strings, like the goonet ones');
+}
+{
+  const { db } = memDb(SEED);
+  const res = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' }, body: { machinery_scraper_batch: '12' } },
+    { db, getUser: getUser(managerProfile), permsFor });
+  ok(res.statusCode === 403, 'a role without settings.write cannot set the machines-per-run default');
+}
+{
+  const cases = [
+    [{ machinery_scraper_batch: '25' }, /between 1 and 24/, '25 machines a run is above the politeness ceiling'],
+    [{ machinery_scraper_batch: '0' }, /between 1 and 24/, 'zero machines a run is not a setting'],
+    [{ machinery_scraper_batch: '8.5' }, /whole number/, 'a fractional machine count is refused'],
+    [{ machinery_scraper_batch: '' }, /between 1 and 24/, 'an empty batch is refused rather than read as 0'],
+    [{ machinery_stale_after_days: '400' }, /between 1 and 365/, 'a stale threshold beyond a year is refused'],
+    [{ machinery_min_photos: '-1' }, /between 0 and 20/, 'a negative photo minimum is refused'],
+    [{ machinery_max_reprice_per_run: '900' }, /between 1 and 200/, 'an unbounded reprice run is refused'],
+    [{ machinery_autopublish: 'yes' }, /true or false/, 'a flag that is not true/false is refused'],
+    [{ machinery_allow_placeholder_photo: '1' }, /true or false/, 'and neither is "1"']
+  ];
+  for (const [body, re, why] of cases) {
+    const { db, tables } = memDb(SEED);
+    const res = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' }, body },
+      { db, getUser: getUser(adminProfile), permsFor });
+    const key = Object.keys(body)[0];
+    ok(res.statusCode === 400 && re.test(String(res.body?.error || '')),
+      `${key}=${JSON.stringify(body[key])} is refused — ${why}`);
+    ok(!tables.site_settings.some(r => r.key === key && r.value === String(body[key])), 'and nothing was written');
+  }
+  {
+    const { db } = memDb(SEED);
+    const res = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' },
+      body: { machinery_scraper_batch: '24' } }, { db, getUser: getUser(adminProfile), permsFor });
+    ok(res.statusCode === 200, 'the ceiling itself (24) is a legal default — the setting may equal it, never exceed it');
+  }
+}
+{
+  const res = await run({ method: 'GET', headers: {} }, { db: memDb(SEED).db });
+  ok(res.statusCode === 200 && !('machinery_scraper_batch' in res.body),
+    'the machinery rules stay out of the anonymous public payload — they are desk tuning, not visitor content');
+}
+
 // ---- method guard -------------------------------------------------------------
 {
   const { db } = memDb(SEED);

@@ -6,6 +6,234 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/inventory",
+      "destination": "/inventory/index.html"
+    },
+    {
+      "source": "/auction",
+      "destination": "/auction/index.html"
+    },
+    {
+      "source": "/services",
+      "destination": "/services/index.html"
+    },
+    {
+      "source": "/brands",
+      "destination": "/brands/index.html"
+    },
+    {
+      "source": "/destinations",
+      "destination": "/destinations/index.html"
+    },
+    {
+      "source": "/tools",
+      "destination": "/tools/index.html"
+    },
+    {
+      "source": "/world",
+      "destination": "/world/index.html"
+    },
+    {
+      "source": "/howbuy",
+      "destination": "/howbuy/index.html"
+    },
+    {
+      "source": "/news",
+      "destination": "/news/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about/index.html"
+    },
+    {
+      "source": "/reviews",
+      "destination": "/reviews/index.html"
+    },
+    {
+      "source": "/faq",
+      "destination": "/faq/index.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/contact/index.html"
+    },
+    {
+      "source": "/shipping",
+      "destination": "/shipping/index.html"
+    },
+    {
+      "source": "/machinery",
+      "destination": "/machinery/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/cookies",
+      "destination": "/cookies/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms/index.html"
+    },
+    {
+      "source": "/machinery/excavators",
+      "destination": "/machinery/excavators/index.html"
+    },
+    {
+      "source": "/machinery/loaders",
+      "destination": "/machinery/loaders/index.html"
+    },
+    {
+      "source": "/machinery/trucks",
+      "destination": "/machinery/trucks/index.html"
+    },
+    {
+      "source": "/machinery/cranes",
+      "destination": "/machinery/cranes/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-001",
+      "destination": "/machinery/excavators/AR7-MC-001/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-002",
+      "destination": "/machinery/excavators/AR7-MC-002/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-003",
+      "destination": "/machinery/excavators/AR7-MC-003/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-004",
+      "destination": "/machinery/excavators/AR7-MC-004/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-005",
+      "destination": "/machinery/excavators/AR7-MC-005/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-006",
+      "destination": "/machinery/excavators/AR7-MC-006/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-007",
+      "destination": "/machinery/excavators/AR7-MC-007/index.html"
+    },
+    {
+      "source": "/machinery/loaders/AR7-MC-008",
+      "destination": "/machinery/loaders/AR7-MC-008/index.html"
+    },
+    {
+      "source": "/machinery/loaders/AR7-MC-009",
+      "destination": "/machinery/loaders/AR7-MC-009/index.html"
+    },
+    {
+      "source": "/machinery/trucks/AR7-MC-010",
+      "destination": "/machinery/trucks/AR7-MC-010/index.html"
+    },
+    {
+      "source": "/machinery/trucks/AR7-MC-011",
+      "destination": "/machinery/trucks/AR7-MC-011/index.html"
+    },
+    {
+      "source": "/machinery/cranes/AR7-MC-012",
+      "destination": "/machinery/cranes/AR7-MC-012/index.html"
+    },
+    {
+      "source": "/destinations/qatar",
+      "destination": "/destinations/qatar/index.html"
+    },
+    {
+      "source": "/destinations/oman",
+      "destination": "/destinations/oman/index.html"
+    },
+    {
+      "source": "/destinations/malta",
+      "destination": "/destinations/malta/index.html"
+    },
+    {
+      "source": "/destinations/cyprus",
+      "destination": "/destinations/cyprus/index.html"
+    },
+    {
+      "source": "/destinations/ireland",
+      "destination": "/destinations/ireland/index.html"
+    },
+    {
+      "source": "/destinations/mongolia",
+      "destination": "/destinations/mongolia/index.html"
+    },
+    {
+      "source": "/destinations/bangladesh",
+      "destination": "/destinations/bangladesh/index.html"
+    },
+    {
+      "source": "/destinations/sri-lanka",
+      "destination": "/destinations/sri-lanka/index.html"
+    },
+    {
+      "source": "/destinations/papua-new-guinea",
+      "destination": "/destinations/papua-new-guinea/index.html"
+    },
+    {
+      "source": "/destinations/fiji",
+      "destination": "/destinations/fiji/index.html"
+    },
+    {
+      "source": "/destinations/guyana",
+      "destination": "/destinations/guyana/index.html"
+    },
+    {
+      "source": "/destinations/trinidad-and-tobago",
+      "destination": "/destinations/trinidad-and-tobago/index.html"
+    },
+    {
+      "source": "/destinations/jamaica",
+      "destination": "/destinations/jamaica/index.html"
+    },
+    {
+      "source": "/destinations/botswana",
+      "destination": "/destinations/botswana/index.html"
+    },
+    {
+      "source": "/destinations/dr-congo",
+      "destination": "/destinations/dr-congo/index.html"
+    },
+    {
+      "source": "/destinations/mozambique",
+      "destination": "/destinations/mozambique/index.html"
+    },
+    {
+      "source": "/destinations/zimbabwe",
+      "destination": "/destinations/zimbabwe/index.html"
+    },
+    {
+      "source": "/destinations/zambia",
+      "destination": "/destinations/zambia/index.html"
+    },
+    {
+      "source": "/destinations/uganda",
+      "destination": "/destinations/uganda/index.html"
+    },
+    {
+      "source": "/news/comparing-fob-and-cif-vehicle-quotations",
+      "destination": "/news/comparing-fob-and-cif-vehicle-quotations/index.html"
+    },
+    {
+      "source": "/news/checking-your-japanese-vehicle-export-documents",
+      "destination": "/news/checking-your-japanese-vehicle-export-documents/index.html"
+    },
+    {
+      "source": "/destinations/usa",
+      "destination": "/destinations/usa/index.html"
+    },
+    {
+      "source": "/destinations/australia",
+      "destination": "/destinations/australia/index.html"
+    },
+    {
       "source": "/api/sitemap-vehicles.xml",
       "destination": "/api/site-content?sitemap=vehicles"
     },
@@ -16,6 +244,46 @@
     {
       "source": "/api/sitemap-news.xml",
       "destination": "/api/site-content?sitemap=news"
+    },
+    {
+      "source": "/destinations/pakistan",
+      "destination": "/destinations/pakistan/index.html"
+    },
+    {
+      "source": "/destinations/uae",
+      "destination": "/destinations/uae/index.html"
+    },
+    {
+      "source": "/destinations/kenya",
+      "destination": "/destinations/kenya/index.html"
+    },
+    {
+      "source": "/destinations/united-kingdom",
+      "destination": "/destinations/united-kingdom/index.html"
+    },
+    {
+      "source": "/destinations/new-zealand",
+      "destination": "/destinations/new-zealand/index.html"
+    },
+    {
+      "source": "/destinations/tanzania",
+      "destination": "/destinations/tanzania/index.html"
+    },
+    {
+      "source": "/news/why-land-cruiser-demand-keeps-climbing-in-pakistan",
+      "destination": "/news/why-land-cruiser-demand-keeps-climbing-in-pakistan/index.html"
+    },
+    {
+      "source": "/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean",
+      "destination": "/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean/index.html"
+    },
+    {
+      "source": "/news/roro-vs-container-which-shipping-method-fits-your-car",
+      "destination": "/news/roro-vs-container-which-shipping-method-fits-your-car/index.html"
+    },
+    {
+      "source": "/news/how-online-bidding-works-with-ar7",
+      "destination": "/news/how-online-bidding-works-with-ar7/index.html"
     },
     {
       "source": "/assets/gallery/lexus-lc-500-01.jpg",
@@ -178,7 +446,7 @@
       "destination": "/assets/used-japanese-cars-auction-export-toyota-5.webp"
     },
     {
-      "source": "/(home|inventory|auction|services|brands|destinations|tools|world|howbuy|news|about|reviews|faq|contact|account|portal|crm|studio|shipping|japan-stock|machinery|cars|seo)(/.*)?",
+      "source": "/(home|inventory|auction|services|brands|destinations|tools|world|howbuy|news|about|reviews|faq|contact|account|portal|crm|studio|shipping|machinery|cars|seo|call|privacy|cookies|terms)(/.*)?",
       "destination": "/index.html"
     }
   ],
@@ -220,7 +488,7 @@
       ]
     },
     {
-      "source": "/(promo.json|promo-plan.json|guardian-report.json)",
+      "source": "/(promo.json|promo-plan.json|guardian-report.json|stock-discounts.json|llms.txt)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -265,6 +533,18 @@
           "value": "same-origin"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/japan-stock",
+      "destination": "/inventory",
+      "permanent": true
+    },
+    {
+      "source": "/japan-stock/:rest*",
+      "destination": "/inventory",
+      "permanent": true
     }
   ]
 }

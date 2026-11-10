@@ -207,7 +207,11 @@ ok(!kw.MODIFIERS.machine.some(m => /japan/.test(m)), 'China machinery seeds neve
 
 ok(kw.routeFor('toyota land cruiser for sale') === '/cars/toyota', 'a make query routes to that make\'s landing page');
 ok(kw.routeFor('used excavator price') === '/machinery/excavators', 'an excavator query routes to the excavator page');
-ok(kw.routeFor('import car to kenya') === '/destinations', 'a lane query routes to the destination guides');
+// 2026-10-08: each market has its own indexable page, so a query naming a
+// market routes there — the hub is for a lane question with no market in it.
+ok(kw.routeFor('import car to kenya') === '/destinations/kenya', 'a query naming a market routes to that market\'s own page');
+ok(kw.routeFor('used cars from japan to pakistan') === '/destinations/pakistan', 'and so does a "japan to <market>" query');
+ok(kw.routeFor('kenya or tanzania used cars') === '/destinations', 'a query spanning two markets routes to the hub that compares them');
 ok(kw.routeFor('how much is import duty') === '/tools', 'a duty question routes to the calculators');
 ok(kw.routeFor('what is an auction sheet') === '/faq', 'a plain question routes to the FAQ');
 ok(kw.routeFor('anything else entirely') === '/inventory', 'everything vehicle-shaped falls back to inventory');
