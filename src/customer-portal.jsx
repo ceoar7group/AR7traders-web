@@ -321,9 +321,9 @@ function MyAccount({session,navigate}){
        </tr>)}</tbody></table></div>}
     <p className="ma-foot"><ShieldCheck/> {t('ma.payFoot',{email:s.contact_email})}</p>
 
-    {/* Referral codes (2026-11-18). English-only for now, like the saved-cars
-        panel — the localisation pass can pick it up later. Honest copy: the
-        benefit is agreed with our team per market, we never invent amounts. */}
+    {/* Referral codes (2026-11-18, localised in the round-19 panel-i18n
+        pass). Honest copy: the benefit is agreed with our team per market,
+        we never invent amounts. */}
     {data.referral?.code && <ReferFriend referral={data.referral}/>}
    </>}
   </div>
@@ -337,23 +337,22 @@ function MyAccount({session,navigate}){
 // lead then carries it, staff see the attribution in the CRM, and `uses`
 // counts how many enquiries quoted this code.
 function ReferFriend({referral}){
+ const {t}=useLang();
  const [copied,setCopied]=useState(false);
  const link='https://www.ar7traders.com/?ref='+encodeURIComponent(referral.code);
- const wa='https://wa.me/?text='+encodeURIComponent(
-   `I import my vehicles from Japan through AR7 Traders — honest pricing and they handle everything to your port. Use my referral code ${referral.code} when you enquire: ${link}`);
+ const wa='https://wa.me/?text='+encodeURIComponent(t('ma.refShareMsg',{code:referral.code,link}));
  const copy=async()=>{try{await navigator.clipboard.writeText(link);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{/* clipboard may be off */}};
+ const uses=Number(referral.uses)||0;
  return <div className="ma-refer">
-  <h2 className="ma-title">Refer a friend</h2>
+  <h2 className="ma-title">{t('ma.refTitle')}</h2>
   <div className="ma-refer-card">
-   <div className="ma-refer-code" aria-label="Your referral code"><span>YOUR CODE</span><b>{referral.code}</b></div>
-   <p>Share your code or link. When a friend mentions it in their enquiry and completes a purchase, our team applies the referral thank-you agreed for your market — ask your agent for the current offer.</p>
+   <div className="ma-refer-code" aria-label={t('ma.refAria')}><span>{t('ma.refYourCode')}</span><b>{referral.code}</b></div>
+   <p>{t('ma.refBody')}</p>
    <div className="ma-refer-actions">
-    <button type="button" onClick={copy}>{copied?'Link copied ✓':'Copy share link'}</button>
-    <a href={wa} target="_blank" rel="noopener noreferrer">Share on WhatsApp</a>
+    <button type="button" onClick={copy}>{copied?t('ma.refCopied'):t('ma.refCopy')}</button>
+    <a href={wa} target="_blank" rel="noopener noreferrer">{t('ma.refWa')}</a>
    </div>
-   <small>{Number(referral.uses)>0
-     ? `${referral.uses} ${Number(referral.uses)===1?'enquiry has':'enquiries have'} used your code so far.`
-     : 'No enquiries have used your code yet — share it with someone importing a car.'}</small>
+   <small>{uses===0?t('ma.refNone'):uses===1?t('ma.refUsedOne'):t('ma.refUsedMany',{n:uses})}</small>
   </div>
  </div>;
 }
@@ -364,6 +363,7 @@ function ReferFriend({referral}){
 // inventory. Renders nothing while empty or if the table isn't provisioned —
 // the account never blocks on it.
 function SavedCars({session,navigate}){
+ const {t}=useLang();
  const [refs,setRefs]=useState(null);
  useEffect(()=>{let alive=true;
   fetch('/api/my-account?favourites=1',{headers:{Authorization:'Bearer '+session.access_token}})
@@ -374,8 +374,8 @@ function SavedCars({session,navigate}){
  },[session.access_token]);
  if(!refs||!refs.length)return null;
  return <div className="ma-alerts ma-favs">
-  <h2 className="ma-title"><Heart/> Your saved cars</h2>
-  <p className="ma-muted">Hearted on the website — they follow your account on any device.</p>
+  <h2 className="ma-title"><Heart/> {t('ma.favTitle')}</h2>
+  <p className="ma-muted">{t('ma.favNote')}</p>
   <div className="ma-fav-chips">{refs.slice(0,30).map(ref=>{
     const href='/inventory/'+encodeURIComponent(ref);
     return <a key={ref} className="outline-btn" href={href} onClick={linkClick(href,navigate)}>{ref} <ArrowRight/></a>;
@@ -390,6 +390,7 @@ function SavedCars({session,navigate}){
 // them, show how many matches are NEW since the search last looked, and let
 // the buyer mute, delete or jump to the matching stock.
 function SavedSearches({session,navigate}){
+ const {t}=useLang();
  const [rows,setRows]=useState(null),[err,setErr]=useState('');
  const auth={Authorization:'Bearer '+session.access_token};
  useEffect(()=>{let alive=true;
@@ -425,30 +426,30 @@ function SavedSearches({session,navigate}){
 
  if(err) return null; // the table may not be provisioned yet — never block the account
  return <div className="ma-alerts">
-  <h2 className="ma-title"><BellRing/> Saved searches &amp; stock alerts</h2>
-  {rows===null ? <p className="ma-muted">Loading your alerts…</p>
+  <h2 className="ma-title"><BellRing/> {t('ma.alTitle')}</h2>
+  {rows===null ? <p className="ma-muted">{t('ma.alLoading')}</p>
   : !rows.length ? <div className="ma-alerts-empty">
-     <p>Save a search from the inventory page and we&rsquo;ll e-mail you the moment matching stock lands in Japan.</p>
-     <a className="outline-btn" href="/inventory" onClick={linkClick('inventory',navigate)}><Search/> Browse inventory</a>
+     <p>{t('ma.alEmpty')}</p>
+     <a className="outline-btn" href="/inventory" onClick={linkClick('inventory',navigate)}><Search/> {t('ma.browse')}</a>
     </div>
   : <div className="ma-alert-grid">{rows.map(s=>{
      const href=criteriaHref(s.criteria,inventoryHref);
      return <article key={s.id} className={s.new_matches>0?'has-new':''}>
       <header>
        <b>{s.name}</b>
-       {s.new_matches>0&&<em className="ma-new">{s.new_matches} NEW</em>}
+       {s.new_matches>0&&<em className="ma-new">{t('ma.alNew',{n:s.new_matches})}</em>}
       </header>
       <div className="ma-alert-chips">{describeCriteria(s.criteria).map(c=><span key={c}>{c}</span>)}</div>
-      <small>{s.matches} matching {s.matches===1?'car':'cars'} in stock now
-        {s.email_alerts?' · e-mail alerts on':' · e-mail alerts off'}</small>
+      <small>{s.matches===1?t('ma.alMatchOne'):t('ma.alMatchMany',{n:s.matches})}
+        {' · '}{s.email_alerts?t('ma.alOn'):t('ma.alOff')}</small>
       <div className="ma-alert-actions">
-       <a className="outline-btn" href={href} onClick={e=>{view(s);linkClick(href,navigate)(e)}}>View matches <ArrowRight/></a>
+       <a className="outline-btn" href={href} onClick={e=>{view(s);linkClick(href,navigate)(e)}}>{t('ma.alView')} <ArrowRight/></a>
        <button className="outline-btn" type="button" onClick={()=>toggle(s)}
-         title={s.email_alerts?'Pause e-mail alerts':'Resume e-mail alerts'}>
-        {s.email_alerts?<><BellOff/> Mute</>:<><BellRing/> Unmute</>}
+         title={s.email_alerts?t('ma.alPause'):t('ma.alResume')}>
+        {s.email_alerts?<><BellOff/> {t('ma.alMute')}</>:<><BellRing/> {t('ma.alUnmute')}</>}
        </button>
        <button className="outline-btn danger" type="button" onClick={()=>remove(s)}
-         title="Delete this saved search"><Trash2/></button>
+         title={t('ma.alDelete')}><Trash2/></button>
       </div>
      </article>;
     })}</div>}
@@ -458,6 +459,7 @@ function SavedSearches({session,navigate}){
 const COUNTRIES=['Pakistan','UAE','Kenya','United Kingdom','Tanzania','Other'];
 
 function ProfilePanel({session,customer,email,onClose,onSaved}){
+ const {t}=useLang();
  const [busy,setBusy]=useState(false),[err,setErr]=useState(''),[ok,setOk]=useState(false);
  const initial=customer||{};
  async function submit(e){
@@ -469,43 +471,44 @@ function ProfilePanel({session,customer,email,onClose,onSaved}){
      headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},
      body:JSON.stringify({name:f.get('name'),phone:f.get('phone'),country:f.get('country')})});
    const j=await r.json().catch(()=>({}));
-   if(!r.ok) throw new Error(j.error||'Could not save your details');
+   if(!r.ok) throw new Error(j.error||t('ma.pfErr'));
    if(supabase) await supabase.auth.updateUser({data:{full_name:f.get('name')}});
    setOk(true);onSaved&&onSaved();
    setTimeout(()=>{setOk(false);onClose()},1400);
   }catch(e2){setErr(e2.message)}finally{setBusy(false)}
  }
  return <section className="ma-panel">
-  <header><div><div className="kicker">YOUR DETAILS</div><h2>Edit your profile.</h2>
-   <p>Our team uses these details for your export documents, so please keep them accurate.</p></div>
-   <button type="button" className="ma-panel-x" onClick={onClose} aria-label="Close"><X/></button></header>
-  {ok ? <div className="ma-saved"><Check/> Saved.</div>
+  <header><div><div className="kicker">{t('ma.pfKicker')}</div><h2>{t('ma.pfTitle')}</h2>
+   <p>{t('ma.pfNote')}</p></div>
+   <button type="button" className="ma-panel-x" onClick={onClose} aria-label={t('ma.close')}><X/></button></header>
+  {ok ? <div className="ma-saved"><Check/> {t('ma.pfSaved')}</div>
   : <form onSubmit={submit}>
     {err && <div className="account-error">{err}</div>}
-    <label>FULL NAME<input name="name" required minLength={2} defaultValue={initial.name||''} placeholder="Your full name"/></label>
+    <label>{t('ma.pfName')}<input name="name" required minLength={2} defaultValue={initial.name||''} placeholder={t('ma.pfNamePh')}/></label>
     <div className="form-row">
-     <label>EMAIL<input value={email} disabled title="Email is your login — message us if it needs to change"/></label>
-     <label>WHATSAPP / PHONE<input name="phone" defaultValue={initial.phone||''} placeholder="+92 300 0000000"/></label>
+     <label>{t('ma.pfEmail')}<input value={email} disabled title={t('ma.pfEmailLock')}/></label>
+     <label>{t('ma.pfPhone')}<input name="phone" defaultValue={initial.phone||''} placeholder="+92 300 0000000"/></label>
     </div>
-    <label>COUNTRY
+    <label>{t('ma.pfCountry')}
      <select name="country" defaultValue={initial.country||'Pakistan'}>
       {COUNTRIES.map(c=><option key={c}>{c}</option>)}
      </select>
     </label>
-    <footer><button type="button" className="outline-btn" onClick={onClose}>Cancel</button>
-     <button className="primary" disabled={busy} type="submit">{busy?'Saving…':'Save changes'} <ArrowRight/></button></footer>
+    <footer><button type="button" className="outline-btn" onClick={onClose}>{t('ma.cancel')}</button>
+     <button className="primary" disabled={busy} type="submit">{busy?t('ma.saving'):t('ma.pfSave')} <ArrowRight/></button></footer>
    </form>}
  </section>;
 }
 
 function PasswordPanel({onClose}){
+ const {t}=useLang();
  const [busy,setBusy]=useState(false),[err,setErr]=useState(''),[ok,setOk]=useState(false);
  async function submit(e){
   e.preventDefault();
-  if(!supabase){setErr('Password changes are not connected yet. Please contact us directly.');return}
+  if(!supabase){setErr(t('ma.pwNotConnected'));return}
   const f=new FormData(e.currentTarget);
   const next=f.get('password'),confirm=f.get('confirm');
-  if(next!==confirm){setErr('The two passwords do not match.');return}
+  if(next!==confirm){setErr(t('ma.pwMismatch'));return}
   setBusy(true);setErr('');
   const {error}=await supabase.auth.updateUser({password:next});
   if(error){setErr(error.message);setBusy(false);return}
@@ -513,17 +516,17 @@ function PasswordPanel({onClose}){
   setTimeout(onClose,1600);
  }
  return <section className="ma-panel">
-  <header><div><div className="kicker">SECURITY</div><h2>Change your password.</h2>
-   <p>Use at least 8 characters. You stay signed in on this device.</p></div>
-   <button type="button" className="ma-panel-x" onClick={onClose} aria-label="Close"><X/></button></header>
-  {ok ? <div className="ma-saved"><Check/> Password updated.</div>
+  <header><div><div className="kicker">{t('ma.pwKicker')}</div><h2>{t('ma.pwTitle')}</h2>
+   <p>{t('ma.pwNote')}</p></div>
+   <button type="button" className="ma-panel-x" onClick={onClose} aria-label={t('ma.close')}><X/></button></header>
+  {ok ? <div className="ma-saved"><Check/> {t('ma.pwSaved')}</div>
   : <form onSubmit={submit}>
     {err && <div className="account-error">{err}</div>}
-    <label>NEW PASSWORD<input name="password" type="password" required minLength={8} autoComplete="new-password" placeholder="At least 8 characters"/></label>
-    <label>CONFIRM NEW PASSWORD<input name="confirm" type="password" required minLength={8} autoComplete="new-password"/></label>
-    <small className="demo-note"><LockKeyhole/> If you no longer know your current password, sign out and use "Forgot your password" on the login screen.</small>
-    <footer><button type="button" className="outline-btn" onClick={onClose}>Cancel</button>
-     <button className="primary" disabled={busy} type="submit">{busy?'Saving…':'Update password'} <ArrowRight/></button></footer>
+    <label>{t('ma.pwNew')}<input name="password" type="password" required minLength={8} autoComplete="new-password" placeholder={t('ma.pwNewPh')}/></label>
+    <label>{t('ma.pwConfirm')}<input name="confirm" type="password" required minLength={8} autoComplete="new-password"/></label>
+    <small className="demo-note"><LockKeyhole/> {t('ma.pwForgot')}</small>
+    <footer><button type="button" className="outline-btn" onClick={onClose}>{t('ma.cancel')}</button>
+     <button className="primary" disabled={busy} type="submit">{busy?t('ma.saving'):t('ma.pwSave')} <ArrowRight/></button></footer>
    </form>}
  </section>;
 }
