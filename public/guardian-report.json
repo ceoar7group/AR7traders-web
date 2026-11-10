@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T11:51:41.443Z",
+  "generatedAt": "2026-11-10T17:51:32.618Z",
   "summary": {
     "total": 18,
     "pass": 16,
@@ -25,7 +25,7 @@
       "area": "health",
       "name": "Crawler shell has content",
       "status": "pass",
-      "detail": "index.html carries an H1 (18.4 KB)",
+      "detail": "index.html carries an H1 (19.4 KB)",
       "fix": "Check index.html — the pre-render feeds every crawler"
     },
     {
