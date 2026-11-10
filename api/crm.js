@@ -74,6 +74,17 @@ export default async function handler(req,res,injected={}){
    await db.from('activities').insert({action:'AI assist drafted outreach for a lead',actor:profile.full_name,entity_type:'lead',entity_id:id,created_by:user.id});
    return send(res,200,result)
   }
+  // AI prospect scout: scan ONE public directory page on demand and file the
+  // published business contacts as prospects (api/_prospect-scout.js — a
+  // shared module, not a 13th function). Same honesty rules as the weekly
+  // scanner: robots.txt respected, only contacts printed on the page are
+  // saved, nothing is ever auto-emailed. leads.write, like all outreach.
+  if(entity==='prospects'&&String(req.query.ai||'')==='scan'){
+   if(req.method!=='POST')return send(res,405,{error:'Method not allowed'});
+   await assertPerm(profile,WRITE_PERM.prospects,injected);
+   const {prospectScout}=injected.prospectScout?{prospectScout:injected.prospectScout}:await import('./_prospect-scout.js');
+   return await prospectScout(req,res,{db,profile,user,env:injected.env||process.env,send,fetchImpl:injected.fetch||globalThis.fetch});
+  }
   if(req.method==='GET'){
    const {data,error}=await db.from(entities[entity]).select('*').order(entity==='tasks'?'due_date':'created_at',{ascending:false}).limit(500);if(error)throw error;return send(res,200,data||[])
   }

@@ -84,5 +84,113 @@ say('\n6) source list — env wins, bad lines dropped');
   ok(fromFile.every(u => /^https?:\/\//.test(u)), 'bundled sources file yields only URLs (comments ignored)');
 }
 
+// ---------------------------------------------------------------------------
+// 7–9) AI scout (api/_prospect-scout.js via /api/crm?entity=prospects&ai=scan)
+// — the on-demand, in-CRM version of this scanner. Same honesty contract:
+// robots.txt respected, only contacts printed on the page are saved.
+// ---------------------------------------------------------------------------
+import { scanUrlProblem, stripHtml, verifiedOnPage } from '../api/_prospect-scout.js';
+
+say('\n7) scout URL guard — public http(s) domains only');
+{
+  ok(scanUrlProblem('https://example.org/members') === null, 'normal public page accepted');
+  ok(scanUrlProblem('not a url') !== null, 'garbage refused with a human message');
+  ok(scanUrlProblem('ftp://example.org/x') !== null, 'non-http scheme refused');
+  ok(scanUrlProblem('http://localhost/admin') !== null, 'localhost refused');
+  ok(scanUrlProblem('http://10.0.0.8/x') !== null && scanUrlProblem('http://169.254.169.254/latest') !== null, 'raw IPs (incl. metadata endpoints) refused');
+}
+
+say('\n8) anti-fabrication gate — a contact must be printed on the page');
+{
+  const page = stripHtml('<p>Mombasa Motors — sales@mombasamotors.co.ke · Tel: +254 722 123 456</p><p>Dar Imports, phone 0712 345 678</p>');
+  ok(verifiedOnPage(page, { email: 'sales@mombasamotors.co.ke', phone: null }).any, 'printed email verifies');
+  ok(verifiedOnPage(page, { email: 'SALES@MOMBASAMOTORS.CO.KE', phone: null }).okEmail, 'email check is case-insensitive');
+  ok(verifiedOnPage(page, { email: null, phone: '+254 722 123 456' }).okPhone, 'printed phone verifies across spacing');
+  ok(verifiedOnPage(page, { email: null, phone: '0712-345-678' }).okPhone, 'differently punctuated same digits verify');
+  ok(!verifiedOnPage(page, { email: 'ceo@mombasamotors.co.ke', phone: null }).any, 'email the page never printed is dropped');
+  ok(!verifiedOnPage(page, { email: null, phone: '+254 799 999 999' }).any, 'phone the page never printed is dropped — the scout cannot invent a number');
+}
+
+say('\n9) scan endpoint — fetches, extracts, dedupes, respects robots and permissions');
+{
+  const crm = (await import('../api/crm.js')).default;
+  const { DEFAULTS } = await import('../api/_perm.js');
+  const permsFor = async role => DEFAULTS[role] || {};
+  const userFor = role => async () => ({ user: { id: 'u-' + role, email: role + '@ar7' }, profile: { id: 'u-' + role, full_name: role + ' user', role, active: true }, db: null });
+  const memDb = (seed = {}) => {
+    const tables = {}; let seq = 0;
+    for (const [n, rows] of Object.entries(seed)) tables[n] = rows.map(r => ({ ...r }));
+    const rowsOf = n => (tables[n] || (tables[n] = []));
+    const from = name => {
+      const rows = rowsOf(name);
+      const start = () => {
+        const ctx = { filters: [], limitN: null };
+        const settle = () => { let out = rows.filter(r => ctx.filters.every(f => f(r))); return ctx.limitN ? out.slice(0, ctx.limitN) : out; };
+        const api = {
+          select: () => api, order: () => api,
+          eq: (k, v) => { ctx.filters.push(r => r[k] === v); return api; },
+          contains: (k, v) => { ctx.filters.push(r => (r[k] || []).includes(v[0])); return api; },
+          limit: n => { ctx.limitN = n; return api; },
+          single: async () => { const out = settle(); return out.length ? { data: out[0], error: null } : { data: null, error: new Error('no row') }; },
+          then(resolve) { return resolve({ data: settle(), error: null }); }
+        };
+        return api;
+      };
+      return {
+        select: () => start(),
+        insert(rec) {
+          const list = (Array.isArray(rec) ? rec : [rec]).map(r => ({ ...r, id: r.id || 'id-' + (++seq) }));
+          rows.push(...list);
+          return { error: null, data: list[0], select: () => ({ single: async () => ({ data: list[0], error: null }) }), then(res) { return res({ data: list, error: null }); } };
+        },
+        update: patch => ({ eq: (k, v) => ({ select: () => ({ single: async () => { const r = rows.find(x => x[k] === v); if (r) Object.assign(r, patch); return { data: r || null, error: r ? null : new Error('no row') }; } }) }) })
+      };
+    };
+    return { db: { from }, tables };
+  };
+  const fakeRes = () => { const r = { statusCode: 0, body: null }; r.status = c => { r.statusCode = c; return r; }; r.setHeader = () => {}; r.end = p => { try { r.body = JSON.parse(p); } catch { r.body = p; } }; return r; };
+  const run = async (req, injected) => { const res = fakeRes(); const realErr = console.error; console.error = () => {}; try { await crm(req, res, injected); } finally { console.error = realErr; } return res; };
+  const PAGE = '<title>Kenya Auto Importers Association</title><p>Mombasa Motors Ltd — sales@mombasamotors.co.ke · +254 722 123 456</p>';
+  const fetchFor = (pages, robots = '') => async url => {
+    if (String(url).endsWith('/robots.txt')) return robots ? { ok: true, status: 200, text: async () => robots } : { ok: false, status: 404, text: async () => '' };
+    const page = pages[url]; return page ? { ok: true, status: 200, text: async () => page } : { ok: false, status: 404, text: async () => '' };
+  };
+  const q = { entity: 'prospects', ai: 'scan' };
+  const src = 'https://kaia-example.org/members';
+
+  // happy path, no Gemini key → deterministic extraction, honest note
+  let { db, tables } = memDb();
+  let r = await run({ method: 'POST', query: q, body: { url: src, country: 'Kenya' } },
+    { getUser: userFor('admin'), db, permsFor, env: {}, fetch: fetchFor({ [src]: PAGE }) });
+  ok(r.statusCode === 200 && r.body.ok === true, 'scan answers 200 ok');
+  ok(r.body.inserted === 1 && (tables.prospects || []).length === 1, 'one prospect filed from the page');
+  const p = (tables.prospects || [])[0] || {};
+  ok((p.emails || []).includes('sales@mombasamotors.co.ke') && p.source_url === src, 'published email saved with the source link');
+  ok(p.country === 'Kenya' && p.status === 'new', 'country carried, status new (a human reviews)');
+  ok(r.body.provider === 'rules' && /GEMINI/i.test(r.body.note || ''), 'without an AI key the note says so honestly');
+  ok((tables.activities || []).length === 1 && /AI scout/.test(tables.activities[0].action), 'audit trail records the scan');
+
+  // scanning the same page again inserts nothing (insert-only upsert)
+  r = await run({ method: 'POST', query: q, body: { url: src } },
+    { getUser: userFor('admin'), db, permsFor, env: {}, fetch: fetchFor({ [src]: PAGE }) });
+  ok(r.statusCode === 200 && r.body.inserted === 0 && r.body.skipped >= 1, 'rescan skips known prospects, never overwrites');
+
+  // robots.txt disallow → refused, nothing fetched into the CRM
+  ({ db, tables } = memDb());
+  r = await run({ method: 'POST', query: q, body: { url: src } },
+    { getUser: userFor('admin'), db, permsFor, env: {}, fetch: fetchFor({ [src]: PAGE }, 'User-agent: *\nDisallow: /members') });
+  ok(r.statusCode === 400 && /robots/.test(r.body.error || '') && !(tables.prospects || []).length, 'robots.txt disallow is honoured');
+
+  // viewer (no leads.write) is refused
+  r = await run({ method: 'POST', query: q, body: { url: src } },
+    { getUser: userFor('viewer'), db: memDb().db, permsFor, env: {}, fetch: fetchFor({ [src]: PAGE }) });
+  ok(r.statusCode === 403, 'a role without leads.write cannot run the scout');
+
+  // junk URL → human-readable 400 before any fetch
+  r = await run({ method: 'POST', query: q, body: { url: 'http://127.0.0.1/x' } },
+    { getUser: userFor('admin'), db: memDb().db, permsFor, env: {}, fetch: async () => { throw new Error('must not fetch'); } });
+  ok(r.statusCode === 400, 'private addresses are refused before any request is made');
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

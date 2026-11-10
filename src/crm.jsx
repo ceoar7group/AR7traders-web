@@ -1845,6 +1845,11 @@ export default function CrmApp() {
             notify={setNotice}
             quickPatch={(row, patch) => quickPatch('prospects', row, patch)}
             onAdd={payload => save('prospects', payload)}
+            onScan={DEMO ? null : async (url, country) => {
+              const r = await call('/api/crm?entity=prospects&ai=scan', session.access_token, { method: 'POST', body: JSON.stringify({ url, country: country || undefined }) });
+              if (r.prospects?.length) setRows(v => ({ ...v, prospects: [...r.prospects, ...(v.prospects || [])] }));
+              return r;
+            }}
             onConvert={async p => {
               const payload = {
                 name: p.company || 'Prospect', email: (p.emails || [])[0] || '', phone: (p.phones || [])[0] || '',
@@ -2580,6 +2585,18 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
   const [timelineFor, setTimelineFor] = useState(null);
   const [templateFor, setTemplateFor] = useState({});
   const [langFor, setLangFor] = useState({});
+  // Quick dial (2026-11-13): the desk is a phone, not just a queue. Agents
+  // can dial ANY number — a walk-in, a referral, a number off a business
+  // card — through the same free channels, without creating a lead first.
+  const [quickNo, setQuickNo] = useState('');
+  // Live call copilot: free-form questions answered by the same assistant
+  // that runs the public website chat — grounded in the live stock list and
+  // site facts, no extra AI account. The agent asks mid-call and reads the
+  // answer back; prices are confirmed by quotation, and the copilot says so.
+  const [copOpen, setCopOpen] = useState(false);
+  const [copilot, setCopilot] = useState([]);
+  const [copQ, setCopQ] = useState('');
+  const [copBusy, setCopBusy] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const plusDays = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const digits = p => String(p || '').replace(/\D/g, '');
@@ -2644,6 +2661,23 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
     return (CALL_TEMPLATES.find(t => t.id === tid) || CALL_TEMPLATES[0]).text(lead);
   };
 
+  const askCopilot = async e => {
+    e.preventDefault();
+    const q = copQ.trim(); if (!q || copBusy) return;
+    const history = copilot.slice(-8).map(m => ({ role: m.role, content: m.content }));
+    setCopilot(v => [...v, { role: 'user', content: q }]); setCopQ(''); setCopBusy(true);
+    try {
+      const r = await fetch('/api/leads', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'chat', message: q, history })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'The assistant is unavailable right now — try again in a moment.');
+      setCopilot(v => [...v, { role: 'assistant', content: data.reply || '…' }]);
+    } catch (err) { setCopilot(v => [...v, { role: 'assistant', content: err.message }]); }
+    finally { setCopBusy(false); }
+  };
+
   // Real call stats from the audit trail ("Call logged — …" entries), plus
   // outcomes logged this session that the activities list has not re-fetched.
   const callStats = useMemo(() => {
@@ -2661,7 +2695,43 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
     <div className="crm-call-desk">
       <div className="crm-call-explain">
         <p><b><PhoneCall size={14} /> Free calling, by design.</b> “Call” dials from <i>your</i> phone, “WhatsApp” opens the chat with the first message pre-filled (free over data), “SMS” pre-fills a text, and <b>“Web call”</b> opens a free browser-to-browser voice room — send the customer the link and talk with no telephony subscription and no per-minute fees. <b>AI script</b> writes your talking points, objection answers and follow-up messages from the lead’s own enquiry and live stock; you speak, you press send. The ≈ clock shows the lead’s approximate local time so nobody gets a 3 a.m. call.</p>
-        <p className="crm-hint">Fully automated AI <i>voice</i> calls need a paid telephony provider (e.g. Twilio) and robocall consent rules per country — this desk is honest about that and keeps humans on the line. Ask your developer to connect a provider if you ever want it.</p>
+        <p className="crm-hint">The desk learns from every call you log: outcomes reorder tomorrow’s queue, set the follow-up date and build each lead’s timeline, so the AI script always drafts from the up-to-date record. Fully automated AI <i>voice</i> calls need a paid telephony provider (e.g. Twilio) and robocall consent rules per country — this desk is honest about that and keeps humans on the line. Ask your developer to connect a provider if you ever want it.</p>
+      </div>
+      {(() => {
+        const quickDigits = quickNo.replace(/\D/g, '');
+        const quickTel = quickNo.replace(/[^+\d]/g, '');
+        const ready = quickDigits.length >= 7;
+        const guard = e => { if (!ready) { e.preventDefault(); notify('Type the full international number first, e.g. +254 711 223344.'); } };
+        return (
+          <div className="crm-call-log" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <b style={{ fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><PhoneCall size={14} /> Quick dial</b>
+            <input value={quickNo} onChange={e => setQuickNo(e.target.value)} placeholder="+254 711 223344 — call any number, no lead needed" aria-label="Phone number to dial" style={{ flex: '1 1 230px', minWidth: 170 }} />
+            <a className="crm-call-act is-call" href={ready ? 'tel:' + quickTel : '#'} onClick={guard}><PhoneCall size={14} /> Call</a>
+            <a className="crm-call-act is-wa" href={ready ? 'https://wa.me/' + quickDigits : '#'} onClick={guard} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>
+            <a className="crm-call-act" href={ready ? 'sms:' + quickTel : '#'} onClick={guard}><Mail size={14} /> SMS</a>
+            <button type="button" className="crm-call-act" onClick={() => startWebCall(null)} title="Free browser-to-browser voice room — opens your side and copies the invite link to share"><Headphones size={14} /> Web call</button>
+          </div>
+        );
+      })()}
+      <div className="crm-call-log" style={{ display: 'block' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <b style={{ fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Sparkles size={14} /> AI call copilot</b>
+          <small style={{ opacity: .78, flex: '1 1 260px' }}>Ask anything mid-call — stock, shipping times, next steps. Answers come from your live inventory and site facts; prices are indicative until quoted.</small>
+          <button type="button" className="crm-call-act is-ai" onClick={() => setCopOpen(o => !o)}>{copOpen ? 'Hide' : 'Open copilot'}</button>
+        </div>
+        {copOpen && (<>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '32vh', overflowY: 'auto', margin: '8px 0 2px' }}>
+            {!copilot.length && <small style={{ opacity: .7 }}>Try: “Which SUVs under $10,000 are in stock right now?” · “How long is shipping to Mombasa?” · “The customer says the price is too high — what do I say?”</small>}
+            {copilot.map((m, i) => (
+              <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '86%', background: m.role === 'user' ? 'rgba(47,158,104,.16)' : 'rgba(128,128,128,.13)', border: '1px solid rgba(128,128,128,.18)', borderRadius: 10, padding: '6px 10px', whiteSpace: 'pre-wrap', fontSize: '.88rem' }}>{m.content}</div>
+            ))}
+            {copBusy && <small style={{ opacity: .6 }}>Thinking…</small>}
+          </div>
+          <form onSubmit={askCopilot} style={{ display: 'flex', gap: 6 }}>
+            <input value={copQ} onChange={e => setCopQ(e.target.value)} placeholder="Ask while you talk — e.g. “cheapest hybrid in stock?”" aria-label="Ask the call copilot" style={{ flex: 1 }} />
+            <button type="submit" className="crm-call-act is-ai" disabled={copBusy || !copQ.trim()}><Send size={14} /> Ask</button>
+          </form>
+        </>)}
       </div>
       <div className="crm-call-stats" role="status">
         <span><b>{queue.length}</b> leads with a phone number to work</span>
@@ -2670,7 +2740,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
         <span><b>{callStats.week}</b> this week</span>
       </div>
       {queue.length === 0 && (
-        <div className="crm-empty"><PhoneCall /><h3>No leads to call</h3><p>Leads with a phone number appear here automatically, overdue follow-ups first. Won and lost leads are filtered out.</p></div>
+        <div className="crm-empty"><PhoneCall /><h3>No leads in the queue — the phone still works</h3><p>Use <b>Quick dial</b> above to call, WhatsApp or SMS any number right now, and the <b>AI copilot</b> to answer stock questions while you talk. Leads with a phone number appear here automatically, overdue follow-ups first; won and lost leads are filtered out.</p></div>
       )}
       <ul className="crm-call-list">
         {queue.map(lead => {
@@ -2749,6 +2819,28 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
   const [drafting, setDrafting] = useState(false);
   const [auto, setAuto] = useState(null);               // 'on' | 'off' | null (unknown)
   const [newTo, setNewTo] = useState('');
+  // Connection wizard (2026-11-13): the setup path lives IN the desk, not
+  // only in WHATSAPP-DESK.md. The verify token the owner invents is typed
+  // here so the webhook URL below is copy-ready with it filled in.
+  const [vtok, setVtok] = useState('');
+  const [checking, setChecking] = useState(false);
+  const webhookUrl = (typeof location !== 'undefined' ? location.origin : 'https://ar7traders.com')
+    + '/api/leads?wa=webhook&key=' + (vtok.trim() ? encodeURIComponent(vtok.trim()) : 'YOUR_VERIFY_TOKEN');
+  const copyText = async (what, text) => {
+    try { await navigator.clipboard.writeText(text); notify(what + ' copied to the clipboard.'); }
+    catch { notify('Could not copy — select and copy it by hand: ' + text); }
+  };
+  const checkConnection = async () => {
+    setChecking(true);
+    try {
+      const r = await call('/api/crm?entity=wa', token);
+      setState({ loading: false, ...r });
+      notify(r.configured
+        ? 'Connected! Your WhatsApp Business number is live — incoming messages will appear here.'
+        : 'Not connected yet — the three WHATSAPP_* variables are still missing in Vercel (step 3), or the project has not been redeployed since you added them.');
+    } catch (e) { notify(e.message); }
+    finally { setChecking(false); }
+  };
 
   const load = async () => {
     if (!token) { setState({ loading: false, demo: true, configured: false, conversations: [] }); return; }
@@ -2811,8 +2903,8 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
     <div className="crm-call-desk crm-wa-desk">
       <div className="crm-call-explain">
         <p><b><MessageCircle size={14} /> Your business WhatsApp, inside the CRM.</b> Customers message your WhatsApp Business number; the conversation lands here for any team member to answer — with an <b>AI draft</b> one click away. Replies inside Meta's 24-hour service window are <b>free</b>. Calls stay free too: use the customer's wa.me link on the Call desk, or send them a <i>Web call</i> link.</p>
-        {!state.configured && !state.loading && (
-          <p className="crm-hint"><b>Not connected yet.</b> This desk needs a (free) Meta WhatsApp Business Cloud API number: create it in Meta Business Manager, then add <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code> and <code>WHATSAPP_VERIFY_TOKEN</code> in Vercel and register the webhook. Step-by-step guide: <b>WHATSAPP-DESK.md</b> in the repository. Honest cost note: receiving and replying within 24 h is free; starting a conversation (template messages) is billed by Meta per message.</p>
+        {state.configured && !state.loading && (
+          <p className="crm-hint"><b style={{ color: 'var(--crm-green, #2f9e68)' }}>● Connected</b> — WhatsApp Business number ID {state.number_id || '…'} is live. Messages customers send to it appear below.</p>
         )}
         {state.demo && <p className="crm-hint">Demo mode — sign in to the live CRM to use the WhatsApp desk.</p>}
         {canToggleAuto && state.configured && (
@@ -2824,6 +2916,33 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
           </p>
         )}
       </div>
+
+      {!state.configured && !state.loading && !state.demo && (
+        <div className="crm-call-log" style={{ display: 'block' }}>
+          <p style={{ margin: '0 0 8px' }}><b><MessageCircle size={14} /> Connect your WhatsApp Business number — 5 steps, ~20 minutes, free.</b> You do this once; after that every customer message lands on this desk.</p>
+          <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 8, fontSize: '.9rem' }}>
+            <li><b>Create the Meta app.</b> Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer">developers.facebook.com/apps <ExternalLink size={10} /></a> → Create app → type <i>Business</i> → add the <b>WhatsApp</b> product. Meta gives you a free test number immediately; you can attach your real business number later in the same screen.</li>
+            <li><b>Copy two values</b> from WhatsApp → API Setup: the <b>access token</b> (generate a permanent one via a System User in Business Settings) and the <b>Phone number ID</b> (the long ID under the number — not the phone number itself).</li>
+            <li><b>Add three variables in Vercel</b> (Project → Settings → Environment Variables), then redeploy:
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                {['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID', 'WHATSAPP_VERIFY_TOKEN'].map(k => (
+                  <button key={k} type="button" className="crm-call-act" onClick={() => copyText(k, k)} title="Copy the variable name"><ClipboardCopy size={12} /> <code>{k}</code></button>
+                ))}
+              </div>
+              <small style={{ opacity: .75 }}>WHATSAPP_VERIFY_TOKEN is any secret word you invent — type it here to build your webhook URL:</small>
+              <input value={vtok} onChange={e => setVtok(e.target.value)} placeholder="your-secret-verify-token" aria-label="Verify token" style={{ display: 'block', marginTop: 4, width: 'min(320px,100%)' }} />
+            </li>
+            <li><b>Register the webhook</b> in Meta → WhatsApp → Configuration: Callback URL = the address below, Verify token = the same secret, then subscribe to the <b>messages</b> field.
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                <code style={{ fontSize: '.78rem', wordBreak: 'break-all' }}>{webhookUrl}</code>
+                <button type="button" className="crm-call-act" onClick={() => copyText('Webhook URL', webhookUrl)}><ClipboardCopy size={12} /> Copy URL</button>
+              </div>
+            </li>
+            <li><b>Confirm:</b> <button type="button" className="crm-call-act is-wa" onClick={checkConnection} disabled={checking}><RefreshCw size={13} /> {checking ? 'Checking…' : 'Check connection'}</button> — it turns green here the moment the three variables are live.</li>
+          </ol>
+          <p className="crm-hint" style={{ marginTop: 8 }}>Honest cost note: receiving messages and replying within Meta’s 24-hour service window is <b>free</b>; starting a conversation first (template messages) is billed by Meta per message, so this desk never sends those. Full guide with screenshots: <b>WHATSAPP-DESK.md</b> in the repository.</p>
+        </div>
+      )}
 
       <div className="crm-wa-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,300px) 1fr', gap: 14, alignItems: 'start' }}>
         <div className="crm-wa-list">
@@ -2895,11 +3014,33 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
 //  by scripts/prospect-scan.mjs (weekly GitHub Action) or added by hand, then
 //  reviewed by a person and converted into Leads. Nothing is auto-emailed.
 // ---------------------------------------------------------------------------
-function ProspectsView({ rows, canWrite, canLead, notify, quickPatch, onAdd, onConvert }) {
+function ProspectsView({ rows, canWrite, canLead, notify, quickPatch, onAdd, onConvert, onScan }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ company: '', website: '', country: '', email: '', phone: '' });
   const [busyId, setBusyId] = useState(null);
+  // AI scout (2026-11-13): paste a public directory URL, the server reads the
+  // page and files each listed business's PUBLISHED contacts as prospects —
+  // the weekly scanner's job, on demand, without opening GitHub.
+  const [scanUrl, setScanUrl] = useState('');
+  const [scanCountry, setScanCountry] = useState('');
+  const [scanning, setScanning] = useState(false);
   const STATUSES = ['new', 'contacted', 'qualified', 'converted', 'ignored'];
+
+  const runScan = async e => {
+    e.preventDefault();
+    if (!onScan) { notify('The AI scout needs the live CRM — it is disabled in offline/demo mode.'); return; }
+    if (!canWrite) { notify('Your role cannot add prospects — ask for the "Add / edit leads" permission.'); return; }
+    const u = scanUrl.trim(); if (!u) return;
+    setScanning(true);
+    try {
+      const r = await onScan(u, scanCountry.trim());
+      notify(r.inserted
+        ? `AI scout filed ${r.inserted} new prospect${r.inserted === 1 ? '' : 's'} from that page (${r.skipped} already known).${r.note ? ' ' + r.note : ''}`
+        : `AI scout found no new published contacts on that page${r.skipped ? ` (${r.skipped} already in your list)` : ''}.${r.note ? ' ' + r.note : ''}`);
+      if (r.inserted) setScanUrl('');
+    } catch (err) { notify(err.message); }
+    finally { setScanning(false); }
+  };
 
   const submitAdd = async e => {
     e.preventDefault();
@@ -2924,9 +3065,18 @@ function ProspectsView({ rows, canWrite, canLead, notify, quickPatch, onAdd, onC
   return (
     <div className="crm-call-desk crm-prospects">
       <div className="crm-call-explain">
-        <p><b><Radar size={14} /> Fuel for outreach.</b> The weekly scanner reads the public directory pages you list (trade associations, importer directories, “find a dealer” pages) and files each company's <b>published business contacts</b> here. A person reviews, then <b>Convert to lead</b> moves them into the pipeline and the Call desk. Nothing is ever emailed automatically — that is how sender domains get blacklisted.</p>
-        <p className="crm-hint">Add source pages in <code>scripts/prospect-sources.txt</code> (or the <code>PROSPECT_SOURCES</code> repository variable), then run the <b>Prospect radar</b> workflow from GitHub → Actions. Public business contact details only; respect every unsubscribe/removal request.</p>
+        <p><b><Radar size={14} /> Fuel for outreach.</b> Point the <b>AI scout</b> below at any public directory page (trade associations, importer directories, “find a dealer” pages) and it files each listed company's <b>published business contacts</b> here — the weekly GitHub scanner does the same automatically for the pages in <code>scripts/prospect-sources.txt</code>. A person reviews, then <b>Convert to lead</b> moves them into the pipeline and the Call desk. Nothing is ever emailed automatically — that is how sender domains get blacklisted.</p>
+        <p className="crm-hint">The scout cannot invent contacts: every email and phone it saves must be printed on the page it read, robots.txt is respected, and the source link is kept on each prospect. Public business contact details only; respect every unsubscribe/removal request.</p>
       </div>
+      <form className="crm-call-log" onSubmit={runScan} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <b style={{ fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Sparkles size={14} /> AI scout</b>
+        <input value={scanUrl} onChange={e => setScanUrl(e.target.value)} placeholder="https://… a public page that lists importers/dealers" aria-label="Directory page URL to scan" style={{ flex: '1 1 300px', minWidth: 200 }} />
+        <input value={scanCountry} onChange={e => setScanCountry(e.target.value)} placeholder="Country (optional)" aria-label="Country these businesses are in" style={{ width: 150 }} />
+        <button type="submit" className="crm-call-act is-ai" disabled={scanning || !scanUrl.trim()}>
+          <Radar size={14} /> {scanning ? 'Scanning…' : 'Scan page'}
+        </button>
+        {scanning && <small style={{ opacity: .7 }}>Reading the page and extracting published contacts — up to ~30 seconds…</small>}
+      </form>
       <div className="crm-call-stats" role="status">
         <span><b>{rows.length}</b> prospects</span>
         <span><b>{rows.filter(p => (p.status || 'new') === 'new').length}</b> waiting for review</span>
@@ -2944,7 +3094,7 @@ function ProspectsView({ rows, canWrite, canLead, notify, quickPatch, onAdd, onC
         </form>
       )}
       {rows.length === 0 && (
-        <div className="crm-empty"><Radar /><h3>No prospects yet</h3><p>Run the Prospect radar workflow (GitHub → Actions) after adding source pages, or add companies by hand.</p></div>
+        <div className="crm-empty"><Radar /><h3>No prospects yet</h3><p>Paste a public directory page into the <b>AI scout</b> above and press Scan — it files every published business contact it finds. Or add companies by hand; the weekly GitHub workflow also keeps feeding this list.</p></div>
       )}
       <ul className="crm-call-list">
         {rows.map(p => {
