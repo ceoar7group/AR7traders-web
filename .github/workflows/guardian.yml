@@ -41,6 +41,17 @@ jobs:
         run: npm run seo
       - name: Test suite
         run: npm test
+      # Nightly data retention: trims only exhaust tables (old audit rows,
+      # automation logs, AI usage counters, cancelled drafts) on conservative
+      # windows so the free Supabase tier stays healthy forever. Business
+      # records are never touched — see scripts/db-retention.mjs. Skips
+      # itself silently when the two secrets are not configured.
+      - name: Data retention (Supabase free tier)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/db-retention.mjs
+        continue-on-error: true
       - name: Commit the report
         if: always()
         run: |

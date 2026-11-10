@@ -326,9 +326,9 @@
 @media(max-width:650px){.buyer-guide{padding:20px}.buyer-guide-steps{grid-template-columns:1fr}.destination-docs{padding:18px}}
 
 /* ---------- MOTION: plane, convoy, wheels, ship wake ---------- */
-.moving-plane{position:absolute;top:0;left:0;width:100%;height:34px;z-index:2;pointer-events:none}
-.moving-plane svg{position:absolute;width:24px;color:var(--gold);filter:drop-shadow(0 3px 6px #0005);animation:planeFly 16s linear infinite}
-@keyframes planeFly{0%{left:-40px;top:12px}45%{top:4px}100%{left:104%;top:12px}}
+.moving-plane{position:absolute;top:0;left:0;width:100%;height:34px;z-index:2;pointer-events:none;animation:planeFly 16s linear infinite}
+.moving-plane svg{position:absolute;left:-40px;top:0;width:24px;color:var(--gold);filter:drop-shadow(0 3px 6px #0005)}
+@keyframes planeFly{0%{translate:0 12px}45%{translate:calc(46.8% + 18px) 4px}100%{translate:calc(104% + 40px) 12px}}
 .moving-car.convoy{animation:drive 19s linear infinite;bottom:34px;opacity:.75;z-index:1}
 .moving-car.convoy svg{width:36px;height:25px;background:var(--forest)} /* 2026-11-08 audit: follow the active theme */
 .moving-car.convoy span{display:none}
@@ -568,10 +568,10 @@ section[id]{scroll-margin-top:120px}
 .grain{will-change:auto;translate:0}
 
 /* plane crossing the showcase globe */
-.iglobe-plane{position:absolute;left:-30px;top:16%;z-index:6;color:#ffe1a6;pointer-events:none;animation:igPlane 13s linear infinite;will-change:transform}
-.iglobe-plane svg{width:17px;height:17px;filter:drop-shadow(0 2px 4px #0006)}
+.iglobe-plane{position:absolute;left:-30px;top:16%;width:100%;height:17px;z-index:6;color:#ffe1a6;pointer-events:none;animation:igPlane 13s linear infinite;will-change:transform}
+.iglobe-plane svg{position:absolute;left:0;top:0;width:17px;height:17px;filter:drop-shadow(0 2px 4px #0006)}
 .iglobe-plane:after{content:'';position:absolute;left:14px;top:7px;width:22px;height:2px;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,.65),transparent)}
-@keyframes igPlane{0%{left:-30px;top:16%}12%{top:12%}88%{top:12%}100%{left:104%;top:16%}}
+@keyframes igPlane{0%{translate:0 0}12%{translate:calc(12% + 4px) -14px}88%{translate:calc(88% + 26px) -14px}100%{translate:calc(104% + 30px) 0}}
 
 /* Vehicle detail gallery: uncropped same-car views, arrows and zoom */
 .detail-gallery>.detail-main-image{display:block!important;position:relative!important;margin:0!important;background:#071b12;border-radius:22px;overflow:hidden}
@@ -721,7 +721,7 @@ section[id]{scroll-margin-top:120px}
 .world-time-label{height:100%;flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:0 13px;border-right:1px solid color-mix(in srgb,var(--gold) 30%,var(--line));background:linear-gradient(135deg,var(--green),var(--deep));color:#fff;font-size:7px;font-weight:800;letter-spacing:1.6px;white-space:nowrap;position:relative;z-index:2;box-shadow:9px 0 20px rgba(2,47,29,.13)}
 .world-time-label svg{width:14px;color:var(--gold2)}
 .world-time-label>i{width:5px;height:5px;border-radius:50%;background:#62e39d;box-shadow:0 0 0 4px rgba(98,227,157,.12);animation:clockLive 2s ease-in-out infinite}
-@keyframes clockLive{50%{opacity:.45;box-shadow:0 0 0 7px rgba(98,227,157,0)}}
+@keyframes clockLive{50%{opacity:.45}}
 .world-time-viewport{min-width:0;overflow:hidden;flex:1;height:100%;display:flex;align-items:center;mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent)}
 .world-time-track{display:flex;align-items:center;width:max-content;will-change:transform;animation:worldClockSlide 42s linear infinite}
 .world-time-ribbon:hover .world-time-track{animation-play-state:paused}

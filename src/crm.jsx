@@ -2465,6 +2465,40 @@ const firstNameOf = l => String(l?.name || '').trim().split(' ')[0] || 'there';
 // not stored anywhere — just the line agents measure their day against.
 const CALL_TARGET_PER_DAY = 10;
 
+// Dialer provider (2026-11, owner request "call any number from the desk").
+// HONEST: no legitimate service places free calls to ordinary phone numbers
+// through an API — anyone promising that is reselling minutes or a scam. What
+// the desk CAN do is open the calling app YOU already use, with the number
+// pre-filled. The choice is a device preference (which app is installed on
+// *this* computer/phone), so it lives in localStorage, not in the database.
+// The custom template covers any VoIP/softphone/CRM dialer with a URL scheme
+// — e.g. Zoiper (sip:), MicroSIP, Skype, Google Voice web, 3CX, Zadarma.
+const DIALER_OPTIONS = [
+  { id: 'tel', label: 'This device — default phone app (tel:)' },
+  { id: 'sip', label: 'SIP softphone — Zoiper, MicroSIP, Linphone… (sip:)' },
+  { id: 'skype', label: 'Skype (skype: — Skype credit rates apply)' },
+  { id: 'gvoice', label: 'Google Voice web (US/CA accounts)' },
+  { id: 'custom', label: 'Custom app link — any dialer with a URL scheme' },
+];
+const dialerPref = () => { try { return localStorage.getItem('ar7_dialer') || 'tel'; } catch { return 'tel'; } };
+const dialerTemplate = () => { try { return localStorage.getItem('ar7_dialer_url') || ''; } catch { return ''; } };
+function dialHref(phone) {
+  const tel = String(phone || '').replace(/[^+\d]/g, '');
+  switch (dialerPref()) {
+    case 'sip': return 'sip:' + tel.replace('+', '');
+    case 'skype': return 'skype:' + tel + '?call';
+    case 'gvoice': return 'https://voice.google.com/u/0/calls?a=nc,' + encodeURIComponent(tel);
+    case 'custom': {
+      const t = dialerTemplate();
+      // Only honest URL schemes; a template that is empty or tries something
+      // like javascript: falls back to the plain phone app.
+      if (!t || !/^[a-z][a-z0-9+.-]*:/i.test(t) || /^javascript:/i.test(t.trim())) return 'tel:' + tel;
+      return t.includes('{number}') ? t.replace('{number}', encodeURIComponent(tel)) : t + encodeURIComponent(tel);
+    }
+    default: return 'tel:' + tel;
+  }
+}
+
 // Free vessel tracking (2026-11): shipments already store the vessel name, so
 // a VesselFinder search link gives live AIS position with no API key and no
 // cost — same free-by-design rule as the Call desk's tel:/wa.me links.
@@ -2589,6 +2623,12 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
   // can dial ANY number — a walk-in, a referral, a number off a business
   // card — through the same free channels, without creating a lead first.
   const [quickNo, setQuickNo] = useState('');
+  // Which app the Call buttons open on THIS device (tel:/sip:/Skype/custom —
+  // see DIALER_OPTIONS for the honest reasoning). Stored per device.
+  const [dialer, setDialer] = useState(dialerPref());
+  const [dialerUrl, setDialerUrl] = useState(dialerTemplate());
+  const pickDialer = id => { setDialer(id); try { localStorage.setItem('ar7_dialer', id); } catch { /* private mode */ } };
+  const saveDialerUrl = v => { setDialerUrl(v); try { localStorage.setItem('ar7_dialer_url', v); } catch { /* private mode */ } };
   // Live call copilot: free-form questions answered by the same assistant
   // that runs the public website chat — grounded in the live stock list and
   // site facts, no extra AI account. The agent asks mid-call and reads the
@@ -2694,7 +2734,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
   return (
     <div className="crm-call-desk">
       <div className="crm-call-explain">
-        <p><b><PhoneCall size={14} /> Free calling, by design.</b> “Call” dials from <i>your</i> phone, “WhatsApp” opens the chat with the first message pre-filled (free over data), “SMS” pre-fills a text, and <b>“Web call”</b> opens a free browser-to-browser voice room — send the customer the link and talk with no telephony subscription and no per-minute fees. <b>AI script</b> writes your talking points, objection answers and follow-up messages from the lead’s own enquiry and live stock; you speak, you press send. The ≈ clock shows the lead’s approximate local time so nobody gets a 3 a.m. call.</p>
+        <p><b><PhoneCall size={14} /> Free calling, by design.</b> “Call” dials from <i>your</i> phone — or from any VoIP/softphone app you pick under Quick dial below — “WhatsApp” opens the chat with the first message pre-filled (free over data), “SMS” pre-fills a text, and <b>“Web call”</b> opens a free browser-to-browser voice room — send the customer the link and talk with no telephony subscription and no per-minute fees. <b>AI script</b> writes your talking points, objection answers and follow-up messages from the lead’s own enquiry and live stock; you speak, you press send. The ≈ clock shows the lead’s approximate local time so nobody gets a 3 a.m. call.</p>
         <p className="crm-hint">The desk learns from every call you log: outcomes reorder tomorrow’s queue, set the follow-up date and build each lead’s timeline, so the AI script always drafts from the up-to-date record. Fully automated AI <i>voice</i> calls need a paid telephony provider (e.g. Twilio) and robocall consent rules per country — this desk is honest about that and keeps humans on the line. Ask your developer to connect a provider if you ever want it.</p>
       </div>
       {(() => {
@@ -2706,10 +2746,24 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
           <div className="crm-call-log" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <b style={{ fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><PhoneCall size={14} /> Quick dial</b>
             <input value={quickNo} onChange={e => setQuickNo(e.target.value)} placeholder="+254 711 223344 — call any number, no lead needed" aria-label="Phone number to dial" style={{ flex: '1 1 230px', minWidth: 170 }} />
-            <a className="crm-call-act is-call" href={ready ? 'tel:' + quickTel : '#'} onClick={guard}><PhoneCall size={14} /> Call</a>
+            <a className="crm-call-act is-call" href={ready ? dialHref(quickNo) : '#'} onClick={guard}><PhoneCall size={14} /> Call</a>
             <a className="crm-call-act is-wa" href={ready ? 'https://wa.me/' + quickDigits : '#'} onClick={guard} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>
             <a className="crm-call-act" href={ready ? 'sms:' + quickTel : '#'} onClick={guard}><Mail size={14} /> SMS</a>
             <button type="button" className="crm-call-act" onClick={() => startWebCall(null)} title="Free browser-to-browser voice room — opens your side and copies the invite link to share"><Headphones size={14} /> Web call</button>
+            <span style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <small style={{ opacity: .78 }}>Call buttons open:</small>
+              <select className="crm-call-template" aria-label="Which app the Call buttons open on this device" value={dialer}
+                onChange={e => pickDialer(e.target.value)}
+                title="Device preference: which installed app the desk's Call buttons hand the number to. No provider offers truly free API calls to ordinary phone numbers — this opens YOUR app and YOUR plan/credit carries the call. WhatsApp and Web call stay free over data.">
+                {DIALER_OPTIONS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+              </select>
+              {dialer === 'custom' && (
+                <input value={dialerUrl} onChange={e => saveDialerUrl(e.target.value)}
+                  placeholder="URL scheme with {number} — e.g. sip:{number}@sip.my-voip.com"
+                  aria-label="Custom dialer URL template" style={{ flex: '1 1 250px', minWidth: 180 }} />
+              )}
+              <small style={{ opacity: .6, flex: '1 1 220px' }}>Saved on this device only. If you use a VoIP app (Zoiper, 3CX, Zadarma…), every Call button opens it with the number filled in.</small>
+            </span>
           </div>
         );
       })()}
@@ -2773,7 +2827,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
                   title="Language the WhatsApp and SMS message is written in — picked from the lead's country, switchable per lead">
                   {TEMPLATE_LANGS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
-                <a className="crm-call-act is-call" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><PhoneCall size={14} /> Call</a>
+                <a className="crm-call-act is-call" href={dialHref(lead.phone)}><PhoneCall size={14} /> Call</a>
                 {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(waText(lead))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
                 <a className="crm-call-act" href={'sms:' + String(lead.phone).replace(/[^+\d]/g, '') + '?&body=' + encodeURIComponent(waText(lead))}><Mail size={14} /> SMS</a>
                 <button type="button" className="crm-call-act" onClick={() => startWebCall(lead)} title="Free browser-to-browser voice call — opens your side and copies the customer's invite link"><Headphones size={14} /> Web call</button>
@@ -2830,15 +2884,29 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
     try { await navigator.clipboard.writeText(text); notify(what + ' copied to the clipboard.'); }
     catch { notify('Could not copy — select and copy it by hand: ' + text); }
   };
+  // Live test (2026-11): POST {test:1} asks Meta's Graph API about the
+  // configured phone-number ID and reports the REAL connected number (or
+  // Meta's exact error). Members without leads.write fall back to the
+  // configured flag, which any signed-in member may read.
   const checkConnection = async () => {
     setChecking(true);
     try {
-      const r = await call('/api/crm?entity=wa', token);
-      setState({ loading: false, ...r });
-      notify(r.configured
-        ? 'Connected! Your WhatsApp Business number is live — incoming messages will appear here.'
-        : 'Not connected yet — the three WHATSAPP_* variables are still missing in Vercel (step 3), or the project has not been redeployed since you added them.');
-    } catch (e) { notify(e.message); }
+      const r = await call('/api/crm?entity=wa', token, { method: 'POST', body: JSON.stringify({ test: 1 }) });
+      if (r.ok) {
+        notify(`Connected! Meta confirms ${r.name ? r.name + ' — ' : ''}${r.number || 'your business number'} is live${r.quality ? ' (quality rating: ' + String(r.quality).toLowerCase() + ')' : ''}. Incoming messages will appear here.`);
+        try { setState({ loading: false, ...(await call('/api/crm?entity=wa', token)) }); } catch { /* list refresh is cosmetic */ }
+      } else {
+        notify(r.error || 'Not connected yet — the three WHATSAPP_* variables are still missing in Vercel (step 3), or the project has not been redeployed since you added them.');
+      }
+    } catch {
+      try {
+        const r = await call('/api/crm?entity=wa', token);
+        setState({ loading: false, ...r });
+        notify(r.configured
+          ? 'Configured — the three variables are set. Ask a member with the "Add / edit leads" permission to run the live Meta test.'
+          : 'Not connected yet — the three WHATSAPP_* variables are still missing in Vercel (step 3), or the project has not been redeployed since you added them.');
+      } catch (e2) { notify(e2.message); }
+    }
     finally { setChecking(false); }
   };
 
@@ -2902,9 +2970,9 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
   return (
     <div className="crm-call-desk crm-wa-desk">
       <div className="crm-call-explain">
-        <p><b><MessageCircle size={14} /> Your business WhatsApp, inside the CRM.</b> Customers message your WhatsApp Business number; the conversation lands here for any team member to answer — with an <b>AI draft</b> one click away. Replies inside Meta's 24-hour service window are <b>free</b>. Calls stay free too: use the customer's wa.me link on the Call desk, or send them a <i>Web call</i> link.</p>
+        <p><b><MessageCircle size={14} /> Your business WhatsApp, inside the CRM.</b> Customers message your WhatsApp Business number; the conversation lands here for any team member to answer — with an <b>AI draft</b> one click away. <b>New numbers become leads automatically</b>: the first inbound message from an unknown number files a lead with the name and phone, so no enquiry is ever lost. Replies inside Meta's 24-hour service window are <b>free</b>. Calls stay free too: use the customer's wa.me link on the Call desk, or send them a <i>Web call</i> link.</p>
         {state.configured && !state.loading && (
-          <p className="crm-hint"><b style={{ color: 'var(--crm-green, #2f9e68)' }}>● Connected</b> — WhatsApp Business number ID {state.number_id || '…'} is live. Messages customers send to it appear below.</p>
+          <p className="crm-hint"><b style={{ color: 'var(--crm-green, #2f9e68)' }}>● Connected</b> — WhatsApp Business number ID {state.number_id || '…'} is live. Messages customers send to it appear below. <button type="button" className="crm-call-act is-wa" onClick={checkConnection} disabled={checking}><RefreshCw size={13} /> {checking ? 'Testing…' : 'Test connection'}</button> asks Meta which number is actually connected.</p>
         )}
         {state.demo && <p className="crm-hint">Demo mode — sign in to the live CRM to use the WhatsApp desk.</p>}
         {canToggleAuto && state.configured && (
@@ -2938,7 +3006,7 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
                 <button type="button" className="crm-call-act" onClick={() => copyText('Webhook URL', webhookUrl)}><ClipboardCopy size={12} /> Copy URL</button>
               </div>
             </li>
-            <li><b>Confirm:</b> <button type="button" className="crm-call-act is-wa" onClick={checkConnection} disabled={checking}><RefreshCw size={13} /> {checking ? 'Checking…' : 'Check connection'}</button> — it turns green here the moment the three variables are live.</li>
+            <li><b>Confirm:</b> <button type="button" className="crm-call-act is-wa" onClick={checkConnection} disabled={checking}><RefreshCw size={13} /> {checking ? 'Testing…' : 'Test connection'}</button> — it asks Meta directly and reports the connected number, or the exact error (wrong token, wrong phone-number ID…) so you know which step to fix.</li>
           </ol>
           <p className="crm-hint" style={{ marginTop: 8 }}>Honest cost note: receiving messages and replying within Meta’s 24-hour service window is <b>free</b>; starting a conversation first (template messages) is billed by Meta per message, so this desk never sends those. Full guide with screenshots: <b>WHATSAPP-DESK.md</b> in the repository.</p>
         </div>
@@ -3195,7 +3263,7 @@ function AiAssistModal({ assist, onClose }) {
             <pre>{data.drafts.whatsapp}</pre>
           </section>
           {data.drafts.call_script && <section>
-            <div className="crm-ai-draft-head"><h3>Phone call script</h3><div>{lead.phone && <a className="crm-ai-act" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><Phone size={13} /> Call now</a>}<button className="crm-ai-act" onClick={() => copy('call', data.drafts.call_script)} type="button"><Copy size={13} /> {copied === 'call' ? 'Copied!' : 'Copy'}</button></div></div>
+            <div className="crm-ai-draft-head"><h3>Phone call script</h3><div>{lead.phone && <a className="crm-ai-act" href={dialHref(lead.phone)}><Phone size={13} /> Call now</a>}<button className="crm-ai-act" onClick={() => copy('call', data.drafts.call_script)} type="button"><Copy size={13} /> {copied === 'call' ? 'Copied!' : 'Copy'}</button></div></div>
             <pre>{data.drafts.call_script}</pre>
           </section>}
           {data.note && <p className="crm-ai-note">{data.note}</p>}

@@ -935,7 +935,7 @@ function HeroFactsRow(){
   <div className="route-strip"><div className="rotating-card-copy" key={routeIdx}>
    <span className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></span>
    <b className="card-title route-lane">{route.from}<ArrowRight className="lane-arrow"/>{route.to}</b>
-   <span className="progress" style={{'--route-progress':route.progress+'%'}}><span><Ship className="route-ship"/></span></span>
+   <span className="progress" style={{'--route-progress':route.progress+'%'}}><span/><Ship className="route-ship"/></span>
    <small className="card-meta route-status">{route.status}</small>
    <i className="lane-eta"><Clock3/> ETA {route.eta}</i>
   </div></div>

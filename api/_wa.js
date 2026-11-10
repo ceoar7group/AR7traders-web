@@ -155,11 +155,37 @@ export async function waWebhook(req, res, { db, env, send }) {
     try {
       if (e.kind === 'message' && e.wa_id) {
         if (!leads) { try { leads = (await db.from('leads').select('id,phone').limit(500)).data || []; } catch { leads = []; } }
+        const leadId = leadIdForNumber(e.wa_id, leads);
         const { error } = await db.from('wa_messages').insert({
           wa_id: e.wa_id, profile_name: e.profile_name, direction: 'in',
           body: e.body, msg_type: e.msg_type, msg_id: e.msg_id,
-          lead_id: leadIdForNumber(e.wa_id, leads), actor: e.profile_name || 'Customer'
+          lead_id: leadId, actor: e.profile_name || 'Customer'
         });
+        // Auto-capture (2026-11): an UNKNOWN number writing to the business
+        // number is a real enquiry — file it as a lead automatically so the
+        // contact lands in the pipeline and the Call desk with zero typing.
+        // Consent-sound by construction: only people who messaged US first.
+        // Runs only when the message row stored (a Meta retry errors on the
+        // duplicate msg_id above, so a retried event cannot duplicate the lead).
+        if (!error && !leadId) {
+          try {
+            const { data: created } = await db.from('leads').insert({
+              name: e.profile_name || 'WhatsApp +' + e.wa_id,
+              phone: '+' + e.wa_id,
+              country: 'Other',
+              vehicle_interest: 'WhatsApp enquiry',
+              source: 'WhatsApp',
+              status: 'new',
+              notes: 'Auto-captured from the first inbound WhatsApp message.'
+                + (e.body ? '\nFirst message: ' + e.body.slice(0, 500) : '')
+            }).select().single();
+            if (created?.id) {
+              leads.push({ id: created.id, phone: '+' + e.wa_id });
+              if (e.msg_id) await db.from('wa_messages').update({ lead_id: created.id }).eq('msg_id', e.msg_id);
+              await db.from('activities').insert({ action: 'New WhatsApp enquiry (auto-captured)', actor: 'WhatsApp desk', entity_type: 'lead', entity_id: created.id });
+            }
+          } catch { /* capture failure must never fail the webhook */ }
+        }
         // Duplicate msg_id = Meta retry of an event we already stored. Skip
         // the auto-reply too, or every retry would message the customer again.
         if (!error && e.msg_type === 'text') autoReplies.push(e.wa_id);
@@ -220,6 +246,30 @@ export async function waDesk(req, res, { db, profile, user, env, send, log, fetc
   }
   if (req.method === 'POST') {
     const b = req.body || {};
+    // Live connection test (2026-11): asks Meta's Graph API about the
+    // configured phone-number ID and reports the REAL connected number (or
+    // Meta's exact error), so "is it connected?" never needs guesswork.
+    // Always answers 200 with an ok flag — a failed test is a result, not a
+    // server error.
+    if (b.test) {
+      if (!configured) {
+        const missing = ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID', 'WHATSAPP_VERIFY_TOKEN'].filter(k => !env[k]);
+        return send(res, 200, { ok: false, configured: false, error: 'Not connected yet — missing in Vercel: ' + missing.join(', ') + '. Add them (step 3 of the wizard), redeploy, then test again.' });
+      }
+      try {
+        const f = fetchImpl || globalThis.fetch;
+        const r = await f(`${GRAPH(env)}/${env.WHATSAPP_PHONE_ID}?fields=display_phone_number,verified_name,quality_rating`, {
+          headers: { Authorization: 'Bearer ' + env.WHATSAPP_TOKEN }
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          return send(res, 200, { ok: false, configured: true, error: 'Meta refused the credentials (' + (j?.error?.code || r.status) + '): ' + (j?.error?.message || 'unknown error') + '. Check WHATSAPP_TOKEN (not expired?) and WHATSAPP_PHONE_ID (the phone-number ID, not the number itself).' });
+        }
+        return send(res, 200, { ok: true, configured: true, number: j.display_phone_number || null, name: j.verified_name || null, quality: j.quality_rating || null });
+      } catch (err) {
+        return send(res, 200, { ok: false, configured: true, error: 'Could not reach Meta: ' + (err?.message || 'network error') });
+      }
+    }
     if (b.ai === 'draft') {
       const waId = String(b.wa_id || '').replace(/\D/g, '');
       if (!waId) return send(res, 400, { error: 'wa_id is required' });

@@ -983,6 +983,7 @@ footer [id] {
 }
 
 .hero-facts .card-live {
+  position: relative;
   display: inline-block;
   flex: 0 0 auto;
   width: 6px;
@@ -990,11 +991,22 @@ footer [id] {
   border-radius: 50%;
   background: var(--gold);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent);
+}
+
+/* The pulse rides a ::after ring animated with scale/opacity only, so it
+   stays on the compositor — animating box-shadow forced a repaint every
+   frame of the 2.4s loop (PageSpeed "non-composited animations"). */
+.hero-facts .card-live::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
   animation: cardLivePulse 2.4s ease-in-out infinite;
 }
 
 @keyframes cardLivePulse {
-  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 8%, transparent); }
+  50% { scale: 2; opacity: 0; }
 }
 
 /* The ETA pill answers "how long" at the chip's right edge. It is a planning
@@ -1664,11 +1676,13 @@ footer [id] {
   .hero .hero-visual .hero-stack img,
   .hero-facts .rotating-card-copy,
   .hero-facts .card-live,
+  .hero-facts .card-live::after,
   .route-strip .progress span,
   .route-strip .route-ship,
   .ticker>div {animation:none!important;transition:none!important}
+  .hero-facts .card-live::after {opacity:0}
   .route-strip .progress span {width:var(--route-progress)!important;transform:none!important;translate:none!important;rotate:none!important}
-  .route-strip .route-ship {transform:translateX(50%)!important;translate:none!important;rotate:none!important}
+  .route-strip .route-ship {transform:translateX(-50%)!important;translate:none!important;rotate:none!important}
 }
 
 /* ---------------------------------------------------------------------------
