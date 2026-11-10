@@ -23,7 +23,7 @@ import { SITE_CANONICAL_ORIGIN, canonicalSiteUrl, isStaffNoindexPath, sitemapLoc
 import { NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH, getPublishedNews, getNewsCategories, setPublishedNews } from './news-data.js';
 import { updateSettingsCache } from './site-settings.js';
 import { campaignIsLive } from './offers.js';
-import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes, cleanArticleTitle } from './seo-topic-scout.js';
+import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes, cleanArticleTitle, coverSceneOf } from './seo-topic-scout.js';
 import { MACHINES } from './machinery-data.js';
 import { DEST } from './destinations.js';
 import './seo-desk.css';
@@ -578,6 +578,14 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
   // site_articles. Pure logic lives in seo-topic-scout.js (tested); this is
   // just the PATCH loop.
   const coverFixes = useMemo(() => suggestCoverFixes(editorArticles), [editorArticles]);
+  // 2026-11-10 (owner: "articles are STILL getting duplicate cover pics"):
+  // a new/loaded draft used to default to GUIDE_ASSETS[0] every time, quietly
+  // re-creating the duplicates the doctor had just fixed. The default is now
+  // the first asset whose SCENE no article wears yet.
+  const freeGuideAsset = useMemo(() => {
+    const worn = new Set(editorArticles.map(r => coverSceneOf(r.image || r.img)).filter(Boolean));
+    return GUIDE_ASSETS.find(a => !worn.has(coverSceneOf(a))) || GUIDE_ASSETS[0];
+  }, [editorArticles]);
   const [coverFixBusy, setCoverFixBusy] = useState(false);
   const runCoverFixes = async () => {
     if (!token || !canPublish || coverFixBusy || coverFixes.length === 0) return;
@@ -1073,7 +1081,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
           {keywordReport && <>
             <p>{keywordReport.note}</p>{keywordReport.providerError && <p role="alert">{keywordReport.providerError}</p>}
             <ul>{(keywordReport.opportunities || []).slice(0,15).map((r,i) => <li key={i}><b>{r.query}</b> · {r.impressions} impressions · {r.clicks} clicks · position {Number(r.position).toFixed(1)} · {r.url}</li>)}</ul>
-            <ul>{(keywordReport.ideas || []).map(r => <li key={r.query}><b>{r.query}</b> — {r.target} <button type="button" onClick={() => {setCreating(true);setActiveDraftId(null);setCreated(null);setDraftReviewed(false);setForm({title:r.query,cat:'BUYING GUIDE',img:GUIDE_ASSETS[0],desc:'',body:''});}}>Draft this topic</button></li>)}</ul>
+            <ul>{(keywordReport.ideas || []).map(r => <li key={r.query}><b>{r.query}</b> — {r.target} <button type="button" onClick={() => {setCreating(true);setActiveDraftId(null);setCreated(null);setDraftReviewed(false);setForm({title:r.query,cat:'BUYING GUIDE',img:freeGuideAsset,desc:'',body:''});}}>Draft this topic</button></li>)}</ul>
           </>}
         </section>
         <section className="seo-card seo-campaign-hub">
@@ -1098,7 +1106,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
             <div className="seo-draft-toolbar">
               <b>{editorArticles.filter(row => row.published === false).length} unpublished draft(s)</b>
               <button className="gold-btn" type="button" onClick={() => {
-                setForm({title: '', cat: categories[0] || NEWS_CATEGORIES[0], img: GUIDE_ASSETS[0], desc: '', body: ''});
+                setForm({title: '', cat: categories[0] || NEWS_CATEGORIES[0], img: freeGuideAsset, desc: '', body: ''});
                 setActiveDraftId(null); setDraftFacts(''); setCreated(null); setDraftAudit(null); setDraftReviewed(false); setCreateErrors({}); setCreating(true);
               }}>New draft</button>
             </div>
@@ -1108,7 +1116,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
                   <div><b>{row.title}</b><small>/news/{articleSlug(row.title)} · saved {row.updated_at || row.date || 'date not reported'}</small></div>
                   <button type="button" onClick={() => {
                     setForm({title: row.title || '', cat: row.category || row.cat || categories[0] || NEWS_CATEGORIES[0],
-                      img: row.image || row.img || GUIDE_ASSETS[0], desc: row.excerpt || row.ex || '', body: row.body || ''});
+                      img: row.image || row.img || freeGuideAsset, desc: row.excerpt || row.ex || '', body: row.body || ''});
                     setActiveDraftId(row.id); setDraftFacts(''); setCreated(null); setDraftAudit(null); setDraftReviewed(false); setCreateErrors({}); setCreating(true);
                   }}>Load for review</button>
                 </li>

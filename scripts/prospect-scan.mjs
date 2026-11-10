@@ -171,7 +171,13 @@ async function main() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) { console.error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.'); process.exit(1); }
   const sources = sourceList();
-  if (!sources.length) { console.log('No sources configured (PROSPECT_SOURCES or scripts/prospect-sources.txt) — nothing to scan.'); return; }
+  if (!sources.length) {
+    // ::warning:: makes this visible on the Actions run summary — a silent
+    // "success" here is exactly how "lead generation produces nothing" went
+    // unnoticed for weeks.
+    console.log('::warning::Prospect radar has NO source pages. Add public directory URLs to scripts/prospect-sources.txt (one per line) or the PROSPECT_SOURCES repository variable, then re-run. Until then this workflow scans nothing and files no prospects.');
+    return;
+  }
 
   const { createClient } = await import('@supabase/supabase-js');
   const db = createClient(url, key, { auth: { persistSession: false } });

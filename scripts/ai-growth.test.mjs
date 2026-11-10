@@ -448,6 +448,139 @@ say('\n-- social drafts carry per-channel text and never claim to be posted --')
 }
 
 // ---------------------------------------------------------------------------
+say('\n-- the SEO agent never re-files a brief that is already awaiting review --');
+{
+  // 2026-11-10 (owner screenshot): scheduled runs re-filed the same catalogue
+  // briefs until the queue held dozens of near-identical rows.
+  const db = fakeDb({ ...agentSeed({ seo: { enabled: true, max_runs_per_day: 9 } }) });
+  const first = await runAgent(db, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const briefsAfterFirst = db.tables.ai_agent_drafts.filter(d => d.kind === 'brief');
+  ok(first.state === 'completed' && briefsAfterFirst.length > 0, `the first run files research briefs (${briefsAfterFirst.length})`);
+  const titles = briefsAfterFirst.map(d => String(d.title).toLowerCase());
+  ok(new Set(titles).size === titles.length, 'no two briefs in one run share a title');
+  const targets = briefsAfterFirst.map(d => d.target).filter(Boolean);
+  ok(new Set(targets).size === targets.length,
+    'one brief per target page per run — two keyword phrasings of one destination are the same research job');
+  const second = await runAgent(db, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const briefsAfterSecond = db.tables.ai_agent_drafts.filter(d => d.kind === 'brief');
+  ok(second.state === 'completed' && briefsAfterSecond.length === briefsAfterFirst.length,
+    `a second run re-files nothing while the briefs await review (${briefsAfterFirst.length} before, ${briefsAfterSecond.length} after)`);
+  ok(second.run.steps.some(s => /dedupe:/.test(s.step)), 'and the run says WHY it filed nothing new');
+}
+
+// ---------------------------------------------------------------------------
+say('\n-- executed agent articles each wear their own cover image --');
+{
+  // 2026-11-10 (owner report): agent articles were written coverless, and the
+  // editor default then stamped the same photograph on half the catalogue.
+  const facts = '2026-10-09: Staff confirmed the export document pack contains the commercial invoice and Japanese export certificate. '
+    + 'Destination requirements must be confirmed with the buyer’s broker before purchase. '
+    + 'The pack is issued after the balance is received and the vehicle is allocated to a vessel.';
+  const taken = '/assets/covers/container-terminal-dusk.webp';
+  const gen = fakeDb({ ...agentSeed({ seo: { enabled: true } }), site_articles: [
+    { id: 'live-1', slug: 'older-guide', title: 'Older guide', body: 'x', published: true, image: taken }
+  ] });
+  let call = 0;
+  const run = await runAgent(gen, 'seo', {
+    actor: owner, env: { GEMINI_API_KEY: 'test-key' },
+    items: [
+      { topic: 'Checking vehicle export documents before shipping', facts, target: '/howbuy', sources: [], measured: true },
+      { topic: 'Booking a RoRo vessel slot from Japan', facts, target: '/shipping', sources: [], measured: true }
+    ],
+    fetch: async () => ({ ok: true, json: async () => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+      title: `Agent guide number ${++call}`, excerpt: 'A test excerpt that is long enough to satisfy the validation rules for excerpts.',
+      body: facts.repeat(4) }) }] } }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 10, totalTokenCount: 20 } }) })
+  });
+  ok(run.drafts.length === 2 && run.drafts.every(d => d.kind === 'article'), 'two article drafts are produced');
+  for (const d of run.drafts) {
+    await approveDraft(gen, d.id, owner, { approve: true });
+    await executeDraft(gen, d.id, owner, { env: {} });
+  }
+  const images = gen.tables.site_articles.map(a => a.image);
+  ok(images.every(img => typeof img === 'string' && img.startsWith('/assets/')),
+    'every article row is written WITH a site-asset cover, never coverless');
+  ok(new Set(images).size === images.length, `no two articles share a cover (${images.join(' · ')})`);
+}
+
+// ---------------------------------------------------------------------------
+say('\n-- an authorised social post actually posts, and only a 2xx is ever "sent" --');
+{
+  const stock = [
+    { id: 'm1', ref: 'AR7-EX-9', type: 'Excavator', brand: 'Sany', model: 'SY215C', status: 'Available',
+      published: true, price_usd: 88000, year: 2020, hours: 4200, location: 'Shanghai', origin: 'China',
+      specs: [], images: ['/assets/machinery/doosan-dx250lca-1.webp'] }
+  ];
+  const connected = {
+    META_GRAPH_TOKEN: 'meta-token', INSTAGRAM_BUSINESS_ID: '17890001',
+    LINKEDIN_ACCESS_TOKEN: 'li-token', LINKEDIN_ORG_URN: 'urn:li:organization:123'
+  };
+  const db = fakeDb({ ...agentSeed({ social: { enabled: true, autopublish: true } }), machinery: stock });
+  const run = await runAgent(db, 'social', { actor: owner, env: {} });
+  const draft = run.drafts[0];
+  await approveDraft(db, draft.id, owner, { approve: true });
+  const calls = [];
+  const platform = async (url, opts) => {
+    calls.push(String(url));
+    if (/\/media$/.test(url)) return { ok: true, status: 200, json: async () => ({ id: 'container-1' }) };
+    if (/media_publish/.test(url)) return { ok: true, status: 200, json: async () => ({ id: 'ig-post-9' }) };
+    if (/ugcPosts/.test(url)) return { ok: true, status: 201, json: async () => ({ id: 'urn:li:share:42' }) };
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  const executed = await executeDraft(db, draft.id, owner, { env: connected, fetch: platform });
+  const posts = db.tables.ai_agent_messages.filter(m => m.draft_id === draft.id);
+  const ig = posts.find(p => p.channel === 'instagram');
+  const li = posts.find(p => p.channel === 'linkedin');
+  const wa = posts.find(p => p.channel === 'whatsapp');
+  ok(ig?.state === 'sent' && ig.provider_id === 'ig-post-9', 'Instagram is sent with the platform id recorded');
+  ok(calls.some(u => /graph\.facebook\.com\/[^/]+\/17890001\/media$/.test(u)) && calls.some(u => /media_publish/.test(u)),
+    'the Graph API container + publish flow was really called');
+  ok(li?.state === 'sent' && li.provider_id === 'urn:li:share:42', 'LinkedIn is sent with the share id recorded');
+  ok(wa?.state === 'prepared', 'the WhatsApp caption stays a desk template — never broadcast');
+  ok(executed.result.action === 'post-published' && executed.result.posted === true, 'the result says what was posted');
+
+  // The platform saying no can never become "sent".
+  const db2 = fakeDb({ ...agentSeed({ social: { enabled: true, autopublish: true } }), machinery: stock });
+  const run2 = await runAgent(db2, 'social', { actor: owner, env: {} });
+  await approveDraft(db2, run2.drafts[0].id, owner, { approve: true });
+  const rejecting = async () => ({ ok: false, status: 400, json: async () => ({ error: { message: 'invalid token' } }) });
+  const executed2 = await executeDraft(db2, run2.drafts[0].id, owner, { env: connected, fetch: rejecting });
+  const posts2 = db2.tables.ai_agent_messages.filter(m => m.draft_id === run2.drafts[0].id);
+  ok(posts2.every(p => p.state !== 'sent' && !p.provider_id), 'a platform rejection never becomes "sent"');
+  ok(posts2.some(p => /Posting failed/i.test(p.meta?.note || '')), 'and the failure reason is written on the message');
+  ok(executed2.result.posted === false, 'the result admits nothing was posted');
+
+  // Autopublish off: credentials alone must not post.
+  const db3 = fakeDb({ ...agentSeed({ social: { enabled: true } }), machinery: stock });
+  const run3 = await runAgent(db3, 'social', { actor: owner, env: {} });
+  await approveDraft(db3, run3.drafts[0].id, owner, { approve: true });
+  let platformCalls = 0;
+  await executeDraft(db3, run3.drafts[0].id, owner, { env: connected, fetch: async () => { platformCalls++; return { ok: true, json: async () => ({ id: 'x' }) }; } });
+  ok(platformCalls === 0, 'with autopublish off, no platform call is made at all');
+  ok(db3.tables.ai_agent_messages.filter(m => m.draft_id === run3.drafts[0].id).every(m => m.state === 'prepared'),
+    'everything stays prepared for manual posting');
+}
+
+// ---------------------------------------------------------------------------
+say('\n-- an authorised WhatsApp lead reply really sends, via the live desk names --');
+{
+  const waEnv = { WHATSAPP_TOKEN: 'wa-token', WHATSAPP_PHONE_ID: '1555001', WHATSAPP_VERIFY_TOKEN: 'v' };
+  const db = fakeDb({ ...agentSeed({ leads: { enabled: true, autopublish: true } }), leads: [lead] });
+  const run = await runAgent(db, 'leads', { actor: owner, items: [lead], env: {} });
+  await approveDraft(db, run.drafts[0].id, owner, { approve: true });
+  let sentTo = null;
+  const graph = async (url, opts) => {
+    const payload = JSON.parse(opts.body);
+    sentTo = payload.to;
+    return { ok: true, status: 200, json: async () => ({ messages: [{ id: 'wamid.TEST1' }] }) };
+  };
+  const executed = await executeDraft(db, run.drafts[0].id, owner, { env: waEnv, fetch: graph });
+  const msg = db.tables.ai_agent_messages.find(m => m.draft_id === run.drafts[0].id);
+  ok(msg?.state === 'sent' && msg.provider_id === 'wamid.TEST1', 'the reply is sent and the Meta message id recorded');
+  ok(sentTo === '254700000000', `the message went to the lead's own number (${sentTo})`);
+  ok(executed.result.sent === true && executed.result.action === 'message-sent', 'the result says it was sent');
+}
+
+// ---------------------------------------------------------------------------
 say('\n-- the overview is read-only and honest about what is configured --');
 {
   const db = fakeDb(agentSeed());

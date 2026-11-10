@@ -230,7 +230,10 @@ export default function QuickQuoteSection({navigate, cars}) {
       {matches.slice(0, 3).map(c => {
        const href = '/inventory/' + encodeURIComponent(refOf(c));
        return <a key={refOf(c)} href={href} onClick={linkClick(href, navigate)}>
-        <img loading="lazy" decoding="async" width="820" height="550" src={c.image || '/assets/ar7-mark.png'}
+        {/* 330×220 (3:2) matches the rendered thumb. The old 820×550 hint was
+            what the grid-stretch bug blew the cards up to — keep the reserve
+            honest so no layout path can ever fall back to a 550px image. */}
+        <img loading="lazy" decoding="async" width="330" height="220" src={c.image || '/assets/ar7-mark.png'}
           alt={[c.year, c.make, c.model].filter(Boolean).join(' ') + ' in Japan stock'}/>
         <b>{[c.make, c.model].filter(Boolean).join(' ')}</b>
         <small>{c.year ? c.year + ' · ' : ''}{refOf(c)}</small>
