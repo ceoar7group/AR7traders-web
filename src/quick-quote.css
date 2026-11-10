@@ -47,11 +47,18 @@
 .qq-final{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.85fr);gap:clamp(20px,3vw,38px);align-items:start;animation:qqIn .3s both}
 .qq-match-line{font:700 15px Manrope;color:var(--green-text);margin:2px 0 14px}
 .qq-match-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.qq-match-cards a{display:grid;gap:4px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg);padding-bottom:10px;transition:.2s}
+/* 2026-11-10 (owner screenshot): the cards rendered as ~550px-tall slivers.
+   The <a> was display:grid, and during intrinsic row sizing the image's
+   width:100% is cyclic, so its contribution fell back to the height="550"
+   HTML attribute; the auto row became 550px and the default align-self:
+   stretch handed the img that definite height — which beats aspect-ratio.
+   The card is a plain block now (no grid tracks to stretch into) and the
+   img carries a max-height cap so no sizing quirk can ever stretch it. */
+.qq-match-cards a{display:block;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg);padding-bottom:10px;transition:.2s}
 .qq-match-cards a:hover{transform:translateY(-3px);border-color:var(--gold);color:inherit}
-.qq-match-cards img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block;margin-bottom:4px}
-.qq-match-cards b{font:700 12.5px Manrope;padding:0 10px;letter-spacing:-.2px}
-.qq-match-cards small{color:var(--muted);font-size:10px;padding:0 10px}
+.qq-match-cards img{width:100%;height:auto;aspect-ratio:3/2;max-height:220px;object-fit:cover;display:block;margin-bottom:8px}
+.qq-match-cards b{display:block;font:700 12.5px Manrope;padding:0 10px;letter-spacing:-.2px}
+.qq-match-cards small{display:block;color:var(--muted);font-size:10px;padding:2px 10px 0}
 .qq-transit{display:inline-flex;align-items:center;gap:8px;margin:14px 0 0;color:var(--muted);font:600 11.5px Manrope;border:1px solid var(--line);border-radius:999px;padding:7px 13px}
 .qq-transit svg{width:13px;color:var(--gold)}
 
@@ -91,8 +98,8 @@ html[data-theme=dark] .qq-done>span{background:#123a28}
     photos unreadable slivers on phones. Each match is now a full-width row —
     thumbnail left, name and reference right — readable at arm's length. */
  .qq-match-cards{grid-template-columns:1fr;gap:9px}
- .qq-match-cards a{grid-template-columns:104px minmax(0,1fr);align-items:center;column-gap:12px;row-gap:3px;padding:8px 12px 8px 8px}
- .qq-match-cards img{grid-row:1/3;width:104px;height:74px;aspect-ratio:auto;border-radius:10px;margin:0}
+ .qq-match-cards a{display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;column-gap:12px;row-gap:3px;padding:8px 12px 8px 8px}
+ .qq-match-cards img{grid-row:1/3;width:104px;height:74px;aspect-ratio:auto;max-height:none;border-radius:10px;margin:0}
  .qq-match-cards b{font-size:12.5px;padding:0}
  .qq-match-cards small{padding:0}
  .qq-cur{justify-content:flex-start}

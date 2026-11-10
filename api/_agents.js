@@ -574,13 +574,46 @@ async function runSeoAgent(db, { items = [], env = process.env, fetch: fetchImpl
   const technical = safeTechnicalChecks(db);
   steps.push({ step: 'technical-checks', state: technical.some(c => !c.ok) ? 'attention' : 'ok', detail: `${technical.filter(c => c.ok).length}/${technical.length} checks pass` });
 
+  // 2026-11-10 (owner screenshot): every scheduled run re-filed the same
+  // catalogue-derived briefs until the review queue held dozens of
+  // near-identical rows. A brief is an open research TODO — filing it twice
+  // adds queue noise, not work. Two rails:
+  //   (a) a brief whose title is already awaiting review is never filed again;
+  //   (b) one brief per TARGET page per run — "import used cars from Japan to
+  //       X" and "Japan to X car shipping documents" are the same research job
+  //       for the same destination page.
+  const openBriefs = new Set();      // titles of briefs already awaiting review
+  const briefedTargets = new Set();  // target pages that already have an open brief
+  try {
+    const { data: existing } = await db.from('ai_agent_drafts').select('title,target,kind,status').eq('kind', 'brief').eq('status', 'awaiting_review').limit(500);
+    for (const row of existing || []) {
+      openBriefs.add(String(row.title || '').trim().toLowerCase());
+      if (row.target) briefedTargets.add(String(row.target));
+    }
+  } catch { /* an unreadable queue only disables dedupe for this run */ }
+  const fileBrief = draft => {
+    const titleKey = String(draft.title || '').trim().toLowerCase();
+    const targetKey = draft.target ? String(draft.target) : null;
+    if (openBriefs.has(titleKey) || (targetKey && briefedTargets.has(targetKey))) {
+      steps.push({ step: `dedupe:${draft.title}`, state: 'skipped', detail: 'A research brief for this topic or page is already awaiting review. Not filed again.' });
+      // A blocked phrasing still claims its page: "import used cars to X" and
+      // "X car shipping documents" must never both queue research for X.
+      if (targetKey) briefedTargets.add(targetKey);
+      return false;
+    }
+    openBriefs.add(titleKey);
+    if (targetKey) briefedTargets.add(targetKey);
+    drafts.push(draft);
+    return true;
+  };
+
   for (const item of queue) {
     const topic = String(item.topic || item.query || '').trim();
     const facts = sanitiseUntrusted(item.facts || '', { maxLength: 6000 });
     if (topic.length < 8 || facts.text.length < 80) {
       counts.skipped++;
       steps.push({ step: `seo:${topic || 'unnamed'}`, state: 'skipped', detail: 'A guide needs a topic (8+ characters) and at least 80 characters of verified, supplied facts. A research brief is filed instead of a draft.' });
-      drafts.push({
+      fileBrief({
         kind: 'brief', title: `Research brief — ${topic || 'untitled opportunity'}`, target: item.target || null,
         body: `Evidence is not sufficient for a draft.\n\nWhat is missing: ${facts.text.length < 80 ? 'verified source notes (at least 80 characters) with dated references' : 'a specific topic'}.\n\nNext step: collect dated, citable facts (port/route documentation, official notices, published price lists) and record where each came from. Do not publish anything until the facts exist.`,
         meta: { opportunity: item, source: item.source || 'catalogue-derived idea', measured: false, warnings: ['Speculative keyword idea — no measured search volume is claimed.'] }
@@ -621,7 +654,7 @@ async function runSeoAgent(db, { items = [], env = process.env, fetch: fetchImpl
       });
       counts.succeeded++;
     } else {
-      drafts.push({
+      fileBrief({
         kind: 'brief', title: `Research brief — ${topic}`.slice(0, 90), target: item.target || null,
         body: `No draft was generated.\n\nReason: ${providerError}\n\nWhat to do next: assemble dated, verifiable sources and re-run. The factual formatter and the technical checks below need no provider key.`,
         meta: { opportunity: item, provider, error: providerError, warnings: ['No content was generated or saved as an article.'] }
@@ -939,7 +972,54 @@ export async function approveDraft(db, draftId, actor, { approve = true, note = 
  *     message is exported for a person to send, and the row says `prepared`,
  *     never `delivered`.
  */
-export async function executeDraft(db, draftId, actor, { env = process.env, now = Date.now() } = {}) {
+// ---------------------------------------------------------------------------
+// Agent article covers.
+//
+// 2026-11-10 (owner report: "articles are still getting duplicate cover
+// pics"): agent-executed articles were written with image=null, and every
+// editor/default downstream kept stamping the same fallback asset on them.
+// The fix belongs HERE, at the moment the row is created: pick a cover the
+// catalogue does not already wear. The pool is brand-neutral (agent articles
+// are logistics checklists and guides), every path is a real file in
+// public/assets, and uniqueness is judged by SCENE (basename without
+// extension, with the known og/* re-exports of the same photographs mapped
+// back), so a .jpg/.webp twin never counts as "different".
+export const AGENT_COVER_POOL = [
+  '/assets/covers/container-terminal-dusk.webp',
+  '/assets/covers/roro-ramp-loading.webp',
+  '/assets/covers/export-documents-desk.webp',
+  '/assets/covers/cargo-ship-at-sea.webp',
+  '/assets/japan-car-auction-hall-1.jpg',
+  '/assets/japanese-car-auction-inspection-shipping-1.webp',
+  '/assets/japanese-car-auction-inspection-shipping-2.webp',
+  '/assets/japanese-car-auction-inspection-shipping-3.webp',
+  '/assets/japan-car-carrier-trucks-1.jpg',
+  '/assets/japan-vehicle-export-port-aerial-1.jpg'
+];
+const COVER_OG_ALIASES = {
+  shipping: 'japanese-car-auction-inspection-shipping-1',
+  auction: 'japan-used-car-export-stock-honda-vezel--4',
+  inventory: 'used-japanese-cars-auction-export-toyota-1'
+};
+export const coverScene = image => {
+  const path = String(image || '').trim();
+  if (!path) return '';
+  const stem = (path.split('/').pop() || '').replace(/\.(jpe?g|webp|png)$/i, '');
+  return path.startsWith('/assets/og/') && COVER_OG_ALIASES[stem] ? COVER_OG_ALIASES[stem] : stem;
+};
+export async function pickUnusedCover(db) {
+  let used = new Set();
+  try {
+    const { data } = await db.from('site_articles').select('image').limit(500);
+    used = new Set((data || []).map(r => coverScene(r.image)).filter(Boolean));
+  } catch { /* an unreadable catalogue still gets a cover — worst case a reused one */ }
+  for (const img of AGENT_COVER_POOL) if (!used.has(coverScene(img))) return img;
+  // Every pooled scene is taken: reuse the least-used one rather than write
+  // image=null (a null is what caused the duplicate-default problem).
+  return AGENT_COVER_POOL[0];
+}
+
+export async function executeDraft(db, draftId, actor, { env = process.env, now = Date.now(), fetch: fetchImpl = globalThis.fetch } = {}) {
   const { data: draft, error } = await db.from('ai_agent_drafts').select('*').eq('id', draftId).maybeSingle();
   if (error) throw Object.assign(new Error(error.message), { status: 500 });
   if (!draft) throw Object.assign(new Error('Draft not found'), { status: 404 });
@@ -989,6 +1069,10 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
         read_min: Math.max(2, Math.ceil(String(draft.body || '').split(/\s+/).length / 200)),
         published: false, updated_at: new Date().toISOString()
       };
+      // 2026-11-10: a row written without a cover kept collecting the same
+      // editor default downstream — duplicate covers across half the catalogue.
+      // A NEW article (or one still coverless) gets a scene-unique cover here.
+      if (!existing?.image) row.image = await pickUnusedCover(db);
       if (existing?.id && existing.published === true) {
         // A live article already owns this slug. Overwriting it would quietly
         // unpublish published work, so execution stops and the draft goes back
@@ -1028,10 +1112,12 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
       // can be revoked between drafting and sending.
       const leadId = draft.meta?.leadRef || null;
       let consent = draft.meta?.score?.consent?.state || 'unknown';
+      let leadRow = null;
       if (leadId) {
         try {
           const { data: lead } = await db.from('leads').select('*').eq('id', leadId).maybeSingle();
           if (lead) {
+            leadRow = lead;
             const raw = String(lead.contact_consent ?? lead.consent ?? '').toLowerCase();
             if (raw === 'false' || raw === 'opted-out' || raw === 'revoked' || lead.opted_out === true) consent = 'opted-out';
             else if (raw === 'true') consent = 'granted';
@@ -1046,41 +1132,94 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
         await finishDraft(db, draft, { status: 'awaiting_review', result: { action: 'blocked', reason: 'consent-unknown' } }, actor);
         return { state: 'blocked', reason: 'Contact consent is not recorded as granted. Record consent before this can be prepared for sending.' };
       }
-      const authorised = asBool(config?.autopublish, false) && providerConfigured(env, channel);
+      const configured = providerConfigured(env, channel);
+      const authorised = asBool(config?.autopublish, false) && configured;
+      // 2026-11-10: "submitted" used to be written without any send happening.
+      // Now the send ACTUALLY happens here (WhatsApp Cloud API session
+      // message), and `sent` is only recorded after the platform accepts it.
+      let state = 'prepared', providerId = null, note;
+      if (authorised && channel === 'whatsapp') {
+        const to = leadRow?.phone || leadRow?.whatsapp || null;
+        if (!to) {
+          note = 'The lead record has no phone number — the reply is prepared for a person to send.';
+        } else {
+          try {
+            const { sendText } = await import('./_wa.js');
+            providerId = await sendText({ to, body: draft.body, env, fetch: fetchImpl });
+            state = 'sent';
+            note = 'Sent via the WhatsApp Cloud API as a free 24-hour-session reply.';
+          } catch (e) {
+            note = `Sending failed: ${e.message} The reply stays prepared for a person to send.`;
+          }
+        }
+      } else {
+        note = authorised
+          ? `No automated sender exists for the "${channel}" channel — prepared for a person to send.`
+          : configured
+            ? 'The integration is configured but this agent\'s autopublish switch is off — prepared for a person to send.'
+            : 'No authorised provider connection: this message is prepared for a person to send from WhatsApp. It has NOT been sent.';
+      }
       const { data: message, error: e2 } = await db.from('ai_agent_messages').insert({
         agent: draft.agent, draft_id: draft.id, channel,
         to_ref: leadId, body: draft.body,
-        state: authorised ? 'submitted' : 'prepared',
-        provider_id: null,
-        meta: { preparedBy: actor?.full_name || actor?.email || 'CRM', authorised, integration: providerConfigured(env, channel) ? 'configured' : 'not configured',
-          note: authorised ? 'Submitted to the configured provider.' : 'No authorised provider connection: this message is prepared for a person to send from WhatsApp. It has NOT been sent.' }
+        state,
+        provider_id: providerId,
+        meta: { preparedBy: actor?.full_name || actor?.email || 'CRM', authorised, integration: configured ? 'configured' : 'not configured', note }
       }).select('*').single();
       if (e2) throw Object.assign(new Error(e2.message), { status: 500 });
-      result = { action: 'message-prepared', messageId: message.id, channel, state: message.state,
-        sent: false, integration: providerConfigured(env, channel) ? 'configured' : 'not configured' };
+      result = { action: state === 'sent' ? 'message-sent' : 'message-prepared', messageId: message.id, channel, state: message.state,
+        sent: state === 'sent', integration: configured ? 'configured' : 'not configured' };
     } else if (draft.kind === 'social-post') {
-      const created = [];
-      for (const [channel, body] of Object.entries(draft.meta?.captions || { instagram: draft.body })) {
-        const authorised = asBool(config?.autopublish, false) && providerConfigured(env, channel);
-        const { data: message, error: e2 } = await db.from('ai_agent_messages').insert({
-          agent: draft.agent, draft_id: draft.id, channel,
-          to_ref: draft.meta?.accounts?.[channel] || null, body,
-          state: authorised ? 'submitted' : 'prepared',
-          meta: { stockRef: draft.target, media: draft.meta?.media || [], altText: draft.meta?.altText || null,
-            hashtags: draft.meta?.hashtags || [], integration: providerConfigured(env, channel) ? 'configured' : 'not configured',
-            note: authorised ? 'Submitted to the configured channel.' : 'Not posted: no authorised platform connection is configured. Copy or download the caption and media.' }
-        }).select('*').single();
-        if (e2) throw Object.assign(new Error(e2.message), { status: 500 });
-        created.push({ id: message.id, channel, state: message.state });
-      }
-      // Revalidate the stock the post is about, at execution time.
+      // Revalidate the stock the post is about BEFORE anything can go out:
+      // a machine sold between drafting and approval must never be posted.
       let stockState = 'unchecked';
       try {
         const { data: row } = await db.from('machinery').select('ref,published,status,price_usd').eq('ref', draft.target).maybeSingle();
         stockState = !row ? 'missing' : (row.published === true && row.status === 'Available' ? 'available' : `not available (${row.status || 'unpublished'})`);
-      } catch { /* leave it unchecked, and say so */ }
-      result = { action: 'post-prepared', messages: created, posted: false, stockState,
-        note: `Stock revalidation at execution: ${stockState}. Nothing was posted; captions and media are ready for the approved account.` };
+      } catch { /* leave it unchecked, and say so — unchecked also blocks auto-posting below */ }
+      const created = [];
+      let posted = 0;
+      for (const [channel, body] of Object.entries(draft.meta?.captions || { instagram: draft.body })) {
+        const configured = providerConfigured(env, channel);
+        // WhatsApp has no broadcast audience here — its caption is a reply
+        // template for the desk, so it is always prepared, never auto-sent.
+        const authorised = asBool(config?.autopublish, false) && configured && channel !== 'whatsapp' && stockState === 'available';
+        // 2026-11-10: "submitted" used to be written with NO send behind it.
+        // The publish now actually happens, and `sent` is only recorded after
+        // the platform accepted the post.
+        let state = 'prepared', providerId = null, note;
+        if (authorised) {
+          try {
+            const out = await publishSocial({ channel, caption: body, imageUrl: (draft.meta?.media || [])[0] || null, env, fetch: fetchImpl });
+            state = 'sent'; providerId = out.id; posted++;
+            note = `Posted to ${channel} (platform id ${out.id}).`;
+          } catch (e) {
+            note = `Posting failed: ${e.message} The caption stays prepared for manual posting.`;
+          }
+        } else {
+          note = !configured
+            ? 'Not posted: no authorised platform connection is configured. Copy or download the caption and media.'
+            : channel === 'whatsapp'
+              ? 'WhatsApp captions are reply templates for the desk — nothing is broadcast.'
+              : stockState !== 'available'
+                ? `Not posted: stock revalidation says "${stockState}".`
+                : 'The integration is configured but this agent\'s autopublish switch is off — prepared for manual posting.';
+        }
+        const { data: message, error: e2 } = await db.from('ai_agent_messages').insert({
+          agent: draft.agent, draft_id: draft.id, channel,
+          to_ref: draft.meta?.accounts?.[channel] || null, body,
+          state,
+          provider_id: providerId,
+          meta: { stockRef: draft.target, media: draft.meta?.media || [], altText: draft.meta?.altText || null,
+            hashtags: draft.meta?.hashtags || [], integration: configured ? 'configured' : 'not configured', note }
+        }).select('*').single();
+        if (e2) throw Object.assign(new Error(e2.message), { status: 500 });
+        created.push({ id: message.id, channel, state: message.state });
+      }
+      result = { action: posted ? 'post-published' : 'post-prepared', messages: created, posted: posted > 0, stockState,
+        note: posted
+          ? `Stock revalidation at execution: ${stockState}. ${posted} channel(s) posted; the rest are prepared.`
+          : `Stock revalidation at execution: ${stockState}. Nothing was posted; captions and media are ready for the approved account.` };
     } else {
       throw Object.assign(new Error(`Drafts of kind "${draft.kind}" have no execution step.`), { status: 400 });
     }
@@ -1096,11 +1235,59 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
 }
 
 /** Does an authorised integration exist for this channel? Never assumed. */
-function providerConfigured(env, channel) {
-  if (channel === 'whatsapp') return !!(env.WHATSAPP_CLOUD_API_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID);
+export function providerConfigured(env, channel) {
+  // WhatsApp: the SAME env names the live WhatsApp desk (api/_wa.js) uses —
+  // the old WHATSAPP_CLOUD_API_TOKEN spelling never matched the deployed
+  // integration, so an authorised agent could never see the working account.
+  if (channel === 'whatsapp') return !!((env.WHATSAPP_TOKEN && env.WHATSAPP_PHONE_ID) || (env.WHATSAPP_CLOUD_API_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID));
   if (channel === 'instagram') return !!(env.META_GRAPH_TOKEN && env.INSTAGRAM_BUSINESS_ID);
-  if (channel === 'linkedin') return !!env.LINKEDIN_ACCESS_TOKEN;
+  // LinkedIn needs the author URN too: a token without it cannot attribute a
+  // post, so claiming "configured" would promise a send that must fail.
+  if (channel === 'linkedin') return !!(env.LINKEDIN_ACCESS_TOKEN && env.LINKEDIN_ORG_URN);
   return false;
+}
+
+/**
+ * Actually publish one approved social caption to a connected channel.
+ * Called ONLY from executeDraft, only for an approved draft, only when the
+ * agent's autopublish switch is on AND the channel's credentials exist.
+ * Returns the platform id; throws with a plain-language reason otherwise —
+ * the caller downgrades the message to `prepared`, never fakes a send.
+ */
+export async function publishSocial({ channel, caption, imageUrl, env = process.env, fetch: f = globalThis.fetch }) {
+  if (channel === 'instagram') {
+    const base = 'https://graph.facebook.com/' + (env.META_GRAPH_VERSION || 'v21.0');
+    if (!imageUrl) throw new Error('Instagram requires an image; this draft has no approved photograph.');
+    const abs = /^https?:/i.test(imageUrl) ? imageUrl : 'https://ar7traders.com' + imageUrl;
+    const createRes = await f(`${base}/${env.INSTAGRAM_BUSINESS_ID}/media`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_url: abs, caption: String(caption || '').slice(0, 2200), access_token: env.META_GRAPH_TOKEN })
+    });
+    const created = await createRes.json().catch(() => ({}));
+    if (!createRes.ok || !created.id) throw new Error(`Instagram rejected the media container (HTTP ${createRes.status}): ${created?.error?.message || 'no container id returned'}`);
+    const pubRes = await f(`${base}/${env.INSTAGRAM_BUSINESS_ID}/media_publish`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creation_id: created.id, access_token: env.META_GRAPH_TOKEN })
+    });
+    const published = await pubRes.json().catch(() => ({}));
+    if (!pubRes.ok || !published.id) throw new Error(`Instagram rejected the publish step (HTTP ${pubRes.status}): ${published?.error?.message || 'no media id returned'}`);
+    return { id: String(published.id) };
+  }
+  if (channel === 'linkedin') {
+    const res = await f('https://api.linkedin.com/v2/ugcPosts', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + env.LINKEDIN_ACCESS_TOKEN, 'Content-Type': 'application/json', 'X-Restli-Protocol-Version': '2.0.0' },
+      body: JSON.stringify({
+        author: env.LINKEDIN_ORG_URN, lifecycleState: 'PUBLISHED',
+        specificContent: { 'com.linkedin.ugc.ShareContent': { shareCommentary: { text: String(caption || '').slice(0, 2900) }, shareMediaCategory: 'NONE' } },
+        visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' }
+      })
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(`LinkedIn rejected the post (HTTP ${res.status}): ${out?.message || 'no detail returned'}`);
+    return { id: String(out.id || 'posted') };
+  }
+  throw new Error(`No automated publisher exists for the "${channel}" channel.`);
 }
 
 async function updateRunForDraft(db, draft, status, actor) {

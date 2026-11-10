@@ -3094,7 +3094,7 @@ function ProspectsView({ rows, canWrite, canLead, notify, quickPatch, onAdd, onC
         </form>
       )}
       {rows.length === 0 && (
-        <div className="crm-empty"><Radar /><h3>No prospects yet</h3><p>Paste a public directory page into the <b>AI scout</b> above and press Scan — it files every published business contact it finds. Or add companies by hand; the weekly GitHub workflow also keeps feeding this list.</p></div>
+        <div className="crm-empty"><Radar /><h3>No prospects yet</h3><p>Paste a public directory page into the <b>AI scout</b> above and press Scan — it files every published business contact it finds. Or add companies by hand. The weekly radar only scans source pages you have chosen: add directory URLs to <b>scripts/prospect-sources.txt</b> (or the <b>PROSPECT_SOURCES</b> repository variable on GitHub) — until you do, it has nothing to scan and will file nothing.</p></div>
       )}
       <ul className="crm-call-list">
         {rows.map(p => {
