@@ -45,7 +45,7 @@
 .inv-chips .cmp-open{display:flex;gap:7px;align-items:center;background:color-mix(in srgb,var(--gold) 16%,transparent);border:1px dashed color-mix(in srgb,var(--gold) 60%,transparent);color:var(--ink)}
 .inv-chips .cmp-open svg{width:14px}
 .inv-chips .cmp-open small{font-size:9px;color:var(--muted);font-weight:600;text-decoration:underline}
-.cmp-chip{display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:39px;font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:0 13px;cursor:pointer;background:var(--bg);transition:border-color .18s,color .18s,background .18s,box-shadow .18s}
+.cmp-chip{display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:33px;font-size:10px;font-weight:700;letter-spacing:.3px;color:var(--muted);border:1px solid var(--line);border-radius:9px;padding:0 12px;cursor:pointer;background:var(--bg);transition:border-color .18s,color .18s,background .18s,box-shadow .18s}
 .cmp-chip svg{width:13px;height:13px;flex:none}
 .cmp-chip:hover{border-color:color-mix(in srgb,var(--gold) 55%,var(--line));color:var(--ink);box-shadow:0 2px 10px #0002}
 .cmp-chip.on{background:color-mix(in srgb,var(--gold) 16%,var(--bg));color:var(--gold-text,var(--ink));border-color:color-mix(in srgb,var(--gold) 60%,transparent);font-weight:800}
@@ -1091,51 +1091,8 @@ section[id]{scroll-margin-top:120px}
   min-height:52px!important;
 }
 
-/* ---- Japan dealer stock page ---- */
-.jstock-grid{gap:22px!important}
-.jstock-card .car-image{cursor:pointer}
-.jstock-card .car-info h3{color:var(--ink)}
-.jstock-card .car-info .make{color:var(--gold)}
-.jstock-card .photo-count{
-  position:absolute!important;
-  z-index:6!important;
-  left:12px!important;
-  bottom:12px!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  gap:5px!important;
-  padding:6px 10px!important;
-  border-radius:14px!important;
-  background:#032c1be8!important;
-  color:#fff!important;
-  font-size:10px!important;
-  font-weight:700!important;
-  letter-spacing:.5px;
-  backdrop-filter:blur(6px);
-}
-.jstock-card .jstock-actions{
-  display:flex!important;
-  align-items:center!important;
-  gap:8px!important;
-  margin-top:12px!important;
-}
-.jstock-card .jstock-actions .primary{flex:1!important;justify-content:center!important;font-size:11px!important;height:38px!important}
-.jstock-card .jstock-actions .ghost-btn{
-  display:inline-flex!important;
-  align-items:center!important;
-  gap:5px!important;
-  height:38px!important;
-  padding:0 12px!important;
-  border:1px solid #ffffff2a!important;
-  border-radius:12px!important;
-  font-size:10px!important;
-  font-weight:700!important;
-  color:#cfe2d6!important;
-  text-decoration:none!important;
-  white-space:nowrap;
-}
-.gallery-lightbox .lightbox-bottom .jstock-actions{margin-top:0!important;flex-wrap:wrap}
-.gallery-lightbox .lightbox-bottom .jstock-actions .ghost-btn{background:#ffffff0f}
+/* (Round 22) the retired /japan-stock page CSS was removed — the route 301s
+   to /inventory and no jstock-* class exists in any component. */
 
 @media(max-width:650px){
   .gallery-lightbox{padding:6px!important}
@@ -1182,7 +1139,7 @@ section[id]{scroll-margin-top:120px}
    styles.css; below are the per-car WhatsApp and Make-offer buttons that sit
    beside the Compare chip. Hidden in the tiny portal preview list. */
 /* Landed-price cards (2026-11): indicative CIF line on inventory stock cards */
-.card-cif{display:flex;gap:9px;align-items:center;margin-top:10px;padding:8px 11px;border-radius:10px;background:#e8f2ec;border:1px solid #cfe2d6}
+.card-cif{display:flex;gap:9px;align-items:center;margin-top:8px;padding:6px 10px;border-radius:9px;background:#e8f2ec;border:1px solid #cfe2d6}
 .card-cif svg{width:15px;height:15px;color:var(--green-text);flex:0 0 auto}
 .card-cif span{display:grid;line-height:1.3}
 .card-cif small{font-size:8px;letter-spacing:.6px;color:#5f7468;text-transform:uppercase}
@@ -1192,15 +1149,21 @@ section[id]{scroll-margin-top:120px}
 .cif-dest-pick svg{width:14px;color:var(--gold)}
 .cif-dest-pick span{font-weight:700;letter-spacing:.3px}
 .cif-dest-pick select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;height:34px;padding:0 9px;font:600 11.5px Manrope;max-width:220px}
-.card-actions{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.card-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
 .card-actions>button{flex:1 1 auto;justify-content:center}
-.card-wa,.card-offer{display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:39px;padding:0 12px;border-radius:10px;font:700 11px Manrope;letter-spacing:.3px;cursor:pointer;transition:background .18s,color .18s,border-color .18s,box-shadow .18s}
-.card-wa{border:1px solid color-mix(in srgb,#1fa855 42%,var(--line));background:color-mix(in srgb,#25d366 9%,var(--card));color:#108a44}
-.card-wa:hover{background:#1fa855;border-color:#1fa855;color:#fff}
-.card-wa svg{width:14px;height:14px;flex:none}
-.card-offer{border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));background:color-mix(in srgb,var(--gold) 9%,var(--card));color:var(--gold)}
-.card-offer:hover{background:var(--gold);border-color:var(--gold);color:#fff}
-.card-offer svg{width:14px;height:14px;flex:none}
+.card-wa,.card-offer{position:relative;overflow:hidden;display:inline-flex;align-items:center;white-space:nowrap;gap:6px;height:33px;padding:0 11px;border-radius:9px;font:800 10px Manrope;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;transition:filter .18s,box-shadow .18s}
+/* Round 22 (owner): polished metallic finishes — WhatsApp is lacquered deep
+   GREEN with GOLD lettering, Make offer is brushed GOLD with GREEN lettering. */
+.card-wa{background:linear-gradient(165deg,#0f7a4f,#09603c 48%,#053b26);color:#f4c763;border:1px solid #0b4f33;box-shadow:inset 0 1px 0 #ffffff2b,0 2px 8px #032b1b4d}
+.card-wa:hover,.card-offer:hover{filter:brightness(1.07)}
+.card-wa:hover{box-shadow:inset 0 1px 0 #ffffff38,0 4px 13px #032b1b66}
+.card-wa svg{width:14px;height:14px;flex:none;color:#f4c763}
+.card-offer{background:linear-gradient(165deg,#f9dd8f,#f2c04e 30%,#d99a22 56%,#c4861a 80%,#e8b64a);color:#073b27;border:1px solid #b47d15;box-shadow:inset 0 1px 0 #ffe9ad,inset 0 -1px 0 #a06c0c,0 2px 8px #9a690d47}
+.card-offer::after{content:'';position:absolute;top:0;bottom:0;left:-70%;width:38%;background:linear-gradient(105deg,transparent,#ffffff8c,transparent);transform:skewX(-20deg);transition:left .5s;pointer-events:none}
+.card-offer:hover::after{left:125%}
+.card-offer:hover{box-shadow:inset 0 1px 0 #ffeeb8,inset 0 -1px 0 #a06c0c,0 4px 13px #9a690d61}
+.card-offer svg{width:14px;height:14px;flex:none;color:#073b27}
+@media(prefers-reduced-motion:reduce){.card-offer::after{display:none}}
 .portal-list .card-actions{display:none}
 
 /* ===== 2026-11-08: responsive polish — card actions & touch targets ====
@@ -1236,4 +1199,16 @@ section[id]{scroll-margin-top:120px}
  .inv-toolbar input,.inv-toolbar select,
  .pp-select select,
  .footer-news-field input{font-size:16px}
+}
+
+/* ===== Round 22 (owner request): premium compact stock cards ============
+   Metallic CTA finishes live with the base rules above; here only the
+   compact mobile targets (42px+ thumbs) and the gold hover hairline. */
+.card-cif b{font-size:12.5px}
+.car-card:hover{border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
+@media(max-width:650px){
+ .card-actions{gap:7px}
+ .card-actions .card-wa,.card-actions .card-offer{height:42px;font-size:11px}
+ .card-actions .cmp-chip{height:38px}
+ .car-bottom .card-open{width:42px;height:42px}
 }

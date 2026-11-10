@@ -22,13 +22,16 @@ import { useLang } from './i18n.jsx';
 // for the same URL. Transit windows stay planning estimates and no duty rate is
 // ever quoted (CLAIMS-POLICY.md: that is the buyer's own customs authority's
 // number, not ours).
-export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related,Flag}){
+// Round 22: `Flag` is now the SVG flag COMPONENT from src/flag.jsx (passed by
+// main.jsx and scripts/prerender-guides.jsx) — the emoji map only covered the
+// first eight markets, so nineteen guides rendered without a flag anywhere.
+export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related,Flag=()=>null}){
  const {t}=useLang();
  if(!dest)return <section className="inner-page destination-page"><div className="shell">
   <Link className="back-btn" to="destinations" navigate={navigate}>← All destinations</Link>
   <div className="empty-state"><Globe2/><h3>No market guide for that URL yet</h3>
    <p>We ship from Japan to the markets below. Tell us your port and we will quote the route, the sailing and the document pack in writing.</p>
-   <div className="destination-market-links">{DEST.map(d=><Link key={d[0]} className="outline-btn" to={destinationHref(d[0])} navigate={navigate}>{Flag[d[0]]} Japan to {d[0]}</Link>)}</div>
+   <div className="destination-market-links">{DEST.map(d=><Link key={d[0]} className="outline-btn" to={destinationHref(d[0])} navigate={navigate}><Flag c={d[0]} w={16} h={10}/> Japan to {d[0]}</Link>)}</div>
    <button className="primary" type="button" onClick={openAuction}>Ask about your market <ArrowRight/></button>
   </div></div></section>;
  const f=destinationFacts(dest);
@@ -37,7 +40,7 @@ export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related
   <div className="shell">
    <Link className="back-btn" to="destinations" navigate={navigate}>← All destinations</Link>
    <div className="destination-hero">
-    <div className="kicker">{Flag[f.country]} JAPAN → {f.country.toUpperCase()} · {f.port}</div>
+    <div className="kicker"><Flag c={f.country} w={22} h={14}/> JAPAN → {f.country.toUpperCase()} · {f.port}</div>
     <h1>{f.h1}</h1>
     <p className="destination-lede">Used cars bought at Japanese auctions and from dealer stock, exported to {f.port} with the document pack your clearing agent files with. Every price on this site is an indicative FOB figure, confirmed by a written quotation.</p>
     {f.eligibility&&<p className="destination-note"><b>Before you buy:</b> {f.eligibility} <a href={f.source} target="_blank" rel="noopener noreferrer">Check the official import guidance</a></p>}
@@ -74,7 +77,7 @@ export function DestinationPage({dest,destSlug,navigate,openAuction,Link,Related
     <div className="destination-faq-list">{faqs.map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</div>
    </section>
    <nav className="destination-market-links" aria-label="Other markets we ship to from Japan">
-    {DEST.filter(d=>d[0]!==f.country).map(d=><Link key={d[0]} className="outline-btn" to={destinationHref(d[0])} navigate={navigate}>{Flag[d[0]]} Japan to {d[0]}</Link>)}
+    {DEST.filter(d=>d[0]!==f.country).map(d=><Link key={d[0]} className="outline-btn" to={destinationHref(d[0])} navigate={navigate}><Flag c={d[0]} w={16} h={10}/> Japan to {d[0]}</Link>)}
    </nav>
   </div>
  </section>;
