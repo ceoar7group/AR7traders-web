@@ -1,0 +1,15 @@
+# Prospect radar sources — one PUBLIC business-directory or contact page per
+# line. The nightly scan (.github/workflows/prospect-scan.yml) reads each
+# page, extracts the published business emails/phones and files them under
+# the CRM → Prospects tab for human review.
+#
+# Add the pages YOU want scanned: trade-association member lists, "find a
+# dealer" directories, importer listings for your target markets. Examples
+# of the kind of page that works well (replace with real ones you choose):
+#
+#   https://example-trade-association.org/members
+#   https://example-directory.com/used-car-importers/kenya
+#
+# Rules the scanner enforces: robots.txt is respected, only published
+# business contact details are collected, nothing is ever emailed
+# automatically.

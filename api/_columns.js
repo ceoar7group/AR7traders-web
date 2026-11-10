@@ -18,7 +18,11 @@ export const CRM_COLUMNS = {
   vehicles:   ['stock_no','make','model','year','price','status','location','steering','colour','interior','image','images','gallery','notes','vendor','cost_price','freight_cost','duty_cost','other_cost','sourcing_currency'],
   quotes:     ['quote_no','customer_name','vehicle','amount','status','valid_until','notes'],
   shipments:  ['tracking_no','customer_name','vehicle','origin','destination','vessel','status','eta','progress','notes'],
-  tasks:      ['title','owner','priority','status','due_date','notes']
+  tasks:      ['title','owner','priority','status','due_date','notes'],
+  // Prospects (2026-11-03): the outreach radar — importers/dealers collected
+  // by scripts/prospect-scan.mjs from public business directories, plus any
+  // added by hand in the CRM. Public business contact data only.
+  prospects:  ['company','website','country','emails','phones','source_url','note','status']
 };
 
 export const SITE_COLUMNS = {
@@ -47,6 +51,7 @@ export const TABLE_COLUMNS = {
   quotes:        CRM_COLUMNS.quotes,
   shipments:     CRM_COLUMNS.shipments,
   tasks:         CRM_COLUMNS.tasks,
+  prospects:     CRM_COLUMNS.prospects,
   site_listings: SITE_COLUMNS.listings,
   site_routes:   SITE_COLUMNS.routes,
   site_articles: SITE_COLUMNS.articles

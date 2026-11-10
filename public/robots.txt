@@ -7,6 +7,7 @@ Disallow: /account
 Disallow: /portal
 Disallow: /studio
 Disallow: /seo
+Disallow: /call
 
 Sitemap: https://ar7traders.com/sitemap.xml
 Sitemap: https://ar7traders.com/api/sitemap-vehicles.xml

@@ -1,0 +1,45 @@
+name: Prospect radar
+
+# Collects PUBLIC business contacts (importers/dealers of Japanese used cars)
+# from the directory pages listed in scripts/prospect-sources.txt or the
+# PROSPECT_SOURCES repo variable, and files them in the CRM → Prospects tab.
+#
+# Needs two repo secrets that already exist for the other automations' style:
+#   SUPABASE_URL                — https://<ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY   — service-role key (Settings → API)
+# Optional: JINA_API_KEY (already a repo secret) renders JS-heavy directories.
+#
+# Weekly on purpose: directories change slowly, and a polite scanner shows up
+# rarely. Run it on demand from the Actions tab after adding new sources.
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Scan prospect sources
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          PROSPECT_SOURCES: ${{ vars.PROSPECT_SOURCES }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::warning::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY secrets are not set — skipping the scan. Add them in GitHub → Settings → Secrets."
+            exit 0
+          fi
+          node scripts/prospect-scan.mjs

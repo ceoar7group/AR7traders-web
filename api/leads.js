@@ -147,6 +147,15 @@ async function notifyLead(lead){
 
 // `injected` ({db}) is a test hook; Vercel always calls (req, res).
 export default async function handler(req,res,injected={}){
+ // WhatsApp Cloud API webhook rides this public function (?wa=webhook) — the
+ // Hobby plan's 12-function cap rules out a 13th file, and this is already
+ // the site's one public endpoint. GET is Meta's verify handshake, so it must
+ // be accepted before the POST-only guard below.
+ if(String(req.query?.wa||'')==='webhook'){
+  const {waWebhook}=injected.waWebhook?{waWebhook:injected.waWebhook}:await import('./_wa.js');
+  const db=injected.db||adminClient();
+  return waWebhook(req,res,{db,env:injected.env||process.env,send});
+ }
  if(req.method!=='POST')return send(res,405,{error:'Method not allowed'});
  try{
   let b=req.body||{};
