@@ -21,6 +21,40 @@ const fmtUsd = n => '$' + Math.round(n).toLocaleString('en-US');
 const slugOf = title => text(title).toLowerCase()
   .replace(/[’'".,:;!?()&/]+/g, ' ').replace(/\s+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90);
 
+/**
+ * Strip a leaked site-name suffix from an article title before it is stored.
+ * 2026-11-10: an AI-drafted checklist went live titled "NZ Car Import
+ * Checklist: ... | AR7 Traders" — the og:title suffix belongs to the <title>
+ * template, never to the stored headline. Also catches the OCR-style
+ * "I AR7 Traders" variant.
+ */
+export function cleanArticleTitle(title) {
+  return text(title)
+    .replace(/\s*[|\u2013\u2014-]\s*AR7\s*Traders\s*$/i, '')
+    .replace(/\s+I\s+AR7\s*Traders\s*$/i, '')
+    .trim();
+}
+
+// Countries the AI draft step likes to abbreviate when it retitles a
+// checklist. slugOf("NZ Car Import Checklist...") contains "nz", not
+// "new-zealand" — so subject dedupe must match the aliases too. Short
+// aliases (nz, uk, uae, us...) only count as a hit on a word boundary inside
+// the hyphenated slug, so "uk" never matches inside e.g. "fukuoka".
+const SUBJECT_ALIASES = {
+  'new-zealand': ['nz'],
+  'united-kingdom': ['uk', 'britain', 'great-britain', 'england'],
+  'united-arab-emirates': ['uae', 'dubai'],
+  'uae': ['united-arab-emirates', 'dubai'],
+  'usa': ['united-states', 'us', 'america'],
+  'dr-congo': ['drc', 'democratic-republic-of-the-congo', 'democratic-republic-of-congo'],
+  'trinidad-tobago': ['trinidad', 'tobago'],
+  'papua-new-guinea': ['png']
+};
+const aliasHit = (slug, name) =>
+  name.length <= 3
+    ? new RegExp('(^|-)' + name + '(-|$)').test(slug)
+    : slug.includes(name);
+
 // ---------------------------------------------------------------------------
 // Cover pictures (2026-11-08 owner report: "the articles are using the same
 // image… it should not use the same twice at all").
@@ -69,6 +103,14 @@ const LOGISTICS_COVERS = [
   '/assets/og/shipping.jpg',
   '/assets/japanese-car-auction-inspection-shipping-2.webp',
   '/assets/japan-car-carrier-trucks-1.jpg',
+  // 2026-11-10 round 23 (owner report: six checklists shipped wearing the SAME
+  // port aerial): four NEW, AR7-owned logistics scenes widen the pool past the
+  // size of one destination batch, so the exhausted-pool fallback below stops
+  // being the common case.
+  '/assets/covers/container-terminal-dusk.webp',
+  '/assets/covers/roro-ramp-loading.webp',
+  '/assets/covers/export-documents-desk.webp',
+  '/assets/covers/cargo-ship-at-sea.webp',
   '/assets/japanese-car-auction-inspection-shipping-1.webp',
   '/assets/japanese-car-auction-inspection-shipping-3.webp'
 ];
@@ -213,21 +255,42 @@ export function buildTopicIdeas({ cars = [], machines = [], dests = [], publishe
   // already live — the exact-slug check passed, the subject was still a
   // duplicate). A make/market is covered when ANY published title names it.
   const publishedSlugs = published.map(a => slugOf(a.title)).filter(Boolean);
+  // 2026-11-10 owner report: the NZ and UK checklists each went live TWICE.
+  // The AI draft step retitles articles ("NZ Car Import Checklist…" does not
+  // contain "new-zealand"), so a bare slug-substring test misses the repeat.
+  // A subject is covered when any published title names it OR a common alias.
   const covered = subject => {
     const t = slugOf(subject);
-    return !!t && publishedSlugs.some(s => s.includes(t));
+    if (!t) return false;
+    const names = [t, ...(SUBJECT_ALIASES[t] || [])];
+    return publishedSlugs.some(s => names.some(n => aliasHit(s, n)));
   };
   // Covers already in use — published articles' images are off the table.
   // Compared as SCENES (coverSceneOf), because .jpg/.webp twins and the og/*
   // aliases are the same photograph wearing different filenames.
   const usedCovers = new Set(published.map(a => coverSceneOf(a.img || a.image)).filter(Boolean));
+  // When every scene is taken, rotate through the pool by least-used count
+  // instead of handing EVERY remaining idea pools[0][0] — that fallback is how
+  // six destination checklists all shipped wearing the same port aerial
+  // (2026-11-10 owner screenshot).
+  const fallbackUse = new Map();
   const pickCover = (...pools) => {
     for (const pool of pools) for (const img of pool) {
       if (BANNED_COVERS.has(img)) continue;
       const scene = coverSceneOf(img);
       if (!usedCovers.has(scene)) { usedCovers.add(scene); return img; }
     }
-    return (pools[0] && pools[0][0]) || GENERIC_COVERS[0]; // every asset taken — last resort
+    // Every asset taken — last resort: the least-recycled scene, so repeats
+    // spread across the pool instead of stacking on one image.
+    let best = null, bestCount = Infinity;
+    for (const pool of pools) for (const img of pool) {
+      if (BANNED_COVERS.has(img)) continue;
+      const n = fallbackUse.get(coverSceneOf(img)) || 0;
+      if (n < bestCount) { best = img; bestCount = n; }
+    }
+    best = best || GENERIC_COVERS[0];
+    fallbackUse.set(coverSceneOf(best), (fallbackUse.get(coverSceneOf(best)) || 0) + 1);
+    return best;
   };
   const ideas = [];
   const push = idea => { if (!taken.has(slugOf(idea.title))) ideas.push(idea); };

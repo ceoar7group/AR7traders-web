@@ -7,7 +7,7 @@
 //   2. buildUpgradeReport turns crawl rows into a report that splits desk-
 //      fixable issues from code-change issues, so the operator knows exactly
 //      what to hand to a developer agent.
-import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes } from '../src/seo-topic-scout.js';
+import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes, cleanArticleTitle } from '../src/seo-topic-scout.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => {
@@ -163,6 +163,85 @@ ok(cleanReport.includes('every audited page passed'), 'an all-clean crawl says s
   ok(!wrong.some(f => /toyota-h-|export-toyota-5|inspection-shipping-5/.test(f.to)),
     'watermarked assets are never proposed as replacements');
   ok(suggestCoverFixes([]).length === 0 && suggestCoverFixes().length === 0, 'empty and missing input are safe');
+}
+
+// ---------------------------------------------------------------------------
+// 2026-11-10 regressions (owner screenshot: six destination checklists all
+// wearing the SAME port aerial, and the NZ + UK checklists each live TWICE
+// under AI-rewritten titles, one still carrying "| AR7 Traders").
+// ---------------------------------------------------------------------------
+console.log('\n-- round-23: cover exhaustion, alias dedupe, title hygiene --');
+{
+  // 8 destination markets in one batch, with every seed article already
+  // holding a logistics scene — the exact situation of 2026-11-09/10.
+  const manyDests = [
+    ['Pakistan', 'Karachi / Port Qasim', '18–24 days'], ['Kenya', 'Mombasa', '21–28 days'],
+    ['Tanzania', 'Dar es Salaam', '21–28 days'], ['Uganda', 'Mombasa (transit)', '28–35 days'],
+    ['Zambia', 'Dar es Salaam (transit)', '28–35 days'], ['Jamaica', 'Kingston', '35–45 days'],
+    ['Fiji', 'Suva', '21–30 days'], ['Guyana', 'Georgetown', '40–50 days']
+  ];
+  const seedPublished = [
+    { title: 'RoRo vs Container', img: '/assets/japan-vehicle-export-port-aerial-1.jpg' },
+    { title: 'Documents Guide', img: '/assets/japanese-car-auction-inspection-shipping-1.webp' },
+    { title: 'FOB vs CIF', img: '/assets/japanese-car-auction-inspection-shipping-2.webp' },
+    { title: 'Auction Sheets', img: '/assets/japanese-car-auction-inspection-shipping-3.webp' },
+    { title: 'UAE Checklist', img: '/assets/japan-car-carrier-trucks-1.jpg' },
+    { title: 'Suzuki Guide', img: '/assets/japan-car-auction-hall-1.jpg' }
+  ];
+  const batch = buildTopicIdeas({ cars: [], machines: [], dests: manyDests, published: seedPublished });
+  const destIdeas = batch.filter(i => i.id.startsWith('dest-'));
+  ok(destIdeas.length === 8, 'all 8 destination checklists are proposed');
+  const counts = destIdeas.reduce((m, i) => m.set(i.img, (m.get(i.img) || 0) + 1), new Map());
+  ok(Math.max(...counts.values()) === 1,
+    'with the widened pool, 8 checklists on a taken-up site still get 8 DISTINCT covers (the six-identical-port-aerials bug)');
+  ok(destIdeas.some(i => i.img.startsWith('/assets/covers/')),
+    'the new AR7-owned cover scenes are actually drawn from');
+
+  // Exhaustion fallback rotates instead of stacking on pool[0][0]: take every
+  // scene including the new ones, then ask for 8 covers.
+  const everythingTaken = [
+    ...seedPublished,
+    { title: 'A', img: '/assets/og/shipping.jpg' },
+    { title: 'B', img: '/assets/covers/container-terminal-dusk.webp' },
+    { title: 'C', img: '/assets/covers/roro-ramp-loading.webp' },
+    { title: 'D', img: '/assets/covers/export-documents-desk.webp' },
+    { title: 'E', img: '/assets/covers/cargo-ship-at-sea.webp' }
+  ];
+  const starved = buildTopicIdeas({ cars: [], machines: [], dests: manyDests, published: everythingTaken })
+    .filter(i => i.id.startsWith('dest-'));
+  const starvedCounts = starved.reduce((m, i) => m.set(i.img, (m.get(i.img) || 0) + 1), new Map());
+  ok(starved.length === 8 && Math.max(...starvedCounts.values()) <= 2,
+    'even with EVERY scene taken, repeats rotate across the pool instead of all landing on the port aerial');
+
+  // Alias dedupe: the AI retitled the live articles, so the country name never
+  // appears verbatim — the abbreviation must still suppress the idea.
+  const aliasPublished = [
+    { title: 'NZ Car Import Checklist: Your Pre-Order Guide' },
+    { title: 'Shipping Your Car from Japan to the UK: The Pre-Order Checklist' },
+    { title: 'Your UAE Vehicle Import Playbook' }
+  ];
+  const aliasDests = [
+    ['New Zealand', 'Auckland', '14–21 days'], ['United Kingdom', 'Southampton', '28–35 days'],
+    ['UAE', 'Jebel Ali', '12–18 days'], ['Kenya', 'Mombasa', '21–28 days']
+  ];
+  const afterAlias = buildTopicIdeas({ cars: [], machines: [], dests: aliasDests, published: aliasPublished });
+  ok(!afterAlias.some(i => i.id === 'dest-new-zealand'), '"NZ …" suppresses the New Zealand checklist (alias dedupe)');
+  ok(!afterAlias.some(i => i.id === 'dest-united-kingdom'), '"… the UK …" suppresses the United Kingdom checklist');
+  ok(!afterAlias.some(i => i.id === 'dest-uae'), 'a UAE title suppresses the UAE checklist');
+  ok(afterAlias.some(i => i.id === 'dest-kenya'), 'an uncovered market still gets proposed');
+  // Short aliases only hit on word boundaries: "fukuoka" must not look like "uk".
+  const fukuoka = buildTopicIdeas({ cars: [], machines: [], dests: [['United Kingdom', 'Southampton', '28–35 days']],
+    published: [{ title: 'Inside the Fukuoka Auction Hall' }] });
+  ok(fukuoka.some(i => i.id === 'dest-united-kingdom'), '"Fukuoka" does not suppress the UK (word-boundary alias match)');
+
+  // Title hygiene: the stored headline never carries the site-name suffix.
+  ok(cleanArticleTitle('NZ Car Import Checklist: Essential Guide | AR7 Traders') === 'NZ Car Import Checklist: Essential Guide',
+    'the "| AR7 Traders" suffix is stripped before a title is stored');
+  ok(cleanArticleTitle('Shipping to the UK I AR7 Traders') === 'Shipping to the UK',
+    'the "I AR7 Traders" variant is stripped too');
+  ok(cleanArticleTitle('Why AR7 Traders Inspects Twice') === 'Why AR7 Traders Inspects Twice',
+    'a headline legitimately NAMING AR7 Traders mid-sentence is left alone');
+  ok(cleanArticleTitle('') === '' && cleanArticleTitle(null) === '', 'empty and null titles are safe');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

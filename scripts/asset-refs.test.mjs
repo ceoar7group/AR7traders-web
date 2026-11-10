@@ -34,11 +34,16 @@ const EXT = /\.(jsx?|mjs|css|html|txt|xml|json|md|sql)$/i;
 // AR7-branded hero scenes (assets/showroom/hero-*.webp, ~75 KB each). Keep
 // this number honest — raise it only for real new media, never for build
 // artefacts.
+// Ratcheted 7.6 → 8.0 MB on 2026-11-10 (later the same day): four AR7-owned
+// guide-cover scenes under assets/covers/ (395 KB of webp, each under the
+// per-file cap) — added because the Topic Scout's cover pool was smaller than
+// one destination batch, which is how six checklists shipped wearing the same
+// port aerial. Real new media, not build artefacts.
 // Ratcheted 7.0 → 7.6 MB on 2026-11-10: the news-cover audit retired the
 // watermarked/competitor-branded covers and added four verified brand-safe
 // replacements (port aerial, auction hall, carrier trucks, Nissan Serena),
 // each under the 200 KB per-file cap. Real new media, not build artefacts.
-const MAX_PUBLIC_BYTES = 7.6 * 1000 * 1000;
+const MAX_PUBLIC_BYTES = 8.0 * 1000 * 1000;
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;

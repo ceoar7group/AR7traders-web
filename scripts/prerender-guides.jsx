@@ -9,6 +9,7 @@ import { DestinationPage } from '../src/destination-page.jsx';
 import { Flag } from '../src/flag.jsx';
 import { NEWS, articleSlug } from '../src/news-data.js';
 import { applySeo, BASE } from '../src/seo.js';
+import { MACHINES, machineHref, machineTypeSlug, MACHINE_TYPES } from '../src/machinery-data.js';
 
 const template = readFileSync('dist/index.html', 'utf8');
 const Link = ({to, children, className}) => <a className={className} href={to.startsWith('/') ? to : '/' + to}>{children}</a>;
@@ -43,4 +44,43 @@ for (const article of NEWS) {
       <li><a href="/faq">Buyer questions, answered</a></li>
     </ul></nav></article>);
 }
-console.log(`Prerendered ${DEST.length} destination pages and ${NEWS.length} guides.`);
+
+// ---------------------------------------------------------------------------
+// Head-only prerender for the static public routes (2026-11-10 SEO report:
+// 460 live pages failed "Canonical URL" because the SPA shell — which by
+// design carries NO canonical, see the 2026-11-18 Search Console note in
+// bundle-budget.test.mjs — answered for them). Each route below gets its own
+// dist/<route>/index.html whose HEAD is rewritten by the same applySeo() the
+// client runs (title, description, OG tags, robots and the per-route
+// canonical), while the BODY stays the untouched shell so hydration is
+// byte-for-byte what these routes already shipped. The homepage '/' and the
+// per-vehicle pages stay shell-served (runtime canonical via applySeo):
+// Vercel serves dist/index.html for '/' from the filesystem before rewrites
+// run, and the shell must keep no canonical for the ~400 vehicle routes.
+// ---------------------------------------------------------------------------
+function emitHeadOnly(path, page, opts = {}) {
+  const dom = new JSDOM(template, {url: BASE + path});
+  applySeo(page, null, null, { ...opts, doc: dom.window.document });
+  const dir = 'dist' + path;
+  mkdirSync(dir, {recursive: true});
+  writeFileSync(dir + '/index.html', dom.serialize());
+  dom.window.close();
+}
+
+export const STATIC_PAGE_ROUTES = [
+  'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
+  'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact',
+  'shipping', 'machinery', 'privacy', 'cookies', 'terms'
+];
+for (const page of STATIC_PAGE_ROUTES) emitHeadOnly('/' + page, page);
+for (const type of MACHINE_TYPES) {
+  const slug = String(type).toLowerCase();
+  emitHeadOnly('/machinery/' + slug, 'machinery', { machineType: slug });
+}
+for (const machine of MACHINES) {
+  emitHeadOnly(machineHref(machine), 'machinery',
+    { machine, machineType: machineTypeSlug(machine), machineRef: machine.ref || machine.id });
+}
+
+const headOnlyCount = STATIC_PAGE_ROUTES.length + MACHINE_TYPES.length + MACHINES.length;
+console.log(`Prerendered ${DEST.length} destination pages, ${NEWS.length} guides and ${headOnlyCount} static heads.`);

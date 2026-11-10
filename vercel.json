@@ -6,6 +6,142 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/inventory",
+      "destination": "/inventory/index.html"
+    },
+    {
+      "source": "/auction",
+      "destination": "/auction/index.html"
+    },
+    {
+      "source": "/services",
+      "destination": "/services/index.html"
+    },
+    {
+      "source": "/brands",
+      "destination": "/brands/index.html"
+    },
+    {
+      "source": "/destinations",
+      "destination": "/destinations/index.html"
+    },
+    {
+      "source": "/tools",
+      "destination": "/tools/index.html"
+    },
+    {
+      "source": "/world",
+      "destination": "/world/index.html"
+    },
+    {
+      "source": "/howbuy",
+      "destination": "/howbuy/index.html"
+    },
+    {
+      "source": "/news",
+      "destination": "/news/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about/index.html"
+    },
+    {
+      "source": "/reviews",
+      "destination": "/reviews/index.html"
+    },
+    {
+      "source": "/faq",
+      "destination": "/faq/index.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/contact/index.html"
+    },
+    {
+      "source": "/shipping",
+      "destination": "/shipping/index.html"
+    },
+    {
+      "source": "/machinery",
+      "destination": "/machinery/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/cookies",
+      "destination": "/cookies/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms/index.html"
+    },
+    {
+      "source": "/machinery/excavators",
+      "destination": "/machinery/excavators/index.html"
+    },
+    {
+      "source": "/machinery/loaders",
+      "destination": "/machinery/loaders/index.html"
+    },
+    {
+      "source": "/machinery/trucks",
+      "destination": "/machinery/trucks/index.html"
+    },
+    {
+      "source": "/machinery/cranes",
+      "destination": "/machinery/cranes/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-001",
+      "destination": "/machinery/excavators/AR7-MC-001/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-002",
+      "destination": "/machinery/excavators/AR7-MC-002/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-003",
+      "destination": "/machinery/excavators/AR7-MC-003/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-004",
+      "destination": "/machinery/excavators/AR7-MC-004/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-005",
+      "destination": "/machinery/excavators/AR7-MC-005/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-006",
+      "destination": "/machinery/excavators/AR7-MC-006/index.html"
+    },
+    {
+      "source": "/machinery/excavators/AR7-MC-007",
+      "destination": "/machinery/excavators/AR7-MC-007/index.html"
+    },
+    {
+      "source": "/machinery/loaders/AR7-MC-008",
+      "destination": "/machinery/loaders/AR7-MC-008/index.html"
+    },
+    {
+      "source": "/machinery/loaders/AR7-MC-009",
+      "destination": "/machinery/loaders/AR7-MC-009/index.html"
+    },
+    {
+      "source": "/machinery/trucks/AR7-MC-010",
+      "destination": "/machinery/trucks/AR7-MC-010/index.html"
+    },
+    {
+      "source": "/machinery/trucks/AR7-MC-011",
+      "destination": "/machinery/trucks/AR7-MC-011/index.html"
+    },
+    {
+      "source": "/machinery/cranes/AR7-MC-012",
+      "destination": "/machinery/cranes/AR7-MC-012/index.html"
+    },
+    {
       "source": "/destinations/qatar",
       "destination": "/destinations/qatar/index.html"
     },

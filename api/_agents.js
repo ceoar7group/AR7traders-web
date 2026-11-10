@@ -968,7 +968,14 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
     if (draft.kind === 'article' || draft.kind === 'brief') {
       // Publication state is owned by the desk, never by the agent: the row is
       // written unpublished even when the agent is authorised to publish.
-      const slug = (draft.title || 'draft').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+      // 2026-11-10: models sometimes append the site name to their headline
+      // ("… | AR7 Traders"). The <title> template owns that suffix — strip it
+      // before the row (and its slug) are derived from the title.
+      const cleanTitle = String(draft.title || '')
+        .replace(/\s*[|\u2013\u2014-]\s*AR7\s*Traders\s*$/i, '')
+        .replace(/\s+I\s+AR7\s*Traders\s*$/i, '')
+        .trim();
+      const slug = (cleanTitle || 'draft').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
       // NOTE: maybeSingle() resolves to { data, error }. Reading `.id` off the
       // wrapper silently made this lookup always "not found", so an agent draft
       // for an existing slug always inserted a second row and the published-
@@ -977,7 +984,7 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
       // log below (restoring id,published,slug alone would lose the body).
       const { data: existing } = await db.from('site_articles').select('*').eq('slug', slug).maybeSingle();
       const row = {
-        slug, title: draft.title, excerpt: draft.meta?.excerpt || null,
+        slug, title: cleanTitle || draft.title, excerpt: draft.meta?.excerpt || null,
         body: draft.body, category: draft.agent === 'seo' ? 'Guide' : 'News',
         read_min: Math.max(2, Math.ceil(String(draft.body || '').split(/\s+/).length / 200)),
         published: false, updated_at: new Date().toISOString()

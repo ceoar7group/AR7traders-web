@@ -31,4 +31,38 @@ for (const path of paths) {
   if(path.startsWith('/destinations/')) assert.equal(JSON.parse(d.getElementById('destination-faq-jsonld').textContent).mainEntity.length, 5);
   dom.window.close();
 }
-console.log(`Indexing follow-up: ${paths.length} HTML routes, sync health and editorial cadence pass.`);
+// ---------------------------------------------------------------------------
+// 2026-11-10 (SEO report: 460/493 live pages failed "Canonical URL"): every
+// static public route now ships a prerendered HEAD — same applySeo() output
+// the client produces, body left as the untouched shell so hydration is
+// byte-for-byte what these routes always served. Pins: the rewrite exists and
+// sits BEFORE the SPA catch-all, the baked canonical is the route itself, the
+// page stays indexable, and the shell boot element is still in the body.
+// The homepage '/' and per-vehicle routes intentionally stay shell-served
+// (runtime canonical): Vercel serves /index.html from the filesystem before
+// rewrites, and the shell must keep NO canonical for client-rendered routes.
+// ---------------------------------------------------------------------------
+import { MACHINES, machineHref, MACHINE_TYPES } from '../src/machinery-data.js';
+const staticHeadRoutes = [
+  '/inventory', '/auction', '/services', '/brands', '/destinations', '/tools',
+  '/world', '/howbuy', '/news', '/about', '/reviews', '/faq', '/contact',
+  '/shipping', '/machinery', '/privacy', '/cookies', '/terms',
+  ...MACHINE_TYPES.map(t => '/machinery/' + t.toLowerCase()),
+  ...MACHINES.map(machineHref)
+];
+const catchAllIndex = config.rewrites.findIndex(r => r.destination === '/index.html');
+for (const path of staticHeadRoutes) {
+  const rule = config.rewrites.find(r => r.source === path);
+  assert.equal(rule?.destination, path + '/index.html', `${path} needs a rewrite to its prerendered file`);
+  assert.ok(config.rewrites.indexOf(rule) < catchAllIndex, `${path} rewrite must sit before the SPA catch-all`);
+  const dom = new JSDOM(readFileSync('dist' + path + '/index.html', 'utf8'));
+  const d = dom.window.document;
+  assert.equal(d.querySelectorAll('link[rel="canonical"]').length, 1, path);
+  assert.equal(d.querySelector('link[rel="canonical"]').href, 'https://ar7traders.com' + path, path);
+  assert.ok(!d.querySelector('meta[name="robots"]').content.includes('noindex'), path);
+  assert.ok(d.title.length > 10 && d.querySelector('meta[name="description"]').content.length > 40, path);
+  assert.ok(d.getElementById('ar7-boot'), path + ' keeps the untouched shell body (head-only prerender)');
+  dom.window.close();
+}
+
+console.log(`Indexing follow-up: ${paths.length + staticHeadRoutes.length} HTML routes, sync health and editorial cadence pass.`);

@@ -23,7 +23,7 @@ import { SITE_CANONICAL_ORIGIN, canonicalSiteUrl, isStaffNoindexPath, sitemapLoc
 import { NEWS_CATEGORIES, articleBySlug, articleSlug, MAX_SLUG_LENGTH, getPublishedNews, getNewsCategories, setPublishedNews } from './news-data.js';
 import { updateSettingsCache } from './site-settings.js';
 import { campaignIsLive } from './offers.js';
-import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes } from './seo-topic-scout.js';
+import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes, cleanArticleTitle } from './seo-topic-scout.js';
 import { MACHINES } from './machinery-data.js';
 import { DEST } from './destinations.js';
 import './seo-desk.css';
@@ -68,7 +68,14 @@ export const GUIDE_ASSETS = [
   '/assets/machinery/hero-yard.webp',
   '/assets/og/help.jpg',
   '/assets/og/inventory.jpg',
-  '/assets/og/shipping.jpg'
+  '/assets/og/shipping.jpg',
+  // 2026-11-10: four AR7-owned logistics scenes added after six destination
+  // checklists shipped wearing the same port aerial — the cover pool was
+  // smaller than one Topic Scout destination batch.
+  '/assets/covers/container-terminal-dusk.webp',
+  '/assets/covers/roro-ramp-loading.webp',
+  '/assets/covers/export-documents-desk.webp',
+  '/assets/covers/cargo-ship-at-sea.webp'
 ];
 
 /** How many per-URL crawl rows show before "View full list" (problems first). */
@@ -397,6 +404,16 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
         label: path,
         url: canonical,
         expectIndexable: !isStaffNoindexPath(path),
+        // 2026-11-10 (owner report: 460/493 pages "failed" Canonical URL):
+        // this crawl fetches the RAW HTML, so any route Vercel answers with
+        // the SPA shell has no canonical yet — applySeo() injects the
+        // per-route one when the app boots, exactly as scripts/seo-agent.mjs
+        // already acknowledges with sharedShell:true. Shell-served documents
+        // are recognised by the #ar7-boot loader that only the shell body
+        // carries into an un-booted page; prerendered pages also contain it
+        // but ship a baked canonical, so the sharedShell branch never fires
+        // for them (seo-audit.js only consults it when no canonical exists).
+        sharedShell: !!doc.getElementById('ar7-boot'),
         origin: location.origin,
         facts: {sitemapUrls: facts.sitemapUrls || [], robotsTxt: facts.robotsTxt || ''}
       });
@@ -623,7 +640,7 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
     try {
       const out = await seoWorkflow('generate','POST',{topic:form.title,facts:draftFacts,kind:aiKind,
         sources:aiSources.split(/\n/).map(s => s.trim()).filter(Boolean)});
-      setForm(current => ({...current,title:out.title,desc:out.desc,body:out.body,
+      setForm(current => ({...current,title:cleanArticleTitle(out.title),desc:out.desc,body:out.body,
         cat:aiKind === 'news' ? 'MARKET WATCH' : 'BUYING GUIDE'}));
       setCreateWarnings(out.warnings || []); setCreated(null); setDraftAudit(null);
       setActiveDraftId(null); setDraftReviewed(false);
@@ -801,7 +818,10 @@ export default function SeoDesk({ navigate, token, canPublish = false, canPromot
       const cleanBody = String(out.body || '')
         .replace(/\n*\[EDITOR REVIEW: verify every factual claim and source, then remove this note before publication\.\]\s*$/i, '')
         .trimEnd();
-      let draftForm = { title: out.title || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: cleanBody };
+      // 2026-11-10: the model occasionally appends the site name to its headline
+      // ("NZ Car Import Checklist: \u2026 | AR7 Traders" went live). Strip it before
+      // validation \u2014 the <title> template adds the suffix, the stored row never.
+      let draftForm = { title: cleanArticleTitle(out.title) || topic.title, cat: topic.cat, img: topic.img, desc: out.desc, body: cleanBody };
       let { errors, slug } = validateGuide(draftForm, articles);
       // The model sometimes rewrites the headline into one that collides with
       // an already-published slug (observed 2026-11-08: Gemini turned a fresh
