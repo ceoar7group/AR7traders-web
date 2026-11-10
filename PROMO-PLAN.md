@@ -1,6 +1,6 @@
 # AR7 promotion plan
 
-Generated: 2026-10-04T10:25:09.161Z
+Generated: 2026-11-10T11:48:04.490Z
 
 19 campaigns available, 1 already run.
 
@@ -140,6 +140,11 @@ header of scripts/promo-agent.mjs.
 - target: `/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean`
 - channels: blog, facebook
 - Read the grade before you bid — our translation guide
+
+## Buyer-guide publishing calendar (2–4 per month)
+Draft → verify authority sources → review in CRM SEO desk → publish → check sitemap and indexing. Dates are editorial targets, not proof of publication.
+- 2026-11-07: **Before bidding: checking Australian vehicle import eligibility** — Confirm the applicable approval pathway with the Australian transport authority and buyer’s compliance specialist before purchase. Link: /destinations. Status: review-required.
+- 2026-11-14: **Importing a Japanese car to the USA: eligibility before shipping** — Verify federal safety, emissions and state registration requirements independently; do not promise every Japanese vehicle is eligible. Link: /destinations. Status: review-required.
 
 ## Launching a campaign
 

@@ -35,7 +35,8 @@ const read = rel => readFileSync(fileURLToPath(new URL('../' + rel, import.meta.
 
 const WORKFLOWS = [
   'ai-growth.yml', 'ci.yml', 'goonet-sync.yml',
-  'guardian.yml', 'machinery-sync.yml', 'relay-probe.yml', 'seo-automation.yml'
+  'guardian.yml', 'machinery-sync.yml', 'prospect-scan.yml',
+  'relay-probe.yml', 'seo-automation.yml'
 ];
 const COMMITTED = readdirSync(fileURLToPath(new URL('../.github/workflows', import.meta.url)))
   .filter(f => f.endsWith('.yml') || f.endsWith('.yaml')).sort();
@@ -52,7 +53,7 @@ const scratch = (name, body) => {
 say('\n-- every committed workflow is structurally a workflow --');
 {
   ok(COMMITTED.join(',') === [...WORKFLOWS].sort().join(','),
-    `the workflow set is exactly the seven this suite knows (${COMMITTED.join(', ')})`);
+    `the workflow set is exactly the eight this suite knows (${COMMITTED.join(', ')})`);
 
   for (const name of WORKFLOWS) {
     const text = files[name];

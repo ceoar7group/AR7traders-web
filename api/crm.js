@@ -19,10 +19,13 @@ import {CRM_COLUMNS} from './_columns.js';
 // `activities` is deliberately read-only: it is the audit trail, and the
 // server writes to it itself. Staff cannot add, edit or delete entries
 // (WHATS-NEW.md §2).
-const entities={leads:'leads',customers:'customers',vehicles:'vehicles',quotes:'quotes',shipments:'shipments',tasks:'tasks',activities:'activities'};
+const entities={leads:'leads',customers:'customers',vehicles:'vehicles',quotes:'quotes',shipments:'shipments',tasks:'tasks',activities:'activities',prospects:'prospects'};
 const WRITE_PERM={
   leads:'leads.write',customers:'customers.write',vehicles:'vehicles.write',
-  quotes:'quotes.write',shipments:'shipments.write',tasks:'tasks.write'
+  quotes:'quotes.write',shipments:'shipments.write',tasks:'tasks.write',
+  // Prospects (the outreach radar) and the WhatsApp desk are sales outreach
+  // material — same gate as writing a lead, no new permission to administer.
+  prospects:'leads.write'
 };
 const READ_ONLY=['activities'];
 // Writable columns live in api/_columns.js so the approval flow filters
@@ -49,6 +52,15 @@ export default async function handler(req,res,injected={}){
   const db=injected.db||auth.db;
   const entity=String(req.query.entity||'');
   if(entity==='me')return send(res,200,profile);
+  // WhatsApp desk (?entity=wa) — list conversations / read a thread / send a
+  // reply / AI draft. Lives in api/_wa.js (a shared module, not a 13th
+  // function). Reads are open to any signed-in staff like other CRM reads;
+  // sending and drafting are outreach, so they need leads.write.
+  if(entity==='wa'){
+   if(req.method!=='GET')await assertPerm(profile,'leads.write',injected);
+   const {waDesk}=injected.waDesk?{waDesk:injected.waDesk}:await import('./_wa.js');
+   return await waDesk(req,res,{db,profile,user,env:injected.env||process.env,send,log,fetchImpl:injected.fetch||globalThis.fetch});
+  }
   if(!entities[entity])return send(res,400,{error:'Unknown CRM entity'});
   // AI assist for one lead: score + stock matches + outreach drafts.
   // Drafts only — nothing is sent, nothing is stored on the lead. Requires
@@ -85,7 +97,7 @@ export default async function handler(req,res,injected={}){
   if(req.method==='DELETE'){
    const id=req.query.id;if(!id)return send(res,400,{error:'Record id is required'});
    const {data:row}=await db.from(entities[entity]).select('*').eq('id',id).single();
-   const label=row?.name||row?.title||row?.stock_no||row?.quote_no||row?.tracking_no||entity;
+   const label=row?.name||row?.title||row?.company||row?.stock_no||row?.quote_no||row?.tracking_no||entity;
    // Staff without direct-delete rights raise an approval request instead
    // of being refused outright, so the work still moves.
    const direct=injected.permsFor

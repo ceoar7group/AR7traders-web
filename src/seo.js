@@ -592,7 +592,7 @@ export function applySeo(page, carId, car, opts = {}) {
                 : destPage
                 ? BASE + destPage.canonicalPath
                 : BASE + hrefFor(page, carId);
-  const noindex = ['crm', 'account', 'portal', 'studio', 'seo'].includes(page) || vehicleMissing || machineMissing || articleMissing || destMissing;
+  const noindex = ['crm', 'account', 'portal', 'studio', 'seo', 'call'].includes(page) || vehicleMissing || machineMissing || articleMissing || destMissing;
 
   doc.title = title;
   setMeta('meta[name="description"]', 'content', description, doc);

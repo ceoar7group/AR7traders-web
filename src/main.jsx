@@ -47,6 +47,10 @@ const BigGlobe = lazyRetry(() =>
 // The CRM is only reached from the /crm route, so load it on demand
 // instead of shipping it to every visitor.
 const CrmApp = lazyRetry(() => import('./crm.jsx'), 'crm');
+// Free browser-to-browser voice call room (/call/<room>) — shared by link
+// from the Call Desk, never in the nav, noindex. Lazy: only call participants
+// pay for the chunk.
+const WebCallPage = lazyRetry(() => import('./webcall.jsx'), 'webcall');
 // The customer account area is only reached from /account.
 const CustomerAccount = lazyRetry(() =>
   import('./customer-portal.jsx').then(m => ({ default: m.CustomerAccountPage })), 'account');
@@ -1849,6 +1853,7 @@ export function App(){
  };
  const openEnquiry=(context={})=>{const safe=context&&typeof context==='object'&&!('nativeEvent' in context)?context:{};setEnquiry({kind:'contact',...safe});};
  if(page==='crm')return <React.Suspense fallback={<div className="empty-state"><Monitor/><h3>Loading the CRM…</h3><p>Fetching your workspace.</p></div>}><CrmApp/></React.Suspense>;
+ if(page==='call')return <React.Suspense fallback={<div className="empty-state"><h3>Opening the call room…</h3></div>}><WebCallPage room={vehicleId||''}/></React.Suspense>;
  return <div className="site">
   {/* 2026-11-08 audit: keyboard/screen-reader users get a skip link past the
       header + promo bar straight to the page content (WCAG 2.4.1). Plain

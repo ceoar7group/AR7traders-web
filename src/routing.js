@@ -14,6 +14,10 @@ export const PAGES = new Set([
   'home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
   'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'account',
   'portal', 'crm', 'studio', 'shipping', 'machinery', 'seo',
+  // /call/<room> — the free browser-to-browser voice call room the Call Desk
+  // creates and shares with a customer. Noindex (see seo-url.js), no nav
+  // entry: the only way in is a link an agent sent.
+  'call',
   'privacy', 'cookies', 'terms'
 ]);
 

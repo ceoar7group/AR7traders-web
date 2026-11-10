@@ -10,8 +10,9 @@ import {
   MoveLeft, MoveRight, Eye, LayoutGrid, List, Layers, Upload, ArrowRight,
   Maximize2, ZoomIn, ZoomOut, Copy, Play, Truck, Download, RotateCcw, ClipboardCopy, ExternalLink, Archive,
   ChevronDown, Percent, Bot, Stethoscope, Bell, CalendarClock, CornerDownLeft,
-  PhoneCall, PhoneOff, PhoneForwarded, Voicemail
+  PhoneCall, PhoneOff, PhoneForwarded, Voicemail, Radar, Headphones
 } from 'lucide-react';
+import { localTimeFor } from './call-time.js';
 import siteSeed from './site-content.seed.json';
 import { CurrencyProvider, CrmCurrencyPicker, RateManager, CurrencyAmount, readCurrencyAmount, CurrencyBadge, useCurrency } from './currency.jsx';
 import { imageFallback, hasRetried } from './image-fallback.js';
@@ -198,6 +199,11 @@ export function extractPhotos(item) {
 }
 
 const seed = {
+  // Demo prospects so the radar explains itself before the first scan runs.
+  prospects: [
+    { id: 'p1', company: 'Mombasa Auto Imports', website: 'https://example-dealer.co.ke', country: 'Kenya', emails: ['sales@example-dealer.co.ke'], phones: ['+254700112233'], source_url: 'https://example-directory.com/kenya-importers', status: 'new', note: '', created_at: '2026-10-28T09:00:00Z' },
+    { id: 'p2', company: 'Karachi Motors Trading', website: 'https://example-motors.pk', country: 'Pakistan', emails: ['info@example-motors.pk'], phones: ['+923001234567'], source_url: 'https://example-directory.com/pk-importers', status: 'contacted', note: 'Asked for Probox and Vitz pricing', created_at: '2026-10-25T13:00:00Z' }
+  ],
   leads: [
     { id: 'l1', name: 'Ahmed Khan', email: 'ahmed@example.com', phone: '+92 300 1234567', country: 'Pakistan', vehicle_interest: 'Toyota Land Cruiser 2022+', source: 'Website', status: 'qualified', budget: 65000, assigned_to: 'Sara Malik', next_follow_up: '2026-08-25', created_at: '2026-08-23T08:30:00Z' },
     { id: 'l2', name: 'Daniel Mwangi', email: 'daniel@example.com', phone: '+254 711 223344', country: 'Kenya', vehicle_interest: 'Lexus RX 450h', source: 'WhatsApp', status: 'new', budget: 42000, assigned_to: 'Omar Ali', next_follow_up: '2026-08-24', created_at: '2026-08-23T11:10:00Z' },
@@ -257,6 +263,13 @@ const tabs = [
   // the dial/WhatsApp/SMS links and the outcome log in one screen. Calls go
   // through the agent's own phone or WhatsApp — zero per-call cost.
   ['calls', 'Call desk', PhoneCall],
+  // WhatsApp desk (2026-11-03 owner request): the business WhatsApp inbox
+  // inside the CRM — staff and the AI agent answer customers here once the
+  // (free) Meta Cloud API number is connected. See WHATSAPP-DESK.md.
+  ['wa', 'WhatsApp', MessageCircle],
+  // Prospect radar: public business contacts of used-car importers collected
+  // by the weekly scanner, reviewed by a human, converted into leads.
+  ['prospects', 'Prospects', Radar],
   ['customers', 'Customers', UserRound],
   ['accounts', 'Customer accounts', Wallet],
   // Inventory and the website showroom are ONE tab: the same cars, two faces.
@@ -316,7 +329,9 @@ const ENTITY_WRITE_PERM = {
   leads: 'leads.write', customers: 'customers.write', vehicles: 'vehicles.write',
   quotes: 'quotes.write', shipments: 'shipments.write', tasks: 'tasks.write',
   listings: 'site.write', routes: 'site.write', articles: 'site.write', goonet: 'site.write',
-  machinery: 'site.write'
+  machinery: 'site.write',
+  // Outreach surfaces ride the leads permission — same people, same job.
+  wa: 'leads.write', prospects: 'leads.write'
 };
 const SITE_ENTITIES = ['listings', 'routes', 'articles'];
 
@@ -1691,7 +1706,7 @@ export default function CrmApp() {
   // which showed Delete to roles the API would refuse — and hid it from a
   // role an admin had deliberately granted the right to.
   const canWrite = entity => hasPerm(perms, profile?.role, ENTITY_WRITE_PERM[entity] || 'leads.write');
-  const SPECIAL = { calls: 'Call desk', dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'Growth studio', agents: 'Growth studio' };
+  const SPECIAL = { calls: 'Call desk', wa: 'WhatsApp desk', prospects: 'Prospect radar', dashboard: 'Dashboard', activities: 'Activity log', team: 'Team & permissions', approvals: 'Approvals', settings: 'Website settings', accounts: 'Customer accounts', people: 'People & payroll', sourcing: 'Profit & sourcing', goonet: 'Japan dealer stock', machinery: 'Machinery desk', seo: 'Growth studio', agents: 'Growth studio' };
   // The merged cars tab: one sidebar entry ('vehicles'), two record sets.
   // activeEntity picks which set the panel, the toolbar and the editor work on.
   const activeEntity = tab === 'vehicles' ? carSub : tab;
@@ -1814,6 +1829,32 @@ export default function CrmApp() {
             quickPatch={(row, patch) => quickPatch('leads', row, patch)}
             aiAssist={canWrite('leads') ? row => call('/api/crm?entity=leads&ai=assist', session.access_token, { method: 'POST', body: JSON.stringify({ id: row.id }) }) : null}
             notify={setNotice}
+          />
+        ) : tab === 'wa' ? (
+          <WaDeskView
+            token={DEMO ? null : session.access_token}
+            canWrite={canWrite('wa')}
+            canToggleAuto={hasPerm(perms, profile?.role, 'settings.write')}
+            notify={setNotice}
+          />
+        ) : tab === 'prospects' ? (
+          <ProspectsView
+            rows={rows.prospects || []}
+            canWrite={canWrite('prospects')}
+            canLead={canWrite('leads')}
+            notify={setNotice}
+            quickPatch={(row, patch) => quickPatch('prospects', row, patch)}
+            onAdd={payload => save('prospects', payload)}
+            onConvert={async p => {
+              const payload = {
+                name: p.company || 'Prospect', email: (p.emails || [])[0] || '', phone: (p.phones || [])[0] || '',
+                country: p.country || '', vehicle_interest: 'Used-car import stock (B2B)', source: 'Prospecting',
+                status: 'new'
+              };
+              await save('leads', payload, { quiet: true });
+              await quickPatch('prospects', p, { status: 'converted' });
+              setNotice(`${payload.name} is now a lead — find them in Leads and the Call desk.`);
+            }}
           />
         ) : tab === 'activities' ? (
           <ActivityView rows={rows.activities || []} />
@@ -2564,6 +2605,21 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
     catch (e) { setAssist({ lead, error: e.message || 'AI assist failed' }); }
   };
 
+  // Free browser-to-browser voice call: open the agent side of a fresh room
+  // and put the customer link on the clipboard, ready to paste into WhatsApp
+  // or SMS. No telephony account, no per-minute cost (see src/webcall.jsx).
+  const startWebCall = async lead => {
+    const a = () => Math.random().toString(36).slice(2, 6);
+    const room = 'ar7-' + a() + a();
+    const link = location.origin + '/call/' + room;
+    let copied = true;
+    try { await navigator.clipboard.writeText(link); } catch { copied = false; }
+    window.open('/call/' + room, '_blank', 'noopener');
+    notify(copied
+      ? `Web call room opened — the invite link is on your clipboard. Paste it to ${lead?.name || 'the customer'} on WhatsApp or SMS; they join free from their browser.`
+      : `Web call room opened — share this link so they can join: ${link}`);
+  };
+
   const logOutcome = async (lead, outcome) => {
     if (!canWrite) { notify('Your role cannot update leads.'); return; }
     const patch = { call_outcome: outcome.label };
@@ -2604,7 +2660,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
   return (
     <div className="crm-call-desk">
       <div className="crm-call-explain">
-        <p><b><PhoneCall size={14} /> Free calling, by design.</b> “Call” dials from <i>your</i> phone, “WhatsApp” opens the chat with the first message pre-filled (free over data), “SMS” pre-fills a text — no telephony subscription, no per-minute fees. <b>AI script</b> writes your talking points, objection answers and follow-up messages from the lead’s own enquiry and live stock; you speak, you press send.</p>
+        <p><b><PhoneCall size={14} /> Free calling, by design.</b> “Call” dials from <i>your</i> phone, “WhatsApp” opens the chat with the first message pre-filled (free over data), “SMS” pre-fills a text, and <b>“Web call”</b> opens a free browser-to-browser voice room — send the customer the link and talk with no telephony subscription and no per-minute fees. <b>AI script</b> writes your talking points, objection answers and follow-up messages from the lead’s own enquiry and live stock; you speak, you press send. The ≈ clock shows the lead’s approximate local time so nobody gets a 3 a.m. call.</p>
         <p className="crm-hint">Fully automated AI <i>voice</i> calls need a paid telephony provider (e.g. Twilio) and robocall consent rules per country — this desk is honest about that and keeps humans on the line. Ask your developer to connect a provider if you ever want it.</p>
       </div>
       <div className="crm-call-stats" role="status">
@@ -2620,6 +2676,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
         {queue.map(lead => {
           const overdue = lead.next_follow_up && lead.next_follow_up <= today;
           const wa = digits(lead.phone);
+          const lt = localTimeFor(lead.country);
           return (
             <li key={lead.id} className={'crm-call-row' + (overdue ? ' is-due' : '')}>
               <div className="crm-call-who">
@@ -2627,6 +2684,9 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
                 <small>{[lead.country, lead.vehicle_interest || 'vehicle enquiry', lead.source].filter(Boolean).join(' · ')}</small>
                 <small className="crm-call-meta">
                   <span className={'crm-call-chip st-' + (lead.status || 'new')}>{lead.status || 'new'}</span>
+                  {lt && <span className={lt.part === 'night' ? 'crm-call-due' : ''} title={`Approximate local time in ${lead.country} (standard time, DST not applied)`}>
+                    <Clock3 size={12} /> ≈{lt.time}{lt.part === 'night' ? ' — likely asleep' : lt.part === 'edge' ? ' — early/late' : ' local'}
+                  </span>}
                   {lead.next_follow_up && <span className={overdue ? 'crm-call-due' : ''}><CalendarClock size={12} /> {overdue ? 'due ' : 'next '} {lead.next_follow_up}</span>}
                   {lead.budget ? <span>budget ${Number(lead.budget).toLocaleString('en-US')}</span> : null}
                   {logged[lead.id] && <span className="crm-call-logged"><Check size={12} /> {logged[lead.id]}</span>}
@@ -2646,6 +2706,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
                 <a className="crm-call-act is-call" href={'tel:' + String(lead.phone).replace(/[^+\d]/g, '')}><PhoneCall size={14} /> Call</a>
                 {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa + '?text=' + encodeURIComponent(waText(lead))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
                 <a className="crm-call-act" href={'sms:' + String(lead.phone).replace(/[^+\d]/g, '') + '?&body=' + encodeURIComponent(waText(lead))}><Mail size={14} /> SMS</a>
+                <button type="button" className="crm-call-act" onClick={() => startWebCall(lead)} title="Free browser-to-browser voice call — opens your side and copies the customer's invite link"><Headphones size={14} /> Web call</button>
                 <button type="button" className="crm-call-act is-ai" onClick={() => openAssist(lead)}><Sparkles size={14} /> AI script</button>
                 <button type="button" className="crm-call-act" onClick={() => setTimelineFor(lead)}><Clock3 size={14} /> Timeline</button>
                 <button type="button" className="crm-call-act" onClick={() => { setLogFor(logFor === lead.id ? null : lead.id); setCallbackDate(''); }}><ClipboardCopy size={14} /> Log outcome</button>
@@ -2666,6 +2727,263 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
       </ul>
       {assist && <AiAssistModal assist={assist} onClose={() => setAssist(null)} />}
       {timelineFor && <LeadTimelineModal lead={timelineFor} activities={activities} onClose={() => setTimelineFor(null)} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  WhatsApp desk — the business WhatsApp inbox inside the CRM.
+//
+//  Backed by /api/crm?entity=wa (api/_wa.js). Until the owner connects a Meta
+//  Cloud API number (WHATSAPP_TOKEN / WHATSAPP_PHONE_ID / WHATSAPP_VERIFY_TOKEN
+//  in Vercel — see WHATSAPP-DESK.md) the desk shows the honest setup path
+//  instead of a dead UI. Replies are free inside Meta's 24-hour service
+//  window; the desk never sends paid template messages.
+// ---------------------------------------------------------------------------
+function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
+  const [state, setState] = useState({ loading: true, configured: false, conversations: [] });
+  const [active, setActive] = useState(null);           // wa_id of the open thread
+  const [thread, setThread] = useState({ loading: false, messages: [] });
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [auto, setAuto] = useState(null);               // 'on' | 'off' | null (unknown)
+  const [newTo, setNewTo] = useState('');
+
+  const load = async () => {
+    if (!token) { setState({ loading: false, demo: true, configured: false, conversations: [] }); return; }
+    try { setState({ loading: false, ...(await call('/api/crm?entity=wa', token)) }); }
+    catch (e) { setState({ loading: false, configured: false, conversations: [], error: e.message }); }
+  };
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!token) return;
+    call('/api/settings', token).then(s => setAuto(s?.wa_auto_reply === 'on' ? 'on' : 'off')).catch(() => { });
+  }, [token]);
+
+  const openThread = async waId => {
+    setActive(waId); setDraft('');
+    setThread({ loading: true, messages: [] });
+    try {
+      const r = await call('/api/crm?entity=wa&with=' + encodeURIComponent(waId), token);
+      setThread({ loading: false, messages: r.messages || [] });
+    } catch (e) { setThread({ loading: false, messages: [], error: e.message }); }
+  };
+
+  const sendReply = async () => {
+    const body = draft.trim();
+    if (!body || !active) return;
+    if (!canWrite) { notify('Your role cannot send messages — ask for the "Add / edit leads" permission.'); return; }
+    setBusy(true);
+    try {
+      await call('/api/crm?entity=wa', token, { method: 'POST', body: JSON.stringify({ to: active, body }) });
+      setDraft('');
+      await openThread(active);
+    } catch (e) { notify(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const aiDraft = async () => {
+    if (!active) return;
+    setDrafting(true);
+    try {
+      const r = await call('/api/crm?entity=wa', token, { method: 'POST', body: JSON.stringify({ ai: 'draft', wa_id: active }) });
+      setDraft(r.text || '');
+      notify(r.source === 'ai' ? 'AI draft ready — review it, edit it, then press Send.' : 'Draft ready (rule-based — connect GEMINI_API_KEY for smarter drafts).');
+    } catch (e) { notify(e.message); }
+    finally { setDrafting(false); }
+  };
+
+  const toggleAuto = async () => {
+    const next = auto === 'on' ? 'off' : 'on';
+    try {
+      await call('/api/settings', token, { method: 'PATCH', body: JSON.stringify({ wa_auto_reply: next }) });
+      setAuto(next);
+      notify(next === 'on'
+        ? 'AI auto-reply is ON — the agent answers new WhatsApp messages itself. Watch the thread and switch it off any time.'
+        : 'AI auto-reply is OFF — the AI only drafts; a person presses Send.');
+    } catch (e) { notify(e.message); }
+  };
+
+  const fmtWhen = iso => { try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+
+  return (
+    <div className="crm-call-desk crm-wa-desk">
+      <div className="crm-call-explain">
+        <p><b><MessageCircle size={14} /> Your business WhatsApp, inside the CRM.</b> Customers message your WhatsApp Business number; the conversation lands here for any team member to answer — with an <b>AI draft</b> one click away. Replies inside Meta's 24-hour service window are <b>free</b>. Calls stay free too: use the customer's wa.me link on the Call desk, or send them a <i>Web call</i> link.</p>
+        {!state.configured && !state.loading && (
+          <p className="crm-hint"><b>Not connected yet.</b> This desk needs a (free) Meta WhatsApp Business Cloud API number: create it in Meta Business Manager, then add <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code> and <code>WHATSAPP_VERIFY_TOKEN</code> in Vercel and register the webhook. Step-by-step guide: <b>WHATSAPP-DESK.md</b> in the repository. Honest cost note: receiving and replying within 24 h is free; starting a conversation (template messages) is billed by Meta per message.</p>
+        )}
+        {state.demo && <p className="crm-hint">Demo mode — sign in to the live CRM to use the WhatsApp desk.</p>}
+        {canToggleAuto && state.configured && (
+          <p className="crm-hint">
+            <button type="button" className="crm-call-act is-ai" onClick={toggleAuto}>
+              <Bot size={14} /> AI auto-reply: {auto === 'on' ? 'ON' : 'OFF'}
+            </button>
+            &nbsp;Off = AI drafts, a person sends (recommended). On = the AI answers new messages by itself and signs as “AI agent”.
+          </p>
+        )}
+      </div>
+
+      <div className="crm-wa-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,300px) 1fr', gap: 14, alignItems: 'start' }}>
+        <div className="crm-wa-list">
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            <input value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="+2547… start a chat" aria-label="WhatsApp number to open"
+              style={{ flex: 1 }} />
+            <button type="button" className="crm-call-act" onClick={() => { const d = newTo.replace(/\D/g, ''); if (d.length >= 7) { openThread(d); setNewTo(''); } else notify('Enter the full international number, e.g. +254 711 223344'); }}>Open</button>
+          </div>
+          {state.loading && <p className="crm-hint">Loading conversations…</p>}
+          {state.error && <p className="crm-hint">{state.error}</p>}
+          {!state.loading && !(state.conversations || []).length && <p className="crm-hint">No conversations yet. When a customer messages your WhatsApp number, the thread appears here.</p>}
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(state.conversations || []).map(c => (
+              <li key={c.wa_id}>
+                <button type="button" onClick={() => openThread(c.wa_id)}
+                  className={'crm-call-act' + (active === c.wa_id ? ' is-wa' : '')}
+                  style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                  <b>{c.name || '+' + c.wa_id}</b>
+                  <small style={{ opacity: .75 }}>{c.last_dir === 'out' ? 'You: ' : ''}{String(c.last || '').slice(0, 48)}{String(c.last || '').length > 48 ? '…' : ''}</small>
+                  <small style={{ opacity: .55 }}>{fmtWhen(c.last_at)} · {c.count} msg</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="crm-wa-thread">
+          {!active && <div className="crm-empty"><MessageCircle /><h3>Pick a conversation</h3><p>Open a thread on the left, or start one with a customer's number. Remember: free-form replies reach customers who wrote to you in the last 24 hours; otherwise WhatsApp requires a paid template message.</p></div>}
+          {active && (<>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <b>+{active}</b>
+              <a className="crm-call-act is-wa" href={'https://wa.me/' + active} target="_blank" rel="noreferrer"><PhoneCall size={13} /> Voice call (your phone)</a>
+              <button type="button" className="crm-call-act" onClick={() => openThread(active)}><RefreshCw size={13} /> Refresh</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '48vh', overflowY: 'auto', padding: '4px 2px' }}>
+              {thread.loading && <p className="crm-hint">Loading messages…</p>}
+              {thread.error && <p className="crm-hint">{thread.error}</p>}
+              {!thread.loading && !thread.messages.length && <p className="crm-hint">No stored messages with this number yet — your first message below starts the thread (24-hour rule applies).</p>}
+              {thread.messages.map(m => (
+                <div key={m.id} style={{
+                  alignSelf: m.direction === 'out' ? 'flex-end' : 'flex-start', maxWidth: '78%',
+                  background: m.direction === 'out' ? 'rgba(47,158,104,.18)' : 'rgba(128,128,128,.14)',
+                  border: '1px solid rgba(128,128,128,.18)', borderRadius: 10, padding: '7px 11px'
+                }}>
+                  <div style={{ whiteSpace: 'pre-wrap', fontSize: '.92rem' }}>{m.body}</div>
+                  <small style={{ opacity: .6 }}>{m.direction === 'out' ? (m.actor || 'Staff') + ' · ' : ''}{fmtWhen(m.created_at)}{m.status ? ' · ' + m.status : ''}</small>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'flex-end' }}>
+              <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={2} placeholder="Write a reply…" aria-label="WhatsApp reply"
+                style={{ flex: 1, resize: 'vertical' }} />
+              <button type="button" className="crm-call-act is-ai" onClick={aiDraft} disabled={drafting} title="AI writes a draft from the conversation and live stock — you review and send">
+                <Sparkles size={14} /> {drafting ? 'Drafting…' : 'AI draft'}
+              </button>
+              <button type="button" className="crm-call-act is-wa" onClick={sendReply} disabled={busy || !draft.trim()}>
+                <Send size={14} /> {busy ? 'Sending…' : 'Send'}
+              </button>
+            </div>
+          </>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  Prospect radar — public business contacts of used-car importers, collected
+//  by scripts/prospect-scan.mjs (weekly GitHub Action) or added by hand, then
+//  reviewed by a person and converted into Leads. Nothing is auto-emailed.
+// ---------------------------------------------------------------------------
+function ProspectsView({ rows, canWrite, canLead, notify, quickPatch, onAdd, onConvert }) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ company: '', website: '', country: '', email: '', phone: '' });
+  const [busyId, setBusyId] = useState(null);
+  const STATUSES = ['new', 'contacted', 'qualified', 'converted', 'ignored'];
+
+  const submitAdd = async e => {
+    e.preventDefault();
+    if (!form.company.trim()) { notify('Company name is required'); return; }
+    try {
+      await onAdd({
+        company: form.company.trim(), website: form.website.trim() || null, country: form.country.trim() || null,
+        emails: form.email.trim() ? [form.email.trim().toLowerCase()] : [], phones: form.phone.trim() ? [form.phone.trim()] : [],
+        source_url: null, status: 'new'
+      });
+      setForm({ company: '', website: '', country: '', email: '', phone: '' }); setAdding(false);
+    } catch { /* save() already notified */ }
+  };
+
+  const convert = async p => {
+    if (!canLead) { notify('Your role cannot create leads.'); return; }
+    setBusyId(p.id);
+    try { await onConvert(p); } catch (e) { notify(e.message); }
+    finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="crm-call-desk crm-prospects">
+      <div className="crm-call-explain">
+        <p><b><Radar size={14} /> Fuel for outreach.</b> The weekly scanner reads the public directory pages you list (trade associations, importer directories, “find a dealer” pages) and files each company's <b>published business contacts</b> here. A person reviews, then <b>Convert to lead</b> moves them into the pipeline and the Call desk. Nothing is ever emailed automatically — that is how sender domains get blacklisted.</p>
+        <p className="crm-hint">Add source pages in <code>scripts/prospect-sources.txt</code> (or the <code>PROSPECT_SOURCES</code> repository variable), then run the <b>Prospect radar</b> workflow from GitHub → Actions. Public business contact details only; respect every unsubscribe/removal request.</p>
+      </div>
+      <div className="crm-call-stats" role="status">
+        <span><b>{rows.length}</b> prospects</span>
+        <span><b>{rows.filter(p => (p.status || 'new') === 'new').length}</b> waiting for review</span>
+        <span><b>{rows.filter(p => p.status === 'converted').length}</b> converted to leads</span>
+        {canWrite && <button type="button" className="crm-call-act" onClick={() => setAdding(a => !a)}><Plus size={14} /> Add by hand</button>}
+      </div>
+      {adding && (
+        <form className="crm-call-log" onSubmit={submitAdd} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <input required placeholder="Company *" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} aria-label="Company" />
+          <input placeholder="Website" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} aria-label="Website" />
+          <input placeholder="Country" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} aria-label="Country" />
+          <input placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} aria-label="Email" type="email" />
+          <input placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} aria-label="Phone" />
+          <button type="submit" className="crm-call-act is-wa"><Save size={14} /> Save prospect</button>
+        </form>
+      )}
+      {rows.length === 0 && (
+        <div className="crm-empty"><Radar /><h3>No prospects yet</h3><p>Run the Prospect radar workflow (GitHub → Actions) after adding source pages, or add companies by hand.</p></div>
+      )}
+      <ul className="crm-call-list">
+        {rows.map(p => {
+          const wa = String((p.phones || [])[0] || '').replace(/\D/g, '');
+          return (
+            <li key={p.id} className="crm-call-row">
+              <div className="crm-call-who">
+                <b>{p.company || 'Unknown company'}</b>
+                <small>
+                  {[p.country, p.website ? p.website.replace(/^https?:\/\//, '') : null].filter(Boolean).join(' · ')}
+                  {p.source_url ? <> · <a href={p.source_url} target="_blank" rel="noreferrer">source <ExternalLink size={10} /></a></> : null}
+                </small>
+                <small className="crm-call-meta">
+                  <span className={'crm-call-chip st-' + (p.status || 'new')}>{p.status || 'new'}</span>
+                  {(p.emails || []).map(e => <a key={e} href={'mailto:' + e}>{e}</a>)}
+                  {(p.phones || []).map(ph => <span key={ph}>{ph}</span>)}
+                  {p.note ? <span>{p.note}</span> : null}
+                </small>
+              </div>
+              <div className="crm-call-actions">
+                {p.website && <a className="crm-call-act" href={p.website} target="_blank" rel="noreferrer"><Globe size={14} /> Website</a>}
+                {(p.emails || [])[0] && <a className="crm-call-act" href={'mailto:' + p.emails[0]}><Mail size={14} /> Email</a>}
+                {wa && <a className="crm-call-act is-wa" href={'https://wa.me/' + wa} target="_blank" rel="noreferrer"><MessageCircle size={14} /> WhatsApp</a>}
+                {canWrite && (
+                  <select className="crm-call-template" aria-label="Prospect status" value={p.status || 'new'}
+                    onChange={e => quickPatch(p, { status: e.target.value })}>
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
+                {p.status !== 'converted' && (
+                  <button type="button" className="crm-call-act is-ai" disabled={busyId === p.id} onClick={() => convert(p)}>
+                    <Users size={14} /> {busyId === p.id ? 'Converting…' : 'Convert to lead'}
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

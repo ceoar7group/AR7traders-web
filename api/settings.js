@@ -54,7 +54,11 @@ const WRITABLE_KEYS = new Set([
   // (MAX_SCRAPER_MACHINES) and never raise it.
   'machinery_autopublish', 'machinery_scraper_batch', 'machinery_min_photos',
   'machinery_max_reprice_per_run', 'machinery_stale_after_days',
-  'machinery_allow_placeholder_photo'
+  'machinery_allow_placeholder_photo',
+  // WhatsApp desk (2026-11-03): whether the AI agent answers inbound
+  // WhatsApp messages on its own ('on') or only drafts for staff ('off',
+  // the default). An explicit owner switch — never on by default.
+  'wa_auto_reply'
 ]);
 
 // Bounded integer machinery rules: [min, max]. The scraper batch is the one a
@@ -117,6 +121,10 @@ function validate(key, value) {
     const n = Number(s);
     if (!s || !Number.isInteger(n) || n < lo || n > hi)
       return `"${key}" must be a whole number between ${lo} and ${hi}`;
+    return null;
+  }
+  if (key === 'wa_auto_reply') {
+    if (s && s !== 'on' && s !== 'off') return '"wa_auto_reply" must be on or off';
     return null;
   }
   if (key === 'promo' && s) return validPromo(s);
