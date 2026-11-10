@@ -6,6 +6,7 @@ import { JSDOM } from 'jsdom';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { DEST, destinationHref } from '../src/destinations.js';
 import { DestinationPage } from '../src/destination-page.jsx';
+import { Flag } from '../src/flag.jsx';
 import { NEWS, articleSlug } from '../src/news-data.js';
 import { applySeo, BASE } from '../src/seo.js';
 
@@ -24,7 +25,7 @@ function emit(path, page, id, content, opts = {}) {
 }
 for (const dest of DEST) {
   emit(destinationHref(dest[0]), 'destinations', null,
-    <DestinationPage dest={dest} Link={Link} Related={() => null} Flag={{}}/>, {destination: dest});
+    <DestinationPage dest={dest} Link={Link} Related={() => null} Flag={Flag}/>, {destination: dest});
 }
 for (const article of NEWS) {
   const slug = article.slug || articleSlug(article);
