@@ -406,12 +406,16 @@ const CSS_BUDGET_GZIP = 43 * 1024; // 2026-11-09: see raw note above
 // theme buttons, and the TEMP A/B/C hero-layout variant layers in
 // landing-v2.css. Two of the three variants are deleted once the owner picks;
 // tighten this back then.
+// 2026-11 (owner request): 222 → 225 kB raw — premium brushed-metal finish
+// for the card spec chips, compare chip, stock badges, price arrow and the
+// gold/green CTAs (expanded.css "PREMIUM METAL FINISH" block). Measured
+// 223.77 kB raw / 42.93 kB gzip — gzip stays inside the unchanged 43.
 // 2026-11-18: 221 → 222 kB raw — landed-price cards: .card-cif chip and
 // .cif-dest-pick picker styles. Measured 221.19 kB.
 // 2026-11-17: 219 → 221 kB raw — round-7 mobile QA: single-line mobile promo
 // row, 44px home pager buttons, hv=c foot-band contrast block and the ≤560
 // two-row route chip. Measured 219.98 kB raw / gzip inside 43.
-const CSS_BUDGET_RAW = 222 * 1024;
+const CSS_BUDGET_RAW = 225 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
