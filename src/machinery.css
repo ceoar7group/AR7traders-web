@@ -227,7 +227,7 @@
   margin-bottom: 10px;
   border-radius: 9px;
   background: color-mix(in srgb, var(--gold) 16%, transparent);
-  color: var(--gold);
+  color: var(--gold-ink);
   font: 700 11px Manrope, sans-serif;
 }
 
@@ -403,7 +403,7 @@
    Make · Price · Type. Bands rather than a slider because a band is something
    a buyer can repeat to a partner, and the count is always visible. */
 .mch-facets{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
-.mch-facets label{display:flex;flex-direction:column;gap:5px;font:700 10.5px Manrope;letter-spacing:.09em;text-transform:uppercase;color:#6d7b73}
+.mch-facets label{display:flex;flex-direction:column;gap:5px;font:700 10.5px Manrope;letter-spacing:.09em;text-transform:uppercase;color:#5d6b63}
 .mch-facets select{border:1px solid #d9e2dc;background:#fff;border-radius:11px;padding:9px 11px;font:600 13px Manrope;color:#16241d;min-width:150px;cursor:pointer}
 .mch-facets select:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 .mch-clear{border:1px solid #d9e2dc;background:#fff;border-radius:11px;padding:9px 13px;font:700 12px Manrope;color:#254b38;cursor:pointer}

@@ -13,6 +13,22 @@
 .detail-gallery .detail-gallery-toolbar{flex-wrap:wrap}
 .detail-gallery .detail-gallery-toolbar .gallery-arrow,.detail-gallery .detail-gallery-toolbar .gallery-expand{min-width:40px;min-height:40px}
 
+/* 2026-11-11 Lighthouse: ~2.3 s of mobile main-thread work was style/layout/
+   paint for home sections nobody has scrolled to yet. content-visibility:auto
+   lets the browser skip rendering them until they approach the viewport;
+   contain-intrinsic-size reserves realistic space so the scrollbar stays
+   stable and CLS stays at zero. Above-the-fold (.hero, .ticker) is untouched.
+   The LCP (hero) is unaffected — these sections start below it. */
+.inventory.section,.sold-strip,.mch-teaser,.motion-showcase,.world.section,
+.brand-budgets,.process,.auction-preview,.cta.section,footer.site-footer{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 900px;
+}
+footer.site-footer{contain-intrinsic-size:auto 700px}
+/* Anchor navigation (e.g. /#inventory) must land exactly on the section even
+   while it is skipped: scroll-margin keeps the fixed header clear of it. */
+.inventory.section,.process,.auction-preview{scroll-margin-top:90px}
+
 /* Decorative motion stops when the user asks for reduced motion; controls stay usable. */
 @media(prefers-reduced-motion:reduce){
  html{scroll-behavior:auto}
