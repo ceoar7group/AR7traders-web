@@ -172,7 +172,7 @@ export default function WebCallPage({ room }) {
         .webcall-page .wc-pulse{width:14px;height:14px;border-radius:50%;background:#37b377;animation:wcp 1.2s infinite}
         @keyframes wcp{0%{box-shadow:0 0 0 0 rgba(55,179,119,.5)}70%{box-shadow:0 0 0 12px rgba(55,179,119,0)}100%{box-shadow:0 0 0 0 rgba(55,179,119,0)}}
       `}</style>
-      <div className="wc-brand"><img src="/assets/ar7-mark.png" alt="AR7" width="46" height="29" /> AR7 TRADERS · VOICE CALL</div>
+      <div className="wc-brand"><img src="/assets/ar7-mark-128.webp" alt="AR7" width="46" height="29" /> AR7 TRADERS · VOICE CALL</div>
       <div className="wc-card">
         {!code ? (<>
           <h1>No call room in this link</h1>

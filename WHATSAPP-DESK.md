@@ -30,7 +30,12 @@ no template-sending button, so it can never silently run up a Meta bill.
 ## Step-by-step
 
 ### 1. Create the app
-- developers.facebook.com → **Create app** → type "Business".
+- **Log in first** at https://developers.facebook.com/ with the Facebook
+  account that manages your business (accept the developer terms the first
+  time). Opening https://developers.facebook.com/apps/ while logged out shows
+  Meta's "Sorry, the link you followed may be broken" page — that is Meta's
+  login wall, not a dead link. Log in and the same URL loads **My Apps**.
+- My Apps → **Create app** → type "Business".
 - In the app dashboard, add the **WhatsApp** product.
 - Meta creates a test number and shows the **Phone number ID** — note it.
 
@@ -40,7 +45,19 @@ no template-sending button, so it can never silently run up a Meta bill.
   `whatsapp_business_management` permissions, **never-expiring**.
 - This is `WHATSAPP_TOKEN`.
 
-### 3. Set the Vercel environment variables
+### 3. Save the credentials — two ways, pick one
+
+**Option A — directly in the CRM (fastest, no redeploy).**
+CRM → WhatsApp desk → **"Or connect directly"**: paste the access token and
+the Phone number ID, invent a verify token (6+ characters), press
+**Connect now**. The desk asks Meta to confirm the credentials and stores
+them server-side only if Meta accepts; they are never displayed again and
+are never readable from the public site. Admins only (`settings.write`).
+Then continue with step 4 so incoming messages reach the desk — replies
+already work. To switch numbers later, connect again; **Disconnect** removes
+the stored credentials (Vercel variables, if present, take over again).
+
+**Option B — Vercel environment variables.**
 In Vercel → Project → Settings → Environment Variables (Production):
 
 | Name | Value |
@@ -49,7 +66,8 @@ In Vercel → Project → Settings → Environment Variables (Production):
 | `WHATSAPP_PHONE_ID` | the Phone number ID (a long number, not the phone number itself) |
 | `WHATSAPP_VERIFY_TOKEN` | any long random string you invent (e.g. 40 random characters) |
 
-Redeploy after saving.
+Redeploy after saving. If both exist, the desk-stored credentials from
+Option A win.
 
 ### 4. Register the webhook
 In the Meta app dashboard → WhatsApp → **Configuration** → Webhook:

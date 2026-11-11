@@ -27,7 +27,7 @@ export const logoOnError = (e) => {
   const el = e?.currentTarget;
   if (!el || el.dataset.logoFb) return;
   el.dataset.logoFb = '1';
-  el.src = '/assets/ar7-mark.png';
+  el.src = '/assets/ar7-mark-460.webp';
   el.alt = el.alt || 'AR7 Traders';
 };
 

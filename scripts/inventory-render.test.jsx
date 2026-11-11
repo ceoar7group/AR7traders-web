@@ -48,7 +48,7 @@ ok(tableHtml.includes('crm-profit'), 'table: profit cell renders');
 ok(tableHtml.includes('crm-margin'), 'table: margin cell renders');
 ok(tableHtml.includes('crm-status-select'), 'table: inline status picker renders');
 ok(tableHtml.includes('thumb-count'), 'table: photo-count thumb renders');
-ok(tableHtml.includes('src="/assets/ar7-mark.png"'), 'table: photo-less vehicle falls back to brand mark');
+ok(tableHtml.includes('src="/assets/ar7-mark-460.webp"'), 'table: photo-less vehicle falls back to brand mark (webp, 2026-11-11 PSI)');
 
 // --- Inventory photo-card grid --------------------------------------------
 const gridHtml = renderToString(

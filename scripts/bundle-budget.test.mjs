@@ -480,16 +480,21 @@ console.log('\n-- fonts --');
 // something actually uses them. Re-ratcheted 2 → 4 on 2026-11-07 from a field
 // PageSpeed trace: the hero <h1> is weight 800 and the nav is 600/700, so the
 // browser discovered manrope-600/800 late via CSS and the swap landed 688ms
-// in — the longest critical chain on the page. 500 stays lazy on purpose.
+// in — the longest critical chain on the page.
+// Re-ratcheted 4 → 5 on 2026-11-11 from the next field PSI trace: with the
+// other four preloaded, manrope-500 (body/medium text) became the new tail —
+// the page's longest network dependency chain at 799ms, discovered late via
+// CSS. All five weights the first paint uses are now preloaded; there is no
+// sixth face to ratchet to.
 const fontPreloads = [...html.matchAll(/<link[^>]*rel="preload"[^>]*as="font"[^>]*href="([^"]+)"/g)].map(m => m[1]);
-ok(fontPreloads.length === 4,
-  `exactly four font faces are preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ')})`);
+ok(fontPreloads.length === 5,
+  `exactly five font faces are preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ')})`);
 ok(fontPreloads.every(f => /\/assets\/fonts\/[\w-]+\.woff2$/.test(f)),
   'every preloaded font is a self-hosted woff2');
-ok(fontPreloads.every(f => /(400|600|700|800)\.woff2$/.test(f)),
-  'the preloaded faces are the above-the-fold weights (400, 600, 700, 800)');
-ok(!/fonts\/(500)\.woff2/.test(html.match(/<head>[\s\S]*?<\/head>/)[0]),
-  'the 500 face is not preloaded');
+ok(fontPreloads.every(f => /(400|500|600|700|800)\.woff2$/.test(f)),
+  'the preloaded faces are the above-the-fold weights (400, 500, 600, 700, 800)');
+ok(/fonts\/manrope-500\.woff2/.test(html.match(/<head>[\s\S]*?<\/head>/)[0]),
+  'the 500 face is preloaded (2026-11-11 PSI: it was the 799ms chain tail)');
 
 // Every @font-face must swap, or the first paint blocks on the font.
 const cssFiles = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.css'));

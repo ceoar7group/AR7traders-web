@@ -104,6 +104,17 @@ function memDb(seed = {}) {
       },
       update(patch) {
         return { eq: (k, v) => ({ then(res) { rows.filter(r => r[k] === v).forEach(r => Object.assign(r, patch)); return res({ error: null }); } }) };
+      },
+      upsert(rec, opts = {}) {
+        const ck = opts.onConflict || 'id';
+        for (const r of (Array.isArray(rec) ? rec : [rec])) {
+          const hit = rows.find(x => x[ck] === r[ck]);
+          if (hit) Object.assign(hit, r); else rows.push({ ...r, id: r.id || 'id-' + (++seq) });
+        }
+        return { error: null };
+      },
+      delete() {
+        return { eq: (k, v) => { for (let i = rows.length - 1; i >= 0; i--) if (rows[i][k] === v) rows.splice(i, 1); return { error: null }; } };
       }
     };
   };
@@ -273,6 +284,60 @@ say('\n4) staff desk on /api/crm?entity=wa');
   ({ db } = memDb(seed));
   r = await run(crm, { method: 'GET', query: { entity: 'nope' }, headers: { authorization: 'Bearer ok' } }, { db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
   ok(r.statusCode === 400, 'unknown entity still 400s');
+}
+
+// ---------------------------------------------------------------------------
+say('\n4b) direct connect — credentials pasted into the desk (2026-11-11)');
+{
+  // Sales (no settings.write) cannot save credentials — it is a settings
+  // change, not outreach.
+  let { db } = memDb({});
+  let r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'tkn2', phone_id: '555000111', verify_token: 'vt-direct' } } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: {} });
+  ok(r.statusCode === 403, 'sales (no settings.write) cannot save credentials');
+
+  // Admin connect: Meta accepts → rows stored, desk configured with NO env.
+  const mem = memDb({});
+  const calls = [];
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'tkn2', phone_id: '+55 5000 111', verify_token: 'vt-direct' } } }, { db: mem.db, getUser: userFor('a1', 'admin'), permsFor, env: {}, fetch: async url => { calls.push(String(url)); return { ok: true, json: async () => ({ display_phone_number: '+81 80 1111 2222', verified_name: 'AR7 Traders' }) }; } });
+  ok(r.statusCode === 200 && r.body.ok === true && r.body.number === '+81 80 1111 2222', 'connect validates with Meta first and reports the live number');
+  ok(calls.length === 1 && calls[0].includes('/555000111?fields='), 'phone-number id is normalised to digits before asking Meta');
+  const saved = mem.tables.site_settings || [];
+  ok(saved.find(x => x.key === 'wa_cloud_token')?.value === 'tkn2'
+    && saved.find(x => x.key === 'wa_cloud_phone_id')?.value === '555000111'
+    && saved.find(x => x.key === 'wa_cloud_verify_token')?.value === 'vt-direct', 'all three credentials stored in site_settings');
+  r = await run(crm, { method: 'GET', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' } }, { db: mem.db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
+  ok(r.statusCode === 200 && r.body.configured === true && r.body.source === 'desk', 'desk credentials make the desk configured with NO env vars');
+
+  // The public webhook verifies with the DB-stored token too.
+  r = await run(leadsApi, { method: 'GET', query: { wa: 'webhook', 'hub.mode': 'subscribe', 'hub.verify_token': 'vt-direct', 'hub.challenge': '777' } }, { db: mem.db, env: {} });
+  ok(r.statusCode === 200 && String(r.body) === '777', 'webhook handshake works from the DB credentials (no env)');
+
+  // Sending a reply uses the stored token and phone id.
+  const sendCalls = [];
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { to: '254711223344', body: 'hello' } }, { db: mem.db, getUser: userFor('s1', 'sales'), permsFor, env: {}, fetch: async (url, init) => { sendCalls.push({ url: String(url), init }); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.D1' }] }) }; } });
+  ok(r.statusCode === 201 && sendCalls.length === 1 && sendCalls[0].url.includes('/555000111/messages') && sendCalls[0].init.headers.Authorization === 'Bearer tkn2', 'sending a reply uses the desk-stored credentials');
+
+  // Authenticated settings GET never echoes the secrets back.
+  const settingsApi = (await import('../api/settings.js')).default;
+  r = await run(settingsApi, { method: 'GET', headers: { authorization: 'Bearer ok' } }, { db: mem.db, getUser: userFor('a1', 'admin') });
+  ok(r.statusCode === 200 && r.body.wa_cloud_token === '•••saved' && r.body.wa_cloud_verify_token === '•••saved', 'authenticated settings GET masks the stored secrets');
+  r = await run(settingsApi, { method: 'GET', headers: {} }, { db: mem.db, getUser: userFor('a1', 'admin') });
+  ok(r.statusCode === 200 && !('wa_cloud_token' in r.body) && !('wa_cloud_phone_id' in r.body) && !('wa_cloud_verify_token' in r.body), 'anonymous settings GET never exposes the credentials at all');
+
+  // Meta refuses → nothing is saved, Meta's exact error is surfaced.
+  const mem2 = memDb({});
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'bad', phone_id: '1', verify_token: 'vt-direct' } } }, { db: mem2.db, getUser: userFor('a1', 'admin'), permsFor, env: {}, fetch: async () => ({ ok: false, status: 401, json: async () => ({ error: { code: 190, message: 'Invalid OAuth access token' } }) }) });
+  ok(r.statusCode === 200 && r.body.ok === false && /190/.test(r.body.error || '') && !(mem2.tables.site_settings || []).length, "refused credentials are NOT saved and Meta's error is surfaced");
+
+  // Partial input is a 400, nothing saved.
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'x', phone_id: '', verify_token: 'vt-direct' } } }, { db: mem2.db, getUser: userFor('a1', 'admin'), permsFor, env: {} });
+  ok(r.statusCode === 400 && !(mem2.tables.site_settings || []).length, 'missing fields are a 400 and nothing is saved');
+
+  // Disconnect removes all three rows; without env the desk is unconfigured.
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { disconnect: 1 } }, { db: mem.db, getUser: userFor('a1', 'admin'), permsFor, env: {} });
+  ok(r.statusCode === 200 && !(mem.tables.site_settings || []).some(x => /^wa_cloud_/.test(x.key)), 'disconnect deletes all three settings rows');
+  r = await run(crm, { method: 'GET', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' } }, { db: mem.db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
+  ok(r.body.configured === false, 'after disconnect the desk is honestly unconfigured again');
 }
 
 // ---------------------------------------------------------------------------
