@@ -25,6 +25,18 @@ async function assertSiteWrite(profile, injected = {}) {
   await requirePerm(profile, 'site.write');
 }
 
+// Connecting/disconnecting a social account is a settings change, not content
+// work — it needs `settings.write` (admin by default), the same gate the
+// WhatsApp direct connect uses in api/crm.js.
+async function assertSettingsWrite(profile, injected = {}) {
+  if (injected.permsFor) {
+    const allowed = profile?.role === 'admin' || !!(await injected.permsFor(profile?.role))['settings.write'];
+    if (!allowed) throw Object.assign(new Error(`Your role (${profile?.role}) is not allowed to change connections`), {status: 403});
+    return;
+  }
+  await requirePerm(profile, 'settings.write');
+}
+
 // ---------------------------------------------------------------------------
 // Vehicle sitemap (GET ?sitemap=vehicles, rewritten from the public URL
 // /api/sitemap-vehicles.xml — see vercel.json).
@@ -94,6 +106,7 @@ import {
   executeDraft, cancelDraft, cancelRun, readAgents, updateAgent, agentSettings,
   AI_GROWTH_MIGRATION_FILE, pickUnusedCover
 } from './_agents.js';
+import { socialStatus, connectPlatform, disconnectPlatform } from './_social.js';
 export { machinePath, machineTypePath };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
@@ -939,6 +952,57 @@ export default async function handler(req, res, injected = {}) {
   // ---- AI Growth agents: ?agents=overview|config|run|approve|execute|cancel|draft
   const agentAction = String(req.query.agents || '');
   if (agentAction) return agentDispatch(req, res, agentAction, injected);
+
+  // ---- Social platform connections: ?social=status|connect|disconnect
+  // (2026-11-11 owner request). Dispatched here so the deployment stays at
+  // 12 Serverless Functions. Status needs site.write (it reveals which
+  // accounts exist); connect/disconnect need settings.write, and connect
+  // VALIDATES against the platform's own API before anything is stored.
+  const socialAction = String(req.query.social || '');
+  if (socialAction) {
+    const db = injected.db || adminClient();
+    let auth;
+    try {
+      auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+    } catch (error) {
+      return send(res, error.status || 401, {error: error.message || 'Unauthorized'});
+    }
+    try {
+      if (socialAction === 'status') await assertSiteWrite(auth.profile, injected);
+      else await assertSettingsWrite(auth.profile, injected);
+    } catch (error) {
+      return send(res, error.status || 403, {error: error.message || 'Not allowed'});
+    }
+    const fetchImpl = injected.fetch || globalThis.fetch;
+    try {
+      if (socialAction === 'status' && req.method === 'GET') {
+        return send(res, 200, await socialStatus(db, injected.env || process.env));
+      }
+      if (socialAction === 'connect' && req.method === 'POST') {
+        const { platform, creds } = req.body || {};
+        const out = await connectPlatform(db, String(platform || ''), creds || {}, { env: injected.env || process.env, fetch: fetchImpl });
+        if (out.ok) await logAutomation(db, {
+          actor: auth.user?.email || 'CRM', source: 'website-desk', action: 'social-connect',
+          summary: `Connected the ${platform} account (${out.identity?.name || 'verified'}) from the Social workspace`,
+          entityType: 'site_settings', entityId: `social_${platform}`, before: null, after: { platform, identity: out.identity }, undoKind: null
+        });
+        return send(res, 200, out);
+      }
+      if (socialAction === 'disconnect' && req.method === 'POST') {
+        const { platform } = req.body || {};
+        const out = await disconnectPlatform(db, String(platform || ''));
+        if (out.ok) await logAutomation(db, {
+          actor: auth.user?.email || 'CRM', source: 'website-desk', action: 'social-disconnect',
+          summary: `Disconnected the ${platform} account from the Social workspace`,
+          entityType: 'site_settings', entityId: `social_${platform}`, before: null, after: null, undoKind: null
+        });
+        return send(res, 200, out);
+      }
+      return send(res, 400, {error: `Unknown social action "${socialAction}"`});
+    } catch (e) {
+      return send(res, e.status || 500, {error: e.message});
+    }
+  }
 
   // ---- Automation history & undo: ?activity=list|undo (staff; undo is
   // admin-only, enforced inside handleActivity).

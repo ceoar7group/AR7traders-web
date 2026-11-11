@@ -29,6 +29,7 @@ import {
   Lightbulb, ArrowUpRight, History, RotateCcw
 } from 'lucide-react';
 import { buildUpgradeSuggestions, buildUpgradeBrief } from './upgrade-advisor.js';
+import { SOCIAL_PLATFORMS, PLATFORM_PLAYBOOKS } from './social-playbooks.js';
 import { describeEntry, groupByDay } from './activity-log.js';
 import { MACHINES } from './machinery-data.js';
 import { getPublishedNews } from './news-data.js';
@@ -470,6 +471,10 @@ export default function AiGrowth({ token, canWrite = false, notify = () => {}, n
         </>
       )}
 
+      {workspace === 'social' && (
+        <SocialConnections token={token} canWrite={canWrite} notify={notify} />
+      )}
+
       {(workspace === 'leads' || workspace === 'seo' || workspace === 'social') && (
         <AgentWorkspace
           agent={workspace}
@@ -626,8 +631,8 @@ function AgentWorkspace({ agent, drafts, onOpen, onApprove, onReject, onExecute,
             {agent === 'social' && (
               <div className="ai-social">
                 <p><b>Selection</b> {draft.meta?.selection?.rationale}</p>
-                {['instagram', 'linkedin', 'whatsapp'].map(channel => (
-                  <details key={channel} open={channel === 'instagram'}>
+                {Object.keys(draft.meta?.captions || { instagram: 1, linkedin: 1, whatsapp: 1 }).map(channel => (
+                  <details key={channel} open={channel === 'facebook' || channel === 'instagram'}>
                     <summary>{channel} caption</summary>
                     <pre>{draft.meta?.captions?.[channel] || '—'}</pre>
                     <button type="button" onClick={() => onCopy(draft.meta?.captions?.[channel] || '', `${channel} caption copied`)}><Copy size={12} /> Copy</button>
@@ -684,24 +689,154 @@ function AgentWorkspace({ agent, drafts, onOpen, onApprove, onReject, onExecute,
        Arena coding session — the website deploys from GitHub, so code changes
        always arrive as a reviewed pull request, never a silent self-edit.
    --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Social platform connections (2026-11-11 owner request: "attach the social
+   media platforms so the AI growth agents can manage them automatically").
+   Same honesty contract as the WhatsApp direct connect: credentials are
+   validated against the platform's OWN API before anything is saved; a
+   refusal shows the platform's reason and stores nothing. Connecting alone
+   never posts — publishing still needs an approved draft and the agent's
+   autopublish switch. Each platform's playbook (what the agent was taught
+   about that network's algorithm) is readable right here.               */
+function SocialConnections({ token, canWrite, notify }) {
+  const [status, setStatus] = useState(null);
+  const [forms, setForms] = useState({});
+  const [busyP, setBusyP] = useState('');
+
+  const load = useCallback(async () => {
+    try { setStatus(await callApi(token, '/api/site-content?social=status')); }
+    catch (e) { setStatus({ error: e.message }); }
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
+
+  const setField = (platform, key, value) =>
+    setForms(cur => ({ ...cur, [platform]: { ...(cur[platform] || {}), [key]: value } }));
+
+  const connect = async platform => {
+    setBusyP(platform);
+    try {
+      const out = await callApi(token, '/api/site-content?social=connect', {
+        method: 'POST', body: { platform, creds: forms[platform] || {} }
+      });
+      if (out.ok) {
+        notify(`${platform} connected — verified as ${out.identity?.name || 'the account'}. Nothing posts without an approved draft.`);
+        setForms(cur => ({ ...cur, [platform]: {} }));
+        await load();
+      } else {
+        notify(out.reason || 'The platform refused the credentials. Nothing was saved.');
+      }
+    } catch (e) { notify(e.message); }
+    setBusyP('');
+  };
+
+  const disconnect = async platform => {
+    setBusyP(platform);
+    try {
+      const out = await callApi(token, '/api/site-content?social=disconnect', { method: 'POST', body: { platform } });
+      if (out.ok) { notify(`${platform} disconnected — the stored credentials were deleted.`); await load(); }
+      else notify(out.reason || 'Disconnect failed.');
+    } catch (e) { notify(e.message); }
+    setBusyP('');
+  };
+
+  const platforms = status?.platforms || SOCIAL_PLATFORMS.map(p => ({ platform: p.id, label: p.label, connected: false, source: 'none', fields: p.fields, connectHelp: p.connectHelp, autopublish: p.autopublish, autopublishNote: p.autopublishNote }));
+
+  return (
+    <section className="crm-panel ai-social-connect" aria-label="Social platform connections">
+      <h3><Megaphone size={16} /> Platform connections — {status ? `${status.connectedCount ?? platforms.filter(p => p.connected).length} of ${platforms.length} connected` : 'checking…'}</h3>
+      <p className="crm-hint">
+        Each connection is validated with the platform's own API before it is saved — a refusal shows the platform's reason and stores nothing.
+        Connecting never posts anything by itself: posts remain drafts until approved, and auto-publishing additionally needs the agent's autopublish switch.
+      </p>
+      {status?.error && <div className="crm-alert" role="alert"><AlertTriangle size={14} /><span>{status.error}</span></div>}
+      <div className="ai-social-grid">
+        {platforms.map(p => (
+          <article key={p.platform} className={'ai-social-card' + (p.connected ? ' is-connected' : '')}>
+            <header>
+              <b>{p.label}</b>
+              {p.connected
+                ? <em className="ai-badge ok"><Check size={12} /> connected{p.source === 'env' ? ' (env)' : ''}{p.identity?.name ? ` — ${p.identity.name}` : ''}</em>
+                : <em className="ai-badge">not connected</em>}
+            </header>
+            {!p.connected && (p.fields || []).map(f => (
+              <label key={f.key} className="ai-social-field">
+                <span>{f.label}</span>
+                <input
+                  type={f.secret ? 'password' : 'text'}
+                  value={forms[p.platform]?.[f.key] || ''}
+                  placeholder={f.saved || f.hint}
+                  onChange={e => setField(p.platform, f.key, e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+            ))}
+            {!p.connected && <p className="crm-hint">{p.connectHelp}</p>}
+            {p.connected && p.autopublish && <p className="crm-hint">Auto-publish available once the Social agent's autopublish switch is on; until then every post is prepared for one-click manual publishing.</p>}
+            {p.autopublishNote && <p className="crm-hint">{p.autopublishNote}</p>}
+            <details>
+              <summary>What the agent was taught about {PLATFORM_PLAYBOOKS[p.platform]?.label || p.label}</summary>
+              {PLATFORM_PLAYBOOKS[p.platform] && (
+                <ul className="ai-playbook">
+                  <li><b>Algorithm:</b> {PLATFORM_PLAYBOOKS[p.platform].algorithm}</li>
+                  <li><b>Format:</b> {PLATFORM_PLAYBOOKS[p.platform].format}</li>
+                  <li><b>Cadence:</b> {PLATFORM_PLAYBOOKS[p.platform].cadence}</li>
+                  <li><b>Measure:</b> {PLATFORM_PLAYBOOKS[p.platform].metrics}</li>
+                </ul>
+              )}
+            </details>
+            {canWrite && (
+              <div className="ai-social-actions">
+                {!p.connected && <button type="button" className="save" disabled={busyP === p.platform} onClick={() => connect(p.platform)}><Check size={13} /> Validate &amp; connect</button>}
+                {p.connected && p.source === 'desk' && <button type="button" className="crm-del" disabled={busyP === p.platform} onClick={() => disconnect(p.platform)}><X size={13} /> Disconnect</button>}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+
+      <details className="ai-video-studio">
+        <summary><b>Video studio — copyright-safe YouTube Shorts &amp; TikTok clips</b></summary>
+        <p>
+          Videos are rendered from <b>AR7-owned photographs only</b> (the stock galleries and site assets) as Ken Burns slideshows with
+          spec-text overlays — 9:16 for Shorts/TikTok/Reels, 16:9 for long-form. Run <code>npm run video -- --ref AR7-MC-001</code> in a
+          coding session (or ask the developer agent) and upload the file with the agent's prepared title, description and tags.
+        </p>
+        <div className="crm-alert" role="note">
+          <AlertTriangle size={14} />
+          <span>Downloading other people's car videos (from any platform or marketplace) and re-editing them to avoid detection is not
+          "copyright-free" — Content ID fingerprints survive edits, and strikes terminate channels. This studio never does that:
+          everything it renders is built from media AR7 owns, so there is nothing to strike.</span>
+        </div>
+      </details>
+    </section>
+  );
+}
+
 function UpgradeAdvisor({ token, canWrite, notify, agents, act, busy, goDesk, siteCars = [] }) {
   const [keywordSource, setKeywordSource] = useState(null);
   const [selected, setSelected] = useState({});
   const [briefCopied, setBriefCopied] = useState(false);
 
-  // One cheap call to learn whether keyword research runs on real GSC data.
+  const [social, setSocial] = useState(null);
+
+  // One cheap call to learn whether keyword research runs on real GSC data,
+  // and one for which social platforms are attached (the advisor only speaks
+  // about connections it has actually read — a failed call claims nothing).
   useEffect(() => {
     let alive = true;
     callApi(token, '/api/site-content?seo=keywords', { method: 'POST', body: {} })
       .then(out => { if (alive) setKeywordSource(out?.source || null); })
       .catch(() => { if (alive) setKeywordSource(null); });
+    callApi(token, '/api/site-content?social=status')
+      .then(out => { if (alive) setSocial(Array.isArray(out?.platforms) ? out.platforms : null); })
+      .catch(() => { if (alive) setSocial(null); });
     return () => { alive = false; };
   }, [token]);
 
   const suggestions = useMemo(() => buildUpgradeSuggestions({
     cars: siteCars, machines: MACHINES, articles: getPublishedNews(),
-    settings: getSettings(), agents, keywordSource
-  }), [agents, keywordSource, siteCars]);
+    settings: getSettings(), agents, keywordSource, social
+  }), [agents, keywordSource, siteCars, social]);
 
   const DESK_LABEL = { seo: 'SEO desk', vehicles: 'Cars', machinery: 'Machinery desk', agents: 'AI Growth' };
 
@@ -733,7 +868,7 @@ function UpgradeAdvisor({ token, canWrite, notify, agents, act, busy, goDesk, si
         </button>
       </div>
       {!suggestions.length && (
-        <p className="crm-hint">Every check passes: recent guide, photographed stock, live campaign, agents enabled. New data can surface new suggestions.</p>
+        <p className="crm-hint">Every check passes: recent guide, photographed stock, live campaign, agents enabled, social platforms connected. That is a healthy state, not a broken advisor — new data surfaces new suggestions.</p>
       )}
       <ul className="ai-advisor-list">
         {suggestions.map(s => (

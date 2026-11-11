@@ -433,16 +433,20 @@ say('\n-- social drafts carry per-channel text and never claim to be posted --')
   ok(many.drafts.length === 2, `only as many posts as there are machines (${many.drafts.length})`);
   ok(new Set(many.drafts.map(d => d.target)).size === many.drafts.length, 'and each post is about a different machine');
   const draft = run.drafts[0];
-  for (const channel of ['instagram', 'linkedin', 'whatsapp']) {
+  // 2026-11-11 (owner: "attach the social media platforms"): every network
+  // the desk can connect gets its own caption, written to its playbook.
+  for (const channel of ['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'whatsapp']) {
     ok(typeof draft.meta.captions[channel] === 'string' && draft.meta.captions[channel].length > 20,
       `a ${channel} caption is written in full`);
   }
+  ok(/^TITLE:/.test(draft.meta.captions.youtube) && /DESCRIPTION:/.test(draft.meta.captions.youtube) && /TAGS:/.test(draft.meta.captions.youtube),
+    'the youtube caption is a full upload kit (title, description, tags)');
   ok(typeof draft.meta.altText === 'string' && draft.meta.altText.length > 0, 'alt text is written for the image');
   ok((draft.meta.publicationBlockers || []).length > 0, 'the missing channel connections are named as blockers');
   await approveDraft(db, draft.id, owner, { approve: true });
   await executeDraft(db, draft.id, owner, { env: {} });
   const posts = db.tables.ai_agent_messages.filter(m => m.draft_id === draft.id);
-  ok(posts.length === 3, 'one message row per channel');
+  ok(posts.length === 6, 'one message row per channel');
   ok(posts.every(p => p.state === 'prepared'), 'every channel is prepared, none is posted');
   ok(db.tables.site_articles.length === 0, 'nothing was published as a side effect');
 }
@@ -511,8 +515,11 @@ say('\n-- an authorised social post actually posts, and only a 2xx is ever "sent
       specs: [], images: ['/assets/machinery/doosan-dx250lca-1.webp'] }
   ];
   const connected = {
+    FACEBOOK_PAGE_TOKEN: 'fb-token', FACEBOOK_PAGE_ID: '55001',
     META_GRAPH_TOKEN: 'meta-token', INSTAGRAM_BUSINESS_ID: '17890001',
-    LINKEDIN_ACCESS_TOKEN: 'li-token', LINKEDIN_ORG_URN: 'urn:li:organization:123'
+    LINKEDIN_ACCESS_TOKEN: 'li-token', LINKEDIN_ORG_URN: 'urn:li:organization:123',
+    TIKTOK_ACCESS_TOKEN: 'tt-token',
+    YOUTUBE_ACCESS_TOKEN: 'yt-token', YOUTUBE_CHANNEL_ID: 'UCar7traders0001'
   };
   const db = fakeDb({ ...agentSeed({ social: { enabled: true, autopublish: true } }), machinery: stock });
   const run = await runAgent(db, 'social', { actor: owner, env: {} });
@@ -521,6 +528,7 @@ say('\n-- an authorised social post actually posts, and only a 2xx is ever "sent
   const calls = [];
   const platform = async (url, opts) => {
     calls.push(String(url));
+    if (/55001\/photos$/.test(url) || /55001\/feed$/.test(url)) return { ok: true, status: 200, json: async () => ({ post_id: '55001_777' }) };
     if (/\/media$/.test(url)) return { ok: true, status: 200, json: async () => ({ id: 'container-1' }) };
     if (/media_publish/.test(url)) return { ok: true, status: 200, json: async () => ({ id: 'ig-post-9' }) };
     if (/ugcPosts/.test(url)) return { ok: true, status: 201, json: async () => ({ id: 'urn:li:share:42' }) };
@@ -528,14 +536,24 @@ say('\n-- an authorised social post actually posts, and only a 2xx is ever "sent
   };
   const executed = await executeDraft(db, draft.id, owner, { env: connected, fetch: platform });
   const posts = db.tables.ai_agent_messages.filter(m => m.draft_id === draft.id);
+  const fb = posts.find(p => p.channel === 'facebook');
   const ig = posts.find(p => p.channel === 'instagram');
   const li = posts.find(p => p.channel === 'linkedin');
   const wa = posts.find(p => p.channel === 'whatsapp');
+  const tt = posts.find(p => p.channel === 'tiktok');
+  const yt = posts.find(p => p.channel === 'youtube');
+  ok(fb?.state === 'sent' && fb.provider_id === '55001_777', 'Facebook is sent with the post id recorded');
+  ok(calls.some(u => /graph\.facebook\.com\/[^/]+\/55001\/photos$/.test(u)), 'the Page photo endpoint was really called (native photo post, per the playbook)');
   ok(ig?.state === 'sent' && ig.provider_id === 'ig-post-9', 'Instagram is sent with the platform id recorded');
   ok(calls.some(u => /graph\.facebook\.com\/[^/]+\/17890001\/media$/.test(u)) && calls.some(u => /media_publish/.test(u)),
     'the Graph API container + publish flow was really called');
   ok(li?.state === 'sent' && li.provider_id === 'urn:li:share:42', 'LinkedIn is sent with the share id recorded');
   ok(wa?.state === 'prepared', 'the WhatsApp caption stays a desk template — never broadcast');
+  // TikTok and YouTube are CONNECTED here — and still never auto-posted:
+  // TikTok's Content Posting API is audit-gated, YouTube uploads are a
+  // deliberate manual step. Claiming otherwise would fake a send.
+  ok(tt?.state === 'prepared' && /audit/i.test(tt.meta?.note || ''), 'TikTok stays prepared even when connected, and the note says why (API audit)');
+  ok(yt?.state === 'prepared' && /manual|Studio/i.test(yt.meta?.note || ''), 'YouTube stays prepared even when connected — upload is a human act');
   ok(executed.result.action === 'post-published' && executed.result.posted === true, 'the result says what was posted');
 
   // The platform saying no can never become "sent".
