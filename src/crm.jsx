@@ -1720,7 +1720,7 @@ export default function CrmApp() {
     <div className="crm-shell" data-crm-theme={theme}>
       <aside className={'crm-side ' + (mobile ? 'open' : '')}>
         <div className="crm-brand">
-          <img width="46" height="29" src="/assets/ar7-mark.png" alt="AR7"  loading="lazy" decoding="async"/>
+          <img width="46" height="29" src="/assets/ar7-mark-128.webp" alt="AR7"  loading="lazy" decoding="async"/>
           <div>
             <b>AR7 CRM</b>
             <small>COMMAND CENTER</small>
@@ -2324,7 +2324,7 @@ function Dashboard({ rows, setTab, onOpenPhotos, onManagePhotos }) {
           <div className="crm-quick-vehicle-grid">
             {(vehicles.length ? vehicles : listings).slice(0, 4).map(v => {
               const photos = extractPhotos(v);
-              const cover = photos[0] || v.image || '/assets/ar7-mark.png';
+              const cover = photos[0] || v.image || '/assets/ar7-mark-460.webp';
               return (
                 <article key={v.id || v.stock_no} className="dash-car-card">
                   <div className="dash-car-img" role="button" tabIndex={0} aria-label="Open this vehicle's photos" onClick={() => onOpenPhotos && onOpenPhotos(v)} onKeyDown={KEY_ACTIVATE(() => onOpenPhotos && onOpenPhotos(v))}>
@@ -2426,7 +2426,7 @@ function imgFallback(e) {
   if (el.dataset.fallbackApplied) return;
   if (!hasRetried(el)) { imageFallback(e); return; }
   el.dataset.fallbackApplied = '1';
-  el.src = '/assets/ar7-mark.png';
+  el.src = '/assets/ar7-mark-460.webp';
 }
 
 // ---------------------------------------------------------------------------
@@ -2634,6 +2634,9 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
   // site facts, no extra AI account. The agent asks mid-call and reads the
   // answer back; prices are confirmed by quotation, and the copilot says so.
   const [copOpen, setCopOpen] = useState(false);
+  // Honest free-calling guide (2026-11-11 owner request): what can actually
+  // call a SIM/landline for free, with each option's real limit stated.
+  const [freeCallOpen, setFreeCallOpen] = useState(false);
   const [copilot, setCopilot] = useState([]);
   const [copQ, setCopQ] = useState('');
   const [copBusy, setCopBusy] = useState(false);
@@ -2769,6 +2772,22 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
       })()}
       <div className="crm-call-log" style={{ display: 'block' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <b style={{ fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Phone size={14} /> Free ways to call a SIM or landline</b>
+          <small style={{ opacity: .78, flex: '1 1 260px' }}>What is genuinely free in 2026 — and what each option's real limit is.</small>
+          <button type="button" className="crm-call-act" onClick={() => setFreeCallOpen(o => !o)}>{freeCallOpen ? 'Hide' : 'Show options'}</button>
+        </div>
+        {freeCallOpen && (
+          <ul style={{ margin: '10px 0 0', paddingLeft: 18, display: 'grid', gap: 7, fontSize: '.86rem' }}>
+            <li><b>WhatsApp voice call — free, unlimited, any country.</b> The only truly free unlimited route, because it rides on data instead of the phone network. The customer needs WhatsApp (nearly every vehicle buyer has it). Use the WhatsApp button on any lead, then the phone icon inside the chat.</li>
+            <li><b>Web call room — free, unlimited (built in).</b> The <i>Web call</i> button above opens a browser-to-browser voice room and copies an invite link; the customer taps it and talks free from any browser. Best when they have data but you don't have their WhatsApp.</li>
+            <li><b>Google Voice — free unlimited calls to US &amp; Canada numbers only.</b> <a href="https://voice.google.com" target="_blank" rel="noreferrer">voice.google.com <ExternalLink size={10} /></a> — pick it in &ldquo;Call buttons open&rdquo; above and every Call button dials through it. Catch: signing up requires a US phone number; calls outside US/CA are billed per minute.</li>
+            <li><b>Browser dialers for any country's SIM/landline — free but minutes-capped.</b> <a href="https://www.poptox.com" target="_blank" rel="noreferrer">PopTox <ExternalLink size={10} /></a>, <a href="https://www.ievaphone.com" target="_blank" rel="noreferrer">iEvaphone <ExternalLink size={10} /></a> and <a href="https://call2friends.com" target="_blank" rel="noreferrer">Call2Friends <ExternalLink size={10} /></a> call real numbers from the browser with no account — honest catch: roughly 1–5 ad-supported minutes per day, limited country coverage and variable quality. Fine for one quick callback, not for a day of desk work.</li>
+            <li><b>The honest bottom line:</b> no cloud service offers unlimited free calls to arbitrary SIM/landline numbers — carriers charge for termination, so anyone promising it is reselling those caps above. For serious volume the cheap route is a pay-as-you-go SIP account (typically $0.01–0.05/min — Zadarma, CallCentric and similar), which plugs straight into the <i>SIP softphone</i> option above so every Call button uses it.</li>
+          </ul>
+        )}
+      </div>
+      <div className="crm-call-log" style={{ display: 'block' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <b style={{ fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Sparkles size={14} /> AI call copilot</b>
           <small style={{ opacity: .78, flex: '1 1 260px' }}>Ask anything mid-call — stock, shipping times, next steps. Answers come from your live inventory and site facts; prices are indicative until quoted.</small>
           <button type="button" className="crm-call-act is-ai" onClick={() => setCopOpen(o => !o)}>{copOpen ? 'Hide' : 'Open copilot'}</button>
@@ -2878,6 +2897,32 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
   // here so the webhook URL below is copy-ready with it filled in.
   const [vtok, setVtok] = useState('');
   const [checking, setChecking] = useState(false);
+  // Direct connect (2026-11-11): paste the Meta credentials into the desk —
+  // the API validates them with Meta's Graph BEFORE saving to the database,
+  // so nothing broken can ever be stored. settings.write (admin) only.
+  const [cTok, setCTok] = useState('');
+  const [cPhone, setCPhone] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const connectNow = async () => {
+    if (!cTok.trim() || !cPhone.trim() || vtok.trim().length < 6) { notify('Fill all three fields: access token, phone-number ID, and a verify token of at least 6 characters.'); return; }
+    setConnecting(true);
+    try {
+      const r = await call('/api/crm?entity=wa', token, { method: 'POST', body: JSON.stringify({ connect: { token: cTok.trim(), phone_id: cPhone.trim(), verify_token: vtok.trim() } }) });
+      if (r.ok) {
+        notify(`Connected! Meta confirms ${r.name ? r.name + ' — ' : ''}${r.number || 'your business number'} is live. One step left for INCOMING messages: register the webhook URL (step 4) in Meta with the same verify token.`);
+        setCTok('');
+        await load();
+      } else notify(r.error || 'Meta refused the credentials — nothing was saved.');
+    } catch (e) { notify(e.message); }
+    finally { setConnecting(false); }
+  };
+  const disconnectNow = async () => {
+    try {
+      await call('/api/crm?entity=wa', token, { method: 'POST', body: JSON.stringify({ disconnect: 1 }) });
+      notify('Desk credentials removed. If the three WHATSAPP_* variables are set in Vercel, they take over again.');
+      await load();
+    } catch (e) { notify(e.message); }
+  };
   const webhookUrl = (typeof location !== 'undefined' ? location.origin : 'https://ar7traders.com')
     + '/api/leads?wa=webhook&key=' + (vtok.trim() ? encodeURIComponent(vtok.trim()) : 'YOUR_VERIFY_TOKEN');
   const copyText = async (what, text) => {
@@ -2972,7 +3017,7 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
       <div className="crm-call-explain">
         <p><b><MessageCircle size={14} /> Your business WhatsApp, inside the CRM.</b> Customers message your WhatsApp Business number; the conversation lands here for any team member to answer — with an <b>AI draft</b> one click away. <b>New numbers become leads automatically</b>: the first inbound message from an unknown number files a lead with the name and phone, so no enquiry is ever lost. Replies inside Meta's 24-hour service window are <b>free</b>. Calls stay free too: use the customer's wa.me link on the Call desk, or send them a <i>Web call</i> link.</p>
         {state.configured && !state.loading && (
-          <p className="crm-hint"><b style={{ color: 'var(--crm-green, #2f9e68)' }}>● Connected</b> — WhatsApp Business number ID {state.number_id || '…'} is live. Messages customers send to it appear below. <button type="button" className="crm-call-act is-wa" onClick={checkConnection} disabled={checking}><RefreshCw size={13} /> {checking ? 'Testing…' : 'Test connection'}</button> asks Meta which number is actually connected.</p>
+          <p className="crm-hint"><b style={{ color: 'var(--crm-green, #2f9e68)' }}>● Connected</b> — WhatsApp Business number ID {state.number_id || '…'} is live{state.source === 'desk' ? ' (credentials saved from this desk)' : ' (via Vercel environment variables)'}. Messages customers send to it appear below. <button type="button" className="crm-call-act is-wa" onClick={checkConnection} disabled={checking}><RefreshCw size={13} /> {checking ? 'Testing…' : 'Test connection'}</button> asks Meta which number is actually connected.{canToggleAuto && state.source === 'desk' && <> <button type="button" className="crm-call-act" onClick={disconnectNow}><X size={13} /> Disconnect</button></>}</p>
         )}
         {state.demo && <p className="crm-hint">Demo mode — sign in to the live CRM to use the WhatsApp desk.</p>}
         {canToggleAuto && state.configured && (
@@ -2989,7 +3034,7 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
         <div className="crm-call-log" style={{ display: 'block' }}>
           <p style={{ margin: '0 0 8px' }}><b><MessageCircle size={14} /> Connect your WhatsApp Business number — 5 steps, ~20 minutes, free.</b> You do this once; after that every customer message lands on this desk.</p>
           <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 8, fontSize: '.9rem' }}>
-            <li><b>Create the Meta app.</b> Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer">developers.facebook.com/apps <ExternalLink size={10} /></a> → Create app → type <i>Business</i> → add the <b>WhatsApp</b> product. Meta gives you a free test number immediately; you can attach your real business number later in the same screen.</li>
+            <li><b>Log in at Meta for Developers first.</b> Open <a href="https://developers.facebook.com/" target="_blank" rel="noreferrer">developers.facebook.com <ExternalLink size={10} /></a>, log in with the Facebook account that manages your business and accept the developer terms (first time only). Then open <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer">My Apps <ExternalLink size={10} /></a> → Create app → type <i>Business</i> → add the <b>WhatsApp</b> product. <i>Heads-up:</i> opening My Apps while logged out shows Meta&rsquo;s &ldquo;the link you followed may be broken&rdquo; page — that is their login wall, not a dead link; log in and it loads. Meta gives you a free test number immediately; you can attach your real business number later in the same screen.</li>
             <li><b>Copy two values</b> from WhatsApp → API Setup: the <b>access token</b> (generate a permanent one via a System User in Business Settings) and the <b>Phone number ID</b> (the long ID under the number — not the phone number itself).</li>
             <li><b>Add three variables in Vercel</b> (Project → Settings → Environment Variables), then redeploy:
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
@@ -3008,6 +3053,18 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
             </li>
             <li><b>Confirm:</b> <button type="button" className="crm-call-act is-wa" onClick={checkConnection} disabled={checking}><RefreshCw size={13} /> {checking ? 'Testing…' : 'Test connection'}</button> — it asks Meta directly and reports the connected number, or the exact error (wrong token, wrong phone-number ID…) so you know which step to fix.</li>
           </ol>
+          {canToggleAuto && (
+            <div style={{ marginTop: 14, padding: '12px 14px', border: '1px dashed var(--crm-gold, #b98a2f)', borderRadius: 10 }}>
+              <p style={{ margin: '0 0 8px' }}><b><KeyRound size={14} /> Or connect directly — paste the two values here.</b> No Vercel, no environment variables, no redeploy: the desk asks Meta to confirm the credentials and saves them server-side only if Meta accepts. They are never shown again, and only an admin can do this.</p>
+              <div style={{ display: 'grid', gap: 6, maxWidth: 440 }}>
+                <input value={cTok} onChange={e => setCTok(e.target.value)} type="password" placeholder="Access token (EAAG…, from WhatsApp → API Setup)" aria-label="WhatsApp access token" autoComplete="off" />
+                <input value={cPhone} onChange={e => setCPhone(e.target.value)} placeholder="Phone number ID (the long digits ID, not the phone number)" aria-label="WhatsApp phone-number ID" />
+                <input value={vtok} onChange={e => setVtok(e.target.value)} placeholder="Verify token — any secret word, 6+ characters" aria-label="Verify token for direct connect" />
+                <button type="button" className="crm-call-act is-wa" onClick={connectNow} disabled={connecting} style={{ justifyContent: 'center' }}><KeyRound size={13} /> {connecting ? 'Checking with Meta…' : 'Connect now'}</button>
+              </div>
+              <small style={{ opacity: .75, display: 'block', marginTop: 6 }}>Replies work the moment Meta accepts. Receiving messages still needs step 4 above — register the webhook URL (it uses the same verify token) once in Meta.</small>
+            </div>
+          )}
           <p className="crm-hint" style={{ marginTop: 8 }}>Honest cost note: receiving messages and replying within Meta’s 24-hour service window is <b>free</b>; starting a conversation first (template messages) is billed by Meta per message, so this desk never sends those. Full guide with screenshots: <b>WHATSAPP-DESK.md</b> in the repository.</p>
         </div>
       )}
@@ -3565,7 +3622,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
         <div className="vehicle-card-grid">
           {sortedRows.map(row => {
             const photos = extractPhotos(row);
-            const cover = photos[0] || row.image || '/assets/ar7-mark.png';
+            const cover = photos[0] || row.image || '/assets/ar7-mark-460.webp';
             return (
               <article key={row.id || row.stock_no} className="vcard">
                 <div className="vcard-hero" role="button" tabIndex={0} aria-label="Open this vehicle's photo gallery" onClick={() => onViewGallery && onViewGallery(row)} onKeyDown={KEY_ACTIVATE(() => onViewGallery && onViewGallery(row))}>
@@ -3630,7 +3687,7 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
             <tbody>
               {sortedRows.map(row => {
                 const photos = isVehicleType ? extractPhotos(row) : [];
-                const cover = photos[0] || row.image || '/assets/ar7-mark.png';
+                const cover = photos[0] || row.image || '/assets/ar7-mark-460.webp';
                 return (
                   <tr key={row.id || row.stock_no}>
                     {isVehicleType && (
@@ -4222,7 +4279,7 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
             <tbody>
               {filtered.map(row => {
                 const photos = extractPhotos(row);
-                const cover = photos[0] || row.image || '/assets/ar7-mark.png';
+                const cover = photos[0] || row.image || '/assets/ar7-mark-460.webp';
                 const importDate = row.imported_at ? new Date(row.imported_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
                 const promo = promotionState(row);
                 const ref = row.stock_no || row.goonet_id || '';
@@ -4546,7 +4603,7 @@ export function VehicleGalleryModal({ row, onClose, onManagePhotos }) {
     return () => window.removeEventListener('keydown', handleKey);
   }, [photos, onClose]);
 
-  const current = photos[activeIdx] || row.image || '/assets/ar7-mark.png';
+  const current = photos[activeIdx] || row.image || '/assets/ar7-mark-460.webp';
 
   return (
     <div className="crm-modal-bg crm-lightbox-bg" onClick={onClose}>

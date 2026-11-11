@@ -35,6 +35,36 @@ const GRAPH = env => 'https://graph.facebook.com/' + (env.WHATSAPP_GRAPH_VERSION
 export const waConfigured = env =>
   !!(env.WHATSAPP_TOKEN && env.WHATSAPP_PHONE_ID && env.WHATSAPP_VERIFY_TOKEN);
 
+// Direct connect (2026-11-11 owner request): credentials pasted into the desk
+// are stored in site_settings (wa_cloud_token / wa_cloud_phone_id /
+// wa_cloud_verify_token) so connecting needs NO Vercel env edit and NO
+// redeploy. The overlay only applies when all three rows exist — a partial
+// save can never half-shadow a working env config. Secrets safety: these keys
+// are not in api/settings.js PUBLIC_KEYS (never readable anonymously), not in
+// WRITABLE_KEYS (the generic settings PATCH cannot write them — only the
+// admin-gated connect action below), and the authenticated settings GET
+// masks their values.
+export async function resolveWaEnv(db, env) {
+  try {
+    const { data } = await db.from('site_settings').select('key,value');
+    const s = Object.fromEntries((data || []).map(r => [r.key, r.value]));
+    if (s.wa_cloud_token && s.wa_cloud_phone_id && s.wa_cloud_verify_token) {
+      return {
+        ...env,
+        WHATSAPP_TOKEN: s.wa_cloud_token,
+        WHATSAPP_PHONE_ID: s.wa_cloud_phone_id,
+        WHATSAPP_VERIFY_TOKEN: s.wa_cloud_verify_token,
+        WA_SOURCE: 'desk'
+      };
+    }
+    return waConfigured(env) ? { ...env, WA_SOURCE: 'env' } : env;
+  } catch {
+    // The settings read failing must never take the webhook down — fall back
+    // to the environment, exactly the pre-2026-11-11 behaviour.
+    return env;
+  }
+}
+
 /** Flatten Meta's nested webhook payload into plain events. Pure. */
 export function parseWebhookEvents(payload) {
   const out = [];
@@ -129,7 +159,10 @@ async function draftReply({ db, waId, env, fetchImpl }) {
  * POST — message/status events. Always answers 200 once the key matches,
  *        because Meta retries non-200s and would hammer the function.
  */
-export async function waWebhook(req, res, { db, env, send }) {
+export async function waWebhook(req, res, { db, env: rawEnv, send }) {
+  // Desk-stored credentials (direct connect) win over Vercel env when all
+  // three are saved; otherwise this is exactly the old env-only behaviour.
+  const env = await resolveWaEnv(db, rawEnv);
   const token = String(env.WHATSAPP_VERIFY_TOKEN || '');
   if (req.method === 'GET') {
     const q = req.query || {};
@@ -221,7 +254,8 @@ export async function waWebhook(req, res, { db, env, send }) {
  * POST {to,body} → send a reply (requires leads.write — enforced by caller)
  * POST {ai:'draft',wa_id} → AI reply draft; nothing is sent or stored.
  */
-export async function waDesk(req, res, { db, profile, user, env, send, log, fetchImpl }) {
+export async function waDesk(req, res, { db, profile, user, env: rawEnv, send, log, fetchImpl }) {
+  const env = await resolveWaEnv(db, rawEnv);
   const configured = waConfigured(env);
   if (req.method === 'GET') {
     const withId = String(req.query?.with || '').replace(/\D/g, '');
@@ -242,10 +276,48 @@ export async function waDesk(req, res, { db, profile, user, env, send, log, fetc
       c.count++;
       seen.set(m.wa_id, c);
     }
-    return send(res, 200, { configured, number_id: configured ? String(env.WHATSAPP_PHONE_ID).slice(0, 6) + '…' : null, conversations: [...seen.values()] });
+    return send(res, 200, { configured, source: configured ? (env.WA_SOURCE || 'env') : null, number_id: configured ? String(env.WHATSAPP_PHONE_ID).slice(0, 6) + '…' : null, conversations: [...seen.values()] });
   }
   if (req.method === 'POST') {
     const b = req.body || {};
+    // Direct connect (2026-11-11): paste the Meta credentials straight into
+    // the desk — validated against the Graph API BEFORE anything is stored,
+    // so a typo'd token can never shadow a working config. settings.write
+    // only (enforced in api/crm.js). Nothing is saved when Meta says no.
+    if (b.connect) {
+      const tok = String(b.connect.token || '').trim();
+      const phoneId = String(b.connect.phone_id || '').replace(/\D/g, '');
+      const verify = String(b.connect.verify_token || '').trim();
+      if (!tok || !phoneId || !verify) return send(res, 400, { error: 'All three values are required: access token, phone-number ID and a verify token.' });
+      if (verify.length < 6) return send(res, 400, { error: 'Pick a verify token of at least 6 characters — it guards your public webhook URL.' });
+      try {
+        const f = fetchImpl || globalThis.fetch;
+        const r = await f(`${GRAPH(rawEnv)}/${phoneId}?fields=display_phone_number,verified_name,quality_rating`, {
+          headers: { Authorization: 'Bearer ' + tok }
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          return send(res, 200, { ok: false, error: 'Meta refused these credentials (' + (j?.error?.code || r.status) + '): ' + (j?.error?.message || 'unknown error') + '. Nothing was saved — check the access token (not expired?) and the phone-number ID (the long ID under the number, not the number itself).' });
+        }
+        const now = new Date().toISOString();
+        const rows = [['wa_cloud_token', tok], ['wa_cloud_phone_id', phoneId], ['wa_cloud_verify_token', verify]]
+          .map(([key, value]) => ({ key, value, updated_at: now }));
+        const { error } = await db.from('site_settings').upsert(rows, { onConflict: 'key' });
+        if (error) throw error;
+        if (log) await log(db, profile, 'WhatsApp connected from the desk (number ID ' + phoneId.slice(0, 6) + '…)', 'wa', null);
+        return send(res, 200, { ok: true, connected: true, number: j.display_phone_number || null, name: j.verified_name || null, quality: j.quality_rating || null });
+      } catch (err) {
+        return send(res, 200, { ok: false, error: 'Could not reach Meta: ' + (err?.message || 'network error') + '. Nothing was saved — try again in a moment.' });
+      }
+    }
+    if (b.disconnect) {
+      for (const key of ['wa_cloud_token', 'wa_cloud_phone_id', 'wa_cloud_verify_token']) {
+        const { error } = await db.from('site_settings').delete().eq('key', key);
+        if (error) throw error;
+      }
+      if (log) await log(db, profile, 'WhatsApp desk credentials removed', 'wa', null);
+      return send(res, 200, { ok: true, connected: false });
+    }
     // Live connection test (2026-11): asks Meta's Graph API about the
     // configured phone-number ID and reports the REAL connected number (or
     // Meta's exact error), so "is it connected?" never needs guesswork.
@@ -254,7 +326,7 @@ export async function waDesk(req, res, { db, profile, user, env, send, log, fetc
     if (b.test) {
       if (!configured) {
         const missing = ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID', 'WHATSAPP_VERIFY_TOKEN'].filter(k => !env[k]);
-        return send(res, 200, { ok: false, configured: false, error: 'Not connected yet — missing in Vercel: ' + missing.join(', ') + '. Add them (step 3 of the wizard), redeploy, then test again.' });
+        return send(res, 200, { ok: false, configured: false, error: 'Not connected yet — missing: ' + missing.join(', ') + '. Paste the credentials into Connect directly below (no redeploy), or add them in Vercel (step 3 of the wizard) and redeploy, then test again.' });
       }
       try {
         const f = fetchImpl || globalThis.fetch;
@@ -279,7 +351,7 @@ export async function waDesk(req, res, { db, profile, user, env, send, log, fetc
     const to = String(b.to || '').replace(/\D/g, '');
     const body = String(b.body || '').trim();
     if (!to || !body) return send(res, 400, { error: 'Recipient and message are required' });
-    if (!configured) return send(res, 503, { error: 'WhatsApp is not connected yet — add WHATSAPP_TOKEN, WHATSAPP_PHONE_ID and WHATSAPP_VERIFY_TOKEN in Vercel, then redeploy. See WHATSAPP-DESK.md.' });
+    if (!configured) return send(res, 503, { error: 'WhatsApp is not connected yet — use Connect directly on the desk (paste the Meta credentials, no redeploy), or add WHATSAPP_TOKEN, WHATSAPP_PHONE_ID and WHATSAPP_VERIFY_TOKEN in Vercel and redeploy. See WHATSAPP-DESK.md.' });
     const msgId = await sendText({ to, body, env, fetch: fetchImpl || globalThis.fetch });
     const { data, error } = await db.from('wa_messages').insert({
       wa_id: to, direction: 'out', body, msg_type: 'text', msg_id: msgId,

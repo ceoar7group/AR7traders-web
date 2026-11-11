@@ -233,7 +233,7 @@ export default function QuickQuoteSection({navigate, cars}) {
         {/* 330×220 (3:2) matches the rendered thumb. The old 820×550 hint was
             what the grid-stretch bug blew the cards up to — keep the reserve
             honest so no layout path can ever fall back to a 550px image. */}
-        <img loading="lazy" decoding="async" width="330" height="220" src={c.image || '/assets/ar7-mark.png'}
+        <img loading="lazy" decoding="async" width="330" height="220" src={c.image || '/assets/ar7-mark-460.webp'}
           alt={[c.year, c.make, c.model].filter(Boolean).join(' ') + ' in Japan stock'}/>
         <b>{[c.make, c.model].filter(Boolean).join(' ')}</b>
         <small>{c.year ? c.year + ' · ' : ''}{refOf(c)}</small>

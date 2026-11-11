@@ -107,7 +107,7 @@ ok(render({ menu: true }).includes('navlinks open'), 'the mobile menu state reac
 {
   const el = { dataset: {}, src: '/assets/logos/isuzu.png', alt: 'Isuzu logo' };
   logoOnError({ currentTarget: el });
-  ok(el.src === '/assets/ar7-mark.png', 'a missing brand logo falls back to the AR7 mark');
+  ok(el.src === '/assets/ar7-mark-460.webp', 'a missing brand logo falls back to the AR7 mark (webp, 2026-11-11 PSI)');
   ok(el.dataset.logoFb === '1', 'the fallback is flagged so it cannot loop');
   const again = { dataset: { logoFb: '1' }, src: '/assets/logos/isuzu.png', alt: '' };
   logoOnError({ currentTarget: again });

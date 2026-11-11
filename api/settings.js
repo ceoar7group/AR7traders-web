@@ -150,6 +150,12 @@ export default async function handler(req,res,injected={}){
     const getUser=injected.getUser||requireUser;
     const {profile}=await getUser(req);
     res.setHeader('Cache-Control','private, no-store');
+    // WhatsApp direct-connect secrets (written only by the admin-gated
+    // connect action in api/_wa.js) are never echoed back — staff see THAT
+    // they are saved, never the values. PUBLIC_KEYS excludes them, and
+    // WRITABLE_KEYS keeps the generic PATCH from touching them.
+    for(const k of ['wa_cloud_token','wa_cloud_verify_token'])
+      if(all[k]!=null&&all[k]!=='')all[k]='•••saved';
     return send(res,200,all);
    }
    const pub={};

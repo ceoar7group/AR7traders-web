@@ -57,7 +57,14 @@ export default async function handler(req,res,injected={}){
   // function). Reads are open to any signed-in staff like other CRM reads;
   // sending and drafting are outreach, so they need leads.write.
   if(entity==='wa'){
-   if(req.method!=='GET')await assertPerm(profile,'leads.write',injected);
+   // Saving or removing the Cloud API credentials (direct connect) is a
+   // settings change, not outreach — it needs settings.write (admin by
+   // default). Everything else that writes (send a reply, AI draft, live
+   // test) stays behind leads.write as before.
+   if(req.method!=='GET'){
+    const waBody=req.body||{};
+    await assertPerm(profile,(waBody.connect||waBody.disconnect)?'settings.write':'leads.write',injected);
+   }
    const {waDesk}=injected.waDesk?{waDesk:injected.waDesk}:await import('./_wa.js');
    return await waDesk(req,res,{db,profile,user,env:injected.env||process.env,send,log,fetchImpl:injected.fetch||globalThis.fetch});
   }
