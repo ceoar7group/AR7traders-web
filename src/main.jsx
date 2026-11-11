@@ -319,8 +319,9 @@ function InvShowcase({picks,onOpen}){
    // the "glitch" the owner saw when clicking the arrows quickly.
    return <button key={c.id} type="button" className={'inv-slide'+(off===0?' active':'')}
     style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>1?0:1-a*.25,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.3,.4)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
-    onClick={()=>off===0?onOpen(c):setIdx(i)} tabIndex={a>1?-1:0}
-    aria-label={off===0?`Open ${c.make} ${c.model}`:`Show ${c.make} ${c.model}`}>
+    onClick={()=>off===0?onOpen(c):setIdx(i)} tabIndex={a>1?-1:0}>
+    {/* No aria-label: the caption text + image alt already name the button,
+        and WCAG 2.5.3 requires the visible text to be part of the name. */}
     <span className="inv-slide-bg" style={{backgroundImage:`url("${c.image}")`}} aria-hidden="true"/>
     <img src={c.image} alt={carAlt(c)} loading={i<3?'eager':'lazy'} decoding="async" width="520" height="300"/>
     <span className="inv-slide-cap"><b>{c.make} {c.model}</b><small>{c.year} · {c.km} km</small></span>
@@ -692,8 +693,11 @@ function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts,cifDest}){
  {cifDest&&(()=>{const e=estimateFor(c,cifDest,discounts);return <div className="card-cif"><Ship/><span><small>CIF {cifDest.split(' / ')[0]} · ETA ±{e.days} days</small><b>≈ {fmt(e.cif)}</b></span><em>excl. import duty</em></div>})()}
  <div className="card-actions">
   <button type="button" className="card-wa" aria-label={'WhatsApp us about the '+carLabel} onClick={e=>{e.preventDefault();e.stopPropagation();window.open(waLink(s.whatsapp_number,waMsg),'_blank','noopener')}}><WhatsAppIcon size={14}/> WhatsApp</button>
-  {onOffer&&<button type="button" className="card-offer" aria-label={'Make an offer on the '+carLabel} onClick={e=>{e.preventDefault();e.stopPropagation();onOffer(c)}}><BadgePercent/> Make offer</button>}
-  {onCmp&&<button type="button" className={"cmp-chip "+(comp?'on':'')} aria-pressed={!!comp} aria-label={(comp?'Remove ':'Add ')+(c.make||'')+' '+(c.model||'')+(comp?' from':' to')+' the comparison'} onClick={e=>{e.preventDefault();e.stopPropagation();onCmp(c)}}><ArrowLeftRight/>{comp?<><Check/> Added</>:'Compare'}</button>}
+  {/* WCAG 2.5.3: the aria-label must START with the visible text ("Make
+      offer" / "Compare" / "Added") so voice-control users can say what they
+      see; the vehicle name follows for screen-reader context. */}
+  {onOffer&&<button type="button" className="card-offer" aria-label={'Make offer on the '+carLabel} onClick={e=>{e.preventDefault();e.stopPropagation();onOffer(c)}}><BadgePercent/> Make offer</button>}
+  {onCmp&&<button type="button" className={"cmp-chip "+(comp?'on':'')} aria-pressed={!!comp} aria-label={comp?('Added — remove '+(c.make||'')+' '+(c.model||'')+' from the comparison'):('Compare '+(c.make||'')+' '+(c.model||''))} onClick={e=>{e.preventDefault();e.stopPropagation();onCmp(c)}}><ArrowLeftRight/>{comp?<><Check/> Added</>:'Compare'}</button>}
  </div>
  <div className="loc"><MapPin/> {c.location}, Japan</div></div>
  </a>}
@@ -1000,8 +1004,9 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
       className={'hero-slide'+(off===0?' active':'')+(x.kind==='machine'?' is-machine':'')}
       style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.35,.45)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
       tabIndex={a>1?-1:0} aria-hidden={a>1||undefined}
-      onClick={e=>{if(off!==0){e.preventDefault();jumpTo(i)}else linkClick(x.href,navigate)(e)}}
-      aria-label={off===0?`Open ${x.title}`:`Show ${x.title}`}>
+      onClick={e=>{if(off!==0){e.preventDefault();jumpTo(i)}else linkClick(x.href,navigate)(e)}}>
+      {/* No aria-label (WCAG 2.5.3): the visible caption + image alt name
+          this slide; an aria-label that differs breaks voice control. */}
       {/* The blurred backdrop never needs the 1268w file (blur(22px) erases
           the detail) — and on phones the 760w variant is the SAME file the
           <img> srcset picks, so the two paint from one preloaded fetch

@@ -299,7 +299,11 @@ export function SiteHeader({
       {/* 2026-11-07: width/height were the literal strings "None" (invalid HTML,
     no reserved box) and the 460px source PNG was 17KB for a 49px slot —
     both flagged by PageSpeed. The 128px webp is 3KB. */}
-      <a className="brand" href="/" onClick={linkClick('home', navigate)} aria-label="AR7 home"><img src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async" width="56" height="56"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
+      {/* No aria-label here: the visible text ("AR7 TRADERS — GLOBAL VEHICLE
+          EXPORTERS") IS the accessible name, which is what WCAG 2.5.3
+          (label-in-name) requires — an aria-label that differs from the
+          visible text breaks voice-control users who say what they see. */}
+      <a className="brand" href="/" onClick={linkClick('home', navigate)}><img src="/assets/ar7-mark-128.webp" alt="" loading="lazy" decoding="async" width="56" height="56"/><span><b>AR7</b> <strong>TRADERS</strong><small>GLOBAL VEHICLE EXPORTERS</small></span></a>
       <div className="nav-orb" title="AR7 360° world network — click to explore">{orb}</div>
     </div>
     <div id="ar7-public-menu" className={'navlinks ' + (menu ? 'open' : '')}>

@@ -390,7 +390,12 @@ for (const file of entryCss) {
 // join the premium metal finish (chips, type badge, FOB tray, view/chat
 // buttons) and the maker row grew. Measured 43.07 kB gz after merging the
 // new selectors; raw stayed inside 225.
-const CSS_BUDGET_GZIP = 43.25 * 1024;
+// 2026-11-11 (2): 43.25 → 43.5 kB. Owner UI/UX round: the article-overflow
+// guards (minmax track pin + overflow-wrap), the WCAG AA contrast pass
+// (--gold-ink switches, status-chip tones, hero kicker) and the
+// content-visibility block for below-the-fold home sections. Measured
+// 43.26 kB gz / 225.28 kB raw — ~300 bytes of deliberate fixes.
+const CSS_BUDGET_GZIP = 43.5 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
@@ -419,7 +424,8 @@ const CSS_BUDGET_GZIP = 43.25 * 1024;
 // 2026-11-17: 219 → 221 kB raw — round-7 mobile QA: single-line mobile promo
 // row, 44px home pager buttons, hv=c foot-band contrast block and the ≤560
 // two-row route chip. Measured 219.98 kB raw / gzip inside 43.
-const CSS_BUDGET_RAW = 225 * 1024;
+// 2026-11-11 (2): 225 → 225.5 kB raw — same fix set as the gzip note above.
+const CSS_BUDGET_RAW = 225.5 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

@@ -203,7 +203,7 @@
 /* ---------- HOW TO BUY ---------- */
 .howbuy-flow{display:grid;gap:12px;max-width:780px}
 .hb-step{display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
-.hb-step>span{flex:none;width:44px;height:44px;border-radius:12px;background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold);font:800 15px Manrope;display:grid;place-items:center}
+.hb-step>span{flex:none;width:44px;height:44px;border-radius:12px;background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold-ink);font:800 15px Manrope;display:grid;place-items:center}
 .hb-step>div{flex:1}
 .hb-step b{font-size:14px}
 .hb-step p{margin:3px 0 0;font-size:12px;color:var(--muted);line-height:1.55}
@@ -234,7 +234,7 @@
 .tool-card input,.tool-card select{height:46px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:0 12px;color:var(--ink);font-weight:600;font-size:12px}
 .calc-out{display:grid;gap:8px;margin-top:6px}
 .calc-out span{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;background:var(--bg);border-radius:12px}
-.calc-out small{font-size:8px;letter-spacing:1px;color:var(--muted)}
+.calc-out small{font-size:8px;letter-spacing:1px;color:var(--muted)}.calc-out .total small{color:#5a675f}html[data-theme=dark] .calc-out .total small{color:var(--muted)}
 .calc-out b{font-size:16px}
 .calc-out .total{background:color-mix(in srgb,var(--gold) 16%,transparent);border:1px dashed color-mix(in srgb,var(--gold) 55%,transparent)}
 .tool-note{font-size:11px;color:var(--muted);line-height:1.7}
@@ -252,10 +252,16 @@
 .news-meta{display:flex;justify-content:space-between;align-items:center}
 .news-meta span{font-size:8px;letter-spacing:1.4px;color:var(--green-text);font-weight:800}
 .news-meta small{font-size:9px;color:var(--muted)}
-.news-grid h3,.news-grid h2{font:700 17px/1.35 Manrope;margin:10px 18px 0;letter-spacing:-.4px;color:var(--ink)}
-.news-grid p{font-size:12px;color:var(--muted);line-height:1.65;margin:8px 18px 0}
+.news-grid h3,.news-grid h2{font:700 17px/1.35 Manrope;margin:10px 18px 0;letter-spacing:-.4px;color:var(--ink);overflow-wrap:anywhere}
+.news-grid p{font-size:12px;color:var(--muted);line-height:1.65;margin:8px 18px 0;overflow-wrap:anywhere}
 .news-grid article>b,.news-grid a.news-card>b{font-size:11px;color:var(--gold);margin:14px 18px 18px;display:inline-flex;gap:6px;align-items:center}
-.news-article{max-width:780px;display:grid;gap:14px;justify-items:start}
+/* 2026-11-11 owner report: a CRM-published guide whose body carried one long
+   unbreakable token (a pasted reference/URL) grew the article's implicit grid
+   track past the viewport — the image and EVERY paragraph stretched with it
+   and ran off the page. Two guards make that impossible for any future
+   article: minmax(0,1fr) pins the single column to the container width, and
+   overflow-wrap:anywhere gives the browser a break point inside any token. */
+.news-article{max-width:780px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;justify-items:start;overflow-wrap:anywhere}
 .news-article h2{font:700 38px/1.15 Manrope;letter-spacing:-2px}
 .news-article img{width:100%;max-height:420px;object-fit:cover;border-radius:18px}
 .news-article p{font-size:15px;line-height:1.85;color:var(--muted)}
@@ -321,7 +327,7 @@
 }
 
 .faq-topic-group+.faq-topic-group{margin-top:28px}
-.faq-topic-title{font:800 12px/1.2 Manrope;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin:0 0 6px;padding-bottom:8px;border-bottom:2px solid color-mix(in srgb,var(--gold) 35%,var(--line))}
+.faq-topic-title{font:800 12px/1.2 Manrope;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-ink);margin:0 0 6px;padding-bottom:8px;border-bottom:2px solid color-mix(in srgb,var(--gold) 35%,var(--line))}
 @media(max-width:1000px){.buyer-guide-steps{grid-template-columns:1fr 1fr}.buyer-guide-notes,.destination-guide-cols{grid-template-columns:1fr}}
 @media(max-width:650px){.buyer-guide{padding:20px}.buyer-guide-steps{grid-template-columns:1fr}.destination-docs{padding:18px}}
 
@@ -601,7 +607,7 @@ section[id]{scroll-margin-top:120px}
 .inventory-groups{display:grid;gap:64px}
 .inventory-group{display:block}
 .inventory-group-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:4px 0 22px;padding-bottom:14px;border-bottom:1px solid var(--line)}
-.inventory-group-head span{display:block;color:var(--gold);font-size:8px;font-weight:800;letter-spacing:2px;margin-bottom:6px}
+.inventory-group-head span{display:block;color:var(--gold-ink);font-size:8px;font-weight:800;letter-spacing:2px;margin-bottom:6px}
 .inventory-group-head h2{margin:0;color:var(--ink);font:700 28px/1 Manrope;letter-spacing:-1.2px}
 .inventory-group-head>b{font-size:9px;letter-spacing:1px;color:var(--muted);padding:7px 10px;border:1px solid var(--line);border-radius:20px;white-space:nowrap}
 .showroom-group{padding:24px;border:1px solid color-mix(in srgb,var(--gold) 38%,var(--line));border-radius:22px;background:linear-gradient(145deg,color-mix(in srgb,var(--card) 96%,var(--gold)),var(--card));box-shadow:0 18px 55px rgba(4,63,40,.08)}
