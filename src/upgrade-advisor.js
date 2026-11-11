@@ -22,7 +22,7 @@ const parseArticleDate = value => {
  *            desk: crm tab id or null, apply: {path, body} | null, how}]
  */
 export function buildUpgradeSuggestions({ cars = [], machines = [], articles = [], settings = {},
-  agents = [], keywordSource = null, now = Date.now() } = {}) {
+  agents = [], keywordSource = null, social = null, now = Date.now() } = {}) {
   const out = [];
   const live = cars.filter(c => c && c.published !== false);
 
@@ -107,6 +107,34 @@ export function buildUpgradeSuggestions({ cars = [], machines = [], articles = [
       apply: { label: 'Enable in review mode', path: '/api/site-content?agents=config-update',
         body: { agent: 'social', enabled: true, paused: false } }
     });
+  }
+
+  // 8 · Social accounts not attached — the Social agent can draft all day,
+  // but without a connected account nothing it writes can ever reach an
+  // audience. Only said when the status is actually known (`social` is the
+  // ?social=status platform list); an unreachable status API claims nothing.
+  if (Array.isArray(social)) {
+    const unconnected = social.filter(p => p && !p.connected);
+    if (unconnected.length) {
+      const names = unconnected.map(p => p.label || p.platform);
+      out.push({
+        id: 'social-connect', impact: 'high', kind: 'desk', desk: 'agents',
+        title: `${unconnected.length} social platform(s) are not connected: ${names.join(', ')}`,
+        why: 'The Social agent drafts per-platform posts, but a draft without a connected account can never be published — the growth loop is open-circuit.',
+        how: 'Open AI Growth → Social workspace → Platform connections, and paste each account\u2019s credentials. Every connection is validated with the platform before it is saved.'
+      });
+    }
+    // 9 · YouTube connected but idle — the Video studio exists exactly for
+    // this: Shorts built from AR7-owned photographs, no copyright exposure.
+    const yt = social.find(p => p?.platform === 'youtube');
+    if (yt?.connected) {
+      out.push({
+        id: 'video-content', impact: 'medium', kind: 'desk', desk: 'agents',
+        title: 'Publish YouTube Shorts from the Video studio',
+        why: 'The channel is connected, and Shorts are the fastest subscriber source (completion-loop distribution). The Video studio renders them from AR7-owned photographs only, so there is no copyright exposure.',
+        how: 'Run `npm run video -- --ref <stock-ref>` (or ask the developer agent), then upload in YouTube Studio with the agent\u2019s prepared title, description and tags.'
+      });
+    }
   }
 
   const rank = { high: 0, medium: 1, low: 2 };

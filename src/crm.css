@@ -4525,6 +4525,32 @@ html[data-crm-theme="light"] .crm-shell,
 .ai-advisor-actions button{white-space:nowrap}
 @media(max-width:700px){.ai-advisor-item{flex-wrap:wrap}.ai-advisor-actions{grid-auto-flow:column}.ai-advisor-head{flex-direction:column}}
 
+/* ---------------------------------------------------------------------------
+   Social platform connections + Video studio (2026-11-11 owner request).
+   Only --crm-* tokens, per scripts/crm-theme-vars.test.mjs.
+   --------------------------------------------------------------------------- */
+.ai-social-connect{display:grid;gap:12px}
+.ai-social-connect>h3{display:flex;align-items:center;gap:8px;margin:0;font:700 14px var(--crm-font);color:var(--crm-ink)}
+.ai-social-connect>h3 svg{color:var(--crm-gold)}
+.ai-social-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.ai-social-card{display:grid;gap:8px;align-content:start;border:1px solid var(--crm-border);border-radius:12px;background:var(--crm-panel-sub);padding:12px 14px}
+.ai-social-card.is-connected{border-left:3px solid var(--crm-ok)}
+.ai-social-card header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ai-social-card header b{font:700 13px var(--crm-font);color:var(--crm-ink)}
+.ai-badge{display:inline-flex;align-items:center;gap:4px;font:700 10px var(--crm-font);font-style:normal;letter-spacing:.4px;border-radius:999px;padding:3px 9px;background:var(--crm-status-bg);color:var(--crm-muted);border:1px solid var(--crm-border)}
+.ai-badge.ok{background:var(--crm-ok-bg);color:var(--crm-ok);border-color:var(--crm-ok-border)}
+.ai-social-field{display:grid;gap:3px;font:600 11px var(--crm-font);color:var(--crm-muted)}
+.ai-social-field input{width:100%;border:1px solid var(--crm-border);border-radius:8px;background:var(--crm-panel);color:var(--crm-ink);font:500 12px var(--crm-font);padding:7px 9px}
+.ai-social-card details{border:1px solid var(--crm-border-subtle);border-radius:10px;padding:7px 10px}
+.ai-social-card summary{cursor:pointer;font:600 11px var(--crm-font);color:var(--crm-muted)}
+.ai-playbook{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;font:500 11px var(--crm-font);color:var(--crm-muted);line-height:1.55}
+.ai-playbook b{color:var(--crm-ink)}
+.ai-social-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ai-video-studio{border:1px solid var(--crm-border);border-radius:12px;background:var(--crm-panel-sub);padding:12px 14px}
+.ai-video-studio summary{cursor:pointer;font:700 12.5px var(--crm-font);color:var(--crm-ink)}
+.ai-video-studio p{font:500 11.5px var(--crm-font);color:var(--crm-muted);line-height:1.6;margin:10px 0 0}
+.ai-video-studio code{background:var(--crm-status-bg);border:1px solid var(--crm-border-subtle);border-radius:6px;padding:1px 5px}
+
 /* AI Growth — History & undo panel (2026-11-07). Only --crm-* tokens, per
    scripts/crm-theme-vars.test.mjs. */
 .ai-history{display:grid;gap:14px}

@@ -61,6 +61,26 @@ ok(socialOff.some(s => s.id === 'social-agent'), 'paused social agent with 3+ gu
 ok(!buildUpgradeSuggestions({ ...healthy, articles: healthy.articles, agents: healthy.agents.map(a => a.agent === 'social' ? { ...a, paused: true } : a) }).some(s => s.id === 'social-agent'),
   'but not when there is nothing to distribute (fewer than 3 guides)');
 
+console.log('\n-- social platform connections (2026-11-11) --');
+const someUnconnected = buildUpgradeSuggestions({ ...healthy, social: [
+  { platform: 'facebook', label: 'Facebook Page', connected: false },
+  { platform: 'instagram', label: 'Instagram Business', connected: true },
+  { platform: 'tiktok', label: 'TikTok', connected: false }
+] });
+const sc = someUnconnected.find(s => s.id === 'social-connect');
+ok(!!sc && sc.title.startsWith('2 social platform'), 'unconnected platforms are counted and named');
+ok(sc.title.includes('Facebook Page') && sc.title.includes('TikTok') && !sc.title.includes('Instagram'), 'only the unconnected ones are listed');
+ok(sc.impact === 'high', 'an open-circuit growth loop ranks high');
+ok(!buildUpgradeSuggestions({ ...healthy, social: [{ platform: 'facebook', connected: true }] }).some(s => s.id === 'social-connect'),
+  'fully connected → no suggestion');
+ok(!buildUpgradeSuggestions({ ...healthy, social: null }).some(s => s.id === 'social-connect'),
+  'unknown status (status call failed) claims NOTHING — the advisor never guesses');
+const ytOn = buildUpgradeSuggestions({ ...healthy, social: [{ platform: 'youtube', label: 'YouTube', connected: true }] });
+const vid = ytOn.find(s => s.id === 'video-content');
+ok(!!vid && /AR7-owned photograph/.test(vid.why), 'a connected YouTube channel prompts Shorts from OWNED media — the copyright-safe path is stated in the suggestion itself');
+ok(!buildUpgradeSuggestions({ ...healthy, social: [{ platform: 'youtube', connected: false }] }).some(s => s.id === 'video-content'),
+  'no YouTube connection → no video prompt');
+
 console.log('\n-- ordering and the brief --');
 const noisy = buildUpgradeSuggestions({ cars: [], machines: [], articles: [], settings: {}, agents: healthy.agents, keywordSource: 'catalogue-only', now: NOW });
 const ranks = noisy.map(s => ({ high: 0, medium: 1, low: 2 })[s.impact]);
