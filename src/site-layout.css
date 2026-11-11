@@ -58,15 +58,18 @@
 }
 
 .nav-wrap .brand img {
-  /* 2026-11-19 (owner: "AR7 Traders needs to be bigger and prominent"):
-     52px mark + 16.5px wordmark on desktop; the tiers below scale down. */
-  flex: 0 0 52px;
-  width: 52px;
-  height: 52px;
+  /* 2026-11-19 (owner: "AR7 Traders needs to be bigger and prominent"),
+     stepped up again 2026-11-11 (owner round: "its size need to be a bit
+     more bigger"): 55px mark + 19px wordmark on desktop; tiers scale down. */
+  flex: 0 0 55px;
+  width: 55px;
+  height: 55px;
   border-radius: 12px;
 }
 
-/* The company name is the primary brand: natural width, never an ellipsis. */
+/* The company name is the primary brand: natural width, never an ellipsis.
+   19px/800 makes "TRADERS" WCAG large text (≥18.66px bold), so the
+   logo-matched --brand-gold (3.3:1) passes the 3:1 large-text bar. */
 .nav-wrap .brand span {
   flex: 0 0 auto;
   width: auto;
@@ -75,14 +78,14 @@
   overflow: visible;
   text-overflow: clip;
   white-space: nowrap;
-  font-size: 16.5px;
-  letter-spacing: 1.6px;
+  font-size: 19px;
+  letter-spacing: 1.7px;
 }
 
 .nav-wrap .brand small {
   margin-top: 4px;
-  font-size: 7px;
-  letter-spacing: 1.2px;
+  font-size: 7.5px;
+  letter-spacing: 1.3px;
 }
 
 /* Inline links. margin-inline:auto centres them between the brand and the
@@ -236,6 +239,12 @@
   .nav-wrap .brand span {
     font-size: 14.5px;
     letter-spacing: 1.2px;
+  }
+
+  /* Below 18.66px bold the wordmark is small text (WCAG 4.5:1), so the
+     logo gold deepens one step on light surfaces; dark keeps --brand-gold. */
+  html:not([data-theme=dark]) .nav-wrap .brand strong {
+    color: #96690a;
   }
 
   .nav-wrap .brand-group {
@@ -567,6 +576,11 @@
   .nav-wrap .brand span {
     font-size: 15px;
     letter-spacing: .8px;
+  }
+
+  /* Small-text tier again: deepen the wordmark gold to hold 4.5:1 (light). */
+  html:not([data-theme=dark]) .nav-wrap .brand strong {
+    color: #96690a;
   }
 
   /* The burger sheet stays short: Brands lives in More ("All brands") on
@@ -2097,7 +2111,9 @@ footer [id] {
   font: 700 8.5px/1 Manrope;
   letter-spacing: 2px;
   background: var(--gold);
-  color: #fff;
+  /* 2026-11-11: white on gold was ~2:1; deep brand green on gold reads
+     6.2:1 in dark and 5.3:1 in light, and matches the metallic buttons. */
+  color: #073b27;
   border-radius: 5px;
   padding: 5px 8px;
 }

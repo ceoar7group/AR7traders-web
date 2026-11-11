@@ -58,12 +58,26 @@ console.log('\n2) Gold-as-text meets WCAG AA on every light surface it sits on')
     const r = ratio(goldInk, surface.replace('#', ''));
     ok(r >= 4.5, `--gold-ink on ${name}: ${r.toFixed(2)}:1 (AA needs 4.5)`);
   }
+  // 2026-11-11 (owner: light-mode gold looked muddy): display gold split off
+  // into --gold-head, used ONLY on headline ems — large text, so WCAG AA asks
+  // 3:1, which lets it be visibly brighter than the 4.5:1 body ink.
+  const goldHead = s.match(/:root\{[^}]*--gold-head:(#[0-9a-f]{6})/i)?.[1];
+  ok(!!goldHead, `display token read from styles.css (--gold-head ${goldHead})`);
+  for (const [name, surface] of [['--bg', bg], ['white cards', '#ffffff']]) {
+    const r = ratio(goldHead, surface.replace('#', ''));
+    ok(r >= 3, `--gold-head (display sizes only) on ${name}: ${r.toFixed(2)}:1 (AA large text needs 3)`);
+  }
+  // The header wordmark gold (--brand-gold, matched to the logo) renders at
+  // 19px/800 — large text under WCAG, so it too must clear 3:1 on the nav card.
+  const brandGold = s.match(/:root\{[^}]*--brand-gold:(#[0-9a-f]{6})/i)?.[1];
+  ok(!!brandGold && ratio(brandGold, 'ffffff') >= 3,
+    `--brand-gold wordmark on the nav card: ${ratio(brandGold || 'ffffff', 'ffffff').toFixed(2)}:1 (AA large text needs 3)`);
   // The six spots Lighthouse failed now use the ink token, not raw gold.
   const e = css('expanded.css'), n = css('network.css'), p = css('pages.css'), m = css('machinery.css');
   ok(/\.inventory-group-head span\{[^}]*var\(--gold-ink\)/.test(e), 'inventory group label uses --gold-ink');
   ok(/\.hb-step>span\{[^}]*color:var\(--gold-ink\)/.test(e), 'how-to-buy step numbers use --gold-ink');
   ok(/\.faq-topic-title\{[^}]*var\(--gold-ink\)/.test(e), 'FAQ topic titles use --gold-ink');
-  ok(/\.world-copy h1 em\{[^}]*var\(--gold-ink\)/.test(n), 'world page headline em uses --gold-ink');
+  ok(/\.world-copy h1 em\{[^}]*var\(--gold-head\)/.test(n), 'world page headline em uses the display gold (--gold-head)');
   ok(/\.net-panel li b\{[^}]*var\(--gold-ink\)/.test(n), 'network panel markers use --gold-ink');
   ok(/\.feature-cards article>span\{[^}]*var\(--gold-ink\)/.test(p) && /\.shipping-flow span\{[^}]*var\(--gold-ink\)/.test(p),
     'feature card indices and shipping flow steps use --gold-ink');

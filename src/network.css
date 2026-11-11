@@ -4,7 +4,7 @@
 .world-page{padding-bottom:0}
 .world-hero{display:grid;grid-template-columns:.82fr 1.18fr;align-items:center;gap:44px;padding:var(--hero-lead) 0 60px;position:relative}
 .world-copy h1{font:700 clamp(44px,5vw,72px)/.98 Manrope;letter-spacing:-4px;margin:16px 0}
-.world-copy h1 em{font-style:normal;color:var(--gold-ink)}
+.world-copy h1 em{font-style:normal;color:var(--gold-head)}
 .world-copy>p{color:var(--muted);font-size:15px;line-height:1.75;max-width:470px}
 .world-copy>p b{color:var(--green-text)}
 .world-cta{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}

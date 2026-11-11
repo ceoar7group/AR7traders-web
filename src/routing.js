@@ -328,7 +328,14 @@ export function writeLocation(page, carId, { replace = false, make = null, machi
     ? machineHrefFor(machineType, machineRef)
     : (page === 'destinations' && destSlug) ? destinationPath(destSlug)
     : (m && page === 'inventory' && !carId) ? carLandingHref(m) : hrefFor(page, carId);
-  const url = withSearch(path, params) + hashFor(page, carId);
+  // The CRM owns its own hash: /crm#leads or /crm#vehicles/listings name the
+  // open desk (src/crm.jsx deskFromHash), so a refresh or shared link reopens
+  // it. Only legacy route hashes (#/page shapes) may be replaced here —
+  // without this guard the shell's initial writeLocation(replace:true) ran
+  // before the lazy CRM chunk mounted and clobbered the desk with #/crm.
+  const deskHash = (page === 'crm' && typeof location !== 'undefined' && /^#(?!\/)./.test(location.hash || ''))
+    ? location.hash : '';
+  const url = withSearch(path, params) + (deskHash || hashFor(page, carId));
   rememberVehicle(page === 'inventory' ? carId : null);
   const now = (typeof location === 'undefined')
     ? ''
