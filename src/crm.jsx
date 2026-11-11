@@ -531,7 +531,7 @@ const configs = {
       ['category', 'Category', 'select', { options: OPT.articleCategory }],
       ['date', 'Published date', 'text', { placeholder: 'Aug 18, 2026' }],
       ['read_min', 'Read minutes', 'number', { min: 1 }],
-      ['image', 'Image path', 'text', { placeholder: '/assets/…' }],
+      ['image', 'Cover photo path', 'text', { placeholder: 'Leave blank — a unique, unused cover is assigned automatically' }],
       ['published', 'Visible on website', 'check'],
       ['sort_order', 'Sort order', 'number', { min: 0 }],
       ['excerpt', 'Excerpt', 'textarea', { rows: 2, placeholder: 'One-sentence teaser shown on cards' }],

@@ -17,7 +17,10 @@
 import assert from 'node:assert/strict';
 import handler from '../api/site-content.js';
 import { undoPlan, undoSummary, logAutomation, UNDO_TABLES } from '../api/_activity.js';
-import { updateAgent, executeDraft, AGENTS } from '../api/_agents.js';
+import { updateAgent, executeDraft, AGENTS, AGENT_COVER_POOL, coverScene } from '../api/_agents.js';
+import { existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { relativeTime, describeEntry, groupByDay, SOURCE_LABELS } from '../src/activity-log.js';
 import { DEFAULTS } from '../api/_perm.js';
 
@@ -193,6 +196,10 @@ say('\n3) /api/site-content writes land in automation_log with snapshots');
   ok(log.length === 1 && log[0].source === 'topic-scout' && log[0].action === 'article-create', 'create logged, attributed to Topic Scout');
   ok(log[0].before_state === null && log[0].undo_kind === 'delete-row', 'create snapshot: before=null, undo deletes');
   const articleId = r.body.id;
+  // 2026-11-11 (owner screenshot: repeated covers on the news grid): a row
+  // saved without a cover must never reach the public site as image=null —
+  // the write assigns a scene-unique asset.
+  ok(String(r.body.image || '').startsWith('/assets/'), 'a coverless article create is assigned a real site asset as its cover');
   // …then publishes it.
   r = await run({ method: 'PATCH', query: { entity: 'articles', via: 'topic-scout' }, headers: H,
     body: { id: articleId, published: true } }, injected);
@@ -294,6 +301,43 @@ say('\n6) Agents write history too — config changes and executed drafts');
   const entry = db2.tables.automation_log.find(e => e.action === 'agent-article');
   ok(entry && /SEO Engine agent created/.test(entry.summary) && entry.undo_kind === 'delete-row', 'executed draft logged with undo (remove the created draft)');
   ok(entry.entity_id && db2.tables.site_articles.some(a => String(a.id) === String(entry.entity_id)), 'log points at the real created row');
+}
+
+// ---------------------------------------------------------------------------
+say('\n7) Article covers — a save without an image gets a scene-unique cover');
+{
+  // 2026-11-11 (owner screenshot: the public news grid showed the same photos
+  // across several cards): the write path owns uniqueness now. A coverless
+  // create gets an unworn asset, consecutive creates get DIFFERENT ones, a
+  // deliberate choice is never overridden, and blanking the field means
+  // "assign a fresh unique cover" — never "fall back to the shared default".
+  const db = fakeDb();
+  const injected = { db, getUser: userFor('ad1', 'admin'), permsFor };
+  const a = await run({ method: 'POST', query: { entity: 'articles' }, headers: H,
+    body: { title: 'Coverless A', body: 'Body', published: false } }, injected);
+  const b = await run({ method: 'POST', query: { entity: 'articles' }, headers: H,
+    body: { title: 'Coverless B', body: 'Body', published: false } }, injected);
+  ok(String(a.body.image || '').startsWith('/assets/'), 'coverless create is assigned a real site asset');
+  ok(String(b.body.image || '').startsWith('/assets/') && b.body.image !== a.body.image,
+    'the next coverless create wears a DIFFERENT cover — uniqueness enforced at the write');
+  const kept = await run({ method: 'PATCH', query: { entity: 'articles' }, headers: H,
+    body: { id: b.body.id, image: '/assets/og/help.jpg' } }, injected);
+  ok(kept.body.image === '/assets/og/help.jpg', 'a deliberately chosen cover is never overridden');
+  const blanked = await run({ method: 'PATCH', query: { entity: 'articles' }, headers: H,
+    body: { id: b.body.id, image: '' } }, injected);
+  ok(String(blanked.body.image || '').startsWith('/assets/') && blanked.body.image !== '/assets/og/help.jpg',
+    'blanking the cover re-assigns a fresh asset instead of leaving the shared default');
+
+  // The pool itself must stay honest: every path a real file on disk, every
+  // entry a DISTINCT scene (a .jpg/.webp twin of the same photo counts once),
+  // and big enough that one article batch cannot exhaust it.
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+  for (const asset of AGENT_COVER_POOL) {
+    ok(existsSync(join(root, 'public', asset.replace(/^\//, ''))), `${asset} exists in public/`);
+  }
+  const scenes = AGENT_COVER_POOL.map(coverScene);
+  ok(new Set(scenes).size === scenes.length, 'every pooled cover is a distinct scene');
+  ok(AGENT_COVER_POOL.length >= 20, `the cover pool holds ${AGENT_COVER_POOL.length} scenes (>= 20, bigger than one article batch)`);
 }
 
 say(`\n${pass} passed, ${fail} failed`);

@@ -75,7 +75,20 @@ export const GUIDE_ASSETS = [
   '/assets/covers/container-terminal-dusk.webp',
   '/assets/covers/roro-ramp-loading.webp',
   '/assets/covers/export-documents-desk.webp',
-  '/assets/covers/cargo-ship-at-sea.webp'
+  '/assets/covers/cargo-ship-at-sea.webp',
+  // 2026-11-11 (owner screenshot: the news grid showed repeated covers again):
+  // 31 live articles vs ~18 distinct scenes — uniqueness was impossible until
+  // the pool outgrew the catalogue. Ten NEW AR7-owned brand-neutral scenes.
+  '/assets/covers/port-gantry-night.webp',
+  '/assets/covers/harbor-cranes-sunset.webp',
+  '/assets/covers/container-lashing-car.webp',
+  '/assets/covers/cargo-ship-horizon.webp',
+  '/assets/covers/customs-stamp-documents.webp',
+  '/assets/covers/kei-truck-yard.webp',
+  '/assets/covers/family-wagon-lineup.webp',
+  '/assets/covers/engine-bay-inspection.webp',
+  '/assets/covers/showroom-key-handover.webp',
+  '/assets/covers/ev-charging-row.webp'
 ];
 
 /** How many per-URL crawl rows show before "View full list" (problems first). */

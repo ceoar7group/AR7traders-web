@@ -994,7 +994,23 @@ export const AGENT_COVER_POOL = [
   '/assets/japanese-car-auction-inspection-shipping-2.webp',
   '/assets/japanese-car-auction-inspection-shipping-3.webp',
   '/assets/japan-car-carrier-trucks-1.jpg',
-  '/assets/japan-vehicle-export-port-aerial-1.jpg'
+  '/assets/japan-vehicle-export-port-aerial-1.jpg',
+  // 2026-11-11 (owner screenshot: the news grid still showed repeated covers):
+  // 31 articles were competing for ~18 distinct scenes, so uniqueness was
+  // mathematically impossible no matter how carefully each desk picked. Ten
+  // NEW AR7-owned scenes under /assets/covers/ widen the pool past the size
+  // of the whole catalogue. Appended at the end so existing pick order (and
+  // the tests that pin it) are unchanged.
+  '/assets/covers/port-gantry-night.webp',
+  '/assets/covers/harbor-cranes-sunset.webp',
+  '/assets/covers/container-lashing-car.webp',
+  '/assets/covers/cargo-ship-horizon.webp',
+  '/assets/covers/customs-stamp-documents.webp',
+  '/assets/covers/kei-truck-yard.webp',
+  '/assets/covers/family-wagon-lineup.webp',
+  '/assets/covers/engine-bay-inspection.webp',
+  '/assets/covers/showroom-key-handover.webp',
+  '/assets/covers/ev-charging-row.webp'
 ];
 const COVER_OG_ALIASES = {
   shipping: 'japanese-car-auction-inspection-shipping-1',
@@ -1008,15 +1024,26 @@ export const coverScene = image => {
   return path.startsWith('/assets/og/') && COVER_OG_ALIASES[stem] ? COVER_OG_ALIASES[stem] : stem;
 };
 export async function pickUnusedCover(db) {
-  let used = new Set();
+  // One catalogue read feeds both passes below.
+  const counts = new Map();
   try {
     const { data } = await db.from('site_articles').select('image').limit(500);
-    used = new Set((data || []).map(r => coverScene(r.image)).filter(Boolean));
+    for (const r of data || []) {
+      const scene = coverScene(r?.image);
+      if (scene) counts.set(scene, (counts.get(scene) || 0) + 1);
+    }
   } catch { /* an unreadable catalogue still gets a cover — worst case a reused one */ }
-  for (const img of AGENT_COVER_POOL) if (!used.has(coverScene(img))) return img;
-  // Every pooled scene is taken: reuse the least-used one rather than write
-  // image=null (a null is what caused the duplicate-default problem).
-  return AGENT_COVER_POOL[0];
+  for (const img of AGENT_COVER_POOL) if (!counts.has(coverScene(img))) return img;
+  // Every pooled scene is taken: reuse the LEAST-WORN one rather than write
+  // image=null (a null is what caused the duplicate-default problem) and
+  // rather than always AGENT_COVER_POOL[0] (which is how six checklists once
+  // shipped wearing the same port aerial — repeats must spread, not stack).
+  let best = AGENT_COVER_POOL[0], bestCount = Infinity;
+  for (const img of AGENT_COVER_POOL) {
+    const n = counts.get(coverScene(img)) || 0;
+    if (n < bestCount) { best = img; bestCount = n; }
+  }
+  return best;
 }
 
 export async function executeDraft(db, draftId, actor, { env = process.env, now = Date.now(), fetch: fetchImpl = globalThis.fetch } = {}) {

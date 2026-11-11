@@ -92,7 +92,7 @@ import { handleActivity, logAutomation } from './_activity.js';
 import {
   runAgent, runScheduledAgents, growthOverview, draftDetail, approveDraft,
   executeDraft, cancelDraft, cancelRun, readAgents, updateAgent, agentSettings,
-  AI_GROWTH_MIGRATION_FILE
+  AI_GROWTH_MIGRATION_FILE, pickUnusedCover
 } from './_agents.js';
 export { machinePath, machineTypePath };
 
@@ -1025,6 +1025,16 @@ export default async function handler(req, res, injected = {}) {
 
   if (req.method === 'POST') {
     const payload = clean(entity, req.body);
+    // 2026-11-11 (owner screenshot: the news grid kept showing repeated cover
+    // photos): an article saved without a cover used to reach the public site
+    // as image=null, where every card then wore the SAME client-side fallback.
+    // The fix lives at the write, for every desk that lands here (CRM News &
+    // guides, Topic Scout, SEO desk alike): a blank cover means "pick one the
+    // catalogue is not already wearing" — same scene-unique pool the agents
+    // use. A deliberately chosen image is never overridden.
+    if (entity === 'articles' && !String(payload.image || '').trim()) {
+      payload.image = await pickUnusedCover(db);
+    }
     const {data, error} = await db.from(table).insert(payload).select().single();
     if (error) return send(res, 500, {error: error.message});
     await db.from('activities').insert({
@@ -1047,6 +1057,11 @@ export default async function handler(req, res, injected = {}) {
     // Snapshot the row BEFORE the change — this is what undo restores.
     const {data: beforeRow} = await db.from(table).select('*').eq('id', req.body.id).maybeSingle();
     const payload = {...clean(entity, req.body), updated_at: new Date().toISOString()};
+    // Same rule as the create above: blanking an article's cover in the editor
+    // means "give it a fresh unique one", never "fall back to the shared default".
+    if (entity === 'articles' && 'image' in payload && !String(payload.image || '').trim()) {
+      payload.image = await pickUnusedCover(db);
+    }
     const {data, error} = await db.from(table).update(payload).eq('id', req.body.id).select().single();
     if (error) return send(res, 500, {error: error.message});
     await db.from('activities').insert({

@@ -43,7 +43,13 @@ const EXT = /\.(jsx?|mjs|css|html|txt|xml|json|md|sql)$/i;
 // watermarked/competitor-branded covers and added four verified brand-safe
 // replacements (port aerial, auction hall, carrier trucks, Nissan Serena),
 // each under the 200 KB per-file cap. Real new media, not build artefacts.
-const MAX_PUBLIC_BYTES = 8.0 * 1000 * 1000;
+// Ratcheted 8.0 → 9.0 MB on 2026-11-11 (owner screenshot: the news grid was
+// showing repeated covers AGAIN): 31 live articles were sharing ~18 distinct
+// cover scenes, so duplicates were mathematically inevitable. Ten NEW
+// AR7-owned brand-neutral scenes under assets/covers/ (~870 KB of webp, each
+// under the per-file cap) grow the pool past the catalogue size. Real new
+// media, not build artefacts.
+const MAX_PUBLIC_BYTES = 9.0 * 1000 * 1000;
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;
