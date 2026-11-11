@@ -96,7 +96,14 @@ const GENERIC_COVERS = [
   '/assets/japan-vehicle-export-port-aerial-1.jpg',           // port aerial
   '/assets/japanese-car-auction-inspection-shipping-2.webp',  // RoRo vessel
   '/assets/japan-car-carrier-trucks-1.jpg',                   // carrier truck
-  '/assets/japanese-car-auction-inspection-shipping-3.webp'   // inspection bay
+  '/assets/japanese-car-auction-inspection-shipping-3.webp',  // inspection bay
+  // 2026-11-11: five NEW AR7-owned brand-neutral scenes (see LOGISTICS_COVERS
+  // note) — appended, so existing pick order stays pinned.
+  '/assets/covers/kei-truck-yard.webp',                       // kei truck rows
+  '/assets/covers/family-wagon-lineup.webp',                  // family wagons
+  '/assets/covers/engine-bay-inspection.webp',                // engine check
+  '/assets/covers/showroom-key-handover.webp',                // key handover
+  '/assets/covers/ev-charging-row.webp'                       // EV charging
 ];
 const LOGISTICS_COVERS = [
   '/assets/japan-vehicle-export-port-aerial-1.jpg',
@@ -112,7 +119,16 @@ const LOGISTICS_COVERS = [
   '/assets/covers/export-documents-desk.webp',
   '/assets/covers/cargo-ship-at-sea.webp',
   '/assets/japanese-car-auction-inspection-shipping-1.webp',
-  '/assets/japanese-car-auction-inspection-shipping-3.webp'
+  '/assets/japanese-car-auction-inspection-shipping-3.webp',
+  // 2026-11-11 (owner screenshot: duplicates were back): 31 live articles were
+  // competing for ~18 distinct scenes, so no picking logic could keep covers
+  // unique. Five NEW AR7-owned logistics scenes — appended so existing pick
+  // order stays pinned.
+  '/assets/covers/port-gantry-night.webp',
+  '/assets/covers/harbor-cranes-sunset.webp',
+  '/assets/covers/container-lashing-car.webp',
+  '/assets/covers/cargo-ship-horizon.webp',
+  '/assets/covers/customs-stamp-documents.webp'
 ];
 // Assets whose CONTENT shows a brand (verified by eye, not by filename).
 // suggestCoverFixes uses this to catch a cover wearing the WRONG make —
