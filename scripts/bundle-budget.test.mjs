@@ -386,7 +386,11 @@ for (const file of entryCss) {
 // stage arrows + the phone-bar overflow fix. The dead cross-fade rules
 // (.hero-stack, .car-float-title, .image-shade) were pruned to offset part
 // of it. Actual: 41.06 kB gzip.
-const CSS_BUDGET_GZIP = 43 * 1024; // 2026-11-09: see raw note above
+// 2026-11-11: 43 -> 43.25 kB. Owner request: machinery (China desk) cards
+// join the premium metal finish (chips, type badge, FOB tray, view/chat
+// buttons) and the maker row grew. Measured 43.07 kB gz after merging the
+// new selectors; raw stayed inside 225.
+const CSS_BUDGET_GZIP = 43.25 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
