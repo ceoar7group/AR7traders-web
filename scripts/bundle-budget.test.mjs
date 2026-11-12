@@ -395,7 +395,13 @@ for (const file of entryCss) {
 // (--gold-ink switches, status-chip tones, hero kicker) and the
 // content-visibility block for below-the-fold home sections. Measured
 // 43.26 kB gz / 225.28 kB raw — ~300 bytes of deliberate fixes.
-const CSS_BUDGET_GZIP = 43.5 * 1024;
+// 2026-11-03 (R41): 43.5 → 44.5 kB. Owner round: per-page hero motion scenes
+// (auction/shipping/about/contact + extra-page accents, CSS/SVG only — the
+// alternative was a JS animation library, which this budget exists to avoid),
+// the footer rebrand (transparent mark, wordmark, visible social buttons),
+// the home "shop by" rails and the integrated card-open split button, all in
+// src/landing-anim.css. Measured 44.35 kB gz / 228.14 kB raw.
+const CSS_BUDGET_GZIP = 44.5 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
@@ -430,7 +436,9 @@ const CSS_BUDGET_GZIP = 43.5 * 1024;
 // (plus re-pointed text pins), machinery facet/count dark rules, and the
 // brand-gold wordmark tokens. Measured 226.34 kB raw / 43.48 kB gzip — the
 // gzip budget is unchanged and still holds.
-const CSS_BUDGET_RAW = 227 * 1024;
+// 2026-11-03 (R41): 227 → 229.5 kB raw — src/landing-anim.css (same change
+// set as the gzip note above). Measured 228.14 kB raw.
+const CSS_BUDGET_RAW = 229.5 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

@@ -9,6 +9,7 @@ import './motion-account.css';
 import './landing-v2.css';
 import './expanded.css';
 import './detail-responsive.css';
+import './landing-anim.css';
 // The globe is the single heaviest thing on the public site and it is never
 // above the fold — the hero has its own lightweight visual and the header has
 // the world-time ribbon. Loading network.jsx on demand keeps it out of the
@@ -657,7 +658,8 @@ export function PageLink({to, navigate, opts, className, children, ...rest}) {
 // The second select now lists real MODELS and follows the chosen make, so a
 // buyer's very first click can land on /inventory already filtered to e.g.
 // Toyota + Alphard. Handover still goes through sessionStorage: the inventory
-// screen consumes ar7-inv-q / ar7-inv-make / ar7-inv-model on mount.
+// screen consumes ar7-inv-q / ar7-inv-make / ar7-inv-model on mount (and
+// ar7-inv-body / ar7-inv-price from the home "shop by" rails, 2026-11-03).
 function HeroSearch({t,navigate}){
  const [hsMake,setHsMake]=useState('All');
  const models=React.useMemo(()=>{
@@ -1289,7 +1291,7 @@ function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,in
  const signedIn=!!cust.session;
  const [,contentTick]=useReducer(x=>x+1,0);
  useEffect(()=>onContentChange(()=>contentTick()),[]);
- const [query,setQuery]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-body')||'All';if(v!=='All')sessionStorage.removeItem('ar7-inv-body');return v}catch{return 'All'}}),[make,setMake]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-make');if(v){sessionStorage.removeItem('ar7-inv-make');return initialMake||v}return initialMake||'All'}catch{return initialMake||'All'}}),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState('Any'),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-model');if(v){sessionStorage.removeItem('ar7-inv-model');return v}return 'All'}catch{return 'All'}}),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(()=>loadCifDest()||DEST[0][1]),[cifDest,setCifDest]=useState(loadCifDest),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false),[pageNo,setPageNo]=useState(1),[perPage,setPerPage]=useState(()=>{try{const v=Number(localStorage.getItem('ar7-inv-pp'));return [25,50,100].includes(v)?v:25}catch{return 25}});
+ const [query,setQuery]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-body')||'All';if(v!=='All')sessionStorage.removeItem('ar7-inv-body');return v}catch{return 'All'}}),[make,setMake]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-make');if(v){sessionStorage.removeItem('ar7-inv-make');return initialMake||v}return initialMake||'All'}catch{return initialMake||'All'}}),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-price')||'Any';if(v!=='Any')sessionStorage.removeItem('ar7-inv-price');return v}catch{return 'Any'}}),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-model');if(v){sessionStorage.removeItem('ar7-inv-model');return v}return 'All'}catch{return 'All'}}),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(()=>loadCifDest()||DEST[0][1]),[cifDest,setCifDest]=useState(loadCifDest),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false),[pageNo,setPageNo]=useState(1),[perPage,setPerPage]=useState(()=>{try{const v=Number(localStorage.getItem('ar7-inv-pp'));return [25,50,100].includes(v)?v:25}catch{return 25}});
  // Any change to a filter facet starts the visitor back on page 1 — a page
  // number only makes sense inside the result set it was computed for.
  useEffect(()=>{setPageNo(1)},[query,body,make,fuel,priceF,yearF,kmF,sortF,modelF,trF,steerF]);
@@ -1455,7 +1457,18 @@ if(page==='inventory')return <section className="inner-page"><div className="pag
  contact:{tag:t('page.contactKicker'),title:<>{t('page.contactH1a')}<br/><em>{t('page.contactH1em')}</em></>,desc:t('page.contactBody'),image:'/assets/japanese-car-auction-inspection-shipping-2.webp'}
  };
  const p=pages[page]||pages.about;
- return <section className="inner-page"><div className="page-hero split"><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p>{page==='contact'?<a className="gold-btn" href="#contact-enquiry">{t('page.sendEnquiry')} <ArrowRight/></a>:<button className="gold-btn" onClick={()=>openAuction({kind:page==='auction'?'auction':'contact'})} type="button">{t('page.getStarted')} <ArrowRight/></button>}</div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/><div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="128" height="79" src="/assets/ar7-mark-128.webp" srcSet="/assets/ar7-mark-128.webp 128w, /assets/ar7-mark-256.webp 256w" sizes="84px" alt="AR7 Traders" loading="lazy" decoding="async"/></div></div></div></div>
+ // 2026-11-03 (owner request): every landing page gets its own motion scene —
+ // pure CSS/SVG layers over the hero photo (transform/opacity only, disabled
+ // under prefers-reduced-motion), so each page feels distinct without adding
+ // any JS or heavy assets. Chip copy sticks to untranslated trade terms, the
+ // same register as the page-content strips below. The inventory page keeps
+ // its existing showcase untouched.
+ const heroScene=
+  page==='auction'?<div className="hero-scene hs-auction" aria-hidden="true"><span className="hs-sweep"/><span className="hs-chip hs-a1"><Gavel/> LIVE BID · ¥2,410,000</span><span className="hs-chip hs-a2">+¥30,000</span><span className="hs-chip hs-a3"><ClipboardCheck/> SHEET TRANSLATED · GRADE 4.5</span></div>:
+  page==='shipping'?<div className="hero-scene hs-shipping" aria-hidden="true"><svg className="hs-route" viewBox="0 0 440 150" fill="none" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path className="hs-route-line" d="M12 118 C 120 30, 300 150, 428 46"/></svg><span className="hs-ship"><Ship/></span><span className="hs-chip hs-s1">JAPAN · PORT OF YOKOHAMA</span><span className="hs-chip hs-s2">RoRo · DOCS · TRACKING</span></div>:
+  page==='about'?<div className="hero-scene hs-about" aria-hidden="true"><span className="hs-ring hs-r1"/><span className="hs-ring hs-r2"/><span className="hs-chip hs-b1"><Globe2/> JAPAN <ArrowRight/> WORLDWIDE</span><span className="hs-chip hs-b2"><ShieldCheck/> VERIFIED EXPORT PARTNER</span></div>:
+  page==='contact'?<div className="hero-scene hs-contact" aria-hidden="true"><span className="hs-pulse"><Phone/></span><span className="hs-chip hs-c1"><MessageCircle/> WHATSAPP · EMAIL · CALL</span><span className="hs-chip hs-c2"><Send/> JAPAN EXPORT DESK</span></div>:null;
+ return <section className="inner-page"><div className={"page-hero split hero-"+page}><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p>{page==='contact'?<a className="gold-btn" href="#contact-enquiry">{t('page.sendEnquiry')} <ArrowRight/></a>:<button className="gold-btn" onClick={()=>openAuction({kind:page==='auction'?'auction':'contact'})} type="button">{t('page.getStarted')} <ArrowRight/></button>}</div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/>{heroScene}<div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="128" height="79" src="/assets/ar7-mark-128.webp" srcSet="/assets/ar7-mark-128.webp 128w, /assets/ar7-mark-256.webp 256w" sizes="84px" alt="AR7 Traders" loading="lazy" decoding="async"/></div></div></div></div>
  <div className="shell page-content">{page==='auction'?<><div className="feature-intro"><h2>Auction access without the guesswork.</h2><p>Every listing comes with translation support, market guidance and complete cost visibility before you bid.</p></div><div className="feature-cards">{[['01','Browse live listings','Filter by make, year, mileage, grade and auction venue.'],['02','Review with an expert','We translate the auction sheet and flag every detail.'],['03','Set your bid limit','Know your landed estimate before bidding begins.'],['04','Win & track','See results instantly and follow your car to port.']].map(x=><article key={x[1]}><span>{x[0]}</span><Gavel/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div><div className="auction-demo"><div><span className="live-dot"/> AUCTION LOTS · SAMPLE</div>{cars.slice(0,4).map(c=><section key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><small>{stockLabel(c)}{c.grade?' · Grade '+c.grade:''}</small><strong>{price(c)}</strong><PageLink className="lot-link" to={`inventory?car=${carRef(c)}`} navigate={navigate}>View vehicle</PageLink></section>)}</div></>:
  page==='shipping'?<><div className="feature-intro"><h2>One clear route. Complete support.</h2><p>From export certificate to customs-ready documents, our logistics desk handles the complexity.</p></div><div className="shipping-flow">{[['Japan yard','Inspection & preparation'],['Export port','Customs & loading'],['At sea','Live milestone tracking'],['Your port','Documents & collection']].map((x,i)=><div key={x[0]}><span>0{i+1}</span><Ship/><b>{x[0]}</b><small>{x[1]}</small></div>)}</div><TrackShipment/></>:
  page==='about'?<><div className="feature-intro"><h2>{t('about.h2')}</h2><p>{t('about.body')}</p></div><div className="story-grid"><img loading="lazy" decoding="async" width="480" height="480" src="/assets/ar7-emblem-480.webp" alt="AR7 Traders — global vehicle exporters emblem"/><div><FounderStat variant="about"/><p>{t('about.story')}</p></div></div></>:
@@ -1848,6 +1861,37 @@ export function App(){
     <PageLink className="outline-btn" to="inventory" navigate={navigate}>{t('home.viewAll')} <ArrowRight/></PageLink>
    </section>
 
+   {/* 2026-11-03 (owner request, competitor reference screenshots): compact
+       "shop by" rails — make, body type and price — kept in AR7's own green/
+       gold theme rather than the competitor's navy. Counts are computed from
+       the live published list so they can never lie; every row lands on the
+       inventory with that filter pre-applied (make via the /cars/<make> URL,
+       body and price via the same sessionStorage handshake the hero search
+       already uses — the inventory consumes ar7-inv-body / ar7-inv-price on
+       mount). */}
+   <section className="shop-by shell section" aria-label="Shop by make, body type and price">
+    <div className="section-head"><div><div className="kicker">{t('home.shopKicker')}</div><h2>{t('home.shopH2a')}<br/><em>{t('home.shopH2b')}</em></h2></div><p>{t('home.shopBody')}</p></div>
+    <div className="shop-by-grid">
+     <div className="shop-col">
+      <div className="shop-col-head"><CarFront/> {t('home.shopByMake')}</div>
+      <div className="shop-col-rows">{BRANDS().slice(0,8).map(b=><PageLink key={b.name} className="shop-row" to={inventoryHref(b.name)} navigate={navigate}><img loading="lazy" decoding="async" width="34" height="20" src={LOGO(b.name)} alt="" onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></PageLink>)}</div>
+      <PageLink className="shop-col-all" to="inventory" navigate={navigate}>{t('home.shopAll')} <ArrowRight/></PageLink>
+     </div>
+     <div className="shop-col">
+      <div className="shop-col-head"><Gauge/> {t('home.shopByType')}</div>
+      <div className="shop-col-rows">{(()=>{const m={};cars.forEach(c=>{if(c.body)m[c.body]=(m[c.body]||0)+1});return Object.keys(m).sort((a,b)=>m[b]-m[a]).slice(0,8).map(bt=><button key={bt} type="button" className="shop-row" onClick={()=>{try{sessionStorage.setItem('ar7-inv-body',bt)}catch{/* storage may be off */}navigate('inventory')}}><i className="shop-body-ic"><CarFront/></i><span>{bt}</span><b>{m[bt]}</b></button>)})()}</div>
+      <PageLink className="shop-col-all" to="inventory" navigate={navigate}>{t('home.shopAll')} <ArrowRight/></PageLink>
+     </div>
+     <div className="shop-col">
+      <div className="shop-col-head"><BadgePercent/> {t('home.shopByPrice')}</div>
+      {/* Labels must match the inventory's PRICE_BANDS exactly — that is the
+          contract that lets the preset survive the navigation. */}
+      <div className="shop-col-rows shop-price-rows">{[['Under $10k',null,10000],['$10k – $20k',10000,20000],['$20k – $35k',20000,35000],['$35k – $60k',35000,60000],['$60k+',60000,null]].map(([label,lo,hi])=>{const n=cars.filter(c=>{const p=carDiscountedUSD(c,liveDiscounts);return (lo==null||p>=lo)&&(hi==null||p<hi)}).length;return n?<button key={label} type="button" className="shop-row" onClick={()=>{try{sessionStorage.setItem('ar7-inv-price',label)}catch{/* storage may be off */}navigate('inventory')}}><i className="shop-body-ic gold"><BadgePercent/></i><span>{label}</span><b>{n}</b></button>:null})}</div>
+      <PageLink className="shop-col-all" to="inventory" navigate={navigate}>{t('home.shopAll')} <ArrowRight/></PageLink>
+     </div>
+    </div>
+   </section>
+
    {/* 2026-11-08: recently-sold proof strip. Renders ONLY when the CRM has
        published listings marked "Sold" — no sold cars, no section, so the
        strip can never show invented sales. Marking a car Sold in the CRM
@@ -1928,7 +1972,13 @@ export function App(){
    </div>
    <div className="shell footer-grid">
     <div className="footer-brand">
-     <div className="footer-logo"><img width="150" height="150" src="/assets/ar7-logo.png" alt="AR7 Traders" loading="lazy" decoding="async"/></div>
+     {/* 2026-11-03 (owner screenshot): the square logo PNG carried its own
+         white background, so it sat on the dark footer as a white box. The
+         footer now uses a transparency-keyed export of the horizontal mark
+         (ar7-mark-footer.png — same artwork, white keyed out via the PNG
+         palette) plus a typeset wordmark, so the brand blends into the
+         footer instead of floating on it. */}
+     <div className="footer-logo"><img width="196" height="126" src="/assets/ar7-mark-footer.png" alt="" loading="lazy" decoding="async"/><span className="footer-wordmark"><b>AR7</b> TRADERS<small>GLOBAL VEHICLE EXPORTERS</small></span></div>
      <p>{t('footer.tagline')}</p>
      <div className="footer-trust"><span><ShieldCheck/> {t('footer.trustSecure')}</span><span><FileCheck/> {t('footer.trustSheets')}</span><span><Ship/> {t('footer.trustDelivery')}</span></div>
      <div className="socials"><a href="/inventory" onClick={linkClick('inventory',navigate)} title="Vehicle gallery"><Camera/></a><a href="/reviews" onClick={linkClick('reviews',navigate)} title="Customer stories"><MessageCircle/></a><a href="/contact" onClick={linkClick('contact',navigate)} title="Contact AR7"><Send/></a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer" title="WhatsApp AR7"><WhatsAppIcon size={15}/></a></div>
