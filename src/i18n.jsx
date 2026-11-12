@@ -6,14 +6,19 @@
 //
 // Switching updates `document.documentElement.lang` and `.dir` so screen
 // readers, search engines and the browser's own hyphenation all follow, and it
-// emits an `ar7:language` event that the SEO module listens to so the canonical
-// stays on the English URL (see src/seo.js). Translated pages are an aid for
-// buyers, not a second set of indexable pages: the catalogue, prices and stock
-// references stay identical, and we do not want a half-translated page ranking
-// in place of the real one.
+// emits an `ar7:language` event that the SEO module listens to (src/seo.js).
+//
+// 2026-11 (international SEO): the language is also in the URL. `?lang=ur` on
+// any page opens it in Urdu — so a shared link arrives in the reader's
+// language, and so Google can crawl and rank each language variant (applySeo
+// publishes the hreflang set and a self-canonical per variant). English stays
+// on the clean URL and is the x-default. The URL wins over localStorage on
+// arrival; switching rewrites the address bar in place (replaceState — a
+// language choice is not a navigation). The catalogue, prices and stock
+// references stay identical in every language.
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { LANGUAGES, DEFAULT_LANG, LANG_KEY, translate, isRtl, langMeta, registerDicts, loadedLangs } from './i18n.js';
+import { LANGUAGES, DEFAULT_LANG, LANG_KEY, LANG_PARAM, langFromSearch, translate, isRtl, langMeta, registerDicts, loadedLangs } from './i18n.js';
 import { Globe2, Check } from 'lucide-react';
 
 // The default context is complete on purpose: components rendered outside the
@@ -30,6 +35,12 @@ const LangContext = createContext({
 });
 
 const browserDefault = () => {
+  // A language named in the URL wins: it is what the sender of the link (or
+  // the search result the visitor clicked) explicitly asked this page to be.
+  try {
+    const fromUrl = langFromSearch(location.search);
+    if (fromUrl) return fromUrl;
+  } catch { /* no URL to read (isolated render tests) */ }
   try {
     const stored = localStorage.getItem(LANG_KEY);
     if (stored && LANGUAGES.some(l => l.code === stored)) return stored;
@@ -80,6 +91,18 @@ export function LanguageProvider({ children }) {
     root.dir = meta.dir;
     root.setAttribute('data-lang', code);
     try { localStorage.setItem(LANG_KEY, code); } catch { /* ignore */ }
+    // Keep the address bar naming the language (?lang=ur) so the URL someone
+    // copies opens in their language. English means the clean URL. Rewritten
+    // in place — switching languages is not a navigation, so no history entry.
+    try {
+      const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
+      if (code === DEFAULT_LANG) params.delete(LANG_PARAM);
+      else params.set(LANG_PARAM, code);
+      const search = params.toString();
+      const next = location.pathname + (search ? '?' + search : '') + (location.hash || '');
+      const now = location.pathname + (location.search || '') + (location.hash || '');
+      if (next !== now) history.replaceState(history.state, '', next);
+    } catch { /* no history to write (isolated render tests) */ }
     try { window.dispatchEvent(new CustomEvent('ar7:language', { detail: { code } })); } catch { /* ignore */ }
     // Keep any server-rendered/static copy in step with the choice.
     const metaDescription = document.querySelector('meta[name="description"]');

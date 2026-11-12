@@ -251,6 +251,25 @@ for (const [name, selector, physical] of RTL_FIXES) {
 }
 ok(rtlBad === 0, `all ${RTL_FIXES.length} physical leading edges are overridden for RTL (and none are dead)`);
 
+// ---- URL-addressable languages (?lang= — 2026-11 international SEO) --------
+// The language lives in the URL as well as localStorage: ?lang=ur opens any
+// page in Urdu, applySeo publishes the hreflang cluster, and each variant is
+// self-canonical. These pins stop the three halves drifting apart.
+console.log('\n-- URL-addressable languages --');
+{
+  const i18nJs = fs.readFileSync(path.join(ROOT, 'src/i18n.js'), 'utf8');
+  const i18nJsx = fs.readFileSync(path.join(ROOT, 'src/i18n.jsx'), 'utf8');
+  const seoJs = fs.readFileSync(path.join(ROOT, 'src/seo.js'), 'utf8');
+  ok(/export const LANG_PARAM = 'lang'/.test(i18nJs), "the URL parameter is 'lang' and shared from src/i18n.js");
+  ok(/langFromSearch\(location\.search\)/.test(i18nJsx), 'a ?lang= in the URL wins on arrival (browserDefault reads it first)');
+  ok(i18nJsx.indexOf('langFromSearch(location.search)') < i18nJsx.indexOf('localStorage.getItem(LANG_KEY)'),
+    'the URL is consulted before localStorage');
+  ok(/history\.replaceState\(history\.state/.test(i18nJsx), 'switching languages rewrites ?lang= in place — no history entry');
+  ok(/hreflang/.test(seoJs) && /'x-default'/.test(seoJs), 'applySeo publishes the hreflang cluster with an x-default');
+  ok(/langHref\(url, l\.code\)/.test(seoJs), 'the cluster is built from the clean canonical for every language');
+  ok(/addEventListener\('ar7:language'/.test(seoJs), 'the SEO head re-stamps itself when the language changes');
+}
+
 // ---- coverage report ------------------------------------------------------
 console.log('\n-- per-language coverage --');
 const identicalAllow = new Set(['footer.newsPlaceholder']);   // an e-mail example, same in every script

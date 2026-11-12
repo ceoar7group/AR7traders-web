@@ -21,6 +21,7 @@ import { listPriceUSD, machineYear, machineHours } from './machinery-data.js';
 import { destinationPath } from './sitemap-helpers.js';
 import { destinationFacts, destinationFaqs } from './destinations.js';
 import { priceWithOffer } from './offers.js';
+import { LANGUAGES, DEFAULT_LANG, normalizeLangCode, langHref } from './i18n.js';
 
 export const BASE = 'https://ar7traders.com';
 
@@ -594,11 +595,22 @@ export function applySeo(page, carId, car, opts = {}) {
                 : BASE + hrefFor(page, carId);
   const noindex = ['crm', 'account', 'portal', 'studio', 'seo', 'call'].includes(page) || vehicleMissing || machineMissing || articleMissing || destMissing;
 
+  // Which language this render serves (2026-11, international SEO). The
+  // provider stamps the visitor's choice on <html data-lang> before it
+  // announces `ar7:language`; a scratch document (build-time prerender, SEO
+  // desk audits) carries no stamp and is English. A non-English page is its
+  // own canonical at the ?lang= variant — never an "alternate of the English
+  // page" — which is what lets Google index all 15 language versions.
+  // Noindex pages stay on the clean URL: there is nothing to rank.
+  const lang = (!noindex && normalizeLangCode(opts.lang ?? doc.documentElement?.getAttribute('data-lang'))) || DEFAULT_LANG;
+  const pageUrl = langHref(url, lang);
+
   doc.title = title;
   setMeta('meta[name="description"]', 'content', description, doc);
   setMeta('meta[property="og:title"]', 'content', title, doc);
   setMeta('meta[property="og:description"]', 'content', description, doc);
-  setMeta('meta[property="og:url"]', 'content', url, doc);
+  setMeta('meta[property="og:url"]', 'content', pageUrl, doc);
+  setMeta('meta[property="og:locale"]', 'content', lang, doc);
   setMeta('meta[name="twitter:title"]', 'content', title, doc);
   setMeta('meta[name="twitter:description"]', 'content', description, doc);
 
@@ -637,7 +649,29 @@ export function applySeo(page, carId, car, opts = {}) {
     link.rel = 'canonical';
     doc.head.appendChild(link);
   }
-  link.href = url;
+  link.href = pageUrl;
+
+  // hreflang (2026-11): every indexable page exists in all 15 languages at
+  // ?lang= variants of its canonical URL; English is the clean URL and the
+  // x-default. The set is computed from the clean URL, so every variant
+  // publishes the SAME set and lists itself in it — the bidirectional
+  // confirmation Google requires before honouring hreflang. The prerender
+  // (scripts/prerender-guides.jsx) runs this same code, so every prerendered
+  // head (destinations, guides, static pages, machinery) carries the set in
+  // the first HTML pass; shell-served routes get it when the app boots, which
+  // Google's render pass sees — same as the canonical. Noindex pages: none.
+  for (const el of Array.from(doc.head.querySelectorAll('link[rel="alternate"][hreflang]'))) el.remove();
+  if (!noindex) {
+    const addAlt = (code, href) => {
+      const alt = doc.createElement('link');
+      alt.rel = 'alternate';
+      alt.setAttribute('hreflang', code);
+      alt.href = href;
+      doc.head.appendChild(alt);
+    };
+    for (const l of LANGUAGES) addAlt(l.code, langHref(url, l.code));
+    addAlt('x-default', url);
+  }
 
   // Breadcrumb rich result: inventory and guide detail routes retain their
   // three-level parent context; other top-level routes remain Home → Page.
@@ -785,9 +819,18 @@ export function useSeo(page, carId, car, opts = {}) {
   const destination = opts.destination ?? null;
   const destSlug = opts.destSlug ?? null;
   useEffect(() => {
-    applySeo(page, carId, car, { vehicleMissing, make, model, machineType, machineRef, machine,
+    const run = () => applySeo(page, carId, car, { vehicleMissing, make, model, machineType, machineRef, machine,
       machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount,
       destination, destSlug });
+    run();
+    // A language switch moves the canonical between the clean URL and its
+    // ?lang= variant (and back) without any route change — re-stamp the head
+    // when the provider announces it. On first load the provider's effect
+    // runs AFTER this one (child effects fire first), so the listener is
+    // already in place when a stored/URL language is announced.
+    if (typeof window === 'undefined') return undefined;
+    window.addEventListener('ar7:language', run);
+    return () => window.removeEventListener('ar7:language', run);
   }, [page, carId, car, vehicleMissing, make, model, machineType, machineRef, machine,
       machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount,
       destination, destSlug]);

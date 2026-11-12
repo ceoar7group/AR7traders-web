@@ -103,6 +103,14 @@ ok(writeLocation('inventory', null) === '/inventory#/inventory', 'leaving a bran
 location.search = ''; location.hash = '';
 ok(writeLocation('inventory', '43', { make: 'Toyota' }) === '/inventory/43#/inventory/43', 'opening a car drops the brand filter from the URL');
 ok(parseRoute({ pathname: '/inventory', hash: '', search: '?make=Toyota' }, { restoreOnReload: true }).carId === null, 'a brand link is never hijacked by the last-open vehicle');
+// The language variant (?lang=ur — 2026-11 international SEO) must survive
+// navigation: writeLocation rebuilds the query from location.search and may
+// only ever drop `car` and `make`. An Urdu reader who taps Contact must not
+// be flipped back to English by the router.
+location.pathname = '/'; location.search = '?lang=ur'; location.hash = '';
+ok(writeLocation('contact', null) === '/contact?lang=ur#/contact', 'writeLocation carries the ?lang= language variant across navigation');
+ok(writeLocation('inventory', '43') === '/inventory/43?lang=ur#/inventory/43', 'opening a car keeps the language variant too');
+location.search = '';
 
 // ---- a machine's own page is a real URL, not just renderable --------------
 // Regression: clicking a machine used to write /machinery to the address bar
