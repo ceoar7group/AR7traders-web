@@ -425,7 +425,12 @@ const CSS_BUDGET_GZIP = 43.5 * 1024;
 // row, 44px home pager buttons, hv=c foot-band contrast block and the ≤560
 // two-row route chip. Measured 219.98 kB raw / gzip inside 43.
 // 2026-11-11 (2): 225 → 225.5 kB raw — same fix set as the gzip note above.
-const CSS_BUDGET_RAW = 225.5 * 1024;
+// 2026-11-11 (3): 225.5 → 227 kB raw — the dark-theme contrast pass the owner
+// asked for: the home world band flips to a deep-green surface in dark mode
+// (plus re-pointed text pins), machinery facet/count dark rules, and the
+// brand-gold wordmark tokens. Measured 226.34 kB raw / 43.48 kB gzip — the
+// gzip budget is unchanged and still holds.
+const CSS_BUDGET_RAW = 227 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

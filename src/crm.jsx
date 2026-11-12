@@ -299,6 +299,20 @@ const tabs = [
   ['activities', 'Activity log', Activity]
 ];
 
+// Refresh-safe desks (2026-11-11 owner report: "on refresh it does not remain
+// on the same page"). The active desk lives in the URL hash — /crm#leads,
+// /crm#vehicles/listings — so a reload, a bookmark or a shared link all land
+// on the same desk instead of bouncing back to the overview.
+const TAB_IDS = new Set(tabs.map(([id]) => id));
+function deskFromHash() {
+  try {
+    const [t, sub] = String(window.location.hash || '').replace(/^#/, '').split('/');
+    if (t === 'listings') return { tab: 'vehicles', carSub: 'listings' }; // legacy id
+    if (TAB_IDS.has(t)) return { tab: t, carSub: t === 'vehicles' && sub === 'listings' ? 'listings' : 'vehicles' };
+  } catch { /* no window (tests/SSR): fall through */ }
+  return { tab: 'dashboard', carSub: 'vehicles' };
+}
+
 const PERM_LABELS = {
   'leads.write': 'Add / edit leads',
   'customers.write': 'Add / edit customers',
@@ -1188,10 +1202,10 @@ export default function CrmApp() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab] = useState(() => deskFromHash().tab);
   // The merged cars panel keeps the two record sets as sub-tabs: CRM inventory
   // ('vehicles', /api/crm) and the website showroom ('listings', /api/site-content).
-  const [carSub, setCarSub] = useState('vehicles');
+  const [carSub, setCarSub] = useState(() => deskFromHash().carSub);
   const [rows, setRows] = useState({});
   const [query, setQuery] = useState('');
   const [who, setWho] = useState(null);
@@ -1263,6 +1277,29 @@ export default function CrmApp() {
     }
   }, [tab]);
 
+  // A hand-edited hash (or a same-document navigation to /crm#tasks) should
+  // switch desks just like a refresh would.
+  useEffect(() => {
+    const onHash = () => {
+      const want = deskFromHash();
+      setTab(t => t === want.tab ? t : want.tab);
+      setCarSub(s => s === want.carSub ? s : want.carSub);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  // Mirror the active desk into the URL hash (replaceState: no history spam),
+  // so a refresh reopens exactly this desk. Counterpart of deskFromHash().
+  useEffect(() => {
+    try {
+      const want = '#' + tab + (tab === 'vehicles' && carSub === 'listings' ? '/listings' : '');
+      if (window.location.pathname.startsWith('/crm') && window.location.hash !== want) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search + want);
+      }
+    } catch { /* tests/SSR */ }
+  }, [tab, carSub]);
+
   async function loadAll() {
     setLoading(true);
     const keys = [...Object.keys(seed), ...SITE_ENTITIES, 'machinery'];
@@ -1272,13 +1309,23 @@ export default function CrmApp() {
         keys.forEach(k => out[k] = demoRead(k));
         setRows(out);
       } else {
-        const me = await api('me', session.access_token);
-        setProfile(me);
-        let matrix = perms;
+        // Warm start (2026-11-11 owner report: "CRM takes long in loading the
+        // data"): the previous load of THIS browser tab paints immediately
+        // while fresh rows stream in behind it. sessionStorage, not
+        // localStorage — the cache dies with the tab and never crosses users.
+        const cacheKey = 'ar7-crm-rows:' + (session?.user?.email || '');
         try {
-          matrix = await call('/api/team?action=permissions', session.access_token);
-          setPerms(matrix);
-        } catch { }
+          const cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
+          if (cached && typeof cached === 'object') setRows(v => (Object.keys(v).length ? v : cached));
+        } catch { /* corrupt/absent cache: cold start */ }
+        // Profile and the permission matrix ride in parallel — the matrix only
+        // gates which flavour of the stock reads to ask for.
+        const [me, matrix] = await Promise.all([
+          api('me', session.access_token),
+          call('/api/team?action=permissions', session.access_token).catch(() => perms)
+        ]);
+        setProfile(me);
+        setPerms(matrix);
         // Staff who may edit stock read the full, uncached dealer list (so a
         // promotion shows immediately and delisted cars stay re-listable).
         // Everyone else keeps the public read, which is all they may see.
@@ -1288,7 +1335,13 @@ export default function CrmApp() {
             const loaded = await api(k, session.access_token, {
               all: k === 'goonet' || k === 'machinery' ? allStock : undefined
             });
-            return [k, loaded, null];
+            // Machinery only: the bundled catalogue is on the public site, so
+            // it belongs in the desk too (flagged until it is added).
+            const value = k === 'machinery' ? withWebsiteCatalogue(loaded || []) : loaded;
+            // Each desk fills the moment ITS rows arrive — one slow endpoint
+            // no longer holds every other table hostage.
+            setRows(v => ({ ...v, [k]: value }));
+            return [k, value, null];
           } catch (e) {
             // A failed read used to be swallowed into `[]`, so the desk showed an
             // empty list with no reason — which is how "the machinery table was
@@ -1301,10 +1354,8 @@ export default function CrmApp() {
         // Errors are reported per entity and survive the other entities loading.
         setLoadIssues(Object.fromEntries(entries.filter(([, , issue]) => issue).map(([k, , issue]) => [k, issue])));
         const loaded = Object.fromEntries(entries.map(([k, value]) => [k, value]));
-        // Machinery only: the bundled catalogue is on the public site, so it
-        // belongs in the desk too (flagged until it is added).
-        loaded.machinery = withWebsiteCatalogue(loaded.machinery || []);
         setRows(loaded);
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(loaded)); } catch { /* quota: skip the warm cache */ }
       }
     } catch (e) {
       setNotice(e.message);
