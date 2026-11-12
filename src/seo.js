@@ -21,7 +21,7 @@ import { listPriceUSD, machineYear, machineHours } from './machinery-data.js';
 import { destinationPath } from './sitemap-helpers.js';
 import { destinationFacts, destinationFaqs } from './destinations.js';
 import { priceWithOffer } from './offers.js';
-import { LANGUAGES, DEFAULT_LANG, normalizeLangCode, langHref } from './i18n.js';
+import { LANGUAGES, DEFAULT_LANG, normalizeLangCode, langHref, translate } from './i18n.js';
 
 // R38 (2026-11-12): localized titles/descriptions live in src/seo-i18n.js,
 // which is loaded LAZILY alongside the language dictionaries — the English
@@ -826,6 +826,63 @@ export function applySeo(page, carId, car, opts = {}) {
       acceptedAnswer: {'@type': 'Answer', text: a}
     }))
   }) : null, doc);
+
+  // ---- AEO/GEO (2026-11-12, R39) -------------------------------------------
+  // Answer engines (Google AI Overviews, ChatGPT, Perplexity) assemble their
+  // answers from machine-readable facts. Two additions:
+  //
+  // /howbuy — a HowTo built from the SAME eight steps the page renders
+  // (hb.s1..s8 in the i18n dictionary, via translate() so markup always
+  // matches the visible copy — including when the page is read in Urdu).
+  // "How do I buy a car from Japan?" is the single highest-intent question
+  // in this business, and a stepped answer with our name on it is the
+  // snippet we want quoted.
+  setJsonLd('howto-jsonld', page === 'howbuy' ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: doc.title,
+    description: getMetaContent('meta[name="description"]', doc),
+    step: [1, 2, 3, 4, 5, 6, 7, 8].map(i => ({
+      '@type': 'HowToStep',
+      position: i,
+      name: translate(lang, `hb.s${i}t`),
+      text: translate(lang, `hb.s${i}p`)
+    }))
+  }) : null, doc);
+
+  // Home — Organization + WebSite identity. The contact facts mirror
+  // public/llms.txt (already public); no invented social profiles.
+  setJsonLd('org-jsonld', page === 'home' ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [{
+      '@type': 'Organization',
+      '@id': BASE + '/#organization',
+      name: 'AR7 Traders',
+      url: BASE + '/',
+      logo: BASE + '/assets/ar7-mark-256.webp',
+      description: 'Vehicle exporter: RHD cars from Japanese auctions, LHD cars from vetted Chinese suppliers and heavy machinery, inspected and shipped worldwide.',
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'sales',
+        email: 'ar7tradersinfo@gmail.com',
+        telephone: '+44 7347 132624',
+        availableLanguage: LANGUAGES.map(l => l.label)
+      }
+    }, {
+      '@type': 'WebSite',
+      '@id': BASE + '/#website',
+      name: 'AR7 Traders',
+      url: BASE + '/',
+      publisher: {'@id': BASE + '/#organization'},
+      inLanguage: LANGUAGES.map(l => l.code)
+    }]
+  }) : null, doc);
+}
+
+/** Current content of a head meta tag (JSON-LD helpers read what applySeo
+ *  itself just stamped, so description text is never duplicated here). */
+function getMetaContent(sel, doc) {
+  return doc.head?.querySelector(sel)?.getAttribute('content') || '';
 }
 
 /** Keeps the tab title, share preview and structured data in step with the page. */

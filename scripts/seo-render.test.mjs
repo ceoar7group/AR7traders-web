@@ -639,5 +639,60 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
     'localizedPageSeo: English and un-localized routes fall back to PAGE_SEO');
 }
 
+// ---- AEO structured data (2026-11, R39) -----------------------------------
+// /howbuy carries a HowTo built from the same eight i18n steps the page
+// renders; the home page carries the Organization + WebSite identity graph.
+// Both are scoped to their route and removed everywhere else.
+{
+  const { translate, LANGUAGES } = await import('../src/i18n.js');
+  document.documentElement.setAttribute('data-lang', 'en');
+
+  applySeo('howbuy', null);
+  const howto = jsonld('howto-jsonld');
+  ok(howto?.['@type'] === 'HowTo', '/howbuy carries HowTo JSON-LD');
+  ok(howto?.step?.length === 8, 'the HowTo has exactly 8 steps');
+  ok(howto?.step?.every((s, i) =>
+      s['@type'] === 'HowToStep' && s.position === i + 1 &&
+      s.name === translate('en', `hb.s${i + 1}t`) && s.text === translate('en', `hb.s${i + 1}p`)),
+    'every step mirrors the visible hb.sNt/hb.sNp copy in order');
+  ok(howto?.name === document.title && howto?.description === meta('meta[name="description"]'),
+    'the HowTo name/description reuse the stamped head, never a second copy');
+  ok(jsonld('org-jsonld') === null, 'the Organization graph does not ride along to /howbuy');
+
+  applySeo('home', null);
+  const graph = jsonld('org-jsonld')?.['@graph'];
+  ok(Array.isArray(graph) && graph.length === 2, 'home carries an Organization + WebSite graph');
+  const [org, site] = graph || [{}, {}];
+  ok(org['@type'] === 'Organization' && org.name === 'AR7 Traders' &&
+     org.url === 'https://ar7traders.com/' && org.logo === 'https://ar7traders.com/assets/ar7-mark-256.webp',
+    'Organization identity: name, url and logo');
+  ok(org.contactPoint?.email === 'ar7tradersinfo@gmail.com' &&
+     org.contactPoint?.telephone === '+44 7347 132624',
+    'Organization contact facts mirror llms.txt (no invented data)');
+  ok(org.contactPoint?.availableLanguage?.length === LANGUAGES.length,
+    'the contact point lists all supported languages');
+  ok(site['@type'] === 'WebSite' && site.publisher?.['@id'] === org['@id'] &&
+     site.inLanguage?.length === LANGUAGES.length,
+    'WebSite links back to the Organization and declares all languages');
+  ok(jsonld('howto-jsonld') === null, 'the HowTo is removed when leaving /howbuy');
+
+  applySeo('contact', null);
+  ok(jsonld('org-jsonld') === null && jsonld('howto-jsonld') === null,
+    'neither AEO block rides along to other routes');
+}
+
+// ---- route-level Suspense fallbacks hold the viewport (2026-11, CLS fix) ---
+// Lazy page chunks used to swap in under a short fallback, shoving the footer
+// down for a 0.35 layout shift on /howbuy. Every route-level fallback must
+// carry .route-fallback, and the CSS must reserve viewport height for it.
+{
+  const mainSrc = readFileSync(path.join(dir, '../src/main.jsx'), 'utf8');
+  const bad = [...mainSrc.matchAll(/fallback=\{<div className="empty-state(?! route-fallback)"/g)];
+  ok(bad.length === 0, `route-level Suspense fallbacks all carry .route-fallback (${bad.length} missing)`);
+  const css = readFileSync(path.join(dir, '../src/expanded.css'), 'utf8');
+  ok(/\.route-fallback\{[^}]*min-height:calc\(100vh/.test(css),
+    '.route-fallback reserves (at least) the viewport height');
+}
+
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');
 process.exit(failed ? 1 : 0);
