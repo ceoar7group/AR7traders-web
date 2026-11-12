@@ -575,8 +575,10 @@ ok(!/Disallow:\s*\/\s*$/m.test(robots), 'robots.txt does not disallow the whole 
 // URL in it must be a route the SPA actually serves — a sitemap listing a dead
 // path is worse than no sitemap.
 const staticSitemap = readFileSync(join(ROOT, 'public/sitemap.xml'), 'utf8');
-ok(staticSitemap.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'),
-  'public/sitemap.xml is a sitemaps.org urlset');
+// 2026-11-12 (R38): the urlset also declares the xhtml namespace — every URL
+// now announces its 15 ?lang= alternates + x-default to the crawlers.
+ok(staticSitemap.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'),
+  'public/sitemap.xml is a sitemaps.org urlset (with the xhtml alternates namespace)');
 const staticLocs = [...staticSitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]);
 ok(staticLocs.length > 0, `the static sitemap lists ${staticLocs.length} URLs`);
 ok(staticLocs.every(l => l.startsWith('https://ar7traders.com/')),

@@ -65,4 +65,30 @@ for (const path of staticHeadRoutes) {
   dom.window.close();
 }
 
-console.log(`Indexing follow-up: ${paths.length + staticHeadRoutes.length} HTML routes, sync health and editorial cadence pass.`);
+// ---------------------------------------------------------------------------
+// 2026-11-12 (R38, owner backlog "sitemap xhtml:link alternates"): the static
+// sitemap now announces every page's 15 language variants + x-default, so
+// Google discovers the ?lang= URLs from the sitemap instead of having to
+// crawl and render each page first. Pins: the xhtml namespace is declared,
+// every <url> carries exactly 16 alternates, en and x-default point at the
+// clean URL, and the variant URLs use the ?lang= parameter R36 shipped.
+// ---------------------------------------------------------------------------
+{
+  const sm = readFileSync('public/sitemap.xml', 'utf8');
+  assert.ok(sm.includes('xmlns:xhtml="http://www.w3.org/1999/xhtml"'),
+    'the urlset declares the xhtml namespace for the alternate links');
+  const urlBlocks = sm.split('<url>').slice(1);
+  assert.ok(urlBlocks.length >= 60, `the sitemap still lists the full site (${urlBlocks.length} URLs)`);
+  for (const block of urlBlocks) {
+    const loc = block.match(/<loc>([^<]+)<\/loc>/)[1];
+    const alts = [...block.matchAll(/<xhtml:link rel="alternate" hreflang="([^"]+)" href="([^"]+)"\/>/g)];
+    assert.equal(alts.length, 16, `${loc} carries 15 language alternates + x-default`);
+    const byLang = Object.fromEntries(alts.map(a => [a[1], a[2]]));
+    assert.equal(byLang.en, loc, `${loc}: the en alternate is the clean URL`);
+    assert.equal(byLang['x-default'], loc, `${loc}: x-default is the clean URL`);
+    assert.ok(byLang.ur.includes('lang=ur') && byLang.sw.includes('lang=sw'),
+      `${loc}: variants use the ?lang= parameter`);
+  }
+}
+
+console.log(`Indexing follow-up: ${paths.length + staticHeadRoutes.length} HTML routes, sitemap alternates, sync health and editorial cadence pass.`);

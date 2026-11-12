@@ -1,296 +1,1430 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://ar7traders.com/</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/inventory</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/inventory"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/inventory?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/inventory?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/inventory?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/inventory?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/inventory?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/inventory?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/inventory?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/inventory?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/inventory?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/inventory?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/inventory?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/inventory?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/inventory?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/inventory?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/inventory"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/auction</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/auction"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/auction?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/auction?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/auction?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/auction?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/auction?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/auction?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/auction?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/auction?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/auction?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/auction?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/auction?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/auction?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/auction?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/auction?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/auction"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/loaders</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/loaders"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/loaders?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/loaders?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/loaders?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/loaders?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/loaders?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/loaders?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/loaders?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/loaders?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/loaders?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/loaders?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/loaders?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/loaders?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/loaders?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/loaders?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/loaders"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/trucks</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/trucks"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/trucks?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/trucks?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/trucks?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/trucks?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/trucks?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/trucks?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/trucks?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/trucks?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/trucks?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/trucks?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/trucks?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/trucks?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/trucks?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/trucks?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/trucks"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/cranes</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/cranes"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/cranes?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/cranes?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/cranes?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/cranes?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/cranes?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/cranes?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/cranes?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/cranes?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/cranes?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/cranes?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/cranes?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/cranes?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/cranes?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/cranes?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/cranes"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/services</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/services"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/services?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/services?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/services?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/services?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/services?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/services?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/services?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/services?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/services?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/services?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/services?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/services?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/services?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/services?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/services"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/brands</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/brands"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/brands?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/brands?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/brands?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/brands?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/brands?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/brands?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/brands?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/brands?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/brands?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/brands?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/brands?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/brands?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/brands?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/brands?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/brands"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/destinations</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/destinations/kenya</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/kenya"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/kenya?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/kenya?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/kenya?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/kenya?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/kenya?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/kenya?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/kenya?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/kenya?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/kenya?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/kenya?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/kenya?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/kenya?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/kenya?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/kenya?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/kenya"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/destinations/pakistan</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/pakistan"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/pakistan?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/pakistan?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/pakistan?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/pakistan?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/pakistan?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/pakistan?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/pakistan?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/pakistan?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/pakistan?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/pakistan?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/pakistan?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/pakistan?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/pakistan?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/pakistan?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/pakistan"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/destinations/uae</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/uae"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/uae?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/uae?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/uae?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/uae?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/uae?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/uae?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/uae?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/uae?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/uae?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/uae?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/uae?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/uae?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/uae?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/uae?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/uae"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/destinations/united-kingdom</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/united-kingdom"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/united-kingdom?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/united-kingdom?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/united-kingdom?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/united-kingdom?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/united-kingdom?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/united-kingdom?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/united-kingdom?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/united-kingdom?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/united-kingdom?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/united-kingdom?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/united-kingdom?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/united-kingdom?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/united-kingdom?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/united-kingdom?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/united-kingdom"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/destinations/new-zealand</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/new-zealand"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/new-zealand?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/new-zealand?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/new-zealand?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/new-zealand?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/new-zealand?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/new-zealand?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/new-zealand?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/new-zealand?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/new-zealand?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/new-zealand?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/new-zealand?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/new-zealand?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/new-zealand?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/new-zealand?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/new-zealand"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/destinations/tanzania</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/tanzania"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/tanzania?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/tanzania?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/tanzania?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/tanzania?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/tanzania?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/tanzania?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/tanzania?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/tanzania?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/tanzania?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/tanzania?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/tanzania?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/tanzania?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/tanzania?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/tanzania?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/tanzania"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/tools</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/tools"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/tools?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/tools?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/tools?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/tools?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/tools?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/tools?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/tools?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/tools?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/tools?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/tools?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/tools?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/tools?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/tools?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/tools?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/tools"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/world</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/world"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/world?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/world?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/world?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/world?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/world?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/world?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/world?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/world?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/world?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/world?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/world?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/world?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/world?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/world?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/world"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/howbuy</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/howbuy"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/howbuy?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/howbuy?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/howbuy?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/howbuy?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/howbuy?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/howbuy?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/howbuy?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/howbuy?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/howbuy?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/howbuy?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/howbuy?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/howbuy?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/howbuy?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/howbuy?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/howbuy"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/news</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/news"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/news?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/news?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/news?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/news?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/news?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/news?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/news?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/news?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/news?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/news?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/news?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/news?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/news?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/news?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/news"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/news/why-land-cruiser-demand-keeps-climbing-in-pakistan"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/news/auction-sheet-decoded-what-r-a-and-4-5-really-mean"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/news/roro-vs-container-which-shipping-method-fits-your-car"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/news/how-online-bidding-works-with-ar7</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/news/how-online-bidding-works-with-ar7"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/about</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/about"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/about?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/about?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/about?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/about?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/about?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/about?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/about?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/about?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/about?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/about?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/about?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/about?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/about?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/about?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/about"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/reviews</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/reviews"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/reviews?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/reviews?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/reviews?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/reviews?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/reviews?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/reviews?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/reviews?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/reviews?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/reviews?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/reviews?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/reviews?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/reviews?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/reviews?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/reviews?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/reviews"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/faq</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/faq"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/faq?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/faq?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/faq?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/faq?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/faq?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/faq?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/faq?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/faq?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/faq?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/faq?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/faq?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/faq?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/faq?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/faq?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/faq"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/privacy</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/privacy"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/privacy?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/privacy?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/privacy?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/privacy?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/privacy?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/privacy?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/privacy?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/privacy?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/privacy?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/privacy?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/privacy?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/privacy?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/privacy?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/privacy?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/privacy"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/cookies</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/cookies"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/cookies?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/cookies?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/cookies?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/cookies?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/cookies?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/cookies?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/cookies?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/cookies?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/cookies?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/cookies?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/cookies?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/cookies?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/cookies?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/cookies?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/cookies"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/terms</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/terms"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/terms?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/terms?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/terms?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/terms?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/terms?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/terms?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/terms?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/terms?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/terms?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/terms?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/terms?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/terms?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/terms?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/terms?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/terms"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/contact</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/contact"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/contact?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/contact?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/contact?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/contact?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/contact?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/contact?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/contact?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/contact?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/contact?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/contact?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/contact?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/contact?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/contact?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/contact?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/contact"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/shipping</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/shipping"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/shipping?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/shipping?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/shipping?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/shipping?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/shipping?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/shipping?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/shipping?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/shipping?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/shipping?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/shipping?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/shipping?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/shipping?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/shipping?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/shipping?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/shipping"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators/AR7-MC-001</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators/AR7-MC-001"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators/AR7-MC-001?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators/AR7-MC-001"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators/AR7-MC-002</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators/AR7-MC-002"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators/AR7-MC-002?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators/AR7-MC-002"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators/AR7-MC-003</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators/AR7-MC-003"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators/AR7-MC-003?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators/AR7-MC-003"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators/AR7-MC-004</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators/AR7-MC-004"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators/AR7-MC-004?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators/AR7-MC-004"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators/AR7-MC-005</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators/AR7-MC-005"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators/AR7-MC-005?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators/AR7-MC-005"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators/AR7-MC-006</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators/AR7-MC-006"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators/AR7-MC-006?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators/AR7-MC-006"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/excavators/AR7-MC-007</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/excavators/AR7-MC-007"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/excavators/AR7-MC-007?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/excavators/AR7-MC-007"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/loaders/AR7-MC-008</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/loaders/AR7-MC-008"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/loaders/AR7-MC-008?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/loaders/AR7-MC-008"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/loaders/AR7-MC-009</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/loaders/AR7-MC-009"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/loaders/AR7-MC-009?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/loaders/AR7-MC-009"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/trucks/AR7-MC-010</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/trucks/AR7-MC-010"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/trucks/AR7-MC-010?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/trucks/AR7-MC-010"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/trucks/AR7-MC-011</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/trucks/AR7-MC-011"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/trucks/AR7-MC-011?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/trucks/AR7-MC-011"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ar7traders.com/machinery/cranes/AR7-MC-012</loc>
-    <lastmod>2026-11-08</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/machinery/cranes/AR7-MC-012"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/machinery/cranes/AR7-MC-012?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/machinery/cranes/AR7-MC-012"/>
+    <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
-  <url><loc>https://ar7traders.com/destinations/australia</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/usa</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/uganda</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/zambia</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/zimbabwe</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/mozambique</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/dr-congo</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/botswana</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/jamaica</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/trinidad-and-tobago</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/guyana</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/fiji</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/papua-new-guinea</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/sri-lanka</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/bangladesh</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/mongolia</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/ireland</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/cyprus</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/malta</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/oman</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://ar7traders.com/destinations/qatar</loc><lastmod>2026-11-06</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/australia</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/australia"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/australia?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/australia?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/australia?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/australia?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/australia?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/australia?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/australia?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/australia?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/australia?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/australia?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/australia?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/australia?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/australia?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/australia?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/australia"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/usa</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/usa"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/usa?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/usa?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/usa?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/usa?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/usa?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/usa?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/usa?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/usa?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/usa?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/usa?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/usa?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/usa?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/usa?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/usa?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/usa"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/news/checking-your-japanese-vehicle-export-documents"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/news/comparing-fob-and-cif-vehicle-quotations"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/uganda</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/uganda"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/uganda?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/uganda?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/uganda?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/uganda?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/uganda?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/uganda?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/uganda?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/uganda?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/uganda?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/uganda?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/uganda?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/uganda?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/uganda?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/uganda?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/uganda"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/zambia</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/zambia"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/zambia?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/zambia?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/zambia?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/zambia?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/zambia?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/zambia?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/zambia?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/zambia?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/zambia?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/zambia?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/zambia?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/zambia?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/zambia?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/zambia?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/zambia"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/zimbabwe</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/zimbabwe"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/zimbabwe?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/zimbabwe?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/zimbabwe?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/zimbabwe?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/zimbabwe?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/zimbabwe?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/zimbabwe?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/zimbabwe?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/zimbabwe?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/zimbabwe?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/zimbabwe?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/zimbabwe?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/zimbabwe?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/zimbabwe?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/zimbabwe"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/mozambique</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/mozambique"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/mozambique?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/mozambique?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/mozambique?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/mozambique?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/mozambique?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/mozambique?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/mozambique?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/mozambique?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/mozambique?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/mozambique?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/mozambique?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/mozambique?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/mozambique?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/mozambique?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/mozambique"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/dr-congo</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/dr-congo"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/dr-congo?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/dr-congo?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/dr-congo?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/dr-congo?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/dr-congo?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/dr-congo?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/dr-congo?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/dr-congo?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/dr-congo?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/dr-congo?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/dr-congo?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/dr-congo?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/dr-congo?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/dr-congo?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/dr-congo"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/botswana</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/botswana"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/botswana?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/botswana?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/botswana?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/botswana?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/botswana?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/botswana?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/botswana?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/botswana?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/botswana?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/botswana?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/botswana?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/botswana?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/botswana?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/botswana?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/botswana"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/jamaica</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/jamaica"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/jamaica?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/jamaica?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/jamaica?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/jamaica?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/jamaica?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/jamaica?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/jamaica?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/jamaica?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/jamaica?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/jamaica?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/jamaica?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/jamaica?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/jamaica?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/jamaica?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/jamaica"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/trinidad-and-tobago</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/trinidad-and-tobago"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/trinidad-and-tobago?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/trinidad-and-tobago"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/guyana</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/guyana"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/guyana?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/guyana?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/guyana?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/guyana?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/guyana?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/guyana?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/guyana?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/guyana?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/guyana?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/guyana?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/guyana?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/guyana?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/guyana?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/guyana?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/guyana"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/fiji</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/fiji"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/fiji?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/fiji?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/fiji?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/fiji?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/fiji?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/fiji?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/fiji?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/fiji?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/fiji?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/fiji?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/fiji?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/fiji?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/fiji?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/fiji?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/fiji"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/papua-new-guinea</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/papua-new-guinea"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/papua-new-guinea?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/papua-new-guinea?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/papua-new-guinea?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/papua-new-guinea?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/papua-new-guinea?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/papua-new-guinea?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/papua-new-guinea?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/papua-new-guinea?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/papua-new-guinea?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/papua-new-guinea?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/papua-new-guinea?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/papua-new-guinea?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/papua-new-guinea?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/papua-new-guinea?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/papua-new-guinea"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/sri-lanka</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/sri-lanka"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/sri-lanka?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/sri-lanka?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/sri-lanka?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/sri-lanka?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/sri-lanka?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/sri-lanka?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/sri-lanka?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/sri-lanka?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/sri-lanka?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/sri-lanka?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/sri-lanka?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/sri-lanka?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/sri-lanka?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/sri-lanka?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/sri-lanka"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/bangladesh</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/bangladesh"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/bangladesh?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/bangladesh?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/bangladesh?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/bangladesh?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/bangladesh?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/bangladesh?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/bangladesh?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/bangladesh?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/bangladesh?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/bangladesh?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/bangladesh?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/bangladesh?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/bangladesh?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/bangladesh?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/bangladesh"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/mongolia</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/mongolia"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/mongolia?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/mongolia?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/mongolia?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/mongolia?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/mongolia?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/mongolia?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/mongolia?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/mongolia?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/mongolia?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/mongolia?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/mongolia?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/mongolia?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/mongolia?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/mongolia?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/mongolia"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/ireland</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/ireland"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/ireland?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/ireland?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/ireland?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/ireland?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/ireland?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/ireland?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/ireland?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/ireland?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/ireland?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/ireland?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/ireland?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/ireland?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/ireland?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/ireland?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/ireland"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/cyprus</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/cyprus"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/cyprus?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/cyprus?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/cyprus?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/cyprus?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/cyprus?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/cyprus?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/cyprus?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/cyprus?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/cyprus?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/cyprus?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/cyprus?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/cyprus?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/cyprus?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/cyprus?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/cyprus"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/malta</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/malta"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/malta?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/malta?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/malta?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/malta?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/malta?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/malta?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/malta?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/malta?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/malta?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/malta?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/malta?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/malta?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/malta?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/malta?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/malta"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/oman</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/oman"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/oman?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/oman?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/oman?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/oman?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/oman?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/oman?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/oman?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/oman?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/oman?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/oman?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/oman?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/oman?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/oman?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/oman?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/oman"/>
+   <lastmod>2026-11-12</lastmod></url>
+  <url>
+    <loc>https://ar7traders.com/destinations/qatar</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ar7traders.com/destinations/qatar"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://ar7traders.com/destinations/qatar?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ps" href="https://ar7traders.com/destinations/qatar?lang=ps"/>
+    <xhtml:link rel="alternate" hreflang="ur" href="https://ar7traders.com/destinations/qatar?lang=ur"/>
+    <xhtml:link rel="alternate" hreflang="fa" href="https://ar7traders.com/destinations/qatar?lang=fa"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://ar7traders.com/destinations/qatar?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ar7traders.com/destinations/qatar?lang=de"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ar7traders.com/destinations/qatar?lang=ru"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://ar7traders.com/destinations/qatar?lang=es"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://ar7traders.com/destinations/qatar?lang=pt"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://ar7traders.com/destinations/qatar?lang=tr"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://ar7traders.com/destinations/qatar?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ar7traders.com/destinations/qatar?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="sw" href="https://ar7traders.com/destinations/qatar?lang=sw"/>
+    <xhtml:link rel="alternate" hreflang="ha" href="https://ar7traders.com/destinations/qatar?lang=ha"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ar7traders.com/destinations/qatar"/>
+   <lastmod>2026-11-12</lastmod></url>
 </urlset>
