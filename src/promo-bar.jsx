@@ -52,8 +52,24 @@ export function PromoBar({ navigate }) {
   const [promo, setPromo] = useState(null);
   useState(() => {   // runs once, synchronously, before the browser paints
     try {
-      const h = parseInt(localStorage.getItem(HEIGHT_KEY) || '', 10);
-      if (h > 0 && h < 200) document.documentElement.style.setProperty('--promo-h', Math.max(h - marginDelta(), 0) + 'px');
+      const stored = localStorage.getItem(HEIGHT_KEY);
+      if (stored != null) {
+        // A previous visit measured the real bar (or confirmed '0' = no
+        // campaign). Reserve exactly that; zero means reserve nothing.
+        const h = parseInt(stored, 10);
+        if (Number.isFinite(h) && h >= 0 && h < 200) {
+          document.documentElement.style.setProperty('--promo-h', Math.max(h - marginDelta(), 0) + 'px');
+          return;
+        }
+      }
+      // FIRST visit: nothing is known yet, and this is the visit Lighthouse
+      // and every new customer gets. A campaign is live far more often than
+      // not, so reserve one typical row optimistically — when the promo
+      // answers it lands in already-reserved space (CLS ≈ 0) instead of
+      // pushing the nav and the hero down (the 2026-11 mobile CLS culprit).
+      // If no campaign is live the slot collapses once, and '0' is stored so
+      // the next visit reserves nothing.
+      document.documentElement.style.setProperty('--promo-h', Math.max(47 - marginDelta(), 0) + 'px');
     } catch { /* private mode: first paint reserves nothing, as before */ }
   });
   const [hidden, setHidden] = useState(false);
@@ -133,8 +149,10 @@ export function PromoBar({ navigate }) {
       // Only a CONFIRMED "no campaign" clears the reservation; while the
       // answer is in flight the previous visit's height keeps holding the
       // nav in place (the empty .promo-slot below occupies it).
+      // '0' is stored (not removed) so the next visit knows "no campaign"
+      // and skips the optimistic first-visit reservation above.
       root.style.setProperty('--promo-h', '0px');
-      try { localStorage.removeItem(HEIGHT_KEY); } catch { /* ignore */ }
+      try { localStorage.setItem(HEIGHT_KEY, '0'); } catch { /* ignore */ }
     }
     return () => root.style.setProperty('--promo-h', '0px');
   }, [promo?.id, hidden, currentStockRow?.id, offerHidden, campaign?.id, offerLine?.id, settled]);

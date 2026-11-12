@@ -222,7 +222,10 @@ ok(unused.length <= 31,
 // this tells them to delete it rather than leaving both behind.
 console.log('\n-- RTL: physical leading edges have an override --');
 const rtlCss = fs.readFileSync(path.join(ROOT, 'src/i18n.css'), 'utf8');
-const cssSources = ['styles.css', 'expanded.css', 'site-layout.css', 'machinery.css', 'extra-pages.css', 'pages.css']
+// pages-static.css: static-page rules split out of extra-pages.css on
+// 2026-11-12 (they now ride the lazy pages-static chunk) — same selectors,
+// so the RTL overrides in i18n.css still apply to them.
+const cssSources = ['styles.css', 'expanded.css', 'site-layout.css', 'machinery.css', 'extra-pages.css', 'pages-static.css', 'pages.css']
   .map(f => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n');
 
 const RTL_FIXES = [

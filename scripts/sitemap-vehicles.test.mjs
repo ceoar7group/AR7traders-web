@@ -351,6 +351,39 @@ say('\n-- OG car card: a published listing renders its own card --');
     'a stray human still lands on the real page via the refresh fallback');
 }
 
+say('\n-- search bots get the full content-parity render (2026-11-12) --');
+{
+  // Why: GSC left vehicle pages "Crawled, currently not indexed" — the SPA
+  // shell has no canonical/title and the head-only social card would read as
+  // thin content. render=full serves the same vehicle the hydrated page
+  // shows: h1 + specs + photo + Product JSON-LD, and NO meta refresh (a
+  // 0-second refresh to the page's own URL reads as a redirect loop).
+  const res = await runHead({ method: 'GET', query: { head: 'AR7-0007', render: 'full' } }, memDb(HEAD_SEED));
+  ok(res.statusCode === 200, 'the full render responds 200');
+  ok(!res.body.includes('http-equiv="refresh"'),
+    'the full render carries NO meta refresh (self-refresh = redirect loop)');
+  ok(res.body.includes('<h1>2019 Toyota Vezel &quot;Z&quot; — Japan export | AR7 Traders</h1>'),
+    'the vehicle name is a real h1, not meta-only');
+  ok(res.body.includes('<li>Mileage: 42,000 km</li>') && res.body.includes('<li>Fuel: Hybrid</li>'),
+    'the spec list mirrors what the hydrated page shows (content parity)');
+  ok(res.body.includes('<img src="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
+    'the cover photo is in the body, not just og:image');
+  const ld = res.body.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  ok(ld, 'the full render carries JSON-LD');
+  const product = JSON.parse(ld[1]);
+  ok(product['@type'] === 'Product' && product.offers.price === 12500 &&
+     product.offers.priceCurrency === 'USD' && product.brand.name === 'Toyota',
+    'JSON-LD is a Product with the USD offer and the brand');
+  ok(res.body.includes('<link rel="canonical" href="https://ar7traders.com/inventory/AR7-0007"/>'),
+    'the canonical still points at the real vehicle page');
+  ok(res.body.includes('href="https://ar7traders.com/inventory"'),
+    'the body links back to the inventory (crawl path out of the leaf)');
+  // and the social card is untouched by the new flag:
+  const social = await runHead({ method: 'GET', query: { head: 'AR7-0007' } }, memDb(HEAD_SEED));
+  ok(social.body.includes('http-equiv="refresh"') && !social.body.includes('<h1>'),
+    'without render=full the lean OG card (with refresh fallback) is unchanged');
+}
+
 say('\n-- the card never breaks a share: unknown, sold, draft, DB-down --');
 {
   const generic = 'AR7 Traders | Car Exporter from Japan &amp; China';

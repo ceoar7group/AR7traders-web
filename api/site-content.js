@@ -409,7 +409,7 @@ function headPhoto(row) {
 
 /** Pure HTML builder so the test suite can pin the card without a server.
  *  `row` null → the generic AR7 card (unknown ref, unpublished car, DB down). */
-export function buildVehicleHeadHtml(row, ref) {
+export function buildVehicleHeadHtml(row, ref, opts = {}) {
   const name = row ? [row.year, row.make, row.model].filter(Boolean).join(' ') : null;
   const title = name ? `${name} — Japan export | AR7 Traders`
     : 'AR7 Traders | Car Exporter from Japan & China';
@@ -443,8 +443,44 @@ export function buildVehicleHeadHtml(row, ref) {
     `<meta name="twitter:title" content="${esc(title)}"/>\n` +
     `<meta name="twitter:description" content="${esc(description)}"/>\n` +
     `<meta name="twitter:image" content="${esc(image)}"/>\n` +
-    `<meta http-equiv="refresh" content="0;url=${esc(url)}"/>\n` +
-    `</head><body><p><a href="${esc(url)}">${esc(title)}</a></p></body></html>\n`;
+    // 2026-11-12 — ?render=full (search crawlers; see the second UA rewrite in
+    // vercel.json): the same head WITHOUT the meta refresh, plus a real body.
+    // A 0-second refresh pointing at the page's own URL reads as a redirect
+    // loop to Googlebot, and a head-only document reads as thin content —
+    // both land vehicle pages in "Crawled, currently not indexed". The full
+    // variant mirrors what the hydrated SPA shows (same vehicle, same specs,
+    // same photo), so this is dynamic rendering with content parity, not
+    // cloaking. Social crawlers keep the original lean card unchanged.
+    (opts.full ? '' : `<meta http-equiv="refresh" content="0;url=${esc(url)}"/>\n`) +
+    (opts.full && row ? `<script type="application/ld+json">${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name,
+      image: [image],
+      description,
+      brand: row.make ? { '@type': 'Brand', name: String(row.make) } : undefined,
+      offers: Number(row.price) > 0 ? {
+        '@type': 'Offer', url, priceCurrency: 'USD', price: Number(row.price),
+        availability: 'https://schema.org/InStock',
+        seller: { '@type': 'Organization', name: 'AR7 Traders' },
+      } : undefined,
+    }).replace(/</g, '\\u003c')}</script>\n` : '') +
+    '</head><body>\n' +
+    (opts.full ? (
+      `<h1>${esc(title)}</h1>\n` +
+      (row ? `<img src="${esc(image)}" alt="${esc(alt)}" width="760" height="507"/>\n` : '') +
+      (row ? '<ul>' + [
+        row.year ? `<li>Year: ${esc(String(row.year))}</li>` : '',
+        row.km != null && String(row.km).trim() !== '' ? `<li>Mileage: ${esc(String(row.km))} km</li>` : '',
+        row.fuel ? `<li>Fuel: ${esc(String(row.fuel))}</li>` : '',
+        row.tr ? `<li>Transmission: ${esc(String(row.tr))}</li>` : '',
+        row.grade ? `<li>Auction grade: ${esc(String(row.grade))}</li>` : '',
+        Number(row.price) > 0 ? `<li>FOB price: US$${Number(row.price).toLocaleString('en-US')}</li>` : '',
+      ].filter(Boolean).join('') + '</ul>\n' : '') +
+      `<p>${esc(description)} Request the export quotation for your port, inspection sheet and shipping schedule from the listing page.</p>\n` +
+      `<p><a href="${esc(url)}">Open the full listing</a> · <a href="${esc(SITEMAP_BASE + '/inventory')}">Browse all stock</a> · <a href="${esc(SITEMAP_BASE + '/')}">AR7 Traders home</a></p>\n`
+    ) : `<p><a href="${esc(url)}">${esc(title)}</a></p>\n`) +
+    '</body></html>\n';
 }
 
 /** GET ?head=<ref> — the OG card for one vehicle. Never fails a crawler:
@@ -457,11 +493,14 @@ export async function vehicleHead(req, res, injected = {}) {
     return sendPlain(res, 405, 'Method not allowed');
   }
   const ref = String(req.query.head || '').trim().slice(0, 80);
+  // Search crawlers (second UA rewrite in vercel.json) ask for the full
+  // content-parity page; social crawlers keep the lean OG card.
+  const full = String(req.query.render || '') === 'full';
   const sendCard = (row) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', HEAD_CACHE);
-    res.end(buildVehicleHeadHtml(row, ref));
+    res.end(buildVehicleHeadHtml(row, ref, { full }));
   };
   if (!ref) return sendCard(null);
   try {

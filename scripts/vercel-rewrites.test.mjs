@@ -55,9 +55,15 @@ assert.equal(parseRoute({ pathname: '/japan-stock' }).page, 'inventory',
 // ---- OG car cards: crawler-only head rewrite --------------------------------
 // Social link crawlers (WhatsApp, Facebook, X, …) do not run JavaScript, so
 // /inventory/<ref> rewrites to the site-content head endpoint FOR THOSE
-// USER-AGENTS ONLY. Humans keep the static SPA shell, and Googlebot is
-// deliberately NOT in the list (it renders applySeo itself; serving it a
-// different document risks a cloaking reading).
+// USER-AGENTS ONLY. Humans keep the static SPA shell.
+// 2026-11-12 revision: Googlebot was originally left OUT of the list on the
+// theory that it renders applySeo itself — but Search Console showed vehicle
+// pages stuck in "Crawled, currently not indexed": the bare shell has no
+// canonical/title by design and the render queue defers hydration for weeks.
+// Search engines now get their OWN rewrite (below the social one) to
+// ?head=<ref>&render=full — a content-parity page (h1, specs, photo,
+// Product JSON-LD, NO meta refresh), which is sanctioned dynamic rendering,
+// not cloaking. The social card is unchanged.
 const rewrites = config.rewrites || [];
 const headRewrite = rewrites.find(r => String(r.destination || '').includes('head='));
 assert.ok(headRewrite, 'vercel.json must carry the crawler head rewrite for vehicle pages');
@@ -70,10 +76,27 @@ for (const bot of ['facebookexternalhit', 'whatsapp', 'twitterbot', 'linkedinbot
   assert.ok(ua.value.toLowerCase().includes(bot), `the crawler list names ${bot}`);
 }
 assert.ok(!ua.value.toLowerCase().includes('googlebot'),
-  'Googlebot must NOT be routed to the head endpoint (it renders the SPA itself)');
+  'Googlebot must NOT get the social card (it gets the full-render rule instead)');
 assert.ok(ua.value.startsWith('(?i)'), 'the user-agent match is case-insensitive');
 assert.ok(
   rewrites.indexOf(headRewrite) < rewrites.indexOf(spaRewrite),
   'the crawler head rewrite must come before the SPA catch-all, or it never fires');
+
+// Search engines get the full-render variant (2026-11-12, see note above).
+const searchRewrite = rewrites.find(r => String(r.destination || '').includes('render=full'));
+assert.ok(searchRewrite, 'vercel.json must carry the search-bot full-render rewrite');
+assert.equal(searchRewrite.source, '/inventory/:ref', 'it serves vehicle detail URLs');
+assert.equal(searchRewrite.destination, '/api/site-content?head=:ref&render=full',
+  'it dispatches on site-content with render=full (no new Serverless Function)');
+const searchUa = (searchRewrite.has || []).find(h => h.type === 'header' && h.key === 'user-agent');
+assert.ok(searchUa && searchUa.value.startsWith('(?i)'), 'gated on user-agent, case-insensitive');
+for (const bot of ['googlebot', 'bingbot', 'duckduckbot', 'applebot', 'yandex']) {
+  assert.ok(searchUa.value.toLowerCase().includes(bot), `the search-crawler list names ${bot}`);
+}
+assert.ok(!searchUa.value.toLowerCase().includes('facebookexternalhit'),
+  'social crawlers stay on the lean OG card, not the full render');
+assert.ok(
+  rewrites.indexOf(searchRewrite) < rewrites.indexOf(spaRewrite),
+  'the search-bot rewrite must come before the SPA catch-all, or it never fires');
 
 console.log(`Vercel SPA rewrite covers ${requiredPaths.length} client and deep-link paths.`);
