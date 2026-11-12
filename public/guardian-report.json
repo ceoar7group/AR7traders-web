@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-11T19:32:43.816Z",
+  "generatedAt": "2026-11-12T06:39:10.275Z",
   "summary": {
     "total": 18,
     "pass": 16,
@@ -53,7 +53,7 @@
       "area": "security",
       "name": "No secrets in the client source",
       "status": "pass",
-      "detail": "59 source file(s) scanned",
+      "detail": "60 source file(s) scanned",
       "fix": "Move the value to a serverless env var (Vercel → Settings → Environment Variables)"
     },
     {
