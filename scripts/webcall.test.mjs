@@ -10,7 +10,7 @@ let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
 const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fail++; process.stderr.write('  ✗ ' + msg + '\n'); } };
 
-import { makeRoomCode, shouldOffer } from '../src/webcall.jsx';
+import { makeRoomCode, shouldOffer, micErrorMessage } from '../src/webcall.jsx';
 import { localTimeFor } from '../src/call-time.js';
 
 say('1) room codes');
@@ -43,6 +43,24 @@ say('\n3) localTimeFor — approximate local clock per country');
   ok(localTimeFor('Kenya', lateUtc).part === 'night', '01:00 in Nairobi is flagged asleep');
   ok(localTimeFor('Atlantis') === null, 'unknown country → null (no chip, no guess)');
   ok(localTimeFor('') === null && localTimeFor(null) === null, 'empty country → null');
+}
+
+say('\n4) micErrorMessage — the real blocker, named');
+{
+  // 2026-11-13: production's Permissions-Policy header denied the microphone
+  // site-wide, and the old catch-all told the user to re-check a browser
+  // permission they had already granted. Each failure mode now gets its own
+  // actionable message.
+  ok(/https|preview frame|own browser tab/i.test(micErrorMessage({ name: 'NotSupportedError' })),
+    'no mediaDevices at all → says to open the link directly over https');
+  ok(/no microphone was found/i.test(micErrorMessage({ name: 'NotFoundError' })),
+    'NotFoundError → says there is no microphone device');
+  ok(/busy in another app/i.test(micErrorMessage({ name: 'NotReadableError' })),
+    'NotReadableError → says the device is busy, not that permission was refused');
+  ok(/blocked|permission/i.test(micErrorMessage({ name: 'NotAllowedError' })),
+    'NotAllowedError → points at the permission');
+  ok(typeof micErrorMessage(undefined) === 'string' && micErrorMessage(undefined).length > 20,
+    'a malformed error still produces a usable message');
 }
 
 say(`\n${pass} passed, ${fail} failed`);
