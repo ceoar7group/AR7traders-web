@@ -3987,6 +3987,12 @@ html[data-crm-theme="light"] .crm-shell,
 .crm-row-actions .crm-row-menu-wrap{
   display:flex;align-items:center;gap:6px;justify-content:flex-start;flex-wrap:nowrap;min-width:0;
 }
+/* Machinery rows keep three labelled buttons (Photos, Unpublish, Edit) in the
+   pinned cell, so their overflow trigger is icon-only — the "More" text was
+   the 19px that pushed the trigger past the right edge of the viewport
+   (2026-11-13 owner report: "manage photos button is hidden"). */
+.crm-row-actions .mch-row-menu .crm-row-menu-count{display:none}
+.crm-row-actions .mch-row-menu .crm-row-menu-trigger{padding:0 7px}
 .crm-row-menu{position:relative;display:inline-flex;flex-shrink:0}
 .crm-table-wrap td.crm-row-actions{padding-right:12px}
 .crm-table-wrap td.crm-row-actions .crm-row-primary{

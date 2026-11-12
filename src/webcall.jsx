@@ -34,6 +34,26 @@ export function shouldOffer(myId, otherId) {
   return String(myId) > String(otherId);
 }
 
+/** Honest, actionable message for each way getUserMedia actually fails.
+ *  Exported for tests: the generic "access was refused" used to hide the real
+ *  blocker (a page-level permissions policy) behind advice about browser
+ *  settings the caller had already checked. */
+export function micErrorMessage(e) {
+  const name = e?.name || '';
+  if (name === 'NotSupportedError') {
+    return 'This page cannot reach a microphone at all — it must be opened over https, directly (not inside a preview frame). Open the call link in its own browser tab and try again.';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+    return 'No microphone was found on this device. Plug in or enable a microphone and press Join again.';
+  }
+  if (name === 'NotReadableError' || name === 'AbortError') {
+    return 'The microphone is busy in another app (a meeting, another tab, voice software). Close whatever is using it and press Join again.';
+  }
+  // NotAllowedError and anything unrecognised: either the browser permission
+  // or the page's own permissions policy said no.
+  return 'Microphone access was blocked. Check the microphone permission for this site in your browser, close other tabs using the mic, then press Join again.';
+}
+
 export default function WebCallPage({ room }) {
   const code = String(room || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
   const [stage, setStage] = useState('lobby'); // lobby|joining|waiting|connecting|live|ended|failed|full
@@ -107,10 +127,19 @@ export default function WebCallPage({ room }) {
     setPhase('joining');
     let stream;
     try {
+      // getUserMedia only exists in a secure context (https) outside any
+      // iframe that withholds the microphone permission. Surfacing THAT as
+      // its own message matters: for weeks the real blocker in production
+      // was the site-wide `Permissions-Policy: microphone=()` header — the
+      // user HAD granted permission, and "access was refused" sent them
+      // digging through browser settings that were already correct.
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw Object.assign(new Error('no mediaDevices'), { name: 'NotSupportedError' });
+      }
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    } catch {
+    } catch (e) {
       setPhase('lobby');
-      setErr('Microphone access was refused. Allow the microphone in your browser and press Join again.');
+      setErr(micErrorMessage(e));
       return;
     }
     streamRef.current = stream;

@@ -99,4 +99,27 @@ assert.ok(
   rewrites.indexOf(searchRewrite) < rewrites.indexOf(spaRewrite),
   'the search-bot rewrite must come before the SPA catch-all, or it never fires');
 
+// Free web calls (2026-11-13): the site-wide Permissions-Policy denies the
+// microphone everywhere — correct for a car showroom, fatal for /call, where
+// it blocked getUserMedia even after the user granted browser permission.
+// The /call block must come AFTER the global one (on Vercel the last matching
+// header of the same key wins) and must hand the microphone back to self
+// while keeping camera/geolocation/payment denied.
+{
+  const headers = config.headers || [];
+  const global = headers.find(h => h.source === '/(.*)');
+  const globalPp = (global?.headers || []).find(x => x.key === 'Permissions-Policy');
+  assert.ok(globalPp && globalPp.value.includes('microphone=()'),
+    'the site-wide policy still denies the microphone by default');
+  const callBlock = headers.find(h => String(h.source).startsWith('/call'));
+  assert.ok(callBlock, 'vercel.json must carry a /call header block');
+  const callPp = (callBlock.headers || []).find(x => x.key === 'Permissions-Policy');
+  assert.ok(callPp && callPp.value.includes('microphone=(self)'),
+    '/call allows the microphone for the page itself');
+  assert.ok(callPp.value.includes('camera=()') && callPp.value.includes('geolocation=()'),
+    '/call keeps camera and geolocation denied — this is a voice call');
+  assert.ok(headers.indexOf(callBlock) > headers.indexOf(global),
+    'the /call block must come after the global block so its Permissions-Policy wins');
+}
+
 console.log(`Vercel SPA rewrite covers ${requiredPaths.length} client and deep-link paths.`);

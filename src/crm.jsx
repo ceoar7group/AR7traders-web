@@ -309,6 +309,13 @@ function deskFromHash() {
     const [t, sub] = String(window.location.hash || '').replace(/^#/, '').split('/');
     if (t === 'listings') return { tab: 'vehicles', carSub: 'listings' }; // legacy id
     if (TAB_IDS.has(t)) return { tab: t, carSub: t === 'vehicles' && sub === 'listings' ? 'listings' : 'vehicles' };
+    // No (valid) hash — e.g. a plain /crm bookmark, a link from the website
+    // header, or anything that stripped the fragment. Reopen the desk this
+    // device used last (2026-11-13 owner report: a refresh still landed on
+    // the overview). The overview stays the first-ever-visit default.
+    const last = String(localStorage.getItem('ar7-crm-desk') || '');
+    const [lt, lsub] = last.split('/');
+    if (TAB_IDS.has(lt)) return { tab: lt, carSub: lt === 'vehicles' && lsub === 'listings' ? 'listings' : 'vehicles' };
   } catch { /* no window (tests/SSR): fall through */ }
   return { tab: 'dashboard', carSub: 'vehicles' };
 }
@@ -1297,7 +1304,10 @@ export default function CrmApp() {
       if (window.location.pathname.startsWith('/crm') && window.location.hash !== want) {
         window.history.replaceState(null, '', window.location.pathname + window.location.search + want);
       }
-    } catch { /* tests/SSR */ }
+      // The same desk name doubles as the device's "last desk", so even a
+      // hashless /crm open (bookmark, header link) comes back here.
+      localStorage.setItem('ar7-crm-desk', tab + (tab === 'vehicles' && carSub === 'listings' ? '/listings' : ''));
+    } catch { /* tests/SSR or private mode */ }
   }, [tab, carSub]);
 
   async function loadAll() {
@@ -1310,13 +1320,26 @@ export default function CrmApp() {
         setRows(out);
       } else {
         // Warm start (2026-11-11 owner report: "CRM takes long in loading the
-        // data"): the previous load of THIS browser tab paints immediately
-        // while fresh rows stream in behind it. sessionStorage, not
-        // localStorage — the cache dies with the tab and never crosses users.
-        const cacheKey = 'ar7-crm-rows:' + (session?.user?.email || '');
+        // data", renewed 2026-11-13): the device's previous load paints
+        // immediately while fresh rows stream in behind it. Upgraded from a
+        // single sessionStorage blob to per-entity localStorage records:
+        // sessionStorage died with every new tab (so each morning was a cold
+        // start), and one oversized entity used to abort the whole cache
+        // write on the quota. Keyed by the signed-in email so no cache is
+        // ever shown to a different account; 24h expiry so stale rows never
+        // outlive a working day.
+        const cachePrefix = 'ar7-crm-rows:' + (session?.user?.email || '') + ':';
+        try { sessionStorage.removeItem('ar7-crm-rows:' + (session?.user?.email || '')); } catch { /* legacy blob */ }
         try {
-          const cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
-          if (cached && typeof cached === 'object') setRows(v => (Object.keys(v).length ? v : cached));
+          const warm = {};
+          for (const k of keys) {
+            const raw = localStorage.getItem(cachePrefix + k);
+            if (!raw) continue;
+            const { at, rows: cachedRows } = JSON.parse(raw);
+            if (Date.now() - at < 24 * 3600 * 1000 && Array.isArray(cachedRows)) warm[k] = cachedRows;
+            else localStorage.removeItem(cachePrefix + k);
+          }
+          if (Object.keys(warm).length) setRows(v => (Object.keys(v).length ? v : warm));
         } catch { /* corrupt/absent cache: cold start */ }
         // Profile and the permission matrix ride in parallel — the matrix only
         // gates which flavour of the stock reads to ask for.
@@ -1355,7 +1378,17 @@ export default function CrmApp() {
         setLoadIssues(Object.fromEntries(entries.filter(([, , issue]) => issue).map(([k, , issue]) => [k, issue])));
         const loaded = Object.fromEntries(entries.map(([k, value]) => [k, value]));
         setRows(loaded);
-        try { sessionStorage.setItem(cacheKey, JSON.stringify(loaded)); } catch { /* quota: skip the warm cache */ }
+        // Write-through, one entity at a time: a desk that fits is cached
+        // even when a bigger one does not (quota), and a failed read (issue
+        // set) never overwrites the last good cache with an empty list.
+        for (const [k, value, issue] of entries) {
+          if (issue) continue;
+          try {
+            const payload = JSON.stringify({ at: Date.now(), rows: value });
+            if (payload.length <= 900 * 1024) localStorage.setItem(cachePrefix + k, payload);
+            else localStorage.removeItem(cachePrefix + k);
+          } catch { /* quota: this entity cold-starts next time */ }
+        }
       }
     } catch (e) {
       setNotice(e.message);
@@ -3778,15 +3811,34 @@ export function EntityView({ entity, rows, onEdit, onDelete, onManagePhotos, onV
                       {/* Machinery: taking a machine down is deliberate, so it
                           gets its own pair of buttons rather than being buried
                           in the edit form. Every machine is listed by default;
-                          Unpublish is the only thing that hides one. */}
+                          Unpublish is the only thing that hides one.
+                          2026-11-13 (owner report: "manage photos button is
+                          hidden"): five inline pills overflowed the sticky
+                          actions cell and clipped Photos — the exact failure
+                          RowActions was built for. Photos and Unpublish stay
+                          visible, Edit is the menu's primary, and Archive +
+                          Delete live in the labelled overflow menu. */}
                       {entity === 'machinery' && onPublish && onUnpublish && (
                         row.published === false
                           ? <button className="crm-btn-publish" onClick={() => onPublish(row)} title="Put this machine back on the website (confirmation required)" type="button"><Globe size={13} /> Publish</button>
                           : <button className="crm-del crm-del-labeled" onClick={() => onUnpublish(row)} title="Take this machine off the website. The record is kept, so it can be re-published at any time (confirmation required)." type="button"><Ban size={13} /> Unpublish</button>
                       )}
-                      {entity === 'machinery' && onArchive && row.status !== 'Archived' && <button className="crm-del crm-del-labeled crm-archive-action" onClick={() => onArchive(row)} title="Archive and unpublish this canonical machine record (confirmation required)" type="button"><Archive size={13} /> Archive</button>}
-                      {onEdit && <button onClick={() => onEdit(row)} type="button">Edit</button>}
-                      {onDelete && <button className="crm-del" title="Delete record (confirmation required)" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
+                      {entity === 'machinery' && (onEdit || onArchive || onDelete) ? (
+                        <RowActions
+                          className="mch-row-menu"
+                          label={`More actions for ${row.name || row.ref || 'this machine'}`}
+                          primary={onEdit ? { key: 'edit', label: 'Edit', title: 'Edit this machine', onSelect: () => onEdit(row) } : null}
+                          items={[
+                            onArchive && row.status !== 'Archived' && { key: 'archive', label: 'Archive', icon: <Archive size={13} />, danger: true,
+                              title: 'Archive and unpublish this canonical machine record (confirmation required)', onSelect: () => onArchive(row) },
+                            onDelete && { key: 'delete', label: 'Delete record', icon: <Trash2 size={13} />, danger: true,
+                              title: 'Delete record (confirmation required)', onSelect: () => onDelete(row) }
+                          ].filter(Boolean)}
+                        />
+                      ) : <>
+                        {onEdit && <button onClick={() => onEdit(row)} type="button">Edit</button>}
+                        {onDelete && <button className="crm-del" title="Delete record (confirmation required)" onClick={() => onDelete(row)} type="button"><Trash2 /></button>}
+                      </>}
                       </>}
                     </td>
                   </tr>
