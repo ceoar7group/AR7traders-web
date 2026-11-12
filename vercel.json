@@ -245,6 +245,17 @@
       "destination": "/api/site-content?head=:ref"
     },
     {
+      "source": "/inventory/:ref",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+        }
+      ],
+      "destination": "/api/site-content?head=:ref&render=full"
+    },
+    {
       "source": "/api/sitemap-vehicles.xml",
       "destination": "/api/site-content?sitemap=vehicles"
     },

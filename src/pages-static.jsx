@@ -8,6 +8,10 @@
 // stay in main.jsx and are imported back here; the circular import is safe
 // because this module only ever loads AFTER main.jsx has fully evaluated.
 import React, {useState} from 'react';
+// Styles for these pages ride in this lazy chunk too (split from the eagerly
+// imported extra-pages.css on 2026-11-12 — PSI flagged them as unused CSS on
+// first paint; only .extra-head/.detail-gallery stay eager, see that file).
+import './pages-static.css';
 import { ArrowRight, ArrowUpRight, BadgeCheck, BadgePercent, BookOpen, Calculator, Check, ClipboardCheck, CreditCard, FileCheck, Gavel, Globe2, Landmark, Laptop, LockKeyhole, Monitor, Newspaper, Phone, ShieldCheck, Ship, Smartphone, Tablet } from 'lucide-react';
 import { carAlt } from './car-alt.js';
 import { useCurrency } from './currency.jsx';
