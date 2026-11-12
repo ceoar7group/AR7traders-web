@@ -111,7 +111,10 @@ export function auditDocument(doc, opts = {}) {
     add('canonical', 'Canonical URL', 'fail', 'No canonical link.', 'Emit link[rel=canonical] on every indexable page.');
   } else if (!/^https?:\/\//.test(canonical)) {
     add('canonical', 'Canonical URL', 'fail', `Canonical is not absolute: ${canonical}`, 'Use the full https URL.');
-  } else if (canonical.includes('?') && !/embed=/.test(canonical)) {
+  } else if (canonical.includes('?') && !/(?:embed|lang)=/.test(canonical)) {
+    // `?lang=` is the one query canonical we publish on purpose: each of the
+    // 15 language variants is self-canonical inside its hreflang cluster
+    // (2026-11 international SEO — see applySeo in src/seo.js).
     add('canonical', 'Canonical URL', 'warn', `Canonical still contains a query string: ${canonical}`,
       'Filtered views should canonicalise to a path (e.g. /cars/toyota), because query-string URLs do not rank.');
   } else {

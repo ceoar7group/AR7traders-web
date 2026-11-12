@@ -518,5 +518,60 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
     `static shell og:image dimensions (${shellW?.[1]}x${shellH?.[1]}) match the actual asset file`);
 }
 
+// ---- hreflang / URL-addressable languages (2026-11 international SEO) ------
+// Every indexable page publishes the same 16-link cluster (15 languages +
+// x-default) built from its clean canonical; non-English renders are
+// self-canonical at their ?lang= variant. Noindex pages carry none.
+{
+  const alts = () => [...document.head.querySelectorAll('link[rel="alternate"][hreflang]')]
+    .map(el => [el.getAttribute('hreflang'), el.href]);
+  const altFor = (code) => alts().find(([c]) => c === code)?.[1];
+  const canonical = () => document.head.querySelector('link[rel="canonical"]')?.href;
+
+  applySeo('contact', null);
+  ok(alts().length === 16, 'contact publishes 15 language alternates + x-default');
+  ok(altFor('en') === 'https://ar7traders.com/contact', 'the English alternate is the clean URL');
+  ok(altFor('ur') === 'https://ar7traders.com/contact?lang=ur', 'the Urdu alternate is the ?lang=ur variant');
+  ok(altFor('x-default') === 'https://ar7traders.com/contact', 'x-default is the clean English URL');
+  ok(meta('meta[property="og:locale"]') === 'en', 'og:locale names the rendered language');
+
+  // The provider stamps <html data-lang>; applySeo reads it.
+  document.documentElement.setAttribute('data-lang', 'ur');
+  applySeo('contact', null);
+  ok(canonical() === 'https://ar7traders.com/contact?lang=ur',
+    'an Urdu render is self-canonical at its ?lang=ur variant, never an alternate of English');
+  ok(meta('meta[property="og:url"]') === 'https://ar7traders.com/contact?lang=ur', 'og:url follows the language canonical');
+  ok(meta('meta[property="og:locale"]') === 'ur', 'og:locale follows the rendered language');
+  ok(alts().length === 16 && altFor('ur') === 'https://ar7traders.com/contact?lang=ur' &&
+     altFor('x-default') === 'https://ar7traders.com/contact',
+    'the Urdu variant publishes the SAME cluster — bidirectional confirmation holds');
+
+  // Landing paths keep their path canonical and gain the language variant.
+  applySeo('inventory', null, null, { make: 'Toyota', vehicleCount: 12 });
+  ok(canonical() === 'https://ar7traders.com/cars/toyota?lang=ur',
+    'a brand landing in Urdu canonicalises to /cars/toyota?lang=ur');
+  ok(altFor('sw') === 'https://ar7traders.com/cars/toyota?lang=sw', 'landing alternates are built from the landing path');
+
+  // Staff pages: noindex, clean canonical, no cluster — nothing to rank.
+  applySeo('crm', null);
+  ok(meta('meta[name="robots"]')?.startsWith('noindex'), 'crm stays noindex with a language stamped');
+  ok(alts().length === 0, 'noindex pages publish no hreflang cluster');
+  ok(canonical() === 'https://ar7traders.com/crm', 'noindex pages keep the clean URL — no ?lang= canonical');
+
+  // A missing vehicle is noindex: no cluster either.
+  applySeo('inventory', '999999', null, { vehicleMissing: true });
+  ok(alts().length === 0, 'a missing vehicle page publishes no hreflang cluster');
+
+  // An unsupported stamp falls back to English cleanly.
+  document.documentElement.setAttribute('data-lang', 'xx');
+  applySeo('contact', null);
+  ok(canonical() === 'https://ar7traders.com/contact', 'an unknown language stamp falls back to the clean canonical');
+
+  document.documentElement.setAttribute('data-lang', 'en');
+  applySeo('contact', null);
+  ok(canonical() === 'https://ar7traders.com/contact' && meta('meta[property="og:locale"]') === 'en',
+    'switching back to English restores the clean canonical');
+}
+
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');
 process.exit(failed ? 1 : 0);

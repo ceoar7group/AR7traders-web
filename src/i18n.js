@@ -41,6 +41,36 @@ export const LANG_KEY = 'ar7-lang';
 export const langMeta = code => LANGUAGES.find(l => l.code === code) || LANGUAGES[0];
 export const isRtl = code => langMeta(code).dir === 'rtl';
 
+// ---- URL-addressable languages (2026-11, international SEO) ---------------
+// Every indexable page is reachable per language at `?lang=ur`, `?lang=ar`, …
+// English stays on the clean URL. These helpers are pure so src/seo.js (the
+// hreflang set), src/i18n.jsx (reading/writing the address bar) and the tests
+// all share one definition of what a language URL looks like.
+export const LANG_PARAM = 'lang';
+
+/** 'ur', 'UR', 'ur-PK', 'zh-CN' → a supported code; anything else → null. */
+export const normalizeLangCode = value => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (LANGUAGES.some(l => l.code === raw)) return raw;
+  const short = raw.slice(0, 2);
+  return LANGUAGES.some(l => l.code === short) ? short : null;
+};
+
+/** The supported language a URL query string names (?lang=ur), or null. */
+export const langFromSearch = search => {
+  try {
+    return normalizeLangCode(new URLSearchParams(String(search || '').replace(/^\?/, '')).get(LANG_PARAM));
+  } catch { return null; }
+};
+
+/** The URL of a page's language variant: English is the clean URL itself. */
+export const langHref = (url, code) => {
+  const norm = normalizeLangCode(code);
+  if (!norm || norm === DEFAULT_LANG) return url;
+  return url + (String(url).includes('?') ? '&' : '?') + LANG_PARAM + '=' + norm;
+};
+
 // ---------------------------------------------------------------------------
 // English is the source of truth: every key lives here.
 // ---------------------------------------------------------------------------
