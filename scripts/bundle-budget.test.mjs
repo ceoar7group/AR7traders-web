@@ -401,7 +401,11 @@ for (const file of entryCss) {
 // the footer rebrand (transparent mark, wordmark, visible social buttons),
 // the home "shop by" rails and the integrated card-open split button, all in
 // src/landing-anim.css. Measured 44.35 kB gz / 228.14 kB raw.
-const CSS_BUDGET_GZIP = 44.5 * 1024;
+// 2026-11-03 (R42): 44.5 → 45 kB. Owner round: the inventory grid/list view
+// toggle + full list-view layout (desktop rows + compact phone rows), the
+// vehicle-card refresh and the footer logo halo. The removed card-open
+// split-button rules partly offset it. Measured 44.61 kB gz / 229.24 kB raw.
+const CSS_BUDGET_GZIP = 45 * 1024;
 // Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
 // search buttons (header + floating), the language pill and the metric-matched
 // Manrope fallback face.
