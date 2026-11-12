@@ -573,5 +573,71 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
     'switching back to English restores the clean canonical');
 }
 
+// ---- localized titles & descriptions (2026-11-12, R38) ----------------------
+// The ?lang= variants used to repeat the English snippet on Google's results
+// page. Static public routes now serve hand-written translations from
+// src/seo-i18n.js; dynamic pages compose from live data and stay English.
+{
+  console.log('\n-- localized titles & descriptions --');
+  const canonical = () => document.head.querySelector('link[rel="canonical"]')?.href;
+  const { PAGE_SEO_I18N, localizedPageSeo } = await import('../src/seo-i18n.js');
+  const LOCALIZED_PAGES = ['home', 'inventory', 'auction', 'services', 'brands',
+    'destinations', 'tools', 'world', 'howbuy', 'news', 'about', 'reviews',
+    'faq', 'contact', 'shipping', 'machinery'];
+  const langs = Object.keys(PAGE_SEO_I18N);
+  ok(langs.length === 14, `all 14 non-English languages carry SEO strings (found ${langs.length})`);
+  let holes = 0, english = 0, overlong = 0;
+  for (const l of langs) {
+    for (const p of LOCALIZED_PAGES) {
+      const e = PAGE_SEO_I18N[l][p];
+      if (!Array.isArray(e) || e.length !== 2 || !e[0] || !e[1]) { holes++; continue; }
+      if (e[0] === PAGE_SEO[p][0] || e[1] === PAGE_SEO[p][1]) english++;
+      if (e[1].length > 200) overlong++;
+    }
+  }
+  ok(holes === 0, `every language covers all ${LOCALIZED_PAGES.length} static public routes (${holes} hole(s))`);
+  ok(english === 0, `no localized entry is still identical to English (${english} found)`);
+  ok(overlong === 0, `descriptions stay within results-page length (${overlong} over 200 chars)`);
+  // The brand name stays untranslated wherever the English title carries it
+  // (the English 'reviews' title leads with the service, not the brand).
+  ok(langs.every(l => LOCALIZED_PAGES.every(p =>
+    !/AR7 Traders/.test(PAGE_SEO[p][0]) || /AR7 Traders/.test(PAGE_SEO_I18N[l][p][0]))),
+    'the brand name stays untranslated in every title that names it in English');
+
+  // The strings ride the lazy language chunk (first-load JS budget): until
+  // the provider registers them, a non-English render serves English.
+  const { registerSeoI18n } = await import('../src/seo.js');
+  document.documentElement.setAttribute('data-lang', 'de');
+  applySeo('about', null);
+  ok(document.title === PAGE_SEO.about[0],
+    'before the lazy chunk registers, the English snippet serves (no half-loaded state)');
+
+  // Rendering: German /about shows the German snippet…
+  registerSeoI18n(PAGE_SEO_I18N);
+  applySeo('about', null);
+  ok(document.title === PAGE_SEO_I18N.de.about[0], 'German /about serves the German title');
+  ok(meta('meta[name="description"]') === PAGE_SEO_I18N.de.about[1], '…and the German description');
+  ok(meta('meta[property="og:title"]') === PAGE_SEO_I18N.de.about[0] &&
+     meta('meta[name="twitter:title"]') === PAGE_SEO_I18N.de.about[0],
+    'og:/twitter: titles follow the localized title');
+  ok(canonical() === 'https://ar7traders.com/about?lang=de', 'the localized render keeps its ?lang= canonical');
+
+  // …a dynamic page (brand landing) stays English rather than half-mixed…
+  applySeo('inventory', null, null, { make: 'Toyota', vehicleCount: 12 });
+  ok(/Toyota/.test(document.title) && !/^\u200f?ماركات/.test(document.title),
+    'dynamic landing pages keep their data-driven English text');
+
+  // …a noindex page never localizes (it is not in the index at all)…
+  applySeo('crm', null);
+  ok(document.title === PAGE_SEO.crm[0], 'noindex staff pages keep the English title');
+
+  // …and English stays byte-for-byte what it always was.
+  document.documentElement.setAttribute('data-lang', 'en');
+  applySeo('home', null);
+  ok(document.title === PAGE_SEO.home[0], 'the English title is unchanged');
+  ok(localizedPageSeo('home', 'en') === null && localizedPageSeo('privacy', 'de') === null,
+    'localizedPageSeo: English and un-localized routes fall back to PAGE_SEO');
+}
+
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');
 process.exit(failed ? 1 : 0);

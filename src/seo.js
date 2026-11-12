@@ -23,6 +23,15 @@ import { destinationFacts, destinationFaqs } from './destinations.js';
 import { priceWithOffer } from './offers.js';
 import { LANGUAGES, DEFAULT_LANG, normalizeLangCode, langHref } from './i18n.js';
 
+// R38 (2026-11-12): localized titles/descriptions live in src/seo-i18n.js,
+// which is loaded LAZILY alongside the language dictionaries — the English
+// first paint never ships ~60 KB of strings it cannot show (the first-load
+// JS budget pins this). The language provider (src/i18n.jsx) registers the
+// map here and re-fires 'ar7:language' so useSeo re-stamps the head once
+// the localized text is available; until then the English snippet serves.
+let SEO_I18N = null;
+export function registerSeoI18n(map) { SEO_I18N = map || null; }
+
 export const BASE = 'https://ar7traders.com';
 
 const PAGE_LABELS = {
@@ -605,14 +614,32 @@ export function applySeo(page, carId, car, opts = {}) {
   const lang = (!noindex && normalizeLangCode(opts.lang ?? doc.documentElement?.getAttribute('data-lang'))) || DEFAULT_LANG;
   const pageUrl = langHref(url, lang);
 
-  doc.title = title;
-  setMeta('meta[name="description"]', 'content', description, doc);
-  setMeta('meta[property="og:title"]', 'content', title, doc);
-  setMeta('meta[property="og:description"]', 'content', description, doc);
+  // 2026-11-12 (R38, owner backlog "localized titles/descriptions"): the
+  // ?lang= variants used to repeat the English title/description on the
+  // results page — the one place an international buyer decides whether to
+  // click. When the render landed on plain PAGE_SEO (a static public route,
+  // none of the dynamic cases above fired), a non-English language swaps in
+  // the hand-written translation from src/seo-i18n.js. Dynamic pages
+  // (vehicles, brands, articles, machines, markets) compose their text from
+  // live data and stay English for now; a missing entry falls back to
+  // English rather than mixing languages.
+  const usedPageSeo = !vehicleMissing && !machineMissing && !(isVehiclePage && car) &&
+    !articleMissing && !artSeo && !landing && !machinePage && !machineTypeSeo &&
+    !brand && !destMissing && !destPage;
+  const i18nEntry = usedPageSeo && lang !== DEFAULT_LANG
+    ? SEO_I18N?.[lang]?.[PAGE_SEO[page] ? page : 'home'] : null;
+  const i18nSeo = Array.isArray(i18nEntry) && i18nEntry.length === 2 ? i18nEntry : null;
+  const title2 = i18nSeo ? i18nSeo[0] : title;
+  const description2 = i18nSeo ? i18nSeo[1] : description;
+
+  doc.title = title2;
+  setMeta('meta[name="description"]', 'content', description2, doc);
+  setMeta('meta[property="og:title"]', 'content', title2, doc);
+  setMeta('meta[property="og:description"]', 'content', description2, doc);
   setMeta('meta[property="og:url"]', 'content', pageUrl, doc);
   setMeta('meta[property="og:locale"]', 'content', lang, doc);
-  setMeta('meta[name="twitter:title"]', 'content', title, doc);
-  setMeta('meta[name="twitter:description"]', 'content', description, doc);
+  setMeta('meta[name="twitter:title"]', 'content', title2, doc);
+  setMeta('meta[name="twitter:description"]', 'content', description2, doc);
 
   // Per-page preview image: the vehicle's own photo on detail pages (when it
   // has one), the guide's own photo on /news/<slug>, otherwise the page's

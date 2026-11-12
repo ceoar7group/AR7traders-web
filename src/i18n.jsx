@@ -19,6 +19,21 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { LANGUAGES, DEFAULT_LANG, LANG_KEY, LANG_PARAM, langFromSearch, translate, isRtl, langMeta, registerDicts, loadedLangs } from './i18n.js';
+import { registerSeoI18n } from './seo.js';
+
+/** Non-English assets arrive together, as lazy chunks: the UI dictionaries
+ *  and the localized SEO titles/descriptions (R38). One failing import does
+ *  not take the other down — a missing SEO chunk just leaves English
+ *  snippets, which is the pre-R38 behaviour. */
+async function loadLanguageAssets() {
+  const [dicts, seo] = await Promise.allSettled([
+    import('./i18n-dicts.js'),
+    import('./seo-i18n.js'),
+  ]);
+  if (dicts.status === 'fulfilled') registerDicts(dicts.value.default);
+  if (seo.status === 'fulfilled') registerSeoI18n(seo.value.PAGE_SEO_I18N);
+  if (dicts.status !== 'fulfilled') throw dicts.reason;   // caller keeps current language
+}
 import { Globe2, Check } from 'lucide-react';
 
 // The default context is complete on purpose: components rendered outside the
@@ -65,8 +80,11 @@ export function LanguageProvider({ children }) {
       const start = browserDefault();
       if (start === DEFAULT_LANG) { if (alive) setReady(true); return; }
       try {
-        const mod = await import('./i18n-dicts.js');
-        registerDicts(mod.default);
+        await loadLanguageAssets();
+        // The [code] effect already announced the language before the
+        // localized SEO strings arrived; re-fire so useSeo re-stamps the
+        // head with the translated title/description (R38).
+        if (alive) { try { window.dispatchEvent(new CustomEvent('ar7:language', { detail: { code: start } })); } catch { /* ignore */ } }
       } catch { /* stay on English if the chunk cannot load */ }
       if (alive) setReady(true);
     })();
@@ -77,8 +95,7 @@ export function LanguageProvider({ children }) {
     if (next === DEFAULT_LANG) { setCode(DEFAULT_LANG); return; }
     if (!loadedLangs().includes(next)) {
       try {
-        const mod = await import('./i18n-dicts.js');
-        registerDicts(mod.default);
+        await loadLanguageAssets();
       } catch { return; }   // dictionary unavailable: keep the current language
     }
     setCode(next);
