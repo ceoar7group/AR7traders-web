@@ -373,6 +373,134 @@ export async function sitemapVehicles(req, res, injected = {}) {
   }
 }
 
+// ---- Social link previews ("OG car cards") ---------------------------------
+// /inventory/<ref> is a client-rendered page, so WhatsApp, Facebook, X and
+// the other link crawlers used to see only the generic site card from the SPA
+// shell. A vercel.json rewrite routes JUST those crawler user-agents here
+// (GET ?head=<ref>); human browsers — and Googlebot, which executes applySeo —
+// keep the static shell. The bots receive the same vehicle, so this is
+// content parity, not cloaking. Dispatched on this function to respect the
+// 12-Serverless-Function Hobby cap, like the sitemaps above.
+const HEAD_CACHE = 'public, max-age=300, s-maxage=1800';
+const HEAD_FALLBACK_IMAGE = SITEMAP_BASE + '/assets/used-japanese-cars-auction-export-toyota-3.jpg';
+const HEAD_LISTING_COLUMNS = 'id,stock_no,make,model,year,km,fuel,tr,grade,price,image,images,status,published';
+
+function absoluteAssetUrl(src) {
+  const s = String(src || '').trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  return SITEMAP_BASE + (s.startsWith('/') ? s : '/' + s);
+}
+
+/** Cover photo of a listing row: `image`, else the first entry of `images`
+ *  (array, JSON string or comma list — the same shapes japan-stock-map reads). */
+function headPhoto(row) {
+  if (row?.image && String(row.image).trim()) return String(row.image).trim();
+  let imgs = row?.images;
+  if (typeof imgs === 'string') {
+    try { imgs = JSON.parse(imgs); } catch { imgs = imgs.split(','); }
+  }
+  if (Array.isArray(imgs)) {
+    const hit = imgs.find(x => typeof x === 'string' && x.trim());
+    if (hit) return hit.trim();
+  }
+  return null;
+}
+
+/** Pure HTML builder so the test suite can pin the card without a server.
+ *  `row` null → the generic AR7 card (unknown ref, unpublished car, DB down). */
+export function buildVehicleHeadHtml(row, ref) {
+  const name = row ? [row.year, row.make, row.model].filter(Boolean).join(' ') : null;
+  const title = name ? `${name} — Japan export | AR7 Traders`
+    : 'AR7 Traders | Car Exporter from Japan & China';
+  const specs = !row ? [] : [
+    row.km != null && String(row.km).trim() !== '' ? `${row.km} km` : null,
+    row.fuel || null,
+    row.tr || null,
+    row.grade ? `Grade ${row.grade}` : null,
+    Number(row.price) > 0 ? `FOB US$${Number(row.price).toLocaleString('en-US')}` : null,
+  ].filter(Boolean);
+  const description = row
+    ? `${specs.join(' · ')}${specs.length ? '. ' : ''}Inspected, documented and shipped to your port by AR7 Traders.`
+    : 'RHD cars from Japan, LHD cars from China and heavy machinery — inspected, documented and shipped to your port with one clear price.';
+  const url = row ? SITEMAP_BASE + hrefFor('inventory', ref) : SITEMAP_BASE + '/inventory';
+  const image = (row && absoluteAssetUrl(headPhoto(row))) || HEAD_FALLBACK_IMAGE;
+  const alt = name ? `${name} listed for export by AR7 Traders`
+    : 'Japanese vehicles prepared for export by AR7 Traders';
+  return '<!doctype html>\n<html lang="en"><head>\n' +
+    '<meta charset="utf-8"/>\n' +
+    `<title>${esc(title)}</title>\n` +
+    `<meta name="description" content="${esc(description)}"/>\n` +
+    `<link rel="canonical" href="${esc(url)}"/>\n` +
+    '<meta property="og:type" content="website"/>\n' +
+    '<meta property="og:site_name" content="AR7 Traders"/>\n' +
+    `<meta property="og:title" content="${esc(title)}"/>\n` +
+    `<meta property="og:description" content="${esc(description)}"/>\n` +
+    `<meta property="og:url" content="${esc(url)}"/>\n` +
+    `<meta property="og:image" content="${esc(image)}"/>\n` +
+    `<meta property="og:image:alt" content="${esc(alt)}"/>\n` +
+    '<meta name="twitter:card" content="summary_large_image"/>\n' +
+    `<meta name="twitter:title" content="${esc(title)}"/>\n` +
+    `<meta name="twitter:description" content="${esc(description)}"/>\n` +
+    `<meta name="twitter:image" content="${esc(image)}"/>\n` +
+    `<meta http-equiv="refresh" content="0;url=${esc(url)}"/>\n` +
+    `</head><body><p><a href="${esc(url)}">${esc(title)}</a></p></body></html>\n`;
+}
+
+/** GET ?head=<ref> — the OG card for one vehicle. Never fails a crawler:
+ *  unknown ref, unpublished/sold car or a broken database all degrade to the
+ *  generic AR7 card with HTTP 200, because a share preview that errors would
+ *  simply show nothing. */
+export async function vehicleHead(req, res, injected = {}) {
+  if ((req.method || 'GET') !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+  const ref = String(req.query.head || '').trim().slice(0, 80);
+  const sendCard = (row) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', HEAD_CACHE);
+    res.end(buildVehicleHeadHtml(row, ref));
+  };
+  if (!ref) return sendCard(null);
+  try {
+    const db = injected.db || adminClient();
+    let row = null;
+    const { data } = await db.from('site_listings')
+      .select(HEAD_LISTING_COLUMNS).eq('stock_no', ref).limit(1);
+    row = (data || [])[0] || null;
+    if (!row && /^\d+$/.test(ref)) {
+      // carRef falls back to the row id when there is no stock number.
+      const { data: byId } = await db.from('site_listings')
+        .select(HEAD_LISTING_COLUMNS).eq('id', Number(ref)).limit(1);
+      row = (byId || [])[0] || null;
+    }
+    if (!row) {
+      // Imported dealer cars open the same /inventory/<ref> page.
+      try {
+        const { data: dealer } = await db.from('japan_dealer_stock')
+          .select('*').eq('stock_no', ref).limit(1);
+        let dealerRow = (dealer || [])[0] || null;
+        if (!dealerRow) {
+          const { data: byGoonet } = await db.from('japan_dealer_stock')
+            .select('*').eq('goonet_id', ref).limit(1);
+          dealerRow = (byGoonet || [])[0] || null;
+        }
+        if (dealerRow) row = mapDealerRows([dealerRow], { includeParked: true })[0] || null;
+      } catch { /* older database without the dealer table */ }
+    }
+    if (row && (row.published === false ||
+      (row.status != null && SITEMAP_UNAVAILABLE.test(String(row.status))))) {
+      row = null;
+    }
+    return sendCard(row);
+  } catch (e) {
+    console.error('vehicle-head:', e);
+    return sendCard(null);
+  }
+}
+
 /** Published built-in and CRM-authored guides, deduplicated by canonical slug. */
 export function buildNewsXml(rows = []) {
   const bySlug = new Map();
@@ -936,6 +1064,11 @@ export default async function handler(req, res, injected = {}) {
   // comment above.
   if (String(req.query.sitemap || '') === 'vehicles') {
     return sitemapVehicles(req, res, injected);
+  }
+  // ---- Social link-preview card: /inventory/<ref> rewrites here for
+  // crawler user-agents only (see vercel.json) with ?head=<ref>.
+  if (String(req.query.head || '') !== '') {
+    return vehicleHead(req, res, injected);
   }
   if (String(req.query.sitemap || '') === 'news') {
     return sitemapNews(req, res, injected);

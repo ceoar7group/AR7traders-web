@@ -234,6 +234,17 @@
       "destination": "/destinations/australia/index.html"
     },
     {
+      "source": "/inventory/:ref",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
+        }
+      ],
+      "destination": "/api/site-content?head=:ref"
+    },
+    {
       "source": "/api/sitemap-vehicles.xml",
       "destination": "/api/site-content?sitemap=vehicles"
     },
