@@ -371,6 +371,8 @@ const en = {
   'inv.clearAll': 'Clear all filters',
   'inv.resultsNote': '{showroom} showroom · {japan} Japan stock · prices FOB Japan · shipping quoted to your port',
   'inv.vehicles': 'vehicles',
+  'inv.viewGrid': 'Grid view',
+  'inv.viewList': 'List view',
   'inv.vehicle': 'vehicle',
   'inv.noMatches': 'No matches',
   'inv.noMatchesBody': 'Try clearing the filters or ask our team to source it.',

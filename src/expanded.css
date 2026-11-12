@@ -1192,7 +1192,6 @@ section[id]{scroll-margin-top:120px}
  .card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
  .card-actions .card-wa,.card-actions .card-offer{width:100%;height:44px;font-size:12px}
  .card-actions .cmp-chip{grid-column:1/-1;width:100%;justify-content:center;height:40px}
- .car-bottom .card-open{width:44px;height:44px}
  .inv-pager button{min-width:44px;height:44px}
 }
 @media(min-width:651px) and (max-width:1000px){
@@ -1226,7 +1225,6 @@ section[id]{scroll-margin-top:120px}
  .card-actions{gap:7px}
  .card-actions .card-wa,.card-actions .card-offer{height:42px;font-size:11px}
  .card-actions .cmp-chip{height:38px}
- .car-bottom .card-open{width:42px;height:42px}
 }
 
 /* ===========================================================================
@@ -1253,9 +1251,9 @@ section[id]{scroll-margin-top:120px}
 .cmp-chip:hover{border-color:#f2c04e;color:#fff;box-shadow:inset 0 1px 0 #ffffff38,0 4px 13px #032b1b66}
 .cmp-chip.on{background:var(--met-au);border-color:#b47d15;color:#073b27}
 .cmp-chip.on svg{color:#073b27}
-/* price-box arrow — gold plate; the card-hover emerald flip in styles.css
-   still wins on hover, so gold turns emerald as the pointer arrives */
-.car-bottom .card-open,.car-bottom button{background:var(--met-au);border:1px solid #b47d15;color:#073b27;box-shadow:inset 0 1px 0 #ffe9ad,0 2px 8px #9a690d47}
+/* (2026-11 R42: the price-box arrow plate was removed — the whole card has
+   been a link since the split-button era, so the arrow was redundant) */
+
 /* stock badges over the photo */
 .status{background:var(--met-em);font-weight:800;letter-spacing:1px;box-shadow:inset 0 1px 0 #ffffff30,0 2px 8px #0004}
 .status.auction,.status.newarrival{background:var(--met-au);color:#073b27}

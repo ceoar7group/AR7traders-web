@@ -1,45 +1,69 @@
 /* ---------------------------------------------------------------------------
    R41 (2026-11-03, owner screenshots): landing-page motion scenes, footer
-   rebrand, home "shop by" rails and the integrated card-open split button.
+   rebrand, home "shop by" rails. R42: footer logo halo + big AR7 wordmark,
+   the vehicle-card refresh (no arrow — the card is the link), the slim price
+   strip and the grid/list layout toggle.
 
    Rules of the house kept here on purpose:
    - animations are transform/opacity only (compositor-friendly, no layout
      thrash) and all of them are switched off under prefers-reduced-motion;
    - no new JS libraries — every scene is CSS + the SVG already in the markup;
-   - imported AFTER expanded.css so the card-open rules below win the cascade
-     over the metallic override at expanded.css (which made the arrow read as
-     a second button stacked inside the price pill — owner screenshot).
+   - imported AFTER expanded.css so the card rules below win the cascade
+     over the metallic overrides there.
    --------------------------------------------------------------------------- */
 
 /* ---- footer rebrand ------------------------------------------------------ */
 /* The transparent mark replaces the white-box logo PNG. pages.css paints
    .footer-brand img with a white background for the old asset — undo it. */
-.footer-brand .footer-logo{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-.footer-brand .footer-logo img{width:118px;height:auto;background:none;padding:0;filter:drop-shadow(0 10px 26px rgba(0,0,0,.5)) drop-shadow(0 0 20px rgba(244,189,85,.14)) brightness(1.22) saturate(1.05)}
-.footer-wordmark{display:grid;gap:2px;font:500 19px/1.1 Manrope,sans-serif;letter-spacing:2.6px;color:#eaf4ee}
-.footer-wordmark b{font-weight:800;color:#8fe3b4;display:inline}
+.footer-brand .footer-logo{position:relative;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+/* R42 (owner feedback): a soft gold-into-white halo sits behind the mark so
+   the logo block reads lit instead of flat on the dark green. */
+.footer-brand .footer-logo:before{content:'';position:absolute;left:-30px;top:50%;transform:translateY(-50%);width:230px;height:160px;border-radius:50%;background:radial-gradient(closest-side,rgba(244,189,85,.24),rgba(255,255,255,.06) 52%,transparent 74%);pointer-events:none}
+.footer-brand .footer-logo img{position:relative;width:128px;height:auto;background:none;padding:0;filter:drop-shadow(0 10px 26px rgba(0,0,0,.5)) drop-shadow(0 0 24px rgba(244,189,85,.32)) brightness(1.24) saturate(1.05)}
+.footer-wordmark{position:relative;display:grid;gap:2px;font:500 15px/1.1 Manrope,sans-serif;letter-spacing:3.4px;color:#eaf4ee}
+/* "AR7" was too small next to the mark — it is now the headline of the block */
+.footer-wordmark b{font-weight:800;font-size:37px;line-height:1;letter-spacing:1.5px;color:#8fe3b4;text-shadow:0 0 22px rgba(143,227,180,.4),0 2px 14px rgba(0,0,0,.45)}
 .footer-wordmark small{font-size:7.5px;letter-spacing:2.4px;color:#f4bd55;font-weight:700;margin-top:4px}
 /* Social buttons were reading as unlit slots on the dark footer — lift the
    fill, brighten the icons, give each a clear hover identity. */
 .site-footer .socials{gap:12px;margin-top:2px}
-.site-footer .socials button,.site-footer .socials a{width:46px;height:46px;min-width:46px;border-radius:14px;background:linear-gradient(160deg,#10492f,#0a3121);border:1px solid #2e6a4b;color:#fff;box-shadow:0 10px 26px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.07)}
+.site-footer .socials button,.site-footer .socials a{width:46px;height:46px;min-width:46px;border-radius:14px;background:linear-gradient(160deg,#124f33,#0a3121);border:1px solid #35755a;color:#fff;box-shadow:0 10px 26px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.1)}
 /* Root cause of the owner's "social buttons not visible" screenshot: these
    anchors live inside .footer-grid, whose link rule hides svg icons until the
    row is hovered (the reveal-on-hover arrow treatment). Only .wa-link had an
    opacity carve-out, which is why WhatsApp alone showed. Force the icons on. */
 .site-footer .socials a svg,.site-footer .socials button svg{width:19px;height:19px;opacity:1;transform:none}
-.site-footer .socials button:hover,.site-footer .socials a:hover{background:linear-gradient(160deg,#155a3a,#0d3d29);border-color:var(--gold2);color:var(--gold2);transform:translateY(-3px)}
+.site-footer .socials button:hover,.site-footer .socials a:hover{background:linear-gradient(160deg,#155a3a,#0d3d29);border-color:var(--gold2);color:var(--gold2);transform:translateY(-3px);box-shadow:0 14px 30px rgba(0,0,0,.45),0 0 18px rgba(244,189,85,.28),inset 0 1px 0 rgba(255,255,255,.12)}
 .site-footer .socials a.wa-link{border-color:#2ea35f;background:linear-gradient(160deg,#124f30,#0a3a21)}
 .site-footer .socials a.wa-link svg{color:#3ddc74}
 .site-footer .socials a.wa-link:hover{border-color:#3ddc74;color:#3ddc74}
 
-/* ---- integrated card-open split button ---------------------------------- */
-/* One element, one outline: the arrow is now the right-hand segment of the
-   price bar instead of a second bordered square floating inside it. */
-.car-bottom{position:relative;padding-right:68px}
-.car-bottom .card-open{position:absolute;right:-1px;top:-1px;bottom:-1px;width:56px;height:auto;border:0;border-left:1px solid #b47d15;border-radius:0 13px 13px 0}
-.car-bottom .card-open svg{width:20px;height:20px}
-@media(hover:hover){.car-card:hover .card-open svg{transform:translate(2px,-2px)}.car-bottom .card-open svg{transition:transform .2s}}
+/* ---- R42 vehicle card refresh -------------------------------------------
+   Owner feedback 2026-11: the gold arrow went (the whole card is the link),
+   the price strip slims down, the card itself gets a quieter, sleeker frame,
+   and the results line gains a grid/list layout toggle. */
+.car-card{border-radius:18px}
+.car-card:hover{border-color:color-mix(in srgb,var(--gold) 42%,var(--line))}
+.car-info{padding:15px 15px 13px}
+/* slim price strip — a hairline gold ledge instead of the chunky split pill */
+.car-bottom{padding:7px 12px;border-radius:11px;gap:8px;border-color:color-mix(in srgb,var(--gold) 30%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 7%,var(--card)),var(--card) 58%);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--gold) 14%,transparent)}
+.car-bottom small{font-size:6.5px}
+.car-bottom b{font-size:18px}
+/* grid/list toggle in the results line */
+.view-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-inline-start:12px}
+.view-toggle button{width:34px;height:27px;border:0;border-radius:7px;background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:background .18s,color .18s}
+.view-toggle button svg{width:15px;height:15px}
+.view-toggle button[aria-pressed=true]{background:var(--green);color:#fff}
+/* list view: one full-width row per vehicle, photo beside the facts */
+/* !important matches the .full-grid column ladder in pages/expanded.css,
+   which is !important at every breakpoint — the list override must outrank
+   all of it or the toggle only works at some widths. */
+.car-grid.list-view{grid-template-columns:1fr!important;gap:14px}
+.list-view .car-card{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);animation:none}
+.list-view .car-card .car-image{height:100%;min-height:208px}
+.list-view .car-info{display:flex;flex-direction:column;justify-content:center;padding:16px 20px}
+.list-view .car-bottom,.list-view .card-cif{max-width:430px}
+.list-view .card-actions{max-width:560px}
 
 /* ---- home "shop by" rails ------------------------------------------------ */
 .shop-by .section-head{margin-bottom:42px}
@@ -128,10 +152,24 @@
  .hs-r1{width:280px;height:280px;right:-90px;top:-90px}
  .hs-r2{width:170px;height:170px;right:-30px;top:-30px}
  .hs-ship,.hs-pulse{width:42px;height:42px}
- .footer-brand .footer-logo img{width:100px}
- .footer-wordmark{font-size:16px;letter-spacing:2px}
- .car-bottom{padding-right:60px}
- .car-bottom .card-open{width:48px}
+ .footer-brand .footer-logo img{width:104px}
+ .footer-brand .footer-logo:before{width:190px;height:140px;left:-22px}
+ .footer-wordmark{font-size:13px;letter-spacing:2.4px}
+ .footer-wordmark b{font-size:30px}
+ /* compact list rows on phones: thumbnail + the essentials; the tap actions
+    live one tap away on the detail page the row links to */
+ .list-view .car-card{grid-template-columns:126px minmax(0,1fr)}
+ /* the phone sheet pins .car-image to aspect-ratio 31/20 with height:auto
+    !important — in a list row the thumb must fill its 126px track instead */
+ .list-view .car-card .car-image{height:100%!important;min-height:150px;aspect-ratio:auto}
+ .list-view .status{top:8px;left:8px;padding:5px 7px;font-size:8px;letter-spacing:.5px}
+ .list-view .grade{display:none}
+ .list-view .car-info{padding:11px 12px}
+ .list-view .card-actions,.list-view .card-cif,.list-view .loc{display:none}
+ .list-view .specs span{padding:4px 7px;font-size:9px}
+ .list-view .car-bottom{padding:5px 10px}
+ .list-view .car-bottom b{font-size:15px}
+ .view-toggle button{width:38px;height:31px}
 }
 @media (prefers-reduced-motion:reduce){
  .hero-scene,.hero-scene *,.page-hero.split .page-hero-image>img,.extra-head:before{animation:none!important}

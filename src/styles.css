@@ -31,8 +31,6 @@ a.brand{text-decoration:none}
 a.dashboard{color:#112219}
 a.search-btn{text-decoration:none}
 a.gold-btn,a.outline-btn,a.primary,a.icon-btn,a.text-btn{text-decoration:none}
-.car-bottom .card-open{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--green-text);display:grid;place-items:center;cursor:pointer;flex:none;transition:background .18s,color .18s,border-color .18s}
-.car-card:hover .card-open{background:var(--green);color:#fff;border-color:var(--green-text)}
 a.car-card .fav{cursor:pointer}
 
 /* Visually hidden but still read by screen readers and crawlers. */
