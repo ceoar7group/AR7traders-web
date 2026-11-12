@@ -549,6 +549,16 @@ const en = {
   'home.budgetBrowse': 'Browse {make} stock',
   'home.budgetCar': 'car',
   'home.budgetCars': 'cars',
+  // 2026-11-03: home "shop by" rails (make / body type / price), owner request
+  // after competitor screenshots — AR7 theme, live counts.
+  'home.shopKicker': 'SHOP THE STOCK YOUR WAY',
+  'home.shopH2a': 'Find your next car,',
+  'home.shopH2b': 'three ways in.',
+  'home.shopBody': 'Jump straight to the vehicles that fit — by make, by body type or by budget. Every count is live from the stock published today.',
+  'home.shopByMake': 'Shop by make',
+  'home.shopByType': 'Shop by body type',
+  'home.shopByPrice': 'Shop by price',
+  'home.shopAll': 'All stock',
   'home.processKicker': 'YOUR JOURNEY, SIMPLIFIED',
   'home.processH2a': 'From auction floor',
   'home.processH2b': 'to your',
