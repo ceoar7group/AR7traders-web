@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T21:42:13.575Z",
+  "generatedAt": "2026-11-12T22:04:13.159Z",
   "summary": {
     "total": 18,
     "pass": 16,
@@ -67,7 +67,7 @@
       "area": "security",
       "name": "localStorage access guarded",
       "status": "pass",
-      "detail": "all wrapped",
+      "detail": "3 unguarded call(s) (first: src/crm.jsx:316)",
       "fix": "Wrap in try/catch — private mode throws on write"
     },
     {
