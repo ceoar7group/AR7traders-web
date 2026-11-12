@@ -27,6 +27,11 @@ export const LEAD_SOURCES = Object.freeze([
   'Machinery offer',
   'Chat lead',
   'Stock alerts',
+  // 2026-11-12: api/_wa.js tags inbound WhatsApp conversations with
+  // source:'WhatsApp'. The validator silently coerced that to 'Website'
+  // because the value was missing here, so every WhatsApp lead lost its
+  // channel in the CRM.
+  'WhatsApp',
 ]);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

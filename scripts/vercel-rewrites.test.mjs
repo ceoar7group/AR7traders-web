@@ -52,4 +52,28 @@ assert.equal(jp.permanent, true, 'the /japan-stock redirect must be permanent (3
 assert.equal(parseRoute({ pathname: '/japan-stock' }).page, 'inventory',
   'client-side /japan-stock must resolve to the merged inventory page');
 
+// ---- OG car cards: crawler-only head rewrite --------------------------------
+// Social link crawlers (WhatsApp, Facebook, X, …) do not run JavaScript, so
+// /inventory/<ref> rewrites to the site-content head endpoint FOR THOSE
+// USER-AGENTS ONLY. Humans keep the static SPA shell, and Googlebot is
+// deliberately NOT in the list (it renders applySeo itself; serving it a
+// different document risks a cloaking reading).
+const rewrites = config.rewrites || [];
+const headRewrite = rewrites.find(r => String(r.destination || '').includes('head='));
+assert.ok(headRewrite, 'vercel.json must carry the crawler head rewrite for vehicle pages');
+assert.equal(headRewrite.source, '/inventory/:ref', 'the head rewrite serves vehicle detail URLs');
+assert.equal(headRewrite.destination, '/api/site-content?head=:ref',
+  'the head rewrite dispatches on site-content (no new Serverless Function)');
+const ua = (headRewrite.has || []).find(h => h.type === 'header' && h.key === 'user-agent');
+assert.ok(ua, 'the head rewrite is gated on the user-agent header');
+for (const bot of ['facebookexternalhit', 'whatsapp', 'twitterbot', 'linkedinbot', 'telegrambot']) {
+  assert.ok(ua.value.toLowerCase().includes(bot), `the crawler list names ${bot}`);
+}
+assert.ok(!ua.value.toLowerCase().includes('googlebot'),
+  'Googlebot must NOT be routed to the head endpoint (it renders the SPA itself)');
+assert.ok(ua.value.startsWith('(?i)'), 'the user-agent match is case-insensitive');
+assert.ok(
+  rewrites.indexOf(headRewrite) < rewrites.indexOf(spaRewrite),
+  'the crawler head rewrite must come before the SPA catch-all, or it never fires');
+
 console.log(`Vercel SPA rewrite covers ${requiredPaths.length} client and deep-link paths.`);

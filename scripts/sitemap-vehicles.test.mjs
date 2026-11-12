@@ -302,5 +302,91 @@ const DEALER_SEED = [
     'sitemap-helpers hrefFor builds /news/<slug> paths');
 }
 
+// ============================================================================
+// OG car cards (GET ?head=<ref>) — the social link-preview head that
+// vercel.json serves to crawler user-agents for /inventory/<ref>.
+// ============================================================================
+const { vehicleHead, buildVehicleHeadHtml } = await import('../api/site-content.js');
+
+async function runHead(req, db) {
+  const res = fakeRes();
+  const realError = console.error;
+  console.error = () => {};
+  try { await vehicleHead(req, res, db ? { db } : {}); }
+  finally { console.error = realError; }
+  return res;
+}
+
+const HEAD_SEED = [
+  { id: 7, stock_no: 'AR7-0007', make: 'Toyota', model: 'Vezel "Z"', year: 2019,
+    km: '42,000', fuel: 'Hybrid', tr: 'AT', grade: '4.5', price: 12500,
+    image: '/assets/inventory/700052000730260404001.webp', status: 'In Stock', published: true },
+  { id: 8, stock_no: 'AR7-SOLD', make: 'Nissan', model: 'Note', year: 2017,
+    price: 6000, image: '/assets/ar7-mark-256.webp', status: 'Sold', published: true },
+  { id: 9, stock_no: 'AR7-DRAFT', make: 'Honda', model: 'Fit', year: 2018,
+    price: 7000, image: '/assets/ar7-mark-128.webp', status: 'In Stock', published: false },
+];
+const HEAD_DEALER = [
+  { goonet_id: '700912345', stock_no: 'GN-700912345', make: 'Suzuki', model: 'Every',
+    year: 2020, km: 31000, price_usd: 5400, images: ['https://cdn.example.jp/every.jpg'],
+    available: true },
+];
+
+say('\n-- OG car card: a published listing renders its own card --');
+{
+  const res = await runHead({ method: 'GET', query: { head: 'AR7-0007' } }, memDb(HEAD_SEED));
+  ok(res.statusCode === 200, 'the card responds 200');
+  ok(/text\/html/.test(res.headers['content-type'] || ''), 'as HTML');
+  ok(/public/.test(res.headers['cache-control'] || ''), 'publicly cacheable for the crawlers');
+  ok(res.body.includes('2019 Toyota Vezel &quot;Z&quot; — Japan export | AR7 Traders'),
+    'og:title carries year, make and the HTML-escaped model');
+  ok(res.body.includes('42,000 km · Hybrid · AT · Grade 4.5 · FOB US$12,500.'),
+    'the description lists the spec line with the formatted FOB price');
+  ok(res.body.includes('content="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
+    'og:image is the absolute URL of the cover photo');
+  ok(res.body.includes('https://ar7traders.com/inventory/AR7-0007'),
+    'og:url/canonical point at the real vehicle page');
+  ok(res.body.includes('summary_large_image'), 'Twitter renders the large card');
+  ok(res.body.includes('http-equiv="refresh"'),
+    'a stray human still lands on the real page via the refresh fallback');
+}
+
+say('\n-- the card never breaks a share: unknown, sold, draft, DB-down --');
+{
+  const generic = 'AR7 Traders | Car Exporter from Japan &amp; China';
+  for (const [label, ref, db] of [
+    ['an unknown ref', 'NOPE-404', memDb(HEAD_SEED)],
+    ['a sold car', 'AR7-SOLD', memDb(HEAD_SEED)],
+    ['an unpublished draft', 'AR7-DRAFT', memDb(HEAD_SEED)],
+    ['a broken database', 'AR7-0007', memDb(HEAD_SEED, { error: 'boom' })],
+  ]) {
+    const res = await runHead({ method: 'GET', query: { head: ref } }, db);
+    ok(res.statusCode === 200 && res.body.includes(generic),
+      `${label} degrades to the generic AR7 card, still HTTP 200`);
+  }
+  const sold = await runHead({ method: 'GET', query: { head: 'AR7-SOLD' } }, memDb(HEAD_SEED));
+  ok(!sold.body.includes('Nissan'), 'a sold car leaks nothing about itself');
+}
+
+say('\n-- imported dealer cars share the same card endpoint --');
+{
+  const res = await runHead({ method: 'GET', query: { head: '700912345' } },
+    memDb([], { dealerRows: HEAD_DEALER }));
+  ok(res.statusCode === 200 && res.body.includes('2020 Suzuki Every — Japan export'),
+    'a goonet ref resolves through japan_dealer_stock');
+  ok(res.body.includes('https://cdn.example.jp/every.jpg'),
+    'an already-absolute dealer photo URL is kept as-is');
+}
+
+say('\n-- method and escaping discipline --');
+{
+  const post = await runHead({ method: 'POST', query: { head: 'AR7-0007' } }, memDb(HEAD_SEED));
+  ok(post.statusCode === 405, 'POST is refused');
+  const html = buildVehicleHeadHtml(
+    { make: '<script>', model: 'x"y', year: 2020, price: 1 }, 'R<EF>');
+  ok(!html.includes('<script>') && !html.includes('R<EF>'),
+    'row fields and the ref are HTML-escaped everywhere they appear');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
