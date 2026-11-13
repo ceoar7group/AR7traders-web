@@ -32,6 +32,29 @@ let cache = null;
 let inflight = null;
 const listeners = new Set();
 
+// 2026-11 (owner: inventory "fluctuates on reloading"): the CRM answer used to
+// arrive only over the network, so stock discounts (and the promo campaign)
+// landed half a second AFTER first paint — every discounted card swapped its
+// one-line price for the taller was/now/badge block and the whole grid below
+// reflowed, on every single reload. Same pattern as the `ar7-live-cars`
+// snapshot: the last successful /api/settings answer is cached and re-seeded
+// BEFORE first paint, so discounted prices and the promo rows render in the
+// very first frame. The fetch below still runs and refreshes the snapshot —
+// a stale snapshot can only ever show the previous visit's public settings,
+// exactly like the cars snapshot next to it.
+const SNAP_KEY = 'ar7-settings-snap';
+if (typeof window !== 'undefined') {
+  try {
+    const snap = JSON.parse(localStorage.getItem(SNAP_KEY) || 'null');
+    if (snap && typeof snap === 'object' && !Array.isArray(snap) && Object.keys(snap).length) {
+      cache = {...FALLBACK, ...Object.fromEntries(
+        Object.entries(snap).filter(([, v]) => v !== null && v !== '')
+      )};
+      Object.defineProperty(cache, '__source', {value: 'snapshot', enumerable: false});
+    }
+  } catch { /* storage off or corrupt snapshot — first paint keeps fallbacks */ }
+}
+
 export function getSettings() {
   return cache || FALLBACK;
 }
@@ -46,13 +69,25 @@ export function updateSettingsCache(patch) {
 }
 
 export function loadSettings() {
-  if (cache) return Promise.resolve(cache);
+  // A snapshot-seeded cache answers synchronously but is last visit's data —
+  // the network still refreshes it (and the snapshot) exactly once.
+  if (cache && cache.__source !== 'snapshot') return Promise.resolve(cache);
   if (inflight) return inflight;
   inflight = fetch('/api/settings')
     .then(r => (r.ok ? r.json() : {}))
     .catch(() => ({}))
     .then(data => {
       const answered = data && typeof data === 'object' && Object.keys(data).length > 0;
+      if (!answered && cache?.__source === 'snapshot') {
+        // The API did not answer this time; the previous answer beats the
+        // built-in fallbacks. Keep it, and clear `inflight` so a later call
+        // may try the network again.
+        inflight = null;
+        return cache;
+      }
+      if (answered) {
+        try { localStorage.setItem(SNAP_KEY, JSON.stringify(data)); } catch { /* storage may be off */ }
+      }
       cache = {...FALLBACK, ...Object.fromEntries(
         Object.entries(data || {}).filter(([, v]) => v !== null && v !== '')
       )};

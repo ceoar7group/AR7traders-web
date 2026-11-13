@@ -271,6 +271,10 @@ export function canonicalHref(loc) {
   const route = parseRoute(loc);
   const params = new URLSearchParams(String(loc.search || '').replace(/^\?/, ''));
   params.delete('car');
+  // `?q=` is the SearchAction entry point: every query lands on the same
+  // inventory, so search-result URLs canonicalise to the clean page — Google
+  // must never index one thin page per search phrase.
+  params.delete('q');
   if (route.make) params.set('make', route.make);
   else params.delete('make');
   // One canonical per market page, exactly as for a machine or a brand landing.

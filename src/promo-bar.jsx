@@ -21,7 +21,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Tag, X } from 'lucide-react';
 import { hrefFromTarget, linkClick } from './routing.js';
 import { useSettings, loadSettings, getSettings } from './site-settings.js';
-import { useStockDiscounts, barRows, campaignIsLive } from './offers.js';
+import { useStockDiscounts, barRows, campaignIsLive, parseStockDiscounts, describeStockDiscounts } from './offers.js';
 
 const DISMISS_KEY = 'ar7-promo-dismissed';
 const OFFER_DISMISS_KEY = 'ar7-price-offer-dismissed';
@@ -90,13 +90,28 @@ export function PromoBar({ navigate }) {
       document.documentElement.style.setProperty('--promo-h', Math.max(47 - marginDelta(), 0) + 'px');
     } catch { /* private mode: first paint reserves nothing, as before */ }
   });
-  const [hidden, setHidden] = useState(false);
+  // Dismissals are seeded from storage at first render (not in an effect):
+  // the settings snapshot now paints the campaign/offer rows in the very
+  // first frame, so a visitor who dismissed a row must never see it flash in
+  // and collapse one effect-tick later. The effect below still re-derives
+  // both flags whenever the campaign or discount identity changes.
+  const [hidden, setHidden] = useState(() => {
+    try {
+      const live = liveSettingsCampaign(getSettings());
+      return !!live?.id && localStorage.getItem(DISMISS_KEY) === live.id;
+    } catch { return false; }
+  });
   // True once either promo source has actually answered. Until then the
   // reserved `--promo-h` must not be zeroed, or the pre-paint reservation
   // collapses the moment React mounts — reintroducing the very shift it
   // exists to prevent.
   const [settled, setSettled] = useState(false);
-  const [offerHidden, setOfferHidden] = useState(false);
+  const [offerHidden, setOfferHidden] = useState(() => {
+    try {
+      const row = describeStockDiscounts(parseStockDiscounts(getSettings()?.stock_discounts || null));
+      return !!row?.id && localStorage.getItem(OFFER_DISMISS_KEY) === row.id;
+    } catch { return false; }
+  });
   const settings = useSettings();
   const stockDiscounts = useStockDiscounts();
 

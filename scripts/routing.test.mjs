@@ -86,6 +86,12 @@ ok(!brandAndCar.make && brandAndCar.carId === '43', 'a car deep link ignores the
 
 ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?make=Toyota&embed=1' }) === '/inventory?make=Toyota&embed=1#/inventory', 'canonical keeps a legacy brand query with other params');
 
+// `?q=` is the SearchAction entry point (seo.js WebSite node): every search
+// phrase shows the same inventory, so the canonical must drop the query —
+// one indexable page, not one thin page per phrase.
+ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?q=land+cruiser' }) === '/inventory#/inventory', 'a SearchAction query canonicalises to the clean inventory page');
+ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?q=corolla&make=Toyota' }) === '/inventory?make=Toyota#/inventory', 'dropping q never loses the brand filter next to it');
+
 // writeLocation must persist the filter (and clear it when we leave the list).
 const store = { [LAST_VEHICLE_KEY]: '51' };
 globalThis.sessionStorage = {

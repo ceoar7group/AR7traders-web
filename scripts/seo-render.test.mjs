@@ -504,6 +504,8 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   ok(!!m, 'static business JSON-LD is present and addressable');
   const graph = JSON.parse(m[1])['@graph'].map(n => n['@type']);
   ok(graph.includes('AutoDealer') && graph.includes('WebSite'), 'static graph keeps AutoDealer + WebSite');
+  ok(m[1].includes('"SearchAction"') && m[1].includes('/inventory?q={search_term_string}'),
+    'the static shell WebSite node carries the same SearchAction crawlers read without JS');
   ok(!graph.includes('FAQPage'), 'static graph no longer ships FAQPage on every route');
   ok(!html.includes('35+ countries'), 'static shell no longer claims 35+ countries');
   // The static shell keeps the default og:image and declares its true size.
@@ -674,6 +676,10 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   ok(site['@type'] === 'WebSite' && site.publisher?.['@id'] === org['@id'] &&
      site.inLanguage?.length === LANGUAGES.length,
     'WebSite links back to the Organization and declares all languages');
+  ok(site.potentialAction?.['@type'] === 'SearchAction' &&
+     site.potentialAction?.target?.urlTemplate === 'https://ar7traders.com/inventory?q={search_term_string}' &&
+     site.potentialAction?.['query-input'] === 'required name=search_term_string',
+    'WebSite advertises the /inventory?q= SearchAction (sitelinks search box)');
   ok(jsonld('howto-jsonld') === null, 'the HowTo is removed when leaving /howbuy');
 
   applySeo('contact', null);
