@@ -454,7 +454,13 @@ const CSS_BUDGET_GZIP = 45 * 1024;
 // culprit), and the ribbon globe swapped drop-shadow for a static halo.
 // Measured 229.95 kB raw / 44.34 kB gzip — the gzip budget (what actually
 // ships) is untouched and still holds under 45.
-const CSS_BUDGET_RAW = 230.5 * 1024;
+// 2026-11 (R46, unused-CSS split): 230.5 → 221 kB raw — the Brands / How to
+// buy / Tools / News / FAQ-topic / destinations-hub rules moved from the
+// eager src/expanded.css + src/pages.css into the lazy pages-static chunk,
+// and the /destinations/{market} page styles into a new lazy
+// destination-page.css. The first paint stops downloading rules only those
+// routes render. Measured 219.38 kB raw / 42.90 kB gzip.
+const CSS_BUDGET_RAW = 221 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

@@ -10,6 +10,10 @@
 // — the same module src/seo.js reads to build this URL's title, description and
 // FAQPage markup, so what is rendered and what is claimed cannot drift apart.
 import React from 'react';
+// This route's own styles ride in its lazy chunk (split out of the eager
+// src/expanded.css in 2026-11, R46 — unused-CSS work): the first paint of
+// any other page no longer downloads the destination-page rules.
+import './destination-page.css';
 import { ArrowRight, Check, Globe2, ShieldCheck } from 'lucide-react';
 import { DEST, destinationFacts, destinationFaqs, destinationHref } from './destinations.js';
 import { useLang } from './i18n.jsx';

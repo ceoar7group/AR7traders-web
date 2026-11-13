@@ -1,0 +1,49 @@
+/* /destinations/{market} pages (src/destination-page.jsx — lazy route).
+   Moved out of the eager src/expanded.css in 2026-11 (R46): only this
+   chunk renders these classes, so the first paint no longer pays for
+   them. Tokens (--card/--line/--gold…) come from the eager theme. */
+
+.destination-guide-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.destination-guide-card{background:var(--bg);border:1px solid var(--line);border-radius:15px;padding:20px;display:grid;gap:6px;align-content:start}
+.destination-guide-card h3{font:700 18px/1.25 Manrope;margin:2px 0 4px}
+.destination-guide-card p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.7}
+
+/* ---------- 2026-10-08: one indexable page per market (/destinations/kenya) --
+   The hub's guide block, given its own URL: same skin, same tokens, so the
+   market page reads as the guide it is rather than as a second design. The
+   two-column guide body already collapses at 1000px in the media query below. */
+.destination-hero{display:grid;gap:14px;margin-bottom:26px}
+.destination-hero h1{font:800 clamp(30px,4.4vw,50px)/1.06 Manrope;letter-spacing:-1.7px;margin:4px 0 0}
+.destination-lede{margin:0;max-width:72ch;font-size:14.5px;line-height:1.7;color:var(--muted)}
+.destination-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:6px 0 0}
+.destination-facts>div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:6px;align-content:start}
+.destination-facts dt{font:700 10px/1.3 Manrope;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.destination-facts dd{margin:0;font:700 15px/1.35 Manrope;color:var(--ink)}
+.destination-facts dd small{display:block;font:500 11px/1.45 Manrope;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:4px}
+.destination-cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.destination-page .destination-guide-cols{margin-bottom:26px}
+.destination-docs{margin-bottom:26px;padding:24px;background:var(--card);border:1px solid var(--line);border-radius:18px;display:grid;gap:12px}
+.destination-docs h2{font:800 clamp(20px,2.3vw,26px)/1.2 Manrope;letter-spacing:-.8px;margin:0}
+.destination-docs ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.destination-docs li{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;line-height:1.55;color:var(--ink)}
+.destination-docs li svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--gold)}
+.destination-note{display:flex;align-items:flex-start;gap:9px;margin:0;padding:12px 15px;border-radius:12px;background:color-mix(in srgb,var(--gold) 10%,var(--bg));border:1px solid color-mix(in srgb,var(--gold) 30%,var(--line));font-size:12px;line-height:1.6;color:var(--ink)}
+.destination-note svg{width:16px;height:16px;color:var(--gold);flex:none;margin-top:2px}
+.destination-faq{margin-bottom:28px}
+.destination-faq h2{font:800 clamp(22px,2.6vw,30px)/1.15 Manrope;letter-spacing:-.9px;margin:0 0 16px;color:var(--ink)}
+.destination-faq-list{display:grid;gap:10px}
+.destination-faq-list details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.destination-faq-list summary{cursor:pointer;font:700 14.5px/1.45 Manrope;color:var(--ink)}
+.destination-faq-list details p{margin:9px 0 0;font-size:13px;line-height:1.7;color:var(--muted)}
+.destination-market-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+@media(max-width:1000px){.destination-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){
+  .destination-facts{grid-template-columns:minmax(0,1fr)}
+  .destination-hero h1{letter-spacing:-1px}
+  .destination-docs{padding:18px}
+  .destination-cta .primary,.destination-cta .outline-btn{width:100%;justify-content:center}
+}
+
+@media(max-width:1000px){.destination-guide-cols{grid-template-columns:1fr}}
+
+@media(max-width:650px){.destination-docs{padding:18px}}
