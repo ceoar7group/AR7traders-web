@@ -230,8 +230,17 @@ assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*grid-row: 2;[^}]*grid-c
   'carousel arrows are grid-placed on the photo row and centred on it');
 assert.doesNotMatch(layoutCss, /\.hero-carousel-controls \{[^}]*top:\s*clamp\(/s,
   'no per-breakpoint top offset is left to guess where the photo is');
-assert.match(layoutCss, /\.hero-carousel-controls button \{[^}]*width: 42px[^}]*height: 42px/s);
-assert.match(layoutCss, /\.hero-carousel-controls button \{width:40px;height:40px\}/);
+// 2026-11-13 (owner, R48: "arrows hidden on mobile — make them smaller, at the
+// extreme sides"): base pair 42→34px, the hero-stage layer restyles to 40px on
+// desktop and 32px ≤1000px with a 2px edge gutter, and the controls row sits at
+// z-index 12 (the dots/counter tier) because z-index 8 left both arrows BEHIND
+// the active slide on phones. The ::after halo keeps the mobile tap target ≥44px.
+assert.match(layoutCss, /\.hero-carousel-controls button \{[^}]*width: 34px[^}]*height: 34px/s);
+assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*z-index: 12;/s,
+  'the arrows stack above every hero slide — z-index 8 buried them on phones');
+assert.match(layoutCss, /\.hero \.hero-carousel-controls button \{[^}]*width: 40px;[^}]*height: 40px;/s);
+assert.match(layoutCss, /\.hero-carousel-controls button::after \{content: ''; position: absolute; inset: -7px\}/,
+  'the invisible halo keeps the shrunken mobile arrows at a ≥44px tap target');
 assert.match(main, /!query\.matches&&!document\.hidden&&!el\.matches\(':hover,:focus-within'\)/,
   'the rotating hero pauses for reduced motion, hover, hidden pages, and keyboard focus');
 assert.match(main, /prefers-reduced-motion: reduce/);

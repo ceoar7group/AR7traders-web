@@ -17,10 +17,10 @@
 // also why the date is checked here rather than trusted to the person who
 // published it.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Tag, X } from 'lucide-react';
 import { hrefFromTarget, linkClick } from './routing.js';
-import { useSettings } from './site-settings.js';
+import { useSettings, loadSettings, getSettings } from './site-settings.js';
 import { useStockDiscounts, barRows, campaignIsLive } from './offers.js';
 
 const DISMISS_KEY = 'ar7-promo-dismissed';
@@ -100,6 +100,17 @@ export function PromoBar({ navigate }) {
   const settings = useSettings();
   const stockDiscounts = useStockDiscounts();
 
+  // 2026-11 (owner: reload "stutters multiple times", part 2): the discounts
+  // row derives from `settings` DURING render, but the campaign used to wait
+  // for the settings effect below (setPromo → a second render). One settings
+  // answer therefore painted twice: first the offer row alone (one-row bar —
+  // the two-row reservation collapsed, nav/clock/hero jumped up), then the
+  // campaign row above it (everything jumped back down). Deriving the live
+  // CRM campaign synchronously puts both rows in the SAME paint, inside the
+  // height reserved before first paint — zero jolts. The effect below still
+  // runs for `settled` bookkeeping and the stale-campaign/file contract.
+  const shownPromo = useMemo(() => liveSettingsCampaign(settings), [settings?.promo]) || promo;
+
   // 1. The CRM-controlled setting wins when it parses AND is still running.
   //    An expired CRM campaign clears only a stale settings campaign — a
   //    fallback-file campaign that is still inside its own end date stays up
@@ -125,6 +136,21 @@ export function PromoBar({ navigate }) {
         // Only a LIVE settings campaign outranks the file; an expired one
         // does not get to silence a fallback that is still running.
         if (liveSettingsCampaign(settings)) return;
+        // 2026-11 (owner: reload "stutters multiple times"): this static file
+        // usually answers BEFORE /api/settings. Mounting it immediately
+        // painted the fallback campaign as a one-row bar, collapsed the
+        // two-row reservation from the previous visit (nav, world clock and
+        // hero all jumped up), and then the CRM answer re-mounted the live
+        // campaign plus the discounts row an instant later — everything
+        // jumped back down. Reload after reload the stored height flip-
+        // flopped between the two layouts, so the stutter repeated forever.
+        // Wait for the settings answer first: loadSettings() resolves on
+        // failure too (cache falls back, __source 'fallback'), so a static
+        // deploy or an offline preview still shows the file campaign — just
+        // without racing the CRM for the first paint.
+        await loadSettings().catch(() => null);
+        if (!alive) return;
+        if (liveSettingsCampaign(getSettings())) return;
         // An expired campaign is not shown, and not shown to anybody: the
         // end date is the end date. `campaignIsLive` runs the same check here
         // and again at render time, so the file and the live setting cannot
@@ -141,14 +167,14 @@ export function PromoBar({ navigate }) {
 
   // Dismissal is remembered by campaign id and by the exact set of stock
   // discounts. A changed id becomes visible again; either row can be closed alone.
-  const rows = barRows({promo, campaignDismissed: hidden, stockDiscounts});
+  const rows = barRows({promo: shownPromo, campaignDismissed: hidden, stockDiscounts});
   const currentStockRow = rows.offer;
   useEffect(() => {
     try {
-      setHidden(!!promo?.id && localStorage.getItem(DISMISS_KEY) === promo.id);
+      setHidden(!!shownPromo?.id && localStorage.getItem(DISMISS_KEY) === shownPromo.id);
       setOfferHidden(!!currentStockRow && localStorage.getItem(OFFER_DISMISS_KEY) === currentStockRow.id);
     } catch { setHidden(false); setOfferHidden(false); }
-  }, [promo?.id, currentStockRow?.id]);
+  }, [shownPromo?.id, currentStockRow?.id]);
 
   // The campaign and stock-savings rows remain independent: launching a
   // campaign does not hide per-stock prices, and dismissing one leaves the other.
@@ -178,7 +204,7 @@ export function PromoBar({ navigate }) {
       try { localStorage.setItem(HEIGHT_KEY, '0'); } catch { /* ignore */ }
     }
     return () => root.style.setProperty('--promo-h', '0px');
-  }, [promo?.id, hidden, currentStockRow?.id, offerHidden, campaign?.id, offerLine?.id, settled]);
+  }, [shownPromo?.id, hidden, currentStockRow?.id, offerHidden, campaign?.id, offerLine?.id, settled]);
 
   // While there is nothing to show, hold the previously reserved height open
   // instead of unmounting (2026-11-10, PageSpeed `nav.shell` CLS 0.053): the
