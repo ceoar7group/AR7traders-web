@@ -447,7 +447,14 @@ const CSS_BUDGET_GZIP = 45 * 1024;
 // gzip budget is unchanged and still holds.
 // 2026-11-03 (R41): 227 → 229.5 kB raw — src/landing-anim.css (same change
 // set as the gzip note above). Measured 228.14 kB raw.
-const CSS_BUDGET_RAW = 229.5 * 1024;
+// 2026-11-13 (perf round): 229.5 → 230.5 kB raw — the compositor pass: the
+// hero edge fade moved from mask-image to two gradient strips, the slide
+// dimmers moved from animated brightness() filters to a shared ::after
+// overlay, the world-clock cells got a fixed min-width (the page's top CLS
+// culprit), and the ribbon globe swapped drop-shadow for a static halo.
+// Measured 229.95 kB raw / 44.34 kB gzip — the gzip budget (what actually
+// ships) is untouched and still holds under 45.
+const CSS_BUDGET_RAW = 230.5 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

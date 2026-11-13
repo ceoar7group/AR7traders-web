@@ -328,11 +328,13 @@ function InvShowcase({picks,onOpen}){
    // far-right used to animate ACROSS the whole stage behind the centre car —
    // the "glitch" the owner saw when clicking the arrows quickly.
    return <button key={c.id} type="button" className={'inv-slide'+(off===0?' active':'')}
-    style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>1?0:1-a*.25,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.3,.4)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
+    style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>1?0:1-a*.25,zIndex:10-a,'--slide-dim':a?Math.min(a*.3,.6):0,pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
     onClick={()=>off===0?onOpen(c):setIdx(i)} tabIndex={a>1?-1:0}>
     {/* No aria-label: the caption text + image alt already name the button,
         and WCAG 2.5.3 requires the visible text to be part of the name. */}
-    <span className="inv-slide-bg" style={{backgroundImage:`url("${c.image}")`}} aria-hidden="true"/>
+    {/* 2026-11-13: the blurred .inv-slide-bg span is gone — the cover-fit img
+        hid every pixel of it, and its blur(20px) filter blocked GPU
+        compositing of the slide transitions (same fix as the home hero). */}
     <img src={c.image} alt={carAlt(c)} loading={i<3?'eager':'lazy'} decoding="async" width="520" height="300"/>
     <span className="inv-slide-cap"><b>{c.make} {c.model}</b><small>{c.year} · {c.km} km</small></span>
    </button>;
@@ -981,7 +983,7 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
      const resp=/^\/assets\/showroom\/hero-0[1-8](?:-v\d+)?\.webp$/.test(x.image||'');
      return <a key={x.id} href={x.href}
       className={'hero-slide'+(off===0?' active':'')+(x.kind==='machine'?' is-machine':'')}
-      style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,filter:a?`brightness(${Math.max(1-a*.35,.45)})`:'none',pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
+      style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,'--slide-dim':a?Math.min(a*.35,.55):0,pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
       tabIndex={a>1?-1:0} aria-hidden={a>1||undefined}
       onClick={e=>{if(off!==0){e.preventDefault();jumpTo(i)}else linkClick(x.href,navigate)(e)}}>
       {/* No aria-label (WCAG 2.5.3): the visible caption + image alt name
@@ -992,7 +994,14 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
           instead of double-downloading (2026-11-10: PageSpeed's LCP element
           was this span, undiscovered because it pulled the full-size URL the
           preload never requested). */}
-      {a<=2&&<span className="hero-slide-bg" style={{backgroundImage:`url("${resp?x.image.replace('.webp','-760.webp'):x.image}")`}} aria-hidden="true"/>}
+      {/* 2026-11-13: cars render WITHOUT the blurred backdrop — their cover-fit
+          img hides every pixel of it, yet its blur(22px) stopped the compositor
+          from GPU-animating the slide (LH "non-composited animations"). Only
+          contain-fit machine slides, where the backdrop is visible, keep it —
+          and local machinery photos use the build-time .blurbg.webp variant
+          (scripts/blur-backdrops.mjs) so no live filter remains in the hero;
+          the CSS blur survives purely as the fallback for non-local images. */}
+      {a<=2&&x.kind==='machine'&&(()=>{const pre=/^\/assets\/machinery\/.+\.webp$/.test(x.image||'');return <span className={'hero-slide-bg'+(pre?' preblur':'')} style={{backgroundImage:`url("${pre?x.image.replace(/\.webp$/,'.blurbg.webp'):x.image}")`}} aria-hidden="true"/>})()}
       {a<=2&&<img src={x.image} width="820" height="550"
         srcSet={resp?`${x.image.replace('.webp','-760.webp')} 760w, ${x.image} 1268w`:undefined}
         sizes={resp?'(max-width:900px) 80vw, 36vw':undefined}
@@ -1004,7 +1013,7 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
    {/* 2026-11-19 (owner, phone cleanup): the pill's "· rotating stock" tail
        is wrapped so phones can keep just the compact "4/18" (CSS hides the
        tail ≤560px — the photo stays uncovered). */}
-   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} {activeIndex+1}/{total}<span className="car-counter-tail"> · {c.kind==='machine'?'China machinery desk':'rotating stock'}</span></div>
+   <div className="car-counter">{c.kind==='machine'?<Wrench/>:<CarFront/>} <span className="car-counter-num">{activeIndex+1}/{total}</span><span className="car-counter-tail"> · {c.kind==='machine'?'China machinery desk':'rotating stock'}</span></div>
   </div>
   <div className="hero-carousel-controls">
    <button type="button" onClick={()=>moveSlide(-1)} aria-label="Prev"><ChevronLeft/></button>
@@ -1558,19 +1567,33 @@ function DeferredQuickQuote({navigate,cars}){
  </div>;
 }
 
+const worldClockTime=(c,now)=>c.formatter.formatToParts(now).filter(p=>['hour','minute','second','literal'].includes(p.type)).map(p=>p.value).join('');
 function WorldTimeRibbon(){
- const [now,setNow]=useState(()=>new Date());
+ // 2026-11-13 (perf round): this ribbon used to rebuild all 18 React items
+ // every second. Lighthouse attributed the page's recurring layout shifts —
+ // the CLS that also fails the Agentic Browsing audit — plus a slice of
+ // main-thread work and forced reflow to that tick. The structure now
+ // renders exactly once; the interval writes each clock's text straight
+ // into its <strong> node. With tabular-nums and the fixed min-width in
+ // .world-time-item>strong, a tick can never move a sibling again.
+ const rootRef=useRef(null);
  useEffect(()=>{
+  const cells=rootRef.current?Array.from(rootRef.current.querySelectorAll('strong[data-wt]')):[];
+  const paint=()=>{const now=new Date();for(const el of cells){const c=WORLD_CLOCKS[+el.dataset.wt];if(!c)continue;const t=worldClockTime(c,now);if(el.textContent!==t)el.textContent=t}};
   let tick=0;
-  const start=()=>{if(!tick&&!document.hidden)tick=setInterval(()=>setNow(new Date()),1000)};
+  const start=()=>{if(!tick&&!document.hidden){paint();tick=setInterval(paint,1000)}};
   const stop=()=>{if(tick){clearInterval(tick);tick=0}};
   const onVisibility=()=>document.hidden?stop():start();
   start();
   document.addEventListener('visibilitychange',onVisibility);
   return()=>{stop();document.removeEventListener('visibilitychange',onVisibility)};
  },[]);
- const group=(copy,hidden=false)=><div className="world-time-group" aria-hidden={hidden||undefined} key={copy}>{WORLD_CLOCKS.map(c=>{const parts=c.formatter.formatToParts(now),time=parts.filter(p=>['hour','minute','second','literal'].includes(p.type)).map(p=>p.value).join(''),zone=parts.find(p=>p.type==='timeZoneName')?.value||'';return <span className="world-time-item" key={copy+c.city}><span className="world-time-flag"><Flag c={c.country} w={18} h={12}/></span><i>{c.code}</i><b>{c.city}</b><strong>{time}</strong><small>{zone}</small></span>})}</div>;
- return <div className="world-time-ribbon" aria-label="Live international times"><div className="world-time-label"><Globe2/><span>WORLD TIME</span><i/></div><div className="world-time-viewport"><div className="world-time-track">{group('a')}{group('b',true)}</div></div></div>
+ const track=React.useMemo(()=>{
+  const now=new Date();
+  const group=(copy,hidden=false)=><div className="world-time-group" aria-hidden={hidden||undefined} key={copy}>{WORLD_CLOCKS.map((c,i)=>{const zone=c.formatter.formatToParts(now).find(p=>p.type==='timeZoneName')?.value||'';return <span className="world-time-item" key={copy+c.city}><span className="world-time-flag"><Flag c={c.country} w={18} h={12}/></span><i>{c.code}</i><b>{c.city}</b><strong data-wt={i}>{worldClockTime(c,now)}</strong><small>{zone}</small></span>})}</div>;
+  return <>{group('a')}{group('b',true)}</>;
+ },[]);
+ return <div className="world-time-ribbon" aria-label="Live international times" ref={rootRef}><div className="world-time-label"><Globe2/><span>WORLD TIME</span><i/></div><div className="world-time-viewport"><div className="world-time-track">{track}</div></div></div>
 }
 
 /* Cookie / storage notice. The site sets no advertising cookies (Vercel Web

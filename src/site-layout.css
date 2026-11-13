@@ -2021,8 +2021,34 @@ footer [id] {
   border-radius: 0;
   touch-action: pan-y;
   cursor: grab;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* 2026-11-13 (perf round): the edge fade used to be a mask-image on the stage.
+   A mask on the slides' ancestor runs through the compositor's filter pipeline,
+   which blocked GPU compositing of every slide transition (LH "non-composited
+   animations: filter-related property may move pixels"). The stage sits on the
+   open page background, so two gradient strips from var(--bg) to transparent
+   paint the IDENTICAL fade — in both themes — without touching the filter
+   pipeline. z-index 11: over the slides (≤10), under the dots/counter (12). */
+.hero-stage::before,
+.hero-stage::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.hero-stage::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg), transparent);
+}
+
+.hero-stage::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg), transparent);
 }
 
 .hero-stage:active {
@@ -2054,8 +2080,26 @@ footer [id] {
   text-decoration: none;
   -webkit-user-drag: none;
   user-select: none;
-  will-change: transform, opacity, filter;
-  transition: transform .7s cubic-bezier(.22, .8, .26, 1), opacity .7s, filter .7s;
+  /* 2026-11-13: side slides used to dim via an animated brightness() filter —
+     Lighthouse's "non-composited animations" audit flagged it (filter runs on
+     the main thread). The dimming is now a black ::after overlay whose opacity
+     — set by --slide-dim inline — composites on the GPU. Same look, no paint. */
+  will-change: transform, opacity;
+  transition: transform .7s cubic-bezier(.22, .8, .26, 1), opacity .7s;
+}
+
+/* Shared by the home hero and the inventory stage (.inv-slide, whose own
+   file loads before this one): both carousels set --slide-dim inline. */
+.hero-stage .hero-slide::after,
+.inv-slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* above the img (1) and the caption (2) — brightness() dimmed both */
+  background: #000;
+  opacity: var(--slide-dim, 0);
+  transition: opacity .7s;
+  pointer-events: none;
 }
 
 /* 2026-11-08 (owner, round 2): many synced auction photos carry the selling
@@ -2091,6 +2135,14 @@ footer [id] {
   background-position: center;
   filter: blur(22px) brightness(.72) saturate(1.08);
   transform: scale(1.22);
+}
+
+/* 2026-11-13: when the backdrop is a build-time pre-blurred .blurbg.webp
+   (scripts/blur-backdrops.mjs — brightness/saturation baked in, the 28px →
+   full-size upscale IS the blur), drop the live filter so the compositor can
+   GPU-animate the slide's transform/opacity (LH "non-composited animations"). */
+.hero-stage .hero-slide .hero-slide-bg.preblur {
+  filter: none;
 }
 
 .hero-stage .hero-slide-cap {
@@ -2158,6 +2210,16 @@ footer [id] {
   z-index: 12;
   right: 32px; /* clear of the 28px edge fade mask */
   bottom: 12px;
+}
+
+/* 2026-11-13: "9/11" → "10/11" used to widen the counter and shove its tail
+   text — the last layout-shift Lighthouse saw on the homepage. The number
+   cell reserves the width of the widest value it can show. */
+.car-counter .car-counter-num {
+  display: inline-block;
+  min-width: 5ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Premium prev/next, matching the inventory stage arrows. The pinned base
