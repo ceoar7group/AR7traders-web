@@ -150,5 +150,24 @@ ok(/setHidden\(!!shownPromo\?\.id && localStorage\.getItem\(DISMISS_KEY\) === sh
    /setOfferHidden\(!!currentStockRow && localStorage\.getItem\(OFFER_DISMISS_KEY\) === currentStockRow\.id\)/.test(bar),
   'dismissal state is recalculated per campaign/discount id so new notices can reappear');
 
+// 2026-11 (owner: inventory "fluctuates on reloading"): the settings snapshot
+// now paints campaign/discount rows in the very first frame, so both
+// dismissal flags must be seeded from storage AT first render — never a
+// visible row that collapses one effect-tick later for a returning visitor
+// who already dismissed it.
+ok(/useState\(\(\) => \{\s*try \{\s*const live = liveSettingsCampaign\(getSettings\(\)\)/.test(bar),
+  'the campaign dismissal flag is seeded synchronously from the settings snapshot');
+ok(/useState\(\(\) => \{\s*try \{\s*const row = describeStockDiscounts\(parseStockDiscounts\(getSettings\(\)/.test(bar),
+  'the offer dismissal flag is seeded the same way');
+const siteSettings = readFileSync(new URL('../src/site-settings.js', import.meta.url), 'utf8');
+ok(/const SNAP_KEY = 'ar7-settings-snap';/.test(siteSettings) &&
+   /localStorage\.getItem\(SNAP_KEY\)/.test(siteSettings) &&
+   siteSettings.indexOf('localStorage.getItem(SNAP_KEY)') < siteSettings.indexOf('export function getSettings'),
+  'the last /api/settings answer is re-seeded into the cache at module scope (before first paint)');
+ok(/if \(cache && cache\.__source !== 'snapshot'\) return Promise\.resolve\(cache\);/.test(siteSettings),
+  'a snapshot-seeded cache still refreshes over the network exactly once');
+ok(/localStorage\.setItem\(SNAP_KEY, JSON\.stringify\(data\)\)/.test(siteSettings),
+  'every good network answer becomes the next visit\'s pre-paint snapshot');
+
 if (failed) { process.stderr.write(`\n${failed} check(s) failed.\n`); process.exit(1); }
 console.log('\nPromoBar keeps campaign messaging and selected-stock savings visible and independently dismissible.');

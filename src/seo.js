@@ -888,7 +888,18 @@ export function applySeo(page, carId, car, opts = {}) {
       name: 'AR7 Traders',
       url: BASE + '/',
       publisher: {'@id': BASE + '/#organization'},
-      inLanguage: LANGUAGES.map(l => l.code)
+      inLanguage: LANGUAGES.map(l => l.code),
+      // Sitelinks search box: Google may render a search field under the
+      // ar7traders.com result and send the query straight to /inventory?q=…
+      // (the Inventory page reads ?q on load — see InnerPage in main.jsx).
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: BASE + '/inventory?q={search_term_string}'
+        },
+        'query-input': 'required name=search_term_string'
+      }
     }]
   }) : null, doc);
 }
