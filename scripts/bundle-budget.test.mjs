@@ -460,7 +460,12 @@ const CSS_BUDGET_GZIP = 45 * 1024;
 // and the /destinations/{market} page styles into a new lazy
 // destination-page.css. The first paint stops downloading rules only those
 // routes render. Measured 219.38 kB raw / 42.90 kB gzip.
-const CSS_BUDGET_RAW = 221 * 1024;
+// 2026-11-13 (owner request): 221 → 221.5 kB raw — the stock-card premium
+// price ledger (open hairline + gold tick instead of the boxed price field,
+// refined CTA hierarchy, outlined compare chip, location closing line) and
+// the smaller edge-pinned hero carousel arrows. Measured 221.24 kB raw /
+// 43.25 kB gzip — gzip (what actually ships) is untouched under 45.
+const CSS_BUDGET_RAW = 221.5 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
