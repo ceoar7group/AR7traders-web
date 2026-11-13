@@ -60,10 +60,6 @@ footer a.wa-link svg{color:#25d366}
 .brand-context-count b{color:var(--green-text);font-size:15px}
 .brand-context-links{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
 .brand-context-links .outline-btn{height:40px;margin:0;padding:0 13px;font-size:10px}
-.news-article-footer{width:100%;margin-top:8px;padding-top:20px;border-top:1px solid var(--line)}
-.news-article-footer>.kicker{margin-bottom:12px}
-.news-article-links{display:flex;flex-wrap:wrap;gap:9px}
-.news-article-links .outline-btn{height:40px;margin:0;padding:0 13px;font-size:10px}
 @media(max-width:650px){
   .brand-context-card{grid-template-columns:64px minmax(0,1fr);gap:13px;padding:16px}
   .brand-context-logo{width:64px;height:48px}

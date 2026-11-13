@@ -35,7 +35,10 @@ const ratio = (a, b) => {
 
 console.log('1) The article page cannot be stretched by its own content');
 {
-  const e = css('expanded.css');
+  // 2026-11 (R46): the /news styles moved from the eager expanded.css into
+  // the lazy pages-static chunk's stylesheet — the guard rules moved with
+  // them, so that is where this invariant now lives.
+  const e = css('pages-static.css');
   const art = e.match(/\.news-article\{[^}]*\}/)?.[0] || '';
   ok(/grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(art),
     '.news-article pins its single grid track with minmax(0,1fr) — a long token cannot widen it');
@@ -73,10 +76,12 @@ console.log('\n2) Gold-as-text meets WCAG AA on every light surface it sits on')
   ok(!!brandGold && ratio(brandGold, 'ffffff') >= 3,
     `--brand-gold wordmark on the nav card: ${ratio(brandGold || 'ffffff', 'ffffff').toFixed(2)}:1 (AA large text needs 3)`);
   // The six spots Lighthouse failed now use the ink token, not raw gold.
-  const e = css('expanded.css'), n = css('network.css'), p = css('pages.css'), m = css('machinery.css');
+  // (R46: the how-to-buy and FAQ-topic rules now live in the lazy
+  // pages-static.css — the token contract moved with them.)
+  const e = css('expanded.css'), n = css('network.css'), p = css('pages.css'), m = css('machinery.css'), ps = css('pages-static.css');
   ok(/\.inventory-group-head span\{[^}]*var\(--gold-ink\)/.test(e), 'inventory group label uses --gold-ink');
-  ok(/\.hb-step>span\{[^}]*color:var\(--gold-ink\)/.test(e), 'how-to-buy step numbers use --gold-ink');
-  ok(/\.faq-topic-title\{[^}]*var\(--gold-ink\)/.test(e), 'FAQ topic titles use --gold-ink');
+  ok(/\.hb-step>span\{[^}]*color:var\(--gold-ink\)/.test(ps), 'how-to-buy step numbers use --gold-ink');
+  ok(/\.faq-topic-title\{[^}]*var\(--gold-ink\)/.test(ps), 'FAQ topic titles use --gold-ink');
   ok(/\.world-copy h1 em\{[^}]*var\(--gold-head\)/.test(n), 'world page headline em uses the display gold (--gold-head)');
   ok(/\.net-panel li b\{[^}]*var\(--gold-ink\)/.test(n), 'network panel markers use --gold-ink');
   ok(/\.feature-cards article>span\{[^}]*var\(--gold-ink\)/.test(p) && /\.shipping-flow span\{[^}]*var\(--gold-ink\)/.test(p),
