@@ -52,6 +52,11 @@ const CrmApp = lazyRetry(() => import('./crm.jsx'), 'crm');
 // from the Call Desk, never in the nav, noindex. Lazy: only call participants
 // pay for the chunk.
 const WebCallPage = lazyRetry(() => import('./webcall.jsx'), 'webcall');
+// 2026-11-13 Lighthouse: the chat panel is interaction-only UI — nobody needs
+// it during first paint, so its code leaves the boot bundle and mounts on the
+// first idle moment (or instantly when something calls openChat first).
+const ChatWidgetLazy = lazyRetry(() =>
+  import('./ChatWidget.jsx').then(m => ({ default: m.ChatWidget })), 'chat');
 // The customer account area is only reached from /account.
 const CustomerAccount = lazyRetry(() =>
   import('./customer-portal.jsx').then(m => ({ default: m.CustomerAccountPage })), 'account');
@@ -83,7 +88,6 @@ const DestinationPage = lazyRetry(() => import('./destination-page.jsx').then(m 
 import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
 import { criteriaIsEmpty, describeCriteria, defaultSearchName } from './saved-search.js';
 import { Flag } from './flag.jsx';
-import { ChatWidget } from './ChatWidget.jsx';
 import { VehicleActions } from './vehicle-actions.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { referralCodeFrom } from './lead-validation.js';
@@ -1600,6 +1604,19 @@ export function App(){
  // The on-site assistant owns its own open/closed state; pages open it through
  // this ref (the vehicle page's "Chat Now"), so toggling it never re-renders App.
  const chatRef=useRef(null);
+ // Chat mounts lazily: on the first idle moment for everyone, or immediately
+ // when an "open chat" affordance is used before idle fires. The pending flag
+ // bridges the gap between "user clicked" and "lazy chunk mounted".
+ const [chatOn,setChatOn]=useState(false);
+ const chatPendingRef=useRef(false);
+ useEffect(()=>{
+  const arm=()=>setChatOn(true);
+  const t=setTimeout(arm,3000);
+  const id=typeof requestIdleCallback==='function'?requestIdleCallback(arm,{timeout:5000}):null;
+  return ()=>{clearTimeout(t);if(id!=null&&typeof cancelIdleCallback==='function')cancelIdleCallback(id)};
+ },[]);
+ const openChatNow=()=>{if(chatRef.current)chatRef.current.open();else{chatPendingRef.current=true;setChatOn(true)}};
+ const chatRefCb=el=>{chatRef.current=el;if(el&&chatPendingRef.current){chatPendingRef.current=false;el.open()}};
  const [initialRoute]=useState(()=>readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()}));
  // The machinery part of the route (/machinery/<type>/<REF>) has to be state,
  // like carId: reading it once at mount meant a click on a machine rewrote the
@@ -1964,7 +1981,7 @@ export function App(){
    </section>
 
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">{t('home.ctaKicker')}</div><h2>{t('home.ctaH2a')}<br/>{t('home.ctaH2b')} <em>{t('home.ctaH2em')}</em></h2><p>{t('home.ctaBody')}</p></div><button className="gold-btn large" onClick={()=>openEnquiry()} type="button">{t('home.ctaBtn')} <ArrowUpRight/></button></section>
-   </>:page==='world'?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state route-fallback"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<React.Suspense fallback={<div className="empty-state route-fallback"><Monitor/><h3>Loading the studio…</h3></div>}><DeviceStudio navigate={navigate}/></React.Suspense>:page==='machinery'? <React.Suspense fallback={<div className="empty-state route-fallback"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={ctx=>openEnquiry({kind:'machinery',...(ctx&&typeof ctx==='object'&&!('nativeEvent' in ctx)?ctx:{})})} openChat={()=>chatRef.current?.open()}/></React.Suspense>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} destSlug={page==='destinations'?destRoute:null} initialMake={makeFilter} initialModel={modelFilter} openAuction={openEnquiry} openChat={()=>chatRef.current?.open()} favs={favs} setFavs={setFavs}/>}
+   </>:page==='world'?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state route-fallback"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<React.Suspense fallback={<div className="empty-state route-fallback"><Monitor/><h3>Loading the studio…</h3></div>}><DeviceStudio navigate={navigate}/></React.Suspense>:page==='machinery'? <React.Suspense fallback={<div className="empty-state route-fallback"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={ctx=>openEnquiry({kind:'machinery',...(ctx&&typeof ctx==='object'&&!('nativeEvent' in ctx)?ctx:{})})} openChat={openChatNow}/></React.Suspense>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} destSlug={page==='destinations'?destRoute:null} initialMake={makeFilter} initialModel={modelFilter} openAuction={openEnquiry} openChat={openChatNow} favs={favs} setFavs={setFavs}/>}
   </main>
 
   <footer className="site-footer">
@@ -2005,7 +2022,7 @@ export function App(){
   <button type="button" className="search-float" onClick={()=>setSearchOpen(true)}
     aria-label="Search cars, machinery and guides" title="Search (Ctrl+K)"><Search/></button>
 
-  <ChatWidget ref={chatRef}/>
+  {chatOn&&<React.Suspense fallback={null}><ChatWidgetLazy ref={chatRefCb}/></React.Suspense>}
 
   <CookieNotice navigate={navigate}/>
 

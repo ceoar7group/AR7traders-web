@@ -271,7 +271,10 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // 47-prefecture map, transmission patterns, model word map). It must ride the
 // first-load bundle because enrichCar runs on every hydrated car before the
 // first paint of a card. Measured 169.35 kB gzip.
-const BUDGET_GZIP = 170 * 1024;
+// 2026-11-13 perf round: 170 → 165 kB gzip (ratchet DOWN) — the chat widget
+// left the boot bundle for an idle-mounted lazy chunk; nothing needs the chat
+// panel during first paint. Measured 161.67 kB gzip.
+const BUDGET_GZIP = 165 * 1024;
 // 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
 // when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
 // Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
@@ -311,7 +314,9 @@ const BUDGET_GZIP = 170 * 1024;
 // round (same change as the gzip note above). Measured 570.28 kB raw.
 // 2026-11-19: 572 → 578 kB raw — src/jp-display.js (same change as the gzip
 // note above). Measured 576.31 kB raw.
-const BUDGET_RAW = 578 * 1024;
+// 2026-11-13 perf round: 578 → 565 kB raw (ratchet DOWN) — chat widget moved
+// to its idle-mounted lazy chunk. Measured 555.14 kB raw.
+const BUDGET_RAW = 565 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,

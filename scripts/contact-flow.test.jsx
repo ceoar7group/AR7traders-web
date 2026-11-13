@@ -221,6 +221,12 @@ process.stdout.write('\nMake an offer — a persisted negotiation lead, never au
 
 process.stdout.write('\nChat widget — leave your number becomes a persisted lead\n');
 {
+  // 2026-11-13 perf round: the chat widget is idle-mounted (it left the boot
+  // bundle for a lazy chunk armed by requestIdleCallback with a 3s setTimeout
+  // fallback — jsdom has no requestIdleCallback, so the fallback is what
+  // fires here). Wait out the fallback before exercising the widget.
+  await act(async () => { await new Promise(r => setTimeout(r, 3200)); });
+  await flush();
   const floatBtn = document.querySelector('.aw-float');
   ok(!!floatBtn, 'the chat toggle is present');
   await click(floatBtn);
