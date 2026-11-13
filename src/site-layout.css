@@ -1639,38 +1639,45 @@ footer [id] {
 .hero-carousel-controls {
   grid-row: 2;
   grid-column: 1 / -1;
-  z-index: 8;
+  /* 2026-11-13 (owner: \"the prev/next buttons are hidden\"): z-index 8 put the
+     pair BEHIND the active slide (slides stack up to 10) — on phones, where
+     the photo spans the whole stage, both arrows were completely buried.
+     12 is the dots/counter tier: always above every slide. */
+  z-index: 12;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-inline: 5px;
+  padding-inline: 2px;
   pointer-events: none;
 }
+/* Owner (2026-11-13): smaller arrows, pinned to the extreme sides. */
 .hero-carousel-controls button {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 1px solid color-mix(in srgb,var(--line) 85%,transparent);
   border-radius: 50%;
-  background: color-mix(in srgb,var(--card) 91%,transparent);
+  background: color-mix(in srgb,var(--card) 93%,transparent);
   color: var(--ink);
-  box-shadow: 0 5px 18px rgba(0,0,0,.18);
+  box-shadow: 0 5px 18px rgba(0,0,0,.22);
   backdrop-filter: blur(10px);
   cursor: pointer;
   pointer-events: auto;
   transition: border-color .2s,background .2s,transform .2s;
 }
 .hero-carousel-controls button:hover {border-color:var(--gold);background:var(--card);transform:scale(1.04)}
-.hero-carousel-controls button svg {width:17px;height:17px}
+.hero-carousel-controls button svg {width:15px;height:15px}
 @media (max-width:650px) {
-  /* On a phone the photo is only ~232px tall, so a vertically centred arrow
-     lands on the stock tag of the caption block. Park the pair under the dot
-     rail instead — clear of the dots above and the caption below — and keep
-     them grid-placed, so they still track the photo, not a magic `top`. */
-  .hero-carousel-controls {align-self:start;margin-top:36px;padding-inline:6px}
-  .hero-carousel-controls button {width:40px;height:40px}
+  /* Vertically centred on the photo (the caption left the photograph in the
+     2026-11-19 phone cleanup, so the centre of the slide is clear). The 2px
+     gutter pins the pair to the extreme edges; sizes live in the hero-stage
+     layer below. The 44px touch-target minimum is restored by the ::after
+     hit area (visual circle 32px, tap target 46px). */
+  .hero-carousel-controls {padding-inline: 2px}
+  .hero-carousel-controls button {position: relative}
+  .hero-carousel-controls button::after {content: ''; position: absolute; inset: -7px}
 }
 /* ONE owner for hero motion preferences. src/landing-v2.css defines the facts
    row's animations; this block is what stops them.
@@ -2203,14 +2210,15 @@ footer [id] {
 }
 
 /* Premium prev/next, matching the inventory stage arrows. The pinned base
-   block above keeps its 42px definition; this layer restyles on top. */
+   block above keeps its definition; this layer restyles on top.
+   2026-11-13 (owner): smaller arrows, pinned to the extreme sides. */
 .hero .hero-carousel-controls {
-  padding-inline: 10px;
+  padding-inline: 6px;
 }
 
 .hero .hero-carousel-controls button {
-  width: 46px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
   border: 1px solid rgba(213, 176, 100, .5);
   background: linear-gradient(160deg, rgba(6, 40, 26, .9), rgba(2, 20, 11, .86));
   color: #f4ead2;
@@ -2230,8 +2238,8 @@ footer [id] {
 }
 
 .hero .hero-carousel-controls button svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
 }
 
 /* Stacked layout (≤1000px): the stage keeps the bigger presence the owner
@@ -2300,13 +2308,21 @@ footer [id] {
     grid-row: 4;
   }
 
+  /* 2026-11-13 (owner): compact pair at the extreme left/right edges of the
+     photo. The visual circle shrinks to 32px; the ::after halo in the pinned
+     ≤650px block keeps the real tap target at ≥44px. */
   .hero .hero-carousel-controls {
-    padding-inline: 5px;
+    padding-inline: 2px;
   }
 
   .hero .hero-carousel-controls button {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .hero .hero-carousel-controls button svg {
+    width: 15px;
+    height: 15px;
   }
 }
 
@@ -2456,3 +2472,126 @@ footer [id] {
 
 /* 2026-11-19 (owner): the Blue & Gold palette button is retired — only the
    day/night switch remains in the bar and the burger panel. */
+
+/* ===========================================================================
+   2026-11-13 (owner): PREMIUM PRICE LEDGER — stock-card price & action area.
+   The old price block read as an empty input field (a boxed outline around
+   the figure). Redesign: an open "ledger" presentation — a hairline rule
+   with a short gold tick, a letterspaced gold label, a large tabular-numeral
+   price — plus a clear one-primary action hierarchy (gold Make-offer first,
+   emerald WhatsApp second, quiet outlined Compare third) and the location
+   as a refined closing line. Loaded last on purpose: these rules override
+   the boxed style in styles.css and the gradient strip in landing-anim.css. */
+.car-bottom {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 11px 1px 1px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+/* the gold tick: a short accent riding the hairline, where the eye starts */
+.car-bottom::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 44px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--brand-gold), color-mix(in srgb, var(--brand-gold) 20%, transparent));
+}
+.car-bottom small {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 1.9px;
+  color: var(--gold-ink);
+  margin-bottom: 3px;
+}
+.car-bottom b {
+  font: 800 21px/1.1 Manrope;
+  letter-spacing: -0.5px;
+  color: var(--green-text);
+  font-variant-numeric: tabular-nums;
+}
+/* list view used to shrink the old box's padding; the open ledger keeps one
+   rhythm everywhere */
+.list-view .car-bottom { padding: 11px 1px 1px; }
+.list-view .car-bottom b { font-size: 21px; }
+
+/* --- action hierarchy ---------------------------------------------------- */
+.card-actions { gap: 7px; margin-top: 11px; }
+.card-wa, .card-offer {
+  height: 35px;
+  border-radius: 10px;
+  font: 800 9.5px Manrope;
+  letter-spacing: 0.7px;
+  transition: filter .18s, box-shadow .18s, transform .18s;
+}
+.card-wa {
+  background: linear-gradient(180deg, #0d6b44, #084a2f 78%, #063b25);
+  border: 1px solid #0a4a30;
+  color: #f0d79b;
+  box-shadow: inset 0 1px 0 #ffffff24, 0 1px 2px #032b1b40, 0 4px 10px -4px #032b1b59;
+}
+.card-wa svg { color: #f4c763; }
+.card-offer {
+  background: linear-gradient(180deg, #f7d478, #e8ac32 58%, #d4921f);
+  border: 1px solid #b8821a;
+  color: #0b3a26;
+  box-shadow: inset 0 1px 0 #ffeebe, 0 1px 2px #9a690d38, 0 4px 10px -4px #9a690d59;
+}
+.card-wa:hover, .card-offer:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.card-wa:hover { box-shadow: inset 0 1px 0 #ffffff33, 0 6px 16px -4px #032b1b73; }
+.card-offer:hover { box-shadow: inset 0 1px 0 #ffeebe, 0 6px 16px -4px #9a690d73; }
+/* Compare steps back to a quiet outline so one gold primary leads the row;
+   "Added" still flips to the gold plate (rule below keeps that contract). */
+.cmp-chip {
+  height: 35px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--ink));
+  color: var(--ink);
+  font: 800 9.5px Manrope;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  box-shadow: none;
+  transition: border-color .18s, color .18s, background .18s, transform .18s;
+}
+.cmp-chip svg { color: var(--brand-gold); }
+.cmp-chip:hover {
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+  background: color-mix(in srgb, var(--gold) 7%, transparent);
+  color: var(--ink);
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+.cmp-chip.on {
+  background: linear-gradient(180deg, #f7d478, #e8ac32 58%, #d4921f);
+  border-color: #b8821a;
+  color: #0b3a26;
+  box-shadow: inset 0 1px 0 #ffeebe, 0 1px 2px #9a690d38;
+}
+.cmp-chip.on svg { color: #0b3a26; }
+@media (prefers-reduced-motion: reduce) {
+  .card-wa, .card-offer, .cmp-chip { transition: none; }
+  .card-wa:hover, .card-offer:hover, .cmp-chip:hover { transform: none; }
+}
+
+/* --- location: the card's closing line ----------------------------------- */
+.car-card .loc {
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  gap: 5px;
+}
+.car-card .loc svg { color: var(--brand-gold); }
