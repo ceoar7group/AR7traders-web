@@ -98,9 +98,17 @@ console.log('\n-- a campaign and selected-stock savings share the public bar --'
 // ---- component wiring and content -----------------------------------------
 console.log('\n-- the public component preserves the campaign and stock-notice contract --');
 const bar = read('src/promo-bar.jsx');
-ok(/barRows\(\{promo, campaignDismissed: hidden, stockDiscounts\}\)/.test(bar) &&
+ok(/barRows\(\{promo: shownPromo, campaignDismissed: hidden, stockDiscounts\}\)/.test(bar) &&
    /offerLine = offerHidden \? null : currentStockRow/.test(bar),
   'PromoBar derives the stock row independently from campaign state and dismissal');
+// 2026-11 (owner: reload "stutters multiple times", part 2): the campaign must
+// render in the SAME paint as the discounts row when one settings answer
+// carries both — an effect-set campaign painted one row first and two rows a
+// beat later, jolting the whole page twice on every reload. The live CRM
+// campaign is therefore derived synchronously during render; the settings
+// effect remains only for settled bookkeeping and the stale/file contract.
+ok(/const shownPromo = useMemo\(\(\) => liveSettingsCampaign\(settings\), \[settings\?\.promo\]\) \|\| promo;/.test(bar),
+  'the live CRM campaign is derived at render time, so campaign and discounts rows mount in one paint');
 ok(/promo-bar-offer:not\(:first-child\)/.test(read('src/landing-v2.css')), 'the shared bar separates a second row from campaign content');
 ok(/useSettings/.test(bar) && /promo\.json/.test(bar), 'the bar reads staff settings and retains its static campaign fallback');
 ok(/Indicative FOB price; confirmed in your written quotation\./.test(read('src/stock-discounts-public.js')),
@@ -123,7 +131,22 @@ ok(/if \(liveSettingsCampaign\(settings\)\) return;/.test(bar),
   'the fallback fetch defers only to a LIVE settings campaign, not an expired one');
 ok(/setPromo\(\{ \.\.\.data, __fromFile: true \}\)/.test(bar),
   'file campaigns are marked so the settings effect can tell them apart');
-ok(/setHidden\(!!promo\?\.id && localStorage\.getItem\(DISMISS_KEY\) === promo\.id\)/.test(bar) &&
+// 2026-11 (owner: reload "stutters multiple times"): promo.json answers before
+// /api/settings, so the fallback campaign used to mount first as a one-row
+// bar (collapsing the two-row reservation), then the CRM answer re-mounted
+// the live campaign + discounts row — two full-page jolts on every reload
+// that lost the race, and the stored bar height flip-flopped between visits.
+// The file path must WAIT for the settings answer (which also resolves on
+// failure, keeping the static-deploy fallback alive) and re-check against the
+// settled cache before mounting.
+ok(/await loadSettings\(\)\.catch\(\(\) => null\);/.test(bar),
+  'the file fallback waits for the settings answer instead of racing it to first paint');
+ok(/if \(liveSettingsCampaign\(getSettings\(\)\)\) return;/.test(bar),
+  'after the wait, the file defers to the settled cache — a live CRM campaign mounts exactly once');
+const fileEffect = bar.slice(bar.indexOf("fetch('/promo.json'"), bar.indexOf('__fromFile: true'));
+ok(fileEffect.includes('await loadSettings()'),
+  'the wait sits between the file fetch and the file mount, not anywhere else');
+ok(/setHidden\(!!shownPromo\?\.id && localStorage\.getItem\(DISMISS_KEY\) === shownPromo\.id\)/.test(bar) &&
    /setOfferHidden\(!!currentStockRow && localStorage\.getItem\(OFFER_DISMISS_KEY\) === currentStockRow\.id\)/.test(bar),
   'dismissal state is recalculated per campaign/discount id so new notices can reappear');
 

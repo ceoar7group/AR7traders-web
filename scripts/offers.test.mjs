@@ -206,7 +206,9 @@ console.log('\n-- integration wiring --');
   ok(/'stock_discounts'/.test(api) && /validateStockDiscounts/.test(api),
     'the existing settings endpoint validates the discount shape without a new function');
   const promo = read('src/promo-bar.jsx');
-  ok(/barRows\(\{promo, campaignDismissed: hidden, stockDiscounts\}\)/.test(promo) &&
+  // 2026-11 (reload-stutter fix): the campaign is derived at render time
+  // (shownPromo) so it mounts in the same paint as the discounts row.
+  ok(/barRows\(\{promo: shownPromo, campaignDismissed: hidden, stockDiscounts\}\)/.test(promo) &&
      /offerLine = offerHidden \? null : currentStockRow/.test(promo),
     'PromoBar reads selected-stock savings alongside campaign content');
   ok(/Campaign launchpad/.test(read('src/seo-desk.jsx')) && /site\.write/.test(crm),
