@@ -2023,34 +2023,14 @@ footer [id] {
   cursor: grab;
 }
 
-/* 2026-11-13 (perf round): the edge fade used to be a mask-image on the stage.
-   A mask on the slides' ancestor runs through the compositor's filter pipeline,
-   which blocked GPU compositing of every slide transition (LH "non-composited
-   animations: filter-related property may move pixels"). The stage sits on the
-   open page background, so two gradient strips from var(--bg) to transparent
-   paint the IDENTICAL fade — in both themes — without touching the filter
-   pipeline. z-index 11: over the slides (≤10), under the dots/counter (12). */
-.hero-stage::before,
-.hero-stage::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 28px;
-  z-index: 11;
-  pointer-events: none;
-}
-
-.hero-stage::before {
-  left: 0;
-  background: linear-gradient(90deg, var(--bg), transparent);
-}
-
-.hero-stage::after {
-  right: 0;
-  background: linear-gradient(270deg, var(--bg), transparent);
-}
-
+/* 2026-11-13: the hero edge fade is GONE. History: it started as a
+   mask-image on the stage (blocked GPU compositing of the slide
+   transitions), became two var(--bg) gradient strips in the compositor
+   pass — and those strips painted a pale smear over the hero's deep-green
+   section background, because var(--bg) is the page background, not the
+   section's. Owner call (2026-11-13): no fade at all — the side cars are
+   clipped by the stage's overflow and that is enough. Do not reintroduce
+   a mask-image here; it re-breaks composited slide transitions. */
 .hero-stage:active {
   cursor: grabbing;
 }
@@ -2208,7 +2188,7 @@ footer [id] {
 
 .hero-stage .car-counter {
   z-index: 12;
-  right: 32px; /* clear of the 28px edge fade mask */
+  right: 32px; /* breathing room from the stage edge (the edge fade is gone) */
   bottom: 12px;
 }
 
