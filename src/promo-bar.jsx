@@ -48,6 +48,24 @@ function marginDelta() {
   } catch { return 0; }
 }
 
+// The campaign saved in the CRM settings, but ONLY while it is actually
+// running. An ended or inactive CRM campaign reads as "the CRM has no
+// campaign" — it must neither show NOR suppress the /promo.json fallback.
+// 2026-11-13 (PageSpeed mobile CLS 0.126, live only): the CRM held a campaign
+// whose `until` had passed. The settings effect used to check only `active`,
+// so the expired campaign replaced the still-live fallback campaign after
+// first paint — the bar collapsed and the whole page shifted up on every
+// first visit. Local audits could never see it: /api/settings only answers
+// in production.
+function liveSettingsCampaign(settings) {
+  const raw = settings?.promo;
+  if (!raw) return null;
+  try {
+    const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return p?.active && campaignIsLive(p) ? p : null;
+  } catch { return null; }
+}
+
 export function PromoBar({ navigate }) {
   const [promo, setPromo] = useState(null);
   useState(() => {   // runs once, synchronously, before the browser paints
@@ -82,14 +100,15 @@ export function PromoBar({ navigate }) {
   const settings = useSettings();
   const stockDiscounts = useStockDiscounts();
 
-  // 1. The CRM-controlled setting wins when it parses.
+  // 1. The CRM-controlled setting wins when it parses AND is still running.
+  //    An expired CRM campaign clears only a stale settings campaign — a
+  //    fallback-file campaign that is still inside its own end date stays up
+  //    (see liveSettingsCampaign above for the live CLS incident this fixes).
   useEffect(() => {
-    const raw = settings?.promo;
-    if (!raw) return;
-    try {
-      const live = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      setPromo(live?.active ? live : null);
-    } catch { setPromo(null); }
+    if (!settings?.promo) return;
+    const live = liveSettingsCampaign(settings);
+    if (live) setPromo(live);
+    else setPromo(p => (p?.__fromFile ? p : null));
     setSettled(true);
   }, [settings?.promo]);
 
@@ -103,13 +122,17 @@ export function PromoBar({ navigate }) {
         if (!res.ok) return;
         const data = await res.json();
         if (!alive || !data?.active) return;
-        if (settings?.promo) return;           // the API answered while we fetched
+        // Only a LIVE settings campaign outranks the file; an expired one
+        // does not get to silence a fallback that is still running.
+        if (liveSettingsCampaign(settings)) return;
         // An expired campaign is not shown, and not shown to anybody: the
         // end date is the end date. `campaignIsLive` runs the same check here
         // and again at render time, so the file and the live setting cannot
         // disagree about what "until" means.
         if (!campaignIsLive(data)) return;
-        setPromo(data);
+        // __fromFile marks this campaign as the fallback's, so the settings
+        // effect knows an expired CRM campaign must not clear it.
+        setPromo({ ...data, __fromFile: true });
       } catch { /* no promo file, or offline preview: show nothing */ }
       finally { if (alive) setSettled(true); }
     })();

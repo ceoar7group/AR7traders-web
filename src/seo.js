@@ -244,9 +244,23 @@ export function machineSeo(machine, {percent = 0} = {}) {
     : `${hours.toLocaleString('en-US')} ${machine.type === 'Trucks' ? 'km' : 'hours'}`;
   const year = machineYear(machine);
   const type = String(machine.type || '').toLowerCase().replace(/s$/, '');
+  // 2026-11-13 (SEO audit): the single long sentence ran 190–199 characters
+  // and Google truncated it on every machine page. Same pattern as
+  // destinationSeo below — the longest version that fits the 165-character
+  // budget wins, and the clauses that earn the click (usage, price) are
+  // dropped last. Every tier keeps the house claims: sourced to order (never
+  // "in stock"), indicative FOB, freight quoted to the buyer's port.
+  const lead = `${year ? `${year} ` : ''}${machine.name} ${type} (${machine.ref})`;
+  const tail = 'Freight quoted to your port.';
+  const description = [
+    `${lead} sourced to order from a vetted Chinese supplier — ${usage}, inspected, ${priced}. ${tail}`,
+    `${lead} sourced to order from China — ${usage}, inspected, ${priced}. ${tail}`,
+    `${lead} sourced to order from China — ${usage}, ${priced}. ${tail}`,
+    `${lead} sourced to order from China — ${priced}. ${tail}`
+  ].find(d => d.length <= 165) || `${lead} sourced to order from China. ${tail}`;
   return {
     title: `${machine.name} ${type} for export from China | AR7 Traders`,
-    description: `${year ? `${year} ` : ''}${machine.name} ${type} (${machine.ref}) sourced to order from a vetted Chinese supplier — ${usage}, inspected with photos and video, ${priced}. Quoted with freight to your port.`,
+    description,
     canonicalPath: `/machinery/${machine.type.toLowerCase()}/${machine.ref}`,
     price,
     listPrice: list,

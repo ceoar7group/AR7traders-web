@@ -109,8 +109,20 @@ ok(/campaign\.discount/.test(bar) && /off margin/.test(bar),
   'the existing campaign margin badge remains separate from itemized stock-price reductions');
 ok(/aria-label=\{campaign \? 'Current campaign and stock savings' : 'Selected stock savings'\}/.test(bar),
   'the bar region remains accurately named for screen readers with either or both rows');
-ok(/setPromo\(live\?\.active \? live : null\)/.test(bar),
-  'clearing a campaign in CRM immediately removes the mounted public banner');
+// 2026-11-13 (live PageSpeed mobile CLS 0.126): the CRM held a campaign whose
+// `until` had passed, the settings effect checked only `active`, and the
+// expired campaign silenced the still-live /promo.json fallback — the bar
+// collapsed after first paint and shifted the whole page up on every first
+// visit. The settings path must run the SAME liveness check as the file path,
+// and an expired CRM campaign must not clear a live fallback campaign.
+ok(/liveSettingsCampaign/.test(bar) && /p\?\.active && campaignIsLive\(p\)/.test(bar),
+  'the CRM settings campaign passes through campaignIsLive, exactly like the fallback file');
+ok(/if \(live\) setPromo\(live\);/.test(bar) && /setPromo\(p => \(p\?\.__fromFile \? p : null\)\)/.test(bar),
+  'a live CRM campaign wins; an expired one clears only a stale settings campaign, never the file fallback');
+ok(/if \(liveSettingsCampaign\(settings\)\) return;/.test(bar),
+  'the fallback fetch defers only to a LIVE settings campaign, not an expired one');
+ok(/setPromo\(\{ \.\.\.data, __fromFile: true \}\)/.test(bar),
+  'file campaigns are marked so the settings effect can tell them apart');
 ok(/setHidden\(!!promo\?\.id && localStorage\.getItem\(DISMISS_KEY\) === promo\.id\)/.test(bar) &&
    /setOfferHidden\(!!currentStockRow && localStorage\.getItem\(OFFER_DISMISS_KEY\) === currentStockRow\.id\)/.test(bar),
   'dismissal state is recalculated per campaign/discount id so new notices can reappear');
