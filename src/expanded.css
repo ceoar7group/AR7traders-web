@@ -746,7 +746,10 @@ section[id]{scroll-margin-top:120px}
 .world-time-item:after{content:'';position:absolute;right:0;width:1px;height:14px;background:var(--line)}
 .world-time-item>i{font-style:normal;font-size:7px;font-weight:800;letter-spacing:.7px;color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 42%,var(--line));border-radius:5px;padding:2px 4px;background:color-mix(in srgb,var(--gold) 8%,transparent)}
 .world-time-item>b{font-size:9px;letter-spacing:.25px;color:var(--ink)}
-.world-time-item>strong{font:750 10px/1 Manrope;color:var(--green-text);font-variant-numeric:tabular-nums;letter-spacing:.5px}
+/* min-width (2026-11-13): "23:59:59" is 8 characters; reserving 8ch means a
+   tick, a font swap or a DST hour change can never widen the cell and shove
+   every later clock sideways — those shoves were the page's top CLS culprit. */
+.world-time-item>strong{font:750 10px/1 Manrope;color:var(--green-text);font-variant-numeric:tabular-nums;letter-spacing:.5px;display:inline-block;min-width:8ch;text-align:center}
 .world-time-item>small{font-size:6.5px;font-weight:700;letter-spacing:.6px;color:var(--muted);text-transform:uppercase}
 @keyframes worldClockSlide{to{transform:translateX(-50%)}}
 
@@ -770,8 +773,13 @@ section[id]{scroll-margin-top:120px}
 .world-time-flag svg{display:block;width:20px!important;height:14px!important;position:static!important;overflow:hidden;border-radius:3px}
 @media(max-width:650px){.world-time-flag{width:22px;height:16px}.world-time-flag svg{width:18px!important;height:12px!important}}
 
-/* Animated globe in the permanent time ribbon */
-.world-time-label svg{transform-origin:50% 50%;animation:timeGlobeRotate 6s linear infinite;filter:drop-shadow(0 0 5px rgba(228,173,67,.35));will-change:transform}
+/* Animated globe in the permanent time ribbon.
+   2026-11-13: the gold glow moved from filter:drop-shadow() — which forced the
+   infinite rotation onto the main thread (Lighthouse "non-composited
+   animations: filter-related property may move pixels") — to a static radial
+   halo painted by the label's ::after. The rotation now composites on the GPU. */
+.world-time-label svg{transform-origin:50% 50%;animation:timeGlobeRotate 6s linear infinite;will-change:transform;position:relative;z-index:1}
+.world-time-label::after{content:'';position:absolute;left:7px;top:50%;width:26px;height:26px;margin-top:-13px;border-radius:50%;background:radial-gradient(circle,rgba(228,173,67,.38),transparent 70%);pointer-events:none}
 @keyframes timeGlobeRotate{0%{transform:rotate(0deg) scale(1)}48%{transform:rotate(172deg) scale(.92)}52%{transform:rotate(188deg) scale(.92)}100%{transform:rotate(360deg) scale(1)}}
 .world-time-ribbon:hover .world-time-label svg{animation-duration:3.8s}
 @media(prefers-reduced-motion:reduce){.world-time-label svg{animation:none}}

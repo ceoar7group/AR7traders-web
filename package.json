@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build && npm run prerender",
+    "build": "node scripts/blur-backdrops.mjs && vite build && npm run prerender",
     "seo": "node scripts/seo-agent.mjs audit",
     "seo:fix": "node scripts/seo-agent.mjs fix",
     "seo:brief": "node scripts/seo-agent.mjs brief",
