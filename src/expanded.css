@@ -1147,15 +1147,7 @@ html[data-theme=dark] .car-head img{background:#fff;border-radius:6px;padding:2p
  .car-head h3{font-size:17px}
 }
 /* ---- machinery (China desk) cards join the same finish ----------------- */
-.mch-card .mch-type,.mch-card .mch-expand,.mch-actions .mch-view,.mch-actions .mch-chat{background:var(--met-em);border-color:#0b4f33;color:#eef7ef;box-shadow:inset 0 1px 0 #ffffff26,0 2px 8px #032b1b4d}
+.mch-card .mch-type,.mch-card .mch-expand{background:var(--met-em);border-color:#0b4f33;color:#eef7ef;box-shadow:inset 0 1px 0 #ffffff26,0 2px 8px #032b1b4d}
 .mch-card .mch-type{font-weight:800}
 .mch-card .mch-offer-flag{background:var(--met-au);color:#073b27;font-weight:800;box-shadow:inset 0 1px 0 #ffe9ad,0 2px 8px #9a690d47}
-/* machinery info chips (year/hours/capacity) go quiet with the car cards —
-   2026-11 v3, same reasoning: information must not dress like a button */
-.mch-card .mch-meta>span{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:700;box-shadow:none}
-.mch-card .mch-meta svg{color:var(--brand-gold)}
-.mch-actions .mch-view svg{color:#f4c763}
-.mch-card .mch-meta b{color:var(--ink)}
-/* indicative-FOB plate — same soft gold tray the car cards carry */
-.mch-card .mch-foot>div:first-child{flex:1;padding:9px 12px;border-radius:13px;border:1px solid color-mix(in srgb,var(--gold) 24%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 9%,var(--card)),var(--card) 62%)}
-.mch-card .mch-expand:hover,.mch-actions .mch-view:hover,.mch-actions .mch-chat:hover{background:var(--met-em);border-color:#0b4f33;color:#f4c763;filter:brightness(1.1)}
+.mch-card .mch-expand:hover{background:var(--met-em);border-color:#0b4f33;color:#f4c763;filter:brightness(1.1)}

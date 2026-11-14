@@ -88,6 +88,26 @@ assert.ok(searchRewrite, 'vercel.json must carry the search-bot full-render rewr
 assert.equal(searchRewrite.source, '/inventory/:ref', 'it serves vehicle detail URLs');
 assert.equal(searchRewrite.destination, '/api/site-content?head=:ref&render=full',
   'it dispatches on site-content with render=full (no new Serverless Function)');
+
+// Dynamic crawler rewrites for brand/model landings, DB machinery and DB guides
+for (const [source, queryKey] of [
+  ['/cars/:make', 'carsmake=:make'],
+  ['/cars/:make/:model', 'carsmodel=:model'],
+  ['/machinery/:type/:ref', 'machhead=:ref'],
+  ['/news/:slug', 'newshead=:slug']
+]) {
+  const social = rewrites.find(r => r.source === source && String(r.destination).includes(queryKey) && !String(r.destination).includes('render=full'));
+  const search = rewrites.find(r => r.source === source && String(r.destination).includes(queryKey) && String(r.destination).includes('render=full'));
+  assert.ok(social && search, `${source} needs both social OG and search render=full rewrites`);
+  assert.ok(rewrites.indexOf(social) < rewrites.indexOf(spaRewrite) && rewrites.indexOf(search) < rewrites.indexOf(spaRewrite),
+    `${source} crawler rewrites must precede the SPA catch-all`);
+}
+const bakedMach = rewrites.findIndex(r => r.source === '/machinery/excavators/AR7-MC-001');
+const dynMach = rewrites.findIndex(r => r.source === '/machinery/:type/:ref');
+const bakedNews = rewrites.findIndex(r => r.source === '/news/how-online-bidding-works-with-ar7');
+const dynNews = rewrites.findIndex(r => r.source === '/news/:slug');
+assert.ok(bakedMach >= 0 && bakedMach < dynMach, 'baked built-in machine routes precede dynamic /machinery/:type/:ref');
+assert.ok(bakedNews >= 0 && bakedNews < dynNews, 'baked built-in guide routes precede dynamic /news/:slug');
 const searchUa = (searchRewrite.has || []).find(h => h.type === 'header' && h.key === 'user-agent');
 assert.ok(searchUa && searchUa.value.startsWith('(?i)'), 'gated on user-agent, case-insensitive');
 for (const bot of ['googlebot', 'bingbot', 'duckduckbot', 'applebot', 'yandex']) {
