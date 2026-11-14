@@ -1301,14 +1301,15 @@ footer [id] {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 18px;
   background: var(--card);
-  transition: transform .3s, box-shadow .3s;
+  transition: transform .3s, box-shadow .3s, border-color .25s;
 }
 
 .mch-card:hover {
   transform: translateY(-5px);
   box-shadow: var(--shadow);
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
 }
 
 .mch-photo {
@@ -1348,60 +1349,80 @@ footer [id] {
 .mch-info {
   display: flex;
   flex-direction: column;
-  gap: 11px;
-  padding: 18px;
+  gap: 10px;
+  padding: 16px;
   flex: 1;
 }
 
-.mch-head {
+.mch-brand-mark {
+  flex: none;
+  width: 50px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--brand-gold) 38%, var(--line));
+  background: linear-gradient(155deg, color-mix(in srgb, var(--green) 11%, var(--card)), color-mix(in srgb, var(--brand-gold) 10%, var(--card)));
   display: grid;
-  gap: 4px;
+  place-items: center;
+  font: 800 10px/1 Manrope, sans-serif;
+  letter-spacing: .8px;
+  color: var(--green-text);
 }
 
-.mch-head b {
-  font: 700 19px Manrope, sans-serif;
+.mch-brand-mark svg {
+  width: 16px;
+  height: 16px;
+  color: var(--brand-gold);
+}
+
+.mch-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mch-title {
+  margin: 0;
+  font: 700 18.5px/1.22 Manrope, sans-serif;
   letter-spacing: -.4px;
-}
-
-.mch-head small {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.mch-head small svg {
-  width: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .mch-info > p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .mch-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
 }
 
 .mch-meta > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 5px;
+  padding: 5px 10px;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--green) 7%, transparent);
-  font-size: 11px;
-  color: var(--muted);
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .mch-meta svg {
   width: 13px;
-  color: var(--green-text);
+  color: var(--brand-gold);
 }
 
 .mch-meta b {
@@ -1413,10 +1434,9 @@ footer [id] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 12px;
   margin: 0;
-  padding: 12px 0;
+  padding: 10px 0;
   list-style: none;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
 }
 
 .mch-specs li {
@@ -1426,73 +1446,19 @@ footer [id] {
 }
 
 .mch-specs small {
-  font-size: 9.5px;
+  font-size: 9px;
   letter-spacing: .6px;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .mch-specs b {
-  font-size: 12.5px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
-.mch-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.mch-ledger {
   margin-top: auto;
-}
-
-.mch-foot > div:first-child {
-  display: grid;
-  gap: 2px;
-}
-
-.mch-foot small {
-  font-size: 8px;
-  letter-spacing: 1.1px;
-  color: var(--muted);
-}
-
-.mch-foot b {
-  font: 700 20px Manrope, sans-serif;
-  color: var(--green-text);
-  white-space: nowrap;
-}
-
-.mch-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mch-chat {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card);
-  color: var(--green-text);
-  cursor: pointer;
-  transition: .25s;
-}
-
-.mch-chat:hover {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
-.mch-chat:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-}
-
-.mch-chat svg {
-  width: 18px;
 }
 
 
@@ -1570,22 +1536,6 @@ footer [id] {
   margin: 0;
   font-size: 12px;
   color: var(--muted);
-}
-
-
-.mch-teaser-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--green-text);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.mch-teaser-link svg {
-  width: 14px;
 }
 
 .hero .hero-cta .ghost-btn svg,
@@ -2482,7 +2432,8 @@ footer [id] {
    emerald WhatsApp second, quiet outlined Compare third) and the location
    as a refined closing line. Loaded last on purpose: these rules override
    the boxed style in styles.css and the gradient strip in landing-anim.css. */
-.car-bottom {
+.car-bottom,
+.mch-ledger {
   position: relative;
   display: flex;
   justify-content: space-between;
@@ -2497,7 +2448,8 @@ footer [id] {
   box-shadow: none;
 }
 /* the gold tick: a short accent riding the hairline, where the eye starts */
-.car-bottom::before {
+.car-bottom::before,
+.mch-ledger::before {
   content: '';
   position: absolute;
   top: -1px;
@@ -2507,14 +2459,17 @@ footer [id] {
   border-radius: 2px;
   background: linear-gradient(90deg, var(--brand-gold), color-mix(in srgb, var(--brand-gold) 20%, transparent));
 }
-.car-bottom small {
+.car-bottom small,
+.mch-ledger small {
+  display: block;
   font-size: 7px;
   font-weight: 800;
   letter-spacing: 1.9px;
   color: var(--gold-ink);
   margin-bottom: 3px;
 }
-.car-bottom b {
+.car-bottom b,
+.mch-ledger b {
   font: 800 21px/1.1 Manrope;
   letter-spacing: -0.5px;
   color: var(--green-text);
@@ -2522,11 +2477,14 @@ footer [id] {
 }
 /* list view used to shrink the old box's padding; the open ledger keeps one
    rhythm everywhere */
-.list-view .car-bottom { padding: 11px 1px 1px; }
-.list-view .car-bottom b { font-size: 21px; }
+.list-view .car-bottom,
+.list-view .mch-ledger { padding: 11px 1px 1px; }
+.list-view .car-bottom b,
+.list-view .mch-ledger b { font-size: 21px; }
 
 /* --- action hierarchy ---------------------------------------------------- */
 .card-actions { gap: 7px; margin-top: 11px; }
+.card-actions > * { flex: 1 1 auto; justify-content: center; }
 .card-wa, .card-offer {
   height: 35px;
   border-radius: 10px;
@@ -2550,10 +2508,15 @@ footer [id] {
 .card-wa:hover, .card-offer:hover { transform: translateY(-1px); filter: brightness(1.05); }
 .card-wa:hover { box-shadow: inset 0 1px 0 #ffffff33, 0 6px 16px -4px #032b1b73; }
 .card-offer:hover { box-shadow: inset 0 1px 0 #ffeebe, 0 6px 16px -4px #9a690d73; }
-/* Compare steps back to a quiet outline so one gold primary leads the row;
+/* Compare / View-machine steps back to a quiet outline so one gold primary leads the row;
    "Added" still flips to the gold plate (rule below keeps that contract). */
-.cmp-chip {
+.cmp-chip, .mch-card .mch-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   height: 35px;
+  padding: 0 11px;
   border-radius: 10px;
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--ink));
@@ -2561,11 +2524,13 @@ footer [id] {
   font: 800 9.5px Manrope;
   letter-spacing: 0.7px;
   text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
   box-shadow: none;
   transition: border-color .18s, color .18s, background .18s, transform .18s;
 }
-.cmp-chip svg { color: var(--brand-gold); }
-.cmp-chip:hover {
+.cmp-chip svg, .mch-card .mch-view svg { width: 13px; color: var(--brand-gold); }
+.cmp-chip:hover, .mch-card .mch-view:hover {
   border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
   background: color-mix(in srgb, var(--gold) 7%, transparent);
   color: var(--ink);
@@ -2580,18 +2545,23 @@ footer [id] {
 }
 .cmp-chip.on svg { color: #0b3a26; }
 @media (prefers-reduced-motion: reduce) {
-  .card-wa, .card-offer, .cmp-chip { transition: none; }
-  .card-wa:hover, .card-offer:hover, .cmp-chip:hover { transform: none; }
+  .card-wa, .card-offer, .cmp-chip, .mch-card .mch-view { transition: none; }
+  .card-wa:hover, .card-offer:hover, .cmp-chip:hover, .mch-card .mch-view:hover { transform: none; }
 }
 
 /* --- location: the card's closing line ----------------------------------- */
-.car-card .loc {
-  margin-top: 11px;
+.car-card .loc,
+.mch-card .loc {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
   padding-top: 9px;
   border-top: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  gap: 5px;
+  color: var(--muted);
 }
-.car-card .loc svg { color: var(--brand-gold); }
+.car-card .loc svg,
+.mch-card .loc svg { width: 12px; color: var(--brand-gold); flex: none; }

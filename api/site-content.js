@@ -92,6 +92,14 @@ import { runScraper } from './_machinery-scraper.js';
 // Search Console and IndexNow share this function, preserving the 12-function
 // Vercel limit. The workflow is staff-only and records submissions in activities.
 import { handleSeoWorkflow } from './_seo-workflows.js';
+// Dynamic crawler / OG rendering for /cars/:make, /cars/:make/:model,
+// /machinery/:type/:ref and /news/:slug (0 extra Serverless Functions).
+import {
+  machineryHead, buildMachineryHeadHtml,
+  newsHead, buildNewsHeadHtml,
+  carsLandingHead, buildCarsLandingHeadHtml
+} from './_crawler-render.js';
+export { buildMachineryHeadHtml, buildNewsHeadHtml, buildCarsLandingHeadHtml };
 // Automation history + undo: a shared module dispatched on ?activity=list|undo
 // (same 12-function-cap pattern as ?seo= and ?agents=). Every write this file
 // makes to the public website is also snapshotted there so an administrator
@@ -431,6 +439,7 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
     '<meta charset="utf-8"/>\n' +
     `<title>${esc(title)}</title>\n` +
     `<meta name="description" content="${esc(description)}"/>\n` +
+    (opts.full ? `<meta name="robots" content="${row ? 'index,follow' : 'noindex,follow'}"/>\n` : '') +
     `<link rel="canonical" href="${esc(url)}"/>\n` +
     '<meta property="og:type" content="website"/>\n' +
     '<meta property="og:site_name" content="AR7 Traders"/>\n' +
@@ -465,6 +474,16 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
         seller: { '@type': 'Organization', name: 'AR7 Traders' },
       } : undefined,
     }).replace(/</g, '\\u003c')}</script>\n` : '') +
+    (opts.full && row ? `<script type="application/ld+json">${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITEMAP_BASE}/` },
+        { '@type': 'ListItem', position: 2, name: 'Inventory', item: `${SITEMAP_BASE}/inventory` },
+        ...(row.make ? [{ '@type': 'ListItem', position: 3, name: String(row.make), item: SITEMAP_BASE + carLandingPath(row.make) }] : []),
+        { '@type': 'ListItem', position: row.make ? 4 : 3, name: name || ref, item: url }
+      ]
+    }).replace(/</g, '\\u003c')}</script>\n` : '') +
     '</head><body>\n' +
     (opts.full ? (
       `<h1>${esc(title)}</h1>\n` +
@@ -478,7 +497,7 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
         Number(row.price) > 0 ? `<li>FOB price: US$${Number(row.price).toLocaleString('en-US')}</li>` : '',
       ].filter(Boolean).join('') + '</ul>\n' : '') +
       `<p>${esc(description)} Request the export quotation for your port, inspection sheet and shipping schedule from the listing page.</p>\n` +
-      `<p><a href="${esc(url)}">Open the full listing</a> · <a href="${esc(SITEMAP_BASE + '/inventory')}">Browse all stock</a> · <a href="${esc(SITEMAP_BASE + '/')}">AR7 Traders home</a></p>\n`
+      `<p><a href="${esc(url)}">Open the full listing</a>${row?.make ? ` · <a href="${esc(SITEMAP_BASE + carLandingPath(row.make))}">All ${esc(String(row.make))} stock</a>` : ''}${row?.make && row?.model ? ` · <a href="${esc(SITEMAP_BASE + carLandingPath(row.make, row.model))}">${esc(String(row.make))} ${esc(String(row.model))}</a>` : ''} · <a href="${esc(SITEMAP_BASE + '/inventory')}">Browse all stock</a> · <a href="${esc(SITEMAP_BASE + '/')}">AR7 Traders home</a></p>\n`
     ) : `<p><a href="${esc(url)}">${esc(title)}</a></p>\n`) +
     '</body></html>\n';
 }
@@ -1104,10 +1123,18 @@ export default async function handler(req, res, injected = {}) {
   if (String(req.query.sitemap || '') === 'vehicles') {
     return sitemapVehicles(req, res, injected);
   }
-  // ---- Social link-preview card: /inventory/<ref> rewrites here for
-  // crawler user-agents only (see vercel.json) with ?head=<ref>.
+  // ---- Social & search crawler renders: zero extra Serverless Functions ----
   if (String(req.query.head || '') !== '') {
     return vehicleHead(req, res, injected);
+  }
+  if (String(req.query.machhead || '') !== '') {
+    return machineryHead(req, res, injected);
+  }
+  if (String(req.query.newshead || '') !== '') {
+    return newsHead(req, res, injected);
+  }
+  if (String(req.query.carsmake || '') !== '') {
+    return carsLandingHead(req, res, injected);
   }
   if (String(req.query.sitemap || '') === 'news') {
     return sitemapNews(req, res, injected);

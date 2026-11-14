@@ -413,6 +413,31 @@ export const machineHours = m => {
 /** The year as words: the number, or an honest "not stated". Never "null". */
 export const machineYearText = (m, fallback = 'Year not stated') => machineYear(m) ?? fallback;
 
+/** Clean location + origin label without repeating "China, China". */
+export const machineLoc = m => {
+  const loc = String(m?.location || '').trim();
+  const org = String(m?.origin || '').trim();
+  if (loc && org && loc.toLowerCase() !== org.toLowerCase()) return `${loc}, ${org}`;
+  return loc || org || 'China';
+};
+
+const BRAND_CODES = {
+  caterpillar: 'CAT', doosan: 'DSN', sany: 'SANY', komatsu: 'KMT',
+  xcmg: 'XCMG', sdlg: 'SDLG', zoomlion: 'ZML', sinotruk: 'SNT',
+  shacman: 'SHC', weichai: 'WCH', hitachi: 'HTC', kobelco: 'KBL',
+  liugong: 'LG', howo: 'HOWO', volvo: 'VLV', kubota: 'KBT'
+};
+
+/** Short emblem mark + gold eyebrow label for the machine card lockup. */
+export const machineBrandLockup = m => {
+  const rawBrand = String(m?.brand || '').trim();
+  const typeLabel = String(m?.type || '').replace(/s$/i, '');
+  const cleanBrand = rawBrand && !/^unbranded$/i.test(rawBrand) ? rawBrand : '';
+  const code = cleanBrand ? (BRAND_CODES[cleanBrand.toLowerCase()] || cleanBrand.slice(0, 4).toUpperCase()) : '';
+  const eyebrow = cleanBrand && typeLabel ? `${cleanBrand} · ${typeLabel}` : (cleanBrand || typeLabel || 'Machinery');
+  return { code, eyebrow, label: typeLabel || 'Machinery' };
+};
+
 /** Kept for backwards compatibility with the home teaser. */
 export const machinePriceUSD = machine => listPriceUSD(machine);
 

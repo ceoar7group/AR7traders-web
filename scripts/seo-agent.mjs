@@ -257,9 +257,14 @@ async function runFix() {
   const changes = [];
   const today = new Date().toISOString().slice(0, 10);
 
-  // 1. robots.txt must declare both sitemaps.
+  // 1. robots.txt must declare all sitemaps.
   let robots = robotsTxt();
-  const wanted = ['Sitemap: https://ar7traders.com/sitemap.xml', 'Sitemap: https://ar7traders.com/api/sitemap-vehicles.xml'];
+  const wanted = [
+    'Sitemap: https://ar7traders.com/sitemap.xml',
+    'Sitemap: https://ar7traders.com/api/sitemap-vehicles.xml',
+    'Sitemap: https://ar7traders.com/api/sitemap-machinery.xml',
+    'Sitemap: https://ar7traders.com/api/sitemap-news.xml'
+  ];
   const missing = wanted.filter(w => !robots.includes(w));
   if (missing.length) {
     robots = robots.replace(/\s*$/, '\n') + missing.join('\n') + '\n';
@@ -331,10 +336,26 @@ function indexNowKey(create = false) {
   return key;
 }
 
+async function collectDynamicSitemapUrls(host) {
+  const urls = new Set(sitemapUrls());
+  for (const smPath of ['/api/sitemap-vehicles.xml', '/api/sitemap-machinery.xml', '/api/sitemap-news.xml']) {
+    try {
+      const r = await fetch(`https://${host}${smPath}`, { signal: AbortSignal.timeout(6000) });
+      if (!r.ok) continue;
+      const xml = await r.text();
+      for (const m of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
+        const u = m[1].trim().replace(/&amp;/g, '&');
+        if (u && !/\/(crm|account|portal|studio|seo|call)(\/|$)/.test(u)) urls.add(u);
+      }
+    } catch { /* offline / CI without network keeps static URLs */ }
+  }
+  return [...urls].slice(0, 10000);
+}
+
 async function runIndexNow() {
   const key = indexNowKey(true);
   const host = opt('host') || 'ar7traders.com';
-  const urls = flag('all') ? sitemapUrls() : (opt('urls') ? opt('urls').split(',') : [
+  const urls = flag('all') ? await collectDynamicSitemapUrls(host) : (opt('urls') ? opt('urls').split(',') : [
     `${BASE}/`, `${BASE}/inventory`, `${BASE}/machinery`,
     ...Object.keys(MACHINERY_SEO).map(t => `${BASE}/machinery/${t}`)
   ]);

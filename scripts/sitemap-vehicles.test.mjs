@@ -25,14 +25,19 @@ const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fa
 // that table read fail, which is how the graceful-degradation path is tested.
 function memDb(seedRows, opts = {}) {
   const rows = seedRows.map(r => ({ ...r }));
-  const dealer = (opts.dealerRows || []).map(r => ({ ...r }));
+  const tables = {
+    site_listings: rows,
+    japan_dealer_stock: (opts.dealerRows || []).map(r => ({ ...r })),
+    machinery: (opts.machineryRows || []).map(r => ({ ...r })),
+    site_articles: (opts.articleRows || []).map(r => ({ ...r }))
+  };
   return {
     from(name) {
-      if (name !== 'site_listings' && name !== 'japan_dealer_stock') {
+      if (!(name in tables)) {
         throw new Error(`unexpected table ${name}`);
       }
       const isDealer = name === 'japan_dealer_stock';
-      const table = isDealer ? dealer : rows;
+      const table = tables[name];
       const ctx = { filters: [] };
       const api = {
         select: () => api,
@@ -419,6 +424,89 @@ say('\n-- method and escaping discipline --');
     { make: '<script>', model: 'x"y', year: 2020, price: 1 }, 'R<EF>');
   ok(!html.includes('<script>') && !html.includes('R<EF>'),
     'row fields and the ref are HTML-escaped everywhere they appear');
+}
+
+say('\n-- dynamic crawler parity: vehicles noindex, cars make/model, DB machinery & DB news --');
+{
+  const { default: siteContentHandler } = await import('../api/site-content.js');
+  const runSite = async (query, db) => {
+    const res = fakeRes();
+    await siteContentHandler({ method: 'GET', query }, res, { db });
+    return res;
+  };
+
+  // Sold/unknown vehicle in full mode emits noindex,follow; valid vehicle includes BreadcrumbList + /cars/<make>
+  const missingVehicle = await runSite({ head: 'AR7-SOLD', render: 'full' }, memDb(HEAD_SEED));
+  ok(missingVehicle.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'missing/sold vehicle full render marks noindex,follow');
+  const validVehicle = await runSite({ head: 'AR7-0007', render: 'full' }, memDb(HEAD_SEED));
+  ok(validVehicle.body.includes('<meta name="robots" content="index,follow"/>') &&
+     validVehicle.body.includes('"@type":"BreadcrumbList"') &&
+     validVehicle.body.includes('/cars/toyota'),
+    'valid vehicle full render adds index,follow, BreadcrumbList JSON-LD and /cars/toyota link');
+
+  // /cars/:make and /cars/:make/:model
+  const carsDb = memDb([
+    { id: 10, stock_no: 'AR7-0010', make: 'Toyota', model: 'Land Cruiser', year: 2022,
+      km: '18,000', fuel: 'Diesel', tr: 'AT', price: 68000, image: '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
+      status: 'In Stock', published: true },
+    ...HEAD_SEED
+  ]);
+  const makeFull = await runSite({ carsmake: 'toyota', render: 'full' }, carsDb);
+  ok(makeFull.statusCode === 200 &&
+     makeFull.body.includes('<h1>Toyota from Japan') &&
+     makeFull.body.includes('"@type":"CollectionPage"') &&
+     makeFull.body.includes('/inventory/AR7-0010') &&
+     makeFull.body.includes('/cars/toyota/land-cruiser') &&
+     makeFull.body.includes('<meta name="robots" content="index,follow"/>'),
+    '/cars/toyota full render lists matching stock, links to model pages and sets CollectionPage JSON-LD');
+  const emptyMake = await runSite({ carsmake: 'bugatti', render: 'full' }, carsDb);
+  ok(emptyMake.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'empty make page full render marks noindex,follow instead of indexing a thin 0-car shell');
+
+  // DB machinery unit beyond AR7-MC-001..012
+  const mchDb = memDb([], {
+    machineryRows: [{
+      id: 99, ref: 'AR7-MC-045', type: 'Excavators', brand: 'Caterpillar', model: 'CAT 320D',
+      year: 2019, hours: 3100, price_usd: 42000, location: 'Shanghai', origin: 'China',
+      summary: 'Inspected 20-tonne hydraulic excavator ready for quotation.',
+      specs: [['Operating weight', '20,800 kg']],
+      images: [{ src: 'https://cdn.example.cn/cat320d.jpg', rights: 'verified-public' }],
+      published: true
+    }]
+  });
+  const mchFull = await runSite({ machhead: 'AR7-MC-045', machtype: 'excavators', render: 'full' }, mchDb);
+  ok(mchFull.statusCode === 200 &&
+     mchFull.body.includes('<h1>Caterpillar CAT 320D') &&
+     mchFull.body.includes('https://ar7traders.com/machinery/excavators/AR7-MC-045') &&
+     mchFull.body.includes('Operating weight: 20,800 kg') &&
+     mchFull.body.includes('<meta name="robots" content="index,follow"/>'),
+    'DB machinery detail route renders full specification parity and canonical');
+  const mchMiss = await runSite({ machhead: 'AR7-MC-999', machtype: 'excavators', render: 'full' }, mchDb);
+  ok(mchMiss.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'missing machinery ref marks noindex,follow');
+
+  // DB /news/:slug article beyond the 6 built-in guides
+  const newsDb = memDb([], {
+    articleRows: [{
+      id: 41, title: 'How JEVIC Inspection Works For Kenya Imports',
+      category: 'EXPORT GUIDE', date: 'Nov 10, 2026', read_min: 4,
+      image: '/assets/japanese-car-auction-inspection-shipping-1.webp',
+      excerpt: 'Pre-export inspection rules before shipping a vehicle to Mombasa.',
+      body: 'Every used passenger vehicle destined for Mombasa requires roadworthiness inspection.\n\nBook inspection before vessel loading.',
+      published: true
+    }]
+  });
+  const newsFull = await runSite({ newshead: 'how-jevic-inspection-works-for-kenya-imports', render: 'full' }, newsDb);
+  ok(newsFull.statusCode === 200 &&
+     newsFull.body.includes('<h1>How JEVIC Inspection Works For Kenya Imports</h1>') &&
+     newsFull.body.includes('"@type":"Article"') &&
+     newsFull.body.includes('Every used passenger vehicle destined for Mombasa') &&
+     newsFull.body.includes('https://ar7traders.com/news/how-jevic-inspection-works-for-kenya-imports'),
+    'CRM-published news article renders full Article HTML, body and JSON-LD');
+  const newsMiss = await runSite({ newshead: 'does-not-exist-anywhere', render: 'full' }, newsDb);
+  ok(newsMiss.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'unknown news slug marks noindex,follow');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

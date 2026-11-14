@@ -308,6 +308,94 @@
       "destination": "/news/how-online-bidding-works-with-ar7/index.html"
     },
     {
+      "source": "/cars/:make",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
+        }
+      ],
+      "destination": "/api/site-content?carsmake=:make"
+    },
+    {
+      "source": "/cars/:make",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+        }
+      ],
+      "destination": "/api/site-content?carsmake=:make&render=full"
+    },
+    {
+      "source": "/cars/:make/:model",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
+        }
+      ],
+      "destination": "/api/site-content?carsmake=:make&carsmodel=:model"
+    },
+    {
+      "source": "/cars/:make/:model",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+        }
+      ],
+      "destination": "/api/site-content?carsmake=:make&carsmodel=:model&render=full"
+    },
+    {
+      "source": "/machinery/:type/:ref",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
+        }
+      ],
+      "destination": "/api/site-content?machhead=:ref&machtype=:type"
+    },
+    {
+      "source": "/machinery/:type/:ref",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+        }
+      ],
+      "destination": "/api/site-content?machhead=:ref&machtype=:type&render=full"
+    },
+    {
+      "source": "/news/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
+        }
+      ],
+      "destination": "/api/site-content?newshead=:slug"
+    },
+    {
+      "source": "/news/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+        }
+      ],
+      "destination": "/api/site-content?newshead=:slug&render=full"
+    },
+    {
       "source": "/assets/gallery/lexus-lc-500-01.jpg",
       "destination": "/assets/gallery/lexus-lc-500-01.webp"
     },
@@ -519,7 +607,7 @@
       ]
     },
     {
-      "source": "/(sitemap.xml|api/sitemap-vehicles.xml)",
+      "source": "/(sitemap.xml|api/sitemap-vehicles.xml|api/sitemap-machinery.xml|api/sitemap-news.xml)",
       "headers": [
         {
           "key": "Cache-Control",

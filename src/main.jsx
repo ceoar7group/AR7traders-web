@@ -1,7 +1,7 @@
 import React, {useEffect, useLayoutEffect, useRef, useState, useReducer} from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, CarFront, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Landmark, Wrench, LayoutGrid, LayoutList} from 'lucide-react';
+import { ArrowUpRight, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, CarFront, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Landmark, Wrench, LayoutGrid, LayoutList, Sparkles} from 'lucide-react';
 import './styles.css';
 import './pages.css';
 import './extra-pages.css';
@@ -104,7 +104,7 @@ import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, hashFor, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
-import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours } from './machinery-data.js';
+import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours, machineLoc, machineBrandLockup } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import { useStockDiscounts, stockDiscountFor, priceWithOffer } from './offers.js';
 // A car uploaded before the 2026-10 WebP pass stores a `.jpg` photo path that
@@ -1971,14 +1971,21 @@ export function App(){
         the teaser is the first thing a visitor sees, so it never opens with a
         placeholder. Prices come from listPriceUSD() so the home page and the
         machinery page can never disagree. */}
-    <div className="mch-teaser-grid">{MACHINES.filter(m=>!m.photosPending).filter((m,i,a)=>a.findIndex(x=>x.type===m.type)===i).slice(0,3).map(m=><article className="mch-card" key={m.id}>
-      <div className="mch-photo"><img loading="lazy" decoding="async" width="820" height="560" src={machineImages(m)[0]} alt={`${m.name} for export — ${m.ref}`}/><span className="mch-type">{m.type.replace(/s$/,'')}</span>{machineImages(m).length>1&&<span className="mch-shotcount">{machineImages(m).length} photos</span>}{(()=>{const offer=stockDiscountFor(liveDiscounts,'machine',m.ref);return offer?<span className="mch-offer-flag"><Sparkles size={12}/> {offer.percent}% off</span>:null})()}</div>
+    <div className="mch-teaser-grid">{MACHINES.filter(m=>!m.photosPending).filter((m,i,a)=>a.findIndex(x=>x.type===m.type)===i).slice(0,3).map(m=>{const lockup=machineBrandLockup(m);const hrs=machineHours(m);const usage=hrs==null?(m.type==='Trucks'?'km on request':'hours on request'):(m.type==='Trucks'?`${hrs.toLocaleString('en-US')} km`:`${hrs.toLocaleString('en-US')} h`);const offer=stockDiscountFor(liveDiscounts,'machine',m.ref);const p=priceWithOffer(listPriceUSD(m),offer?.percent||0);const href=machineHref(m);return <article className="mch-card" key={m.id}>
+      <div className="mch-photo"><PageLink className="mch-photo-link" to={href} navigate={navigate} aria-label={`Open the ${m.name} page — ${m.ref}`}><img loading="lazy" decoding="async" width="820" height="560" src={machineImages(m)[0]} alt={`${m.name} for export — ${m.ref}`}/></PageLink><span className="mch-type">{lockup.label}</span>{machineImages(m).length>1&&<span className="mch-shotcount">{machineImages(m).length} photos</span>}{offer?<span className="mch-offer-flag"><Sparkles size={12}/> {offer.percent}% off</span>:null}</div>
       <div className="mch-info">
-        <div className="mch-head"><b>{m.name}</b><small><MapPin/> {m.location}, {m.origin}</small></div>
+        <div className="car-head"><span className="mch-brand-mark" aria-hidden="true">{lockup.code||<Wrench size={15}/>}</span><div className="car-head-txt"><span className="make">{lockup.eyebrow}</span><PageLink className="mch-title-link" to={href} navigate={navigate}><h3 className="mch-title">{m.name}</h3></PageLink></div></div>
+        <div className="mch-meta"><span><Gauge/> {machineYearText(m)} · {usage}</span>{m.specs?.[0]?<span><Wrench/> {m.specs[0][0]}: <b>{m.specs[0][1]}</b></span>:null}</div>
         <p>{m.summary}</p>
-        <div className="mch-foot"><div><small>{t('machinery.indicative')}</small>{(()=>{const offer=stockDiscountFor(liveDiscounts,'machine',m.ref);const p=priceWithOffer(listPriceUSD(m),offer?.percent||0);return p.hasOffer?<span className="mch-price-row"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span>:<b>{fmt(p.now)}</b>})()}</div><PageLink className="mch-teaser-link" to={machineHref(m)} navigate={navigate}>{t('home.mchDetails')} <ArrowRight/></PageLink></div>
+        <div className="car-bottom mch-ledger"><div><small>{t('machinery.indicative')}</small>{p.hasOffer?<span className="mch-price-row"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span>:<b>{fmt(p.now)}</b>}</div></div>
+        <div className="card-actions">
+          <button type="button" className="card-wa" aria-label={`WhatsApp us about the ${m.name}`} onClick={()=>{if(typeof window!=='undefined')window.open(waLink(settings.whatsapp_number,`Hello AR7, I'm interested in the ${m.name} (ref ${m.ref}) on your website. Is it still available?`),'_blank','noopener')}}><WhatsAppIcon size={14}/> WhatsApp</button>
+          <button type="button" className="card-offer" aria-label={`Make offer on the ${m.name}`} onClick={()=>openEnquiry({kind:'machinery-offer',vehicle_interest:`${m.name} (${m.ref})`,stock_ref:m.ref})}><BadgePercent/> Make offer</button>
+          <PageLink className="cmp-chip mch-view" to={href} navigate={navigate} aria-label={`${t('home.mchDetails')} for ${m.name} — ${m.ref}`}>{t('home.mchDetails')} <ArrowRight/></PageLink>
+        </div>
+        <div className="loc"><MapPin/> {machineLoc(m)} · {t('machinery.ref')} {m.ref}</div>
       </div>
-    </article>)}</div>
+    </article>})}</div>
     <div className="mch-teaser-foot"><PageLink className="primary" to="machinery" navigate={navigate}>{t('home.mchBrowseAll')} <ArrowRight/></PageLink><button className="ghost-btn" type="button" onClick={()=>setEnquiry({kind:'vehicle',vehicle_interest:'Left-hand-drive car from China',message:'I am looking for a left-hand-drive car from your China desk. '})}>{t('home.mchRequestLhd')} <ArrowRight/></button><p className="mch-teaser-note">{t('machinery.note')}</p></div>
    </section>
 
