@@ -278,7 +278,7 @@ html,body{overflow-x:clip}
 .budget-range b{font:800 13px Manrope;color:var(--green-text)}
 .budget-bands{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:26px}
 .budget-bands>div{border:1px dashed var(--line);border-radius:14px;padding:14px 16px}
-.budget-bands b{font:800 15px Manrope;color:var(--gold)}
+.budget-bands b{font:800 15px Manrope;color:var(--gold-ink)}
 .budget-bands span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
 @media(max-width:1000px){.budget-grid,.budget-bands{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.budget-grid,.budget-bands{grid-template-columns:1fr}}
@@ -364,6 +364,8 @@ html,body{overflow-x:clip}
      C — full-bleed opening like the inventory page: edge-to-edge stage on a
          deep-green band, ~80vh tall, with the copy arranged below.
    =========================================================================== */
+/* Clean default hv=c opening gap: hero-visual carries its own green stage padding */
+.hero[data-hv="c"]{padding-top:0}
 @media (min-width: 901px) {
   /* A — bigger stage, same grid */
   .hero[data-hv="a"] { grid-template-columns: minmax(0, .84fr) minmax(0, 1.34fr); }

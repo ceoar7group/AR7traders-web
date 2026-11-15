@@ -716,10 +716,10 @@
 :root {
   --nav-h: 64px;        /* the bar row — §1 above */
   --ribbon-h: 35px;     /* the World Time ribbon — expanded.css */
-  --head-pad: 16px;     /* block padding above the ribbon and below the bar */
+  --head-pad: 10px;     /* block padding above the ribbon and below the bar */
   --head-gap: 7px;      /* ribbon → bar */
   --head-h: calc(var(--promo-h, 0px) + var(--head-pad) + var(--ribbon-h) + var(--head-gap) + var(--nav-h) + var(--head-pad));
-  --hero-lead: clamp(18px, 3.2vh, 44px);
+  --hero-lead: clamp(12px, 1.8vh, 22px);
   --head-ease: transform .34s cubic-bezier(.22,.61,.36,1);
 }
 
@@ -776,7 +776,7 @@ footer [id] {
 
 @media (max-width: 1000px) {
   :root {
-    --head-pad: 14px;
+    --head-pad: 9px;
     --head-gap: 6px;
   }
 }
@@ -785,9 +785,9 @@ footer [id] {
   :root {
     --nav-h: 58px;
     --ribbon-h: 31px;
-    --head-pad: 12px;
+    --head-pad: 8px;
     --head-gap: 5px;
-    --hero-lead: clamp(14px, 2.6vh, 30px);
+    --hero-lead: clamp(10px, 1.4vh, 16px);
   }
 }
 
@@ -1827,7 +1827,7 @@ footer [id] {
     padding: 16px 14px 6px;
     font-size: 10px;
     letter-spacing: 2px;
-    color: var(--gold);
+    color: var(--gold-ink);
   }
 
   /* Hairline separators between link groups */
@@ -2402,7 +2402,7 @@ footer [id] {
   .nav-wrap .navlinks.open .panel-head-row b {
     font: 700 10px Manrope, sans-serif;
     letter-spacing: 2.4px;
-    color: var(--gold);
+    color: var(--gold-ink);
   }
 
   .nav-wrap .navlinks.open .panel-close {

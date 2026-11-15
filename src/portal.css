@@ -162,6 +162,15 @@
 /* --- Signed-in: edit profile / change password -------------------- */
 .ma-panel{margin-top:22px;background:#fff;border:1px solid #dce5df;border-radius:18px;
   padding:24px;box-shadow:0 14px 38px rgba(7,59,37,.08)}
+:root[data-theme="dark"] .ma-panel{background:#0f1d16;border-color:#1e3327}
+:root[data-theme="dark"] .ma-panel-x{background:#12251c;border-color:#1e3327;color:var(--ink)}
+:root[data-theme="dark"] .ma-panel-x:hover{background:#183326}
+:root[data-theme="dark"] .ma-panel input,:root[data-theme="dark"] .ma-panel select{background:#08120e;border-color:#1e3327;color:var(--ink)}
+:root[data-theme="dark"] .ma-panel input:focus,:root[data-theme="dark"] .ma-panel select:focus{background:#0d2118;border-color:var(--gold)}
+:root[data-theme="dark"] .ma-note{background:#231b0b;border-color:#4b3a17;color:#f3d285}
+:root[data-theme="dark"] .ma-kpis i{background:#12281d;color:var(--green-text)}
+:root[data-theme="dark"] .ma-empty>span,:root[data-theme="dark"] .account-sent>span{background:#12281d;color:var(--green-text)}
+:root[data-theme="dark"] .account-error{background:#2c1413;border-color:#5a2623;color:#f4a8a3}
 .ma-panel>header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
 .ma-panel .kicker{font-size:10px;letter-spacing:1.6px;font-weight:800;color:#c5a059}
 .ma-panel h2{font-size:26px;letter-spacing:-.8px;margin:5px 0 6px}

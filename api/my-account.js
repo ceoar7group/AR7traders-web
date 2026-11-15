@@ -11,6 +11,17 @@ import {normalizeCriteria,criteriaIsEmpty,defaultSearchName} from '../src/saved-
 // Deliberately separate from the staff APIs - a customer can only ever
 // see the record linked to their own auth user.
 // `injected` ({db,user,stock,emailFn,now}) is a test hook; Vercel calls (req,res).
+async function verifyUser(req,injected={}){
+ if(injected.user)return injected.user;
+ const header=req.headers.authorization||'';
+ const token=header.startsWith('Bearer ')?header.slice(7):'';
+ if(!token)return null;
+ const ac=authClient();
+ const {data:u,error}=await ac.auth.getUser(token);
+ if(error||!u?.user)return null;
+ return u.user;
+}
+
 export default async function handler(req,res,injected={}){
  try{
   const query=req.query||{};
@@ -51,16 +62,8 @@ export default async function handler(req,res,injected={}){
    }});
   }
 
-  let user=injected.user||null;
-  if(!user){
-   const header=req.headers.authorization||'';
-   const token=header.startsWith('Bearer ')?header.slice(7):'';
-   if(!token)return send(res,401,{error:'Please sign in'});
-   const ac=authClient();
-   const {data:u,error}=await ac.auth.getUser(token);
-   if(error||!u.user)return send(res,401,{error:'Please sign in'});
-   user=u.user;
-  }
+  const user=await verifyUser(req,injected);
+  if(!user)return send(res,401,{error:'Please sign in'});
 
   // ---- Saved favourites (2026-11-08, scoped to the signed-in user) -------
   // One row per user holding the hearted stock references, so favourites

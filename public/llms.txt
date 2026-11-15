@@ -66,3 +66,21 @@ Full guide: https://ar7traders.com/howbuy
 - Wheel loaders: https://ar7traders.com/machinery/loaders
 - Tipper trucks: https://ar7traders.com/machinery/trucks
 - Cranes: https://ar7traders.com/machinery/cranes
+- Full machinery catalogue sitemap: https://ar7traders.com/api/sitemap-machinery.xml
+
+## Key shipping destinations (27 markets)
+- Pakistan (Karachi / Port Qasim): https://ar7traders.com/destinations/pakistan
+- UAE (Jebel Ali / Dubai): https://ar7traders.com/destinations/uae
+- Kenya (Mombasa): https://ar7traders.com/destinations/kenya
+- Tanzania (Dar es Salaam): https://ar7traders.com/destinations/tanzania
+- United Kingdom (Southampton / Felixstowe): https://ar7traders.com/destinations/united-kingdom
+- New Zealand (Auckland / Lyttelton): https://ar7traders.com/destinations/new-zealand
+- Australia (Brisbane / Sydney / Melbourne): https://ar7traders.com/destinations/australia
+- Full destination directory: https://ar7traders.com/destinations
+
+## Sitemaps
+- Main static & destination pages: https://ar7traders.com/sitemap.xml
+- Live vehicle & brand/model pages: https://ar7traders.com/api/sitemap-vehicles.xml
+- Live machinery catalogue pages: https://ar7traders.com/api/sitemap-machinery.xml
+- News & buyer guides: https://ar7traders.com/api/sitemap-news.xml
+
