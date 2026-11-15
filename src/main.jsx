@@ -2027,13 +2027,7 @@ export function App(){
    </div>
    <div className="shell footer-grid">
     <div className="footer-brand">
-     {/* 2026-11-03 (owner screenshot): the square logo PNG carried its own
-         white background, so it sat on the dark footer as a white box. The
-         footer now uses a transparency-keyed export of the horizontal mark
-         (ar7-mark-footer.png — same artwork, white keyed out via the PNG
-         palette) plus a typeset wordmark, so the brand blends into the
-         footer instead of floating on it. */}
-     <div className="footer-logo"><img width="196" height="126" src="/assets/ar7-mark-footer.png" alt="" loading="lazy" decoding="async"/><span className="footer-wordmark"><b>AR7</b> TRADERS<small>GLOBAL VEHICLE EXPORTERS</small></span></div>
+     <a className="footer-logo" href="/" onClick={linkClick('home',navigate)}><span className="footer-crest"><span><img width="548" height="589" src="/assets/ar7-footer-emblem.webp" alt="AR7 Traders — Global Vehicle Exporters" loading="lazy" decoding="async"/></span></span></a>
      <p>{t('footer.tagline')}</p>
      <div className="footer-trust"><span><ShieldCheck/> {t('footer.trustSecure')}</span><span><FileCheck/> {t('footer.trustSheets')}</span><span><Ship/> {t('footer.trustDelivery')}</span></div>
      <div className="socials"><a href="/inventory" onClick={linkClick('inventory',navigate)} title="Vehicle gallery"><Camera/></a><a href="/reviews" onClick={linkClick('reviews',navigate)} title="Customer stories"><MessageCircle/></a><a href="/contact" onClick={linkClick('contact',navigate)} title="Contact AR7"><Send/></a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer" title="WhatsApp AR7"><WhatsAppIcon size={15}/></a></div>
