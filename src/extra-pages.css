@@ -7,7 +7,8 @@
 /* 2026-11-07 fix: .page-hero.mini is display:flex (row), so the hero-grid
    shell and the brand strip shell were laid out SIDE BY SIDE — the strip
    floated right and overlapped the showcase. Stack the hero vertically. */
-.inv-hero{min-height:0;padding-bottom:34px;flex-direction:column;justify-content:center}
+.inv-hero{min-height:0;padding-bottom:22px;flex-direction:column;justify-content:center}
+.inv-hero+.page-content{padding-top:20px}
 .inv-hero>.shell{width:min(1240px,calc(100% - 64px))}
 .inv-hero:after{font-size:200px;bottom:-70px}
 .inv-hero-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:44px;align-items:center;padding-top:26px}
@@ -41,21 +42,23 @@
    showcase). They now live in one labelled glass strip: label on the left,
    chips in a tidy row that wraps evenly on desktop and side-scrolls on
    phones instead of stacking tall. */
-.inv-brand-pulse{display:flex;align-items:center;gap:16px;margin-top:30px;padding:10px 14px;background:#ffffff0a;border:1px solid #ffffff17;border-radius:16px;position:relative;z-index:2;backdrop-filter:blur(4px)}
-.inv-brand-label{display:grid;justify-items:start;gap:1px;flex:none;font:800 10px Manrope;letter-spacing:1.6px;color:#e9d9ae;padding:0 14px 0 4px;border-right:1px solid #ffffff1c}
-.inv-brand-label em{font-style:normal;font:700 8.5px Manrope;letter-spacing:1.6px;color:#9db8a9}
-.inv-brand-label svg{width:14px;height:14px;color:var(--gold);margin-bottom:2px}
-.inv-brand-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
-.inv-brand-pulse button{display:flex;align-items:center;gap:8px;height:34px;background:#ffffff10;border:1px solid #ffffff22;border-radius:999px;padding:0 5px 0 8px;color:#fff;cursor:pointer;font:600 11px Manrope;transition:.25s;white-space:nowrap;flex:none}
+.inv-brand-pulse{display:flex;align-items:center;gap:12px;margin-top:22px;padding:8px 12px;background:#ffffff0a;border:1px solid #ffffff17;border-radius:14px;position:relative;z-index:2;backdrop-filter:blur(4px)}
+.inv-brand-label{display:grid;justify-items:start;gap:1px;flex:none;font:800 9.5px Manrope;letter-spacing:1.4px;color:#e9d9ae;padding:0 12px 0 4px;border-right:1px solid #ffffff1c}
+.inv-brand-label em{font-style:normal;font:700 8px Manrope;letter-spacing:1.4px;color:#9db8a9}
+.inv-brand-label svg{width:13px;height:13px;color:var(--gold);margin-bottom:2px}
+.inv-brand-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.inv-brand-pulse button{display:flex;align-items:center;gap:6px;height:30px;background:#ffffff10;border:1px solid #ffffff22;border-radius:999px;padding:0 4px 0 6px;color:#fff;cursor:pointer;font:600 10.5px Manrope;transition:.25s;white-space:nowrap;flex:none}
 .inv-brand-pulse button:hover{background:#ffffff1f;transform:translateY(-1px)}
 .inv-brand-pulse button.on{background:var(--gold);border-color:var(--gold)}
 .inv-brand-pulse button.on,.inv-brand-pulse button.on b{color:#07130c}
 .inv-brand-pulse button.on b{background:#0000001f}
-.inv-brand-pulse img{width:30px;height:18px;object-fit:contain;background:#fff;border-radius:5px;padding:1px;flex:none}
-.inv-brand-pulse b{font:800 11px Manrope;background:#00000026;border-radius:999px;padding:3px 8px;color:var(--gold);min-width:26px;text-align:center}
+.inv-brand-pulse img{width:24px;height:15px;object-fit:contain;background:#fff;border-radius:4px;padding:1px;flex:none}
+.inv-brand-pulse b{font:800 10px Manrope;background:#00000026;border-radius:999px;padding:2px 6px;color:var(--gold);min-width:22px;text-align:center}
 .inv-brand-pulse button>span:first-child{padding-left:4px}
 @media(max-width:900px){
-  .inv-brand-pulse{gap:10px;padding:10px 12px}
+  .inv-hero{padding-bottom:18px}.inv-hero+.page-content{padding-top:16px}
+  .inv-hero-grid{grid-template-columns:1fr;gap:26px}.inv-stage{height:240px}.inv-slide{height:200px}.results-line{flex-wrap:wrap;gap:8px}
+  .inv-brand-pulse{gap:10px;padding:8px 10px}
   .inv-brand-label{display:none}
   .inv-brand-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
   .inv-brand-chips::-webkit-scrollbar{display:none}
@@ -71,23 +74,22 @@
 .inv-pager button.active{background:var(--green);color:#fff;border-color:var(--green)}
 .inv-pager button:disabled{opacity:.35;cursor:default}
 .inv-pager>span{color:var(--muted);padding:0 2px}
-@media(max-width:900px){.inv-hero-grid{grid-template-columns:1fr;gap:26px}.inv-stage{height:240px}.inv-slide{height:200px}.results-line{flex-wrap:wrap;gap:8px}}
 
 /* ---------------------------------------------------------------------------
    Recently-viewed strip on /inventory (main.jsx RecentlyViewed, 2026-11-07).
    --------------------------------------------------------------------------- */
-.recent-strip{display:flex;align-items:center;gap:14px;margin:0 0 18px;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.recent-strip-label{display:inline-flex;align-items:center;gap:7px;font:800 10px Manrope;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;flex:none}
-.recent-strip-label svg{width:14px;height:14px;color:var(--gold-ink)}
-.recent-strip-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.recent-strip{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:6px 10px;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.recent-strip-label{display:inline-flex;align-items:center;gap:6px;font:800 9px Manrope;letter-spacing:1.1px;color:var(--muted);text-transform:uppercase;flex:none;padding-inline-end:10px;border-inline-end:1px solid var(--line)}
+.recent-strip-label svg{width:13px;height:13px;color:var(--gold-ink)}
+.recent-strip-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1}
 .recent-strip-row::-webkit-scrollbar{display:none}
-.recent-strip-row button{display:flex;align-items:center;gap:9px;flex:none;border:1px solid var(--line);background:none;border-radius:10px;padding:5px 11px 5px 5px;cursor:pointer;color:inherit;transition:.2s}
+.recent-strip-row button{display:flex;align-items:center;gap:7px;flex:none;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding-block:3px;padding-inline:3px 9px;cursor:pointer;color:inherit;transition:.2s}
 .recent-strip-row button:hover{border-color:var(--gold);transform:translateY(-1px)}
-.recent-strip-row img{width:56px;height:38px;object-fit:cover;border-radius:7px;background:#0d2419}
-.recent-strip-row span{display:grid;text-align:left}
-.recent-strip-row b{font:700 11.5px Manrope;white-space:nowrap}
-.recent-strip-row small{font-size:10px;color:var(--muted);white-space:nowrap}
-@media(max-width:640px){.recent-strip{flex-direction:column;align-items:flex-start;gap:8px}.recent-strip-row{width:100%}}
+.recent-strip-row img{width:44px;height:30px;object-fit:cover;border-radius:6px;background:#0d2419}
+.recent-strip-row span{display:grid;text-align:start}
+.recent-strip-row b{font:700 11px/1.2 Manrope;white-space:nowrap;max-width:148px;overflow:hidden;text-overflow:ellipsis}
+.recent-strip-row small{font-size:9.5px;line-height:1.2;color:var(--muted);white-space:nowrap}
+@media(max-width:640px){.inv-hero{padding-bottom:14px}.inv-hero+.page-content{padding-top:12px}.recent-strip{flex-direction:column;align-items:flex-start;gap:6px;padding:7px 10px}.recent-strip-label{padding-inline-end:0;border-inline-end:0}.recent-strip-row{width:100%}}
 
 /* Stock-alert capture bar under the inventory grid (2026-11-08): one more
    way a browsing visitor becomes a lead without hunting for the contact page. */

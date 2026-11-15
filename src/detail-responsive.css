@@ -400,19 +400,20 @@
 /* W1 — keep the inventory filters as one full-width, horizontal wrapping bar.
    The generic toolbar becomes a two-column grid on tablet; that squeezed all
    ten facets into its first cell. Scope the override to this tool only. */
-.inv-toolbar-facets{display:flex!important;flex-direction:column;align-items:stretch!important;gap:12px;width:100%}
-.inv-toolbar-facets>.inv-search{display:flex;flex:0 0 42px;width:100%;max-width:none;grid-column:auto;margin:0}
-.inv-toolbar-facets>.inv-facets{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;width:100%;grid-column:auto;grid-template-columns:none;margin:0}
-.inv-toolbar-facets .facet{flex:1 1 132px;min-width:132px;max-width:220px;margin:0}
-.inv-toolbar-facets .facet select{width:100%;min-width:0;max-width:none}
-.inv-toolbar-facets>.inv-facet-foot{display:flex;flex:0 0 auto;align-items:center;width:100%;grid-column:auto;margin:0;padding-top:10px}
+.inv-toolbar-facets{display:flex!important;flex-direction:column;align-items:stretch!important;gap:8px;width:100%}
+.inv-toolbar-facets>.inv-search{display:flex;flex:0 0 36px;width:100%;max-width:none;margin:0}
+.inv-toolbar-facets>.inv-facets{display:flex;flex-wrap:wrap;align-items:flex-end;gap:7px 8px;width:100%}
+.inv-toolbar-facets .facet{flex:1 1 calc(20% - 7px);min-width:136px}
+.inv-toolbar-facets>.inv-facet-foot{display:flex;flex:0 0 auto;align-items:center;width:100%}
+.inv-toolbar-facets .cif-dest-pick{order:3;margin-inline-start:auto}
+@media(max-width:860px){.inv-toolbar-facets .facet{flex:1 1 calc(50% - 4px);min-width:calc(50% - 4px)}}
 @media(max-width:520px){
- .inv-toolbar-facets{gap:10px;padding:10px}
- .inv-toolbar-facets>.inv-facets{gap:8px}
- .inv-toolbar-facets .facet{flex:1 1 calc(50% - 4px);min-width:calc(50% - 4px);max-width:none}
- .inv-toolbar-facets .facet select{height:40px;font-size:11.5px}
- .inv-toolbar-facets>.inv-facet-foot{align-items:flex-start;flex-direction:column;gap:8px}
- .inv-toolbar-facets .facet-active{margin-inline-start:0}
+ .inv-toolbar-facets{gap:7px;padding:9px}
+ .inv-toolbar-facets>.inv-search{flex-basis:40px;height:40px}
+ .inv-toolbar-facets>.inv-facets{gap:6px 8px}
+ .inv-toolbar-facets select{height:40px}
+ .inv-toolbar-facets>.inv-facet-foot{align-items:flex-start;flex-direction:column;gap:6px}
+ .inv-toolbar-facets .cif-dest-pick,.inv-toolbar-facets .facet-active{order:0;margin-inline-start:0}
 }
 
 /* W2 — make the scroll cue and the 900+ hero proof visible on small screens.
