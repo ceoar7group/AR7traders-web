@@ -250,7 +250,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
         }
       ],
       "destination": "/api/site-content?head=:ref&render=full"
@@ -324,7 +324,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
         }
       ],
       "destination": "/api/site-content?carsmake=:make&render=full"
@@ -346,7 +346,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
         }
       ],
       "destination": "/api/site-content?carsmake=:make&carsmodel=:model&render=full"
@@ -368,7 +368,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
         }
       ],
       "destination": "/api/site-content?machhead=:ref&machtype=:type&render=full"
@@ -390,7 +390,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot).*"
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
         }
       ],
       "destination": "/api/site-content?newshead=:slug&render=full"

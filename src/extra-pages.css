@@ -34,13 +34,8 @@
 .inv-stage:active{cursor:grabbing}
 .inv-slide{-webkit-user-drag:none;user-select:none}
 .inv-slide img{-webkit-user-drag:none;pointer-events:none}
-.inv-stage-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:13;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid #ffffff2e;background:#06281acc;color:#fff;cursor:pointer;backdrop-filter:blur(6px);transition:background .2s,border-color .2s,transform .2s}
-.inv-stage-arrow:hover{background:#0b3b27;border-color:var(--gold);transform:translateY(-50%) scale(1.07)}
+.inv-stage-arrow{position:absolute;transform:translateY(-50%);z-index:13;display:grid;place-items:center;border-radius:50%;cursor:pointer;backdrop-filter:blur(6px)}
 .inv-stage-arrow:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.inv-stage-arrow svg{width:18px;height:18px}
-.inv-stage-arrow.prev{left:-6px}
-.inv-stage-arrow.next{right:-6px}
-@media(max-width:900px){.inv-stage-arrow{width:34px;height:34px}.inv-stage-arrow.prev{left:0}.inv-stage-arrow.next{right:0}}
 /* 2026-11-08 UI pass: the chips used to free-wrap into two ragged rows that
    floated against the hero with no anchor (and collided visually with the
    showcase). They now live in one labelled glass strip: label on the left,
@@ -83,7 +78,7 @@
    --------------------------------------------------------------------------- */
 .recent-strip{display:flex;align-items:center;gap:14px;margin:0 0 18px;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .recent-strip-label{display:inline-flex;align-items:center;gap:7px;font:800 10px Manrope;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;flex:none}
-.recent-strip-label svg{width:14px;height:14px;color:var(--gold)}
+.recent-strip-label svg{width:14px;height:14px;color:var(--gold-ink)}
 .recent-strip-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;min-width:0}
 .recent-strip-row::-webkit-scrollbar{display:none}
 .recent-strip-row button{display:flex;align-items:center;gap:9px;flex:none;border:1px solid var(--line);background:none;border-radius:10px;padding:5px 11px 5px 5px;cursor:pointer;color:inherit;transition:.2s}

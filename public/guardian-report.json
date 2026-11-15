@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-15T05:30:17.175Z",
+  "generatedAt": "2026-11-15T07:22:30.022Z",
   "summary": {
     "total": 18,
-    "pass": 16,
+    "pass": 17,
     "warn": 0,
-    "fail": 2
+    "fail": 1
   },
   "checks": [
     {
@@ -67,14 +67,14 @@
       "area": "security",
       "name": "localStorage access guarded",
       "status": "pass",
-      "detail": "3 unguarded call(s) (first: src/crm.jsx:316)",
+      "detail": "all wrapped",
       "fix": "Wrap in try/catch — private mode throws on write"
     },
     {
       "area": "security",
       "name": "API functions check permission",
-      "status": "fail",
-      "detail": "api/my-account.js",
+      "status": "pass",
+      "detail": "12 function(s) checked",
       "fix": "Call the shared permission helper before writing"
     },
     {

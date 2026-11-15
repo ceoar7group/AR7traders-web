@@ -256,10 +256,10 @@
 .navlinks a:after,.navlinks button:after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--gold),var(--green));transform:scaleX(0);transition:transform .3s;transform-origin:left}
 .navlinks a:hover,.navlinks button:hover{transform:translateY(-2px) rotateX(14deg) scale(1.05);color:var(--green-text)}
 .navlinks a:hover:after,.navlinks button:hover:after{transform:scaleX(1)}
-.navlinks a.current{color:var(--gold)}
+.navlinks a.current{color:var(--gold-ink)}
 .navlinks a.current:after{transform:scaleX(1)}
 .navlinks .auction-link{border-left:1px solid var(--line);padding-left:20px;color:var(--green-text)}
-.navlinks .auction-link:hover{color:var(--gold)}
+.navlinks .auction-link:hover{color:var(--gold-ink)}
 
 /* Header dropdowns (Brands + More) share one container/open-state so they
    behave identically; only the panel contents differ. */
@@ -461,7 +461,7 @@ section[id]{scroll-margin-top:120px}
 .detail-gallery .gallery-arrow.prev{left:14px!important}.detail-gallery .gallery-arrow.next{right:14px!important;left:auto!important}
 .gallery-count{position:absolute;z-index:7;right:14px;bottom:13px;background:#032c1be6;color:#fff;padding:6px 10px;border-radius:20px;font-size:9px;letter-spacing:1px}
 .detail-gallery .gallery-expand{position:absolute!important;z-index:8!important;right:14px!important;top:14px!important;display:flex!important;align-items:center;gap:6px;width:auto!important;height:35px!important;padding:0 11px!important;border:1px solid #ffffff66!important;border-radius:18px!important;background:#032c1be6!important;color:white!important;font-size:9px;font-weight:700;cursor:pointer}.gallery-expand svg{width:14px}
-.gallery-lightbox{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;z-index:120!important;background:#020b07ed!important;backdrop-filter:blur(14px);display:flex!important;align-items:center!important;justify-content:center!important;margin:0!important;padding:24px!important;animation:galleryLightboxIn .24s ease-out both}
+.gallery-lightbox{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;z-index:250!important;background:#020b07ed!important;backdrop-filter:blur(14px);display:flex!important;align-items:center!important;justify-content:center!important;margin:0!important;padding:24px!important;animation:galleryLightboxIn .24s ease-out both}
 @keyframes galleryLightboxIn{from{opacity:0}to{opacity:1}}
 .lightbox-stage{position:relative;width:min(1180px,96vw);height:min(760px,90vh);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#06150e;border:1px solid #ffffff25;border-radius:20px;animation:galleryStageIn .28s cubic-bezier(.2,.8,.2,1) both}
 @keyframes galleryStageIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
@@ -603,7 +603,7 @@ section[id]{scroll-margin-top:120px}
 .world-time-group{display:flex;align-items:center;gap:0;flex:none;padding-right:24px}
 .world-time-item{height:34px;display:flex;align-items:center;gap:7px;padding:0 15px;position:relative;white-space:nowrap}
 .world-time-item:after{content:'';position:absolute;right:0;width:1px;height:14px;background:var(--line)}
-.world-time-item>i{font-style:normal;font-size:7px;font-weight:800;letter-spacing:.7px;color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 42%,var(--line));border-radius:5px;padding:2px 4px;background:color-mix(in srgb,var(--gold) 8%,transparent)}
+.world-time-item>i{font-style:normal;font-size:7px;font-weight:800;letter-spacing:.7px;color:var(--gold-ink);border:1px solid color-mix(in srgb,var(--gold) 42%,var(--line));border-radius:5px;padding:2px 4px;background:color-mix(in srgb,var(--gold) 8%,transparent)}
 .world-time-item>b{font-size:9px;letter-spacing:.25px;color:var(--ink)}
 /* min-width (2026-11-13): "23:59:59" is 8 characters; reserving 8ch means a
    tick, a font swap or a DST hour change can never widen the cell and shove
@@ -1022,12 +1022,12 @@ section[id]{scroll-margin-top:120px}
    styles.css; below are the per-car WhatsApp and Make-offer buttons that sit
    beside the Compare chip. Hidden in the tiny portal preview list. */
 /* Landed-price cards (2026-11): indicative CIF line on inventory stock cards */
-.card-cif{display:flex;gap:9px;align-items:center;margin-top:8px;padding:6px 10px;border-radius:9px;background:#e8f2ec;border:1px solid #cfe2d6}
+.card-cif{display:flex;gap:9px;align-items:center;margin-top:8px;padding:6px 10px;border-radius:9px;background:color-mix(in srgb,var(--green) 10%,var(--card));border:1px solid color-mix(in srgb,var(--green) 24%,var(--line))}
 .card-cif svg{width:15px;height:15px;color:var(--green-text);flex:0 0 auto}
 .card-cif span{display:grid;line-height:1.3}
-.card-cif small{font-size:8px;letter-spacing:.6px;color:#5f7468;text-transform:uppercase}
+.card-cif small{font-size:8px;letter-spacing:.6px;color:var(--muted);text-transform:uppercase}
 .card-cif b{font:700 13.5px Manrope;color:var(--green-text)}
-.card-cif em{margin-left:auto;font-style:normal;font-size:8px;color:#5f7468;text-align:right;max-width:72px}
+.card-cif em{margin-left:auto;font-style:normal;font-size:8px;color:var(--muted);text-align:right;max-width:72px}
 .cif-dest-pick{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
 .cif-dest-pick svg{width:14px;color:var(--gold)}
 .cif-dest-pick span{font-weight:700;letter-spacing:.3px}

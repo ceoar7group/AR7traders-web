@@ -58,12 +58,9 @@ function promoReserve() {
       } catch { /* no promo file: reserve from localStorage only */ }
       const baked = promo && promo.active ? { id: String(promo.id || ''), until: String(promo.until || '') } : null;
       // `a` mirrors --head-pad minus --head-gap per breakpoint (site-layout.css
-      // §8): the ribbon's top margin is --head-pad after the empty slot but
-      // --head-gap after the real bar, so a shift-free reservation is
-      // barHeight + gap - pad. The stylesheet has not loaded when this runs,
-      // hence the hardcoded mirror of the 639/1000px breakpoints.
+      // §8): 10-7=3 desktop, 9-6=3 tablet, 8-5=3 phone.
       const js =
-        "(function(){try{var d=document.documentElement.style,w=innerWidth,a=w<640?7:w<=1000?8:9," +
+        "(function(){try{var d=document.documentElement.style,a=3," +
         "h=parseInt(localStorage.getItem('ar7-promo-h')||'',10);" +
         "if(h>0&&h<200){d.setProperty('--promo-h',Math.max(h-a,0)+'px');return}" +
         (baked

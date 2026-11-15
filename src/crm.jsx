@@ -313,7 +313,7 @@ function deskFromHash() {
     // header, or anything that stripped the fragment. Reopen the desk this
     // device used last (2026-11-13 owner report: a refresh still landed on
     // the overview). The overview stays the first-ever-visit default.
-    const last = String(localStorage.getItem('ar7-crm-desk') || '');
+    const last = String(lsGet('ar7-crm-desk') || '');
     const [lt, lsub] = last.split('/');
     if (TAB_IDS.has(lt)) return { tab: lt, carSub: lt === 'vehicles' && lsub === 'listings' ? 'listings' : 'vehicles' };
   } catch { /* no window (tests/SSR): fall through */ }
@@ -1306,7 +1306,7 @@ export default function CrmApp() {
       }
       // The same desk name doubles as the device's "last desk", so even a
       // hashless /crm open (bookmark, header link) comes back here.
-      localStorage.setItem('ar7-crm-desk', tab + (tab === 'vehicles' && carSub === 'listings' ? '/listings' : ''));
+      lsSet('ar7-crm-desk', tab + (tab === 'vehicles' && carSub === 'listings' ? '/listings' : ''));
     } catch { /* tests/SSR or private mode */ }
   }, [tab, carSub]);
 
@@ -1333,11 +1333,11 @@ export default function CrmApp() {
         try {
           const warm = {};
           for (const k of keys) {
-            const raw = localStorage.getItem(cachePrefix + k);
+            const raw = lsGet(cachePrefix + k);
             if (!raw) continue;
             const { at, rows: cachedRows } = JSON.parse(raw);
             if (Date.now() - at < 24 * 3600 * 1000 && Array.isArray(cachedRows)) warm[k] = cachedRows;
-            else localStorage.removeItem(cachePrefix + k);
+            else try { localStorage.removeItem(cachePrefix + k); } catch {}
           }
           if (Object.keys(warm).length) setRows(v => (Object.keys(v).length ? v : warm));
         } catch { /* corrupt/absent cache: cold start */ }
@@ -1385,7 +1385,7 @@ export default function CrmApp() {
           if (issue) continue;
           try {
             const payload = JSON.stringify({ at: Date.now(), rows: value });
-            if (payload.length <= 900 * 1024) localStorage.setItem(cachePrefix + k, payload);
+            if (payload.length <= 900 * 1024) lsSet(cachePrefix + k, payload);
             else localStorage.removeItem(cachePrefix + k);
           } catch { /* quota: this entity cold-starts next time */ }
         }
