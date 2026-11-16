@@ -101,6 +101,7 @@ import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
+import { fetchDealerStock } from './dealer-feed.js';
 import { MACHINES, MACHINE_TYPES, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours, machineLoc, machineBrandLockup } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import { useStockDiscounts, stockDiscountFor, priceWithOffer } from './offers.js';
@@ -420,7 +421,7 @@ async function hydrateSiteContent(){
   // so what lands is exactly what the public may see.
   const [rows,dealer,machines,articles]=await Promise.all([
    getJson('/api/site-content?entity=listings'),
-   getJson('/api/goonet-stock'),
+   fetchDealerStock().catch(()=>null),
    getJson('/api/site-content?machinery=list'),
    getJson('/api/site-content?entity=articles')
   ]);

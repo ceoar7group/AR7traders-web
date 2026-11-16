@@ -45,7 +45,7 @@
     "test:seo": "node scripts/seo-render.test.mjs",
     "test:seo-workflows": "node scripts/seo-workflows.test.mjs",
     "test:seo-render": "node scripts/seo-render.test.mjs",
-    "test:sitemap-vehicles": "node scripts/sitemap-vehicles.test.mjs",
+    "test:sitemap-vehicles": "node scripts/sitemap-vehicles.test.mjs && node scripts/dealer-pagination.test.mjs",
     "test:sitemap-machinery": "node scripts/sitemap-machinery.test.mjs",
     "test:sitemap-news": "node scripts/sitemap-news.test.mjs",
     "test:functions": "node scripts/function-count.test.mjs",

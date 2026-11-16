@@ -12,7 +12,8 @@ import { adminClient } from './_supabase.js';
 import { listMachines, builtinCatalogueMachines, resolveType } from './_machinery.js';
 import { listPriceUSD, machineYearText, machineHours } from '../src/machinery-data.js';
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath } from '../src/sitemap-helpers.js';
-import { mapDealerRows, PUBLIC_DEALER_LIMIT } from '../src/japan-stock-map.js';
+import { mapDealerRows } from '../src/japan-stock-map.js';
+import {readAllDealerPages} from './_dealer-pages.js';
 import { NEWS, articleSlug } from '../src/news-data.js';
 
 export const BASE_URL = 'https://ar7traders.com';
@@ -463,13 +464,14 @@ export async function carsLandingHead(req, res, injected = {}) {
       .eq('published', true).order('sort_order', { ascending: true }).limit(400);
     if (Array.isArray(listings)) cars.push(...listings);
     try {
-      const { data: dealerRows } = await db.from('japan_dealer_stock')
-        .select('*')
-        .eq('available', true).order('imported_at', { ascending: false }).limit(PUBLIC_DEALER_LIMIT);
-      if (Array.isArray(dealerRows)) cars.push(...mapDealerRows(dealerRows));
-    } catch { /* dealer table optional in older fixtures */ }
+      const dealerRows = await readAllDealerPages(db);
+      cars.push(...mapDealerRows(dealerRows));
+    } catch (e) {
+      if (!/relation .*japan_dealer_stock.* does not exist/i.test(e?.message || '')) throw e;
+    }
   } catch (e) {
     console.error('cars-landing-head:', e?.message || e);
+    return sendPlain(res, 503, 'Vehicle stock temporarily unavailable');
   }
   return sendHtml(res, 200, buildCarsLandingHeadHtml(cars, { make, model, full }));
 }
