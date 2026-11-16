@@ -15,6 +15,8 @@
 //   • the FAQPage markup is scoped to /faq only (it used to sit in the static
 //     shell where every route inherited it).
 import {useEffect} from 'react';
+import { vehicleSeo } from './vehicle-seo.js';
+export { vehicleSeo } from './vehicle-seo.js';
 import { hrefFor, slugify } from './routing.js';
 import { articleBySlug, articleSeo } from './news-data.js';
 import { listPriceUSD, machineYear, machineHours } from './machinery-data.js';
@@ -399,7 +401,11 @@ const carName = car => [car?.year, car?.make, car?.model].filter(Boolean).join('
 /** Numeric price from the published display string ('"$21,000"' → 21000). */
 function priceNumber(price) {
   if (typeof price === 'number') return Number.isFinite(price) && price > 0 ? price : null;
-  const n = Number(String(price || '').replace(/[^0-9.]/g, ''));
+  const s = String(price || '').trim();
+  // Reject prose and ranges: stripping every non-digit could turn 'call 24/7'
+  // or '10,000–15,000' into an invented numeric Offer.
+  if (!/^(?:(?:US\$|USD\s*|\$|JPY\s*|¥|EUR\s*|€|GBP\s*|£|AED\s*|PKR\s*)\s*)?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?\s*(?:USD|JPY|EUR|GBP|AED|PKR)?$/i.test(s)) return null;
+  const n = Number(s.replace(/[^0-9.]/g, ''));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
@@ -413,34 +419,6 @@ function priceCurrency(price) {
   if (/AED/i.test(s)) return 'AED';
   if (/PKR/i.test(s)) return 'PKR';
   return 'USD';
-}
-
-/** Display form of the published price for descriptions ('$21,000' stays as
- *  published; a number is formatted in its currency). */
-function priceText(price) {
-  if (typeof price === 'string' && price.trim()) return price.trim();
-  const n = priceNumber(price);
-  if (!n) return null;
-  const cur = priceCurrency(price);
-  const symbol = {USD: '$', JPY: '\u00a5', EUR: '\u20ac', GBP: '\u00a3'}[cur];
-  return symbol ? symbol + n.toLocaleString('en-US') : `${n} ${cur}`;
-}
-
-/** Vehicle-specific title — replaces the listing-level default. */
-export function vehicleSeo(car, carId) {
-  const name = carName(car) || 'Vehicle';
-  const facts = [];
-  if (car?.km) facts.push(String(car.km).replace(/,\s*/g, ',') + ' km');
-  if (car?.fuel) facts.push(car.fuel);
-  if (car?.tr) facts.push(car.tr);
-  const price = priceText(car?.price);
-  if (price) facts.push('export price from ' + price);
-  const ref = carId != null && String(carId) !== '' ? ` (Stock ${String(carId)})` : '';
-  const title = `${name}${ref} — Japanese Import | AR7 Traders`;
-  const desc = facts.length
-    ? `${name} for export from Japan: ${facts.join(', ')}. See the full specification, photos and stock reference, then ask our team for a landed quote.`
-    : `${name} for export from Japan. See the full specification and photos, then ask our team for a landed quote.`;
-  return [title, desc];
 }
 
 /** schema.org availability that matches the record's status — or null when the
@@ -459,7 +437,7 @@ function availabilityFor(car) {
 function imageFor(src) {
   const s = String(src || '').trim();
   if (!s) return null;
-  return /^https?:\/\//i.test(s) ? s : BASE + s;
+  return /^https?:\/\//i.test(s) ? s : BASE + (s.startsWith('/') ? s : '/' + s);
 }
 
 /** Builds schema.org JSON-LD for a single vehicle's detail page. Only fields
@@ -648,6 +626,7 @@ export function applySeo(page, carId, car, opts = {}) {
 
   doc.title = title2;
   setMeta('meta[name="description"]', 'content', description2, doc);
+  setMeta('meta[property="og:type"]', 'content', artSeo ? 'article' : 'website', doc);
   setMeta('meta[property="og:title"]', 'content', title2, doc);
   setMeta('meta[property="og:description"]', 'content', description2, doc);
   setMeta('meta[property="og:url"]', 'content', pageUrl, doc);

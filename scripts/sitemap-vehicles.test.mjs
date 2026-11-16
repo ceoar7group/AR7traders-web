@@ -353,7 +353,7 @@ say('\n-- OG car card: a published listing renders its own card --');
   ok(/public/.test(res.headers['cache-control'] || ''), 'publicly cacheable for the crawlers');
   ok(res.body.includes('2019 Toyota Vezel &quot;Z&quot; — Japan export | AR7 Traders'),
     'og:title carries year, make and the HTML-escaped model');
-  ok(res.body.includes('42,000 km · Hybrid · AT · Grade 4.5 · List price US$12,500.'),
+  ok(res.body.includes('42,000 km · Hybrid · AT · price $12,500.'),
     'the description lists the spec line with the formatted FOB price');
   ok(res.body.includes('content="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
     'og:image is the absolute URL of the cover photo');
@@ -439,6 +439,27 @@ say('\n-- method and escaping discipline --');
     { make: '<script>', model: 'x"y', year: 2020, price: 1 }, 'R<EF>');
   ok(!html.includes('<script>') && !html.includes('R<EF>'),
     'row fields and the ref are HTML-escaped everywhere they appear');
+}
+
+// Browser and crawler must describe the same record with the same snippet.
+{
+  const { vehicleSeo } = await import('../src/vehicle-seo.js');
+  const record = { year: 2023, make: 'Toyota', model: 'Harrier', km: '24,204', fuel: 'Petrol', tr: 'AT', price: '$21,000' };
+  const [title, description] = vehicleSeo(record);
+  const html = buildVehicleHeadHtml(record, 'PARITY', {full:true});
+  ok(html.includes(`<title>${title}</title>`) && html.includes(`<meta name="description" content="${description}"/>`),
+    'crawler vehicle title and description use the shared browser metadata');
+  ok(description.length <= 165 && description.includes('Toyota Harrier') && description.includes('$21,000'),
+    'vehicle snippet includes the model and published price within a practical length');
+  ok(!vehicleSeo({...record, price:'Contact us 24 hours'})[1].includes('price Contact'),
+    'non-price text does not become a price claim');
+  const { buildNewsHeadHtml } = await import('../api/_crawler-render.js');
+  const { articleSeo } = await import('../src/news-data.js');
+  const article = {title:'A detailed vehicle export guide with a deliberately longer headline', excerpt:'Clear export advice '.repeat(12), body:'Useful guidance'};
+  const seo = articleSeo(article);
+  const newsHtml = buildNewsHeadHtml(article, {full:true});
+  ok(newsHtml.includes(`<title>${seo.title}</title>`) && newsHtml.includes(`<meta name="description" content="${seo.description}"/>`),
+    'crawler guide metadata matches the browser title and description');
 }
 
 say('\n-- dynamic crawler parity: vehicles noindex, cars make/model, DB machinery & DB news --');
