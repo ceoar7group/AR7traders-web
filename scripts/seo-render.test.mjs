@@ -222,6 +222,7 @@ for (const a of NEWS) {
   ok(bc?.itemListElement.length === 3 && bc.itemListElement[2].name === a.title,
     `/news/${slug} breadcrumb is Home → News & Guides → ${a.title}`);
   const articleData = jsonld('article-jsonld');
+  ok(meta('meta[property="og:type"]') === 'article', 'guide uses article OG type');
   const articleMetadata = articleSeo(a);
   ok(articleData?.['@type'] === 'Article', `/news/${slug} injects Article JSON-LD`);
   ok(articleData?.headline === a.title && articleData.description === articleMetadata.description,
@@ -254,13 +255,14 @@ const car43 = {
 applySeo('inventory', '43', car43);
 ok(document.title.includes('2023 Toyota Harrier S'), 'vehicle title names the car');
 ok(!document.title.includes('Japanese Cars for Export'), 'vehicle title is not the listing-level default');
-ok(document.title.includes('Stock 43'), 'vehicle title carries the stock reference');
+ok(document.title.includes('Japan export'), 'vehicle title describes the export offer');
 ok(document.title.endsWith('AR7 Traders'), 'vehicle title ends with the brand');
 ok(meta('meta[name="description"]')?.includes('24,204 km'), 'vehicle description includes mileage');
 ok(meta('meta[name="description"]')?.includes('$21,000'), 'vehicle description includes the published price');
 ok(meta('meta[property="og:title"]') === document.title && meta('meta[property="og:description"]') === meta('meta[name="description"]'),
   'vehicle OG tags match the page title/description');
 ok(meta('meta[name="twitter:title"]') === document.title, 'vehicle Twitter title matches');
+ok(meta('meta[property="og:type"]') === 'website', 'vehicle pages reset the article OG type');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/inventory/43', 'vehicle canonical includes the stock ref');
 const v = jsonld('vehicle-jsonld');
 ok(v?.['@type'] === 'Car', 'Car JSON-LD is injected on the detail page');
@@ -320,7 +322,7 @@ ok(jsonld('vehicle-jsonld')?.name === '2023 Toyota Harrier S', 'late vehicle dat
   ok(jp?.offers?.price === '2980000' && jp.offers.priceCurrency === 'JPY', '\u00a5 price keeps JPY currency');
 }
 // Missing / zero / non-numeric prices → no offer (never a false price).
-for (const price of [null, '', 0, 'POA', 'Price on request']) {
+for (const price of [null, '', 0, 'POA', 'Price on request', 'Call 24/7', '$10,000–$15,000']) {
   applySeo('inventory', '43', { ...car43, price });
   const o = jsonld('vehicle-jsonld');
   ok(o && !('offers' in o), `price ${JSON.stringify(price)} omits the offer instead of publishing a false one`);

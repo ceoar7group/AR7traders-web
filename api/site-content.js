@@ -66,6 +66,7 @@ async function assertSettingsWrite(profile, injected = {}) {
 // The pin in scripts/sitemap-vehicles.test.mjs still guarantees the URLs match.
 // ---------------------------------------------------------------------------
 
+import { vehicleSeo } from '../src/vehicle-seo.js';
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath, publishedUsdPrice } from '../src/sitemap-helpers.js';
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
@@ -413,18 +414,11 @@ function headPhoto(row) {
  *  `row` null → the generic AR7 card (unknown ref, unpublished car, DB down). */
 export function buildVehicleHeadHtml(row, ref, opts = {}) {
   const name = row ? [row.year, row.make, row.model].filter(Boolean).join(' ') : null;
-  const title = name ? `${name} — Japan export | AR7 Traders`
-    : 'AR7 Traders | Car Exporter from Japan & China';
+  const [vehicleTitle, vehicleDescription] = row ? vehicleSeo(row) : [];
+  const title = name ? vehicleTitle : 'AR7 Traders | Car Exporter from Japan & China';
   const usdPrice = publishedUsdPrice(row?.price);
-  const specs = !row ? [] : [
-    row.km != null && String(row.km).trim() !== '' ? `${row.km} km` : null,
-    row.fuel || null,
-    row.tr || null,
-    row.grade ? `Grade ${row.grade}` : null,
-    usdPrice ? `List price US$${usdPrice.toLocaleString('en-US')}` : null,
-  ].filter(Boolean);
   const description = row
-    ? `${specs.join(' · ')}${specs.length ? '. ' : ''}Inspected, documented and shipped to your port by AR7 Traders.`
+    ? vehicleDescription
     : 'RHD cars from Japan, LHD cars from China and heavy machinery — inspected, documented and shipped to your port with one clear price.';
   const url = row ? SITEMAP_BASE + hrefFor('inventory', ref) : SITEMAP_BASE + '/inventory';
   const image = (row && absoluteAssetUrl(headPhoto(row))) || HEAD_FALLBACK_IMAGE;

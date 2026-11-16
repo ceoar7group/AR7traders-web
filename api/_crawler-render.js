@@ -14,7 +14,7 @@ import { listPriceUSD, machineYearText, machineHours } from '../src/machinery-da
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath, topVehicleModels, publishedUsdPrice } from '../src/sitemap-helpers.js';
 import { mapDealerRows } from '../src/japan-stock-map.js';
 import {readAllDealerPages} from './_dealer-pages.js';
-import { NEWS, articleSlug } from '../src/news-data.js';
+import { NEWS, articleSlug, articleSeo } from '../src/news-data.js';
 
 export const BASE_URL = 'https://ar7traders.com';
 const HEAD_CACHE = 'public, max-age=300, s-maxage=1800';
@@ -271,8 +271,7 @@ export function buildNewsHeadHtml(article, opts = {}) {
     });
   }
 
-  const title = `${article.title} | AR7 Traders`;
-  const description = article.excerpt || article.ex || String(article.body || '').slice(0, 160);
+  const { title, description } = articleSeo(article);
   const image = absUrl(article.image || article.img, FALLBACK_NEWS_IMAGE);
   const alt = `${article.title} — AR7 Traders guide`;
   const category = article.category || article.cat || 'EXPORT GUIDE';
