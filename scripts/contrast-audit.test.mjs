@@ -78,8 +78,8 @@ console.log('\n2) Gold-as-text meets WCAG AA on every light surface it sits on')
   // The six spots Lighthouse failed now use the ink token, not raw gold.
   // (R46: the how-to-buy and FAQ-topic rules now live in the lazy
   // pages-static.css — the token contract moved with them.)
-  const e = css('expanded.css'), n = css('network.css'), p = css('pages.css'), m = css('machinery.css'), ps = css('pages-static.css');
-  ok(/\.inventory-group-head span\{[^}]*var\(--gold-ink\)/.test(e), 'inventory group label uses --gold-ink');
+  const e = css('expanded.css'), ip = css('inner-page.css'), n = css('network.css'), p = css('pages.css'), m = css('machinery.css'), ps = css('pages-static.css');
+  ok(/\.inventory-group-head span\{[^}]*var\(--gold-ink\)/.test(ip), 'inventory group label uses --gold-ink');
   ok(/\.hb-step>span\{[^}]*color:var\(--gold-ink\)/.test(ps), 'how-to-buy step numbers use --gold-ink');
   ok(/\.faq-topic-title\{[^}]*var\(--gold-ink\)/.test(ps), 'FAQ topic titles use --gold-ink');
   ok(/\.world-copy h1 em\{[^}]*var\(--gold-head\)/.test(n), 'world page headline em uses the display gold (--gold-head)');
@@ -119,11 +119,12 @@ console.log('\n5) WCAG 2.5.3 — visible text is part of every accessible name')
   ok(!/className="brand"[^>]*aria-label/.test(header),
     'the header brand link has NO aria-label — its visible text is its name');
   const main = readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8');
+  const innerPage = readFileSync(new URL('../src/inner-page.jsx', import.meta.url), 'utf8');
   ok(/aria-label=\{'Make offer on the '/.test(main),
     'the card offer label starts with its visible text "Make offer"');
   ok(/aria-label=\{comp\?\('Added — remove '/.test(main) && /'Compare '\+\(c\.make/.test(main),
     'the compare chip label starts with its visible text ("Compare" / "Added")');
-  ok(main.includes("setIdx(i)} tabIndex={a>1?-1:0}>") && !main.includes("aria-label={off===0?`Open"),
+  ok(innerPage.includes("setIdx(i)} tabIndex={a > 1 ? -1 : 0}>") && !innerPage.includes("aria-label={off===0?`Open") && !main.includes("aria-label={off===0?`Open"),
     'hero inventory slides have no aria-label overriding their caption');
 }
 

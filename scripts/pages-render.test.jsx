@@ -367,7 +367,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
 
   // The stylesheet half of the same promise: motion is opt-in, hover is for hover devices,
   // and keyboard focus is always visible. (Tests run from the repo root.)
-  const css = readFileSync('src/expanded.css', 'utf8');
+  const css = readFileSync('src/inner-page.css', 'utf8');
   const s = css.indexOf('/* ---------- Vehicle detail · action stack');
   const e = css.indexOf('@keyframes detail-pop', s);
   const section = s >= 0 && e > s ? css.slice(s, e) : '';

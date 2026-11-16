@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const html = read('../index.html');
 const main = read('../src/main.jsx');
+const innerPage = read('../src/inner-page.jsx');
 const detailCss = read('../src/detail-responsive.css');
 const currencyCss = read('../src/currency-responsive.css');
 const portalCss = read('../src/portal.css');
@@ -180,7 +181,7 @@ assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \.nav-drop-panel > a \{[^}]
 // W1/W2: the facets stay as a single full-width wrapping flex toolbar at every
 // viewport, and the mobile hero retains both its owner-approved proof point
 // and the scroll cue that the old <=1000px rule hid.
-assert.match(main, /className="inv-toolbar inv-toolbar-facets"/);
+assert.match(innerPage, /className="inv-toolbar inv-toolbar-facets"/);
 assert.match(detailCss, /\.inv-toolbar-facets\{display:flex!important/);
 assert.match(detailCss, /\.inv-toolbar-facets>\.inv-facets\{display:flex;flex-wrap:wrap/);
 assert.match(detailCss, /\.inv-toolbar-facets>\.inv-search\{[^}]*width:100%/);
@@ -196,10 +197,11 @@ assert.match(layoutCss, /\.hero \.scroll-cue \{[^}]*grid-column: 1 \/ -1;/s);
 // The vehicle detail photos keep their gallery and zoom affordances but no
 // longer inherit the decorative globe used by the header/world network.
 assert.doesNotMatch(main, /detail-orb/);
+assert.doesNotMatch(innerPage, /detail-orb/);
 assert.doesNotMatch(detailCss, /detail-orb/);
 assert.doesNotMatch(landingCss, /detail-orb/);
-assert.match(main, /detail-gallery-toolbar/);
-assert.match(main, /gallery-expand/);
+assert.match(innerPage, /detail-gallery-toolbar/);
+assert.match(innerPage, /gallery-expand/);
 
 // Hero viewport contracts for the requested widths. 1920/1366/1024 use the
 // collage; 768/390 flow through the stacked visual. These source/CSS contracts
@@ -239,7 +241,7 @@ assert.match(layoutCss, /\.hero-carousel-controls button \{[^}]*width: 34px[^}]*
 assert.match(layoutCss, /\.hero-carousel-controls \{[^}]*z-index: 12;/s,
   'the arrows stack above every hero slide — z-index 8 buried them on phones');
 assert.match(layoutCss, /\.hero \.hero-carousel-controls button \{[^}]*width: 40px;[^}]*height: 40px;/s);
-assert.match(layoutCss, /\.hero-carousel-controls button::after \{content: ''; position: absolute; inset: -7px\}/,
+assert.match(layoutCss, /\.hero-carousel-controls button::after \{content: ''; position: absolute; inset: -8px\}/,
   'the invisible halo keeps the shrunken mobile arrows at a ≥44px tap target');
 assert.match(main, /!query\.matches&&!document\.hidden&&!el\.matches\(':hover,:focus-within'\)/,
   'the rotating hero pauses for reduced motion, hover, hidden pages, and keyboard focus');

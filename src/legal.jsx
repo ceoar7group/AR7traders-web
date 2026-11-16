@@ -16,6 +16,8 @@ import React from 'react';
 import { Mail, Phone, MessageCircle, ShieldCheck, Clock3, FileCheck, Info } from 'lucide-react';
 import { getSettings } from './site-settings.js';
 import { linkClick } from './routing.js';
+import './pages.css';
+import './extra-pages.css';
 import './legal.css';
 
 const UPDATED = '7 November 2026';

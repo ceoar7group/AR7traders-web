@@ -26,6 +26,8 @@ import { campaignIsLive } from './offers.js';
 import { buildTopicIdeas, buildUpgradeReport, suggestCoverFixes, cleanArticleTitle, coverSceneOf } from './seo-topic-scout.js';
 import { MACHINES } from './machinery-data.js';
 import { DEST } from './destinations.js';
+import './pages.css';
+import './extra-pages.css';
 import './seo-desk.css';
 
 const ROUTES = [

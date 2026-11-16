@@ -109,10 +109,11 @@ for (const term of TERMS) {
 // this pins the call sites rather than the strings.
 console.log('\n-- the six buyer-first screens read their copy through t() --');
 const mainSrc = fs.readFileSync(path.join(ROOT, 'src/main.jsx'), 'utf8');
+const innerPageSrc = fs.readFileSync(path.join(ROOT, 'src/inner-page.jsx'), 'utf8');
 const machinerySrc = fs.readFileSync(path.join(ROOT, 'src/machinery.jsx'), 'utf8');
 const SCREENS = [
   ['home hero', 'src/main.jsx', mainSrc, 'hero.h1a'],
-  ['inventory toolbar', 'src/main.jsx', mainSrc, 'inv.searchPlaceholder'],
+  ['inventory toolbar', 'src/inner-page.jsx', innerPageSrc, 'inv.searchPlaceholder'],
   ['enquiry form', 'src/enquiry-form.jsx', fs.readFileSync(path.join(ROOT, 'src/enquiry-form.jsx'), 'utf8'), 'enq.h2'],
   ['contact block', 'src/main.jsx', mainSrc, 'contact.getInTouch'],
   ['footer', 'src/main.jsx', mainSrc, 'footer.subscribe'],
@@ -225,7 +226,7 @@ const rtlCss = fs.readFileSync(path.join(ROOT, 'src/i18n.css'), 'utf8');
 // pages-static.css: static-page rules split out of extra-pages.css on
 // 2026-11-12 (they now ride the lazy pages-static chunk) — same selectors,
 // so the RTL overrides in i18n.css still apply to them.
-const cssSources = ['styles.css', 'expanded.css', 'site-layout.css', 'machinery.css', 'extra-pages.css', 'pages-static.css', 'pages.css']
+const cssSources = ['styles.css', 'expanded.css', 'site-layout.css', 'machinery.css', 'extra-pages.css', 'pages-static.css', 'pages.css', 'inner-page.css']
   .map(f => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n');
 
 const RTL_FIXES = [

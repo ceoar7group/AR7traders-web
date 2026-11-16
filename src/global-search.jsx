@@ -207,7 +207,22 @@ export default function GlobalSearch({ open, onClose, navigate }) {
   };
   const goInventory = () => {
     pushRecent(q);
-    try { sessionStorage.setItem('ar7-inv-q', f.text.join(' ')); } catch { /* storage may be off */ }
+    const invPayload = {
+      q: f.text.join(' '),
+      body: f.body || null,
+      fuel: f.fuel || null,
+      tr: f.tr || null,
+      steer: f.steer || null,
+      drive: f.drive || null,
+      minYear: f.minYear || null,
+      maxUsd: f.maxUsd || null,
+      minUsd: f.minUsd || null
+    };
+    try {
+      sessionStorage.setItem('ar7-inv-q', invPayload.q);
+      sessionStorage.setItem('ar7-inv-filters', JSON.stringify(invPayload));
+      window.dispatchEvent(new CustomEvent('ar7-inv-apply', { detail: invPayload }));
+    } catch { /* storage may be off */ }
     onClose();
     navigate('inventory');
   };
