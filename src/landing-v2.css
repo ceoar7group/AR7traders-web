@@ -24,7 +24,7 @@
 .car-float-title p{font-size:11px}
 @keyframes titleSwap{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .car-dots{position:absolute;top:18px;right:18px;display:flex;gap:5px;z-index:3}
-.car-dots i{width:6px;height:6px;border-radius:4px;background:rgba(255,255,255,.4);transition:width .35s,background .35s}
+.car-dots i{width:6px;height:6px;border-radius:4px;background:rgba(255,255,255,.4);transition:background .35s,opacity .35s}
 .car-dots i.active{width:20px;background:var(--gold)}
 .car-counter{position:absolute;right:16px;bottom:14px;z-index:3;display:flex;align-items:center;gap:6px;font-size:8px;letter-spacing:1px;color:rgba(255,255,255,.85);background:rgba(0,37,15,.55);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);padding:6px 10px;border-radius:20px}
 .car-counter svg{width:12px;color:var(--gold)}
@@ -42,7 +42,7 @@
    measured at up to a second on a throttled/background tab — which is what left
    the Shipping Lane card as an empty white box. */
 .rotating-card-copy{animation:heroCardSwap .42s cubic-bezier(.2,.75,.25,1) forwards}
-@keyframes heroCardSwap{from{opacity:0;transform:translateY(7px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
+@keyframes heroCardSwap{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
 .route-strip .progress{height:3px;margin:0;overflow:visible;position:relative}
 /* The intro draws with scaleX (compositor) instead of animating width (layout
    every frame). The ship is a SIBLING of the bar — anchored at the same
@@ -550,7 +550,7 @@ html,body{overflow-x:clip}
   .hero[data-hv="c"] .stage-foot .hero-cta .primary,
   .hero[data-hv="c"] .stage-foot .hero-cta .ghost-btn {
     width: 100%;
-    height: 40px;
+    height: 48px;
     padding: 0 8px;
     justify-content: center;
     font-size: 12px;
@@ -562,10 +562,10 @@ html,body{overflow-x:clip}
   .hero[data-hv="c"] .stage-foot .text-btn {
     grid-column: 1 / -1;
     justify-content: center;
-    height: 32px;
+    min-height: 48px;
     font-size: 12px;
   }
-  .hero[data-hv="c"] .stage-foot .text-btn > span { width: 28px; height: 28px; }
+  .hero[data-hv="c"] .stage-foot .text-btn > span { width: 32px; height: 32px; }
 }
 
 /* On phones every variant is one column already; B and C still lead with the

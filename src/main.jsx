@@ -1,14 +1,10 @@
 import React, {useEffect, useLayoutEffect, useRef, useState, useReducer} from 'react';
-import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, X, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, Tablet, Smartphone, Laptop, CarFront, LogIn, Plane, ArrowLeftRight, Calculator, CreditCard, ShieldCheck, FileCheck, BadgePercent, Newspaper, BookOpen, Landmark, Wrench, LayoutGrid, LayoutList, Sparkles} from 'lucide-react';
+import { ArrowUpRight, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, CarFront, LogIn, Plane, ArrowLeftRight, ShieldCheck, FileCheck, BadgePercent, Newspaper, Wrench, Sparkles} from 'lucide-react';
 import './styles.css';
-import './pages.css';
-import './extra-pages.css';
 import './motion-account.css';
 import './landing-v2.css';
 import './expanded.css';
-import './detail-responsive.css';
 import './landing-anim.css';
 // The globe is the single heaviest thing on the public site and it is never
 // above the fold — the hero has its own lightweight visual and the header has
@@ -22,7 +18,7 @@ import './landing-anim.css';
 // reload fetches the fresh HTML with the new chunk names; the sessionStorage
 // latch stops a genuinely broken network from looping the reload forever,
 // and a successful load clears the latch for the next deploy.
-const lazyRetry = (load, name) => React.lazy(() => {
+export const lazyRetry = (load, name) => React.lazy(() => {
   const key = 'ar7-chunk-reload-' + name;
   return load().then(m => {
     try { sessionStorage.removeItem(key); } catch { /* storage may be off */ }
@@ -40,6 +36,9 @@ const lazyRetry = (load, name) => React.lazy(() => {
     throw err;
   });
 });
+
+const InnerPage = lazyRetry(() =>
+  import('./inner-page.jsx').then(m => ({ default: m.InnerPage })), 'inner-page');
 
 const Globe = lazyRetry(() =>
   import('./network.jsx').then(m => ({ default: m.WorldPage })), 'world');
@@ -86,31 +85,29 @@ const EnquiryDialog = lazyRetry(() => import('./enquiry-form.jsx').then(m => ({ 
 // home page never downloads a page about Mombasa.
 const DestinationPage = lazyRetry(() => import('./destination-page.jsx').then(m => ({ default: m.DestinationPage })), 'destination');
 import { WhatsAppButton, useCustomerSession } from './customer-session.jsx';
-import { criteriaIsEmpty, describeCriteria, defaultSearchName } from './saved-search.js';
 import { Flag } from './flag.jsx';
-import { VehicleActions } from './vehicle-actions.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { referralCodeFrom } from './lead-validation.js';
 import { englishCarFields } from './jp-display.js';
 import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
-import { useSeo, FAQ_ITEMS, FAQ_TOPICS } from './seo.js';
-import { DEST, destinationBySlug, destinationHref } from './destinations.js';
-import { NEWS, articleSlug, articleBySlug, getPublishedNews, getNewsCategories, setPublishedNews, subscribePublishedNews } from './news-data.js';
+import { useSeo } from './seo.js';
+import { DEST, destinationBySlug } from './destinations.js';
+import { NEWS, subscribePublishedNews } from './news-data.js';
 export { DEST, NEWS };
 import { CurrencyProvider, useCurrency } from './currency.jsx';
 import { LanguageProvider, useLang } from './i18n.jsx';
 import { PromoBar } from './promo-bar.jsx';
 import { SiteHeader, logoOnError } from './site-header.jsx';
-import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, hashFor, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
+import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
-import { MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours, machineLoc, machineBrandLockup } from './machinery-data.js';
+import { MACHINES, MACHINE_TYPES, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours, machineLoc, machineBrandLockup } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import { useStockDiscounts, stockDiscountFor, priceWithOffer } from './offers.js';
 // A car uploaded before the 2026-10 WebP pass stores a `.jpg` photo path that
 // no longer exists on disk. vercel.json rewrites those URLs and this retries
 // them in the app; see src/image-fallback.js for the three layers.
-import { installImageFallback, hasRetried } from './image-fallback.js';
+import { installImageFallback } from './image-fallback.js';
 installImageFallback();
 import './currency.css';
 import './currency-responsive.css';
@@ -148,7 +145,7 @@ export const FOUNDER_CLAIM = {
 // applies when the block is already on screen at load.
 const COUNT_MS=2000;
 const countEase=t=>t>=1?1:1-Math.pow(2,-10*t); // easeOutExpo: quick rush, soft landing
-function FounderStat({variant,delay=0}){
+export function FounderStat({variant,delay=0}){
  const {figure,unit,detail}=FOUNDER_CLAIM;
  const target=Number(figure.replace(/[^\d.]/g,''))||0;
  const plus=/\+\s*$/.test(figure);
@@ -223,15 +220,11 @@ export const cars = [
 // says they are — indicative approximations of the combined duty+tax burden,
 // used ONLY inside this calculator (CLAIMS-POLICY.md: no duty rate is quoted
 // anywhere else on the site; the buyer's own customs authority decides).
-const priceOf=c=>typeof c?.price==='number'?c.price:Number(String(c?.price??'').replace(/[^0-9.]/g,''))||0;
-const kmNum=c=>Number(String(c?.km||'').replace(/[^0-9]/g,''))||0;
-// Export-market style filters (modelled on Japanese exporter search bars):
-// model year and odometer ceilings, on top of make/price/body/fuel.
-const YEAR_MIN={'2023+':2023,'2020+':2020,'2018+':2018,'2015+':2015};
+export const priceOf=c=>typeof c?.price==='number'?c.price:Number(String(c?.price??'').replace(/[^0-9.]/g,''))||0;
 const statusSlug=s=>String(s||'in-stock').replace(/\s+/g,'').toLowerCase();
 // Vehicle prices are converted only after an item-specific discount is
 // applied. A discount is always keyed by the same carRef used in public URLs.
-const carDiscountedUSD=(car,discounts)=>{
+export const carDiscountedUSD=(car,discounts)=>{
  const item=stockDiscountFor(discounts,'car',carRef(car));
  return priceWithOffer(priceOf(car),item?.percent||0).now;
 };
@@ -244,7 +237,7 @@ export const useCarPrice=discounts=>{
  };
 };
 
-function VehiclePriceDisplay({car,discounts,className=''}){
+export function VehiclePriceDisplay({car,discounts,className=''}){
  const {fmt,isBase}=useCurrency();
  const discount=stockDiscountFor(discounts,'car',carRef(car));
  const price=priceWithOffer(priceOf(car),discount?.percent||0);
@@ -258,147 +251,13 @@ function VehiclePriceDisplay({car,discounts,className=''}){
   <small>{discount?.until?`Ends ${discount.until}. `:''}Indicative FOB; confirmed in your written quotation.</small>
  </span>;
 }
-const stockNo=c=>c.stock_no||('AR7-'+(26000+c.id));
-// "Auction sheet" badges may only appear when the vehicle record actually
-// carries sheet evidence (auction_sheet / sheet fields, settable from the
-// CRM). Nothing in today's data contract does, so the badge is absent until
-// real evidence exists — it must never be applied universally.
-const hasAuctionSheet=c=>!!(c&&(c.auction_sheet===true||c.auction_sheet==='true'||(typeof c.auction_sheet==='string'&&c.auction_sheet.trim())||(typeof c.sheet==='string'&&c.sheet.trim())));
+export const stockNo=c=>c.stock_no||('AR7-'+(26000+c.id));
 // Compact vehicle label for dashboards and auction previews. Uses the real
 // lot number when the record carries one, otherwise the stock reference via
 // the existing routing utilities — NEVER a fabricated 'LOT' + database id,
 // which produced nonsense like 'LOT 51<uuid>08' for CRM rows with uuid ids.
 export const stockLabel=c=>!c?'':(c.lot_no&&String(c.lot_no).trim()?`Lot ${String(c.lot_no).trim()}`:`Stock ${carRef(c)}`);
-// Landed-price cards (2026-11): a buyer picks their destination port once on
-// the inventory toolbar and every stock card gains an indicative CIF line —
-// FOB + RoRo freight + docs + marine insurance, the same estimateFor the
-// detail page's CIF box uses. The chip always says "excl. import duty":
-// duty is the buyer's own customs authority's decision and we never quote
-// duty rates on stock (standing honesty rule). The choice is remembered in
-// localStorage and the vehicle detail page opens its CIF box on the same port.
-const CIF_DEST_KEY='ar7-cif-dest';
-const loadCifDest=()=>{try{const v=localStorage.getItem(CIF_DEST_KEY)||'';return DEST.some(x=>x[1]===v)?v:''}catch{return ''}};
-const saveCifDest=v=>{try{v?localStorage.setItem(CIF_DEST_KEY,v):localStorage.removeItem(CIF_DEST_KEY)}catch{}};
-const estimateFor=(c,dest,discounts)=>{const d=DEST.find(x=>x[1]===dest)||DEST[0];const offer=stockDiscountFor(discounts,'car',carRef(c));const p=priceWithOffer(priceOf(c),offer?.percent||0).now;const freight=Math.round(d[4]+p*0.016);const docs=350;const ins=Math.round(p*0.016);return{d,freight,docs,ins,cif:p+freight+docs+ins,days:(d[2].match(/\d+/)||[19])[0]}};
-// Numbered pager for the inventory grid. Shows first/last page plus a small
-// window around the current page, with ellipses for the gaps.
-const Pager=({page,total,onGo})=>{
- if(total<=1)return null;
- const nums=[];const push=v=>{if(v>=1&&v<=total&&!nums.includes(v))nums.push(v)};
- push(1);push(total);for(let d=-1;d<=1;d++)push(page+d);nums.sort((a,b)=>a-b);
- const out=[];nums.forEach((v,i)=>{if(i&&v-nums[i-1]>1)out.push('…');out.push(v)});
- return <nav className="inv-pager" aria-label="Inventory pages">
-  <button disabled={page<=1} onClick={()=>onGo(page-1)} type="button" aria-label="Previous page"><ChevronLeft/></button>
-  {out.map((v,i)=>v==='…'?<span key={'e'+i} aria-hidden="true">…</span>:<button key={v} className={v===page?'active':''} onClick={()=>onGo(v)} type="button" aria-current={v===page?'page':undefined}>{v}</button>)}
-  <button disabled={page>=total} onClick={()=>onGo(page+1)} type="button" aria-label="Next page"><ChevronRight/></button>
- </nav>;
-};
-// Motion showcase for the inventory hero: showroom cars glide across a 3D
-// stage (autoplay pauses on hover and honours prefers-reduced-motion). The
-// centre car opens its detail page; side cars rotate themselves to centre.
-function InvShowcase({picks,onOpen}){
- const [idx,setIdx]=useState(0),[paused,setPaused]=useState(false);
- const n=picks.length;
- // 2026-11-07 (owner request): faster rotation, arrow buttons, and the stage
- // can be dragged/swiped with the cursor or a finger. A real drag must not
- // fire the slide's click, so the handled flag survives until click-capture.
- const dragRef=React.useRef(null),swipedRef=React.useRef(false);
- useEffect(()=>{
-  if(paused||n<2)return;
-  try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch{}
-  const t=setInterval(()=>setIdx(i=>(i+1)%n),2500);return()=>clearInterval(t);
- },[paused,n]);
- if(!n)return null;
- const go=d=>setIdx(i=>(i+d+n)%n);
- // 2026-11-08 (owner: arrows "a bit glitchy"): a press that starts ON the
- // arrow or a dot must never arm the drag — before, pressing an arrow with a
- // 5px hand wobble counted as a swipe AND a click, so the stage jumped two
- // cars at once.
- const down=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(e.target.closest('.inv-stage-arrow,.inv-stage-dots'))return;dragRef.current={x:e.clientX};setPaused(true)};
- const up=e=>{const d=dragRef.current;dragRef.current=null;if(!d)return;
-  const dx=e.clientX-d.x;
-  if(Math.abs(dx)>40){swipedRef.current=true;go(dx<0?1:-1)}};
- const clickCapture=e=>{if(swipedRef.current){swipedRef.current=false;e.preventDefault();e.stopPropagation()}};
- return <div className="inv-stage" onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={()=>setPaused(false)}
-  onPointerDown={down} onPointerUp={up} onPointerCancel={()=>{dragRef.current=null}} onClickCapture={clickCapture}>
-  {picks.map((c,i)=>{
-   let off=(i-idx+n)%n;if(off>n/2)off-=n;
-   const a=Math.abs(off);
-   // transition:none while hidden (a>1): a card wrapping from far-left to
-   // far-right used to animate ACROSS the whole stage behind the centre car —
-   // the "glitch" the owner saw when clicking the arrows quickly.
-   return <button key={c.id} type="button" className={'inv-slide'+(off===0?' active':'')}
-    style={{transform:`translateX(${off*46}%) scale(${Math.max(1-a*.16,.5)})`,opacity:a>1?0:1-a*.25,zIndex:10-a,'--slide-dim':a?Math.min(a*.3,.6):0,pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
-    onClick={()=>off===0?onOpen(c):setIdx(i)} tabIndex={a>1?-1:0}>
-    {/* No aria-label: the caption text + image alt already name the button,
-        and WCAG 2.5.3 requires the visible text to be part of the name. */}
-    {/* 2026-11-13: the blurred .inv-slide-bg span is gone — the cover-fit img
-        hid every pixel of it, and its blur(20px) filter blocked GPU
-        compositing of the slide transitions (same fix as the home hero). */}
-    <img src={c.image} alt={carAlt(c)} loading={i<3?'eager':'lazy'} decoding="async" width="520" height="300"/>
-    <span className="inv-slide-cap"><b>{c.make} {c.model}</b><small>{c.year} · {c.km} km</small></span>
-   </button>;
-  })}
-  <button type="button" className="inv-stage-arrow prev" aria-label="Previous car" onClick={()=>go(-1)}><ChevronLeft/></button>
-  <button type="button" className="inv-stage-arrow next" aria-label="Next car" onClick={()=>go(1)}><ChevronRight/></button>
-  <div className="inv-stage-dots">{picks.map((c,i)=><i key={c.id} className={i===idx?'on':''} onClick={()=>setIdx(i)} role="button" tabIndex={-1} aria-label={'Slide '+(i+1)}/>)}</div>
- </div>;
-}
 export const BRANDS=()=>{const m={};cars.forEach(c=>{(m[c.make]=m[c.make]||[]).push(c)});return Object.keys(m).sort((a,b)=>m[b].length-m[a].length).map(k=>({name:k,count:m[k].length,models:[...new Set(m[k].map(c=>c.model.split(' ')[0]))].slice(0,4)}))};
-// "Be first on new stock" — the inventory's standing-order bar (2026-11-07).
-// A signed-in buyer saves the filters they have on screen as a stock alert
-// (Supabase saved_searches via /api/my-account?searches=1); the nightly sweep
-// e-mails them when NEW matching cars land. Guests keep the old enquiry path
-// plus a sign-in link — no lead is lost either way.
-function SaveSearchBar({signedIn,session,criteria,matches,navigate,openAuction,fallbackInterest}){
- const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[done,setDone]=useState(false),[err,setErr]=useState('');
- const [name,setName]=useState(''),[emailOn,setEmailOn]=useState(true);
- const empty=criteriaIsEmpty(criteria);
- async function save(){
-  setBusy(true);setErr('');
-  try{
-   const r=await fetch('/api/my-account?searches=1',{method:'POST',
-     headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},
-     body:JSON.stringify({name:name.trim(),criteria,email_alerts:emailOn})});
-   const j=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(j.error||'Could not save this search');
-   setDone(true);setOpen(false);
-  }catch(e){setErr(e.message)}
-  setBusy(false);
- }
- return <div className="stock-alert-wrap">
-  <div className="stock-alert-bar" role="region" aria-label="Stock alerts">
-   <div className="stock-alert-copy"><b>Be first on new stock.</b><span>{done
-     ?'Saved — we will e-mail you the moment new matching stock lands in Japan.'
-     :signedIn?'Save this search as a stock alert — we\u2019ll e-mail you the moment matching vehicles land in Japan.'
-     :'Tell us the car you\u2019re hunting — we\u2019ll alert you when matching vehicles land in Japan.'}</span></div>
-   {done
-    ?<a className="primary" href="/account" onClick={linkClick('account',navigate)}>Manage my alerts <ArrowRight/></a>
-    :signedIn
-    ?<button className="primary" type="button" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>{open?'Close':'Save this search'} <ArrowRight/></button>
-    :<div className="stock-alert-cta">
-      <a className="primary" href="/account" onClick={linkClick('account',navigate)}>Sign in for e-mail alerts <ArrowRight/></a>
-      <button className="outline-btn" type="button" onClick={()=>openAuction({kind:'contact',vehicle_interest:fallbackInterest,message:'Please alert me when matching stock arrives in Japan.'})}>Or message us</button>
-     </div>}
-  </div>
-  {open&&!done&&<div className="save-search-panel">
-   <div className="save-search-chips">{describeCriteria(criteria).map(c=><span key={c}>{c}</span>)}<em>{matches} matching now</em></div>
-   {empty
-    ?<p className="save-search-hint">Pick at least one filter above — a make, budget, year or mileage — so we know exactly what to watch for you.</p>
-    :<>
-     <div className="save-search-row">
-      <label>ALERT NAME<input value={name} onChange={e=>setName(e.target.value)} placeholder={defaultSearchName(criteria)} maxLength={60}/></label>
-      <label className="save-search-check"><input type="checkbox" checked={emailOn} onChange={e=>setEmailOn(e.target.checked)}/> E-mail me when new matching stock arrives</label>
-     </div>
-     {err&&<p className="save-search-err">{err}</p>}
-     <div className="save-search-actions">
-      <button className="primary" disabled={busy} onClick={save} type="button">{busy?'Saving…':'Save alert'} <Check/></button>
-      <button className="outline-btn" type="button" onClick={()=>setOpen(false)}>Cancel</button>
-     </div>
-    </>}
-  </div>}
- </div>;
-}
 // 2026-11-07 (owner request): each "Every brand. Every budget." card carries a
 // quiet slideshow of that brand's actual stock. Deliberately cheap: rotation
 // only runs while the card is on screen (IntersectionObserver) and each photo
@@ -629,7 +488,7 @@ if(typeof window!=='undefined'){
 const VEHICLE_GALLERIES={};
 // Never mix photographs from different vehicles. Uses custom vehicle photo gallery
 // configured via CRM when present, otherwise verified model galleries or cover image.
-const galleryFor=c=>{
+export const galleryFor=c=>{
  if(Array.isArray(c.images)&&c.images.length)return c.images;
  if(typeof c.images==='string'&&c.images.trim()){
   try{
@@ -690,7 +549,7 @@ function HeroSearch({t,navigate}){
 // from the grid without hunting for the contact page. WhatsApp opens a chat
 // pre-filled with the exact car; the offer button opens the enquiry modal
 // with the car and an offer prompt already typed in.
-export function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts,cifDest}){
+export function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts,cif,cifDest}){
  const s=useSettings();
  const {t}=useLang();
  const {fmt}=useCurrency();
@@ -700,7 +559,7 @@ export function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts,cifDest}){
  return <a className="car-card page-car" href={href} onClick={onOpen?linkClick(`inventory?car=${carRef(c)}`,()=>onOpen(c)):undefined}>
  <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
  <div className="car-info"><div className="car-head"><img loading="lazy" decoding="async" width="64" height="40" src={LOGO(c.make)} alt="" onError={logoOnError}/><div className="car-head-txt"><span className="make">{c.make}</span><h3>{c.model}</h3></div></div><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={discounts}/></div></div>
- {cifDest&&(()=>{const e=estimateFor(c,cifDest,discounts);return <div className="card-cif"><Ship/><span><small>CIF {cifDest.split(' / ')[0]} · ETA ±{e.days} days</small><b>≈ {fmt(e.cif)}</b></span><em>excl. import duty</em></div>})()}
+ {cif&&cifDest&&<div className="card-cif"><Ship/><span><small>CIF {cifDest.split(' / ')[0]} · ETA ±{cif.days} days</small><b>≈ {fmt(cif.cif)}</b></span><em>excl. import duty</em></div>}
  <div className="card-actions">
   <button type="button" className="card-wa" aria-label={'WhatsApp us about the '+carLabel} onClick={e=>{e.preventDefault();e.stopPropagation();window.open(waLink(s.whatsapp_number,waMsg),'_blank','noopener')}}><WhatsAppIcon size={14}/> WhatsApp</button>
   {/* WCAG 2.5.3: the aria-label must START with the visible text ("Make
@@ -896,26 +755,33 @@ const formatCountdown=seconds=>{const s=Math.max(0,Math.floor(seconds));const d=
 // HeroVisual no longer carries auction/route state it does not render.
 function HeroFactsRow(){
  const wrap=useRef(null);
+ const countdownRef=useRef(null);
  const auctionEnds=useRef(heroAuctions.map(a=>Date.now()+a.seconds*1000));
- const [elapsed,setElapsed]=useState(0);
+ const secRef=useRef(0);
+ const [routeIdx,setRouteIdx]=useState(0);
+ const [auctionIdx,setAuctionIdx]=useState(0);
  useEffect(()=>{
   const el=wrap.current,query=window.matchMedia('(prefers-reduced-motion: reduce)');let timer;
-  const tick=()=>{if(el&&!query.matches&&!document.hidden&&!el.matches(':hover,:focus-within'))setElapsed(v=>v+1)};
+  const tick=()=>{
+   if(!el||query.matches||document.hidden||el.matches(':hover,:focus-within'))return;
+   const s=++secRef.current;
+   const nextR=Math.floor(s/5.6)%heroRoutes.length;
+   const nextA=Math.floor(s/4.6)%heroAuctions.length;
+   setRouteIdx(v=>v===nextR?v:nextR);
+   setAuctionIdx(v=>v===nextA?v:nextA);
+   if(countdownRef.current){
+    const rem=(auctionEnds.current[nextA]-Date.now())/1000;
+    const txt=formatCountdown(rem);
+    if(countdownRef.current.textContent!==txt)countdownRef.current.textContent=txt;
+   }
+  };
   const io=new IntersectionObserver(([entry])=>entry.isIntersecting?timer=setInterval(tick,1000):clearInterval(timer));
   io.observe(el);
   return()=>{clearInterval(timer);io.disconnect()}
  },[]);
- const auctionIdx=Math.floor(elapsed/4.6)%heroAuctions.length;
- const routeIdx=Math.floor(elapsed/5.6)%heroRoutes.length;
  const auction=heroAuctions[auctionIdx];
  const route=heroRoutes[routeIdx];
  const remaining=(auctionEnds.current[auctionIdx]-Date.now())/1000;
- // 2026-11-10 round 5 (owner: "they look very thick… decrease the length and
- // width… set their color according to the theme"): both chips rebuilt as a
- // SINGLE slim line each — kicker · title · (lane line) · status · ETA — the
- // same 44px height as the CTA buttons beside them, in the stage's own dark
- // glass. The rotating data, classes and reduced-motion contract are
- // unchanged; only the skeleton went from four stacked lines to one row.
  return <div className="hero-facts" ref={wrap}>
   <div className="route-strip"><div className="rotating-card-copy" key={routeIdx}>
    <span className="facts-head"><Globe2/><span className="card-kicker">Shipping lane · {routeIdx+1}/{heroRoutes.length}</span></span>
@@ -927,7 +793,7 @@ function HeroFactsRow(){
   <div className="auction-chip"><div className="rotating-card-copy" key={auctionIdx}>
    <span className="facts-head"><i className="card-live"/><span className="card-kicker">Next auction · {auction.city}</span></span>
    <b className="card-title">{auction.name}</b>
-   <small className="card-meta card-countdown"><Clock3/> {formatCountdown(remaining)}</small>
+   <small className="card-meta card-countdown"><Clock3/><span ref={countdownRef}>{formatCountdown(remaining)}</span></small>
   </div></div>
  </div>}
 
@@ -935,17 +801,17 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
  const wrap=useRef(null);
  const price=useCarPrice(discounts);
  const [manualIdx,setManualIdx]=useState(0);
- const [elapsed,setElapsed]=useState(0);
+ const [autoIdx,setAutoIdx]=useState(0);
  useEffect(()=>{
   const el=wrap.current,query=window.matchMedia('(prefers-reduced-motion: reduce)');let timer;
-  const tick=()=>{if(el&&!query.matches&&!document.hidden&&!el.matches(':hover,:focus-within'))setElapsed(v=>v+1)};
-  const io=new IntersectionObserver(([entry])=>entry.isIntersecting?timer=setInterval(tick,1000):clearInterval(timer));
+  const tick=()=>{if(el&&!query.matches&&!document.hidden&&!el.matches(':hover,:focus-within'))setAutoIdx(v=>v+1)};
+  const io=new IntersectionObserver(([entry])=>entry.isIntersecting?timer=setInterval(tick,3200):clearInterval(timer));
   io.observe(el);
   return()=>{clearInterval(timer);io.disconnect()}
  },[]);
  const slides=heroSlides(price);
  const moveSlide=delta=>setManualIdx(v=>(v+delta+slides.length)%slides.length);
- const activeIndex=(manualIdx+Math.floor(elapsed/3.2))%slides.length;
+ const activeIndex=(manualIdx+autoIdx)%slides.length;
  const c=slides[activeIndex]||slides[0];
  // 2026-11-08 (owner request): the flat cross-fade photo card is retired — the
  // home hero now runs the same 3D showroom stage as the inventory hero, which
@@ -1120,380 +986,11 @@ function readRoute(loc=typeof location==='undefined'?{}:location,opts){
  return route.page==='seo'?{...route,page:'crm'}:route;
 }
 
-function BuyerGuide({car,navigate}){
- const sheet=hasAuctionSheet(car);
- const steps=[
-  ['01','Enquire & confirm availability','Share your destination port and preferred currency. Our Japan desk confirms this vehicle is available and prepares a written quotation.'],
-  ['02','Review condition records',sheet?'This listing includes a Japanese auction inspection sheet — we translate the grade, panel marks and inspector notes into plain English before you commit.':'Condition for this vehicle is reviewed from its photographs and dealer or export-yard inspection notes — ask our Japan team for the full condition summary before you commit.'],
-  ['03','Receive your proforma invoice & pay','Your invoice itemizes the vehicle price, export preparation, ocean freight and marine insurance, settled by bank transfer (T/T) in USD or JPY.'],
-  ['04','Export de-registration & vessel loading','We complete Japanese de-registration (Export Certificate), arrange any mandatory pre-shipment inspection for your market, and book RoRo or container space.'],
-  ['05','Documents by courier & port clearance','Original Bill of Lading, Export Certificate and commercial invoice are sent by courier ahead of arrival so your local clearing agent can release the vehicle at port.']
- ];
- return <section className="buyer-guide" aria-label="How buying this vehicle works">
-  <div className="buyer-guide-head">
-   <div className="kicker">HOW BUYING THIS VEHICLE WORKS</div>
-   <h2>From enquiry in Japan to clearance at your port.</h2>
-   <p>Five clear stages from reservation to port release, with itemized paperwork at every step.</p>
-  </div>
-  <ol className="buyer-guide-steps">
-   {steps.map(([num,title,desc])=><li key={num} className="buyer-guide-step"><span>{num}</span><div><b>{title}</b><p>{desc}</p></div></li>)}
-  </ol>
-  <div className="buyer-guide-notes">
-   <article className="buyer-guide-card">
-    <div className="kicker">FOB VS CIF EXPLAINED</div>
-    <h3>What the CIF estimate covers</h3>
-    <p><b>FOB (Free on Board)</b> is the vehicle price in Japan. <b>CIF (Cost, Insurance &amp; Freight)</b> adds estimated sea freight to your destination port, export documentation and 1.6% marine transit insurance. The CIF box above is a planning estimate — our export desk issues a firm written quote for your sailing.</p>
-   </article>
-   <article className="buyer-guide-card">
-    <div className="kicker">CONDITION TRANSPARENCY</div>
-    <h3>{sheet?'Translated auction inspection sheet':'Inspection photos & condition records'}</h3>
-    <p>{sheet?'Because this vehicle carries a Japanese auction sheet, our team provides an English translation of the inspector’s grade, panel diagram and handwritten notes alongside yard photos.':'Not every vehicle in Japan comes from an auction lane — dealer and showroom cars are documented through multi-angle photographs, chassis verification and export-yard inspection notes.'}</p>
-   </article>
-   <article className="buyer-guide-card">
-    <div className="kicker">DESTINATION CUSTOMS</div>
-    <h3>Import duty &amp; local clearance</h3>
-    <p>Import duty, local taxes and registration fees are your own customs authority’s decision at the destination port and are never bundled into a Japan CIF invoice. Your licensed clearing agent calculates the exact payable duty against the original documents we courier to you.</p>
-   </article>
-  </div>
-  <div className="buyer-guide-links">
-   <PageLink className="outline-btn" to="howbuy" navigate={navigate}>Full step-by-step buying guide <ArrowRight/></PageLink>
-   <PageLink className="outline-btn" to="shipping" navigate={navigate}>RoRo &amp; container shipping <ArrowRight/></PageLink>
-   <PageLink className="outline-btn" to="faq" navigate={navigate}>Read the import FAQ <ArrowRight/></PageLink>
-  </div>
- </section>;
-}
-
-const INVENTORY_SCROLL_KEY='ar7-inventory-scroll';
-
-function VehicleLightbox({selected,detailImage,detailGallery,zoomLevel,setZoomLevel,setZoomOpen,stepGallery}){
- const isZoomed=zoomLevel>1;
- const idx=detailGallery.indexOf(detailImage)+1;
- // Every control lives OUTSIDE the picture area: close in the top bar,
- // prev/next + zoom in the bottom bar — the image itself stays clean.
- return createPortal(<div className="gallery-lightbox" role="dialog" aria-modal="true" aria-label={`${selected.make} ${selected.model} image viewer`} onClick={()=>setZoomOpen(false)}>
-  <div className="lightbox-stage" onClick={e=>e.stopPropagation()}>
-   <div className="lightbox-topbar">
-    <span className="lightbox-title"><b>{selected.make} {selected.model}</b><small>{detailGallery.length>1?`${idx} / ${detailGallery.length}`:''}</small></span>
-    <button className="lightbox-close" onClick={()=>setZoomOpen(false)} aria-label="Close enlarged image" title="Close (Esc)" type="button"><X/></button>
-   </div>
-   <div className="lightbox-img-wrap">
-    <img role="button" tabIndex={0} aria-label="Toggle zoom on this photo" onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setZoomLevel(z=>z>1?1:2)}}} className={'lightbox-image '+(isZoomed?'is-zoomed':'')} width="620" height="400" src={detailImage} alt={`${selected.make} ${selected.model} enlarged`} style={{transform:`scale(${zoomLevel})`}} onClick={e=>{e.stopPropagation();setZoomLevel(v=>v>1?1:1.5)}} loading="lazy" decoding="async"/>
-   </div>
-   <div className="lightbox-bottom">
-    <div className="lightbox-nav" role="group" aria-label="Image navigation">
-     <button className="lightbox-arrow prev" onClick={()=>stepGallery(-1)} disabled={detailGallery.length<=1} aria-label="Previous image" title="Previous" type="button"><ChevronLeft/><span>Prev</span></button>
-     <span className="lightbox-count">{detailGallery.length>1?`${idx} / ${detailGallery.length}`:''}</span>
-     <button className="lightbox-arrow next" onClick={()=>stepGallery(1)} disabled={detailGallery.length<=1} aria-label="Next image" title="Next" type="button"><span>Next</span><ChevronRight/></button>
-    </div>
-    <div className="zoom-controls" role="group" aria-label="Image zoom controls">
-     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.max(1,v-.25))} disabled={zoomLevel<=1} aria-label="Zoom out" title="Zoom out" type="button"><ZoomOut/><span>Out</span></button>
-     <button className="zoom-level" onClick={()=>setZoomLevel(1)} disabled={zoomLevel===1} aria-label="Reset zoom" title="Reset zoom" type="button"><strong>{Math.round(zoomLevel*100)}%</strong><small>Reset</small></button>
-     <button className="zoom-btn" onClick={()=>setZoomLevel(v=>Math.min(3.5,v+.25))} disabled={zoomLevel>=3.5} aria-label="Zoom in" title="Zoom in" type="button"><ZoomIn/><span>In</span></button>
-    </div>
-   </div>
-  </div>
- </div>,document.body);
-}
-
-// The standalone /japan-stock page was retired (2026-11): imported dealer
-// cars are merged into the ONE public all-cars page, /inventory, and the old
-// URL redirects there (vercel.json 308 + routing.js PAGE_REDIRECTS).
-// ---------------------------------------------------------------------------
-
-// NOTE: no early returns above the hooks below. InnerPage is reused for many
-// pages, so returning before the hook list runs changes the hook count between
-// renders and React flags it ("Expected static flag was missing"). Page
-// selection happens in App's ternary, which swaps component types instead.
-/* "Recently viewed" strip on the inventory list — reads the trail the vehicle
-   pages write to localStorage (ar7-recent-views). Renders nothing until the
-   visitor has looked at two cars, so first visits never see an empty shell. */
-function RecentlyViewed({onOpen}){
- const [refs]=useState(()=>{try{return JSON.parse(localStorage.getItem('ar7-recent-views')||'[]')}catch{return []}});
- const items=refs.map(r=>findCar(cars,r)).filter(Boolean).slice(0,6);
- if(items.length<2)return null;
- return <div className="recent-strip" aria-label="Recently viewed vehicles">
-  <span className="recent-strip-label"><Clock3/> Recently viewed</span>
-  <div className="recent-strip-row">{items.map(c=><button key={c.id} type="button" onClick={()=>onOpen(c)} title={`${c.year} ${c.make} ${c.model}`}>
-   <img src={c.image} alt={carAlt(c)} width="72" height="48" loading="lazy" decoding="async"/>
-   <span><b>{c.make} {c.model}</b><small>{c.year} · {c.price}</small></span>
-  </button>)}</div>
- </div>;
-}
-
-// Video walkarounds (2026-11-18). Staff paste one YouTube link per website
-// car in the CRM; the car page shows a click-to-play facade — a thumbnail
-// from YouTube's image CDN with a play button — and only builds the iframe
-// (youtube-nocookie.com, so no tracking cookies before consent-by-click)
-// after the buyer presses play. No player JavaScript rides first load.
+// Video walkarounds (2026-11-18). Exported here so src/inner-page.jsx and the
+// tests share the URL parser without pulling all of InnerPage into entry JS.
 export function youtubeId(url){
  const m=String(url||'').trim().match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:[^#\s]*&)?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{11})(?:[?&#]|$)/);
  return m?m[1]:null;
-}
-function VideoWalkaround({car}){
- const [playing,setPlaying]=useState(false);
- const id=youtubeId(car.video);
- if(!car.video)return null;
- if(!id)return <a className="video-walk-link" href={car.video} target="_blank" rel="noopener noreferrer"><Play/> Watch the video walkaround</a>;
- const label=`${car.year?car.year+' ':''}${car.make} ${car.model} video walkaround`;
- return <div className="video-walk">
-  {playing
-   ?<iframe src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`} title={label}
-      allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>
-   :<button onClick={()=>setPlaying(true)} aria-label={`Play the ${label}`} type="button">
-     <img loading="lazy" decoding="async" width="480" height="360" src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt={label}/>
-     <span className="video-walk-play"><Play/></span>
-     <span className="video-walk-tag">VIDEO WALKAROUND</span>
-    </button>}
- </div>;
-}
-
-// Public track-by-number box on the Shipping page (2026-11). Same contract as
-// any courier: the tracking number from the invoice is the whole key, and the
-// API returns logistics fields only — never a name or a balance. The vessel
-// link is free public AIS data on VesselFinder.
-function TrackShipment(){
- const [no,setNo]=useState('');
- const [state,setState]=useState({phase:'idle'});
- async function go(e){
-  e.preventDefault();
-  const v=no.trim();
-  if(!v)return;
-  setState({phase:'loading'});
-  try{
-   const r=await fetch('/api/my-account?track='+encodeURIComponent(v));
-   const j=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(j.error||'Lookup failed — please try again');
-   setState({phase:'done',sh:j.shipment});
-  }catch(err){setState({phase:'error',msg:err.message})}
- }
- const sh=state.sh;
- const STEPS=[['booking','Booked'],['loaded','Loaded'],['at_sea','At sea'],['arrived','Arrived']];
- const idx=sh?Math.max(0,STEPS.findIndex(([k])=>k===sh.status)):0;
- return <div className="track-box">
-  <div className="track-box-head"><Ship/><div><h3>Track your shipment</h3>
-   <p>Enter the AR7 tracking number from your invoice — no sign-in needed.</p></div></div>
-  <form onSubmit={go}>
-   <input value={no} onChange={e=>setNo(e.target.value)} placeholder="e.g. AR7-260184"
-     aria-label="Tracking number" autoComplete="off"/>
-   <button className="primary" disabled={state.phase==='loading'} type="submit">
-     {state.phase==='loading'?'Searching…':'Track'}</button>
-  </form>
-  {state.phase==='error'&&<p className="track-box-error">{state.msg}</p>}
-  {sh&&<div className="track-box-result">
-   <header><b>{sh.tracking_no}</b><em>{(sh.status||'').replaceAll('_',' ').toUpperCase()}</em></header>
-   <p>{sh.vehicle}{sh.origin?` · ${sh.origin} → ${sh.destination||'destination port'}`:''}</p>
-   <div className="track-box-steps">{STEPS.map(([k,label],i)=>
-     <span key={k} className={i<=idx?'done':''}><i/>{label}</span>)}</div>
-   <small>
-    {sh.eta?`ETA ${new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(sh.eta))}`:'ETA to be confirmed'}
-    {sh.vessel&&<> · aboard <a href={'https://www.vesselfinder.com/vessels?name='+encodeURIComponent(sh.vessel)} target="_blank" rel="noopener noreferrer">{sh.vessel} ↗</a> (live position)</>}
-   </small>
-  </div>}
- </div>;
-}
-
-function InnerPage({page,navigate,openAuction,openChat,favs,setFavs,vehicleId,initialMake,initialModel,destSlug}){
- const settings=useSettings();
- const discounts=useStockDiscounts();
- const price=useCarPrice(discounts);
- const {fmt}=useCurrency();
- // The inventory toolbar and the vehicle detail page are among the six
- // screens a buyer meets first, so they read their copy through `t` too.
- const {t}=useLang();
- const cust=useCustomerSession();
- const signedIn=!!cust.session;
- const [,contentTick]=useReducer(x=>x+1,0);
- useEffect(()=>onContentChange(()=>contentTick()),[]);
- // `?q=` is the public entry point the WebSite SearchAction advertises to
- // search engines (and makes any inventory search shareable as a URL); the
- // sessionStorage handoff below stays for the home-page hero search form.
- const [query,setQuery]=useState(()=>{try{const u=new URLSearchParams(window.location.search).get('q');if(u&&u.trim())return u.trim().slice(0,80);const v=sessionStorage.getItem('ar7-inv-q')||'';if(v)sessionStorage.removeItem('ar7-inv-q');return v}catch{return ''}}),[body,setBody]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-body')||'All';if(v!=='All')sessionStorage.removeItem('ar7-inv-body');return v}catch{return 'All'}}),[make,setMake]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-make');if(v){sessionStorage.removeItem('ar7-inv-make');return initialMake||v}return initialMake||'All'}catch{return initialMake||'All'}}),[fuel,setFuel]=useState('All'),[priceF,setPriceF]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-price')||'Any';if(v!=='Any')sessionStorage.removeItem('ar7-inv-price');return v}catch{return 'Any'}}),[yearF,setYearF]=useState('Any'),[kmF,setKmF]=useState('Any'),[sortF,setSortF]=useState('Featured'),[modelF,setModelF]=useState(()=>{try{const v=sessionStorage.getItem('ar7-inv-model');if(v){sessionStorage.removeItem('ar7-inv-model');return v}return 'All'}catch{return 'All'}}),[trF,setTrF]=useState('All'),[steerF,setSteerF]=useState('All'),[galleryImage,setGalleryImage]=useState(null),[zoomOpen,setZoomOpen]=useState(false),[zoomLevel,setZoomLevel]=useState(1),[destSel,setDestSel]=useState(()=>loadCifDest()||DEST[0][1]),[cifDest,setCifDest]=useState(loadCifDest),[comp,setComp]=useState([]),[showCmp,setShowCmp]=useState(false),[copied,setCopied]=useState(false),[pageNo,setPageNo]=useState(1),[perPage,setPerPage]=useState(()=>{try{const v=Number(localStorage.getItem('ar7-inv-pp'));return [25,50,100].includes(v)?v:25}catch{return 25}}),[invView,setInvView]=useState(()=>{try{return localStorage.getItem('ar7-inv-view')==='list'?'list':'grid'}catch{return 'grid'}});
- // Any change to a filter facet starts the visitor back on page 1 — a page
- // number only makes sense inside the result set it was computed for.
- useEffect(()=>{setPageNo(1)},[query,body,make,fuel,priceF,yearF,kmF,sortF,modelF,trF,steerF]);
- // The header's Brands dropdown drives this filter through the URL, so the
- // select must follow the route (and stay put when changed by hand or while
- // inspecting a vehicle from a filtered list).
- useEffect(()=>{ if(!vehicleId) setMake(initialMake||'All'); },[initialMake,vehicleId]);
- // A model landing page (/cars/toyota/land-cruiser) always starts from "All"
- // makes so the make dropdown never reads "All" while the grid is filtered.
- useEffect(()=>{ if(initialModel) setMake('All'); },[initialModel]);
- const selected=page==='inventory'&&vehicleId?findCar(cars,vehicleId):null;
- // Recently-viewed trail (functional storage, listed in /cookies): every
- // vehicle page visit is remembered on this device so the inventory can offer
- // a "pick up where you left off" strip.
- useEffect(()=>{
-  if(!selected)return;
-  try{
-   const ref=carRef(selected);
-   const prev=JSON.parse(localStorage.getItem('ar7-recent-views')||'[]');
-   localStorage.setItem('ar7-recent-views',JSON.stringify([ref,...prev.filter(r=>r!==ref)].slice(0,8)));
-  }catch{/* storage may be off */}
- },[selected]);
- const detailGallery=selected?galleryFor(selected):[];
- const detailImage=galleryImage||detailGallery[0];
- useEffect(()=>{ setGalleryImage(null); setZoomOpen(false); setZoomLevel(1); },[vehicleId]);
- const openVehicle=car=>{
-  try{sessionStorage.setItem(INVENTORY_SCROLL_KEY,String(window.scrollY||window.pageYOffset||0));}catch{ }
-  navigate(`inventory?car=${carRef(car)}`,{scroll:false});
- };
- const backTarget=make&&make!=='All'?inventoryHref(make):'inventory';
- const backToInventory=()=>{
-  let saved=0;
-  try{ saved=Number(sessionStorage.getItem(INVENTORY_SCROLL_KEY)||0); sessionStorage.removeItem(INVENTORY_SCROLL_KEY); }catch{ saved=0; }
-  rememberVehicle(null);
-  navigate(backTarget,{scroll:false});
-  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,saved)));
- };
- const copyVehicleLink=async()=>{
-  const url=location.origin+hrefFor('inventory',carRef(selected))+hashFor('inventory',carRef(selected));
-  try{await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800)}
-  catch{setCopied(false)}
- };
- // Card clicks can originate deep down the inventory page. Move the newly
- // rendered detail view to the top rather than leaving the user at the old
- // card's (often footer-side) scroll position.
- useEffect(()=>{
-  if(!selected)return;
-  // CSS scroll-behavior can make even an "auto" scroll animate. Set both
-  // scrolling roots explicitly so the detail page always starts at the top.
-  document.documentElement.scrollTop=0;
-  document.body.scrollTop=0;
-  window.scrollTo(0,0);
- },[selected]);
- const stepGalleryRef=useRef(null);
- useEffect(()=>{
-  if(!zoomOpen)return;
-  const clampZoom=v=>Math.round(v*100)/100;
-  const onKey=e=>{
-   if(e.key==='Escape')setZoomOpen(false);
-   else if(e.key==='ArrowLeft'){e.preventDefault();if(stepGalleryRef.current)stepGalleryRef.current(-1)}
-   else if(e.key==='ArrowRight'){e.preventDefault();if(stepGalleryRef.current)stepGalleryRef.current(1)}
-   else if(e.key==='+'||e.key==='='){e.preventDefault();setZoomLevel(v=>Math.min(2.5,clampZoom(v+.25)))}
-   else if(e.key==='-'||e.key==='_'){e.preventDefault();setZoomLevel(v=>Math.max(1,clampZoom(v-.25)))}
-   else if(e.key==='0'){e.preventDefault();setZoomLevel(1)}
-  };
-  const previous=document.body.style.overflow;
-  document.body.style.overflow='hidden';
-  window.addEventListener('keydown',onKey);
-  return()=>{document.body.style.overflow=previous;window.removeEventListener('keydown',onKey)};
- },[zoomOpen]);
- const stepGallery=dir=>{if(detailGallery.length<2)return;const at=Math.max(0,detailGallery.indexOf(detailImage));setGalleryImage(detailGallery[(at+dir+detailGallery.length)%detailGallery.length])};
- stepGalleryRef.current=stepGallery;
- if(page==='inventory'&&vehicleId&&!selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="empty-state vehicle-missing">{isContentHydrated()?<><Search/><h3>This vehicle is no longer listed</h3><p>It may have sold or the link is out of date. Browse current Japan stock instead.</p><PageLink className="primary" to={backTarget} navigate={backToInventory}>View inventory <ArrowRight/></PageLink></>:<><CarFront/><h3>Loading vehicle…</h3><p>Fetching the latest stock so we can open this car.</p></>}</div></div></section>;
- if(selected)return <section className="inner-page detail-page"><div className="shell"><a className="back-btn" href={hrefFromTarget(backTarget)} onClick={linkClick(backTarget,backToInventory)}>← Back to inventory</a><div className="detail-grid"><div className="detail-gallery"><div className="detail-main-image"><img decoding="async" fetchPriority="high" width="620" height="400" src={detailImage} onError={e=>{if(hasRetried(e.currentTarget))return;if(detailImage!==selected.image)setGalleryImage(selected.image)}} alt={`${selected.make} ${selected.model} showroom view`} onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} loading="eager"/></div><div className="detail-gallery-toolbar">{detailGallery.length>1&&<><button className="gallery-arrow prev" onClick={()=>stepGallery(-1)} aria-label="Previous vehicle image" type="button"><ChevronLeft/></button><span className="gallery-count">{detailGallery.indexOf(detailImage)+1} / {detailGallery.length}</span><button className="gallery-arrow next" onClick={()=>stepGallery(1)} aria-label="Next vehicle image" type="button"><ChevronRight/></button></>}<button className="gallery-expand" onClick={()=>{setZoomLevel(1);setZoomOpen(true)}} aria-label="Enlarge vehicle image" type="button"><Maximize2/> Enlarge</button></div><div className="detail-thumbs">{detailGallery.map((img,i)=><button className={detailImage===img?'active':''} onClick={()=>setGalleryImage(img)} key={img+i} type="button"><img loading="lazy" decoding="async" width="164" height="110" src={img} onError={e=>{if(hasRetried(e.currentTarget)||e.currentTarget.dataset.f)return;e.currentTarget.dataset.f=1;e.currentTarget.src=selected.image}} alt={`${selected.make} ${selected.model} photo ${i+1}`}/><small>{i===0?'Main':'View '+(i+1)}</small></button>)}</div><VideoWalkaround car={selected}/>{hasAuctionSheet(selected)&&<span className="sheet-tag"><ClipboardCheck/> Auction sheet included</span>}{zoomOpen&&<VehicleLightbox selected={selected} detailImage={detailImage} detailGallery={detailGallery} zoomLevel={zoomLevel} setZoomLevel={setZoomLevel} setZoomOpen={setZoomOpen} stepGallery={stepGallery}/>}</div><div className="detail-info"><div className="kicker">VERIFIED JAPAN STOCK · <b style={{color:'var(--gold)'}}>{stockNo(selected)}</b></div><h1>{selected.make}<br/><em>{selected.model}</em></h1><div className="detail-price"><small>EXPORT PRICE (FOB)</small><VehiclePriceDisplay car={selected} discounts={discounts}/></div><div className="detail-specs"><span><CalendarDays/><b>{selected.year}</b><small>Year</small></span><span><Gauge/><b>{selected.km} km</b><small>Mileage</small></span><span><Fuel/><b>{selected.fuel}</b><small>Fuel</small></span><span><ArrowLeftRight/><b>{selected.tr}</b><small>Transmission</small></span>{selected.grade?<span><BadgeCheck/><b>{selected.grade}</b><small>Grade</small></span>:<span><BadgeCheck/><b>{selected.drv||'2WD'}</b><small>Drive</small></span>}<span><Ship/><b>{selected.st}</b><small>Steering</small></span></div><div className="spec-table"><h4>Full specifications</h4>{[['Body type',selected.body],['Engine',selected.eng],['Transmission',selected.tr],['Drive',selected.drv],['Doors',selected.doors],['Seats',selected.seats],['Chassis no.',selected.chassis],['Colour',selected.col],['Interior',selected.int],['Fuel',selected.fuel],['Steering',selected.st],['Auction venue',selected.ven],['Location',selected.location+', Japan'],['Available',selected.arr],['Stock no.',stockNo(selected)],['Status',selected.status]].filter(x=>x[1]!=null&&x[1]!=='').map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div>{(selected.feats||[]).length>0&&<div className="feat-box"><h4>Equipment & features</h4><div className="feat-chips">{(selected.feats||[]).map(f=><span key={f}><Check/> {f}</span>)}</div></div>}<div className="cif-box"><div className="kicker">INDICATIVE CIF ESTIMATE</div><select value={destSel} onChange={e=>{setDestSel(e.target.value);saveCifDest(e.target.value)}}>{DEST.map(x=><option key={x[1]}>{x[1]}</option>)}</select>{(()=>{const e=estimateFor(selected,destSel,discounts);return <div className="cif-rows"><span><small>FREIGHT (RoRo)</small><b>{fmt(e.freight)}</b></span><span><small>DOCS</small><b>{fmt(e.docs)}</b></span><span><small>INSURANCE 1.6%</small><b>{fmt(e.ins)}</b></span><span className="total"><small>CIF · ETA ±{e.days} DAYS</small><b>{fmt(e.cif)}</b></span></div>})()}</div><div className="brand-brandlogo"><img loading="lazy" decoding="async" width="120" height="46" src={LOGO(selected.make)} alt={selected.make+" logo"} onError={logoOnError}/><span>{selected.make} · sourced in Japan</span></div><VehicleActions car={selected} stockRef={stockNo(selected)} settings={settings} saved={favs.includes(selected.id)} copied={copied} onOffer={()=>openAuction({kind:'vehicle-offer',vehicle_interest:`${selected.year} ${selected.make} ${selected.model} (${stockNo(selected)})`,stock_ref:stockNo(selected)})} onEnquire={()=>openAuction({kind:'vehicle',vehicle_interest:`${selected.year} ${selected.make} ${selected.model} (${stockNo(selected)})`,stock_ref:stockNo(selected)})} onChat={openChat} onToggleSave={()=>setFavs(v=>v.includes(selected.id)?v.filter(x=>x!==selected.id):[...v,selected.id])} onCopy={copyVehicleLink}/><div className="sheet-box"><ClipboardCheck/><div>{hasAuctionSheet(selected)?<><b>Auction sheet verified</b><p>Original inspection report translated by our Japan team — grades, marks and repair history in plain English.</p></>:<><b>Condition &amp; documentation</b><p>Ask our Japan team for this vehicle&rsquo;s condition report and documentation before you commit.</p></>}</div></div></div></div><BuyerGuide car={selected} navigate={navigate}/>{(()=>{const related=cars.filter(c=>c&&c.published!==false&&carRef(c)!==carRef(selected)&&(c.make===selected.make||c.body===selected.body)).sort((a,b)=>Number(b.make===selected.make)-Number(a.make===selected.make)).slice(0,3);return related.length?<section className="related-stock" aria-label="Related vehicles"><div className="kicker">SIMILAR STOCK</div><h2>More vehicles to explore</h2><p className="related-stock-note">Other published vehicles from the same make or body type, currently listed in Japan.</p><div className="related-stock-grid">{related.map(c=><PageLink key={carRef(c)} className="related-stock-card" to={'/inventory/'+carRef(c)} navigate={navigate}><img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark-460.webp'} alt={carAlt(c)}/><b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b><small>{carRef(c)}{c.status?' · '+c.status:''}</small></PageLink>)}</div><PageLink className="outline-btn" to={inventoryHref(selected.make)} navigate={navigate}>Browse all {selected.make} stock <ArrowRight/></PageLink></section>:null})()}</div></section>;
-// One market's own page comes before the hub: /destinations/kenya is the URL a
-// search engine reaches, and it must not fall through to the picker.
-if(page==='destinations'&&destSlug)return <React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the market guide…</h3></div>}><DestinationPage dest={destinationBySlug(destSlug)} destSlug={destSlug} navigate={navigate} openAuction={openAuction} Link={PageLink} Related={RelatedStock} Flag={Flag}/></React.Suspense>;
-if(['privacy','cookies','terms'].includes(page))return <React.Suspense fallback={<div className="empty-state route-fallback"><LockKeyhole/><h3>Loading the policy…</h3></div>}><LegalPage type={page} navigate={navigate}/></React.Suspense>;
-if(['services','destinations','reviews','faq','portal'].includes(page))return <React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the page…</h3></div>}><ExtraPage type={page} navigate={navigate} openAuction={openAuction}/></React.Suspense>;
- if(['brands','howbuy','tools','news'].includes(page))return <React.Suspense fallback={<div className="empty-state route-fallback"><Newspaper/><h3>Loading the page…</h3></div>}><ExtraPages2 type={page} navigate={navigate} openAuction={openAuction} articleSlug={page==='news'?vehicleId:null} discounts={discounts}/></React.Suspense>;
- const makes=[...new Set(cars.map(c=>c.make))].sort();
- // ── Facets, in the shape beforward's stock list offers ─────────────────────
- // Every option is derived from the live list, so a filter can never offer a
- // value that returns nothing. Counts sit beside each option for the same
- // reason they sit beside beforward's makes: a buyer should see the size of a
- // result before committing to it. Client-side by design (SEO.md §3d) — the
- // catalogue is small and twenty filter URLs should not enter the index.
- const facetPool = cars.filter(c => make==='All' || c.make===make);
- const facetCount = (field,value) => facetPool.filter(c=>c[field]===value).length;
- const modelsForMake = [...new Set(facetPool.map(c=>c.model))].sort();
- const transmissions = [...new Set(cars.map(c=>c.tr).filter(Boolean))].sort();
- const steerings = [...new Set(cars.map(c=>c.st).filter(Boolean))].sort();
- const PRICE_BANDS = [
-   ['Any', null, null],
-   ['Under $10k', null, 10000],
-   ['$10k – $20k', 10000, 20000],
-   ['$20k – $35k', 20000, 35000],
-   ['$35k – $60k', 35000, 60000],
-   ['$60k+', 60000, null]
- ];
- const KM_BANDS = [['Any', null], ['Under 30,000 km', 30000], ['Under 60,000 km', 60000], ['Under 100,000 km', 100000], ['Under 150,000 km', 150000]];
- const priceBand = PRICE_BANDS.find(b=>b[0]===priceF) || PRICE_BANDS[0];
- const kmBand = KM_BANDS.find(b=>b[0]===kmF) || KM_BANDS[0];
- const facetActive = [body!=='All'&&body, make!=='All'&&make, modelF!=='All'&&modelF, fuel!=='All'&&fuel, priceF!=='Any'&&priceF, yearF!=='Any'&&'From '+yearF, kmF!=='Any'&&kmF, trF!=='All'&&trF, steerF!=='All'&&steerF+' hand drive'].filter(Boolean);
- const fuelOptions = [...new Set(cars.map(c=>c.fuel).filter(Boolean))];
- const countBy = (field,value) => cars.filter(c=>c[field]===value).length;
- // beforward annotates every option with its count; so do we, so a shopper can
- // see the size of a result before clicking into it.
- const facets = [
-  {k:'Make',v:make,set:v=>{setMake(v);setModelF('All');navigate(inventoryHref(v),{scroll:false,replace:true})},o:[['All','All makes ('+cars.length+')'],...makes.map(m=>[m,m+' ('+countBy('make',m)+')'])]},
-  {k:'Model',v:modelF,set:setModelF,dis:modelsForMake.length<2,o:[['All',make==='All'?'Any model':'All '+make+' models'],...modelsForMake.map(md=>[md,md+' ('+facetCount('model',md)+')'])]},
-  {k:'Body',v:['Showroom','Japan Stock'].includes(body)?'All':body,set:setBody,o:[['All','Any body'],...['SUV','MPV','Sedan','Hatchback','Kei','Van','Luxury','Supercar','Hypercar'].filter(b=>cars.some(c=>c.body===b)).map(b=>[b,b+' ('+countBy('body',b)+')'])]},
-  {k:'Price',v:priceF,set:setPriceF,o:PRICE_BANDS.map(([l])=>[l,l])},
-  {k:'Year from',v:yearF,set:setYearF,o:[['Any','Any year'],...Object.keys(YEAR_MIN).map(y=>[y,y])]},
-  {k:'Mileage',v:kmF,set:setKmF,o:KM_BANDS.map(([l])=>[l,l])},
-  {k:'Fuel',v:fuel,set:setFuel,o:[['All','Any fuel'],...fuelOptions.map(f=>[f,f+' ('+countBy('fuel',f)+')'])]},
-  {k:'Gearbox',v:trF,set:setTrF,o:[['All','Any gearbox'],...transmissions.map(t=>[t,t+' ('+countBy('tr',t)+')'])]},
-  {k:'Steering',v:steerF,set:setSteerF,o:[['All','Any steering'],...steerings.map(t=>[t,t+' hand ('+countBy('st',t)+')'])]},
-  {k:'Sort',v:sortF,set:setSortF,o:[['Featured','Featured'],['Price: low to high','Price: low to high'],['Price: high to low','Price: high to low'],['Mileage: low to high','Mileage: low to high'],['Mileage: high to low','Mileage: high to low'],['Year: newest first','Year: newest first'],['Year: oldest first','Year: oldest first']]}
- ];
- const clearFacets = () => { setBody('All'); setModelF('All'); setFuel('All'); setPriceF('Any'); setYearF('Any'); setKmF('Any'); setTrF('All'); setSteerF('All'); setQuery(''); };
- // Imported dealer cars are Japanese stock, never showroom cars — even a
- // Lamborghini from the importer belongs in the Japan inventory group.
- const isShowroom=isShowroomCar;
- const list=cars.filter(c=>(c.make+' '+c.model+' '+c.location+' '+(c.stock_no||'')+' '+c.year).toLowerCase().includes(query.toLowerCase())&&(body==='All'||(body==='Showroom'&&isShowroom(c))||(body==='Japan Stock'&&!isShowroom(c))||c.body===body)&&(make==='All'||c.make===make)&&(!initialModel||(c.make+' '+c.model+' '+(c.body||'')).toLowerCase().includes(initialModel))&&(modelF==='All'||c.model===modelF)&&(fuel==='All'||c.fuel===fuel)&&(trF==='All'||c.tr===trF)&&(steerF==='All'||c.st===steerF)&&(priceBand[1]==null||carDiscountedUSD(c,discounts)>=priceBand[1])&&(priceBand[2]==null||carDiscountedUSD(c,discounts)<priceBand[2])&&(yearF==='Any'||Number(c.year)>=YEAR_MIN[yearF])&&(kmBand[1]==null||kmNum(c)<=kmBand[1])).sort((a,b)=>{const p=x=>carDiscountedUSD(x,discounts);switch(sortF){case 'Price: low to high':return p(a)-p(b);case 'Price: high to low':return p(b)-p(a);case 'Mileage: low to high':return kmNum(a)-kmNum(b);case 'Mileage: high to low':return kmNum(b)-kmNum(a);case 'Year: newest first':case 'Newest first':return b.year-a.year;case 'Year: oldest first':return a.year-b.year;default:{const as=isShowroom(a),bs=isShowroom(b);if(as!==bs)return as?-1:1;return as?a.id-b.id:b.id-a.id}}});
- const showroomList=list.filter(isShowroom),japanList=list.filter(c=>!isShowroom(c));
- // Real pagination (reworked 2026-11-08, owner report): the old scheme sliced
- // ONE page window across showroom-then-Japan, so with ~18 showroom cars page
- // one showed only 2 Japan cars under a "203 vehicles" header. In the grouped
- // "Featured" view the curated showroom collection now renders in full on page
- // one and the page size applies to the Japan inventory group itself — every
- // page shows a full page of Japan stock. Flat views (any filter/sort) keep
- // simple whole-list pagination. Default raised 20 → 25 per page.
- const groupedView=body==='All'&&sortF==='Featured';
- const pagedSource=groupedView?japanList:list;
- const totalPages=Math.max(1,Math.ceil(pagedSource.length/perPage)),pageSafe=Math.min(pageNo,totalPages);
- const pageItems=pagedSource.slice((pageSafe-1)*perPage,pageSafe*perPage);
- const pageShowroom=groupedView?(pageSafe===1?showroomList:[]):pageItems.filter(isShowroom);
- const pageJapan=groupedView?pageItems:pageItems.filter(c=>!isShowroom(c));
- const goPage=v=>{setPageNo(v);try{document.querySelector('.results-line').scrollIntoView({behavior:'smooth',block:'start'})}catch{}};
- const setPp=v=>{setPerPage(v);setPageNo(1);try{localStorage.setItem('ar7-inv-pp',String(v))}catch{}};
- // Grid/list layout toggle (2026-11, owner request). The preference is a pure
- // presentation choice, so it persists like per-page does and never resets the
- // pagination or filters.
- const setView=v=>{setInvView(v);try{localStorage.setItem('ar7-inv-view',v)}catch{}};
- const gridCls='car-grid full-grid'+(invView==='list'?' list-view':'');
- const cardsFor=items=>items.map(c=><VehicleCard key={c.id} c={c} cifDest={cifDest} onOpen={openVehicle} comp={comp.includes(c.id)} onCmp={x=>{setComp(v=>v.includes(x.id)?v.filter(y=>y!==x.id):(v.length>=3?v:v.concat(x.id)))}} onOffer={x=>openAuction({kind:'contact',vehicle_interest:[x.year,x.make,x.model].filter(Boolean).join(' ')+' (ref '+carRef(x)+')',message:'I would like to make an offer on the '+[x.year,x.make,x.model].filter(Boolean).join(' ')+' (ref '+carRef(x)+'). My offer is: '})} discounts={discounts}/>);
-// /cars/toyota/land-cruiser renders the same list view, but titles and
-// filters itself as a make/model landing page.
-const landingMake = (initialMake&&initialMake!=='All')?initialMake:null;
-const landingModel = (landingMake&&initialModel)?initialModel.replace(/\b\w/g,c=>c.toUpperCase()):null;
-if(page==='inventory')return <section className="inner-page"><div className="page-hero mini inv-hero"><div className="shell inv-hero-grid"><div className="inv-hero-copy"><div className="kicker">{landingMake?t('inv.kickerLanding'):t('inv.kicker')}</div><h1>{landingMake?<>{landingMake}{landingModel?' '+landingModel:''}<br/><em>{t('inv.h1Landing')}</em></>:<>{t('inv.h1a')} <em>{t('inv.h1b')}</em></>}</h1><p>{landingMake?`${list.length} ${landingModel||landingMake} ${list.length===1?t('inv.vehicle'):t('inv.vehicles')} ${t('inv.landingNote')}`:`${list.length} ${t('inv.stockNote')}`}</p></div><InvShowcase picks={cars.filter(isShowroom).filter(c=>c.image).slice(0,8)} onOpen={openVehicle}/></div><div className="shell inv-brand-pulse" role="group" aria-label="Live stock by brand"><span className="inv-brand-label"><Gauge/>LIVE STOCK<em>BY BRAND</em></span><div className="inv-brand-chips"><button type="button" className={make==='All'?'on':''} onClick={()=>setMake('All')}><span>All brands</span><b>{cars.length}</b></button>{BRANDS().slice(0,9).map(b=><button key={b.name} type="button" className={make===b.name?'on':''} onClick={()=>{setMake(make===b.name?'All':b.name)}} title={'Show '+b.name+' stock'}><img loading="lazy" decoding="async" width="30" height="18" src={LOGO(b.name)} alt={b.name+' logo'} onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></button>)}</div></div></div><div className="shell page-content"><RecentlyViewed onOpen={openVehicle}/><div className="inv-toolbar inv-toolbar-facets" role="search">
- <label className="inv-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('inv.searchPlaceholder')} aria-label={t('inv.searchPlaceholder')}/></label>
- <div className="inv-facets">{facets.map(f=><label className="facet" key={f.k}><span>{f.k}</span><select value={f.v} onChange={e=>f.set(e.target.value)} aria-label={f.k+' filter'} disabled={f.dis}>{f.o.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>)}</div>
- <div className="inv-facet-foot">
-  <span className="facet-count"><b>{list.length}</b> {t('inv.matchCount',{total:cars.length})}</span>
-  <label className="cif-dest-pick"><Ship/><span>CIF estimate to</span><select value={cifDest} onChange={e=>{setCifDest(e.target.value);saveCifDest(e.target.value);if(e.target.value)setDestSel(e.target.value)}} aria-label="Show an indicative CIF estimate to a destination port on every vehicle card"><option value="">Off — FOB prices only</option>{DEST.map(x=><option key={x[1]} value={x[1]}>{x[0]} — {x[1].split(' / ')[0]}</option>)}</select></label>
-  {facetActive.length>0&&<div className="facet-active">{facetActive.map(f=><span key={f}>{f}</span>)}<button type="button" onClick={clearFacets}>{t('inv.clearAll')}</button></div>}
- </div>
-</div>
-{make!=='All'&&<div className="brand-context-card" aria-label={`${make} inventory context`}><img className="brand-context-logo" loading="lazy" decoding="async" width="88" height="54" src={LOGO(make)} alt={make+" logo"} onError={logoOnError}/><div className="brand-context-copy"><div className="kicker">BROWSE {make.toUpperCase()} STOCK</div><h2>{make} vehicles from Japan</h2><p className="brand-context-count"><b>{list.length}</b> matching {make} {list.length===1?'vehicle':'vehicles'} currently listed.</p><p>We source {make} vehicles through Japanese auction and dealer/showroom listings. Auction-sourced vehicles may include translated auction sheets; dealer and showroom vehicles are described with the available yard inspection notes and photographs.</p><div className="brand-context-links"><PageLink className="outline-btn" to="inventory" navigate={navigate}>{t('inv.allInventory')} <ArrowRight/></PageLink><PageLink className="outline-btn" to="brands" navigate={navigate}>Explore brands <ArrowRight/></PageLink><PageLink className="outline-btn" to="howbuy" navigate={navigate}>How buying works <ArrowRight/></PageLink></div></div></div>}{landingMake&&<nav className="landing-links" aria-label={'More '+landingMake+' export pages'}>{[...new Set(cars.filter(c=>c.make===landingMake).map(c=>c.model))].slice(0,10).map(m=><PageLink key={m} to={inventoryHref(landingMake,m)} navigate={navigate}>{landingMake} {m}</PageLink>)}<PageLink to="inventory" navigate={navigate}>{t('inv.allInventory')}</PageLink></nav>}<div className="inv-chips"><div>{['All','Showroom','Japan Stock','Luxury','Supercar','Hypercar','SUV','MPV','Sedan','Hatchback','Kei','Van'].map(x=>{const n=x==='All'?cars.length:(x==='Showroom'?cars.filter(isShowroom).length:(x==='Japan Stock'?cars.filter(c=>!isShowroom(c)).length:cars.filter(c=>c.body===x).length));return <button key={x} onClick={()=>setBody(x)} className={body===x?'active':''} type="button">{x} <i>{n}</i></button>})}</div>{comp.length>0&&<button className="cmp-open" onClick={()=>setShowCmp(true)} type="button"><ArrowLeftRight/> Compare {comp.length}<small onClick={e=>{e.stopPropagation();setComp([]);setShowCmp(false)}}>{t('inv.compareClear')}</small></button>}</div><div className="results-line"><b>{list.length} {t('inv.vehicles')}</b><span>{t('inv.resultsNote',{showroom:showroomList.length,japan:japanList.length})}</span><label className="pp-select">Show <select value={perPage} onChange={e=>setPp(Number(e.target.value))} aria-label="Vehicles per page">{[25,50,100].map(v=><option key={v} value={v}>{v}</option>)}</select> per page{totalPages>1&&<em> · page {pageSafe} of {totalPages}</em>}</label><div className="view-toggle" role="group" aria-label="Layout"><button type="button" aria-pressed={invView==='grid'} aria-label={t('inv.viewGrid')} title={t('inv.viewGrid')} onClick={()=>setView('grid')}><LayoutGrid/></button><button type="button" aria-pressed={invView==='list'} aria-label={t('inv.viewList')} title={t('inv.viewList')} onClick={()=>setView('list')}><LayoutList/></button></div></div>{body==='All'&&sortF==='Featured'?<div className="inventory-groups">{pageShowroom.length>0&&<section className="inventory-group showroom-group"><div className="inventory-group-head"><div><span>AR7 CURATED COLLECTION</span><h2>Showroom cars</h2></div><b>{showroomList.length} vehicles</b></div><div className={gridCls}>{cardsFor(pageShowroom)}</div></section>}{pageJapan.length>0&&<section className="inventory-group japan-group"><div className="inventory-group-head"><div><span>VERIFIED AUCTION & STOCK</span><h2>Japan inventory</h2></div><b>{japanList.length} vehicles</b></div><div className={gridCls}>{cardsFor(pageJapan)}</div></section>}</div>:<div className={gridCls}>{cardsFor(pageItems)}</div>}<Pager page={pageSafe} total={totalPages} onGo={goPage}/><SaveSearchBar signedIn={signedIn} session={cust.session} navigate={navigate} openAuction={openAuction} matches={list.length}
-  criteria={{q:query.trim()||null,make:make==='All'?null:make,model:modelF==='All'?null:modelF,body:['All','Showroom','Japan Stock'].includes(body)?null:body,fuel:fuel==='All'?null:fuel,tr:trF==='All'?null:trF,steer:steerF==='All'?null:steerF,price_min:priceBand[1],price_max:priceBand[2],year_min:YEAR_MIN[yearF]||null,km_max:kmBand[1]}}
-  fallbackInterest={(make!=='All'||query.trim())?[make!=='All'?make:'',query.trim()].filter(Boolean).join(' ')+' — stock alert':'Stock alerts signup'}/>{list.length===0&&<div className="empty-state"><Search/><h3>{t('inv.noMatches')}</h3><p>{t('inv.noMatchesBody')}</p><button className="primary" onClick={openAuction} type="button">{t('inv.requestSearch')} <ArrowRight/></button></div>}</div>{comp.length>0&&!showCmp&&createPortal(<div className="cmp-tray" role="region" aria-label="Vehicle comparison tray"><span className="cmp-tray-cars">{comp.map(id=>{const c=cars.find(x=>x.id===id);return c?<img key={id} src={c.image} alt={c.make+' '+c.model} width="54" height="36" loading="lazy" decoding="async"/>:null})}</span><b>{comp.length} selected</b><button className="cmp-tray-open" onClick={()=>setShowCmp(true)} type="button"><ArrowLeftRight/> Compare</button><button className="cmp-tray-clear" onClick={()=>setComp([])} type="button" aria-label="Clear comparison"><X/></button></div>, document.body)}{showCmp&&createPortal(<div className="cmp-backdrop" onClick={()=>setShowCmp(false)}><div className="cmp-modal" onClick={e=>e.stopPropagation()}><div className="cmp-head"><div><div className="kicker">COMPARE</div><h2>{comp.length} vehicles side by side</h2></div><button onClick={()=>setShowCmp(false)} type="button"><X/></button></div><table><thead><tr><th></th>{comp.map(id=>{const c=cars.find(x=>x.id===id);return <th key={id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><button onClick={()=>setComp(v=>v.filter(y=>y!==id))} type="button">Remove</button></th>})}</tr></thead><tbody>{[['Price',price],['Year',c=>c.year],['Mileage',c=>c.km+' km'],['Fuel',c=>c.fuel],['Body',c=>c.body],['Transmission',c=>c.tr],['Drive',c=>c.drv],['Engine',c=>c.eng],['Seats',c=>c.seats],['Grade',c=>c.grade],['Steering',c=>c.st],['Status',c=>c.status]].map(r=><tr key={r[0]}><th>{r[0]}</th>{comp.map(id=>{const c=cars.find(x=>x.id===id);return <td key={id}>{c?r[1](c):'—'}</td>})}</tr>)}</tbody></table><div className="cmp-cta"><button className="primary" onClick={openAuction} type="button">Request quote for best match <ArrowRight/></button></div></div></div>, document.body)}</section>;
- const pages={
- auction:{tag:t('page.auctionKicker'),title:<>{t('page.auctionH1a')}<br/><em>{t('page.auctionH1em')}</em></>,desc:t('page.auctionBody'),image:'/assets/japanese-car-auction-inspection-shipping-3.webp'},
- shipping:{tag:t('page.shippingKicker'),title:<>{t('page.shippingH1a')}<br/>{t('page.shippingH1b')} <em>{t('page.shippingH1em')}</em></>,desc:t('page.shippingBody'),image:'/assets/japanese-car-auction-inspection-shipping-1.webp'},
- about:{tag:t('page.aboutKicker'),title:<>{t('page.aboutH1a')}<br/>{t('page.aboutH1b')} <em>{t('page.aboutH1em')}</em></>,desc:t('page.aboutBody'),image:'/assets/japan-vehicle-export-port-aerial-1.jpg'},
- contact:{tag:t('page.contactKicker'),title:<>{t('page.contactH1a')}<br/><em>{t('page.contactH1em')}</em></>,desc:t('page.contactBody'),image:'/assets/japanese-car-auction-inspection-shipping-2.webp'}
- };
- const p=pages[page]||pages.about;
- // 2026-11-03 (owner request): every landing page gets its own motion scene —
- // pure CSS/SVG layers over the hero photo (transform/opacity only, disabled
- // under prefers-reduced-motion), so each page feels distinct without adding
- // any JS or heavy assets. Chip copy sticks to untranslated trade terms, the
- // same register as the page-content strips below. The inventory page keeps
- // its existing showcase untouched.
- const heroScene=
-  page==='auction'?<div className="hero-scene hs-auction" aria-hidden="true"><span className="hs-sweep"/><span className="hs-chip hs-a1"><Gavel/> LIVE BID · ¥2,410,000</span><span className="hs-chip hs-a2">+¥30,000</span><span className="hs-chip hs-a3"><ClipboardCheck/> SHEET TRANSLATED · GRADE 4.5</span></div>:
-  page==='shipping'?<div className="hero-scene hs-shipping" aria-hidden="true"><svg className="hs-route" viewBox="0 0 440 150" fill="none" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path className="hs-route-line" d="M12 118 C 120 30, 300 150, 428 46"/></svg><span className="hs-ship"><Ship/></span><span className="hs-chip hs-s1">JAPAN · PORT OF YOKOHAMA</span><span className="hs-chip hs-s2">RoRo · DOCS · TRACKING</span></div>:
-  page==='about'?<div className="hero-scene hs-about" aria-hidden="true"><span className="hs-ring hs-r1"/><span className="hs-ring hs-r2"/><span className="hs-chip hs-b1"><Globe2/> JAPAN <ArrowRight/> WORLDWIDE</span><span className="hs-chip hs-b2"><ShieldCheck/> VERIFIED EXPORT PARTNER</span></div>:
-  page==='contact'?<div className="hero-scene hs-contact" aria-hidden="true"><span className="hs-pulse"><Phone/></span><span className="hs-chip hs-c1"><MessageCircle/> WHATSAPP · EMAIL · CALL</span><span className="hs-chip hs-c2"><Send/> JAPAN EXPORT DESK</span></div>:null;
- return <section className="inner-page"><div className={"page-hero split hero-"+page}><div className="shell"><div className="page-hero-copy"><div className="kicker">{p.tag}</div><h1>{p.title}</h1><p>{p.desc}</p>{page==='contact'?<a className="gold-btn" href="#contact-enquiry">{t('page.sendEnquiry')} <ArrowRight/></a>:<button className="gold-btn" onClick={()=>openAuction({kind:page==='auction'?'auction':'contact'})} type="button">{t('page.getStarted')} <ArrowRight/></button>}</div><div className="page-hero-image"><img loading="lazy" decoding="async" width="820" height="550" src={p.image} alt={p.title||p.name||"AR7 Traders vehicle export"}/>{heroScene}<div className="hero-orb in-page"><InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/></div><div className="corner-mark"><img width="128" height="79" src="/assets/ar7-mark-128.webp" srcSet="/assets/ar7-mark-128.webp 128w, /assets/ar7-mark-256.webp 256w" sizes="84px" alt="AR7 Traders" loading="lazy" decoding="async"/></div></div></div></div>
- <div className="shell page-content">{page==='auction'?<><div className="feature-intro"><h2>Auction access without the guesswork.</h2><p>Every listing comes with translation support, market guidance and complete cost visibility before you bid.</p></div><div className="feature-cards">{[['01','Browse live listings','Filter by make, year, mileage, grade and auction venue.'],['02','Review with an expert','We translate the auction sheet and flag every detail.'],['03','Set your bid limit','Know your landed estimate before bidding begins.'],['04','Win & track','See results instantly and follow your car to port.']].map(x=><article key={x[1]}><span>{x[0]}</span><Gavel/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div><div className="auction-demo"><div><span className="live-dot"/> AUCTION LOTS · SAMPLE</div>{cars.slice(0,4).map(c=><section key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><b>{c.make} {c.model}</b><small>{stockLabel(c)}{c.grade?' · Grade '+c.grade:''}</small><strong>{price(c)}</strong><PageLink className="lot-link" to={`inventory?car=${carRef(c)}`} navigate={navigate}>View vehicle</PageLink></section>)}</div></>:
- page==='shipping'?<><div className="feature-intro"><h2>One clear route. Complete support.</h2><p>From export certificate to customs-ready documents, our logistics desk handles the complexity.</p></div><div className="shipping-flow">{[['Japan yard','Inspection & preparation'],['Export port','Customs & loading'],['At sea','Live milestone tracking'],['Your port','Documents & collection']].map((x,i)=><div key={x[0]}><span>0{i+1}</span><Ship/><b>{x[0]}</b><small>{x[1]}</small></div>)}</div><TrackShipment/></>:
- page==='about'?<><div className="feature-intro"><h2>{t('about.h2')}</h2><p>{t('about.body')}</p></div><div className="story-grid"><img loading="lazy" decoding="async" width="480" height="480" src="/assets/ar7-emblem-480.webp" alt="AR7 Traders — global vehicle exporters emblem"/><div><FounderStat variant="about"/><p>{t('about.story')}</p></div></div></>:
- <div className="contact-grid"><div><h2>Let’s source your car.</h2><p>Contact our Japan export desk directly, or use the form to send one enquiry straight to our team.</p><a href={'mailto:'+settings.contact_email}><Mail/> {settings.contact_email}</a><a href={telHref(settings.contact_phone)}><Phone/> {settings.contact_phone}</a><a className="wa-link" href={waLink(settings.whatsapp_number,settings.whatsapp_message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={17}/> WhatsApp us</a><a href="/contact" onClick={linkClick('contact',navigate)}><MapPin/> {settings.contact_address}</a></div><React.Suspense fallback={<div className="enquiry-loading" role="status">Loading contact form…</div>}><EnquiryForm kind="contact"/></React.Suspense></div>}</div></section>
 }
 
 const WORLD_CLOCKS=[
@@ -2014,7 +1511,7 @@ export function App(){
    </section>
 
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">{t('home.ctaKicker')}</div><h2>{t('home.ctaH2a')}<br/>{t('home.ctaH2b')} <em>{t('home.ctaH2em')}</em></h2><p>{t('home.ctaBody')}</p></div><button className="gold-btn large" onClick={()=>openEnquiry()} type="button">{t('home.ctaBtn')} <ArrowUpRight/></button></section>
-   </>:page==='world'?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state route-fallback"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<React.Suspense fallback={<div className="empty-state route-fallback"><Monitor/><h3>Loading the studio…</h3></div>}><DeviceStudio navigate={navigate}/></React.Suspense>:page==='machinery'? <React.Suspense fallback={<div className="empty-state route-fallback"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={ctx=>openEnquiry({kind:'machinery',...(ctx&&typeof ctx==='object'&&!('nativeEvent' in ctx)?ctx:{})})} openChat={openChatNow}/></React.Suspense>:<InnerPage page={page} navigate={navigate} vehicleId={vehicleId} destSlug={page==='destinations'?destRoute:null} initialMake={makeFilter} initialModel={modelFilter} openAuction={openEnquiry} openChat={openChatNow} favs={favs} setFavs={setFavs}/>}
+   </>:page==='world'?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state route-fallback"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate}/></React.Suspense>:page==='studio'?<React.Suspense fallback={<div className="empty-state route-fallback"><Monitor/><h3>Loading the studio…</h3></div>}><DeviceStudio navigate={navigate}/></React.Suspense>:page==='machinery'?<React.Suspense fallback={<div className="empty-state route-fallback"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={ctx=>openEnquiry({kind:'machinery',...(ctx&&typeof ctx==='object'&&!('nativeEvent' in ctx)?ctx:{})})} openChat={openChatNow}/></React.Suspense>:page==='destinations'&&destRoute?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the market guide…</h3></div>}><DestinationPage dest={destinationBySlug(destRoute)} destSlug={destRoute} navigate={navigate} openAuction={openEnquiry} Link={PageLink} Related={RelatedStock} Flag={Flag}/></React.Suspense>:['privacy','cookies','terms'].includes(page)?<React.Suspense fallback={<div className="empty-state route-fallback"><LockKeyhole/><h3>Loading the policy…</h3></div>}><LegalPage type={page} navigate={navigate}/></React.Suspense>:['services','destinations','reviews','faq','portal'].includes(page)?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the page…</h3></div>}><ExtraPage type={page} navigate={navigate} openAuction={openEnquiry} discounts={liveDiscounts}/></React.Suspense>:['brands','howbuy','tools','news'].includes(page)?<React.Suspense fallback={<div className="empty-state route-fallback"><Newspaper/><h3>Loading the page…</h3></div>}><ExtraPages2 type={page} navigate={navigate} openAuction={openEnquiry} articleSlug={page==='news'?vehicleId:null} discounts={liveDiscounts}/></React.Suspense>:<React.Suspense fallback={<div className="empty-state route-fallback"><CarFront/><h3>Loading page…</h3></div>}><InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} initialModel={modelFilter} openAuction={openEnquiry} openChat={openChatNow} favs={favs} setFavs={setFavs}/></React.Suspense>}
   </main>
 
   <footer className="site-footer">

@@ -13,6 +13,7 @@ import React from 'react';
 // This route's own styles ride in its lazy chunk (split out of the eager
 // src/expanded.css in 2026-11, R46 — unused-CSS work): the first paint of
 // any other page no longer downloads the destination-page rules.
+import './pages.css';
 import './destination-page.css';
 import { ArrowRight, Check, Globe2, ShieldCheck } from 'lucide-react';
 import { DEST, destinationFacts, destinationFaqs, destinationHref } from './destinations.js';

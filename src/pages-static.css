@@ -117,3 +117,27 @@
 .news-article-footer>.kicker{margin-bottom:12px}
 .news-article-links{display:flex;flex-wrap:wrap;gap:9px}
 .news-article-links .outline-btn{height:40px;margin:0;padding:0 13px;font-size:10px}
+
+/* ---- /studio preview device frame (split from motion-account.css) ------- */
+.device-page{min-height:0;padding:var(--hero-lead) 0 100px;background:radial-gradient(circle at 50% 25%,#dfe9e2,var(--bg) 45%)}.device-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:45px}.device-head h1{font:700 55px Manrope;letter-spacing:-3px;margin:12px 0 5px}.device-head h1 em{font-style:normal;color:var(--gold-head)}.device-head p{color:var(--muted)}.device-tabs{display:flex;background:var(--card);padding:5px;border:1px solid var(--line);border-radius:12px}.device-tabs button{border:0;background:none;color:var(--muted);height:43px;padding:0 13px;border-radius:8px;display:flex;align-items:center;gap:6px;font-size:9px}.device-tabs button svg{width:15px}.device-tabs button.active{background:var(--green);color:#fff}.device-frame{width:min(var(--frame-w),100%);height:var(--frame-h);margin:auto;background:#17231d;padding:12px;border-radius:18px;box-shadow:0 40px 100px #072c1b35;transition:width .5s,border-radius .5s;position:relative}.device-frame.phone{border-radius:35px;padding:14px 8px}.device-frame.tablet{border-radius:28px}.device-frame iframe{width:100%;height:100%;border:0;background:white;border-radius:9px}.device-frame.phone iframe{border-radius:25px}.camera-dot{position:absolute;width:7px;height:7px;background:#33453c;border-radius:50%;top:4px;left:50%;z-index:2}.device-size{text-align:center;color:var(--muted);font-size:9px;letter-spacing:1px;margin-top:20px}
+@media(max-width:1000px){.device-head{display:block}.device-tabs{width:max-content;margin-top:25px}}
+@media(max-width:650px){.device-page{padding-top:var(--hero-lead)}.device-head h1{font-size:43px}.device-tabs{width:100%;overflow:auto}.device-tabs button{padding:0 9px}.device-frame{height:650px!important}}
+
+/* ---- extra-page hero accents (split from landing-anim.css) -------------- */
+@keyframes hsSpin{to{transform:rotate(360deg)}}
+.extra-head{isolation:isolate}
+.extra-head:before{content:'';position:absolute;z-index:0;pointer-events:none}
+.extra-head-services:before{width:420px;height:420px;right:-120px;top:-140px;border-radius:50%;border:1.5px dashed rgba(244,189,85,.4);animation:hsSpin 38s linear infinite}
+.extra-head-brands:before{inset:0;background:linear-gradient(115deg,transparent 30%,rgba(244,189,85,.1) 48%,rgba(255,255,255,.07) 52%,transparent 70%);animation:hsShimmer 7s ease-in-out infinite}
+@keyframes hsShimmer{0%,15%{transform:translateX(-60%)}70%,100%{transform:translateX(60%)}}
+.extra-head-howbuy:before{left:0;right:0;bottom:46px;border-top:2px dashed rgba(244,189,85,.5);animation:hsDashSlide 2.8s linear infinite}
+@keyframes hsDashSlide{to{transform:translateX(22px)}}
+.extra-head-destinations:before{left:-10%;right:-10%;bottom:38px;border-top:2px dashed rgba(244,189,85,.55);transform:rotate(-2deg);animation:hsDashSlide 2.2s linear infinite}
+.extra-head-reviews:before{width:300px;height:300px;right:-60px;top:-80px;border-radius:50%;background:radial-gradient(circle,rgba(244,189,85,.22),transparent 65%);animation:hsGlow 5s ease-in-out infinite}
+.extra-head-faq:before{width:260px;height:260px;right:-40px;top:-60px;border-radius:50%;background:radial-gradient(circle,rgba(115,220,168,.2),transparent 65%);animation:hsGlow 6s ease-in-out infinite}
+.extra-head-tools:before{width:340px;height:340px;right:-90px;top:-110px;border-radius:50%;border:1.5px dotted rgba(255,255,255,.35);animation:hsSpin 26s linear infinite reverse}
+.extra-head-news:before{inset:0;background:repeating-linear-gradient(90deg,transparent 0 46px,rgba(255,255,255,.045) 46px 48px);animation:hsDashSlide 3.2s linear infinite}
+.extra-head-portal:before{left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);animation:hsScan 4s ease-in-out infinite}
+@keyframes hsScan{0%{transform:translateY(0)}50%{transform:translateY(46vh)}100%{transform:translateY(0)}}
+@keyframes hsGlow{50%{opacity:.45;transform:scale(1.12)}}
+@media (prefers-reduced-motion:reduce){.extra-head:before{animation:none!important;transition:none!important}}

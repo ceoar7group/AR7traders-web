@@ -567,7 +567,7 @@ ok(imports === 0, `no @import in the built CSS (found ${imports})`);
 console.log('\n-- images carry explicit dimensions --');
 // CLS: an <img> without width/height reflows the grid when it decodes. Count
 // the ones in the source that name a photo, and confirm they all declare a box.
-for (const rel of ['src/main.jsx', 'src/reviews.jsx', 'src/crm.jsx']) {
+for (const rel of ['src/main.jsx', 'src/inner-page.jsx', 'src/reviews.jsx', 'src/crm.jsx']) {
   const src = readFileSync(join(ROOT, rel), 'utf8');
   const imgs = [...src.matchAll(/<img\b[^>]*?\/>/g)].map(m => m[0]);
   const withBox = imgs.filter(t => /\swidth=/.test(t) && /\sheight=/.test(t));
@@ -576,7 +576,7 @@ for (const rel of ['src/main.jsx', 'src/reviews.jsx', 'src/crm.jsx']) {
 }
 // The homepage hero image must ask to be fetched early, and the below-the-fold
 // photos must not block first paint.
-const main = readFileSync(join(ROOT, 'src/main.jsx'), 'utf8');
+const main = readFileSync(join(ROOT, 'src/main.jsx'), 'utf8') + '\n' + readFileSync(join(ROOT, 'src/inner-page.jsx'), 'utf8');
 ok(/fetchPriority="high"/.test(main),
   'the detail-page hero image asks for fetchpriority=high');
 ok((main.match(/loading="lazy"/g) || []).length >= 15,

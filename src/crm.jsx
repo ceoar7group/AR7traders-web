@@ -35,6 +35,7 @@ import {
   EMPTY_STOCK_DISCOUNTS, STOCK_DISCOUNT_VERSION, STOCK_DISCOUNT_MIN_PERCENT,
   STOCK_DISCOUNT_MAX_PERCENT, validateStockDiscounts, parseStockDiscounts
 } from './stock-discounts.js';
+import './currency-crm.css';
 import './crm.css';
 
 const DEMO = import.meta.env.VITE_CRM_DEMO === 'true';

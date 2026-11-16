@@ -34,6 +34,7 @@ import {
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useStockDiscounts, stockDiscountFor, priceWithOffer, formatDate} from './offers.js';
 import {MACHINERY_FAQS} from './seo.js';
+import './pages.css';
 import './machinery.css';
 
 // The catalogue's FAQ block — rendered visibly on the hub and every type page,
@@ -205,7 +206,7 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
               onClick={() => onQuote({ kind: 'machinery', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref })}>
               Request a quotation
             </button>
-            <button className="mch-chat" type="button" onClick={onChat} title="Chat with the machinery desk" aria-label={`Ask about the ${machine.name} on WhatsApp`}><MessageCircle/></button>
+            <button className="mch-chat" type="button" onClick={onChat} title="Chat with the machinery desk" aria-label={`Chat about the ${machine.name}`}><MessageCircle/></button>
           </div>
           <p className="mch-detail-note">
             Photos show the unit offered, not a library shot. The quotation confirms the final price, the specification

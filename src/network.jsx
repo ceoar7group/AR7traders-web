@@ -9,6 +9,7 @@ import { useLang } from './i18n.jsx'; // 2026-11-11: world screen translates
 // the chips/flags below are plain DOM positioned by the engine every frame.
 // network.jsx stays a lazy chunk, so none of this touches first-load budget.
 import { mountGlobe } from './globe3d.js';
+import './pages.css';
 import './network.css';
 export { Flag };
 
