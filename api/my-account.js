@@ -23,6 +23,8 @@ async function verifyUser(req,injected={}){
 }
 
 export default async function handler(req,res,injected={}){
+ // Account and tracking responses must never be cached across users.
+ res.setHeader('Cache-Control','private, no-store');
  try{
   const query=req.query||{};
 
@@ -199,39 +201,40 @@ export default async function handler(req,res,injected={}){
   const db=injected.db||adminClient();
   let {data:cust}=await db.from('customers').select('*').eq('auth_user_id',user.id).single();
 
-  // Someone who signed up on the website arrives with no link yet. If we
-  // already hold a customer record with the same email - because staff added
-  // them after a phone call, say - adopt it so their orders appear straight
-  // away instead of looking lost. Matching on a confirmed email is safe:
-  // Supabase has already proven they control that address.
-  if(!cust&&user.email){
-   const {data:byEmail}=await db.from('customers').select('*')
-     .ilike('email',user.email).is('auth_user_id',null).limit(1);
-   if(byEmail&&byEmail[0]){
-    const {data:linked}=await db.from('customers')
+  // An unlinked CRM customer may only be claimed by the confirmed owner of
+  // exactly that email. Escape SQL LIKE wildcards, reject ambiguous duplicates,
+  // and make the write conditional so concurrent claims cannot overwrite one
+  // another. Never return a candidate if the link write failed.
+  if(!cust && user.email_confirmed_at && typeof user.email === 'string' && user.email.trim()){
+   const email=user.email.trim();
+   const pattern=email.replace(/[\\%_]/g, c=>'\\'+c);
+   const {data:byEmail,error:lookupError}=await db.from('customers').select('*')
+     .ilike('email',pattern).is('auth_user_id',null).limit(2);
+   if(!lookupError && byEmail?.length===1 && String(byEmail[0].email||'').trim().toLowerCase()===email.toLowerCase()){
+    const {data:linked,error:linkError}=await db.from('customers')
       .update({auth_user_id:user.id,portal_enabled:true})
-      .eq('id',byEmail[0].id).select().single();
-    cust=linked||byEmail[0];
+      .eq('id',byEmail[0].id).is('auth_user_id',null).select().single();
+    if(!linkError && linked?.auth_user_id===user.id)cust=linked;
    }
   }
 
   if(!cust)return send(res,200,{customer:null,orders:[],payments:[],totals:null,shipments:[],
     message:'Your account is ready, but no vehicle order is linked to it yet. As soon as our team records your order it will appear here with every payment and the balance remaining.'});
 
-  // Shipments are keyed by customer_name (free text set by staff), so the
-  // match is the customer's own name, case-insensitive, with LIKE wildcards
-  // escaped — a customer named "100% Motors Ltd" must never match everyone.
-  // A missing/erroring shipments table yields [] and never blocks the view.
-  const [o,p,sh]=await Promise.all([
-    db.from('order_balances').select('*').eq('customer_id',cust.id).order('created_at',{ascending:false}),
-    db.from('payment_balances').select('*').eq('customer_id',cust.id).order('received_at',{ascending:false}),
-    db.from('shipments')
-      .select('tracking_no,vehicle,origin,destination,vessel,status,eta,progress,created_at')
-      .ilike('customer_name',String(cust.name||'').replace(/[%_]/g,m=>'\\'+m))
-      .order('created_at',{ascending:false})
+  // Names are editable and not unique identifiers. Do not attach shipments by
+  // name: the current schema has no trusted customer_id on shipments. Buyers
+  // can still use the separate tracking-number lookup until staff can link
+  // shipments to an immutable customer ID.
+  const [o,p]=await Promise.all([
+    db.from('order_balances').select('id,order_no,vehicle,status,stock_no,created_at,amount,paid,balance_due')
+      .eq('customer_id',cust.id).order('created_at',{ascending:false}),
+    db.from('payment_balances').select('id,amount,currency,amount_original,method,tt_number,received_at,applied,unapplied')
+      .eq('customer_id',cust.id).order('received_at',{ascending:false})
   ]);
-  const orders=o.data||[],payments=p.data||[];
-  const shipments=(cust.name&&!sh.error&&Array.isArray(sh.data))?sh.data:[];
+  const orderFields=['id','order_no','vehicle','status','stock_no','created_at','amount','paid','balance_due'];
+  const orders=(o.data||[]).map(row=>Object.fromEntries(orderFields.map(key=>[key,row[key]])));
+  const payments=p.data||[];
+  const shipments=[];
 
   // Referral code (2026-11-18): every linked customer gets a share code the
   // first time they open their account. Generation retries on the unique
