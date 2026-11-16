@@ -283,8 +283,7 @@ console.log('\n-- /api/my-account?favourites routes --');
 /* ---------- shipment tracking (2026-11) ----------------------------------- */
 // Two routes share the shipments table: the public ?track=NO lookup (no
 // sign-in; the tracking number is the whole key) and the signed-in account
-// GET, which matches shipments by the customer's own name with LIKE
-// wildcards escaped.
+// GET, which refuses to match shipments by an editable name.
 
 console.log('\n-- shipment tracking: public ?track and account shipments --');
 
@@ -350,28 +349,16 @@ const SHIPMENTS = [
 }
 
 {
-  // Signed-in account GET: shipments arrive matched by the customer's name.
+  // A mutable customer name is not an ownership key, even when it matches.
   const db = shipDb({
     customers: [{ id: 'c1', auth_user_id: 'u1', name: 'Imran Khan', email: 'buyer@example.com' }],
     shipments: SHIPMENTS
   });
   const r = await call('GET', { user, db });
-  ok(r.status === 200 && Array.isArray(r.json.shipments) && r.json.shipments.length === 1,
-    'the account view includes exactly the customer\u2019s own shipments');
-  ok(r.json.shipments[0].tracking_no === 'AR7-260184' &&
-     !r.json.shipments.some(s => s.customer_name === 'Mary Wanjiku'),
-    'another customer\u2019s shipment never leaks in');
-
-  // A customer whose name contains LIKE wildcards must not match everything.
-  const tricky = shipDb({
-    customers: [{ id: 'c2', auth_user_id: 'u1', name: '100% Motors Ltd', email: 'buyer@example.com' }],
-    shipments: SHIPMENTS
-  });
-  const r2 = await call('GET', { user, db: tricky });
-  ok(r2.status === 200 && r2.json.shipments.length === 0,
-    'a "100% Motors Ltd" customer matches nothing — wildcards are escaped');
-  ok(tricky.seen.ilike.some(([t, , pat]) => t === 'shipments' && pat.includes('\\%')),
-    'the ilike pattern carries the escaped % (' + JSON.stringify(tricky.seen.ilike.find(x => x[0] === 'shipments')?.[2]) + ')');
+  ok(r.status === 200 && r.json.shipments.length === 0,
+    'account never reveals shipments by matching editable customer names');
+  ok(!db.seen.ilike.some(([t]) => t === 'shipments'),
+    'account does not query shipments using customer names');
 }
 
 console.log('\n-- referral codes on the account view --');
