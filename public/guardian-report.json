@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-16T11:39:00.805Z",
+  "generatedAt": "2026-11-16T14:18:42.804Z",
   "summary": {
     "total": 18,
-    "pass": 17,
+    "pass": 18,
     "warn": 0,
-    "fail": 1
+    "fail": 0
   },
   "checks": [
     {
@@ -129,8 +129,8 @@
     {
       "area": "seo",
       "name": "Canonical on every page",
-      "status": "fail",
-      "detail": "dist/index.html",
+      "status": "pass",
+      "detail": "68 rendered pages checked; shared shell uses runtime SEO",
       "fix": "Add the route to PAGE_SEO in src/seo.js"
     }
   ]
