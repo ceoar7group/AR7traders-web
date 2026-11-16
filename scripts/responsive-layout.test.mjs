@@ -127,7 +127,7 @@ assert.match(currencyCss, /@media\s*\(max-width:\s*899px\)/);
 // preload must point at its real first slide (hero-01, with the same
 // srcset/sizes as the stage <img>) — not the retired lux/ card photo.
 assert.match(html, /preload\"\s+as=\"image\"\s+href=\"\/assets\/showroom\/hero-01\.webp\"[^>]*fetchpriority=\"high\"/);
-assert.match(html, /imagesrcset=\"\/assets\/showroom\/hero-01-760\.webp 760w[^"]*\"/);
+assert.match(html, /imagesrcset=\"\/assets\/showroom\/hero-01-560\.webp 560w, \/assets\/showroom\/hero-01-760\.webp 760w[^"]*\"/);
 assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+\/assets\/lux\//);
 assert.doesNotMatch(html, /preload\"\s+as=\"image\"[^>]+used-japanese-cars-auction-export-toyota/);
 assert.match(main, /DeferredBigGlobe/);

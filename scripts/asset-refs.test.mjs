@@ -49,7 +49,13 @@ const EXT = /\.(jsx?|mjs|css|html|txt|xml|json|md|sql)$/i;
 // AR7-owned brand-neutral scenes under assets/covers/ (~870 KB of webp, each
 // under the per-file cap) grow the pool past the catalogue size. Real new
 // media, not build artefacts.
+// The responsive showroom variants add about 670 KB on disk, while allowing
+// each visitor to download only the right-sized image instead of the original.
+// Allow up to 700 KB for these variants, without loosening the old budget for
+// all other assets.
 const MAX_PUBLIC_BYTES = 9.0 * 1000 * 1000;
+const MAX_RESPONSIVE_BYTES = 700 * 1000;
+const responsiveVariant = /\/assets\/showroom\/hero-(?:\d{2}(?:-v\d+)?-560|(?:09-v2|10-v3|11|12-v2|13-v2|14-v3|15-v2|16-v4|17-v3|18)-760)\.webp$/;
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;
@@ -148,14 +154,16 @@ ok(noLogo.length === 0, `every shipped make has a logo (missing: ${noLogo.join('
 // ── 5. Weight budget ────────────────────────────────────────────────────────
 console.log('\n-- public/ weight budget --');
 const publicFiles = walk(PUBLIC);
-let total = 0, heaviest = { size: 0, file: '' };
+let total = 0, responsive = 0, heaviest = { size: 0, file: '' };
 for (const file of publicFiles) {
   const size = statSync(file).size;
   total += size;
+  if (responsiveVariant.test(file.replace(/\\/g, '/'))) responsive += size;
   if (size > heaviest.size) heaviest = { size, file };
 }
 const mb = n => (n / 1e6).toFixed(2) + ' MB';
-ok(total <= MAX_PUBLIC_BYTES, `public/ is ${mb(total)} (budget ${mb(MAX_PUBLIC_BYTES)})`);
+ok(total - responsive <= MAX_PUBLIC_BYTES, `other public/ assets are ${mb(total - responsive)} (budget ${mb(MAX_PUBLIC_BYTES)})`);
+ok(responsive <= MAX_RESPONSIVE_BYTES, `responsive variants are ${mb(responsive)} (budget ${mb(MAX_RESPONSIVE_BYTES)})`);
 ok(heaviest.size <= MAX_FILE_BYTES, `heaviest file is ${relative(PUBLIC, heaviest.file)} at ${Math.round(heaviest.size / 1024)} KB (cap ${MAX_FILE_BYTES / 1024} KB)`);
 
 console.log(`\n${pass} passed, ${fail} failed`);

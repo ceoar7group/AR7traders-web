@@ -30,7 +30,7 @@
   /* 2026-11-13 Lighthouse mobile LCP 7.8s: the page's largest paint used to be
      the React hero slide, which only exists after the bundle boots — so LCP sat
      at JS-boot time even though FCP was 2.0s. The boot screen now paints the
-     SAME preloaded hero photograph (hero-01-760.webp, fetchpriority=high — zero
+     SAME responsive preloaded hero photograph (fetchpriority=high — zero
      extra network cost) as a large card, and it is deliberately sized to STAY
      the largest contentful paint: it must beat the React hero's visible area at
      every width (measured 390×307 on phones, 976×610 on desktop), otherwise the
@@ -154,7 +154,7 @@
      srcset/sizes so phones fetch only the 760w variant — which is ALSO what
      the blurred .hero-slide-bg backdrop (the measured LCP element) paints
      from, so the LCP file is discovered right here, at high priority. -->
-<link rel="preload" as="image" href="/assets/showroom/hero-01.webp" imagesrcset="/assets/showroom/hero-01-760.webp 760w, /assets/showroom/hero-01.webp 1268w" imagesizes="(max-width:900px) 80vw, 36vw" fetchpriority="high"/>
+<link rel="preload" as="image" href="/assets/showroom/hero-01.webp" imagesrcset="/assets/showroom/hero-01-560.webp 560w, /assets/showroom/hero-01-760.webp 760w, /assets/showroom/hero-01.webp 1400w" imagesizes="(max-width:900px) 80vw, 36vw" fetchpriority="high"/>
 <link rel="preload" as="image" href="/assets/ar7-mark-128.webp"/>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-400.woff2" crossorigin/>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-500.woff2" crossorigin/>
@@ -310,7 +310,7 @@
 <div id="root">
   <div id="ar7-boot" role="status" aria-live="polite" aria-label="Preparing the AR7 Traders website">
     <div class="boot-card">
-      <img class="boot-hero" src="/assets/showroom/hero-01-760.webp" width="760" height="500" alt="" fetchpriority="high"/>
+      <img class="boot-hero" src="/assets/showroom/hero-01.webp" srcset="/assets/showroom/hero-01-560.webp 560w, /assets/showroom/hero-01-760.webp 760w, /assets/showroom/hero-01.webp 1400w" sizes="(max-width:900px) 80vw, 36vw" width="760" height="500" alt="" fetchpriority="high"/>
       <img class="boot-mark" src="/assets/ar7-mark-128.webp" width="70" height="70" alt=""/>
       <div class="boot-brand">AR7 TRADERS</div>
       <div class="boot-caption">Preparing your showroom</div>

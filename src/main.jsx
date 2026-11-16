@@ -101,6 +101,8 @@ import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
 import { slugify } from './sitemap-helpers.js';
+import {showroomSrcSet, SHOWROOM_CARD_SIZES, SHOWROOM_HERO_SIZES} from './showroom-images.js';
+import {observeVisibleCarousel} from './visible-carousel.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
 import { fetchDealerStock } from './dealer-feed.js';
 import { MACHINES, MACHINE_TYPES, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours, machineLoc, machineBrandLockup } from './machinery-data.js';
@@ -284,7 +286,7 @@ function BudgetSlides({make}){
  if(!shots.length)return null;
  const cur=shots[i];
  return <div className="budget-shots" ref={ref} aria-hidden="true">
-  {shots.map((c,k)=>k<=Math.max(seen,0)?<img key={c.id} className={k===i?'on':''} src={c.image} alt="" loading="lazy" decoding="async" width="400" height="225"/>:null)}
+  {shots.map((c,k)=>k<=Math.max(seen,0)?<img key={c.id} className={k===i?'on':''} src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt="" loading="lazy" decoding="async" width="400" height="225"/>:null)}
   <span className="budget-shot-cap">{cur.model} · {cur.year}</span>
   {shots.length>1&&<span className="budget-shot-dots">{shots.map((c,k)=><i key={c.id} className={k===i?'on':''}/>)}</span>}
  </div>;
@@ -559,7 +561,7 @@ export function VehicleCard({c,onOpen,comp,onCmp,onOffer,discounts,cif,cifDest})
  const carLabel=[c.year,c.make,c.model].filter(Boolean).join(' ');
  const waMsg=`Hello AR7, I'm interested in the ${carLabel} (ref ${carRef(c)}) on your website. Is it still available?`;
  return <a className="car-card page-car" href={href} onClick={onOpen?linkClick(`inventory?car=${carRef(c)}`,()=>onOpen(c)):undefined}>
- <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
+ <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
  <div className="car-info"><div className="car-head"><img loading="lazy" decoding="async" width="64" height="40" src={LOGO(c.make)} alt="" onError={logoOnError}/><div className="car-head-txt"><span className="make">{c.make}</span><h3>{c.model}</h3></div></div><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={discounts}/></div></div>
  {cif&&cifDest&&<div className="card-cif"><Ship/><span><small>CIF {cifDest.split(' / ')[0]} · ETA ±{cif.days} days</small><b>≈ {fmt(cif.cif)}</b></span><em>excl. import duty</em></div>}
  <div className="card-actions">
@@ -848,7 +850,7 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
      // with the window biased below centre so the selling dealer's signage
      // above the car is cut away; MACHINE slides keep blur-fill contain so a
      // tall machine is never cropped. See .hero-slide/.is-machine CSS.
-     const resp=/^\/assets\/showroom\/hero-0[1-8](?:-v\d+)?\.webp$/.test(x.image||'');
+     const responsive=showroomSrcSet(x.image);
      return <a key={x.id} href={x.href}
       className={'hero-slide'+(off===0?' active':'')+(x.kind==='machine'?' is-machine':'')}
       style={{transform:`translateX(${off*56}%) scale(${Math.max(1-a*.14,.5)})`,opacity:a>1?0:1-a*.22,zIndex:10-a,'--slide-dim':a?Math.min(a*.35,.55):0,pointerEvents:a>1?'none':'auto',transition:a>1?'none':undefined}}
@@ -871,8 +873,7 @@ function HeroVisual({navigate,discounts,topBar,bottomBar}){
           the CSS blur survives purely as the fallback for non-local images. */}
       {a<=2&&x.kind==='machine'&&(()=>{const pre=/^\/assets\/machinery\/.+\.webp$/.test(x.image||'');return <span className={'hero-slide-bg'+(pre?' preblur':'')} style={{backgroundImage:`url("${pre?x.image.replace(/\.webp$/,'.blurbg.webp'):x.image}")`}} aria-hidden="true"/>})()}
       {a<=2&&<img src={x.image} width="820" height="550"
-        srcSet={resp?`${x.image.replace('.webp','-760.webp')} 760w, ${x.image} 1268w`:undefined}
-        sizes={resp?'(max-width:900px) 80vw, 36vw':undefined}
+        srcSet={responsive} sizes={responsive ? SHOWROOM_HERO_SIZES : undefined}
         alt={x.alt} loading={a<=1?'eager':'lazy'} fetchPriority={off===0?'high':'low'} decoding="async"/>}
       <span className="hero-slide-cap"><span className="hero-slide-tag">{x.tag}</span><b>{x.title}</b><small>{x.meta}</small></span>
      </a>;
@@ -1115,7 +1116,7 @@ function CookieNotice({navigate}){
 }
 
 export function App(){
- const [,forceContent]=useReducer(x=>x+1,0);
+ const [contentVersion,forceContent]=useReducer(x=>x+1,0);
  const settings=useSettings();
  // Redraw when the CRM's machines replace the built-in list, so the home
  // teaser and the machinery page show the live catalogue, not the fallback.
@@ -1309,26 +1310,28 @@ export function App(){
  // landing page shows far more of the inventory than one static screenful.
  const [homeOff,setHomeOff]=useState(0);
  const homeHover=useRef(false);
+ const homeInventoryRef=useRef(null);
  const homeFiltered=(filter==='All'?cars:cars.filter(c=>c.status===filter)).filter(c=>c&&carRef(c));
  const HOME_N=6;
  const homeLen=homeFiltered.length;
  const shown=homeLen?Array.from({length:Math.min(HOME_N,homeLen)},(_,i)=>homeFiltered[(homeOff+i)%homeLen]):[];
  useEffect(()=>{
-  if(typeof window==='undefined')return;
+  const el=homeInventoryRef.current;
+  if(page!=='home'||!el||typeof window==='undefined')return;
   if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const t=setInterval(()=>{if(!document.hidden&&!homeHover.current)setHomeOff(v=>v+3)},5200);
-  return()=>clearInterval(t);
- },[]);
+  return observeVisibleCarousel(el,()=>{if(!document.hidden&&!homeHover.current)setHomeOff(v=>v+3)});
+ },[page]);
  const homePages=Math.max(1,Math.ceil(homeLen/HOME_N));
  const homePage=homeLen?Math.floor((homeOff%homeLen)/HOME_N)%homePages:0;
  const {fmt}=useCurrency();
- const brandBudgets=BRANDS().slice(0,8).map(b=>{
+ const currentBrands=React.useMemo(()=>BRANDS(),[contentVersion]);
+ const brandBudgets=React.useMemo(()=>currentBrands.slice(0,8).map(b=>{
   const bc=cars.filter(c=>c.make===b.name);
   const ps=bc.map(c=>carDiscountedUSD(c,liveDiscounts)).filter(v=>v>0);
   const ys=bc.map(c=>parseInt(c.year,10)||0).filter(Boolean);
   return {...b,lo:ps.length?Math.min(...ps):0,hi:ps.length?Math.max(...ps):0,
    y0:ys.length?Math.min(...ys):0,y1:ys.length?Math.max(...ys):0};
- });
+ }),[currentBrands,liveDiscounts,contentVersion]);
  const budgetBands=[['Under $15k','Kei cars, hatchbacks & first imports'],['$15k–$30k','Hybrids, family SUVs & sedans'],['$30k–$60k','Late-model premium & vans'],['$60k+','Luxury & super sport']];
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
@@ -1345,7 +1348,7 @@ export function App(){
       header + promo bar straight to the page content (WCAG 2.4.1). Plain
       anchor to the in-page #main landmark — no router involvement. */}
   <a className="skip-link" href="#main">Skip to content</a>
-  <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={BRANDS()} vehicleCount={cars.length}
+  <div className="grain"/><SiteHeader page={page} vehicleId={vehicleId} makeFilter={makeFilter} brands={currentBrands} vehicleCount={cars.length}
     menu={menu} setMenu={setMenu} dark={dark} setDark={cycleTheme} theme={theme} setTheme={setTheme} signedIn={signedIn} navigate={navigate} logoFor={LOGO}
     promo={<PromoBar navigate={navigate}/>} onOpenSearch={()=>setSearchOpen(true)}
     ribbon={<WorldTimeRibbon/>} orb={<InteractiveGlobe lite cls="mini" onTap={()=>navigate('world')}/>}/>
@@ -1388,11 +1391,11 @@ export function App(){
 
    <MotionShowcase navigate={navigate}/>
 
-   <section className="inventory shell section" id="inventory" onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
+   <section className="inventory shell section" id="inventory" ref={homeInventoryRef} onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
     <div className="section-head"><div><div className="kicker">{t('home.stockKicker')}</div><h2>{t('home.stockH2a')}<br/><em>{t('home.stockH2b')}</em></h2></div><p>{t('home.stockBody')}</p></div>
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f==='All'?t('home.filterAll'):statusLabel(t,f)}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> {t('home.searchVehicles')} <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
-      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
+      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
       <div className="car-info"><div className="car-head"><img loading="lazy" decoding="async" width="64" height="40" src={LOGO(c.make)} alt="" onError={logoOnError}/><div className="car-head-txt"><span className="make">{c.make}</span><h3>{c.model}</h3></div></div><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
     </a>)}</div>
     {/* 2026-11-17 (Lighthouse touch targets): the pager used to render one
@@ -1421,7 +1424,7 @@ export function App(){
     <div className="shop-by-grid">
      <div className="shop-col">
       <div className="shop-col-head"><CarFront/> {t('home.shopByMake')}</div>
-      <div className="shop-col-rows">{BRANDS().slice(0,8).map(b=><PageLink key={b.name} className="shop-row" to={inventoryHref(b.name)} navigate={navigate}><img loading="lazy" decoding="async" width="34" height="20" src={LOGO(b.name)} alt="" onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></PageLink>)}</div>
+      <div className="shop-col-rows">{currentBrands.slice(0,8).map(b=><PageLink key={b.name} className="shop-row" to={inventoryHref(b.name)} navigate={navigate}><img loading="lazy" decoding="async" width="34" height="20" src={LOGO(b.name)} alt="" onError={logoOnError}/><span>{b.name}</span><b>{b.count}</b></PageLink>)}</div>
       <PageLink className="shop-col-all" to="inventory" navigate={navigate}>{t('home.shopAll')} <ArrowRight/></PageLink>
      </div>
      <div className="shop-col">
@@ -1508,7 +1511,7 @@ export function App(){
    <section className="auction-preview section shell" id="about">
     <div className="dash-wrap">
       <div className="dash-copy"><div className="kicker">{t('home.auctionKicker')}</div><h2>{t('home.auctionH2a')}<br/>{t('home.auctionH2b')} <em>{t('home.auctionH2em')}</em></h2><p>{t('home.auctionBody')}</p><ul><li><Check/> {t('home.auctionLi1')}</li><li><Check/> {t('home.auctionLi2')}</li><li><Check/> {t('home.auctionLi3')}</li></ul><button className="primary" onClick={()=>setEnquiry({kind:'auction'})} type="button">{t('home.auctionCta')} <ArrowRight/></button></div>
-      <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open the client portal preview"><span className="dash-demo-chip">PREVIEW</span><div className="dash-nav"><img width="128" height="53" src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>{c.grade?'Grade '+c.grade:(c.st||'RHD')}</em></span><strong>{price(c)}</strong></div>)}</div></a>
+      <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open the client portal preview"><span className="dash-demo-chip">PREVIEW</span><div className="dash-nav"><img width="128" height="53" src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>{c.grade?'Grade '+c.grade:(c.st||'RHD')}</em></span><strong>{price(c)}</strong></div>)}</div></a>
     </div>
    </section>
 
