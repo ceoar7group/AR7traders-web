@@ -14,6 +14,7 @@ import {createClient} from '@supabase/supabase-js';
 import {
   fetchPage, parseListingPage, parseDetailPage, mergeCardAndDetail,
   qualityScore, listingPageUrlFor, DEFAULT_SEARCH_URL, UA,
+  carPriceJpy, applyExchangePriceFilter, filterAndSortCarsByPrice,
   llmConfigured, extractCardsWithLlm
 } from './goonet-core.mjs';
 
@@ -22,6 +23,9 @@ const dryRun = args.includes('--dry-run');
 const pageArg = args.find(x => x === '--page') ? Number(args[args.indexOf('--page') + 1]) : 1;
 const minPhotosArg = args.find(x => x === '--min-photos') ? Number(args[args.indexOf('--min-photos') + 1]) : 8;
 const baseArg = args.find(x => x === '--base') ? args[args.indexOf('--base') + 1] : DEFAULT_SEARCH_URL;
+const maxPriceArg = args.find(x => x === '--max-price') ? Number(args[args.indexOf('--max-price') + 1]) : null;
+const minPriceArg = args.find(x => x === '--min-price') ? Number(args[args.indexOf('--min-price') + 1]) : null;
+const sortArg = args.find(x => x === '--sort') ? String(args[args.indexOf('--sort') + 1]) : 'price_asc';
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,9 +39,10 @@ if (!url || !key) {
 }
 
 const db = createClient(url, key, { auth: { persistSession: false } });
-const pageUrl = listingPageUrlFor(baseArg, Math.max(1, pageArg));
+const effectiveBase = applyExchangePriceFilter(baseArg, { maxPriceJpy: maxPriceArg, minPriceJpy: minPriceArg });
+const pageUrl = listingPageUrlFor(effectiveBase, Math.max(1, pageArg));
 console.log(`\n  Fetching ${pageUrl}`);
-console.log(`  Gate: ${minPhotosArg}+ photos · mode: ${dryRun ? 'DRY RUN (nothing written)' : 'live'}\n`);
+console.log(`  Gate: ${minPhotosArg}+ photos · sort: ${sortArg}${maxPriceArg ? ` · max ¥${maxPriceArg.toLocaleString()}` : ''} · mode: ${dryRun ? 'DRY RUN (nothing written)' : 'live'}\n`);
 
 const fetched = await fetchPage(pageUrl, { timeoutMs: 9000 });
 if (!fetched.ok) {
@@ -61,10 +66,31 @@ if (page.cars.length < 2 && llmConfigured()) {
   }
 }
 
-let imported = 0, skipped = 0;
-for (const card of page.cars) {
+const pricePlan = filterAndSortCarsByPrice(page.cars, {
+  maxPriceJpy: maxPriceArg,
+  minPriceJpy: minPriceArg,
+  sort: sortArg
+});
+
+let imported = 0, skipped = pricePlan.filteredOut.length;
+for (const out of pricePlan.filteredOut) {
+  console.log(`  – SKIP ${out.card.stock_no} (${out.reason})`);
+}
+const passing = [];
+for (const card of pricePlan.kept) {
   const detail = await fetchPage(card.url, { timeoutMs: 6000, purpose: 'detail' });
   const car = detail.ok ? mergeCardAndDetail(card, parseDetailPage(detail.html, card.url)) : card;
+  const priceJpy = carPriceJpy(car);
+  if (priceJpy && maxPriceArg && priceJpy > maxPriceArg) {
+    console.log(`  – SKIP ${card.stock_no} (price ¥${priceJpy.toLocaleString()} exceeds max ¥${maxPriceArg.toLocaleString()})`);
+    skipped++;
+    continue;
+  }
+  if (priceJpy && minPriceArg && priceJpy < minPriceArg) {
+    console.log(`  – SKIP ${card.stock_no} (price ¥${priceJpy.toLocaleString()} below min ¥${minPriceArg.toLocaleString()})`);
+    skipped++;
+    continue;
+  }
   const q = qualityScore(car, { minPhotos: minPhotosArg });
   if (!q.pass) {
     console.log(`  – SKIP ${card.stock_no} ${car.make || '?'} ${car.model || ''} (${q.reasons.join(', ')})`);
@@ -72,6 +98,7 @@ for (const card of page.cars) {
     continue;
   }
   console.log(`  + ${car.year || '—'} ${car.make} ${car.model} · ${car.price || '—'} · ${q.photo_count} photos · score ${q.score}`);
+  passing.push({ card, car, q });
   imported++;
 }
 
@@ -83,11 +110,7 @@ if (dryRun) {
 }
 
 // Live mode: insert the passing cars (same shape the Vercel function uses).
-for (const card of page.cars) {
-  const detail = await fetchPage(card.url, { timeoutMs: 6000, purpose: 'detail' });
-  const car = detail.ok ? mergeCardAndDetail(card, parseDetailPage(detail.html, card.url)) : card;
-  const q = qualityScore(car, { minPhotos: minPhotosArg });
-  if (!q.pass) continue;
+for (const { card, car, q } of passing) {
   const now = new Date().toISOString();
   const { error } = await db.from('japan_dealer_stock').insert({
     goonet_id: String(card.goonet_id),

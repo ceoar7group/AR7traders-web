@@ -35,6 +35,7 @@
 
 import { previewMachine, toRow, findExisting } from './_machinery-import.js';
 import { machinerySettings, readMachineryRows } from './_machinery.js';
+import { parseAmount } from '../src/machinery-source.js';
 import { relayBaseUrl, relayApiKey, relayRequestHeaders, RELAY_TIMEOUT_MS } from '../scripts/goonet-core.mjs';
 
 /** The honest identity the importer already uses elsewhere. */
@@ -144,18 +145,32 @@ export function robotsAllowed(rules, pathWithQuery) {
 // Link extraction
 // ---------------------------------------------------------------------------
 
+function stripInlineTags(html) {
+  return String(html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
 /**
- * Product links from a Made-in-China category page. Two shapes exist:
- *   • /product/<hash>/<Title>.html      — the current supplier-hosted pages;
- *   • /co_<company>/product_<…>.html    — the older locale-subdomain pages.
- * Product-LIST and catalogue pages (/product-list-1.html, /Product-Catalogs/)
- * are deliberately not products. Query strings are dropped because
- * made-in-china.com's robots.txt disallows `*html?*`. Only *.made-in-china.com
- * hosts are kept — anything else is a marketplace redirect we do not follow.
+ * Extract an explicit USD price hint from a category listing snippet, strictly
+ * requiring a USD/dollar marker so years, weights, or model numbers are never
+ * mistaken for prices.
  */
-export function extractProductLinks(html, baseUrl) {
-  const out = [];
-  for (const m of String(html || '').matchAll(/<a\b[^>]*\bhref=["']([^"']+)["']/gi)) {
+export function extractCardPriceHint(htmlSnippet) {
+  const text = stripInlineTags(htmlSnippet);
+  if (!text) return null;
+  const m = text.match(/(?:US\s*\$|\bUSD\s*\$?|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  if (!m) return null;
+  const parsed = parseAmount(m[1]);
+  return parsed && parsed > 0 ? Math.round(parsed) : null;
+}
+
+/**
+ * Product candidates from a Made-in-China category page along with any USD
+ * price hint shown on the listing card, ordered as they appear in the HTML.
+ */
+export function extractProductCandidates(html, baseUrl) {
+  const source = String(html || '');
+  const rawMatches = [];
+  for (const m of source.matchAll(/<a\b[^>]*\bhref=["']([^"']+)["']/gi)) {
     const href = m[1].trim();
     if (!href || href.startsWith('#') || /^(?:javascript|mailto|data):/i.test(href)) continue;
     let abs;
@@ -166,10 +181,87 @@ export function extractProductLinks(html, baseUrl) {
       /\/product\/[^/]+\/[^/]+\.html?$/i.test(p) ||
       /(^|\/)product_[^/]+\.html?$/i.test(p);
     if (!isProduct) continue;
-    const url = abs.origin + p;
-    if (!out.includes(url)) out.push(url);
+    rawMatches.push({ url: abs.origin + p, index: m.index ?? 0 });
   }
-  return out;
+  const byUrl = new Map();
+  for (let i = 0; i < rawMatches.length; i++) {
+    const cur = rawMatches[i];
+    const nextIndex = i + 1 < rawMatches.length ? rawMatches[i + 1].index : source.length;
+    const windowEnd = Math.min(nextIndex, cur.index + 650);
+    const hint = extractCardPriceHint(source.slice(cur.index, windowEnd));
+    if (!byUrl.has(cur.url)) {
+      byUrl.set(cur.url, { url: cur.url, hintPriceUsd: hint });
+    } else if (byUrl.get(cur.url).hintPriceUsd == null && hint != null) {
+      byUrl.get(cur.url).hintPriceUsd = hint;
+    }
+  }
+  return Array.from(byUrl.values());
+}
+
+/**
+ * Product links from a Made-in-China category page. Two shapes exist:
+ *   • /product/<hash>/<Title>.html      — the current supplier-hosted pages;
+ *   • /co_<company>/product_<…>.html    — the older locale-subdomain pages.
+ * Product-LIST and catalogue pages (/product-list-1.html, /Product-Catalogs/)
+ * are deliberately not products. Query strings are dropped because
+ * made-in-china.com's robots.txt disallows `*html?*`. Only *.made-in-china.com
+ * hosts are kept — anything else is a marketplace redirect we do not follow.
+ */
+export function extractProductLinks(html, baseUrl) {
+  return extractProductCandidates(html, baseUrl).map(c => c.url);
+}
+
+/** Numeric USD price for sorting/filtering a previewed machine. */
+export function machinePriceUsd(machine) {
+  const sup = Number(machine?.supplierPrice);
+  if (Number.isFinite(sup) && sup > 0) return sup;
+  const list = Number(machine?.listPrice);
+  if (Number.isFinite(list) && list > 0) return list;
+  return null;
+}
+
+/**
+ * Normalize scraper sort direction: `'price_asc'` (default, lowest price
+ * first), `'price_desc'`, or `'source'` (category HTML order).
+ */
+export function normalizeScraperSort(sort) {
+  const s = String(sort || '').trim().toLowerCase();
+  if (s === 'price_desc' || s === 'desc') return 'price_desc';
+  if (s === 'source' || s === 'none') return 'source';
+  return 'price_asc';
+}
+
+/**
+ * Filter and sort scraped machine preview records by price. Unpriced machines
+ * sort after priced ones so priced low-cost listings surface first.
+ */
+export function filterAndSortMachinePreviews(previews, { sort = 'price_asc', maxPrice = null } = {}) {
+  const order = normalizeScraperSort(sort);
+  const maxUsd = Number(maxPrice) > 0 ? Math.round(Number(maxPrice)) : null;
+  const kept = [];
+  const filteredOut = [];
+  for (const item of previews || []) {
+    const m = item?.machine || item;
+    const sup = Number(m?.supplierPrice);
+    const p = Number.isFinite(sup) && sup > 0 ? sup : machinePriceUsd(m);
+    if (maxUsd && p != null && p > maxUsd) {
+      filteredOut.push({ item, reason: `supplier price $${p.toLocaleString()} exceeds max $${maxUsd.toLocaleString()}` });
+    } else {
+      kept.push(item);
+    }
+  }
+  if (order === 'source') return { kept, filteredOut };
+  const dir = order === 'price_desc' ? -1 : 1;
+  const sorted = kept
+    .map((item, idx) => ({ item, idx, price: machinePriceUsd(item?.machine || item) }))
+    .sort((a, b) => {
+      if (a.price != null && b.price != null && a.price !== b.price) return (a.price - b.price) * dir;
+      if (a.price != null && b.price == null) return -1;
+      if (a.price == null && b.price != null) return 1;
+      return a.idx - b.idx;
+    })
+    .map(entry => entry.item);
+  return { kept: sorted, filteredOut };
 }
 
 const normUrl = u => String(u || '').trim().toLowerCase().replace(/[?#].*$/, '');
@@ -293,6 +385,8 @@ export async function runScraper(db, {
   categories = null,
   limit = null,
   batch = null,
+  sort = null,
+  maxPrice = null,
   fetch: fetchImpl = null,
   sleep: sleepImpl = null,
   markup = 0.25,
@@ -308,10 +402,13 @@ export async function runScraper(db, {
 
   const warnings = [];
   const skipped = [];
-  const machines = [];
-  const previews = [];
+  let machines = [];
+  let previews = [];
   const previewRows = []; // prior previews in this run, for brand/model/year dedupe
-  const stats = { categories: 0, linksFound: 0, fetched: 0, deduped: 0, robotsBlocked: 0, capped: 0 };
+  const stats = { categories: 0, linksFound: 0, fetched: 0, deduped: 0, robotsBlocked: 0, capped: 0, priceFiltered: 0 };
+
+  let settings = {};
+  try { settings = await machinerySettings(db); } catch { /* an unreadable settings table must not stop a crawl */ }
 
   // How many machines this run may pull. Precedence: the caller's limit, then
   // the `machinery_scraper_batch` setting, then the pinned constant. The
@@ -319,13 +416,15 @@ export async function runScraper(db, {
   let wanted = Number(limit) > 0 ? Math.floor(Number(limit)) : null;
   if (wanted === null && batch !== null && Number(batch) > 0) wanted = Math.floor(Number(batch));
   if (wanted === null) {
-    try {
-      const settings = await machinerySettings(db);
-      const configured = Number(settings.machinery_scraper_batch);
-      if (configured > 0) wanted = Math.floor(configured);
-    } catch { /* an unreadable settings table must not stop a crawl */ }
+    const configured = Number(settings.machinery_scraper_batch);
+    if (configured > 0) wanted = Math.floor(configured);
   }
   const maxMachines = Math.max(1, Math.min(MAX_SCRAPER_MACHINES, wanted || MAX_SCRAPER_MACHINES));
+  const sortOrder = normalizeScraperSort(sort || settings.machinery_scraper_sort || 'price_asc');
+  const rawMaxPrice = maxPrice != null && maxPrice !== '' ? Number(maxPrice) : Number(settings.machinery_scraper_max_price);
+  const maxPriceUsd = Number.isFinite(rawMaxPrice) && rawMaxPrice > 0 ? Math.round(rawMaxPrice) : null;
+  stats.sort = sortOrder;
+  stats.maxPrice = maxPriceUsd;
   // One category, several, or 'all' — the desk can ask for the whole set in a
   // single run instead of four separate ones.
   const requested = categories == null ? category : categories;
@@ -380,10 +479,13 @@ export async function runScraper(db, {
     return robotsAllowed(rules, u.pathname + u.search);
   }
 
-  // ---- 1. collect product links from the category pages ---------------------
-  const links = [];
+  // ---- 1. collect product candidates from the category pages ----------------
+  // Gather candidates across requested categories first so cheaper machines or
+  // those below maxPriceUsd are prioritized before the per-run detail cap.
+  const candidates = [];
+  const seenCandidateUrls = new Set();
   for (const cat of catList) {
-    if (exhausted() || links.length >= maxMachines) break;
+    if (exhausted()) break;
     const catUrl = SCRAPER_ORIGIN + cat.path;
     if (!(await pathAllowed(catUrl))) {
       stats.robotsBlocked++;
@@ -395,22 +497,45 @@ export async function runScraper(db, {
       warnings.push(`Category "${cat.key}" could not be read (${describeFetchFailure(page)}).`);
       continue;
     }
-    const found = extractProductLinks(page.text, catUrl);
-    for (const link of found) {
-      if (links.includes(link)) continue;
-      if (seenUrls.has(normUrl(link))) {
+    const found = extractProductCandidates(page.text, catUrl);
+    for (const cand of found) {
+      if (seenCandidateUrls.has(cand.url)) continue;
+      seenCandidateUrls.add(cand.url);
+      if (seenUrls.has(normUrl(cand.url))) {
         stats.deduped++;
-        skipped.push({ url: link, reason: 'already in the catalogue (source link)', ref: existing.find(r => normUrl(r.source_url) === normUrl(link))?.ref });
+        skipped.push({ url: cand.url, reason: 'already in the catalogue (source link)', ref: existing.find(r => normUrl(r.source_url) === normUrl(cand.url))?.ref });
         continue;
       }
-      links.push(link);
-      if (links.length >= maxMachines) break;
+      if (maxPriceUsd && cand.hintPriceUsd != null && cand.hintPriceUsd > maxPriceUsd) {
+        stats.priceFiltered++;
+        skipped.push({ url: cand.url, reason: `listing price $${cand.hintPriceUsd.toLocaleString()} exceeds max $${maxPriceUsd.toLocaleString()}` });
+        continue;
+      }
+      candidates.push(cand);
     }
   }
-  stats.linksFound = links.length;
+  const orderedCandidates = sortOrder === 'source'
+    ? candidates
+    : candidates
+        .map((c, idx) => ({ c, idx }))
+        .sort((a, b) => {
+          const ap = a.c.hintPriceUsd;
+          const bp = b.c.hintPriceUsd;
+          const dir = sortOrder === 'price_desc' ? -1 : 1;
+          if (ap != null && bp != null && ap !== bp) return (ap - bp) * dir;
+          if (ap != null && bp == null) return -1;
+          if (ap == null && bp != null) return 1;
+          return a.idx - b.idx;
+        })
+        .map(entry => entry.c);
 
-  // ---- 2. preview each link through the existing pipeline -------------------
-  for (const link of links) {
+  const selectedCandidates = orderedCandidates.slice(0, maxMachines);
+  stats.linksFound = selectedCandidates.length;
+  stats.capped = Math.max(0, orderedCandidates.length - selectedCandidates.length);
+
+  // ---- 2. preview each selected link through the existing pipeline ----------
+  for (const cand of selectedCandidates) {
+    const link = cand.url;
     if (exhausted()) break;
     if (machines.length >= maxMachines) { stats.capped++; continue; }
 
@@ -436,6 +561,13 @@ export async function runScraper(db, {
       continue;
     }
 
+    const supPrice = Number(preview.machine?.supplierPrice);
+    if (maxPriceUsd && Number.isFinite(supPrice) && supPrice > maxPriceUsd) {
+      stats.priceFiltered++;
+      skipped.push({ url: link, reason: `supplier price $${supPrice.toLocaleString()} exceeds max $${maxPriceUsd.toLocaleString()}` });
+      continue;
+    }
+
     const row = toRow(preview.machine, {
       rights: preview.machine.source?.rights || null,
       adapter: preview.machine.source?.adapter || 'product-page'
@@ -457,6 +589,10 @@ export async function runScraper(db, {
       source: preview.source
     });
   }
+
+  const pricePlan = filterAndSortMachinePreviews(previews, { sort: sortOrder, maxPrice: maxPriceUsd });
+  previews = pricePlan.kept;
+  machines = previews.map(p => p.machine);
 
   if (timedOut) warnings.push('Time limit reached. Review and confirm the collected previews, then run again; confirmed source links will be skipped.');
   return {

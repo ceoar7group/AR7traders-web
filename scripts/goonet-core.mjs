@@ -2405,6 +2405,107 @@ export function translateSearchUrl(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Low-to-high price filtering & sorting (cars)
+// ---------------------------------------------------------------------------
+
+export function carPriceJpy(car, jpyUsdRate = 0.0068) {
+  const jpy = Number(car?.price_jpy);
+  if (Number.isFinite(jpy) && jpy > 0) return Math.round(jpy);
+  const total = Number(car?.total_price_jpy);
+  if (Number.isFinite(total) && total > 0) return Math.round(total);
+  const usd = Number(car?.price_usd);
+  const rate = Number(jpyUsdRate) > 0 ? Number(jpyUsdRate) : 0.0068;
+  if (Number.isFinite(usd) && usd > 0) return Math.round(usd / rate);
+  return null;
+}
+
+/**
+ * Apply optional min/max JPY bounds onto a Goo-net Exchange summary.php search
+ * URL using ONLY the exchange's verified price_search parameters. Other URLs
+ * (such as make/model landings or domestic pages) are returned unchanged and
+ * filtered client/server-side after parsing.
+ */
+export function applyExchangePriceFilter(url, { maxPriceJpy = null, minPriceJpy = null } = {}) {
+  const raw = String(url || '').trim();
+  if (!raw) return raw;
+  const maxN = Number(maxPriceJpy) > 0 ? Math.round(Number(maxPriceJpy)) : null;
+  const minN = Number(minPriceJpy) > 0 ? Math.round(Number(minPriceJpy)) : null;
+  if (!maxN && !minN) return raw;
+  let u;
+  try { u = new URL(raw); } catch { return raw; }
+  if (u.hostname.toLowerCase() !== EXCHANGE_HOST || !u.pathname.includes('/php/search/summary.php')) {
+    return raw;
+  }
+  if (maxN) {
+    u.searchParams.set('b_to_b_price_max', String(maxN));
+    if (minN) {
+      if (minN <= maxN) u.searchParams.set('b_to_b_price_min', String(minN));
+      else u.searchParams.delete('b_to_b_price_min');
+    } else {
+      // Include all cheaper cars down to ¥0 instead of locking in an old ¥1M floor.
+      u.searchParams.delete('b_to_b_price_min');
+    }
+  } else if (minN) {
+    const existingMax = Number(u.searchParams.get('b_to_b_price_max'));
+    u.searchParams.set('b_to_b_price_min', String(minN));
+    if (Number.isFinite(existingMax) && existingMax > 0 && existingMax < minN) {
+      u.searchParams.delete('b_to_b_price_max');
+    }
+  }
+  if (!u.searchParams.get('search_type')) u.searchParams.set('search_type', 'price_search');
+  return u.toString();
+}
+
+/**
+ * Filter cars against optional min/max JPY limits and sort by price.
+ * Priced cars are ordered first according to `sort` ('price_asc' by default),
+ * while cards lacking a listing price are retained after priced ones so their
+ * detail pages can supply the real price before final acceptance.
+ */
+export function filterAndSortCarsByPrice(cars, {
+  maxPriceJpy = null,
+  minPriceJpy = null,
+  sort = 'price_asc',
+  jpyUsdRate = 0.0068
+} = {}) {
+  const maxN = Number(maxPriceJpy) > 0 ? Math.round(Number(maxPriceJpy)) : null;
+  const minN = Number(minPriceJpy) > 0 ? Math.round(Number(minPriceJpy)) : null;
+  const mode = ['price_asc', 'price_desc', 'source'].includes(String(sort || '').toLowerCase())
+    ? String(sort).toLowerCase()
+    : 'price_asc';
+
+  const kept = [];
+  const filteredOut = [];
+  (Array.isArray(cars) ? cars : []).forEach((car, index) => {
+    const price = carPriceJpy(car, jpyUsdRate);
+    if (price !== null && minN && price < minN) {
+      filteredOut.push({ card: car, priceJpy: price, reason: `price ¥${price.toLocaleString()} below min ¥${minN.toLocaleString()}` });
+      return;
+    }
+    if (price !== null && maxN && price > maxN) {
+      filteredOut.push({ card: car, priceJpy: price, reason: `price ¥${price.toLocaleString()} exceeds max ¥${maxN.toLocaleString()}` });
+      return;
+    }
+    kept.push({ car, price, index });
+  });
+
+  if (mode !== 'source') {
+    kept.sort((a, b) => {
+      if (a.price === null && b.price === null) return a.index - b.index;
+      if (a.price === null) return 1;
+      if (b.price === null) return -1;
+      if (a.price !== b.price) return mode === 'price_desc' ? b.price - a.price : a.price - b.price;
+      return a.index - b.index;
+    });
+  }
+
+  return {
+    kept: kept.map(x => x.car),
+    filteredOut
+  };
+}
+
+// ---------------------------------------------------------------------------
 // On-demand keyword search ("Toyota Alphard 2020", "jimny", "lexus rx").
 //
 // The exchange has NO working free-word GET search — probed live 2026-11-05:

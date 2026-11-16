@@ -41,6 +41,7 @@ const WRITABLE_KEYS = new Set([
   'goonet_max_new_per_run', 'goonet_max_delist_per_run',
   'goonet_weekly_delist_limit', 'goonet_weekly_promote_limit',
   'goonet_jpy_usd_rate', 'goonet_bookmark_page', 'goonet_auto_promote',
+  'goonet_sort_order', 'goonet_max_price_jpy', 'goonet_min_price_jpy',
   // Per-run promotion (2026-11-03): where a passing import is copied the
   // moment it lands ('listings' | 'vehicles' | 'both') and how many fresh
   // rows one run may promote. The stuck-bookmark auto-reset stays opt-in.
@@ -53,6 +54,7 @@ const WRITABLE_KEYS = new Set([
   // mirror api/_machinery.js: the batch may lower the hard ceiling of 24
   // (MAX_SCRAPER_MACHINES) and never raise it.
   'machinery_autopublish', 'machinery_scraper_batch', 'machinery_min_photos',
+  'machinery_scraper_sort', 'machinery_scraper_max_price',
   'machinery_max_reprice_per_run', 'machinery_stale_after_days',
   'machinery_allow_placeholder_photo',
   // WhatsApp desk (2026-11-03): whether the AI agent answers inbound
@@ -121,6 +123,19 @@ function validate(key, value) {
     const n = Number(s);
     if (!s || !Number.isInteger(n) || n < lo || n > hi)
       return `"${key}" must be a whole number between ${lo} and ${hi}`;
+    return null;
+  }
+  if (key === 'goonet_sort_order' || key === 'machinery_scraper_sort') {
+    if (s && !['price_asc', 'price_desc', 'source'].includes(s))
+      return `"${key}" must be price_asc, price_desc, or source`;
+    return null;
+  }
+  if (key === 'goonet_max_price_jpy' || key === 'goonet_min_price_jpy' || key === 'machinery_scraper_max_price') {
+    if (s) {
+      const n = Number(s);
+      if (!Number.isFinite(n) || n <= 0 || n > 100000000)
+        return `"${key}" must be a positive number (or blank)`;
+    }
     return null;
   }
   if (key === 'wa_auto_reply') {

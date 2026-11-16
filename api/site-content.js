@@ -1049,6 +1049,8 @@ async function importDispatch(req, res, injected = {}) {
         category: body.category || null,
         categories: Array.isArray(body.categories) && body.categories.length ? body.categories : null,
         limit: body.limit || null,
+        sort: body.sort || null,
+        maxPrice: body.maxPrice ?? null,
         fetch: injected.fetch || null,
         sleep: injected.sleep || null,
         markup: Number.isFinite(Number(body.markup)) ? Number(body.markup) : 0.25
