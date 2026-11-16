@@ -780,7 +780,7 @@ export function applySeo(page, carId, car, opts = {}) {
     sku: opts.machine.ref,
     brand: {'@type': 'Brand', name: opts.machine.brand},
     description: opts.machine.summary,
-    image: machineImagesFor(opts.machine).map(i => BASE + i).slice(0, 6),
+    image: machineImagesFor(opts.machine).map(imageFor).filter(Boolean).slice(0, 6),
     offers: machinePage.price ? {
       '@type': 'Offer',
       price: String(machinePage.price),
@@ -948,7 +948,7 @@ export function useSeo(page, carId, car, opts = {}) {
 /** The machine's own photograph for a share card, or the site card. */
 function machineShareImage(machine) {
   const first = (Array.isArray(machine?.images) && machine.images.filter(Boolean)[0]) || machine?.image;
-  return first ? BASE + first : OG_DEFAULT.image;
+  return imageFor(first) || OG_DEFAULT.image;
 }
 
 const machineImagesFor = machine => (Array.isArray(machine?.images) ? machine.images.filter(Boolean) : machine?.image ? [machine.image] : []);

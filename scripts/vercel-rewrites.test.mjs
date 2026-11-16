@@ -65,7 +65,7 @@ assert.equal(parseRoute({ pathname: '/japan-stock' }).page, 'inventory',
 // Product JSON-LD, NO meta refresh), which is sanctioned dynamic rendering,
 // not cloaking. The social card is unchanged.
 const rewrites = config.rewrites || [];
-const headRewrite = rewrites.find(r => String(r.destination || '').includes('head='));
+const headRewrite = rewrites.find(r => r.source === '/inventory/:ref' && r.destination === '/api/site-content?head=:ref');
 assert.ok(headRewrite, 'vercel.json must carry the crawler head rewrite for vehicle pages');
 assert.equal(headRewrite.source, '/inventory/:ref', 'the head rewrite serves vehicle detail URLs');
 assert.equal(headRewrite.destination, '/api/site-content?head=:ref',
@@ -83,7 +83,7 @@ assert.ok(
   'the crawler head rewrite must come before the SPA catch-all, or it never fires');
 
 // Search engines get the full-render variant (2026-11-12, see note above).
-const searchRewrite = rewrites.find(r => String(r.destination || '').includes('render=full'));
+const searchRewrite = rewrites.find(r => r.source === '/inventory/:ref' && String(r.destination || '').includes('render=full'));
 assert.ok(searchRewrite, 'vercel.json must carry the search-bot full-render rewrite');
 assert.equal(searchRewrite.source, '/inventory/:ref', 'it serves vehicle detail URLs');
 assert.equal(searchRewrite.destination, '/api/site-content?head=:ref&render=full',
@@ -106,8 +106,8 @@ const bakedMach = rewrites.findIndex(r => r.source === '/machinery/excavators/AR
 const dynMach = rewrites.findIndex(r => r.source === '/machinery/:type/:ref');
 const bakedNews = rewrites.findIndex(r => r.source === '/news/how-online-bidding-works-with-ar7');
 const dynNews = rewrites.findIndex(r => r.source === '/news/:slug');
-assert.ok(bakedMach >= 0 && bakedMach < dynMach, 'baked built-in machine routes precede dynamic /machinery/:type/:ref');
-assert.ok(bakedNews >= 0 && bakedNews < dynNews, 'baked built-in guide routes precede dynamic /news/:slug');
+assert.ok(bakedMach >= 0 && dynMach < bakedMach, 'crawler machinery rewrites precede baked built-in machine routes');
+assert.ok(bakedNews >= 0 && dynNews < bakedNews, 'crawler news rewrites precede baked built-in guide routes');
 const searchUa = (searchRewrite.has || []).find(h => h.type === 'header' && h.key === 'user-agent');
 assert.ok(searchUa && searchUa.value.startsWith('(?i)'), 'gated on user-agent, case-insensitive');
 for (const bot of ['googlebot', 'bingbot', 'duckduckbot', 'applebot', 'yandex']) {

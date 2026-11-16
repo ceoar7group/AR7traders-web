@@ -6,6 +6,50 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/news/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
+        }
+      ],
+      "destination": "/api/site-content?newshead=:slug&render=full"
+    },
+    {
+      "source": "/news/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
+        }
+      ],
+      "destination": "/api/site-content?newshead=:slug"
+    },
+    {
+      "source": "/machinery/:type/:ref",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
+        }
+      ],
+      "destination": "/api/site-content?machhead=:ref&machtype=:type&render=full"
+    },
+    {
+      "source": "/machinery/:type/:ref",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
+        }
+      ],
+      "destination": "/api/site-content?machhead=:ref&machtype=:type"
+    },
+    {
       "source": "/inventory",
       "destination": "/inventory/index.html"
     },
@@ -350,50 +394,6 @@
         }
       ],
       "destination": "/api/site-content?carsmake=:make&carsmodel=:model&render=full"
-    },
-    {
-      "source": "/machinery/:type/:ref",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
-        }
-      ],
-      "destination": "/api/site-content?machhead=:ref&machtype=:type"
-    },
-    {
-      "source": "/machinery/:type/:ref",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
-        }
-      ],
-      "destination": "/api/site-content?machhead=:ref&machtype=:type&render=full"
-    },
-    {
-      "source": "/news/:slug",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(?i).*(facebookexternalhit|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|skypeuripreview|pinterestbot).*"
-        }
-      ],
-      "destination": "/api/site-content?newshead=:slug"
-    },
-    {
-      "source": "/news/:slug",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": "(?i).*(googlebot|bingbot|duckduckbot|applebot|yandex|baiduspider|petalbot|oai-searchbot|chatgpt-user|gptbot|perplexitybot|claudebot|claude-web|googleother|google-extended|meta-externalagent|amazonbot).*"
-        }
-      ],
-      "destination": "/api/site-content?newshead=:slug&render=full"
     },
     {
       "source": "/assets/gallery/lexus-lc-500-01.jpg",
