@@ -282,6 +282,40 @@ async function run(req, injected) {
   const res = await run({ method: 'GET', headers: {} }, { db: memDb(SEED).db });
   ok(res.statusCode === 200 && !('machinery_scraper_batch' in res.body),
     'the machinery rules stay out of the anonymous public payload — they are desk tuning, not visitor content');
+  ok(!('goonet_sort_order' in res.body) && !('goonet_max_price_jpy' in res.body) && !('machinery_scraper_max_price' in res.body),
+    'scraper sort and price-ceiling settings stay out of the anonymous public payload');
+}
+
+// ---- goo-net & machinery scraper sort/price settings -------------------------
+{
+  const { db, tables } = memDb(SEED);
+  const res = await run({
+    method: 'PATCH',
+    headers: { authorization: 'Bearer ok' },
+    body: {
+      goonet_sort_order: 'price_asc',
+      goonet_min_price_jpy: '350000',
+      goonet_max_price_jpy: '1500000',
+      machinery_scraper_sort: 'price_asc',
+      machinery_scraper_max_price: '60000'
+    }
+  }, { db, getUser: getUser(adminProfile), permsFor });
+  ok(res.statusCode === 200 && res.body?.ok === true, 'valid scraper sort & price ceiling settings save');
+  ok(tables.site_settings.find(r => r.key === 'goonet_sort_order')?.value === 'price_asc', 'goonet_sort_order persisted');
+  ok(tables.site_settings.find(r => r.key === 'goonet_max_price_jpy')?.value === '1500000', 'goonet_max_price_jpy persisted');
+  ok(tables.site_settings.find(r => r.key === 'machinery_scraper_max_price')?.value === '60000', 'machinery_scraper_max_price persisted');
+
+  for (const [body, msg] of [
+    [{ goonet_sort_order: 'random' }, 'invalid goonet_sort_order is rejected'],
+    [{ machinery_scraper_sort: 'random' }, 'invalid machinery_scraper_sort is rejected'],
+    [{ goonet_max_price_jpy: '-500' }, 'negative goonet_max_price_jpy is rejected'],
+    [{ goonet_min_price_jpy: 'abc' }, 'non-numeric goonet_min_price_jpy is rejected'],
+    [{ machinery_scraper_max_price: '0' }, 'zero machinery_scraper_max_price is rejected']
+  ]) {
+    const rBad = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' }, body },
+      { db: memDb(SEED).db, getUser: getUser(adminProfile), permsFor });
+    ok(rBad.statusCode === 400, msg);
+  }
 }
 
 // ---- method guard -------------------------------------------------------------

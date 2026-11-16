@@ -1563,15 +1563,38 @@ export default function CrmApp() {
     }
   }
 
-  // Trigger one importer run (admin) — same code the scheduled cron calls.
-  async function runGoonetSync(maybeKeyword) {
-    if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in offline mode.'); return; }
+  // Trigger one importer run (admin) or a read-only search preview — same
+  // serverless handler the scheduled cron calls.
+  async function runGoonetSync(maybeKeyword, opts = {}) {
+    if (DEMO) { setNotice('The Goo-net importer needs the live database — disabled in offline mode.'); return null; }
     // The Run button passes its click event; only a real string is a keyword.
     const keyword = typeof maybeKeyword === 'string' ? maybeKeyword.trim() : '';
+    const payload = {};
+    if (keyword) payload.keyword = keyword;
+    if (opts && typeof opts === 'object') {
+      if (opts.preview) payload.preview = true;
+      if (Array.isArray(opts.selectedIds)) payload.selectedIds = opts.selectedIds;
+      if (opts.maxPriceJpy !== undefined && opts.maxPriceJpy !== null && opts.maxPriceJpy !== '') {
+        payload.maxPriceJpy = Number(opts.maxPriceJpy);
+      }
+      if (opts.minPriceJpy !== undefined && opts.minPriceJpy !== null && opts.minPriceJpy !== '') {
+        payload.minPriceJpy = Number(opts.minPriceJpy);
+      }
+      if (opts.sort) payload.sort = String(opts.sort);
+      if (opts.limit) payload.limit = Number(opts.limit);
+    }
+    const hasPayload = Object.keys(payload).length > 0;
     setSyncing(true);
     try {
       const r = await call('/api/goonet-sync', session.access_token,
-        { method: 'POST', ...(keyword ? { body: JSON.stringify({ keyword }) } : {}) });
+        { method: 'POST', ...(hasPayload ? { body: JSON.stringify(payload) } : {}) });
+      if (r.preview) {
+        const count = Array.isArray(r.candidates) ? r.candidates.length : 0;
+        setNotice(r.blocked
+          ? `Search preview blocked by goo-net — page ${r.page || '?'} gave ${r.cardsSeen ?? 0} card(s). Nothing imported.`
+          : (r.note || `Preview ready — ${count} car(s) matched. Deselect any unwanted car before importing.`));
+        return r;
+      }
       const skipped = r.skipped?.length ? ` · skipped ${r.skipped.length}` : '';
       // The skip reasons ARE the diagnosis ("only 2 images (need 5+)",
       // "missing fields: fuel, body", "detail fetch failed"…). Show the first
@@ -1590,6 +1613,7 @@ export default function CrmApp() {
         ? `Importer blocked by goo-net — page ${r.page || '?'} gave ${r.cardsSeen ?? 0} card(s), nothing imported.${skipped} ${r.note || ''}`.trim()
         : `${label} finished — page ${r.page || '?'}: ${r.inserted} imported, ${r.delisted} delisted, ${r.promoted} promoted${skipped}${detail}`);
       await loadAll();
+      return r;
     } catch (e) {
       // A failed crawl now carries a structured `failure` report. Render the
       // whole picture — which page, timeout vs blocked, what the relay did,
@@ -1603,6 +1627,7 @@ export default function CrmApp() {
         f.fallbackTried ? `Fallback page 1: ${f.fallbackError || 'also failed'}` : null,
         f.failCount > 1 ? `This page has failed ${f.failCount} run(s) in a row.` : null
       ].filter(Boolean).join(' — ') : e.message);
+      return null;
     } finally {
       setSyncing(false);
     }
@@ -4092,8 +4117,13 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   const [settingsForm, setSettingsForm] = useState(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   // On-demand importer search ("Toyota Alphard 2020") — submitted to the same
-  // /api/goonet-sync run, which searches the exchange for that car only.
+  // /api/goonet-sync run, which previews matches on Goo-net Exchange first
+  // so the operator sees the count, price order, and can deselect cars.
   const [findQuery, setFindQuery] = useState('');
+  const [findMaxPrice, setFindMaxPrice] = useState('');
+  const [findSort, setFindSort] = useState('price_asc');
+  const [searchPreview, setSearchPreview] = useState(null);
+  const [selectedSearchIds, setSelectedSearchIds] = useState(() => new Set());
   const isAdmin = profile?.role === 'admin';
 
   // "Where has this car already been copied to?" is answered from the actual
@@ -4117,7 +4147,52 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
   }
 
   const [settingsError, setSettingsError] = useState(null);
-  useEffect(() => { fetch('/api/settings', { headers: token ? { Authorization: 'Bearer ' + token } : {} }).then(r => { if (!r.ok) throw new Error('Could not load importer settings'); return r.json(); }).then(d => { setSettingsForm(d); setSettingsError(null); }).catch(e => { setSettingsForm({}); setSettingsError(e.message); }); }, [token]);
+  useEffect(() => {
+    fetch('/api/settings', { headers: token ? { Authorization: 'Bearer ' + token } : {} })
+      .then(r => { if (!r.ok) throw new Error('Could not load importer settings'); return r.json(); })
+      .then(d => {
+        setSettingsForm(d);
+        setSettingsError(null);
+        if (d?.goonet_max_price_jpy) setFindMaxPrice(prev => prev || String(d.goonet_max_price_jpy));
+        if (d?.goonet_sort_order) setFindSort(d.goonet_sort_order);
+      })
+      .catch(e => { setSettingsForm({}); setSettingsError(e.message); });
+  }, [token]);
+
+  async function previewKeywordSearch(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const q = findQuery.trim();
+    if (!q || syncing) return;
+    const out = await onRun(q, {
+      preview: true,
+      maxPriceJpy: findMaxPrice.trim() || undefined,
+      sort: findSort || 'price_asc'
+    });
+    if (out && out.preview) {
+      const candidates = Array.isArray(out.candidates) ? out.candidates : [];
+      setSearchPreview({ ...out, query: q, maxPriceJpy: findMaxPrice.trim(), sort: findSort });
+      setSelectedSearchIds(new Set(candidates.map(c => String(c.goonet_id))));
+    }
+  }
+
+  async function importSelectedSearchCars() {
+    if (!searchPreview || syncing) return;
+    const ids = [...selectedSearchIds];
+    if (!ids.length) {
+      notify('Select at least one car before importing.');
+      return;
+    }
+    const out = await onRun(searchPreview.query, {
+      selectedIds: ids,
+      maxPriceJpy: searchPreview.maxPriceJpy || undefined,
+      sort: searchPreview.sort || 'price_asc',
+      limit: ids.length
+    });
+    if (out && !out.preview) {
+      setSearchPreview(null);
+      setSelectedSearchIds(new Set());
+    }
+  }
 
   const now = Date.now();
   const weekAgo = new Date(now - 7 * 864e5).toISOString();
@@ -4189,6 +4264,8 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
 
   const settingsFields = [
     ['goonet_search_url', 'Goo-net Exchange search page', 'Search results to crawl, e.g. https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search'],
+    ['goonet_min_price_jpy', 'Minimum car price (JPY)', 'Leave blank for no lower limit; cars cheaper than this are skipped'],
+    ['goonet_max_price_jpy', 'Maximum car price (JPY)', 'Leave blank for no ceiling; cars pricier than this are skipped before import'],
     ['goonet_min_photos', 'Minimum photos (quality gate)', 'Cars with fewer good photos are skipped'],
     ['goonet_min_year', 'Oldest model year', 'Cars older than this year are skipped'],
     ['goonet_max_new_per_run', 'Max new cars per run', 'Small batches keep the site fast on free hosting'],
@@ -4225,18 +4302,137 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
       </div>
 
       {isAdmin && (
-        <form className="crm-goonet-ondemand" onSubmit={e => { e.preventDefault(); const q = findQuery.trim(); if (q && !syncing) onRun(q); }}>
-          <label>
+        <form className="crm-goonet-ondemand" onSubmit={previewKeywordSearch}>
+          <label className="crm-goonet-ondemand-q">
             <Search size={14} />
             <input value={findQuery} onChange={e => setFindQuery(e.target.value)} disabled={syncing}
               placeholder='Find a specific car on Goo-net Exchange — e.g. "Toyota Alphard 2020", "Lexus RX", "jimny", "prado 2018 2022"' />
           </label>
-          <button className="crm-sync" type="submit" disabled={syncing || !findQuery.trim()}
-            title="Search the exchange for this car only and import the matches through the same quality gate">
-            <Play className={syncing ? 'crm-sync-spin' : ''} size={13} /> {syncing ? 'Searching…' : 'Search & import'}
-          </button>
-          <small>Searches only this car (make + model, optional year or range) and imports matches through the normal quality gate. The scheduled crawl and its bookmark are untouched.</small>
+          <div className="crm-goonet-ondemand-filters">
+            <label title="Optional JPY price ceiling for this search">
+              <span>Max ¥</span>
+              <input type="number" min={0} step={50000} value={findMaxPrice} disabled={syncing}
+                placeholder="No cap" aria-label="Max price JPY"
+                onChange={e => setFindMaxPrice(e.target.value)} />
+            </label>
+            <label title="Order matches by vehicle price">
+              <span>Order</span>
+              <select value={findSort} disabled={syncing} aria-label="Search sort order"
+                onChange={e => setFindSort(e.target.value)}>
+                <option value="price_asc">Low → high price</option>
+                <option value="price_desc">High → low price</option>
+                <option value="source">Listing order</option>
+              </select>
+            </label>
+            <button className="crm-sync" type="submit" disabled={syncing || !findQuery.trim()}
+              title="Preview matching cars first, sorted by price, so you can deselect any unwanted match before importing">
+              <Search size={13} /> {syncing ? 'Searching…' : 'Search & preview'}
+            </button>
+          </div>
+          <small>Previews matching cars first (sorted lowest price first) with nothing written yet — review the count and uncheck any car you want to skip before importing.</small>
         </form>
+      )}
+
+      {isAdmin && searchPreview && (
+        <section className="crm-goonet-preview" aria-label="Goo-net search preview">
+          <div className="crm-goonet-preview-head">
+            <div>
+              <b>
+                {searchPreview.candidates?.length
+                  ? `${searchPreview.candidates.length} car${searchPreview.candidates.length === 1 ? '' : 's'} ready to import for "${searchPreview.query}"`
+                  : `No qualifying new cars ready for "${searchPreview.query}"`}
+              </b>
+              <small>
+                {searchPreview.note}
+                {searchPreview.alreadyKnown ? ` · ${searchPreview.alreadyKnown} already in stock` : ''}
+                {searchPreview.rejected ? ` · ${searchPreview.rejected} filtered/skipped` : ''}
+              </small>
+            </div>
+            <div className="crm-goonet-preview-actions">
+              {searchPreview.candidates?.length > 0 && (
+                <>
+                  <span className="crm-goonet-sel-count">{selectedSearchIds.size} of {searchPreview.candidates.length} selected</span>
+                  <button type="button" disabled={syncing || selectedSearchIds.size === searchPreview.candidates.length}
+                    onClick={() => setSelectedSearchIds(new Set(searchPreview.candidates.map(c => String(c.goonet_id))))}>
+                    Select all
+                  </button>
+                  <button type="button" disabled={syncing || selectedSearchIds.size === 0}
+                    onClick={() => setSelectedSearchIds(new Set())}>
+                    Deselect all
+                  </button>
+                  <button type="button" className="save" disabled={syncing || selectedSearchIds.size === 0}
+                    onClick={importSelectedSearchCars}>
+                    <Download size={13} /> {syncing ? 'Importing…' : `Import ${selectedSearchIds.size} selected car${selectedSearchIds.size === 1 ? '' : 's'}`}
+                  </button>
+                </>
+              )}
+              <button type="button" disabled={syncing}
+                onClick={() => { setSearchPreview(null); setSelectedSearchIds(new Set()); }}>
+                <X size={13} /> Clear
+              </button>
+            </div>
+          </div>
+
+          {searchPreview.candidates?.length > 0 && (
+            <ul className="crm-goonet-preview-list">
+              {searchPreview.candidates.map(car => {
+                const cid = String(car.goonet_id);
+                const checked = selectedSearchIds.has(cid);
+                const thumb = car.image || car.images?.[0] || car.photos?.[0] || '';
+                const jpyText = car.price_jpy ? '¥' + Number(car.price_jpy).toLocaleString() : 'Price N/A';
+                const usdTextVal = car.price || (car.price_usd ? '$' + Number(car.price_usd).toLocaleString() : '');
+                return (
+                  <li key={cid} className={'crm-goonet-preview-card' + (checked ? ' selected' : '')}>
+                    <label className="crm-scraper-check">
+                      <input type="checkbox" checked={checked} disabled={syncing}
+                        aria-label={`Select ${car.year || ''} ${car.make || ''} ${car.model || cid}`.trim()}
+                        onChange={() => setSelectedSearchIds(cur => {
+                          const next = new Set(cur);
+                          if (next.has(cid)) next.delete(cid); else next.add(cid);
+                          return next;
+                        })} />
+                    </label>
+                    {thumb
+                      ? <img src={thumb} alt={`${car.make || ''} ${car.model || ''}`.trim()} width={96} height={72} loading="lazy" decoding="async" />
+                      : <span className="crm-status dormant">No photo</span>}
+                    <div className="crm-scraper-copy">
+                      <b>{[car.year, car.make, car.model].filter(Boolean).join(' ') || cid}{car.grade ? ` · ${car.grade}` : ''}</b>
+                      <span className="crm-goonet-price-line">
+                        <strong>{jpyText}</strong>
+                        {usdTextVal ? ` (${usdTextVal})` : ''}
+                        {car.stock_no ? ` · Stock #${car.stock_no}` : ''}
+                      </span>
+                      <span>
+                        {[
+                          car.km ? `${Number(car.km).toLocaleString()} km` : null,
+                          car.fuel || null,
+                          car.tr || null,
+                          car.location || null,
+                          `${car.photo_count ?? car.images?.length ?? 0} photos`,
+                          car.quality_score ? `score ${car.quality_score}` : null
+                        ].filter(Boolean).join(' · ')}
+                      </span>
+                      {car.goonet_url && (
+                        <a href={car.goonet_url} target="_blank" rel="noopener noreferrer">
+                          View on Goo-net <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {searchPreview.skipped?.length > 0 && (
+            <details className="crm-goonet-preview-skipped">
+              <summary>{searchPreview.skipped.length} car(s) excluded by price range, year or quality gate</summary>
+              <ul>
+                {searchPreview.skipped.slice(0, 12).map((line, i) => <li key={i}>{line}</li>)}
+              </ul>
+            </details>
+          )}
+        </section>
       )}
 
       {showSettings && (
@@ -4249,6 +4445,16 @@ export function GoonetStockView({ token, rows, profile, notify, onEdit, onDelete
                 <small>{hint}</small>
               </label>
             ))}
+            <label>
+              Car price order (crawler & search)
+              <select value={settingsForm?.goonet_sort_order ?? 'price_asc'} disabled={!isAdmin}
+                onChange={e => setSettingsForm(v => ({ ...v, goonet_sort_order: e.target.value }))}>
+                <option value="price_asc">Low → high price (default)</option>
+                <option value="price_desc">High → low price</option>
+                <option value="source">Goo-net page order</option>
+              </select>
+              <small>Lowest-priced cars import first by default</small>
+            </label>
             <label className="crm-check-field">
               <span>Auto-promote passing imports (each run + weekly sweep)</span>
               <input type="checkbox" checked={(settingsForm?.goonet_auto_promote ?? 'true') === 'true'} disabled={!isAdmin}
@@ -6606,6 +6812,8 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
   // category page in one run, the way the car importer takes the whole seed.
   const [scrapeCat, setScrapeCat] = useState('excavators');
   const [scrapeAll, setScrapeAll] = useState(false);
+  const [scrapeSort, setScrapeSort] = useState('price_asc');
+  const [scrapeMaxPrice, setScrapeMaxPrice] = useState('');
   // 2026-10-07: how many machines ONE run may pull. Per-run by default (this
   // input, remembered for the operator in localStorage), and — for staff with
   // settings.write — "Make default" writes machinery_scraper_batch so the whole
@@ -6910,10 +7118,35 @@ export function MachineryImportPanel({ token, canWrite, canSetDefault = false, n
           <option value="cranes">Cranes</option>
           <option value="all">All categories</option>
         </select>
+        <select
+          className="crm-import-toggle crm-scraper-sort"
+          value={scrapeSort}
+          onChange={e => setScrapeSort(e.target.value)}
+          aria-label="Scraper price order"
+          title="How scraped machinery candidates are ordered"
+        >
+          <option value="price_asc">Price: Low → High</option>
+          <option value="price_desc">Price: High → Low</option>
+          <option value="source">Listing order</option>
+        </select>
+        <label className="crm-import-toggle crm-scraper-batch crm-scraper-max" title="Optional max supplier price in USD">
+          Max $
+          <input
+            type="number" min={0} step={1000} value={scrapeMaxPrice}
+            onChange={e => setScrapeMaxPrice(e.target.value)}
+            placeholder="Any"
+            aria-label="Max supplier price USD"
+          />
+        </label>
         <button className="crm-import-toggle crm-scraper-toggle" type="button" onClick={async () => {
           setBusy(true); setError(''); setPreview(null); setSelectedCandidateKeys(new Set());
           try {
-            const out = await machineryImport('scraper', scrapeAll ? { categories: ['all'], limit: batch } : { category: scrapeCat, limit: batch }, token);
+            const scraperPayload = {
+              ...(scrapeAll ? { categories: ['all'], limit: batch } : { category: scrapeCat, limit: batch }),
+              sort: scrapeSort,
+              ...(scrapeMaxPrice && Number(scrapeMaxPrice) > 0 ? { maxPrice: Math.round(Number(scrapeMaxPrice)) } : {})
+            };
+            const out = await machineryImport('scraper', scraperPayload, token);
             setReceipt(null); setRefusedKeys(new Set());
             const candidates = Array.isArray(out?.machines) ? out.machines.slice(0, SCRAPER_RUN_LIMIT) : [];
             if (candidates.length) {

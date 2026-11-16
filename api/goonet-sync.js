@@ -25,6 +25,7 @@ import {
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
   GATE_PAGE_BYTES, relayApiKey, relayProxy, classifyListingFailure, RELAY_TIMEOUT_MS,
   translateSearchUrl, parseCarKeyword,
+  carPriceJpy, applyExchangePriceFilter, filterAndSortCarsByPrice, yenToUsd, usdText,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
@@ -542,6 +543,45 @@ export default async function handler(req, res, injected) {
     const weeklyDelistLimit = num(s.goonet_weekly_delist_limit, 5);
     const weeklyPromoteLimit = num(s.goonet_weekly_promote_limit, 2);
     const autoPromote = bool(s.goonet_auto_promote, true);
+    const bodyObj = (req.body && typeof req.body === 'object') ? req.body : {};
+    const isPreview = bodyObj.preview === true || String(req.query?.preview || '') === '1';
+    const rawSelectedIds = Array.isArray(bodyObj.selectedIds) ? bodyObj.selectedIds : null;
+    if (rawSelectedIds !== null && rawSelectedIds.length === 0) {
+      return send(res, 400, { error: 'Select at least one car from the preview before importing.' });
+    }
+    const selectedIdSet = rawSelectedIds !== null
+      ? new Set(rawSelectedIds.map(id => String(id).trim()).filter(Boolean))
+      : null;
+    if (selectedIdSet !== null && selectedIdSet.size === 0) {
+      return send(res, 400, { error: 'Select at least one car from the preview before importing.' });
+    }
+    const sortOrder = (() => {
+      const raw = String(bodyObj.sort ?? req.query?.sort ?? s.goonet_sort_order ?? 'price_asc').trim().toLowerCase();
+      return ['price_asc', 'price_desc', 'source'].includes(raw) ? raw : 'price_asc';
+    })();
+    const maxPriceJpy = (() => {
+      const raw = bodyObj.maxPriceJpy ?? req.query?.maxPriceJpy ?? s.goonet_max_price_jpy;
+      const v = Number(raw);
+      return raw !== '' && raw != null && Number.isFinite(v) && v > 0 ? Math.round(v) : null;
+    })();
+    const minPriceJpy = (() => {
+      const raw = bodyObj.minPriceJpy ?? req.query?.minPriceJpy ?? s.goonet_min_price_jpy;
+      const v = Number(raw);
+      return raw !== '' && raw != null && Number.isFinite(v) && v > 0 ? Math.round(v) : null;
+    })();
+    const jpyUsdRate = (() => {
+      const r = Number(s.goonet_jpy_usd_rate);
+      return Number.isFinite(r) && r > 0 ? r : 0.0068;
+    })();
+    const requestedLimit = Number(bodyObj.limit ?? req.query?.limit);
+    const effectiveMaxNew = selectedIdSet
+      ? Math.min(24, selectedIdSet.size)
+      : (Number.isFinite(requestedLimit) && requestedLimit > 0
+        ? Math.min(24, Math.round(requestedLimit))
+        : maxNew);
+    report.sortOrder = sortOrder;
+    if (maxPriceJpy) report.maxPriceJpy = maxPriceJpy;
+    if (minPriceJpy) report.minPriceJpy = minPriceJpy;
     // Where a passing import goes the moment it lands: the public website
     // (site_listings), the CRM inventory (vehicles), or both. 'both' is the
     // default so a valid scrape surfaces on the all-cars page AND in the CRM
@@ -557,7 +597,7 @@ export default async function handler(req, res, injected) {
     // does not apply here.
     const runPromoteLimit = (() => {
       const n = Number(s.goonet_max_promote_per_run);
-      return Number.isFinite(n) && n >= 0 ? Math.round(n) : maxNew;
+      return Number.isFinite(n) && n >= 0 ? Math.round(n) : effectiveMaxNew;
     })();
     // ---- On-demand keyword search ("Toyota Alphard 2020") -----------------
     // The CRM can ask for ONE specific car instead of the configured search.
@@ -569,7 +609,7 @@ export default async function handler(req, res, injected) {
     // cheap cars when someone asked for a Land Cruiser is worse than a clean
     // "nothing found").
     const keyword = String(
-      (req.body && typeof req.body === 'object' && (req.body.keyword ?? req.body.search)) ||
+      (bodyObj.keyword ?? bodyObj.search) ||
       req.query?.keyword || ''
     ).trim().slice(0, 120);
     let kw = null;
@@ -583,11 +623,15 @@ export default async function handler(req, res, injected) {
       }
       report.keyword = keyword;
       report.keywordSearch = kw.url;
+      report.keywordLabel = kw.label;
     }
 
     // A pre-exchange goonet_search_url still points at the domestic site this
     // host cannot reach; translate it to the equivalent exchange search.
-    const baseUrl = kw ? kw.url : (translateSearchUrl(s.goonet_search_url) || DEFAULT_SEARCH_URL);
+    const rawBaseUrl = kw ? kw.url : (translateSearchUrl(s.goonet_search_url) || DEFAULT_SEARCH_URL);
+    const baseUrl = (!kw && (maxPriceJpy || minPriceJpy))
+      ? applyExchangePriceFilter(rawBaseUrl, { maxPriceJpy, minPriceJpy })
+      : rawBaseUrl;
     const bookmark = kw ? 1 : Math.max(1, num(s.goonet_bookmark_page, 1));
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------
@@ -709,19 +753,19 @@ export default async function handler(req, res, injected) {
     }
     // A readable answer clears the consecutive-failure counter (only when the
     // bookmarked page itself was read — a fallback read proves nothing about it).
-    if (!fallbackUsed && !kw && Number(s.goonet_fetch_fail_count) > 0) {
+    if (!isPreview && !fallbackUsed && !kw && Number(s.goonet_fetch_fail_count) > 0) {
       await setSetting(db, 'goonet_fetch_fail_count', '0');
     }
     if (fetched.status === 404) {
       if (kw) {
         report.note = `The exchange has no listing page for "${keyword}" (` + kw.url + ' answered 404). The model may not be exported under that name.';
         report.page = 1;
-        return send(res, 200, report);
+        return send(res, 200, isPreview ? { ...report, ok: true, preview: true, candidates: [], readyCount: 0, wouldImport: 0 } : report);
       }
       report.note = 'Listing page not found (maybe the search URL changed). Reset the bookmark from CRM → Japan dealer stock.';
       report.page = bookmark;
-      await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
-      return send(res, 200, report);
+      if (!isPreview) await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
+      return send(res, 200, isPreview ? { ...report, ok: true, preview: true, candidates: [], readyCount: 0, wouldImport: 0 } : report);
     }
     const parsedUrl = fallbackUsed ? fallbackUrl : pageUrl;
     let page = parseListingPage(fetched.html, parsedUrl);
@@ -821,17 +865,19 @@ export default async function handler(req, res, injected) {
       // one, with the structured data named explicitly when there is not —
       // plus the charset/byte facts. The CRM surfaces it via "Copy parser
       // diagnostic" (GET /api/goonet-stock?action=diag).
-      try {
-        await setSetting(db, 'goonet_parsemiss_sample', JSON.stringify(buildParserDiagnostic({
-          html: usedFetch.html || '',
-          page: pageUrl,
-          source: usedFetch.diagnostics?.url || pageUrl,
-          via: usedFetch.via || 'direct',
-          run: blocked ? 'blocked' : 'parseMiss',
-          meta: usedFetch.meta || null
-        })));
-      } catch (e) { console.error('goonet evidence save failed', e.message); }
-    } else {
+      if (!isPreview) {
+        try {
+          await setSetting(db, 'goonet_parsemiss_sample', JSON.stringify(buildParserDiagnostic({
+            html: usedFetch.html || '',
+            page: pageUrl,
+            source: usedFetch.diagnostics?.url || pageUrl,
+            via: usedFetch.via || 'direct',
+            run: blocked ? 'blocked' : 'parseMiss',
+            meta: usedFetch.meta || null
+          })));
+        } catch (e) { console.error('goonet evidence save failed', e.message); }
+      }
+    } else if (!isPreview) {
       // A clean read (2+ cards by the regex parser) means the last stored
       // diagnostic is stale — drop it so nobody copies an old sample.
       try { await db.from('site_settings').delete().eq('key', 'goonet_parsemiss_sample'); } catch { /* evidence is best-effort */ }
@@ -859,19 +905,42 @@ export default async function handler(req, res, injected) {
       }
     }
 
-    // ---- 2. Import new cars that pass the quality gate --------------------
+    // ---- 2. Filter/sort cars by price (low to high by default) & import/preview ----
+    const pricePlan = filterAndSortCarsByPrice(page.cars, {
+      maxPriceJpy,
+      minPriceJpy,
+      sort: sortOrder,
+      jpyUsdRate
+    });
+    for (const out of pricePlan.filteredOut) {
+      report.rejected++;
+      report.skipped.push(`${out.card.stock_no || out.card.goonet_id}: ${out.reason}`);
+    }
+
     const known = await getKnownIds(db);
     const importStart = Date.now();
     const overImportBudget = () => overBudget() || Date.now() - importStart > IMPORT_BUDGET_MS;
     let imported = 0;
-    for (const card of page.cars) {
-      if (overImportBudget() || imported >= maxNew) break;
-      if (known.has(String(card.goonet_id))) { report.alreadyKnown++; continue; }
-      const blocked = await isBlocked(db, card.goonet_id);
-      if (blocked) {
+    const previewCandidates = [];
+    for (const card of pricePlan.kept) {
+      const targetCount = isPreview ? previewCandidates.length : imported;
+      if (overImportBudget() || targetCount >= effectiveMaxNew) break;
+      const cardId = String(card.goonet_id);
+      if (selectedIdSet && !selectedIdSet.has(cardId)) continue;
+      if (known.has(cardId)) { report.alreadyKnown++; continue; }
+      const cardBlocked = await isBlocked(db, card.goonet_id);
+      if (cardBlocked) {
         report.rejected++;
         report.skipped.push(`${card.stock_no}: blocked (previously deleted)`);
         continue;
+      }
+
+      // Skip obvious keyword year mismatches before spending a detail fetch.
+      if (kw && (kw.yearMin || kw.yearMax) && card.year) {
+        if ((kw.yearMin && card.year < kw.yearMin) || (kw.yearMax && card.year > kw.yearMax)) {
+          report.skipped.push(`${card.stock_no}: ${card.year} is outside the requested ${kw.yearMin === kw.yearMax ? kw.yearMin : kw.yearMin + '–' + kw.yearMax}`);
+          continue;
+        }
       }
 
       // Fetch the detail page: full gallery + specs drive the quality gate.
@@ -889,6 +958,24 @@ export default async function handler(req, res, injected) {
         report.skipped.push(`${card.stock_no}: detail fetch failed`);
         continue;
       }
+
+      // Apply configured price ceiling/floor on the detail-merged price too.
+      const mergedPriceJpy = carPriceJpy(car, jpyUsdRate);
+      if (mergedPriceJpy !== null && maxPriceJpy && mergedPriceJpy > maxPriceJpy) {
+        report.rejected++;
+        report.skipped.push(`${card.stock_no}: price ¥${mergedPriceJpy.toLocaleString()} exceeds max ¥${maxPriceJpy.toLocaleString()}`);
+        continue;
+      }
+      if (mergedPriceJpy !== null && minPriceJpy && mergedPriceJpy < minPriceJpy) {
+        report.rejected++;
+        report.skipped.push(`${card.stock_no}: price ¥${mergedPriceJpy.toLocaleString()} below min ¥${minPriceJpy.toLocaleString()}`);
+        continue;
+      }
+      if (mergedPriceJpy) {
+        const usd = yenToUsd(mergedPriceJpy, jpyUsdRate);
+        car = { ...car, price_jpy: mergedPriceJpy, price_usd: usd, price: usdText(usd) || car.price };
+      }
+
       // An explicit year in the keyword outranks the standing oldest-year
       // rule: the owner who types "Hilux Surf 1997" has already decided.
       const effectiveMinYear = (kw && kw.yearMin && kw.yearMin < minYear) ? kw.yearMin : minYear;
@@ -931,8 +1018,8 @@ export default async function handler(req, res, injected) {
 
       const now = new Date().toISOString();
       const row = {
-        goonet_id: String(card.goonet_id),
-        stock_no: card.stock_no || card.goonet_id,
+        goonet_id: cardId,
+        stock_no: card.stock_no || cardId,
         make: car.make || 'Unknown', model: car.model || 'Car',
         year: car.year, km: car.km, fuel: car.fuel, body: car.body,
         price_jpy: car.price_jpy, price_usd: car.price_usd, price: car.price,
@@ -946,9 +1033,46 @@ export default async function handler(req, res, injected) {
         available: true, promoted: 'none',
         imported_at: now, last_seen_at: now, updated_at: now
       };
+      if (isPreview) {
+        previewCandidates.push({
+          ...row,
+          title: car.title || `${row.make} ${row.model}`,
+          repair_history: car.repair_history || null,
+          photos: (car.images || []).slice(0, 6)
+        });
+        continue;
+      }
       const { error } = await db.from('japan_dealer_stock').insert(row);
-      if (!error) { imported++; known.add(String(card.goonet_id)); }
+      if (!error) { imported++; known.add(cardId); }
       else if (!/duplicate/i.test(error.message)) { report.rejected++; report.skipped.push(`${card.stock_no}: ${error.message}`); }
+    }
+
+    if (isPreview) {
+      const sortedPreview = filterAndSortCarsByPrice(previewCandidates, {
+        sort: sortOrder,
+        jpyUsdRate
+      }).kept;
+      const orderText = sortOrder === 'price_asc' ? 'low to high price'
+        : sortOrder === 'price_desc' ? 'high to low price' : 'listing order';
+      const previewNote = blocked
+        ? 'goo-net is bot-gating this host right now — could not read listings for preview.'
+        : sortedPreview.length
+          ? `Preview for "${keyword || 'search'}" — ${sortedPreview.length} car${sortedPreview.length === 1 ? '' : 's'} ready to import (${orderText}). Deselect any car before importing.`
+          : (report.alreadyKnown > 0 || report.rejected > 0
+            ? `No new qualifying cars to import for "${keyword || 'search'}" on page ${bookmark} (${report.alreadyKnown} already in stock, ${report.rejected} filtered out).`
+            : report.note || `No matching cars found for "${keyword || 'search'}".`);
+      return send(res, 200, {
+        ...report,
+        ok: true,
+        preview: true,
+        blocked: blocked || false,
+        parseMiss: parseMiss || false,
+        diagnostics: thinRunDiag || null,
+        readyCount: sortedPreview.length,
+        wouldImport: sortedPreview.length,
+        candidates: sortedPreview,
+        note: previewNote
+      });
     }
     report.inserted = imported;
 
@@ -1035,10 +1159,12 @@ export default async function handler(req, res, injected) {
     // upsert by stock number, so a re-run can never create duplicates.
     if (autoPromote && imported > 0 && runPromoteLimit > 0 && !overBudget()) {
       const runStartedAt = new Date(start).toISOString();
+      const promoOrderCol = sortOrder === 'price_asc' ? 'price_jpy' : 'quality_score';
+      const promoAsc = sortOrder === 'price_asc';
       const { data: freshRows } = await db.from('japan_dealer_stock')
         .select('*').eq('available', true).eq('promoted', 'none')
         .gte('imported_at', runStartedAt)
-        .order('quality_score', { ascending: false }).limit(runPromoteLimit);
+        .order(promoOrderCol, { ascending: promoAsc }).limit(runPromoteLimit);
       for (const row of freshRows || []) {
         if (overBudget()) break;
         let copied = false;

@@ -907,5 +907,102 @@ console.log('\n-- on-demand keyword search --');
     'a make-only keyword asks for the model (the exchange has no make-only search)');
 }
 
+// ---- Seventeenth run: low-to-high ordering, max price ceiling, preview & selectedIds ----
+console.log('\n-- low-to-high price ordering, price ceiling, search preview & selectedIds --');
+{
+  const exCard = (id, priceStr, ym, title) => `<li><a class="spread_link_new_tab" href="/usedcars/TOYOTA/PRIUS/${id}/">
+    <div class="photo"><p><img data-src="https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}00.jpg" class="lazyload"></p></div>
+    <div class="sub-content"><h3 class="title">${title}</h3><p class="location">Gifu Japan</p>
+    <p class="price currency-jpy">¥${priceStr}</p>
+    <ul class="details"><li>${ym}</li><li>PEARL</li><li> 52,000 km </li><li>1800cc</li><li>Right</li><li>AT</li></ul>
+    </div></a></li>`;
+
+  const reverseListingHtml = `<!doctype html><html lang="en"><body><div id="list-cars"><ul class="list-listview">
+    ${exCard('700071023230260901001', '1,950,000', '2018.04', 'TOYOTA PRIUS A TOURING')}
+    ${exCard('700071023230260902002', '348,000', '2016.05', 'TOYOTA PRIUS S')}
+    ${exCard('700071023230260903003', '780,000', '2017.07', 'TOYOTA PRIUS G')}
+  </ul></div></body></html>`;
+
+  const priceDetailHtml = (id, priceYen, year) => `<!doctype html><html lang="en"><head>
+    <script type="application/ld+json">{"@type":"Car","name":"TOYOTA PRIUS S","image":"https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}00.jpg","offers":{"price":${priceYen},"priceCurrency":"JPY"}}</script>
+  </head><body>
+    <h1>TOYOTA PRIUS S</h1>
+    <dl><dt>Month/Year</dt><dd>${year}.05</dd></dl>
+    <dl><dt>Mileage</dt><dd>52,000 km</dd></dl>
+    <dl><dt>Fuel</dt><dd>HYBRID</dd></dl>
+    <dl><dt>Transmission</dt><dd>AT</dd></dl>
+    <dl><dt>Displacement</dt><dd>1800cc</dd></dl>
+    <dl><dt>Steering</dt><dd>Right</dd></dl>
+    <dl><dt>Location</dt><dd>Gifu</dd></dl>
+    <img src="https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}01.jpg">
+    <img src="https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}02.jpg">
+    <img src="https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}03.jpg">
+    <img src="https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}04.jpg">
+    <img src="https://picture1.goo-net.com/${id.slice(0,10)}/${id.slice(10,18)}/J/${id}05.jpg">
+  </body></html>`;
+
+  resetFetchState();
+  const seenUrls = [];
+  global.fetch = async (url) => {
+    const u = String(url);
+    seenUrls.push(u);
+    if (u === 'https://www.goo-net.com/') return { ok: true, status: 200, text: async () => '<html>home</html>' };
+    if (u.includes('700071023230260901001')) return { ok: true, status: 200, text: async () => priceDetailHtml('700071023230260901001', 1950000, 2018) };
+    if (u.includes('700071023230260902002')) return { ok: true, status: 200, text: async () => priceDetailHtml('700071023230260902002', 348000, 2016) };
+    if (u.includes('700071023230260903003')) return { ok: true, status: 200, text: async () => priceDetailHtml('700071023230260903003', 780000, 2017) };
+    if (u.includes('/usedcars/TOYOTA/PRIUS/') || u.includes('summary.php')) {
+      return { ok: true, status: 200, text: async () => reverseListingHtml };
+    }
+    return { ok: false, status: 404, text: async () => '' };
+  };
+
+  // 1) Read-only preview returns sorted candidates lowest price first with zero writes.
+  const dbP = memDb();
+  dbP.tables.site_settings = promoteSeed([]);
+  const resPreview = fakeRes();
+  await handler({
+    method: 'POST', query: { key: 'test-key' }, headers: {},
+    body: { keyword: 'Toyota Prius', preview: true, maxPriceJpy: 1200000 }
+  }, resPreview, { db: dbP.db });
+  ok(resPreview.statusCode === 200 && resPreview.body?.preview === true, 'preview:true responds 200 with preview=true');
+  ok(resPreview.body?.candidates?.length === 2, `maxPriceJpy=1200000 excluded the ¥1.95M card and kept 2 (${resPreview.body?.candidates?.length})`);
+  eq(resPreview.body?.candidates?.map(c => c.price_jpy), [348000, 780000],
+    'preview candidates are ordered low to high by JPY price (¥348k then ¥780k)');
+  ok(!seenUrls.some(u => u.includes('700071023230260901001')), 'the excluded ¥1.95M detail page was never fetched');
+  ok(dbP.tables.japan_dealer_stock.length === 0, 'preview wrote zero cars to japan_dealer_stock');
+
+  // 2) Selective import respects selectedIds (deselecting one leaves it out).
+  const resEmptySel = fakeRes();
+  await handler({
+    method: 'POST', query: { key: 'test-key' }, headers: {},
+    body: { keyword: 'Toyota Prius', selectedIds: [] }
+  }, resEmptySel, { db: dbP.db });
+  ok(resEmptySel.statusCode === 400, 'an empty selectedIds array refuses cleanly with 400');
+
+  const resSel = fakeRes();
+  await handler({
+    method: 'POST', query: { key: 'test-key' }, headers: {},
+    body: { keyword: 'Toyota Prius', selectedIds: ['700071023230260903003'], maxPriceJpy: 1200000 }
+  }, resSel, { db: dbP.db });
+  ok(resSel.statusCode === 200 && resSel.body?.inserted === 1, 'selectedIds imports only the chosen car (1)');
+  eq(dbP.tables.japan_dealer_stock.map(r => r.goonet_id), ['700071023230260903003'],
+    'only the chosen goonet_id landed in japan_dealer_stock');
+
+  // 3) Scheduled crawl with goonet_max_new_per_run=2 imports the 2 cheapest first (¥348k & ¥780k).
+  resetFetchState();
+  const dbS = memDb();
+  dbS.tables.site_settings = promoteSeed([
+    ['goonet_max_new_per_run', '2'],
+    ['goonet_min_photos', '5']
+  ]);
+  const resS = fakeRes();
+  await handler({ method: 'POST', query: { key: 'test-key' }, headers: {} }, resS, { db: dbS.db });
+  ok(resS.statusCode === 200 && resS.body?.inserted === 2, 'scheduled crawl with max_new=2 imported 2 cars');
+  eq(dbS.tables.japan_dealer_stock.map(r => r.price_jpy), [348000, 780000],
+    'scheduled crawl imported the lowest-priced cars first instead of the expensive first card');
+  eq(dbS.tables.site_listings.map(r => r.stock_no), ['700071023230260902002', '700071023230260903003'],
+    'auto-promote kept low-to-high price ordering too');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

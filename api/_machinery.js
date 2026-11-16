@@ -242,6 +242,8 @@ export const MACHINERY_SETTING_DEFAULTS = {
   // confirming. MAX_SCRAPER_MACHINES (24) stays the hard ceiling; a setting or
   // a per-run limit may lower it, never raise it.
   machinery_scraper_batch: '8',
+  machinery_scraper_sort: 'price_asc',
+  machinery_scraper_max_price: '',
   machinery_min_photos: '1',
   machinery_max_reprice_per_run: '10',
   machinery_stale_after_days: '14',

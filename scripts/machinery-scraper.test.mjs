@@ -26,7 +26,8 @@ const bad = s => process.stderr.write(s + '\n');
 const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fail++; bad('  ✗ ' + msg); } };
 
 const {
-  parseRobotsTxt, robotsAllowed, extractProductLinks, categoriesFor,
+  parseRobotsTxt, robotsAllowed, extractProductLinks, extractProductCandidates,
+  filterAndSortMachinePreviews, categoriesFor,
   runScraper, SCRAPER_CATEGORIES, SCRAPER_ORIGIN, SCRAPER_UA,
   MAX_SCRAPER_MACHINES, SCRAPER_DELAY_MS, ROBOTS_BLOCKED
 } = await import('../api/_machinery-scraper.js');
@@ -242,24 +243,28 @@ say('\n-- a scraper run end to end (fixtures, no network) --');
   ok(Array.isArray(b.machines) && b.machines.length === 2,
     `two readable, allowed product pages become two previews (${b.machines?.length})`);
 
-  const m = b.machines[0];
-  ok(!!m.name && !!m.brand && !!m.type, 'each preview has the machine shape (name, brand, type)');
-  ok(m.year === null,
-    `a page that states no year yields a NULL year, not an invented one (got ${m.year})`);
-  ok(m.hours === null, `and no hour meter yields null hours, not a confident 0 (got ${m.hours})`);
-  ok(b.previews?.[0]?.warnings?.some(w => /no model year/i.test(w)) ||
+  ok(b.machines[0].supplierPrice <= b.machines[1].supplierPrice,
+    `default scraper order sorts low to high by price (${b.machines[0].supplierPrice} <= ${b.machines[1].supplierPrice})`);
+
+  const doosan = b.machines.find(x => x.brand === 'Doosan');
+  const sany = b.machines.find(x => x.brand === 'Sany');
+  ok(!!doosan && !!doosan.name && !!doosan.type, 'Doosan preview has the machine shape (name, brand, type)');
+  ok(doosan.year === null,
+    `a page that states no year yields a NULL year, not an invented one (got ${doosan.year})`);
+  ok(doosan.hours === null, `and no hour meter yields null hours, not a confident 0 (got ${doosan.hours})`);
+  ok(b.previews?.some(p => p.machine.brand === 'Doosan' && p.warnings?.some(w => /no model year/i.test(w))) ||
      b.warnings?.some(w => /no model year/i.test(w)),
     'the preview warns that the machine will be listed without a model year');
-  ok(m.brand === 'Doosan', `the brand was classified (${m.brand})`);
-  ok(m.type === 'Excavators', `the type was classified (${m.type})`);
-  ok(m.supplierPrice === 48000, `the supplier price was read (${m.supplierPrice})`);
-  ok(m.listPrice > m.supplierPrice, 'the list price carries the trading markup');
-  ok(m.source?.rights === 'supplier-listing', 'the photo basis defaults to supplier-listing (no agreement gate)');
-  ok(m.images?.length === 2, `every photo the page publishes imports (${m.images?.length})`);
-  ok(m.images.some(src => /supplier-site\.example/.test(src)), 'the supplier-hosted photo is imported');
-  ok(m.watermarkedPhotos === 1 && m.skippedPhotos === 0,
+  ok(doosan.brand === 'Doosan', `the brand was classified (${doosan.brand})`);
+  ok(doosan.type === 'Excavators', `the type was classified (${doosan.type})`);
+  ok(doosan.supplierPrice === 48000, `the supplier price was read (${doosan.supplierPrice})`);
+  ok(doosan.listPrice > doosan.supplierPrice, 'the list price carries the trading markup');
+  ok(doosan.source?.rights === 'supplier-listing', 'the photo basis defaults to supplier-listing (no agreement gate)');
+  ok(doosan.images?.length === 2, `every photo the page publishes imports (${doosan.images?.length})`);
+  ok(doosan.images.some(src => /supplier-site\.example/.test(src)), 'the supplier-hosted photo is imported');
+  ok(doosan.watermarkedPhotos === 1 && doosan.skippedPhotos === 0,
     'the marketplace copy is COUNTED for review, not dropped');
-  ok(b.machines[1].photosPending === true && b.machines[1].images.length === 0,
+  ok(!!sany && sany.photosPending === true && sany.images.length === 0,
     'a page that publishes no photo at all still imports, flagged as photos pending');
 
   ok(b.skipped?.some(s => s.url === PRODUCT_URL_C && /robots/i.test(s.reason)),
@@ -694,6 +699,69 @@ say('\n-- total run deadline keeps collected previews --');
   ok(out.partial === true, 'deadline returns a partial receipt, not a lost HTTP timeout');
   ok(out.machines.length > 0, 'already collected previews survive the deadline');
   ok(out.warnings.some(w => w.includes('Time limit')), 'operator is told to confirm and run again');
+}
+
+say('\n-- low-to-high price prioritization and max price filter --');
+{
+  const pricedCategoryHtml = `
+    <div class="card">
+      <a href="/product/high111/CAT-336-2022.html">CAT 336 2022 Excavator</a>
+      <span>FOB Price: US $92,000 / Unit</span>
+    </div>
+    <div class="card">
+      <a href="/product/mid222/Doosan-220-2021.html">Doosan 220 2021 Excavator</a>
+      <span>FOB Price: US $48,000 / Unit</span>
+    </div>
+    <div class="card">
+      <a href="/product/low333/Kubota-U35-2020.html">Kubota U35 2020 Mini Excavator</a>
+      <span>FOB Price: US $16,500 / Unit</span>
+    </div>`;
+  const baseUrl = SCRAPER_ORIGIN + SCRAPER_CATEGORIES.excavators;
+  const cands = extractProductCandidates(pricedCategoryHtml, baseUrl);
+  ok(cands.length === 3, 'extractProductCandidates finds all 3 category cards');
+  ok(cands[0].hintPriceUsd === 92000 && cands[2].hintPriceUsd === 16500,
+    `card price hints ignore years/models and read USD prices (${cands.map(c => c.hintPriceUsd).join(', ')})`);
+
+  const unitSort = filterAndSortMachinePreviews([
+    { machine: { brand: 'A', supplierPrice: 80000, listPrice: 100000 } },
+    { machine: { brand: 'B', supplierPrice: null, listPrice: null } },
+    { machine: { brand: 'C', supplierPrice: 22000, listPrice: 27500 } },
+  ], { sort: 'price_asc', maxPrice: 50000 });
+  ok(unitSort.filteredOut.length === 1 && unitSort.kept.length === 2,
+    'filterAndSortMachinePreviews filters out machines exceeding maxPrice');
+  ok(unitSort.kept[0].machine.brand === 'C' && unitSort.kept[1].machine.brand === 'B',
+    'cheapest priced machine sorts first ahead of unpriced machines');
+
+  const highUrl = `${SCRAPER_ORIGIN}/product/high111/CAT-336-2022.html`;
+  const midUrl = `${SCRAPER_ORIGIN}/product/mid222/Doosan-220-2021.html`;
+  const lowUrl = `${SCRAPER_ORIGIN}/product/low333/Kubota-U35-2020.html`;
+  const fetched = [];
+  const priceWorldFetch = async url => {
+    fetched.push(url);
+    if (url.endsWith('/robots.txt')) return { ok: true, status: 200, text: '' };
+    if (url === baseUrl) return { ok: true, status: 200, text: pricedCategoryHtml };
+    if (url === highUrl) return { ok: true, status: 200, text: productPage('CAT 336 Excavator', 92000, ['https://supplier-site.example/high.jpg']) };
+    if (url === midUrl) return { ok: true, status: 200, text: productPage('Doosan 220 Excavator', 48000, ['https://supplier-site.example/mid.jpg']) };
+    if (url === lowUrl) return { ok: true, status: 200, text: productPage('Kubota U35 Mini Excavator', 16500, ['https://supplier-site.example/low.jpg']) };
+    return { ok: false, status: 404, text: '' };
+  };
+
+  // With limit=1 and price_asc default, the scraper prioritizes the $16,500 Kubota even though it appears last!
+  const cheapestFirst = await runScraper(fakeDb(), {
+    category: 'excavators', limit: 1, fetch: priceWorldFetch, sleep: async () => {}
+  });
+  ok(cheapestFirst.machines.length === 1 && cheapestFirst.machines[0].supplierPrice === 16500,
+    `limit=1 picks the lowest-priced machine ($16,500) even when it sits last in HTML (got $${cheapestFirst.machines[0]?.supplierPrice})`);
+  ok(!fetched.includes(highUrl), 'the $92,000 listing page was not even fetched');
+
+  // maxPrice=50000 skips the $92,000 machine and returns low -> mid order.
+  const cappedRes = await runScraper(fakeDb(), {
+    category: 'excavators', limit: 10, maxPrice: 50000, fetch: priceWorldFetch, sleep: async () => {}
+  });
+  ok(cappedRes.machines.length === 2, `maxPrice=50000 excludes the $92,000 machine (kept ${cappedRes.machines.length})`);
+  ok(cappedRes.machines[0].supplierPrice === 16500 && cappedRes.machines[1].supplierPrice === 48000,
+    `machines are ordered low to high: $${cappedRes.machines[0].supplierPrice} then $${cappedRes.machines[1].supplierPrice}`);
+  ok(cappedRes.stats.priceFiltered >= 1, 'stats.priceFiltered records excluded overpriced machines');
 }
 
 say(`\n${pass} passed, ${fail} failed`);

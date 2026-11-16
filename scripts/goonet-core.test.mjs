@@ -25,6 +25,7 @@ import {
   DEFAULT_SEARCH_URL, EXCHANGE_BASE, EXCHANGE_HOST, EXCHANGE_PAGE_SIZE,
   countExchangeCarLinks, parseExchangeListingPage, parseExchangeDetailPage,
   makeFromExchangeSlug, modelFromExchangeSlug, exchangeCarImages, translateSearchUrl,
+  carPriceJpy, applyExchangePriceFilter, filterAndSortCarsByPrice,
   parseCarKeyword, modelSlug
 } from './goonet-core.mjs';
 import { legacyEncoder, byteResponse } from './legacy-jp.mjs';
@@ -1350,6 +1351,41 @@ console.log('\n-- exchange: fetchPage treats the exchange as a first-class host 
   const r2 = await fetchPage(DEFAULT_SEARCH_URL, { timeoutMs: 2000 });
   eq(r2.via, 'relay', 'a dead exchange socket still falls back to the relay');
   eq(parseListingPage(r2.html).diagnostics.cardSource, 'exchange', 'and the relayed page parses as exchange');
+}
+
+console.log('\n-- low-to-high price filter & sort helpers --');
+{
+  eq(carPriceJpy({ price_jpy: 450000 }), 450000, 'carPriceJpy reads direct price_jpy');
+  eq(carPriceJpy({ total_price_jpy: 520000 }), 520000, 'carPriceJpy falls back to total_price_jpy');
+  ok(carPriceJpy({ price_usd: 4080 }, 0.0068) === 600000, 'carPriceJpy converts USD back to JPY when needed');
+  eq(carPriceJpy({}), null, 'carPriceJpy returns null when no price exists');
+
+  const applied = applyExchangePriceFilter(
+    'https://www.goo-net-exchange.com/php/search/summary.php?b_to_b_price_min=1000000&b_to_b_price_max=3000000&search_type=price_search',
+    { maxPriceJpy: 1200000, minPriceJpy: 400000 }
+  );
+  ok(applied.includes('b_to_b_price_max=1200000') && applied.includes('b_to_b_price_min=400000'),
+    'applyExchangePriceFilter updates price bounds on exchange search URLs');
+  const untouchedModel = applyExchangePriceFilter('https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD/', { maxPriceJpy: 1200000 });
+  eq(untouchedModel, 'https://www.goo-net-exchange.com/usedcars/TOYOTA/ALPHARD/',
+    'applyExchangePriceFilter leaves make/model landing URLs clean');
+
+  const sample = [
+    { goonet_id: 'hi', price_jpy: 1950000 },
+    { goonet_id: 'na', price_jpy: null },
+    { goonet_id: 'lo', price_jpy: 390000 },
+    { goonet_id: 'mid', price_jpy: 890000 },
+  ];
+  const asc = filterAndSortCarsByPrice(sample, { maxPriceJpy: 1500000, minPriceJpy: 350000, sort: 'price_asc' });
+  eq(asc.filteredOut.length, 1, 'card exceeding maxPriceJpy is filtered out');
+  eq(asc.filteredOut[0].card.goonet_id, 'hi', 'highest priced card excluded cleanly');
+  eq(asc.kept.map(c => c.goonet_id), ['lo', 'mid', 'na'], 'low-to-high default sorts priced cars ascending ahead of unpriced cards');
+
+  const desc = filterAndSortCarsByPrice(sample, { sort: 'price_desc' });
+  eq(desc.kept.map(c => c.goonet_id), ['hi', 'mid', 'lo', 'na'], 'price_desc reverses priced cars while keeping unpriced last');
+
+  const src = filterAndSortCarsByPrice(sample, { sort: 'source' });
+  eq(src.kept.map(c => c.goonet_id), ['hi', 'na', 'lo', 'mid'], 'source sort preserves original listing order');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

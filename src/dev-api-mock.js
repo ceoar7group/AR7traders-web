@@ -13,7 +13,7 @@
 // against fixture pages — the sandbox has no egress to made-in-china.com —
 // and keeps imported machines in memory.
 import { readCapture, buildSeedRows } from '../scripts/goonet-seed.mjs';
-import { parseGoonetCarUrls } from '../scripts/goonet-core.mjs';
+import { parseGoonetCarUrls, filterAndSortCarsByPrice, parseCarKeyword } from '../scripts/goonet-core.mjs';
 import { runScraper, SCRAPER_ORIGIN, SCRAPER_CATEGORIES } from '../api/_machinery-scraper.js';
 import { toRow, planImport, applyImport } from '../api/_machinery-import.js';
 import { toPublic } from '../api/_machinery.js';
@@ -287,6 +287,64 @@ export function devApiMock() {
         });
       });
 
+      server.middlewares.use('/api/goonet-sync', (req, res, next) => {
+        if (req.method !== 'POST') return next();
+        readDevJson(req, res, body => {
+          res.setHeader('Content-Type', 'application/json');
+          const kw = body?.keyword ? parseCarKeyword(body.keyword) : null;
+          if (body?.keyword && !kw) {
+            res.statusCode = 400;
+            return res.end(JSON.stringify({ error: `Could not recognise "${body.keyword}" as a Goo-net Exchange make + model.` }));
+          }
+          const matching = STOCK.filter(row => {
+            if (!kw) return true;
+            const hay = `${row.make || ''} ${row.model || ''}`.toLowerCase();
+            if (!hay.includes(String(kw.make).toLowerCase())) return false;
+            if (!hay.includes(String(kw.model).toLowerCase())) return false;
+            if (kw.yearMin && row.year && row.year < kw.yearMin) return false;
+            if (kw.yearMax && row.year && row.year > kw.yearMax) return false;
+            return true;
+          });
+          const pricePlan = filterAndSortCarsByPrice(matching, {
+            maxPriceJpy: body?.maxPriceJpy ?? null,
+            minPriceJpy: body?.minPriceJpy ?? null,
+            sort: body?.sort || 'price_asc'
+          });
+          const sel = Array.isArray(body?.selectedIds) ? new Set(body.selectedIds.map(String)) : null;
+          const kept = sel ? pricePlan.kept.filter(c => sel.has(String(c.goonet_id))) : pricePlan.kept;
+          const lim = Number(body?.limit) > 0 ? Math.floor(Number(body.limit)) : 12;
+          const sliced = kept.slice(0, lim);
+          if (body?.preview) {
+            return res.end(JSON.stringify({
+              ok: true,
+              preview: true,
+              keyword: body?.keyword || null,
+              page: 1,
+              cardsSeen: matching.length,
+              alreadyKnown: 0,
+              rejected: pricePlan.filteredOut.length,
+              skipped: pricePlan.filteredOut.map(x => `${x.card.stock_no || x.card.goonet_id}: ${x.reason}`),
+              readyCount: sliced.length,
+              wouldImport: sliced.length,
+              candidates: sliced,
+              note: `Dev preview for "${body?.keyword || 'exchange'}" — ${sliced.length} matching car(s), sorted low to high price.`
+            }));
+          }
+          return res.end(JSON.stringify({
+            ok: true,
+            keyword: body?.keyword || null,
+            page: 1,
+            cardsSeen: matching.length,
+            inserted: sliced.length,
+            delisted: 0,
+            promoted: 0,
+            rejected: pricePlan.filteredOut.length,
+            skipped: pricePlan.filteredOut.map(x => `${x.card.stock_no || x.card.goonet_id}: ${x.reason}`),
+            note: `Dev preview simulated importing ${sliced.length} car(s) (no DB write in key-less dev mode).`
+          }));
+        });
+      });
+
       server.middlewares.use('/api/goonet-stock', (req, res, next) => {
         res.setHeader('Content-Type', 'application/json');
         const actionFromQuery = new URL(req.url, 'http://localhost').searchParams.get('action');
@@ -328,6 +386,10 @@ export function devApiMock() {
               // pages are local fixtures, and production keeps the real delay.
               const out = await runScraper(devMachineryDb(), {
                 category: body.category || null,
+                categories: Array.isArray(body.categories) && body.categories.length ? body.categories : null,
+                limit: body.limit || null,
+                sort: body.sort || null,
+                maxPrice: body.maxPrice ?? null,
                 fetch: devScraperFetch,
                 sleep: () => Promise.resolve()
               });
