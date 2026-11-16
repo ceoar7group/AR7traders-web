@@ -257,6 +257,37 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   }
 }
 
+// Model landing routes keep their full URL across navigation, hash updates and remount.
+{
+  await goto('/cars/toyota/prius');
+  ok(location.pathname === '/cars/toyota/prius', 'popstate preserves the model landing path');
+  await act(async () => { location.hash = '#/inventory'; dom.window.dispatchEvent(new dom.window.HashChangeEvent('hashchange')); });
+  ok(location.pathname === '/cars/toyota/prius', 'hash handling preserves the model landing path');
+  const modelRoot = await boot();
+  ok(location.pathname === '/cars/toyota/prius', 'initial mount and refresh preserve the model landing path');
+  await act(async () => { modelRoot.unmount(); });
+  await goto('/inventory');
+  await goto('/cars/toyota/prius#/inventory');
+  ok(location.pathname === '/cars/toyota/prius', 'returning to the model page preserves the path');
+}
+
+// The showroom must not bury Japan inventory under every curated car.
+{
+  await goto('/inventory');
+  let showroom = document.querySelector('.showroom-group');
+  ok(!!showroom && showroom.querySelectorAll('.car-card').length === 6, 'showroom initially renders six cards');
+  let more = showroom?.querySelector('.showroom-more button');
+  ok(!!more && /View more/.test(more.textContent), 'showroom offers a view-more action');
+  if (more) await act(async () => { more.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+  ok(showroom?.querySelectorAll('.car-card').length === 12, 'view more adds six cards');
+  more = showroom?.querySelector('.showroom-more button');
+  if (more && /View more/.test(more.textContent)) await act(async () => { more.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+  more = showroom?.querySelector('.showroom-more button');
+  ok(!!more && /Show fewer/.test(more.textContent), 'expanded showroom can be collapsed');
+  if (more) await act(async () => { more.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+  ok(showroom?.querySelectorAll('.car-card').length === 6, 'collapse restores six cards');
+}
+
 // ---- back navigation from a car details page returns to inventory ----------
 {
   const { cars } = await import('../src/main.jsx');

@@ -12,7 +12,7 @@ import { adminClient } from './_supabase.js';
 import { listMachines, builtinCatalogueMachines, resolveType } from './_machinery.js';
 import { listPriceUSD, machineYearText, machineHours } from '../src/machinery-data.js';
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath } from '../src/sitemap-helpers.js';
-import { mapDealerRows } from '../src/japan-stock-map.js';
+import { mapDealerRows, PUBLIC_DEALER_LIMIT } from '../src/japan-stock-map.js';
 import { NEWS, articleSlug } from '../src/news-data.js';
 
 export const BASE_URL = 'https://ar7traders.com';
@@ -357,12 +357,12 @@ export function buildCarsLandingHeadHtml(cars = [], opts = {}) {
     if (!c || c.published === false) return false;
     if (c.status && UNAVAILABLE_STATUS.test(String(c.status))) return false;
     if (!makeSlug || slugify(c.make) !== makeSlug) return false;
-    if (modelSlug && slugify(c.model) !== modelSlug) return false;
+    if (modelSlug && !(slugify(c.model) === modelSlug || slugify(c.model).startsWith(modelSlug + '-'))) return false;
     return true;
   });
 
   const makeName = matches[0]?.make || titleFromSlug(makeSlug) || 'Japanese Cars';
-  const modelName = modelSlug ? (matches[0]?.model || titleFromSlug(modelSlug)) : '';
+  const modelName = modelSlug ? (matches.find(c => slugify(c.model) === modelSlug)?.model || titleFromSlug(modelSlug)) : '';
   const headingSubject = modelName ? `${makeName} ${modelName}` : makeName;
   const canonicalPath = carLandingPath(makeName, modelName) || '/inventory';
   const url = BASE_URL + canonicalPath;
@@ -464,8 +464,8 @@ export async function carsLandingHead(req, res, injected = {}) {
     if (Array.isArray(listings)) cars.push(...listings);
     try {
       const { data: dealerRows } = await db.from('japan_dealer_stock')
-        .select('goonet_id,stock_no,make,model,year,km,fuel,transmission,price_usd,images,available,rotation_state,promoted')
-        .eq('available', true).order('imported_at', { ascending: false }).limit(800);
+        .select('*')
+        .eq('available', true).order('imported_at', { ascending: false }).limit(PUBLIC_DEALER_LIMIT);
       if (Array.isArray(dealerRows)) cars.push(...mapDealerRows(dealerRows));
     } catch { /* dealer table optional in older fixtures */ }
   } catch (e) {

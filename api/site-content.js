@@ -69,7 +69,7 @@ async function assertSettingsWrite(profile, injected = {}) {
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath } from '../src/sitemap-helpers.js';
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
-import { mapDealerRows } from '../src/japan-stock-map.js';
+import { mapDealerRows, PUBLIC_DEALER_LIMIT } from '../src/japan-stock-map.js';
 export { carRef, hrefFor };
 
 // Machinery lives in api/_machinery.js — a shared module, so it costs no
@@ -130,9 +130,8 @@ const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
 const SITEMAP_FALLBACK_CACHE = 'public, max-age=60, s-maxage=120';
 const SITEMAP_MAX_ROWS = 5000;
 // Imported dealer cars are capped separately: the public inventory surface
-// reads at most 300 imported rows, so the sitemap stays in the same order of
-// magnitude while still covering every imported car a visitor can reach.
-const SITEMAP_MAX_IMPORTED = 1000;
+// use the same bounded window and ordering as the public stock feed.
+const SITEMAP_MAX_IMPORTED = PUBLIC_DEALER_LIMIT;
 const SITEMAP_UNAVAILABLE = /sold|delist|private|hidden|archived|removed/i;
 
 /** YYYY-MM-DD for a real timestamp, or null — never a fabricated date. */
@@ -362,7 +361,7 @@ export async function sitemapVehicles(req, res, injected = {}) {
     let imported = [];
     try {
       const { data: dealerRows, error: dealerError } = await db.from('japan_dealer_stock')
-        .select('goonet_id,stock_no,make,model,available,rotation_state,promoted,updated_at')
+        .select('*')
         .eq('available', true)
         .order('imported_at', { ascending: false })
         .limit(SITEMAP_MAX_IMPORTED);

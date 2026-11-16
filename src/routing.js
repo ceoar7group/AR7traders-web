@@ -319,7 +319,7 @@ export function rememberVehicle(carId) {
   } catch { /* private mode */ }
 }
 
-export function writeLocation(page, carId, { replace = false, make = null, machineType = null, machineRef = null, destSlug = null } = {}) {
+export function writeLocation(page, carId, { replace = false, make = null, model = null, machineType = null, machineRef = null, destSlug = null } = {}) {
   const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
   params.delete('car');
   const m = makeFrom(make);
@@ -331,7 +331,7 @@ export function writeLocation(page, carId, { replace = false, make = null, machi
   const path = (page === 'machinery' && machineType)
     ? machineHrefFor(machineType, machineRef)
     : (page === 'destinations' && destSlug) ? destinationPath(destSlug)
-    : (m && page === 'inventory' && !carId) ? carLandingHref(m) : hrefFor(page, carId);
+    : (m && page === 'inventory' && !carId) ? carLandingHref(m, model) : hrefFor(page, carId);
   // The CRM owns its own hash: /crm#leads or /crm#vehicles/listings name the
   // open desk (src/crm.jsx deskFromHash), so a refresh or shared link reopens
   // it. Only legacy route hashes (#/page shapes) may be replaced here —

@@ -38,13 +38,17 @@ function memDb(seedRows, opts = {}) {
       }
       const isDealer = name === 'japan_dealer_stock';
       const table = tables[name];
-      const ctx = { filters: [] };
+      const ctx = { filters: [], columns: null, limit: null };
       const api = {
-        select: () => api,
+        select: columns => { ctx.columns = columns; return api; },
         eq: (k, v) => { ctx.filters.push(r => r[k] === v); return api; },
         order: () => api,
-        limit: () => api,
+        limit: n => { ctx.limit = n; return api; },
         then(resolve) {
+          if (isDealer && opts.onDealerQuery) opts.onDealerQuery(ctx);
+          if (isDealer && opts.strictDealer && ctx.columns !== '*') {
+            return resolve({ data: null, error: { message: 'column does not exist' } });
+          }
           if (isDealer && opts.dealerError) {
             return resolve({ data: null, error: { message: opts.dealerError } });
           }
@@ -507,6 +511,25 @@ say('\n-- dynamic crawler parity: vehicles noindex, cars make/model, DB machiner
   const newsMiss = await runSite({ newshead: 'does-not-exist-anywhere', render: 'full' }, newsDb);
   ok(newsMiss.body.includes('<meta name="robots" content="noindex,follow"/>'),
     'unknown news slug marks noindex,follow');
+}
+
+say('\n-- live dealer schema and Prius discoverability --');
+{
+  const dealerRows = [
+    {goonet_id:'P-1', stock_no:'P-1', make:'Toyota', model:'Prius', year:2018, available:true, images:['https://example.com/prius.jpg']},
+    {goonet_id:'P-2', stock_no:'P-2', make:'Toyota', model:'Prius S', year:2019, available:true},
+    {goonet_id:'H-1', stock_no:'H-1', make:'Honda', model:'Prius', year:2020, available:true}
+  ];
+  const queries=[];
+  const db=memDb([], {dealerRows, strictDealer:true, onDealerQuery: q => queries.push({...q})});
+  const sitemap=await run({method:'GET'},db);
+  ok(sitemap.body.includes('/inventory/P-1') && sitemap.body.includes('/cars/toyota/prius'), 'sitemap includes visible Japan stock and its Prius model page without optional columns');
+  const {carsLandingHead}=await import('../api/_crawler-render.js');
+  const res=fakeRes();
+  await carsLandingHead({method:'GET',query:{carsmake:'toyota',carsmodel:'prius',render:'full'}},res,{db});
+  ok(res.body.includes('/inventory/P-1') && res.body.includes('/inventory/P-2') && !res.body.includes('/inventory/H-1'), 'crawler model page links Prius and its trim for the selected make only');
+  ok(res.body.includes('rel="canonical" href="https://ar7traders.com/cars/toyota/prius"') && res.body.includes('index,follow'), 'Prius crawler page remains indexable at its own canonical');
+  ok(queries.length===2 && queries.every(q=>q.columns==='*' && q.limit===1000), 'sitemap and crawler read the same bounded public dealer window without nonexistent columns');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
