@@ -92,7 +92,7 @@ import { englishCarFields } from './jp-display.js';
 import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
 import { useSeo } from './seo.js';
 import { DEST, destinationBySlug } from './destinations.js';
-import { NEWS, subscribePublishedNews } from './news-data.js';
+import { NEWS, setPublishedNews, subscribePublishedNews } from './news-data.js';
 export { DEST, NEWS };
 import { CurrencyProvider, useCurrency } from './currency.jsx';
 import { LanguageProvider, useLang } from './i18n.jsx';
@@ -416,17 +416,21 @@ async function hydrateSiteContent(){
  // related stock). mapDealerRows drops cars already promoted to the website
  // (they are in site_listings) and cars the rotation system parked.
  const getJson=url=>fetch(url).then(r=>r.ok?r.json():null).catch(()=>null);
+ // News is independent of stock and machinery: a slow inventory feed must not
+ // strand the news page on its built-in fallback or hide an article deep link.
+ getJson('/api/site-content?entity=articles').then(articles=>{
+  if(Array.isArray(articles))setPublishedNews(articles);
+ });
  try{
   // Machinery hydrates in the same parallel batch as the cars, so the
   // catalogue, the home teaser and the sitemap all agree on one snapshot.
   // A machine is never hidden behind a permission here: the API has already
   // filtered to published rows and stripped any photo without a rights basis,
   // so what lands is exactly what the public may see.
-  const [rows,dealer,machines,articles]=await Promise.all([
+  const [rows,dealer,machines]=await Promise.all([
    getJson('/api/site-content?entity=listings'),
    fetchDealerStock().catch(()=>null),
-   getJson('/api/site-content?machinery=list'),
-   getJson('/api/site-content?entity=articles')
+   getJson('/api/site-content?machinery=list')
   ]);
   const mapped=[];
   if(Array.isArray(rows)&&rows.length){
@@ -445,7 +449,6 @@ async function hydrateSiteContent(){
   // Empty or failed → the built-in MACHINES fallback stands. The page must
   // never go blank because an API call was slow or the table is unprovisioned.
   hydrateMachines(machines);
-  if(Array.isArray(articles))setPublishedNews(articles);
  }catch{/* offline or not provisioned yet — keep built-in content */}
  contentHydrated=true;
  contentListeners.forEach(fn=>{try{fn()}catch{}});

@@ -64,7 +64,14 @@ setGlobal('dispatchEvent', dom.window.dispatchEvent.bind(dom.window));
 // jsdom ships a real localStorage/sessionStorage for the url we gave it.
 setGlobal('localStorage', dom.window.localStorage);
 setGlobal('sessionStorage', dom.window.sessionStorage);
-setGlobal('fetch', () => Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' }));
+let resolveArticles;
+const articleResponse = new Promise(resolve => { resolveArticles = resolve; });
+setGlobal('fetch', url => {
+  if (String(url).includes('entity=articles')) return articleResponse;
+  // An unrelated stalled stock feed must not prevent article hydration.
+  if (String(url).includes('/api/goonet-stock?')) return new Promise(() => {});
+  return Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' });
+});
 
 const React = (await import('react')).default;
 const { act } = await import('react');
@@ -117,6 +124,23 @@ const root = await boot();
 let unmounted = false;
 ok(!crash(), 'the site mounts without the boot error boundary');
 ok(document.querySelector('.site'), 'the site shell renders');
+{
+  await goto('/news/live-article-from-the-database');
+  ok(!!document.querySelector('.article-missing'), 'a not-yet-loaded live article initially uses the fallback state');
+  await act(async () => {
+    resolveArticles({ok: true, json: async () => [
+      {id:'live-news-test', title:'Live article from the database', category:'MARKET WATCH', date:'Nov 16, 2026', read_min:3, image:'/assets/og/help.jpg', excerpt:'Published test guide', body:'Live article body.', published:true},
+      {id:'private-news-test', title:'Unpublished test draft', category:'MARKET WATCH', body:'Private draft', published:false}
+    ]});
+    await new Promise(r => setTimeout(r, 50));
+  });
+  ok(document.querySelector('.news-article h2')?.textContent === 'Live article from the database', 'live article deep link loads after the article response, even while stock is stalled');
+  await goto('/news');
+  ok([...document.querySelectorAll('.news-card h2')].some(el => el.textContent === 'Live article from the database'), 'published database article appears on the public guide list');
+  ok(!document.body.textContent.includes('Unpublished test draft'), 'unpublished articles are not displayed');
+  ok([...document.querySelectorAll('.news-card h2')].some(el => el.textContent === 'Checking your Japanese vehicle export documents'), 'built-in guides remain available alongside live articles');
+  await goto('/');
+}
 {
   // 2026-10-07 hero rebuild: the `.hero-vignettes` chip pair is gone. Both
   // desks are still one click away — as the hero's own two CTA anchors, which
