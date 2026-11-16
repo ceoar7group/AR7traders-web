@@ -2,6 +2,12 @@ import {requireUser,adminClient,send} from './_supabase.js';
 import {requirePerm,log,clearPermCache,matrixRows,PERMISSION_KEYS} from './_perm.js';
 
 const ROLES=['admin','manager','sales','accounts','viewer'];
+// Use the verified Auth identity, never the mutable profile email or request body.
+const CEO_EMAIL='ceoar7grouplimited@gmail.com';
+function requireCeo(user,profile){
+ if(profile?.role!=='admin'||!user?.email_confirmed_at||String(user.email||'').trim().toLowerCase()!==CEO_EMAIL)
+  throw Object.assign(new Error('Only the CEO can manage team access and permissions.'),{status:403});
+}
 
 // `injected` ({db, getUser, matrixRows}) is a test hook; Vercel always calls (req, res).
 export default async function handler(req,res,injected={}){
@@ -48,6 +54,7 @@ export default async function handler(req,res,injected={}){
   }
 
   if(action==='invite'&&req.method==='POST'){
+   requireCeo(user,profile);
    await requirePerm(profile,'team.manage');
    const {email,full_name,role,password}=req.body||{};
    if(!email||!role)return send(res,400,{error:'Email and role are required'});
@@ -68,6 +75,7 @@ export default async function handler(req,res,injected={}){
   }
 
   if(action==='member'&&req.method==='PATCH'){
+   requireCeo(user,profile);
    await requirePerm(profile,'team.manage');
    const {id,role,active,full_name,title,phone}=req.body||{};
    if(!id)return send(res,400,{error:'Member id is required'});
@@ -89,6 +97,7 @@ export default async function handler(req,res,injected={}){
   }
 
   if(action==='set-permission'&&req.method==='POST'){
+   requireCeo(user,profile);
    await requirePerm(profile,'team.manage');
    const {role,permission,allowed}=req.body||{};
    if(role==='admin')return send(res,400,{error:'Admin permissions cannot be reduced.'});
@@ -105,6 +114,7 @@ export default async function handler(req,res,injected={}){
   }
 
   if(action==='reset-password'&&req.method==='POST'){
+   requireCeo(user,profile);
    await requirePerm(profile,'team.manage');
    const {id,password}=req.body||{};
    if(!id||!password||String(password).length<8)
