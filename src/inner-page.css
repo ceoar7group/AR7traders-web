@@ -664,3 +664,14 @@
 @media (prefers-reduced-motion:reduce){
  .hero-scene,.hero-scene *,.page-hero.split .page-hero-image>img{animation:none!important;transition:none!important}
 }
+
+/* Keep the mobile search at a control height. This file loads after the
+   responsive sheet: its old flex: 1 1 200px otherwise made the column tall. */
+.inv-toolbar.inv-toolbar-facets > .inv-search{flex:0 0 44px;height:44px;min-height:44px;min-width:0;width:100%;box-sizing:border-box}
+.inv-toolbar.inv-toolbar-facets > .inv-search input{min-width:0;height:100%;padding:0;box-sizing:border-box}
+.detail-primary-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.detail-primary-row:has(> :only-child){grid-template-columns:minmax(0,1fr)}
+.detail-primary-row > :is(.primary,.outline-btn){width:100%;min-width:0;min-height:48px;margin:0;justify-content:center;text-align:center;box-sizing:border-box}
+.showroom-more{display:flex;justify-content:center;margin-top:18px}
+.showroom-more button{min-height:44px;white-space:normal;text-align:center}
+@media(max-width:360px){.detail-primary-row{grid-template-columns:1fr}}

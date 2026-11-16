@@ -50,12 +50,14 @@ export function VehicleActions({ car, stockRef, settings, saved, copied, onOffer
   const waHref = vehicleWhatsAppHref(settings, car, stockRef);
   return (
     <div className="detail-actions" role="group" aria-label={`Actions for ${subject}`}>
+      <div className="detail-primary-row">
       {onOffer && (
         <button className="primary" onClick={onOffer} type="button" aria-haspopup="dialog">
           Make an offer <ArrowRight/>
         </button>
       )}
       <button className={onOffer ? 'outline-btn detail-enquire' : 'primary'} onClick={onEnquire} type="button" aria-haspopup="dialog">Enquire now <ArrowRight/></button>
+      </div>
       <div className="detail-actions-row">
         {waHref && (
           <a

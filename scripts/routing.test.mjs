@@ -104,6 +104,8 @@ globalThis.location = { pathname: '/', search: '', hash: '', origin: 'https://ar
 globalThis.history = { pushState: (s, t, url) => { pushed = url; }, replaceState: (s, t, url) => { pushed = url; } };
 ok(writeLocation('inventory', null, { make: 'Toyota' }) === '/cars/toyota#/inventory', 'writeLocation writes the landing path for a brand');
 ok(pushed === '/cars/toyota#/inventory', 'the landing path reaches history.pushState');
+ok(writeLocation('inventory', null, { make: 'Toyota', model: 'prius' }) === '/cars/toyota/prius#/inventory', 'model landing survives the initial history write');
+ok(parseRoute({pathname:'/cars/toyota/prius', hash:'#/inventory', search:''}).model === 'prius', 'model landing survives a refresh');
 location.pathname = '/inventory'; location.search = '?make=Toyota'; location.hash = '#/inventory';
 ok(writeLocation('inventory', null) === '/inventory#/inventory', 'leaving a brand clears ?make from the URL');
 location.search = ''; location.hash = '';

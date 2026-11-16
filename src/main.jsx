@@ -1293,11 +1293,11 @@ export function App(){
  useEffect(()=>{
   const apply=(opts={restoreOnReload:false})=>{const route=readRoute(typeof location==='undefined'?{}:location,opts);rememberVehicle(route.page==='inventory'?route.carId:null);setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setDestRoute(route.destSlug||null);setMenu(false)};
   const route=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:isReload()});
-  writeLocation(route.page,route.carId,{replace:true,make:route.make,machineType:route.machineType,machineRef:route.machineRef,destSlug:route.destSlug});
+  writeLocation(route.page,route.carId,{replace:true,make:route.make,model:route.model,machineType:route.machineType,machineRef:route.machineRef,destSlug:route.destSlug});
   setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
   setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setDestRoute(route.destSlug||null);
   const onPop=()=>apply({restoreOnReload:false});
-  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make,machineType:next.machineType,machineRef:next.machineRef,destSlug:next.destSlug});setPage(next.page);setVehicleId(next.carId);setMachineRoute({type:next.machineType||null,ref:next.machineRef||null});setDestRoute(next.destSlug||null);setMakeFilter(next.make);setModelFilter(next.model);setMenu(false)};
+  const onHash=()=>{if(!location.hash)return;const next=readRoute(typeof location==='undefined'?{}:location,{restoreOnReload:false});writeLocation(next.page,next.carId,{replace:true,make:next.make,model:next.model,machineType:next.machineType,machineRef:next.machineRef,destSlug:next.destSlug});setPage(next.page);setVehicleId(next.carId);setMachineRoute({type:next.machineType||null,ref:next.machineRef||null});setDestRoute(next.destSlug||null);setMakeFilter(next.make);setModelFilter(next.model);setMenu(false)};
   addEventListener('popstate',onPop);
   addEventListener('hashchange',onHash);
   return()=>{removeEventListener('popstate',onPop);removeEventListener('hashchange',onHash)};
@@ -1330,7 +1330,7 @@ export function App(){
  const budgetBands=[['Under $15k','Kei cars, hatchbacks & first imports'],['$15k–$30k','Hybrids, family SUVs & sedans'],['$30k–$60k','Late-model premium & vans'],['$60k+','Luxury & super sport']];
  const navigate=(p,{scroll=true,replace=false}={})=>{
   const route=parseNavTarget(p);
-  writeLocation(route.page,route.carId,{replace,make:route.make,machineType:route.machineType,machineRef:route.machineRef,destSlug:route.destSlug});
+  writeLocation(route.page,route.carId,{replace,make:route.make,model:route.model,machineType:route.machineType,machineRef:route.machineRef,destSlug:route.destSlug});
   setPage(route.page);setVehicleId(route.carId);setMakeFilter(route.make);setModelFilter(route.model);
   setMachineRoute({type:route.machineType||null,ref:route.machineRef||null});setDestRoute(route.destSlug||null);setMenu(false);
   if(scroll) scrollTo({top:0,behavior:'smooth'});
