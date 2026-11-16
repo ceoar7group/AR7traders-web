@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { pickUnusedCover, coverScene, AGENT_COVER_POOL } from '../api/_agents.js';
+import { NEWS } from '../src/news-data.js';
+const db = rows => ({from: () => ({select: () => ({limit: async () => ({data: rows, error: null})})})});
+const used = AGENT_COVER_POOL.filter(path => !path.includes('editorial-')).map(image => ({image}));
+const ship = await pickUnusedCover(db(used), {title: 'Container shipping guide'});
+assert.equal(ship, '/assets/covers/editorial-container-securing.webp');
+const inspection = await pickUnusedCover(db(used), {title: 'Vehicle inspection and condition'});
+assert.equal(inspection, '/assets/covers/editorial-car-inspection.webp');
+const next = await pickUnusedCover(db([...used, {image: inspection}]), {title:'Vehicle inspection and condition'});
+assert.notEqual(next, inspection, 'a used image must not be picked over an unused one');
+assert.equal(new Set(NEWS.map(a => coverScene(a.img))).size, NEWS.length, 'static guides have distinct covers');
+const seedCover = NEWS[0].img;
+const picked = await pickUnusedCover(db([]), {title:'Export documents'});
+assert.notEqual(picked, seedCover, 'fallback guides reserve their images');
+assert.equal(coverScene('/assets/japanese-car-auction-inspection-shipping-1.' + 'jpg'), coverScene('/assets/og/shipping.jpg'));
+console.log('Article cover selection and fallback uniqueness: passed');

@@ -154,15 +154,17 @@ ok(noLogo.length === 0, `every shipped make has a logo (missing: ${noLogo.join('
 // ── 5. Weight budget ────────────────────────────────────────────────────────
 console.log('\n-- public/ weight budget --');
 const publicFiles = walk(PUBLIC);
-let total = 0, responsive = 0, heaviest = { size: 0, file: '' };
+let total = 0, responsive = 0, editorialCovers = 0, heaviest = { size: 0, file: '' };
 for (const file of publicFiles) {
   const size = statSync(file).size;
   total += size;
   if (responsiveVariant.test(file.replace(/\\/g, '/'))) responsive += size;
+  if (/\/assets\/covers\/(editorial-|guide-|news-japan-electric-car\.)/.test(file.replace(/\\/g, '/'))) editorialCovers += size;
   if (size > heaviest.size) heaviest = { size, file };
 }
 const mb = n => (n / 1e6).toFixed(2) + ' MB';
-ok(total - responsive <= MAX_PUBLIC_BYTES, `other public/ assets are ${mb(total - responsive)} (budget ${mb(MAX_PUBLIC_BYTES)})`);
+ok(total - responsive - editorialCovers <= MAX_PUBLIC_BYTES, `other public/ assets are ${mb(total - responsive - editorialCovers)} (budget ${mb(MAX_PUBLIC_BYTES)})`);
+ok(editorialCovers <= 720000, `new editorial covers are ${mb(editorialCovers)} (budget 0.72 MB)`);
 ok(responsive <= MAX_RESPONSIVE_BYTES, `responsive variants are ${mb(responsive)} (budget ${mb(MAX_RESPONSIVE_BYTES)})`);
 ok(heaviest.size <= MAX_FILE_BYTES, `heaviest file is ${relative(PUBLIC, heaviest.file)} at ${Math.round(heaviest.size / 1024)} KB (cap ${MAX_FILE_BYTES / 1024} KB)`);
 

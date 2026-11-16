@@ -32,14 +32,14 @@ export function articleSlug(input) {
 const RAW_NEWS = [
   {
     cat: 'BUYING GUIDE', date: 'Oct 09, 2026', min: 3,
-    img: '/assets/japanese-car-auction-inspection-shipping-1.webp',
+    img: '/assets/covers/guide-export-documents.webp',
     title: 'Checking your Japanese vehicle export documents',
     ex: 'Check the chassis reference, consignee and destination before your car leaves Japan.',
     body: 'Start with the exact vehicle reference. Compare the chassis number on the commercial invoice, Japanese Export Certificate and available vehicle photographs. Ask for any discrepancy to be resolved in writing before payment or shipment. A model name alone is not enough to identify a particular car.\n\nConfirm the consignee name, contact details, discharge port and document delivery address with your clearing agent. The Bill of Lading records the shipment; ask whether originals or an agreed release procedure will be used. Do not assume a scan alone will release your vehicle.\n\nRequirements differ by destination. Your broker should confirm translation, pre-shipment inspection and import-approval requirements before purchase. The destination guides on this site describe the planning document pack, but they are not a substitute for current instructions from the relevant authority.\n\nKeep the quotation, payment receipts, inspection material and shipping correspondence together. Ask the export desk when each document will be available and who is responsible for each outstanding step. Destination duties, taxes, storage and registration are separate from Japan export preparation; confirm those costs with your broker.'
   },
   {
     cat: 'LOGISTICS', date: 'Oct 09, 2026', min: 3,
-    img: '/assets/japanese-car-auction-inspection-shipping-2.webp',
+    img: '/assets/covers/guide-fob-cif.webp',
     title: 'Comparing FOB and CIF vehicle quotations',
     ex: 'Compare the same car, port and included costs instead of choosing the lowest headline number.',
     body: 'A useful comparison starts with the same vehicle: chassis reference, year, mileage, condition and included accessories. Two similar model names can hide very different condition or specification. Ask which inspection material supports the quoted car.\n\nAn FOB quotation covers the vehicle and agreed export preparation up to loading in Japan. A CIF quotation adds the agreed sea freight and marine insurance to the named destination port. Ask for the actual inclusions in writing rather than treating a website calculator as a binding offer.\n\nCompare the loading and discharge ports, shipping method, currency, quotation validity and payment terms. Ask whether inland transport and documentation charges are included. For insurance, confirm the cover, exclusions, excess and claims procedure; an insurance line on an invoice does not explain all of these.\n\nNeither headline figure is a complete promise of your final local cost. Your clearing agent must confirm destination handling, customs duties, local taxes, compliance work and registration. Allow for schedule changes and ask how any revised freight charge would be approved before booking. Keep the agreed quotation with your vehicle documents so every later charge can be checked against it.'
@@ -53,7 +53,7 @@ const RAW_NEWS = [
   },
   {
     cat: 'BUYING GUIDE', date: 'Aug 11, 2026', min: 5,
-    img: '/assets/japanese-car-auction-inspection-shipping-1.webp',
+    img: '/assets/covers/guide-auction-sheet.webp',
     title: 'Auction sheet decoded: what R, A and 4.5 really mean',
     ex: 'Every mark on a Japanese auction sheet explained simply — so you bid with confidence.',
     body: 'A Japanese auction sheet is a condition report written in a shorthand of its own. Grades run from S (near-new) down through 4.5, 4.0, 3.5. Subjective marks like A (minor wear), B (scratches) and the dreaded R (repair history) appear next to each panel.\n\nFor auction-sourced lots, AR7 translates the inspector sheet into plain English and flags anything our inspection team wants verified by photo before you bid. Dealer-stock vehicles are reviewed from the dealer inspection notes and yard photographs.\n\nRule of thumb: for export, aim for grade 4.0+, no R marks on structure, and always ask for underbody photos on diesel 4WD models.'
@@ -67,7 +67,7 @@ const RAW_NEWS = [
   },
   {
     cat: 'AUCTION', date: 'Jul 28, 2026', min: 4,
-    img: '/assets/japanese-car-auction-inspection-shipping-2.webp',
+    img: '/assets/covers/guide-online-auction.webp',
     title: 'How online bidding works with AR7',
     ex: 'Deposits, bid limits, translations and the exact flow from your screen to the auction floor.',
     body: '1) Place a refundable bidding deposit (for example, $500 as a typical starting estimate). 2) Browse lots with our team, pick your target and set a hard maximum. 3) We bid live at the auction house on your behalf — you watch status in the portal. 4) Win or lose, you see the result after the lot closes.\n\nAfter a win, we issue an itemized proforma invoice, arrange payment, inspect and photograph the vehicle at the Japan export yard, then book your vessel.\n\nAuction hammer prices are in Japanese yen excluding freight; our calculator estimates your CIF cost to your port before you confirm.'

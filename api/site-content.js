@@ -1299,7 +1299,7 @@ export default async function handler(req, res, injected = {}) {
     // catalogue is not already wearing" — same scene-unique pool the agents
     // use. A deliberately chosen image is never overridden.
     if (entity === 'articles' && !String(payload.image || '').trim()) {
-      payload.image = await pickUnusedCover(db);
+      payload.image = await pickUnusedCover(db, payload);
     }
     const {data, error} = await db.from(table).insert(payload).select().single();
     if (error) return send(res, 500, {error: error.message});
@@ -1326,7 +1326,7 @@ export default async function handler(req, res, injected = {}) {
     // Same rule as the create above: blanking an article's cover in the editor
     // means "give it a fresh unique one", never "fall back to the shared default".
     if (entity === 'articles' && 'image' in payload && !String(payload.image || '').trim()) {
-      payload.image = await pickUnusedCover(db);
+      payload.image = await pickUnusedCover(db, payload);
     }
     const {data, error} = await db.from(table).update(payload).eq('id', req.body.id).select().single();
     if (error) return send(res, 500, {error: error.message});
