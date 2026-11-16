@@ -3,11 +3,26 @@ import {requirePerm,log} from './_perm.js';
 
 const SITE_URL=process.env.SITE_URL||process.env.VITE_SITE_URL||'';
 
-export default async function handler(req,res){
+// Never issue a customer login or change a password based on editable customer
+// email alone: it could name a staff account. Resolve the linked Auth ID and
+// fail closed if it belongs to staff, or the stored email no longer matches.
+export async function customerLogin(db,admin,cust){
+ if(!cust?.auth_user_id)throw Object.assign(new Error('This customer has no linked website login'),{status:400});
+ const {data:staff,error:staffError}=await db.from('profiles').select('id').eq('id',cust.auth_user_id).maybeSingle();
+ if(staffError)throw Object.assign(new Error('Could not verify the customer account'),{status:503});
+ if(staff)throw Object.assign(new Error('Staff accounts cannot be managed as customer accounts'),{status:403});
+ const {data,error}=await admin.auth.admin.getUserById(cust.auth_user_id);
+ const authUser=data?.user;
+ if(error||!authUser?.email||!authUser.email_confirmed_at||String(authUser.email).toLowerCase()!==String(cust.email||'').trim().toLowerCase())
+  throw Object.assign(new Error('Customer login email does not match a confirmed linked account'),{status:400});
+ return authUser;
+}
+
+export default async function handler(req,res,injected={}){
  try{
-  const {user,profile,db}=await requireUser(req);
+  const {user,profile,db}=injected.getUser?await injected.getUser(req):await requireUser(req);
   const action=String(req.query.action||'');
-  const admin=adminClient();
+  const admin=injected.admin||adminClient();
 
   // ---- Full customer dashboard: orders, payments, ledger -------------
   if(action==='dashboard'&&req.method==='GET'){
@@ -169,8 +184,8 @@ export default async function handler(req,res){
    if(!customer_id||!password||String(password).length<8)
      return send(res,400,{error:'A password of at least 8 characters is required'});
    const {data:cust}=await db.from('customers').select('*').eq('id',customer_id).single();
-   if(!cust?.auth_user_id)return send(res,400,{error:'This customer has no website login yet'});
-   const {error}=await admin.auth.admin.updateUserById(cust.auth_user_id,{password});
+   const customerUser=await customerLogin(db,admin,cust);
+   const {error}=await admin.auth.admin.updateUserById(customerUser.id,{password});
    if(error)return send(res,400,{error:error.message});
    await log(db,profile,`Set a new website password for ${cust.name}`,'customers',customer_id);
    return send(res,200,{ok:true});
@@ -181,8 +196,8 @@ export default async function handler(req,res){
    await requirePerm(profile,'customers.write');
    const {customer_id}=req.body||{};
    const {data:cust}=await db.from('customers').select('*').eq('id',customer_id).single();
-   if(!cust?.email)return send(res,400,{error:'This customer has no email address'});
-   const {error}=await admin.auth.resetPasswordForEmail(cust.email,
+   const customerUser=await customerLogin(db,admin,cust);
+   const {error}=await admin.auth.resetPasswordForEmail(customerUser.email,
      SITE_URL?{redirectTo:SITE_URL.replace(/\/$/,'')+'/#account'}:undefined);
    if(error)return send(res,400,{error:error.message});
    await log(db,profile,`Sent a password reset email to ${cust.name}`,'customers',customer_id);
@@ -194,8 +209,8 @@ export default async function handler(req,res){
    await requirePerm(profile,'customer.login_as');
    const {customer_id}=req.body||{};
    const {data:cust}=await db.from('customers').select('*').eq('id',customer_id).single();
-   if(!cust?.email)return send(res,400,{error:'This customer has no website login'});
-   const {data,error}=await admin.auth.admin.generateLink({type:'magiclink',email:cust.email});
+   const customerUser=await customerLogin(db,admin,cust);
+   const {data,error}=await admin.auth.admin.generateLink({type:'magiclink',email:customerUser.email});
    if(error)return send(res,400,{error:error.message});
    await log(db,profile,`Opened ${cust.name}'s website account`,'customers',customer_id);
    return send(res,200,{url:data?.properties?.action_link||null});

@@ -33,6 +33,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { missingCanonical } from './guardian-canonical.mjs';
 import { execFileSync } from 'node:child_process';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -259,7 +260,7 @@ function seo() {
   let multiH1 = [];
   for (const f of distHtml) {
     const html = read(f);
-    if (!/<link[^>]+rel=["']canonical["']/i.test(html)) noCanonical.push(f);
+    if (missingCanonical(f, html, read('src/seo.js'))) noCanonical.push(f);
     const h1s = (html.match(/<h1[\s>]/gi) || []).length;
     if (h1s !== 1) multiH1.push(`${f} (${h1s})`);
   }
@@ -267,7 +268,7 @@ function seo() {
     multiH1.length ? multiH1.slice(0, 4).join(', ') : `${distHtml.length} page(s) carry exactly one H1`,
     'The shared page shell renders the H1 — check the route does not add a second');
   add('seo', 'Canonical on every page', noCanonical.length ? 'fail' : 'pass',
-    noCanonical.length ? noCanonical.slice(0, 4).join(', ') : `${distHtml.length} page(s) canonical`,
+    noCanonical.length ? noCanonical.slice(0, 4).join(', ') : `${distHtml.length - 1} rendered pages checked; shared shell uses runtime SEO`,
     'Add the route to PAGE_SEO in src/seo.js');
 }
 

@@ -24,7 +24,8 @@ create index leads_status_idx on public.leads(status); create index leads_follow
 
 alter table public.profiles enable row level security; alter table public.leads enable row level security; alter table public.customers enable row level security; alter table public.vehicles enable row level security; alter table public.quotes enable row level security; alter table public.shipments enable row level security; alter table public.tasks enable row level security; alter table public.activities enable row level security;
 create policy "staff read own profile" on public.profiles for select to authenticated using(id=auth.uid());
-create policy "staff update own profile" on public.profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid());
+-- Profile writes go through /api/team; direct updates can otherwise change role and active.
+revoke update on table public.profiles from anon, authenticated;
 -- Business tables are accessed through authenticated Vercel functions using the service role.
 -- No direct browser policies are created, preventing anon/authenticated users from querying CRM data directly.
 

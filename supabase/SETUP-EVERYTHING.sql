@@ -37,7 +37,8 @@ alter table public.profiles enable row level security; alter table public.leads 
 drop policy if exists "staff read own profile" on public.profiles;
 create policy "staff read own profile" on public.profiles for select to authenticated using(id=auth.uid());
 drop policy if exists "staff update own profile" on public.profiles;
-create policy "staff update own profile" on public.profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid());
+-- Profile writes go through /api/team; direct updates can otherwise change role and active.
+revoke update on table public.profiles from anon, authenticated;
 -- Business tables are accessed through authenticated Vercel functions using the service role.
 -- No direct browser policies are created, preventing anon/authenticated users from querying CRM data directly.
 

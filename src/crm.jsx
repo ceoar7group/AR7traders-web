@@ -1974,7 +1974,7 @@ export default function CrmApp() {
         ) : tab === 'activities' ? (
           <ActivityView rows={rows.activities || []} />
         ) : tab === 'team' ? (
-          <TeamView token={session.access_token} profile={profile} perms={perms} setPerms={setPerms} notify={setNotice} onEdit={m => setWho({ member: m })} />
+          <TeamView token={session.access_token} authUser={session.user} profile={profile} perms={perms} setPerms={setPerms} notify={setNotice} onEdit={m => setWho({ member: m })} />
         ) : tab === 'approvals' ? (
           <ApprovalsView token={session.access_token} profile={profile} perms={perms} notify={setNotice} onChange={loadAll} />
         ) : tab === 'people' ? (
@@ -2139,7 +2139,7 @@ export default function CrmApp() {
       </main>
 
       {who && (
-        <ProfileModal who={who} token={session.access_token} profile={profile} perms={perms} notify={setNotice} onClose={() => setWho(null)} onChanged={loadAll} />
+        <ProfileModal who={who} token={session.access_token} authUser={session.user} profile={profile} perms={perms} notify={setNotice} onClose={() => setWho(null)} onChanged={loadAll} />
       )}
 
       {editor && (
@@ -5196,10 +5196,10 @@ function hasPerm(perms, role, permission) {
 // ---------------------------------------------------------------------
 //  Team & Profile Modals
 // ---------------------------------------------------------------------
-function ProfileModal({ who, token, profile, perms, notify, onClose, onChanged }) {
+function ProfileModal({ who, token, authUser, profile, perms, notify, onClose, onChanged }) {
   const self = !!who.self;
   const m = who.member || {};
-  const manage = hasPerm(perms, profile?.role, 'team.manage');
+  const manage = profile?.role === 'admin' && (DEMO || (!!authUser?.email_confirmed_at && String(authUser?.email || '').toLowerCase() === 'ceoar7grouplimited@gmail.com'));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
@@ -5329,12 +5329,12 @@ function ProfileModal({ who, token, profile, perms, notify, onClose, onChanged }
   );
 }
 
-function TeamView({ token, profile, perms, setPerms, notify, onEdit }) {
+function TeamView({ token, authUser, profile, perms, setPerms, notify, onEdit }) {
   const [members, setMembers] = useState([]);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [pw, setPw] = useState(null);
-  const manage = hasPerm(perms, profile?.role, 'team.manage');
+  const manage = profile?.role === 'admin' && (DEMO || (!!authUser?.email_confirmed_at && String(authUser?.email || '').toLowerCase() === 'ceoar7grouplimited@gmail.com'));
 
   async function load() {
     try {
@@ -5411,7 +5411,7 @@ function TeamView({ token, profile, perms, setPerms, notify, onEdit }) {
       <div className="crm-empty">
         <ShieldAlert />
         <h3>Not available for your role</h3>
-        <p>Only administrators can manage the team.</p>
+        <p>Only the CEO can manage team access and permissions.</p>
       </div>
     );
   }
