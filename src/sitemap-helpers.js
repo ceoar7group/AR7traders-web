@@ -129,3 +129,31 @@ export function carLandingPath(make, model) {
   if (!m) return '/inventory';
   return '/cars/' + m + (model ? '/' + slugify(model) : '');
 }
+
+// Promote model families represented by several trim descriptions as well as
+// exact models, so popular landings such as Prius are discoverable.
+export function topVehicleModels(cars, limit = 16) {
+  const counts = new Map();
+  for (const c of cars || []) {
+    const name = String(c?.model || '').trim();
+    if (!name) continue;
+    const names = new Set([name, name.split(/\s+/)[0]]);
+    for (const n of names) {
+      const key = slugify(n);
+      if (!key) continue;
+      const entry = counts.get(key) || {name: n, count: 0};
+      entry.count++;
+      counts.set(key, entry);
+    }
+  }
+  return [...counts.values()].sort((a,b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, limit).map(x => x.name);
+}
+
+/** A numeric price or an explicitly USD-labelled price, never another currency. */
+export function publishedUsdPrice(value) {
+  if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? value : null;
+  const s = String(value ?? '').trim();
+  if (!/^(?:(?:US\$|USD\s*|\$)\s*)?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/i.test(s)) return null;
+  const n = Number(s.replace(/^(?:US\$|USD\s*|\$)\s*/i, '').replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}

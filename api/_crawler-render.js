@@ -11,7 +11,7 @@
 import { adminClient } from './_supabase.js';
 import { listMachines, builtinCatalogueMachines, resolveType } from './_machinery.js';
 import { listPriceUSD, machineYearText, machineHours } from '../src/machinery-data.js';
-import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath } from '../src/sitemap-helpers.js';
+import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath, topVehicleModels, publishedUsdPrice } from '../src/sitemap-helpers.js';
 import { mapDealerRows } from '../src/japan-stock-map.js';
 import {readAllDealerPages} from './_dealer-pages.js';
 import { NEWS, articleSlug } from '../src/news-data.js';
@@ -42,6 +42,7 @@ function sendHtml(res, status, html, cache = HEAD_CACHE) {
 function sendPlain(res, status, text) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
   res.end(text);
 }
 
@@ -368,7 +369,7 @@ export function buildCarsLandingHeadHtml(cars = [], opts = {}) {
   const canonicalPath = carLandingPath(makeName, modelName) || '/inventory';
   const url = BASE_URL + canonicalPath;
 
-  const prices = matches.map(c => Number(c.price)).filter(n => Number.isFinite(n) && n > 0);
+  const prices = matches.map(c => publishedUsdPrice(c.price)).filter(n => n != null);
   const years = matches.map(c => Number(c.year)).filter(n => Number.isFinite(n) && n > 1970);
   const minP = prices.length ? Math.min(...prices) : null;
   const maxP = prices.length ? Math.max(...prices) : null;
@@ -376,21 +377,21 @@ export function buildCarsLandingHeadHtml(cars = [], opts = {}) {
   const maxY = years.length ? Math.max(...years) : null;
 
   const title = matches.length
-    ? `${headingSubject} from Japan (${matches.length} available) — FOB prices & export | AR7 Traders`
+    ? (modelName ? `${headingSubject} for Sale from Japan | AR7 Traders` : `${headingSubject} from Japan (${matches.length} available) — FOB prices & export | AR7 Traders`)
     : `${headingSubject} export sourcing from Japan | AR7 Traders`;
   const pricePhrase = minP != null
-    ? (minP === maxP ? `FOB from US$${minP.toLocaleString('en-US')}` : `FOB US$${minP.toLocaleString('en-US')}–US$${maxP.toLocaleString('en-US')}`)
+    ? (minP === maxP ? `list price from US$${minP.toLocaleString('en-US')}` : `list prices US$${minP.toLocaleString('en-US')}–US$${maxP.toLocaleString('en-US')}`)
     : 'transparent FOB & CIF quotes';
   const yearPhrase = minY != null ? (minY === maxY ? `${minY}` : `${minY}–${maxY}`) : 'verified auction & dealer';
   const description = matches.length
-    ? `Browse ${matches.length} ${headingSubject} ${matches.length === 1 ? 'unit' : 'units'} (${yearPhrase}) ready for export from Japan — ${pricePhrase}. Inspection sheets and RoRo/container shipping arranged by AR7 Traders.`
+    ? `Browse ${matches.length} ${headingSubject} ${matches.length === 1 ? 'unit' : 'units'} (${yearPhrase}) ready for export from Japan — ${pricePhrase}. View available specifications and request a shipping quote from AR7 Traders.`
     : `Request Japanese auction and showroom sourcing for ${headingSubject}. Inspected, documented and shipped to your port by AR7 Traders.`;
 
   const leadPhoto = matches.map(firstPhoto).find(Boolean);
   const image = absUrl(leadPhoto, FALLBACK_CAR_IMAGE);
   const alt = `${headingSubject} vehicles available for export from Japan — AR7 Traders`;
 
-  const models = modelName ? [] : [...new Set(matches.map(c => c.model).filter(Boolean))].slice(0, 16);
+  const models = modelName ? [] : topVehicleModels(matches, 16);
   const itemListLd = matches.length ? {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
@@ -429,7 +430,7 @@ export function buildCarsLandingHeadHtml(cars = [], opts = {}) {
             c.km ? `${c.km} km` : null,
             c.fuel || null,
             c.tr || null,
-            Number(c.price) > 0 ? `FOB US$${Number(c.price).toLocaleString('en-US')}` : null
+            publishedUsdPrice(c.price) ? `List price US$${publishedUsdPrice(c.price).toLocaleString('en-US')}` : null
           ].filter(Boolean).join(' · ');
           return `<li><a href="${esc(carUrl)}">${esc(label)}</a>${meta ? ` — ${esc(meta)}` : ''}</li>`;
         }).join('') + '</ul>\n'
@@ -459,9 +460,10 @@ export async function carsLandingHead(req, res, injected = {}) {
   const cars = [];
   try {
     const db = injected.db || adminClient();
-    const { data: listings } = await db.from('site_listings')
+    const { data: listings, error: listingError } = await db.from('site_listings')
       .select('id,stock_no,make,model,year,km,fuel,tr,grade,price,image,images,status,published,sort_order')
       .eq('published', true).order('sort_order', { ascending: true }).limit(400);
+    if (listingError) throw new Error(listingError.message || 'site listings unavailable');
     if (Array.isArray(listings)) cars.push(...listings);
     try {
       const dealerRows = await readAllDealerPages(db);

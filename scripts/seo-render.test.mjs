@@ -128,7 +128,7 @@ ok(jsonld('list-jsonld') === null, 'ItemList is removed off the landing pages');
 // ---- model landing pages (/cars/toyota/land-cruiser) -----------------------
 applySeo('inventory', null, null, { make: 'Toyota', model: 'land cruiser', vehicleCount: 4 });
 const modelLanding = carsLandingSeo('Toyota', 'land cruiser', 4);
-ok(document.title === modelLanding.title && modelLanding.title.includes('Toyota Land Cruiser for Export'),
+ok(document.title === modelLanding.title && modelLanding.title.includes('Toyota Land Cruiser for Sale'),
   'model landing page titles name make and model');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/cars/toyota/land-cruiser',
   'model landing canonical uses the slugged path');

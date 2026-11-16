@@ -353,7 +353,7 @@ say('\n-- OG car card: a published listing renders its own card --');
   ok(/public/.test(res.headers['cache-control'] || ''), 'publicly cacheable for the crawlers');
   ok(res.body.includes('2019 Toyota Vezel &quot;Z&quot; — Japan export | AR7 Traders'),
     'og:title carries year, make and the HTML-escaped model');
-  ok(res.body.includes('42,000 km · Hybrid · AT · Grade 4.5 · FOB US$12,500.'),
+  ok(res.body.includes('42,000 km · Hybrid · AT · Grade 4.5 · List price US$12,500.'),
     'the description lists the spec line with the formatted FOB price');
   ok(res.body.includes('content="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
     'og:image is the absolute URL of the cover photo');
@@ -404,16 +404,23 @@ say('\n-- the card never breaks a share: unknown, sold, draft, DB-down --');
     ['an unknown ref', 'NOPE-404', memDb(HEAD_SEED)],
     ['a sold car', 'AR7-SOLD', memDb(HEAD_SEED)],
     ['an unpublished draft', 'AR7-DRAFT', memDb(HEAD_SEED)],
-    ['a broken database', 'AR7-0007', memDb(HEAD_SEED, { error: 'boom' })],
   ]) {
     const res = await runHead({ method: 'GET', query: { head: ref } }, db);
     ok(res.statusCode === 200 && res.body.includes(generic),
       `${label} degrades to the generic AR7 card, still HTTP 200`);
   }
+  const broken = await runHead({ method: 'GET', query: { head: 'AR7-0007', render:'full' } }, memDb(HEAD_SEED, {error:'boom'}));
+  ok(broken.statusCode === 503 && !broken.body.includes('noindex'), 'database outages do not create false noindex pages');
   const sold = await runHead({ method: 'GET', query: { head: 'AR7-SOLD' } }, memDb(HEAD_SEED));
   ok(!sold.body.includes('Nissan'), 'a sold car leaks nothing about itself');
 }
 
+{
+  const formatted = buildVehicleHeadHtml({make:'Toyota', model:'Prius', price:'$5,400'}, 'P1', {full:true});
+  ok(formatted.includes('List price: US$5,400') && !formatted.includes('\"offers\"'), 'formatted list price is visible without an unverified discounted offer');
+  const nonUsd = buildVehicleHeadHtml({make:'Toyota', model:'Prius', price:'¥540,000'}, 'P1', {full:true});
+  ok(!nonUsd.includes('US$540,000'), 'non-USD prices are not labelled as USD');
+}
 say('\n-- imported dealer cars share the same card endpoint --');
 {
   const res = await runHead({ method: 'GET', query: { head: '700912345' } },
@@ -532,6 +539,7 @@ say('\n-- live dealer schema and Prius discoverability --');
   const res=fakeRes();
   await carsLandingHead({method:'GET',query:{carsmake:'toyota',carsmodel:'prius',render:'full'}},res,{db});
   ok(res.body.includes('/inventory/P-1') && res.body.includes('/inventory/P-2') && !res.body.includes('/inventory/H-1'), 'crawler model page links Prius and its trim for the selected make only');
+  ok(res.body.includes('Toyota Prius for Sale from Japan'), 'Prius crawler title reflects buyer intent');
   ok(res.body.includes('rel="canonical" href="https://ar7traders.com/cars/toyota/prius"') && res.body.includes('index,follow'), 'Prius crawler page remains indexable at its own canonical');
   ok(queries.length===2 && queries.every(q=>q.columns==='*' && q.range?.[0]===0 && q.range?.[1]===499), 'sitemap and crawler read the same paginated public dealer window without nonexistent columns');
 }
