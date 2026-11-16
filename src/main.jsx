@@ -100,6 +100,7 @@ import { PromoBar } from './promo-bar.jsx';
 import { SiteHeader, logoOnError } from './site-header.jsx';
 import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, linkClick, findCar, carRef, writeLocation, inventoryHref, isReload, rememberVehicle } from './routing.js';
 import { carAlt } from './car-alt.js';
+import { slugify } from './sitemap-helpers.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
 import { fetchDealerStock } from './dealer-feed.js';
 import { MACHINES, MACHINE_TYPES, listPriceUSD, machineImages, machineByRef, machineHref, hydrateMachines, machineYearText, machineHours, machineLoc, machineBrandLockup } from './machinery-data.js';
@@ -1270,7 +1271,7 @@ export function App(){
   const machineDiscount = machineOnRoute ? stockDiscountFor(liveDiscounts, 'machine', machineOnRoute.ref) : null;
   const machineOfferPercent = machineDiscount?.percent || 0;
   useSeo(page, vehicleId, vehicleOnRoute,
-    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !vehicleOnRoute && isContentHydrated(), make: makeFilter, model: modelFilter, destination: destOnRoute, destSlug: page === 'destinations' ? destRoute : null, machineType: machineRoute.type, machineRef: machineRoute.ref, machine: machineOnRoute, machineOfferPercent, machineOfferUntil: machineDiscount?.until || null, vehicleOfferPercent: vehicleDiscount?.percent || 0, vehicleOfferUntil: vehicleDiscount?.until || null, vehicleCount: cars.length });
+    { vehicleMissing: page === 'inventory' && vehicleId != null && String(vehicleId) !== '' && !vehicleOnRoute && isContentHydrated(), make: makeFilter, model: modelFilter, destination: destOnRoute, destSlug: page === 'destinations' ? destRoute : null, machineType: machineRoute.type, machineRef: machineRoute.ref, machine: machineOnRoute, machineOfferPercent, machineOfferUntil: machineDiscount?.until || null, vehicleOfferPercent: vehicleDiscount?.percent || 0, vehicleOfferUntil: vehicleDiscount?.until || null, vehicleCount: makeFilter ? cars.filter(c => slugify(c.make) === slugify(makeFilter) && (!modelFilter || slugify(c.model) === slugify(modelFilter) || slugify(c.model).startsWith(slugify(modelFilter) + '-'))).length : cars.length });
   useEffect(()=>onContentChange(forceContent),[]);
   useEffect(()=>subscribePublishedNews(forceContent),[]);
   // /japan-stock is retired: the route already resolves to the inventory page

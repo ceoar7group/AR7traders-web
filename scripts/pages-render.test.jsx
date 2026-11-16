@@ -11,7 +11,7 @@ import { App, HOWBUY, DEST, NEWS } from '../src/main.jsx';
 import { CUSTOMER_REVIEWS } from '../src/reviews.jsx';
 import { CurrencyProvider } from '../src/currency.jsx';
 import { cars as CARS, stockLabel, youtubeId } from '../src/main.jsx';
-import { carRef } from '../src/routing.js';
+import { carRef, inventoryHref } from '../src/routing.js';
 import { FAQ_ITEMS, FAQ_TOPICS } from '../src/seo.js';
 import { articleSlug } from '../src/news-data.js';
 import { VehicleActions, vehicleName, vehicleWhatsAppMessage, vehicleWhatsAppHref } from '../src/vehicle-actions.jsx';
@@ -281,7 +281,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(relatedImages.length === relatedLinks.length,
     'each related vehicle image is lazy, async-decoded, dimensioned and described with carAlt');
   const relatedText = related.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-  ok(related.includes('href="/inventory?make=' + CARS[0].make + '"') && relatedText.includes('Browse all ' + CARS[0].make + ' stock'),
+  ok(related.includes('href="' + inventoryHref(CARS[0].make) + '"') && relatedText.includes('Browse all ' + CARS[0].make + ' stock'),
     'related stock links to all same-make inventory');
 }
 {

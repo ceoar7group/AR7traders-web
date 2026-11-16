@@ -10,6 +10,8 @@ const ok = (cond, msg) => {
   else console.log('ok  :', msg);
 };
 
+ok(hrefFromTarget('/cars/toyota/prius') === '/cars/toyota/prius', 'model links expose their indexable path');
+ok(hrefFromTarget('/cars/toyota') === '/cars/toyota', 'brand links expose their indexable path');
 ok(parseRoute({ pathname: '/', hash: '', search: '' }).page === 'home', 'bare path is home');
 ok(parseRoute({ pathname: '/inventory', hash: '', search: '' }).page === 'inventory', '/inventory is inventory');
 ok(parseRoute({ pathname: '/inventory/43', hash: '', search: '' }).carId === '43', '/inventory/43 keeps the car id');

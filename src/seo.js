@@ -160,8 +160,8 @@ export function carsLandingSeo(make, model, count) {
   if (model) {
     const label = String(model).replace(/\b\w/g, c => c.toUpperCase());
     return {
-      title: `${m} ${label} for Export from Japan | AR7 Traders`,
-      description: `Used ${m} ${label} cars from Japanese auctions with a translated auction sheet. ${stock} · export price in USD, shipping to your port.`,
+      title: `${m} ${label} for Sale from Japan | AR7 Traders`,
+      description: `Browse ${m} ${label} vehicles from Japanese auctions and dealers. ${stock} · view specifications, photos and export prices, with shipping quoted to your port.`,
       h1: `${m} ${label} for export`,
       canonicalPath: `/cars/${slugify(m)}/${slugify(model)}`,
       label: `${m} ${label}`

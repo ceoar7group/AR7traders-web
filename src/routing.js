@@ -253,6 +253,7 @@ export function hrefFromTarget(target) {
   // unreachable by link — the bug the client-mount test now pins.
   if (r.page === 'machinery' && r.machineType) return machineHrefFor(r.machineType, r.machineRef);
   if (r.page === 'destinations' && r.destSlug) return destinationPath(r.destSlug);
+  if (typeof target === 'string' && /^\/cars\/[^/?#]+(?:\/[^/?#]+)?\/?(?:[?#]|$)/i.test(target) && r.make && !r.carId) return carLandingHref(r.make, r.model);
   const href = hrefFor(r.page, r.carId);
   // Brand filters live in the query string, never in the hash (a `?` in the
   // hash is dropped by browsers on reload — see the note at the top).

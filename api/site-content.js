@@ -66,7 +66,7 @@ async function assertSettingsWrite(profile, injected = {}) {
 // The pin in scripts/sitemap-vehicles.test.mjs still guarantees the URLs match.
 // ---------------------------------------------------------------------------
 
-import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath } from '../src/sitemap-helpers.js';
+import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath, publishedUsdPrice } from '../src/sitemap-helpers.js';
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
 import { mapDealerRows } from '../src/japan-stock-map.js';
@@ -116,7 +116,7 @@ import {
   AI_GROWTH_MIGRATION_FILE, pickUnusedCover
 } from './_agents.js';
 import { socialStatus, connectPlatform, disconnectPlatform } from './_social.js';
-export { machinePath, machineTypePath };
+export { machinePath, machineTypePath, publishedUsdPrice };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
 // import shares this function and fetches a supplier page over the network,
@@ -415,12 +415,13 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
   const name = row ? [row.year, row.make, row.model].filter(Boolean).join(' ') : null;
   const title = name ? `${name} — Japan export | AR7 Traders`
     : 'AR7 Traders | Car Exporter from Japan & China';
+  const usdPrice = publishedUsdPrice(row?.price);
   const specs = !row ? [] : [
     row.km != null && String(row.km).trim() !== '' ? `${row.km} km` : null,
     row.fuel || null,
     row.tr || null,
     row.grade ? `Grade ${row.grade}` : null,
-    Number(row.price) > 0 ? `FOB US$${Number(row.price).toLocaleString('en-US')}` : null,
+    usdPrice ? `List price US$${usdPrice.toLocaleString('en-US')}` : null,
   ].filter(Boolean);
   const description = row
     ? `${specs.join(' · ')}${specs.length ? '. ' : ''}Inspected, documented and shipped to your port by AR7 Traders.`
@@ -488,7 +489,7 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
         row.fuel ? `<li>Fuel: ${esc(String(row.fuel))}</li>` : '',
         row.tr ? `<li>Transmission: ${esc(String(row.tr))}</li>` : '',
         row.grade ? `<li>Auction grade: ${esc(String(row.grade))}</li>` : '',
-        Number(row.price) > 0 ? `<li>FOB price: US$${Number(row.price).toLocaleString('en-US')}</li>` : '',
+        usdPrice ? `<li>List price: US$${usdPrice.toLocaleString('en-US')}</li>` : '',
       ].filter(Boolean).join('') + '</ul>\n' : '') +
       `<p>${esc(description)} Request the export quotation for your port, inspection sheet and shipping schedule from the listing page.</p>\n` +
       `<p><a href="${esc(url)}">Open the full listing</a>${row?.make ? ` · <a href="${esc(SITEMAP_BASE + carLandingPath(row.make))}">All ${esc(String(row.make))} stock</a>` : ''}${row?.make && row?.model ? ` · <a href="${esc(SITEMAP_BASE + carLandingPath(row.make, row.model))}">${esc(String(row.make))} ${esc(String(row.model))}</a>` : ''} · <a href="${esc(SITEMAP_BASE + '/inventory')}">Browse all stock</a> · <a href="${esc(SITEMAP_BASE + '/')}">AR7 Traders home</a></p>\n`
@@ -519,28 +520,34 @@ export async function vehicleHead(req, res, injected = {}) {
   try {
     const db = injected.db || adminClient();
     let row = null;
-    const { data } = await db.from('site_listings')
+    const { data, error } = await db.from('site_listings')
       .select(HEAD_LISTING_COLUMNS).eq('stock_no', ref).limit(1);
+    if (error) throw new Error(error.message || 'site listings unavailable');
     row = (data || [])[0] || null;
     if (!row && /^\d+$/.test(ref)) {
       // carRef falls back to the row id when there is no stock number.
-      const { data: byId } = await db.from('site_listings')
+      const { data: byId, error: byIdError } = await db.from('site_listings')
         .select(HEAD_LISTING_COLUMNS).eq('id', Number(ref)).limit(1);
+      if (byIdError && byIdError.code !== '22P02') throw new Error(byIdError.message || 'site listings unavailable');
       row = (byId || [])[0] || null;
     }
     if (!row) {
       // Imported dealer cars open the same /inventory/<ref> page.
       try {
-        const { data: dealer } = await db.from('japan_dealer_stock')
+        const { data: dealer, error: dealerError } = await db.from('japan_dealer_stock')
           .select('*').eq('stock_no', ref).limit(1);
+        if (dealerError) throw dealerError;
         let dealerRow = (dealer || [])[0] || null;
         if (!dealerRow) {
-          const { data: byGoonet } = await db.from('japan_dealer_stock')
+          const { data: byGoonet, error: goonetError } = await db.from('japan_dealer_stock')
             .select('*').eq('goonet_id', ref).limit(1);
+          if (goonetError) throw goonetError;
           dealerRow = (byGoonet || [])[0] || null;
         }
         if (dealerRow) row = mapDealerRows([dealerRow], { includeParked: true })[0] || null;
-      } catch { /* older database without the dealer table */ }
+      } catch (e) {
+        if (!/relation .*japan_dealer_stock.* does not exist/i.test(e?.message || '')) throw e;
+      }
     }
     if (row && (row.published === false ||
       (row.status != null && SITEMAP_UNAVAILABLE.test(String(row.status))))) {
@@ -549,7 +556,7 @@ export async function vehicleHead(req, res, injected = {}) {
     return sendCard(row);
   } catch (e) {
     console.error('vehicle-head:', e);
-    return sendCard(null);
+    return sendPlain(res, 503, 'Vehicle stock temporarily unavailable');
   }
 }
 
