@@ -1319,7 +1319,7 @@ export function App(){
   const el=homeInventoryRef.current;
   if(page!=='home'||!el||typeof window==='undefined')return;
   if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  return observeVisibleCarousel(el,()=>{if(!document.hidden&&!homeHover.current)setHomeOff(v=>v+3)});
+  return observeVisibleCarousel(el,()=>{if(!document.hidden&&!homeHover.current&&!homeInventoryRef.current?.matches(':focus-within'))setHomeOff(v=>v+3)});
  },[page]);
  const homePages=Math.max(1,Math.ceil(homeLen/HOME_N));
  const homePage=homeLen?Math.floor((homeOff%homeLen)/HOME_N)%homePages:0;
@@ -1394,10 +1394,21 @@ export function App(){
    <section className="inventory shell section" id="inventory" ref={homeInventoryRef} onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
     <div className="section-head"><div><div className="kicker">{t('home.stockKicker')}</div><h2>{t('home.stockH2a')}<br/><em>{t('home.stockH2b')}</em></h2></div><p>{t('home.stockBody')}</p></div>
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f==='All'?t('home.filterAll'):statusLabel(t,f)}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> {t('home.searchVehicles')} <SlidersHorizontal/></PageLink></div>
-    <div className="car-grid">{shown.map((c,i)=><a className="car-card" key={c.id} style={{'--delay':i*80+'ms'}} href={hrefFor('inventory',carRef(c))} onClick={linkClick(`inventory?car=${carRef(c)}`,navigate)}>
-      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><span role="button" tabIndex={0} aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={e=>{e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}}}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></span>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
-      <div className="car-info"><div className="car-head"><img loading="lazy" decoding="async" width="64" height="40" src={LOGO(c.make)} alt="" onError={logoOnError}/><div className="car-head-txt"><span className="make">{c.make}</span><h3>{c.model}</h3></div></div><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div></div><div className="loc"><MapPin/> {c.location}, Japan</div></div>
-    </a>)}</div>
+    <div className="car-grid">{shown.map((c,i)=>{
+      const ref=carRef(c), href=hrefFor('inventory',ref);
+      const label=[c.year,c.make,c.model].filter(Boolean).join(' ');
+      const waMsg=`Hello AR7, I'm interested in the ${label} (ref ${ref}) on your website. Is it still available?`;
+      return <article className="car-card home-car-card" key={c.id} style={{'--delay':i*80+'ms'}}>
+      <a className="home-car-cover-link" href={href} aria-label={`View details for ${label} — ${ref}`} onClick={linkClick(`inventory?car=${ref}`,navigate)}/>
+      <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><button type="button" aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={()=>setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></button>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
+      <div className="car-info"><div className="car-head"><img loading="lazy" decoding="async" width="64" height="40" src={LOGO(c.make)} alt="" onError={logoOnError}/><div className="car-head-txt"><span className="make">{c.make}</span><h3>{c.model}</h3></div></div><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div></div>
+      <div className="card-actions">
+        <a className="card-wa" href={waLink(settings.whatsapp_number,waMsg)} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp us about the ${label}`}><WhatsAppIcon size={14}/> WhatsApp</a>
+        <button type="button" className="card-offer" aria-label={`Make offer on the ${label}`} onClick={()=>openEnquiry({kind:'vehicle-offer',vehicle_interest:`${label} (${ref})`,stock_ref:ref})}><BadgePercent/> Make offer</button>
+        <PageLink className="cmp-chip home-car-details" to={href} navigate={navigate} aria-label={`${t('home.mchDetails')} for ${label} — ${ref}`}>{t('home.mchDetails')} <ArrowRight/></PageLink>
+      </div>
+      <div className="loc"><MapPin/> {c.location}, Japan</div></div>
+    </article>})}</div>
     {/* 2026-11-17 (Lighthouse touch targets): the pager used to render one
         6px-tall pill PER PAGE — with a full catalogue that was ~38 slivers no
         finger can hit. It is now a prev/next pager with 44px targets and a

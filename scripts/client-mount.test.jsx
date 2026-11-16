@@ -157,6 +157,38 @@ ok(document.querySelector('.site'), 'the site shell renders');
   if (previous) await act(async () => { previous.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
 }
 
+// Homepage car actions remain independent of the full-card detail link.
+{
+  const card = document.querySelector('#inventory .home-car-card');
+  const cover = card?.querySelector('.home-car-cover-link');
+  const detail = card?.querySelector('.home-car-details');
+  const wa = card?.querySelector('.card-wa');
+  const offer = card?.querySelector('.card-offer');
+  const fav = card?.querySelector('.fav');
+  const href = cover?.getAttribute('href');
+  const ref = href?.split('/').pop();
+  ok(!!card && !!href && detail?.getAttribute('href') === href, 'home vehicle card and Details link target the same real vehicle');
+  ok(wa?.tagName === 'A' && wa.target === '_blank' && wa.rel.includes('noopener') && decodeURIComponent(wa.href).includes(ref), 'WhatsApp is a safe link prefilled with the selected stock reference');
+  ok(!!offer && !!fav && !card.querySelector('a button, a a'), 'offer and favourite controls are not nested inside links');
+  if (fav) {
+    const before = fav.getAttribute('aria-pressed');
+    await act(async () => { fav.click(); });
+    ok(fav.getAttribute('aria-pressed') !== before && location.pathname === '/', 'favourite toggles without navigating');
+    await act(async () => { fav.click(); });
+  }
+  if (offer) {
+    await act(async () => { offer.click(); await new Promise(r => setTimeout(r, 250)); });
+    ok(location.pathname === '/' && !!document.querySelector('.enquiry-modal'), 'Make offer opens a dialog without navigating');
+    ok(document.querySelector('.enquiry-modal input[name="stock_ref"]')?.value === ref && document.querySelector('.enquiry-modal input[name="vehicle_interest"]')?.value.includes(ref), 'offer form carries the exact vehicle reference');
+    await act(async () => { document.querySelector('.enquiry-modal .modal-x')?.click(); });
+  }
+  if (detail) {
+    await act(async () => { detail.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true, cancelable:true})); });
+    ok(location.pathname === href, 'Details opens the selected vehicle');
+    await goto('/');
+  }
+}
+
 // ---- navigate every route, back and forth ----------------------------------
 // path -> text that must be on screen once we get there. Without this, a
 // navigation that silently fails would pass the "keeps the app alive" check.

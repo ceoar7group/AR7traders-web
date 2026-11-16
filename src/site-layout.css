@@ -2588,3 +2588,12 @@ footer [id] {
   .hero-copy .founder-stat--hero .founder-stat-copy{max-width:205px}
   .hero-copy .founder-stat--hero .founder-stat-rule{min-height:38px}
 }
+
+/* Home vehicle cards have the same independent buyer actions as machinery.
+   The full-card link stays below the controls, so card clicks still open the
+   listing while buttons and links remain separate, valid interactive elements. */
+.home-car-card { position: relative; }
+.home-car-cover-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.home-car-cover-link:focus-visible { outline: 3px solid var(--brand-gold); outline-offset: -3px; }
+.home-car-card .fav { position: absolute; z-index: 2; }
+.home-car-card .card-actions { position: relative; z-index: 2; }
