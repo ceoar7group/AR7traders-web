@@ -90,7 +90,7 @@
     "test:workflows": "node scripts/workflow-contracts.test.mjs",
     "test:workflow-exec": "node scripts/workflow-execution.test.mjs",
     "test:lead-assist": "node scripts/lead-assist.test.mjs",
-    "test:activity": "node scripts/activity-log.test.mjs",
+    "test:activity": "node scripts/activity-log.test.mjs && node scripts/article-covers.test.mjs",
     "test:growth-fixes": "node scripts/growth-fixes.test.mjs",
     "test:wa": "node scripts/wa-desk.test.mjs",
     "test:social": "node scripts/social-desk.test.mjs",

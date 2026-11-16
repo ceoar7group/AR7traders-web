@@ -93,3 +93,20 @@ Free-tier privacy note: Google may use free-tier content to improve their
 products. Do not put customer contact details, supplier pricing or documents
 into an agent's notes — the prompts are built from your own records only, and
 the code strips instruction-like text from anything a customer wrote.
+
+## Article cover images
+
+AI Growth does not generate a fresh image for every article. To respect the
+free-only choice, it selects from the site's finite library, favouring unused
+scenes first and relevant topics where possible. The library includes original
+AI-generated editorial illustrations; these are conceptual, not evidence of a
+particular shipment, inspection, quotation or news event. No image-generation
+provider is called and this feature does not enable billing. A deliberately
+chosen editor image is retained. The two built-in-only guides are also counted
+when assigning covers. Existing covers are not automatically overwritten.
+
+The selector reads up to 500 article records. It falls back to the least-used
+scene after the pool is exhausted, so uniqueness and relevance are not
+guaranteed; concurrent writes or unavailable catalogue data can also produce
+repeats. Add reviewed, distinct images to the library as it runs low. This is
+selection, not model training or ongoing image generation.

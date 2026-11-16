@@ -38,6 +38,7 @@
 import { GoogleGeminiError, geminiGenerate, geminiConfigured, geminiModelFor, parseJsonLoose } from './_gemini.js';
 import { resolveSocialEnv } from './_social.js';
 import { playbookDigest } from '../src/social-playbooks.js';
+import { NEWS } from '../src/news-data.js';
 // Undo-capable history: every config change and every executed draft is
 // snapshotted to automation_log so an administrator can review and undo it
 // from CRM → AI Growth → History (api/_activity.js).
@@ -1024,7 +1025,17 @@ export const AGENT_COVER_POOL = [
   '/assets/covers/family-wagon-lineup.webp',
   '/assets/covers/engine-bay-inspection.webp',
   '/assets/covers/showroom-key-handover.webp',
-  '/assets/covers/ev-charging-row.webp'
+  '/assets/covers/ev-charging-row.webp',
+  '/assets/covers/guide-export-documents.webp',
+  '/assets/covers/guide-fob-cif.webp',
+  '/assets/covers/guide-auction-sheet.webp',
+  '/assets/covers/guide-online-auction.webp',
+  '/assets/covers/news-japan-electric-car.webp',
+  '/assets/covers/editorial-port-inspection.webp',
+  '/assets/covers/editorial-container-securing.webp',
+  '/assets/covers/editorial-vehicle-keys.webp',
+  '/assets/covers/editorial-car-inspection.webp',
+  '/assets/covers/editorial-shipping-map.webp'
 ];
 const COVER_OG_ALIASES = {
   shipping: 'japanese-car-auction-inspection-shipping-1',
@@ -1037,25 +1048,46 @@ export const coverScene = image => {
   const stem = (path.split('/').pop() || '').replace(/\.(jpe?g|webp|png)$/i, '');
   return path.startsWith('/assets/og/') && COVER_OG_ALIASES[stem] ? COVER_OG_ALIASES[stem] : stem;
 };
-export async function pickUnusedCover(db) {
-  // One catalogue read feeds both passes below.
+// Match the subject only after avoiding used scenes: no AI or paid provider is
+// invoked. A finite library cannot guarantee a novel image once exhausted.
+const COVER_TOPICS = {
+  'editorial-port-inspection': /export|port/i,
+  'editorial-container-securing': /container|secur|shipping|freight/i,
+  'editorial-vehicle-keys': /buy|buyer|purchase|document|quotation/i,
+  'editorial-car-inspection': /inspect|condition|auction|grade/i,
+  'editorial-shipping-map': /shipping|freight|roro|port|destination/i,
+  'guide-export-documents': /document|certificate|invoice/i,
+  'guide-fob-cif': /fob|cif|quotation|cost/i,
+  'guide-auction-sheet': /auction sheet|grade|inspection/i,
+  'guide-online-auction': /auction|bidding/i,
+  'news-japan-electric-car': /electric|\bev\b|bev/i,
+  'ev-charging-row': /electric|\bev\b|bev/i,
+  'customs-stamp-documents': /customs|document|import/i,
+  'engine-bay-inspection': /engine|inspection|condition/i,
+  'kei-truck-yard': /kei|truck/i,
+  'family-wagon-lineup': /family|wagon/i,
+  'roro-ramp-loading': /roro|shipping/i,
+  'container-lashing-car': /container|shipping/i,
+  'export-documents-desk': /document|certificate|invoice/i,
+};
+export async function pickUnusedCover(db, article = {}) {
   const counts = new Map();
+  const add = image => { const scene = coverScene(image); if (scene) counts.set(scene, (counts.get(scene) || 0) + 1); };
+  // Built-in guides remain visible even when no database row exists for them.
+  for (const guide of NEWS) add(guide.img);
   try {
-    const { data } = await db.from('site_articles').select('image').limit(500);
-    for (const r of data || []) {
-      const scene = coverScene(r?.image);
-      if (scene) counts.set(scene, (counts.get(scene) || 0) + 1);
-    }
-  } catch { /* an unreadable catalogue still gets a cover — worst case a reused one */ }
-  for (const img of AGENT_COVER_POOL) if (!counts.has(coverScene(img))) return img;
-  // Every pooled scene is taken: reuse the LEAST-WORN one rather than write
-  // image=null (a null is what caused the duplicate-default problem) and
-  // rather than always AGENT_COVER_POOL[0] (which is how six checklists once
-  // shipped wearing the same port aerial — repeats must spread, not stack).
-  let best = AGENT_COVER_POOL[0], bestCount = Infinity;
+    const { data, error } = await db.from('site_articles').select('image').limit(500);
+    if (error) throw error;
+    for (const row of data || []) add(row?.image);
+  } catch { /* Keep the historic fallback when the catalogue is unavailable. */ }
+  const subject = [article.title, article.excerpt, article.category].filter(Boolean).join(' ').slice(0, 2000);
+  let best = AGENT_COVER_POOL[0], bestCount = Infinity, bestMatch = -1;
   for (const img of AGENT_COVER_POOL) {
-    const n = counts.get(coverScene(img)) || 0;
-    if (n < bestCount) { best = img; bestCount = n; }
+    const scene = coverScene(img), count = counts.get(scene) || 0;
+    const match = COVER_TOPICS[scene]?.test(subject) ? 1 : 0;
+    if (count < bestCount || (count === bestCount && match > bestMatch)) {
+      best = img; bestCount = count; bestMatch = match;
+    }
   }
   return best;
 }
@@ -1113,7 +1145,7 @@ export async function executeDraft(db, draftId, actor, { env = process.env, now 
       // 2026-11-10: a row written without a cover kept collecting the same
       // editor default downstream — duplicate covers across half the catalogue.
       // A NEW article (or one still coverless) gets a scene-unique cover here.
-      if (!existing?.image) row.image = await pickUnusedCover(db);
+      if (!existing?.image) row.image = await pickUnusedCover(db, row);
       if (existing?.id && existing.published === true) {
         // A live article already owns this slug. Overwriting it would quietly
         // unpublish published work, so execution stops and the draft goes back
