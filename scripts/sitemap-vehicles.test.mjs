@@ -562,5 +562,20 @@ say('\n-- multi-page dealer stock --');
   ok(crawler.statusCode===503, 'later-page failure does not serve a partial or noindex crawler landing');
 }
 
+say('\n-- crawler detail data failures --');
+{
+  const { machineryHead, newsHead } = await import('../api/_crawler-render.js');
+  const broken = { from() { throw new Error('database offline'); } };
+  const old = console.error; console.error = () => {};
+  try {
+    for (const [handler, query] of [[machineryHead, {machhead:'AR7-MC-006',machtype:'excavators',render:'full'}],
+                                    [newsHead, {newshead:'how-online-bidding-works-with-ar7',render:'full'}]]) {
+      const res = fakeRes();
+      await handler({method:'GET',query}, res, {db:broken});
+      ok(res.statusCode === 503 && res.headers['cache-control'] === 'no-store', 'detail crawler returns uncached 503 when data is unavailable');
+    }
+  } finally { console.error = old; }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -233,13 +233,11 @@ export async function machineryHead(req, res, injected = {}) {
   try {
     const db = injected.db || adminClient();
     const rows = await listMachines(db, { publishedOnly: true });
-    machine = rows.find(m => String(m.ref || '').toUpperCase() === ref.toUpperCase()) || null;
+    const catalogue = rows.length ? rows : builtinCatalogueMachines();
+    machine = catalogue.find(m => String(m.ref || '').toUpperCase() === ref.toUpperCase()) || null;
   } catch (e) {
     console.error('machinery-head:', e?.message || e);
-  }
-  if (!machine) {
-    const fallback = builtinCatalogueMachines();
-    machine = fallback.find(m => String(m.ref || '').toUpperCase() === ref.toUpperCase()) || null;
+    return sendPlain(res, 503, 'Machinery catalogue temporarily unavailable');
   }
   if (machine && type) {
     const wantType = resolveType(type);
@@ -336,11 +334,11 @@ export async function newsHead(req, res, injected = {}) {
     const { data, error } = await db.from('site_articles')
       .select('id,title,category,date,read_min,image,excerpt,body,published')
       .eq('published', true).limit(500);
-    if (!error && Array.isArray(data)) {
-      article = data.find(r => articleSlug(r.title) === slug) || null;
-    }
+    if (error || !Array.isArray(data)) throw error || new Error('Invalid article response');
+    article = data.find(r => articleSlug(r.title) === slug) || null;
   } catch (e) {
     console.error('news-head:', e?.message || e);
+    return sendPlain(res, 503, 'Articles temporarily unavailable');
   }
   if (!article) {
     article = NEWS.find(a => (a.slug || articleSlug(a.title)) === slug) || null;

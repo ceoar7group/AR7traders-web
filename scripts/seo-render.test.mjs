@@ -185,6 +185,12 @@ ok(machineOffer?.price === '90000' && machineOffer.priceCurrency === 'USD',
 ok(machineOffer?.priceValidUntil === '2026-12-31',
   'machine structured offer expires on its per-stock end date');
 
+// External machinery photos must not be prefixed with the site origin.
+applySeo('machinery', null, null, { machine: { ...discountedMachine, images: ['https://cdn.example.com/machine.jpg', '/assets/ar7-mark.png'] } });
+ok(meta('meta[property="og:image"]') === 'https://cdn.example.com/machine.jpg', 'machine share image preserves external URL');
+ok(JSON.stringify(jsonld('machine-jsonld')?.image) === JSON.stringify(['https://cdn.example.com/machine.jpg', 'https://ar7traders.com/assets/ar7-mark.png']),
+  'machine structured images use absolute URLs without duplicating the origin');
+
 // ---- FAQ markup is scoped to /faq -----------------------------------------
 applySeo('faq', null);
 let faq = jsonld('faq-jsonld');
