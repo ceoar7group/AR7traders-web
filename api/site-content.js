@@ -69,7 +69,8 @@ async function assertSettingsWrite(profile, injected = {}) {
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath } from '../src/sitemap-helpers.js';
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
-import { mapDealerRows, PUBLIC_DEALER_LIMIT } from '../src/japan-stock-map.js';
+import { mapDealerRows } from '../src/japan-stock-map.js';
+import {readAllDealerPages} from './_dealer-pages.js';
 export { carRef, hrefFor };
 
 // Machinery lives in api/_machinery.js — a shared module, so it costs no
@@ -129,9 +130,6 @@ const SITEMAP_CACHE = 'public, max-age=120, s-maxage=600';
 // crawl must see the real rows rather than a stale fallback.
 const SITEMAP_FALLBACK_CACHE = 'public, max-age=60, s-maxage=120';
 const SITEMAP_MAX_ROWS = 5000;
-// Imported dealer cars are capped separately: the public inventory surface
-// use the same bounded window and ordering as the public stock feed.
-const SITEMAP_MAX_IMPORTED = PUBLIC_DEALER_LIMIT;
 const SITEMAP_UNAVAILABLE = /sold|delist|private|hidden|archived|removed/i;
 
 /** YYYY-MM-DD for a real timestamp, or null — never a fabricated date. */
@@ -360,14 +358,11 @@ export async function sitemapVehicles(req, res, injected = {}) {
     // site_listings sitemap rather than fail the whole document.
     let imported = [];
     try {
-      const { data: dealerRows, error: dealerError } = await db.from('japan_dealer_stock')
-        .select('*')
-        .eq('available', true)
-        .order('imported_at', { ascending: false })
-        .limit(SITEMAP_MAX_IMPORTED);
-      if (dealerError) throw new Error(dealerError.message || 'dealer stock read failed');
-      imported = dealerRows || [];
+      imported = await readAllDealerPages(db);
     } catch (e) {
+      // Only old installations without the table can safely omit dealer rows.
+      // A transient or later-page failure must not publish an incomplete sitemap.
+      if (!/relation .*japan_dealer_stock.* does not exist/i.test(e?.message || '')) throw e;
       console.error('sitemap-vehicles: imported dealer stock unavailable:', e);
     }
 

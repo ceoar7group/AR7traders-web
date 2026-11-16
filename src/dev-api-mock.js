@@ -363,7 +363,9 @@ export function devApiMock() {
           return;
         }
         if (next && req.method !== 'GET' && req.method !== 'POST') return next();
-        res.end(JSON.stringify(STOCK));
+        const page = new URL(req.url, 'http://localhost').searchParams.get('page');
+        const rows = page === null ? STOCK : STOCK.slice(Number(page) * 500, (Number(page) + 1) * 500);
+        res.end(JSON.stringify(rows));
       });
 
       // Machinery import agent — scraper + confirm, running the REAL modules

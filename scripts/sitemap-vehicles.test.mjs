@@ -38,22 +38,26 @@ function memDb(seedRows, opts = {}) {
       }
       const isDealer = name === 'japan_dealer_stock';
       const table = tables[name];
-      const ctx = { filters: [], columns: null, limit: null };
+      const ctx = { filters: [], columns: null, limit: null, range: null };
       const api = {
         select: columns => { ctx.columns = columns; return api; },
         eq: (k, v) => { ctx.filters.push(r => r[k] === v); return api; },
         order: () => api,
         limit: n => { ctx.limit = n; return api; },
+        range: (a,b) => { ctx.range = [a,b]; return api; },
         then(resolve) {
           if (isDealer && opts.onDealerQuery) opts.onDealerQuery(ctx);
           if (isDealer && opts.strictDealer && ctx.columns !== '*') {
             return resolve({ data: null, error: { message: 'column does not exist' } });
           }
+          if (isDealer && ctx.range && ctx.range[0] === opts.dealerErrorAt) return resolve({ data:null, error:{ message:'page failed' } });
           if (isDealer && opts.dealerError) {
             return resolve({ data: null, error: { message: opts.dealerError } });
           }
           if (opts.error) return resolve({ data: null, error: { message: opts.error } });
-          return resolve({ data: table.filter(r => ctx.filters.every(f => f(r))), error: null });
+          let result = table.filter(r => ctx.filters.every(f => f(r)));
+          if (ctx.range) result = result.slice(ctx.range[0], ctx.range[1] + 1);
+          return resolve({ data: result, error: null });
         }
       };
       return api;
@@ -529,7 +533,25 @@ say('\n-- live dealer schema and Prius discoverability --');
   await carsLandingHead({method:'GET',query:{carsmake:'toyota',carsmodel:'prius',render:'full'}},res,{db});
   ok(res.body.includes('/inventory/P-1') && res.body.includes('/inventory/P-2') && !res.body.includes('/inventory/H-1'), 'crawler model page links Prius and its trim for the selected make only');
   ok(res.body.includes('rel="canonical" href="https://ar7traders.com/cars/toyota/prius"') && res.body.includes('index,follow'), 'Prius crawler page remains indexable at its own canonical');
-  ok(queries.length===2 && queries.every(q=>q.columns==='*' && q.limit===1000), 'sitemap and crawler read the same bounded public dealer window without nonexistent columns');
+  ok(queries.length===2 && queries.every(q=>q.columns==='*' && q.range?.[0]===0 && q.range?.[1]===499), 'sitemap and crawler read the same paginated public dealer window without nonexistent columns');
+}
+
+say('\n-- multi-page dealer stock --');
+{
+  const rows = Array.from({length:1201}, (_,i) => ({id:String(i),goonet_id:'JP-'+i,stock_no:'JP-'+i,make:'Toyota',model:'Prius',available:true}));
+  const pages=[];
+  const db=memDb([], {dealerRows:rows,onDealerQuery:q=>pages.push(q.range)});
+  const res=await run({method:'GET'},db);
+  ok(res.statusCode===200 && res.body.includes('/inventory/JP-1200'), 'sitemap contains dealer stock after the first 1,000 rows');
+  ok(pages.length===3 && pages[2][0]===1000, 'sitemap reads all three pages');
+  const broken=await run({method:'GET'},memDb([], {dealerRows:rows,dealerErrorAt:500}));
+  ok(broken.statusCode===503, 'later-page failure does not publish a partial sitemap');
+  const {carsLandingHead}=await import('../api/_crawler-render.js');
+  const crawler=fakeRes();
+  const original=console.error; console.error=()=>{};
+  try { await carsLandingHead({method:'GET',query:{carsmake:'toyota',carsmodel:'prius',render:'full'}},crawler,{db:memDb([], {dealerRows:rows,dealerErrorAt:500})}); }
+  finally { console.error=original; }
+  ok(crawler.statusCode===503, 'later-page failure does not serve a partial or noindex crawler landing');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

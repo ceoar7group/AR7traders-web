@@ -18,8 +18,10 @@
 //
 // Pure module: no DOM, no network — unit-tested by scripts/japan-stock-map.test.mjs.
 
-// One shared window for the public feed, sitemap and crawler landing pages.
+// Legacy unpaged feed limit; paginated clients share these safety bounds.
 export const PUBLIC_DEALER_LIMIT = 1000;
+export const DEALER_PAGE_SIZE = 500;
+export const DEALER_MAX_PAGES = 20;
 export const IMPORTED_ID_PREFIX = 'jdk-';
 
 /** Stable site id for an imported car. */
