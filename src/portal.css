@@ -276,3 +276,24 @@
 .ma-vessel{color:var(--green-text,#0b603b);font-weight:700;text-decoration:none}
 .ma-vessel:hover{text-decoration:underline}
 @media(max-width:760px){.ma-ships{grid-template-columns:1fr}}
+
+/* Saved vehicle cards show the same public inventory as the showroom. */
+.ma-fav-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.ma-fav-card{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:0 8px 24px #073b2510}
+.ma-fav-photo,.ma-fav-placeholder{display:grid;place-items:center;aspect-ratio:16/10;background:#e9f1ec;overflow:hidden}
+.ma-fav-photo img{width:100%;height:100%;object-fit:cover;transition:transform .2s}
+.ma-fav-photo:hover img{transform:scale(1.035)}
+.ma-fav-placeholder svg{width:34px;height:34px;color:#6e8a78}
+.ma-fav-body{display:grid;gap:8px;padding:16px}
+.ma-fav-body h3{font-size:16px;line-height:1.3;margin:0}
+.ma-fav-body p,.ma-fav-body small{font-size:12px;line-height:1.5;color:var(--muted);margin:0;overflow-wrap:anywhere}
+.ma-fav-body strong{color:var(--green-text);font-size:16px}
+.ma-fav-body a{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--green-text);text-decoration:none}
+.ma-fav-body a svg{width:16px}
+.account-google{display:grid;gap:10px;margin-top:18px}
+.account-divider{text-align:center;color:var(--muted);font-size:12px}
+.google-signin{min-height:48px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-weight:700;display:flex;justify-content:center;align-items:center;gap:12px;cursor:pointer}
+.google-signin span{font-size:19px;font-weight:800;color:#4285f4}
+.google-signin:disabled{opacity:.65;cursor:not-allowed}
+.account-google small{color:var(--muted);font-size:12px;line-height:1.4}
+@media(max-width:540px){.ma-fav-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ma-fav-body{padding:12px}.ma-fav-body h3{font-size:14px}}

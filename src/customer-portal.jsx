@@ -11,24 +11,24 @@ import {supabase} from './supabase-client.js';
 import { useCustomerSession } from './customer-session.jsx';
 import {useSettings, waLink} from './site-settings.js';
 import {useCurrency, CurrencySwitcher, BASE_CURRENCY} from './currency.jsx';
-import {linkClick, inventoryHref} from './routing.js';
+import {linkClick, inventoryHref, findCar} from './routing.js';
 import {describeCriteria, criteriaHref} from './saved-search.js';
 import './portal.css';
 import { useLang } from './i18n.jsx';
-import { validateLead } from './lead-validation.js';
+import { validateLead, phoneError } from './lead-validation.js';
 
 const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
-const nice  = s => s ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(s)) : '—';
+const nice  = s => { const d=new Date(s); return s && Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(d) : '—'; };
 const title = s => (s||'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
 
 /* ------------------------------------------------------------------ */
 /*  The page                                                           */
 /* ------------------------------------------------------------------ */
-export function CustomerAccountPage({navigate}){
+export function CustomerAccountPage({navigate,cars=[]}){
  const {session,ready,recovery,clearRecovery} = useCustomerSession();
  if(!ready) return <section className="account-page"><div className="account-loading"><i/><span>Loading your account…</span></div></section>;
  if(recovery) return <NewPasswordPanel onDone={clearRecovery}/>;
- if(session)  return <MyAccount session={session} navigate={navigate}/>;
+ if(session)  return <MyAccount session={session} navigate={navigate} cars={cars}/>;
  return <AccountGate navigate={navigate}/>;
 }
 
@@ -63,8 +63,28 @@ function AccountGate({navigate}){
    {mode==='login'  && <LoginForm onForgot={()=>setMode('forgot')}/>}
    {mode==='forgot' && <ForgotForm onBack={()=>setMode('login')}/>}
    {mode==='signup' && <SignupForm settings={s} onDone={()=>setMode('login')}/>}
+   {mode!=='forgot' && <GoogleSignIn/>}
   </div>
  </section>;
+}
+
+// The provider must be configured in Supabase before this button is enabled.
+function GoogleSignIn(){
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ const enabled=import.meta.env?.VITE_GOOGLE_AUTH_ENABLED==='true';
+ async function signIn(){
+  if(!enabled||!supabase)return;
+  setBusy(true);setError('');
+  try{
+   const {error:e}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/account'}});
+   if(e)throw e;
+  }catch(e){setError(e.message||'Google sign-in could not be started.');setBusy(false)}
+ }
+ return <div className="account-google"><div className="account-divider">or</div>
+  <button className="google-signin" type="button" onClick={signIn} disabled={!enabled||!supabase||busy}><span aria-hidden="true">G</span>{busy?'Connecting…':'Continue with Google'}</button>
+  {!enabled&&<small>Google sign-in is not available yet. Please use email and password.</small>}
+  {error&&<div className="account-error" role="alert">{error}</div>}
+ </div>;
 }
 
 function LoginForm({onForgot}){
@@ -132,6 +152,7 @@ function SignupForm({settings,onDone}){
   e.preventDefault();
   const f=new FormData(e.target);
   const email=f.get('email'),password=f.get('password');
+  if(!supabase){setErr('Accounts are not connected yet. Please contact us and we will help directly.');return}
   const values=Object.fromEntries(f.entries());
   const errors=validateLead(values,{requireEmail:true});
   if(Object.keys(errors).length){setErr(errors[Object.keys(errors)[0]]);return}
@@ -204,7 +225,7 @@ function NewPasswordPanel({onDone}){
 }
 
 /* ---- signed in: the real account ---------------------------------- */
-function MyAccount({session,navigate}){
+function MyAccount({session,navigate,cars=[]}){
   const [data,setData]=useState(null),[err,setErr]=useState('');
  const [panel,setPanel]=useState(null);   // 'profile' | 'password' | null
  const s=useSettings();
@@ -222,10 +243,12 @@ function MyAccount({session,navigate}){
 
  if(err) return <section className="account-page single"><div className="account-form-wrap">
    <div className="account-sent"><span><X/></span><h1>{t('ma.errorH1')}</h1><p>{err}</p>
-   <button className="outline-btn" onClick={signOut} type="button">{t('ma.signout')}</button></div></div></section>;
+   <div className="ma-retry-actions"><button className="primary" onClick={()=>{setErr('');load().catch(e=>setErr(e.message))}} type="button">Try again</button> <button className="outline-btn" onClick={signOut} type="button">{t('ma.signout')}</button></div></div></div></section>;
  if(!data) return <section className="account-page"><div className="account-loading"><i/><span>{t('ma.loading')}</span></div></section>;
 
- const name=data.customer?.name||session.user.email;
+ const googleUser=session.user?.app_metadata?.provider==='google'||session.user?.app_metadata?.providers?.includes('google');
+ if(googleUser&&(!data.customer?.country||phoneError(data.customer?.phone))) return <CompleteGoogleProfile session={session} customer={data.customer} onSaved={load} onSignOut={signOut}/>;
+ const name=data.customer?.name||session.user.user_metadata?.full_name||session.user.email;
  const tt=data.totals||{ordered:0,received:0,unapplied:0,due:0};
 
  return <section className="my-account">
@@ -251,7 +274,7 @@ function MyAccount({session,navigate}){
    {panel==='password' && <PasswordPanel onClose={()=>setPanel(null)}/>}
 
    <SavedSearches session={session} navigate={navigate}/>
-   <SavedCars session={session} navigate={navigate}/>
+   <SavedCars session={session} navigate={navigate} cars={cars}/>
 
    {!data.customer ? <div className="ma-empty">
      <span><CarFront/></span>
@@ -362,25 +385,34 @@ function ReferFriend({referral}){
 // (saved_favourites, one row per user). Shown as quick links back into the
 // inventory. Renders nothing while empty or if the table isn't provisioned —
 // the account never blocks on it.
-function SavedCars({session,navigate}){
+export function SavedCars({session,navigate,cars=[]}){
  const {t}=useLang();
- const [refs,setRefs]=useState(null);
- useEffect(()=>{let alive=true;
+ const [refs,setRefs]=useState(null),[error,setError]=useState('');
+ useEffect(()=>{let alive=true;setRefs(null);setError('');
   fetch('/api/my-account?favourites=1',{headers:{Authorization:'Bearer '+session.access_token}})
-   .then(r=>r.ok?r.json():null)
-   .then(j=>{if(alive&&j&&Array.isArray(j.refs))setRefs(j.refs)})
-   .catch(()=>{});
+   .then(async r=>{if(!r.ok)throw new Error('Your saved cars could not be loaded.');return r.json()})
+   .then(j=>{if(alive){if(!Array.isArray(j.refs))throw new Error('Your saved cars could not be loaded.');setRefs(j.refs)}})
+   .catch(e=>{if(alive)setError(e.message)});
   return()=>{alive=false};
  },[session.access_token]);
- if(!refs||!refs.length)return null;
- return <div className="ma-alerts ma-favs">
-  <h2 className="ma-title"><Heart/> {t('ma.favTitle')}</h2>
+ return <section className="ma-alerts ma-favs" aria-labelledby="saved-cars-title">
+  <h2 id="saved-cars-title" className="ma-title"><Heart/> {t('ma.favTitle')}</h2>
   <p className="ma-muted">{t('ma.favNote')}</p>
-  <div className="ma-fav-chips">{refs.slice(0,30).map(ref=>{
-    const href='/inventory/'+encodeURIComponent(ref);
-    return <a key={ref} className="outline-btn" href={href} onClick={linkClick(href,navigate)}>{ref} <ArrowRight/></a>;
-  })}</div>
- </div>;
+  {error?<p className="account-error" role="alert">{error}</p>:!refs?<p className="ma-muted">Loading saved cars…</p>:!refs.length?<p className="ma-muted">No saved cars yet. Browse inventory and tap the heart to save a vehicle.</p>:
+   <div className="ma-fav-grid">{refs.map(ref=>{
+    const car=findCar(cars,ref), href='/inventory/'+encodeURIComponent(ref);
+    const name=car?[car.year,car.make,car.model].filter(Boolean).join(' '):null;
+    return <article key={ref} className="ma-fav-card">
+     {car?.image?<a href={href} onClick={linkClick(href,navigate)} className="ma-fav-photo"><img src={car.image} alt={name} loading="lazy" decoding="async" onError={e=>{e.currentTarget.hidden=true}}/></a>:<div className="ma-fav-placeholder"><CarFront aria-hidden="true"/></div>}
+     <div className="ma-fav-body"><h3>{name||'Saved vehicle'}</h3>
+      <p>{car?[car.km?String(car.km).replace(/\s*km$/i,'')+' km':null,car.fuel,car.tr].filter(Boolean).join(' · ')||'Vehicle specifications on listing':'Not found in the current inventory. It may no longer be listed.'}</p>
+      {car?.price&&<strong>{typeof car.price==='number'?'$'+car.price.toLocaleString('en-US'):car.price}</strong>}
+      <small>Stock {ref}</small>
+      {car&&<a href={href} onClick={linkClick(href,navigate)}>View vehicle <ArrowRight/></a>}
+     </div>
+    </article>;
+   })}</div>}
+ </section>;
 }
 
 /* ---- saved searches & stock alerts -------------------------------- */
@@ -457,6 +489,32 @@ function SavedSearches({session,navigate}){
 }
 
 const COUNTRIES=['Pakistan','UAE','Kenya','United Kingdom','Tanzania','Other'];
+
+function CompleteGoogleProfile({session,customer,onSaved,onSignOut}){
+ const [busy,setBusy]=useState(false),[err,setErr]=useState('');
+ async function submit(e){
+  e.preventDefault();const f=new FormData(e.currentTarget);
+  const name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim(),country=String(f.get('country')||'').trim();
+  const problem=phoneError(phone);if(name.length<2||problem||!country){setErr(name.length<2?'Please enter your full name.':problem||'Please select your country.');return}
+  setBusy(true);setErr('');
+  try{
+   const r=await fetch('/api/my-account?complete-profile=1',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({name,phone,country})});
+   const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Could not save your details.');
+   await onSaved();
+  }catch(e2){setErr(e2.message)}finally{setBusy(false)}
+ }
+ return <section className="account-page single"><div className="account-form-wrap"><form onSubmit={submit}>
+  <div className="kicker">ONE LAST STEP</div><h1>Complete your account</h1>
+  <p>Google supplies your name and email. Add your contact number and country so our team can reach you.</p>
+  {err&&<div className="account-error" role="alert">{err}</div>}
+  <label>Full name<input name="name" required minLength={2} maxLength={120} defaultValue={customer?.name||session.user.user_metadata?.full_name||''} autoComplete="name"/></label>
+  <label>Email<input value={session.user.email||''} disabled/></label>
+  <label>Contact number<input name="phone" type="tel" required maxLength={40} defaultValue={customer?.phone||''} autoComplete="tel" placeholder="+92 300 0000000"/></label>
+  <label>Country<input name="country" required maxLength={80} defaultValue={customer?.country||''} autoComplete="country-name" placeholder="Your country"/></label>
+  <button className="primary wide" type="submit" disabled={busy}>{busy?'Saving…':'Complete account'} <ArrowRight/></button>
+  <button className="link-btn" type="button" onClick={onSignOut}>Sign out</button>
+ </form></div></section>;
+}
 
 function ProfilePanel({session,customer,email,onClose,onSaved}){
  const {t}=useLang();

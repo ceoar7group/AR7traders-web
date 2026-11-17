@@ -58,4 +58,20 @@ assert.equal(res.body.orders.length,1);assert.equal(res.body.totals.due,70);
 assert.ok(!('notes' in res.body.orders[0]) && !('employee_id' in res.body.orders[0]));
 assert.ok(!('note' in res.body.payments[0]));
 assert.deepEqual(res.body.shipments,[],'same-name shipments cannot be discovered from the account');
+// Google profile completion must validate contact details and update only the
+// authenticated customer's record. The auth identity is created by Supabase.
+async function complete(db,user,body){
+ const res={statusCode:0,headers:{},status(n){this.statusCode=n;return this},setHeader(k,v){this.headers[k.toLowerCase()]=v;return this},end(s){this.body=JSON.parse(s)}};
+ const old=console.error;console.error=()=>{};
+ try{await handler({method:'PATCH',query:{'complete-profile':'1'},headers:{},body},res,{db,user});}finally{console.error=old}
+ return res;
+}
+db=database([{...candidate,auth_user_id:'user-a'},{...candidate,id:'c2',auth_user_id:'user-b'}]);
+res=await complete(db,confirmed,{name:'Alex Buyer',phone:'abc',country:'Pakistan'});
+assert.equal(res.statusCode,400);assert.equal(db.customers[0].phone,undefined);
+res=await complete(db,confirmed,{name:'Alex Buyer',phone:'+92 300 1234567',country:''});
+assert.equal(res.statusCode,400);
+res=await complete(db,confirmed,{name:'Alex Buyer',phone:'+92 300 1234567',country:'Pakistan'});
+assert.equal(res.statusCode,200);assert.equal(db.customers[0].phone,'+92 300 1234567');assert.equal(db.customers[1].phone,undefined);
+res=await get(db,confirmed);assert.equal(res.body.customer.phone,'+92 300 1234567');
 console.log('Customer account isolation: all assertions passed');
