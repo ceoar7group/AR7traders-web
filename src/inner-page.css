@@ -675,3 +675,14 @@
 .showroom-more{display:flex;justify-content:center;margin-top:18px}
 .showroom-more button{min-height:44px;white-space:normal;text-align:center}
 @media(max-width:360px){.detail-primary-row{grid-template-columns:1fr}}
+
+/* Visible, keyboard-focusable photo arrows on the main image. */
+.detail-photo-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:46px;height:46px;display:grid;place-items:center;border:1px solid #ffffff99;border-radius:50%;background:#062c20df;color:#fff;cursor:pointer}
+.detail-photo-arrow:hover,.detail-photo-arrow:focus-visible{background:#9b6d08;outline:2px solid white;outline-offset:2px}
+.detail-photo-arrow.prev{left:14px}.detail-photo-arrow.next{right:14px}
+.detail-photo-arrow svg{width:22px;height:22px}
+.detail-vehicle-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0 20px}
+.detail-vehicle-nav button{display:inline-flex;align-items:center;gap:5px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--green-text);font-size:12px;font-weight:700;cursor:pointer}
+.detail-vehicle-nav button:disabled{opacity:.45;cursor:not-allowed}
+.detail-vehicle-nav button svg{width:16px;height:16px}
+.detail-vehicle-nav span{color:var(--muted);font-size:11px;text-align:center}

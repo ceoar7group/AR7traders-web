@@ -1,6 +1,7 @@
 import {authClient,adminClient,send} from './_supabase.js';
 import {loadPublicStock,evaluateSearch,nextSeenRefs,runAlertSweep} from './_stock-alerts.js';
 import {normalizeCriteria,criteriaIsEmpty,defaultSearchName} from '../src/saved-search.js';
+import {phoneError} from '../src/lead-validation.js';
 
 // The signed-in CUSTOMER's own view: their orders, payments and balance —
 // plus their saved searches / stock alerts (?searches) and the scheduled
@@ -165,12 +166,19 @@ export default async function handler(req,res,injected={}){
   }
 
   if(req.method==='PATCH'){
-   const db0=adminClient();
+   const db0=injected.db||adminClient();
    const name=String(req.body?.name??'').trim();
    const phone=req.body?.phone===undefined?undefined:String(req.body.phone).trim();
    const country=req.body?.country===undefined?undefined:String(req.body.country).trim();
    if(name!==''&&name.length<2)
      return send(res,400,{error:'Please enter your full name (at least 2 characters)'});
+   if(name.length>120 || (phone?.length||0)>40 || (country?.length||0)>80)
+     return send(res,400,{error:'Profile details are too long'});
+   if('complete-profile' in query){
+    const invalidPhone=phoneError(phone);
+    if(name.length<2 || invalidPhone || !country)
+     return send(res,400,{error:name.length<2?'Please enter your full name':invalidPhone||'Please enter your country'});
+   }
    let {data:cust}=await db0.from('customers').select('*').eq('auth_user_id',user.id).single();
    const patch={updated_at:new Date().toISOString()};
    if(name!=='')patch.name=name;
@@ -263,7 +271,7 @@ export default async function handler(req,res,injected={}){
   }catch{/* referral is a bonus, not a dependency */}
 
   return send(res,200,{
-    customer:{id:cust.id,name:cust.name,email:cust.email,country:cust.country},
+    customer:{id:cust.id,name:cust.name,email:cust.email,phone:cust.phone||'',country:cust.country},
     referral,
     shipments,
     orders,

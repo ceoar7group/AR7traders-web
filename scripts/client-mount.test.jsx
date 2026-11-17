@@ -358,7 +358,24 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(!!gallery && !gallery.querySelector('.detail-orb, .hero-orb'), 'vehicle detail photos no longer carry the decorative globe');
     ok(!!gallery?.querySelector('.detail-main-image img') && !!gallery.querySelector('.detail-gallery-toolbar .gallery-expand'),
       'the main vehicle photo and enlarge control remain available');
-    const enlarge = gallery?.querySelector('.gallery-expand');
+    const nextPhoto = gallery?.querySelector('.detail-photo-arrow.next');
+    const mainPhoto = gallery?.querySelector('.detail-main-image img');
+    if (nextPhoto && mainPhoto) {
+      const before = mainPhoto.getAttribute('src');
+      await act(async () => { nextPhoto.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+      const after = mainPhoto.getAttribute('src');
+      ok(before !== after, 'clicking the visible next arrow changes the vehicle photo');
+      await act(async () => { window.dispatchEvent(new dom.window.KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true,cancelable:true})); });
+      ok(mainPhoto.getAttribute('src') === before, 'keyboard left arrow returns to the previous photo');
+    } else ok(false, 'multiple-photo vehicle shows a next arrow over the main image');
+    const nextVehicle = document.querySelector('.detail-vehicle-nav button:last-child');
+    ok(!!nextVehicle && !nextVehicle.disabled, 'vehicle details offer a next vehicle control');
+    if(nextVehicle && !nextVehicle.disabled){
+      await act(async()=>{nextVehicle.dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true}));});
+      ok(dom.window.location.pathname.includes(encodeURIComponent(cars[1].stock_no)), 'next vehicle opens the next inventory listing');
+      await goto('/inventory/' + encodeURIComponent(stock));
+    }
+    const enlarge = document.querySelector('.detail-gallery .gallery-expand');
     if (enlarge) await act(async () => { enlarge.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
     ok(!!document.querySelector('.gallery-lightbox[role="dialog"]'), 'the gallery zoom/lightbox still opens from vehicle details');
     const closeLightbox = document.querySelector('.lightbox-close');
@@ -632,6 +649,22 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   ok(document.body.textContent.includes(cars[0].model), 'the same deep link still resolves after a remount');
   await act(async () => { root2.unmount(); });
   unmounted = true;
+}
+
+// Saved refs resolve against the live inventory, including missing listings.
+{
+  const { SavedCars } = await import('../src/customer-portal.jsx');
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ok:true,json:async()=>({refs:['STOCK-1','REMOVED']})});
+  const node = document.createElement('div'); document.body.appendChild(node);
+  const cardRoot = createRoot(node);
+  try {
+    await act(async()=>{cardRoot.render(React.createElement(SavedCars,{session:{access_token:'test'},navigate:()=>{},cars:[{id:1,stock_no:'STOCK-1',year:2020,make:'Toyota',model:'Prius',km:'32,000',price:'$9,000',image:'/assets/ar7-mark-128.webp'}]}));});
+    ok(node.textContent.includes('2020 Toyota Prius') && node.textContent.includes('$9,000') && node.querySelector('img'),
+      'saved car card shows its actual name, price and photo');
+    ok(node.querySelector('a[href="/inventory/STOCK-1"]') && node.textContent.includes('REMOVED') && node.textContent.includes('Not found in the current inventory'),
+      'saved cards link to available vehicles and retain an honest missing listing state');
+  } finally {await act(async()=>{cardRoot.unmount()});node.remove();globalThis.fetch=oldFetch;}
 }
 
 console.error = realError;
