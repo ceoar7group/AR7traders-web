@@ -254,6 +254,13 @@ for (const [path, marker] of ROUTES) {
   ok(!crash(), `navigating to ${path} keeps the app alive`);
   ok(markup.includes(marker), `${path} actually shows its own content ("${marker}")`);
 }
+// Google sign-in is deferred: neither account tab should offer the option.
+await goto('/account');
+ok(!document.body.textContent.includes('Continue with Google'), 'login does not show the deferred Google option');
+const signupTab = document.querySelector('.account-tabs button');
+if (signupTab) await act(async () => { signupTab.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+ok(!!document.querySelector('input[name="password"]') && !document.body.textContent.includes('Continue with Google'),
+  'signup keeps its email/password form without the Google option');
 ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 0,
   `no hook-order violations while navigating${errors.some(e => /hook/i.test(e)) ? ' — ' + errors.find(e => /hook/i.test(e)) : ''}`);
 
