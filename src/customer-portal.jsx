@@ -63,28 +63,8 @@ function AccountGate({navigate}){
    {mode==='login'  && <LoginForm onForgot={()=>setMode('forgot')}/>}
    {mode==='forgot' && <ForgotForm onBack={()=>setMode('login')}/>}
    {mode==='signup' && <SignupForm settings={s} onDone={()=>setMode('login')}/>}
-   {mode!=='forgot' && <GoogleSignIn/>}
   </div>
  </section>;
-}
-
-// The provider must be configured in Supabase before this button is enabled.
-function GoogleSignIn(){
- const [busy,setBusy]=useState(false),[error,setError]=useState('');
- const enabled=import.meta.env?.VITE_GOOGLE_AUTH_ENABLED==='true';
- async function signIn(){
-  if(!enabled||!supabase)return;
-  setBusy(true);setError('');
-  try{
-   const {error:e}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/account'}});
-   if(e)throw e;
-  }catch(e){setError(e.message||'Google sign-in could not be started.');setBusy(false)}
- }
- return <div className="account-google"><div className="account-divider">or</div>
-  <button className="google-signin" type="button" onClick={signIn} disabled={!enabled||!supabase||busy}><span aria-hidden="true">G</span>{busy?'Connecting…':'Continue with Google'}</button>
-  {!enabled&&<small>Google sign-in is not available yet. Please use email and password.</small>}
-  {error&&<div className="account-error" role="alert">{error}</div>}
- </div>;
 }
 
 function LoginForm({onForgot}){
