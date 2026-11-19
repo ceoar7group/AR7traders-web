@@ -470,6 +470,15 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(html.includes('Brands'), '?make= inventory renders the header with the Brands dropdown');
 }
 
+// The same catalogue shortcuts shown in raw previews are visible to visitors.
+{
+  const { CATALOGUE_LINKS } = await import('../src/catalogue-links.js');
+  const html = await renderPage('/services');
+  const footer = html.match(/<nav class="shell footer-catalogue"[\s\S]*?<\/nav>/)?.[0] || '';
+  ok(!!footer, 'public footer displays the catalogue navigation');
+  for (const [href] of CATALOGUE_LINKS) ok(footer.includes(`href="${href}"`), `footer links to ${href}`);
+}
+
 // ---- internal links into live stock -----------------------------------------
 // The guide, brand, tool and news pages used to end at a "talk to our team"
 // modal with no route through to an actual car, so whole sections of the site

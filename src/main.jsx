@@ -1,5 +1,6 @@
 import React, {useEffect, useLayoutEffect, useRef, useState, useReducer} from 'react';
 import { createRoot } from 'react-dom/client';
+import { CATALOGUE_LINKS } from './catalogue-links.js';
 import { ArrowUpRight, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, CarFront, LogIn, Plane, ArrowLeftRight, ShieldCheck, FileCheck, BadgePercent, Newspaper, Wrench, Sparkles} from 'lucide-react';
 import './styles.css';
 import './motion-account.css';
@@ -1555,6 +1556,7 @@ export function App(){
      <button className="footer-top-btn" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} type="button">{t('footer.backToTop')} <ArrowUpRight/></button>
     </div>
    </div>
+   <nav className="shell footer-catalogue" aria-label="Browse the catalogue"><b>Browse the catalogue</b><div>{CATALOGUE_LINKS.map(([href,label])=><a key={href} href={href} onClick={linkClick(href,navigate)}>{label}</a>)}</div></nav>
    <div className="shell footer-bottom"><span>{t('footer.copyright',{year:new Date().getFullYear()})}</span><span><a href="/privacy" onClick={linkClick('privacy',navigate)}>{t('footer.privacy')}</a> · <a href="/cookies" onClick={linkClick('cookies',navigate)}>Cookies</a> · <a href="/terms" onClick={linkClick('terms',navigate)}>{t('footer.terms')}</a> · <a href="/terms" onClick={linkClick('terms',navigate)}>{t('footer.exportPolicy')}</a></span><div className="footer-badges"><span><BadgeCheck/> {t('footer.verifiedStock')}</span><span><LockKeyhole/> {t('footer.trustSecure')}</span></div><b>AR7TRADERS.COM</b></div>
   </footer>
 

@@ -377,6 +377,8 @@ say('\n-- search bots get the full content-parity render (2026-11-12) --');
     'the full render carries NO meta refresh (self-refresh = redirect loop)');
   ok(res.body.includes('<h1>2019 Toyota Vezel &quot;Z&quot; — Japan export | AR7 Traders</h1>'),
     'the vehicle name is a real h1, not meta-only');
+  ok(res.body.includes('aria-label="Browse the catalogue"') && res.body.includes('href="/machinery/excavators"') && res.body.includes('href="/cars/toyota"'),
+    'full vehicle crawler render includes public catalogue navigation');
   ok(res.body.includes('<li>Mileage: 42,000 km</li>') && res.body.includes('<li>Fuel: Hybrid</li>'),
     'the spec list mirrors what the hydrated page shows (content parity)');
   ok(res.body.includes('<img src="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
@@ -497,6 +499,7 @@ say('\n-- dynamic crawler parity: vehicles noindex, cars make/model, DB machiner
      makeFull.body.includes('<meta name="robots" content="index,follow"/>'),
     '/cars/toyota full render lists matching stock, links to model pages and sets CollectionPage JSON-LD');
   const emptyMake = await runSite({ carsmake: 'bugatti', render: 'full' }, carsDb);
+  ok(emptyMake.body.includes('aria-label="Browse the catalogue"'), 'full landing crawler HTML has catalogue navigation');
   ok(emptyMake.body.includes('<meta name="robots" content="noindex,follow"/>'),
     'empty make page full render marks noindex,follow instead of indexing a thin 0-car shell');
 
