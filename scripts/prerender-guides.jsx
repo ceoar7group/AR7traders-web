@@ -12,6 +12,7 @@ import { NEWS, articleSlug } from '../src/news-data.js';
 import { applySeo, BASE, PAGE_SEO, FAQ_ITEMS, FAQ_TOPICS, MACHINERY_FAQS, MACHINERY_SEO } from '../src/seo.js';
 import { MACHINES, machineHref, machineTypeSlug, MACHINE_TYPES, listPriceUSD, machineYear, machineHours, machineImages } from '../src/machinery-data.js';
 import { translate } from '../src/i18n.js';
+import { CATALOGUE_LINKS } from '../src/catalogue-links.js';
 
 const template = readFileSync('dist/index.html', 'utf8');
 const Link = ({to, children, className}) => <a className={className} href={to.startsWith('/') ? to : '/' + to}>{children}</a>;
@@ -264,7 +265,7 @@ function emitHeadOnly(path, page, opts = {}) {
   applySeo(page, null, null, { ...opts, doc });
   const preview = doc.getElementById('ar7-static-preview');
   if (preview) {
-    preview.innerHTML = renderToStaticMarkup(renderStaticRoutePreview(page, opts));
+    preview.innerHTML = renderToStaticMarkup(<>{renderStaticRoutePreview(page, opts)}<nav aria-label="Browse the catalogue"><h2>Browse the catalogue</h2><ul>{CATALOGUE_LINKS.filter(([href]) => href !== path).map(([href, label]) => <li key={href}><a href={href}>{label}</a></li>)}</ul></nav></>);
   }
   const dir = 'dist' + path;
   mkdirSync(dir, {recursive: true});

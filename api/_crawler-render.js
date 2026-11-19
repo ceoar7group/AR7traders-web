@@ -15,6 +15,7 @@ import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath,
 import { mapDealerRows } from '../src/japan-stock-map.js';
 import {readAllDealerPages} from './_dealer-pages.js';
 import { NEWS, articleSlug, articleSeo } from '../src/news-data.js';
+import { CATALOGUE_LINKS } from '../src/catalogue-links.js';
 
 export const BASE_URL = 'https://ar7traders.com';
 const HEAD_CACHE = 'public, max-age=300, s-maxage=1800';
@@ -108,7 +109,7 @@ function renderDocument({
     (full ? '' : `<meta http-equiv="refresh" content="0;url=${esc(url)}"/>\n`) +
     (full ? jsonLd.filter(Boolean).map(obj => `<script type="application/ld+json">${safeJsonLd(obj)}</script>\n`).join('') : '') +
     '</head><body>\n' +
-    (full ? bodyHtml : `<p><a href="${esc(url)}">${esc(title)}</a></p>\n`) +
+    (full ? bodyHtml + `<nav aria-label="Browse the catalogue"><h2>Browse the catalogue</h2><ul>${CATALOGUE_LINKS.filter(([href]) => BASE_URL + href !== url).map(([href, label]) => `<li><a href="${esc(href)}">${esc(label)}</a></li>`).join('')}</ul></nav>\n` : `<p><a href="${esc(url)}">${esc(title)}</a></p>\n`) +
     '</body></html>\n';
 }
 

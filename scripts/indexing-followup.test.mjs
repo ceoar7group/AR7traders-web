@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
+import { auditDocument } from '../src/seo-audit.js';
+import { CATALOGUE_LINKS } from '../src/catalogue-links.js';
 import { DEST, destinationHref } from '../src/destinations.js';
 import { NEWS, articleSlug } from '../src/news-data.js';
 import { editorialPlan } from '../src/editorial-plan.js';
@@ -62,6 +64,12 @@ for (const path of staticHeadRoutes) {
   assert.ok(!d.querySelector('meta[name="robots"]').content.includes('noindex'), path);
   assert.ok(d.title.length > 10 && d.querySelector('meta[name="description"]').content.length > 40, path);
   assert.ok(d.getElementById('ar7-boot'), path + ' keeps the untouched shell body (head-only prerender)');
+  const nav = d.querySelector('#ar7-static-preview nav[aria-label="Browse the catalogue"]');
+  assert.ok(nav, `${path} has crawlable catalogue navigation`);
+  const hrefs = [...nav.querySelectorAll('a[href]')].map(a => a.getAttribute('href'));
+  assert.deepEqual(hrefs, CATALOGUE_LINKS.map(([href]) => href).filter(href => href !== path), `${path} links to the public footer destinations without self-links`);
+  assert.equal(auditDocument(d, {route:path, url:'https://ar7traders.com'+path}).checks.find(c=>c.id==='links').status, 'pass', `${path} has enough raw HTML links`);
+
   dom.window.close();
 }
 

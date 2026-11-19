@@ -67,6 +67,7 @@ async function assertSettingsWrite(profile, injected = {}) {
 // ---------------------------------------------------------------------------
 
 import { vehicleSeo } from '../src/vehicle-seo.js';
+import { CATALOGUE_LINKS } from '../src/catalogue-links.js';
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath, publishedUsdPrice } from '../src/sitemap-helpers.js';
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
@@ -488,6 +489,7 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
       `<p>${esc(description)} Request the export quotation for your port, inspection sheet and shipping schedule from the listing page.</p>\n` +
       `<p><a href="${esc(url)}">Open the full listing</a>${row?.make ? ` · <a href="${esc(SITEMAP_BASE + carLandingPath(row.make))}">All ${esc(String(row.make))} stock</a>` : ''}${row?.make && row?.model ? ` · <a href="${esc(SITEMAP_BASE + carLandingPath(row.make, row.model))}">${esc(String(row.make))} ${esc(String(row.model))}</a>` : ''} · <a href="${esc(SITEMAP_BASE + '/inventory')}">Browse all stock</a> · <a href="${esc(SITEMAP_BASE + '/')}">AR7 Traders home</a></p>\n`
     ) : `<p><a href="${esc(url)}">${esc(title)}</a></p>\n`) +
+    (opts.full && row ? `<nav aria-label="Browse the catalogue"><h2>Browse the catalogue</h2><ul>${CATALOGUE_LINKS.map(([href, label]) => `<li><a href="${esc(href)}">${esc(label)}</a></li>`).join('')}</ul></nav>\n` : '') +
     '</body></html>\n';
 }
 
