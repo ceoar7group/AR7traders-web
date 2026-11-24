@@ -6,6 +6,7 @@ const html = read('../index.html');
 const main = read('../src/main.jsx');
 const innerPage = read('../src/inner-page.jsx');
 const detailCss = read('../src/detail-responsive.css');
+const innerPageCss = read('../src/inner-page.css');
 const currencyCss = read('../src/currency-responsive.css');
 const portalCss = read('../src/portal.css');
 const pagesCss = read('../src/pages.css');
@@ -200,6 +201,12 @@ assert.doesNotMatch(main, /detail-orb/);
 assert.doesNotMatch(innerPage, /detail-orb/);
 assert.doesNotMatch(detailCss, /detail-orb/);
 assert.doesNotMatch(landingCss, /detail-orb/);
+// The frame, not the image's intrinsic dimensions, determines gallery height.
+// This keeps contained photos centred for both landscape and portrait uploads.
+assert.match(innerPageCss, /\.detail-gallery>\.detail-main-image\{[^}]*aspect-ratio:31\/20/);
+assert.match(innerPageCss, /\.detail-gallery>\.detail-main-image>img\{[^}]*height:100%!important;[^}]*object-fit:contain!important;object-position:center!important/);
+assert.doesNotMatch(detailCss, /\.detail-main-image\s*>\s*img\s*\{/);
+assert.doesNotMatch(innerPage, /detail-photo-arrow/);
 assert.match(innerPage, /detail-gallery-toolbar/);
 assert.match(innerPage, /gallery-expand/);
 

@@ -207,8 +207,8 @@
 }
 
 /* ---------- VEHICLE DETAIL GALLERY & LIGHTBOX ---------- */
-.detail-gallery>.detail-main-image{display:block!important;position:relative!important;margin:0!important;background:#071b12;border-radius:22px;overflow:hidden}
-.detail-gallery>.detail-main-image>img{display:block!important;width:100%!important;height:auto!important;aspect-ratio:31/20!important;object-fit:contain!important;object-position:center!important;border-radius:22px!important;cursor:zoom-in;background:#071b12}
+.detail-gallery>.detail-main-image{display:grid!important;place-items:center;position:relative!important;margin:0!important;aspect-ratio:31/20;background:#071b12;border-radius:22px;overflow:hidden}
+.detail-gallery>.detail-main-image>img{display:block!important;width:100%!important;height:100%!important;max-height:none!important;aspect-ratio:auto!important;object-fit:contain!important;object-position:center!important;border-radius:22px!important;cursor:zoom-in;background:#071b12}
 .detail-gallery>.detail-thumbs{display:grid!important;grid-template-columns:repeat(5,1fr)!important;gap:10px!important;margin-top:10px!important}
 .detail-gallery>.detail-thumbs button{position:relative;border:2px solid transparent;padding:0;background:#071b12;border-radius:10px;overflow:hidden;cursor:pointer}
 .detail-gallery>.detail-thumbs button.active{border-color:var(--gold)}
@@ -485,7 +485,7 @@
 .gallery-lightbox .zoom-controls .zoom-level small{font:800 7px/1 Manrope,sans-serif;color:#a9c0b2;letter-spacing:1.3px;text-transform:uppercase}
 
 @media(max-width:650px){
-  .detail-gallery>.detail-main-image>img{height:auto!important;aspect-ratio:31/20!important;border-radius:16px!important}
+  .detail-gallery>.detail-main-image>img{border-radius:16px!important}
   .detail-gallery .gallery-arrow{width:36px!important;height:36px!important}
   .detail-gallery .gallery-arrow.prev{left:8px!important}
   .detail-gallery .gallery-arrow.next{right:8px!important}
@@ -676,11 +676,6 @@
 .showroom-more button{min-height:44px;white-space:normal;text-align:center}
 @media(max-width:360px){.detail-primary-row{grid-template-columns:1fr}}
 
-/* Visible, keyboard-focusable photo arrows on the main image. */
-.detail-photo-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:46px;height:46px;display:grid;place-items:center;border:1px solid #ffffff99;border-radius:50%;background:#062c20df;color:#fff;cursor:pointer}
-.detail-photo-arrow:hover,.detail-photo-arrow:focus-visible{background:#9b6d08;outline:2px solid white;outline-offset:2px}
-.detail-photo-arrow.prev{left:14px}.detail-photo-arrow.next{right:14px}
-.detail-photo-arrow svg{width:22px;height:22px}
 .detail-vehicle-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0 20px}
 .detail-vehicle-nav button{display:inline-flex;align-items:center;gap:5px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--green-text);font-size:12px;font-weight:700;cursor:pointer}
 .detail-vehicle-nav button:disabled{opacity:.45;cursor:not-allowed}

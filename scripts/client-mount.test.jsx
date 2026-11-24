@@ -365,16 +365,17 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(!!gallery && !gallery.querySelector('.detail-orb, .hero-orb'), 'vehicle detail photos no longer carry the decorative globe');
     ok(!!gallery?.querySelector('.detail-main-image img') && !!gallery.querySelector('.detail-gallery-toolbar .gallery-expand'),
       'the main vehicle photo and enlarge control remain available');
-    const nextPhoto = gallery?.querySelector('.detail-photo-arrow.next');
+    const nextPhoto = gallery?.querySelector('.detail-gallery-toolbar .gallery-arrow.next');
     const mainPhoto = gallery?.querySelector('.detail-main-image img');
+    ok(gallery?.querySelectorAll('.detail-main-image button').length === 0, 'the main image has no duplicate overlay arrows');
     if (nextPhoto && mainPhoto) {
       const before = mainPhoto.getAttribute('src');
       await act(async () => { nextPhoto.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
       const after = mainPhoto.getAttribute('src');
-      ok(before !== after, 'clicking the visible next arrow changes the vehicle photo');
+      ok(before !== after, 'clicking the gallery toolbar next arrow changes the vehicle photo');
       await act(async () => { window.dispatchEvent(new dom.window.KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true,cancelable:true})); });
       ok(mainPhoto.getAttribute('src') === before, 'keyboard left arrow returns to the previous photo');
-    } else ok(false, 'multiple-photo vehicle shows a next arrow over the main image');
+    } else ok(false, 'multiple-photo vehicle shows a next arrow in the gallery toolbar');
     const nextVehicle = document.querySelector('.detail-vehicle-nav button:last-child');
     ok(!!nextVehicle && !nextVehicle.disabled, 'vehicle details offer a next vehicle control');
     if(nextVehicle && !nextVehicle.disabled){
