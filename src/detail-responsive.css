@@ -70,10 +70,6 @@
     margin-inline: auto;
   }
 
-  .detail-gallery > .detail-main-image > img {
-    aspect-ratio: 16 / 10 !important;
-    max-height: 480px;
-  }
 
   .detail-gallery > .detail-thumbs {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
@@ -151,9 +147,6 @@
     gap: 22px !important;
   }
 
-  .detail-gallery > .detail-main-image > img {
-    aspect-ratio: 16 / 10 !important;
-  }
 
   .detail-gallery .detail-gallery-toolbar {
     gap: 7px !important;
