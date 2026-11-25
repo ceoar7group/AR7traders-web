@@ -191,8 +191,12 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // a hero page, gone before the hero's first line of copy can slide under it,
 // back on scroll-up). That is ~0.6 kB of first-load JS; the CSS it deleted
 // stays inside the unchanged CSS budget. Measured 477.61 kB raw / 140.99 kB gzip.
+// Ratcheted 479 → 481 kB raw on 2026-11-25 (gzip unchanged at 142 kB): the
+// vehicle detail pager — back link, Previous / Next, and "43 of 412 in all
+// inventory" — is markup in src/main.jsx, so it lands in the entry chunk.
+// Measured 478.93 kB raw / 141.34 kB gzip.
 const BUDGET_GZIP = 142 * 1024;
-const BUDGET_RAW = 479 * 1024;
+const BUDGET_RAW = 481 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
@@ -232,8 +236,16 @@ for (const file of entryCss) {
 // public first paint is unchanged. Measured 189.29 kB raw / 36.72 kB gzip.
 // Ratcheted 37 → 38 kB gzip / 190 → 192 kB raw on 2026-10-05 for the
 // fixed header, resized hero callouts and responsive founder-stat corrections.
-const CSS_BUDGET_GZIP = 38 * 1024;
-const CSS_BUDGET_RAW = 192 * 1024;
+// Ratcheted 38 → 40 kB gzip / 192 → 206 kB raw on 2026-11-25: the vehicle
+// detail pass (src/detail-v2.css) — a studio matte instead of the dark photo
+// frame, one quiet control row under the photo instead of a bordered toolbar,
+// a Previous / Next inventory pager, the tinted price panel, borderless spec
+// tiles and the hairline specification list. It also deletes the 1.2 kB dark
+// toolbar block in src/expanded.css that it supersedes. The page is not
+// lazily routed, so its styles are part of first paint.
+//     FIRST-LOAD CSS        204.93 kB  ( 39.15 kB gzip)
+const CSS_BUDGET_GZIP = 40 * 1024;
+const CSS_BUDGET_RAW = 206 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,

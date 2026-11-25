@@ -892,46 +892,8 @@ html[data-theme=dark] .world-time-flag{background:#eef5f0;border-color:#5d806e}
    — bigger zoom window, every control OUTSIDE the picture area
    ============================================================ */
 
-/* ---- Detail page: controls moved to a toolbar below the photo ---- */
-.detail-gallery .detail-gallery-toolbar{
-  display:flex!important;
-  align-items:center!important;
-  gap:10px!important;
-  margin-top:10px!important;
-  padding:8px 12px!important;
-  border:1px solid #ffffff1f!important;
-  border-radius:14px!important;
-  background:linear-gradient(145deg,#0b402beF,#032017eF)!important;
-  backdrop-filter:blur(10px);
-}
-.detail-gallery .detail-gallery-toolbar .gallery-arrow{
-  position:static!important;
-  top:auto!important;
-  translate:0 0!important;
-  left:auto!important;
-  right:auto!important;
-  width:40px!important;
-  height:40px!important;
-  border-radius:12px!important;
-}
-.detail-gallery .detail-gallery-toolbar .gallery-count{
-  position:static!important;
-  right:auto!important;
-  bottom:auto!important;
-  margin:0 auto!important;
-  padding:6px 12px!important;
-  font-size:11px!important;
-  letter-spacing:1.5px!important;
-}
-.detail-gallery .detail-gallery-toolbar .gallery-expand{
-  position:static!important;
-  right:auto!important;
-  top:auto!important;
-  height:40px!important;
-  border-radius:12px!important;
-  margin-left:auto!important;
-  font-size:10px!important;
-}
+/* The detail gallery's controls, counter and thumbnails are owned by
+   src/detail-v2.css (imported last); the lightbox shell follows. */
 
 /* ---- Lightbox shell: larger, column layout, clean image area ---- */
 .gallery-lightbox{
