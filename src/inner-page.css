@@ -207,8 +207,8 @@
 }
 
 /* ---------- VEHICLE DETAIL GALLERY & LIGHTBOX ---------- */
-.detail-gallery>.detail-main-image{display:grid!important;place-items:center;position:relative!important;margin:0!important;aspect-ratio:31/20;background:#071b12;border-radius:22px;overflow:hidden}
-.detail-gallery>.detail-main-image>img{display:block!important;width:100%!important;height:100%!important;max-height:none!important;aspect-ratio:auto!important;object-fit:contain!important;object-position:center!important;border-radius:22px!important;cursor:zoom-in;background:#071b12}
+.detail-gallery>.detail-main-image{display:block!important;position:relative!important;margin:0!important;aspect-ratio:31/20;background:#071b12;border-radius:22px;overflow:hidden}
+.detail-gallery>.detail-main-image>img{display:block!important;position:absolute!important;inset:0;width:100%!important;height:100%!important;max-height:none!important;aspect-ratio:auto!important;object-fit:contain!important;object-position:center!important;border-radius:22px!important;cursor:zoom-in;background:#071b12}
 .detail-gallery>.detail-thumbs{display:grid!important;grid-template-columns:repeat(5,1fr)!important;gap:10px!important;margin-top:10px!important}
 .detail-gallery>.detail-thumbs button{position:relative;border:2px solid transparent;padding:0;background:#071b12;border-radius:10px;overflow:hidden;cursor:pointer}
 .detail-gallery>.detail-thumbs button.active{border-color:var(--gold)}

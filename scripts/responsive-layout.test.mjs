@@ -203,8 +203,8 @@ assert.doesNotMatch(detailCss, /detail-orb/);
 assert.doesNotMatch(landingCss, /detail-orb/);
 // The frame, not the image's intrinsic dimensions, determines gallery height.
 // This keeps contained photos centred for both landscape and portrait uploads.
-assert.match(innerPageCss, /\.detail-gallery>\.detail-main-image\{[^}]*aspect-ratio:31\/20/);
-assert.match(innerPageCss, /\.detail-gallery>\.detail-main-image>img\{[^}]*height:100%!important;[^}]*object-fit:contain!important;object-position:center!important/);
+assert.match(innerPageCss, /\.detail-gallery>\.detail-main-image\{[^}]*display:block!important;[^}]*aspect-ratio:31\/20/);
+assert.match(innerPageCss, /\.detail-gallery>\.detail-main-image>img\{[^}]*position:absolute!important;inset:0;[^}]*width:100%!important;[^}]*height:100%!important;[^}]*object-fit:contain!important;object-position:center!important/);
 assert.doesNotMatch(detailCss, /\.detail-main-image\s*>\s*img\s*\{/);
 assert.doesNotMatch(innerPage, /detail-photo-arrow/);
 assert.match(innerPage, /detail-gallery-toolbar/);
