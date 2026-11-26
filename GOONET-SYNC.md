@@ -1,5 +1,18 @@
 # Goo-net dealer stock importer — how it works
 
+> **Source switch (2026-11-05): the importer now reads Goo-net EXCHANGE**
+> (`www.goo-net-exchange.com`), Goo-net's own English export portal — the
+> same cars, server-rendered in English with FOB prices. Probes from a
+> GitHub Actions runner proved the domestic `www.goo-net.com` silently drops
+> connections from datacenter IPs (raw TCP timeout, no HTTP answer), which
+> also starved every relay crawl — eight failed runs in a row. The exchange
+> answered the same runner **HTTP 200 in under a second**, needs no relay,
+> no cookie warm-up and no API key. A saved domestic
+> `goonet_search_url` (e.g. `/usedcar/price-100-300/`) is translated to the
+> equivalent exchange FOB search automatically; owner-pasted URLs from
+> either site still work in the CRM. The notes below about the domestic
+> site's bot gate are kept for history and for the (unused) legacy parser.
+
 This update adds a self-running **Goo-net (goo-net.com) importer** plus three
 things you asked for around it: a new **"Japan dealer stock"** page on the
 website, a **"Japan dealer stock"** manager in the CRM with buttons to move
@@ -67,6 +80,8 @@ healthchecks.io) can call the same URL — one call per day is plenty.
 | Delist checks per run | 5 | How many existing cars are verified per run |
 | Weekly delist limit | 5 | Maintenance removes at most this many older cars/week |
 | Weekly auto-promote limit | 2 | Fresh cars auto-promoted to the website per week |
+| Auto-promote per run | = max new cars | Fresh imports each run copies onward (0 = import only) |
+| Auto-promote destination | both | Where a passing import goes: website, CRM inventory, or both |
 | JPY → USD rate | 0.0068 | Used for estimated US prices |
 
 What a run does, in order:
@@ -78,14 +93,21 @@ What a run does, in order:
 2. **Quality gate**: for each new car, fetch its detail page, count photos,
    read price/year/mileage/condition — only import cars that pass. Skipped
    cars are listed in the run report.
-3. **Delist check**: a few existing cars are re-visited; if Goo-net shows the
+3. **Same-run promotion** (2026-11): cars imported by THIS run are copied
+   straight on to the public website and/or the CRM inventory (the
+   auto-promote destination setting, default both), bounded per run. The
+   `promoted` flag is written only after a copy lands, both copies upsert by
+   stock number (no duplicates), and rows imported on *earlier* runs — the
+   unpromoted backlog — are never swept up automatically: promoting those is
+   an owner decision in the CRM.
+4. **Delist check**: a few existing cars are re-visited; if Goo-net shows the
    car is gone (404 or the "listed until …" notice), it is **delisted** — it
    disappears from the *Japan dealer stock* page, and if it had been promoted
    to the website, that listing is hidden too (`published=false`, reversible).
-4. **Weekly maintenance** (once per 7 days): delists a *few* older/lower-quality
+5. **Weekly maintenance** (once per 7 days): delists a *few* older/lower-quality
    cars, and auto-promotes a *few* fresh high-quality cars to the website so
    stock keeps growing without ever flooding the site.
-5. Writes the run timestamps/settings. The page bookmark has already advanced
+6. Writes the run timestamps/settings. The page bookmark has already advanced
    only if step 1 yielded a readable listing; otherwise it stays held for the
    next run.
 
@@ -560,6 +582,13 @@ the skip reasons; the scheduled workflow prints the full JSON):
   Environment Variables (no other change needed; redeploy once). The report's
   `relayKey` field says `configured` once the key is live. To use a different
   reader proxy entirely, set `GOONET_RELAY_URL` to its prefix.
+- `relayError` mentioning `Timeout was reached` means the relay itself could
+  not reach goo-net. A 2026-11-04 probe from a GitHub Actions runner proved
+  goo-net silently drops connections from foreign datacenter IPs (a raw TCP
+  timeout, no HTTP answer at all), which also kills the relay's default
+  crawl. The keyed relay therefore pins its proxy pool to Japan
+  (`X-Proxy: jp`; report field `relayProxy`). Override without a deploy via
+  `GOONET_RELAY_PROXY` (`auto`, another country code, or `off`).
 - `parseMiss: true` means goo-net answered fine but the card markup changed —
   that is a parser bug in `scripts/goonet-core.mjs`, not a blockade.
 - Skip reasons like `only 3 images (need 5+)` or `no/old year` mean the

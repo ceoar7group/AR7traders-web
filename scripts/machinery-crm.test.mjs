@@ -234,6 +234,15 @@ console.log('\n-- publish / unpublish / archive --');
   const adminList = fakeRes();
   await handler(req('GET', { machinery: 'list', all: '1' }), adminList, { db, ...asUser(ADMIN) });
   ok(adminList.json().length === 1, 'the CRM still sees it with all=1');
+  ok('price_usd' in adminList.json()[0], 'private desk read keeps the editable database price column');
+  const audit = fakeRes();
+  await handler(req('GET', { machinery: 'audit' }), audit, { db, ...asUser(ADMIN) });
+  ok(audit.statusCode === 200 && audit.json().total === 1, 'audit discovers the stored unpublished row');
+  ok(audit.json().items[0].visibility === 'unpublished', 'audit names the exact visibility state');
+  const deniedAudit = fakeRes();
+  await handler(req('GET', { machinery: 'audit' }), deniedAudit, { db, ...asUser(SALES) });
+  ok(deniedAudit.statusCode === 403, 'audit does not expose private records to a role without site.write');
+
 
   const anonAll = fakeRes();
   await handler(req('GET', { machinery: 'list', all: '1' }), anonAll, { db });
@@ -323,6 +332,30 @@ console.log('\n-- live-site hydration --');
     }
   } catch (e) { renderCrash = e.message; }
   ok(renderCrash === null, `hydrated rows survive what the home teaser does to them${renderCrash ? ` — ${renderCrash}` : ''}`);
+}
+
+console.log('\n-- owner-requested hidden import recovery --');
+{
+  const seed = { ...GOOD, source_url:'https://supplier.example/machine', published:false, status:'Available', price_usd:null, images:[] };
+  const db = fakeDb({machinery:[
+    {...seed,id:'recover1',ref:'AR7-MC-901'},
+    {...seed,id:'archive1',ref:'AR7-MC-902',status:'Archived'},
+    {...seed,id:'sold1',ref:'AR7-MC-903',status:'Sold'},
+    {...seed,id:'invalid1',ref:'AR7-MC-904',type:'unknown'},
+    {...seed,id:'reserved1',ref:'AR7-MC-905',status:'Reserved'}
+  ]});
+  const denied = fakeRes();
+  await handler(req('POST',{machinery:'recover-imports'},{confirm:false}),denied,{db,...asUser(ADMIN)});
+  ok(denied.statusCode === 400,'bulk recovery needs explicit confirmation');
+  const response = fakeRes();
+  await handler(req('POST',{machinery:'recover-imports'},{confirm:true}),response,{db,...asUser(ADMIN)});
+  ok(response.statusCode === 200,'confirmed recovery completes');
+  ok(response.json().restored.length === 1 && response.json().restored[0] === 'AR7-MC-901','recovers valid available import without photos or a price');
+  ok(db._tables.machinery.length === 5,'creates no duplicate records');
+  ok(db._tables.machinery.filter(r=>r.published).length === 1,'does not publish archived, sold, reserved or invalid rows');
+  const again = fakeRes();
+  await handler(req('POST',{machinery:'recover-imports'},{confirm:true}),again,{db,...asUser(ADMIN)});
+  ok(again.json().restored.length === 0,'recovery is idempotent');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -6,14 +6,34 @@
 //
 // Switching updates `document.documentElement.lang` and `.dir` so screen
 // readers, search engines and the browser's own hyphenation all follow, and it
-// emits an `ar7:language` event that the SEO module listens to so the canonical
-// stays on the English URL (see src/seo.js). Translated pages are an aid for
-// buyers, not a second set of indexable pages: the catalogue, prices and stock
-// references stay identical, and we do not want a half-translated page ranking
-// in place of the real one.
+// emits an `ar7:language` event that the SEO module listens to (src/seo.js).
+//
+// 2026-11 (international SEO): the language is also in the URL. `?lang=ur` on
+// any page opens it in Urdu — so a shared link arrives in the reader's
+// language, and so Google can crawl and rank each language variant (applySeo
+// publishes the hreflang set and a self-canonical per variant). English stays
+// on the clean URL and is the x-default. The URL wins over localStorage on
+// arrival; switching rewrites the address bar in place (replaceState — a
+// language choice is not a navigation). The catalogue, prices and stock
+// references stay identical in every language.
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { LANGUAGES, DEFAULT_LANG, LANG_KEY, translate, isRtl, langMeta, registerDicts, loadedLangs } from './i18n.js';
+import { LANGUAGES, DEFAULT_LANG, LANG_KEY, LANG_PARAM, langFromSearch, translate, isRtl, langMeta, registerDicts, loadedLangs } from './i18n.js';
+import { registerSeoI18n } from './seo.js';
+
+/** Non-English assets arrive together, as lazy chunks: the UI dictionaries
+ *  and the localized SEO titles/descriptions (R38). One failing import does
+ *  not take the other down — a missing SEO chunk just leaves English
+ *  snippets, which is the pre-R38 behaviour. */
+async function loadLanguageAssets() {
+  const [dicts, seo] = await Promise.allSettled([
+    import('./i18n-dicts.js'),
+    import('./seo-i18n.js'),
+  ]);
+  if (dicts.status === 'fulfilled') registerDicts(dicts.value.default);
+  if (seo.status === 'fulfilled') registerSeoI18n(seo.value.PAGE_SEO_I18N);
+  if (dicts.status !== 'fulfilled') throw dicts.reason;   // caller keeps current language
+}
 import { Globe2, Check } from 'lucide-react';
 
 // The default context is complete on purpose: components rendered outside the
@@ -30,6 +50,12 @@ const LangContext = createContext({
 });
 
 const browserDefault = () => {
+  // A language named in the URL wins: it is what the sender of the link (or
+  // the search result the visitor clicked) explicitly asked this page to be.
+  try {
+    const fromUrl = langFromSearch(location.search);
+    if (fromUrl) return fromUrl;
+  } catch { /* no URL to read (isolated render tests) */ }
   try {
     const stored = localStorage.getItem(LANG_KEY);
     if (stored && LANGUAGES.some(l => l.code === stored)) return stored;
@@ -54,8 +80,11 @@ export function LanguageProvider({ children }) {
       const start = browserDefault();
       if (start === DEFAULT_LANG) { if (alive) setReady(true); return; }
       try {
-        const mod = await import('./i18n-dicts.js');
-        registerDicts(mod.default);
+        await loadLanguageAssets();
+        // The [code] effect already announced the language before the
+        // localized SEO strings arrived; re-fire so useSeo re-stamps the
+        // head with the translated title/description (R38).
+        if (alive) { try { window.dispatchEvent(new CustomEvent('ar7:language', { detail: { code: start } })); } catch { /* ignore */ } }
       } catch { /* stay on English if the chunk cannot load */ }
       if (alive) setReady(true);
     })();
@@ -66,8 +95,7 @@ export function LanguageProvider({ children }) {
     if (next === DEFAULT_LANG) { setCode(DEFAULT_LANG); return; }
     if (!loadedLangs().includes(next)) {
       try {
-        const mod = await import('./i18n-dicts.js');
-        registerDicts(mod.default);
+        await loadLanguageAssets();
       } catch { return; }   // dictionary unavailable: keep the current language
     }
     setCode(next);
@@ -80,6 +108,18 @@ export function LanguageProvider({ children }) {
     root.dir = meta.dir;
     root.setAttribute('data-lang', code);
     try { localStorage.setItem(LANG_KEY, code); } catch { /* ignore */ }
+    // Keep the address bar naming the language (?lang=ur) so the URL someone
+    // copies opens in their language. English means the clean URL. Rewritten
+    // in place — switching languages is not a navigation, so no history entry.
+    try {
+      const params = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
+      if (code === DEFAULT_LANG) params.delete(LANG_PARAM);
+      else params.set(LANG_PARAM, code);
+      const search = params.toString();
+      const next = location.pathname + (search ? '?' + search : '') + (location.hash || '');
+      const now = location.pathname + (location.search || '') + (location.hash || '');
+      if (next !== now) history.replaceState(history.state, '', next);
+    } catch { /* no history to write (isolated render tests) */ }
     try { window.dispatchEvent(new CustomEvent('ar7:language', { detail: { code } })); } catch { /* ignore */ }
     // Keep any server-rendered/static copy in step with the choice.
     const metaDescription = document.querySelector('meta[name="description"]');
@@ -119,11 +159,15 @@ export function LanguageSwitcher({ compact = false }) {
 
   return (
     <div className="lang-switch">
-      <button type="button" className="icon-btn lang-btn" aria-haspopup="listbox"
+      {/* 2026-11-07 redesign (owner request): a clear language pill — gold
+          globe chip + the language's own short code — instead of a plain
+          icon-box that read as "settings". Same panel, same behaviour. */}
+      <button type="button" className="lang-btn" aria-haspopup="listbox"
         aria-expanded={open} aria-label={`${t('nav.language')}: ${meta.native}`}
         title={`${t('nav.language')} — ${meta.label}`} onClick={() => setOpen(v => !v)}>
-        <Globe2/>
+        <i className="lang-globe" aria-hidden="true"><Globe2/></i>
         <span className="lang-code">{code.toUpperCase()}</span>
+        <svg className="lang-chev" aria-hidden="true" width="8" height="8" viewBox="0 0 10 10"><path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
       </button>
       {open && (
         <div className="lang-panel" role="listbox" aria-label={t('nav.language')}>

@@ -1,0 +1,780 @@
+{
+  "base": "http://127.0.0.1:5199",
+  "label": "after-fix",
+  "generatedAt": "2026-10-12T15:55:01.849Z",
+  "viewports": {
+    "1440x900": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 292,
+        "right": 1408,
+        "width": 1116,
+        "scrollWidth": 1325,
+        "clientWidth": 1114
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 985,
+        "actionCell": {
+          "left": 1265,
+          "right": 1407,
+          "width": 142
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 32
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 32
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 211,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 44,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "arrowUpReturned": true,
+        "homeToFirst": true,
+        "endToLast": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 219,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "activeMenuIndexWhenOpen": 0,
+        "enabledMenuItems": 4,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "menuVisual": {
+        "opened": true,
+        "rowIndex": 1,
+        "panelExists": true,
+        "parentTag": "BODY",
+        "position": "fixed",
+        "theme": "emerald",
+        "panelInsideTableWrap": false,
+        "panelOnScreen": true,
+        "panelRect": {
+          "left": 1162.125,
+          "top": 476.5,
+          "right": 1395,
+          "bottom": 689.5,
+          "width": 232.875,
+          "height": 213
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "background": "rgb(7, 37, 26)",
+        "backgroundAlpha": 1,
+        "textColor": "rgb(16, 32, 24)",
+        "firstItemColor": "rgb(234, 246, 240)",
+        "themeSamples": {
+          "emerald": {
+            "background": "rgb(7, 37, 26)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(234, 246, 240)"
+          },
+          "dark": {
+            "background": "rgb(20, 28, 24)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(240, 247, 243)"
+          },
+          "light": {
+            "background": "rgb(255, 255, 255)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(15, 36, 26)"
+          }
+        },
+        "allThemesOpaque": true,
+        "firstItem": "On website (already published)",
+        "firstItemVisible": true,
+        "firstItemRect": {
+          "left": 1169.125,
+          "top": 483.5,
+          "right": 1388,
+          "bottom": 519.5,
+          "width": 218.875,
+          "height": 36
+        },
+        "opaqueBackground": true,
+        "checks": {
+          "detachedFromTable": true,
+          "withinViewport": true,
+          "visibleFirstItem": true,
+          "opaqueBackground": true,
+          "allThemesOpaque": true
+        }
+      },
+      "screenshot": "pr-visuals/2026-10-12/crm-actions-after-fix-1440x900.jpg",
+      "scrollDismissal": {
+        "ready": true,
+        "rowIndex": 1,
+        "originalTriggerTop": 438.5,
+        "smallScrollTop": 6,
+        "probeHeight": 126,
+        "triggerMovedPx": 6,
+        "remainedOpenAfterSmallScroll": true,
+        "horizontallyAnchored": true,
+        "verticallyAnchored": true,
+        "repositionedOnScroll": true,
+        "rowOutsideScrollport": true,
+        "menuClosed": true,
+        "scrollTop": 171
+      }
+    },
+    "1024x768": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 292,
+        "right": 992,
+        "width": 700,
+        "scrollWidth": 1325,
+        "clientWidth": 698
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 569,
+        "actionCell": {
+          "left": 849,
+          "right": 991,
+          "width": 142
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 32
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 32
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 627,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 44,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "arrowUpReturned": true,
+        "homeToFirst": true,
+        "endToLast": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 219,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "activeMenuIndexWhenOpen": 0,
+        "enabledMenuItems": 4,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "menuVisual": {
+        "opened": true,
+        "rowIndex": 1,
+        "panelExists": true,
+        "parentTag": "BODY",
+        "position": "fixed",
+        "theme": "emerald",
+        "panelInsideTableWrap": false,
+        "panelOnScreen": true,
+        "panelRect": {
+          "left": 746.125,
+          "top": 524.5,
+          "right": 979,
+          "bottom": 737.5,
+          "width": 232.875,
+          "height": 213
+        },
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "background": "rgb(7, 37, 26)",
+        "backgroundAlpha": 1,
+        "textColor": "rgb(16, 32, 24)",
+        "firstItemColor": "rgb(234, 246, 240)",
+        "themeSamples": {
+          "emerald": {
+            "background": "rgb(7, 37, 26)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(234, 246, 240)"
+          },
+          "dark": {
+            "background": "rgb(20, 28, 24)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(240, 247, 243)"
+          },
+          "light": {
+            "background": "rgb(255, 255, 255)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(15, 36, 26)"
+          }
+        },
+        "allThemesOpaque": true,
+        "firstItem": "On website (already published)",
+        "firstItemVisible": true,
+        "firstItemRect": {
+          "left": 753.125,
+          "top": 531.5,
+          "right": 972,
+          "bottom": 567.5,
+          "width": 218.875,
+          "height": 36
+        },
+        "opaqueBackground": true,
+        "checks": {
+          "detachedFromTable": true,
+          "withinViewport": true,
+          "visibleFirstItem": true,
+          "opaqueBackground": true,
+          "allThemesOpaque": true
+        }
+      },
+      "screenshot": "pr-visuals/2026-10-12/crm-actions-after-fix-1024x768.jpg",
+      "scrollDismissal": {
+        "ready": true,
+        "rowIndex": 1,
+        "originalTriggerTop": 486.5,
+        "smallScrollTop": 6,
+        "probeHeight": 126,
+        "triggerMovedPx": 6,
+        "remainedOpenAfterSmallScroll": true,
+        "horizontallyAnchored": true,
+        "verticallyAnchored": true,
+        "repositionedOnScroll": true,
+        "rowOutsideScrollport": true,
+        "menuClosed": true,
+        "scrollTop": 171
+      }
+    },
+    "768x1024": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "scrollWidth": 1325,
+        "clientWidth": 734
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 605,
+        "actionCell": {
+          "left": 609,
+          "right": 751,
+          "width": 142
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 32
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 32
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 591,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 46,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "arrowUpReturned": true,
+        "homeToFirst": true,
+        "endToLast": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 219,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "activeMenuIndexWhenOpen": 0,
+        "enabledMenuItems": 4,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "menuVisual": {
+        "opened": true,
+        "rowIndex": 1,
+        "panelExists": true,
+        "parentTag": "BODY",
+        "position": "fixed",
+        "theme": "emerald",
+        "panelInsideTableWrap": false,
+        "panelOnScreen": true,
+        "panelRect": {
+          "left": 506.125,
+          "top": 512.5,
+          "right": 739,
+          "bottom": 725.5,
+          "width": 232.875,
+          "height": 213
+        },
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "background": "rgb(7, 37, 26)",
+        "backgroundAlpha": 1,
+        "textColor": "rgb(16, 32, 24)",
+        "firstItemColor": "rgb(234, 246, 240)",
+        "themeSamples": {
+          "emerald": {
+            "background": "rgb(7, 37, 26)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(234, 246, 240)"
+          },
+          "dark": {
+            "background": "rgb(20, 28, 24)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(240, 247, 243)"
+          },
+          "light": {
+            "background": "rgb(255, 255, 255)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(15, 36, 26)"
+          }
+        },
+        "allThemesOpaque": true,
+        "firstItem": "On website (already published)",
+        "firstItemVisible": true,
+        "firstItemRect": {
+          "left": 513.125,
+          "top": 519.5,
+          "right": 732,
+          "bottom": 555.5,
+          "width": 218.875,
+          "height": 36
+        },
+        "opaqueBackground": true,
+        "checks": {
+          "detachedFromTable": true,
+          "withinViewport": true,
+          "visibleFirstItem": true,
+          "opaqueBackground": true,
+          "allThemesOpaque": true
+        }
+      },
+      "screenshot": "pr-visuals/2026-10-12/crm-actions-after-fix-768x1024.jpg",
+      "scrollDismissal": {
+        "ready": true,
+        "rowIndex": 1,
+        "originalTriggerTop": 474.5,
+        "smallScrollTop": 6,
+        "probeHeight": 126,
+        "triggerMovedPx": 6,
+        "remainedOpenAfterSmallScroll": true,
+        "horizontallyAnchored": true,
+        "verticallyAnchored": true,
+        "repositionedOnScroll": true,
+        "rowOutsideScrollport": true,
+        "menuClosed": true,
+        "scrollTop": 171
+      }
+    },
+    "390x844": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "scrollWidth": 356,
+        "clientWidth": 356
+      },
+      "actions": {
+        "trigger": true,
+        "editInViewportNoScroll": true,
+        "editRightOverflowPx": 0,
+        "editLeftOfScroller": 14,
+        "actionCell": {
+          "left": 30,
+          "right": 360,
+          "width": 330
+        },
+        "tapTargets": [
+          {
+            "label": "Edit",
+            "w": 47,
+            "h": 40
+          },
+          {
+            "label": "More actions for Toyota ",
+            "w": 65,
+            "h": 40
+          },
+          {
+            "label": "On website (already publ",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Manage photos",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delist from website",
+            "w": 0,
+            "h": 0
+          },
+          {
+            "label": "Delete record",
+            "w": 0,
+            "h": 0
+          }
+        ],
+        "coversRowContent": 330,
+        "menuLabel": "More actions for Toyota Harrier S 0710232A30260801W001 (4)",
+        "menuExpanded": "false",
+        "menuHaspopup": "menu"
+      },
+      "focus": {
+        "reachedInTabs": 46,
+        "focused": "Edit",
+        "menuOpened": true,
+        "menuItems": 5,
+        "arrowMovedFocus": true,
+        "arrowUpReturned": true,
+        "homeToFirst": true,
+        "endToLast": true,
+        "menuClosedByEscape": true,
+        "focusReturned": true,
+        "itemSizes": [
+          {
+            "label": "On website (already pu",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Copy to inventory",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Manage photos",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delist from website",
+            "w": 219,
+            "h": 36
+          },
+          {
+            "label": "Delete record",
+            "w": 219,
+            "h": 36
+          }
+        ],
+        "expandedWhenOpen": "true",
+        "ariaHiddenWhenOpen": null,
+        "activeMenuIndexWhenOpen": 0,
+        "enabledMenuItems": 4,
+        "ariaHiddenWhenClosed": "true"
+      },
+      "interaction": {
+        "editOpenedEditor": true,
+        "editorTitle": "Update goone",
+        "deleteAskedForConfirmation": "Delete Harrier S? This cannot be undone.",
+        "menuItemClicked": "Delete record"
+      },
+      "menuVisual": {
+        "opened": true,
+        "rowIndex": 1,
+        "panelExists": true,
+        "parentTag": "BODY",
+        "position": "fixed",
+        "theme": "emerald",
+        "panelInsideTableWrap": false,
+        "panelOnScreen": true,
+        "panelRect": {
+          "left": 8,
+          "top": 584.5,
+          "right": 240.875,
+          "bottom": 797.5,
+          "width": 232.875,
+          "height": 213
+        },
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "background": "rgb(7, 37, 26)",
+        "backgroundAlpha": 1,
+        "textColor": "rgb(16, 32, 24)",
+        "firstItemColor": "rgb(234, 246, 240)",
+        "themeSamples": {
+          "emerald": {
+            "background": "rgb(7, 37, 26)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(234, 246, 240)"
+          },
+          "dark": {
+            "background": "rgb(20, 28, 24)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(240, 247, 243)"
+          },
+          "light": {
+            "background": "rgb(255, 255, 255)",
+            "backgroundAlpha": 1,
+            "itemColor": "rgb(15, 36, 26)"
+          }
+        },
+        "allThemesOpaque": true,
+        "firstItem": "On website (already published)",
+        "firstItemVisible": true,
+        "firstItemRect": {
+          "left": 15,
+          "top": 591.5,
+          "right": 233.875,
+          "bottom": 627.5,
+          "width": 218.875,
+          "height": 36
+        },
+        "opaqueBackground": true,
+        "checks": {
+          "detachedFromTable": true,
+          "withinViewport": true,
+          "visibleFirstItem": true,
+          "opaqueBackground": true,
+          "allThemesOpaque": true
+        }
+      },
+      "screenshot": "pr-visuals/2026-10-12/crm-actions-after-fix-390x844.jpg",
+      "scrollDismissal": {
+        "ready": true,
+        "rowIndex": 1,
+        "originalTriggerTop": 803.5,
+        "smallScrollTop": 6,
+        "probeHeight": 572,
+        "triggerMovedPx": 3,
+        "remainedOpenAfterSmallScroll": true,
+        "horizontallyAnchored": true,
+        "verticallyAnchored": true,
+        "repositionedOnScroll": true,
+        "rowOutsideScrollport": true,
+        "menuClosed": true,
+        "scrollTop": 860
+      }
+    }
+  },
+  "failures": []
+}

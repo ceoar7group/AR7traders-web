@@ -1,0 +1,357 @@
+// WhatsApp desk contract tests (npm run test:wa).
+//
+// Pins the round-21 promises:
+//   • api/_wa.js parses Meta's nested webhook payload into flat events,
+//     matches senders to leads by phone tail, and never throws on junk.
+//   • The public webhook on /api/leads?wa=webhook does Meta's GET handshake
+//     only with the right verify token, refuses POSTs without the URL key,
+//     stores inbound messages, and NEVER auto-replies unless the owner set
+//     wa_auto_reply=on.
+//   • The staff desk on /api/crm?entity=wa lists conversations for any
+//     signed-in member, requires leads.write to send, answers 503 with the
+//     setup path when the Cloud API env is missing, and sends via Graph when
+//     configured.
+// In-memory db + injected hooks — no real network, no secrets.
+let pass = 0, fail = 0;
+const say = s => process.stdout.write(s + '\n');
+const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fail++; process.stderr.write('  ✗ ' + msg + '\n'); } };
+
+import { parseWebhookEvents, leadIdForNumber, waConfigured } from '../api/_wa.js';
+
+// ---------------------------------------------------------------------------
+say('1) parseWebhookEvents — Meta payload → flat events');
+{
+  const payload = {
+    entry: [{
+      changes: [{
+        value: {
+          contacts: [{ wa_id: '254711223344', profile: { name: 'Daniel M' } }],
+          messages: [
+            { from: '254711223344', id: 'wamid.A', type: 'text', text: { body: 'Hello, is the Vitz available?' } },
+            { from: '254711223344', id: 'wamid.B', type: 'image' }
+          ],
+          statuses: [{ id: 'wamid.OUT1', status: 'delivered' }]
+        }
+      }]
+    }]
+  };
+  const ev = parseWebhookEvents(payload);
+  ok(ev.length === 3, 'three events parsed (2 messages + 1 status)');
+  ok(ev[0].kind === 'message' && ev[0].wa_id === '254711223344', 'message event carries the sender wa_id');
+  ok(ev[0].body === 'Hello, is the Vitz available?', 'text body is extracted');
+  ok(ev[0].profile_name === 'Daniel M', 'profile name resolved from contacts');
+  ok(ev[1].body === '[image message]', 'non-text message gets an honest placeholder body');
+  ok(ev[2].kind === 'status' && ev[2].status === 'delivered', 'status event parsed');
+  ok(parseWebhookEvents(null).length === 0, 'null payload → no events, no throw');
+  ok(parseWebhookEvents({ entry: [{ changes: [{}] }] }).length === 0, 'junk payload → no events, no throw');
+}
+
+// ---------------------------------------------------------------------------
+say('\n2) leadIdForNumber — phone-tail matching');
+{
+  const leads = [
+    { id: 'L1', phone: '+254 711 223344' },
+    { id: 'L2', phone: '+92 300 1234567' },
+    { id: 'L3', phone: null }
+  ];
+  ok(leadIdForNumber('254711223344', leads) === 'L1', 'international format matches the formatted lead phone');
+  ok(leadIdForNumber('923001234567', leads) === 'L2', 'second lead matches by tail');
+  ok(leadIdForNumber('15550000000', leads) === null, 'unknown number → null');
+  ok(leadIdForNumber('44', leads) === null, 'too-short number never matches');
+}
+
+// ---------------------------------------------------------------------------
+// Shared in-memory db (shapes used by api/_wa.js only).
+function memDb(seed = {}) {
+  const tables = {};
+  for (const [n, rows] of Object.entries(seed)) tables[n] = rows.map(r => ({ ...r }));
+  const rowsOf = n => (tables[n] || (tables[n] = []));
+  let seq = 0;
+  const from = name => {
+    const rows = rowsOf(name);
+    const start = () => {
+      const ctx = { filters: [], order: null, limitN: null };
+      const settle = () => {
+        let out = rows.filter(r => ctx.filters.every(f => f(r)));
+        if (ctx.order) out = out.slice().sort(ctx.order);
+        if (ctx.limitN) out = out.slice(0, ctx.limitN);
+        return out;
+      };
+      const api = {
+        select: () => api,
+        eq: (k, v) => { ctx.filters.push(r => r[k] === v); return api; },
+        contains: (k, v) => { ctx.filters.push(r => (r[k] || []).includes(v[0])); return api; },
+        order: (k, o = {}) => { const d = o.ascending === false ? -1 : 1; ctx.order = (a, b) => d * String(a[k] ?? '').localeCompare(String(b[k] ?? '')); return api; },
+        limit: n => { ctx.limitN = n; return api; },
+        single: async () => { const out = settle(); return out.length ? { data: out[0], error: null } : { data: null, error: new Error('no row') }; },
+        then(resolve) { return resolve({ data: settle(), error: null }); }
+      };
+      return api;
+    };
+    return {
+      select: () => start(),
+      insert(rec) {
+        const list = (Array.isArray(rec) ? rec : [rec]).map(r => ({ ...r, id: r.id || 'id-' + (++seq) }));
+        // Simulate the unique msg_id index: a duplicate is an error, not a row.
+        const dup = list.some(r => r.msg_id && rows.some(x => x.msg_id === r.msg_id));
+        if (dup) return { error: { code: '23505' }, select: () => ({ single: async () => ({ data: null, error: { code: '23505' } }) }), then(res) { return res({ error: { code: '23505' } }); } };
+        rows.push(...list);
+        return {
+          error: null, data: list[0],
+          select: () => ({ single: async () => ({ data: list[0], error: null }) }),
+          then(res) { return res({ data: list, error: null }); }
+        };
+      },
+      update(patch) {
+        return { eq: (k, v) => ({ then(res) { rows.filter(r => r[k] === v).forEach(r => Object.assign(r, patch)); return res({ error: null }); } }) };
+      },
+      upsert(rec, opts = {}) {
+        const ck = opts.onConflict || 'id';
+        for (const r of (Array.isArray(rec) ? rec : [rec])) {
+          const hit = rows.find(x => x[ck] === r[ck]);
+          if (hit) Object.assign(hit, r); else rows.push({ ...r, id: r.id || 'id-' + (++seq) });
+        }
+        return { error: null };
+      },
+      delete() {
+        return { eq: (k, v) => { for (let i = rows.length - 1; i >= 0; i--) if (rows[i][k] === v) rows.splice(i, 1); return { error: null }; } };
+      }
+    };
+  };
+  return { db: { from }, tables };
+}
+function fakeRes() {
+  const r = { statusCode: 0, body: null, headers: {} };
+  r.status = code => { r.statusCode = code; return r; };
+  r.setHeader = (k, v) => { r.headers[k.toLowerCase()] = v; };
+  r.end = p => { try { r.body = JSON.parse(p); } catch { r.body = p; } };
+  return r;
+}
+async function run(handler, req, injected) {
+  const res = fakeRes();
+  const realErr = console.error; console.error = () => { };
+  try { await handler(req, res, injected); } finally { console.error = realErr; }
+  return res;
+}
+
+const leadsApi = (await import('../api/leads.js')).default;
+const crm = (await import('../api/crm.js')).default;
+import { DEFAULTS } from '../api/_perm.js';
+const permsFor = async role => DEFAULTS[role] || {};
+const userFor = (id, role) => async () => ({ user: { id, email: role + '@ar7' }, profile: { id, full_name: role + ' user', role, active: true, email: role + '@ar7' }, db: null });
+const ENV = { WHATSAPP_TOKEN: 'tkn', WHATSAPP_PHONE_ID: '1234567890', WHATSAPP_VERIFY_TOKEN: 'vt-secret' };
+
+// ---------------------------------------------------------------------------
+say('\n3) public webhook on /api/leads?wa=webhook');
+{
+  ok(waConfigured(ENV) === true && waConfigured({}) === false, 'waConfigured needs all three env vars');
+
+  // GET handshake
+  let r = await run(leadsApi, { method: 'GET', query: { wa: 'webhook', 'hub.mode': 'subscribe', 'hub.verify_token': 'vt-secret', 'hub.challenge': '12345' } }, { db: memDb().db, env: ENV });
+  ok(r.statusCode === 200 && String(r.body) === '12345', 'GET with the right verify token echoes hub.challenge');
+  r = await run(leadsApi, { method: 'GET', query: { wa: 'webhook', 'hub.mode': 'subscribe', 'hub.verify_token': 'WRONG', 'hub.challenge': '12345' } }, { db: memDb().db, env: ENV });
+  ok(r.statusCode === 403, 'GET with a wrong verify token is refused');
+
+  // POST without the URL key is not Meta
+  r = await run(leadsApi, { method: 'POST', query: { wa: 'webhook' }, body: {} }, { db: memDb().db, env: ENV });
+  ok(r.statusCode === 403, 'POST without the key is refused');
+
+  // POST with key stores the inbound message and links the lead
+  const { db, tables } = memDb({ leads: [{ id: 'L1', phone: '+254 711 223344' }] });
+  const payload = { entry: [{ changes: [{ value: { contacts: [{ wa_id: '254711223344', profile: { name: 'Daniel' } }], messages: [{ from: '254711223344', id: 'wamid.X', type: 'text', text: { body: 'Price for the Vitz?' } }] } }] }] };
+  r = await run(leadsApi, { method: 'POST', query: { wa: 'webhook', key: 'vt-secret' }, body: payload }, { db, env: ENV });
+  ok(r.statusCode === 200 && r.body.ok === true, 'webhook POST answers 200 (Meta must not retry)');
+  const stored = tables.wa_messages || [];
+  ok(stored.length === 1 && stored[0].direction === 'in' && stored[0].body === 'Price for the Vitz?', 'inbound message stored');
+  ok(stored[0].lead_id === 'L1', 'sender matched to the existing lead by phone tail');
+
+  // Meta retry (same msg_id) must not duplicate
+  r = await run(leadsApi, { method: 'POST', query: { wa: 'webhook', key: 'vt-secret' }, body: payload }, { db, env: ENV });
+  ok(r.statusCode === 200 && (tables.wa_messages || []).length === 1, 'duplicate msg_id (Meta retry) stores nothing new');
+
+  // Auto-reply stays OFF by default: no outbound row, no fetch
+  ok(!(tables.wa_messages || []).some(m => m.direction === 'out'), 'no auto-reply without wa_auto_reply=on');
+
+  // With wa_auto_reply=on an AI/canned reply goes out through Graph
+  {
+    const { db: db2, tables: t2 } = memDb({ leads: [], site_settings: [{ key: 'wa_auto_reply', value: 'on' }] });
+    const calls = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => { calls.push({ url, init }); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.OUT' }] }) }; };
+    try {
+      const p2 = { entry: [{ changes: [{ value: { contacts: [{ wa_id: '923001234567', profile: { name: 'Ali' } }], messages: [{ from: '923001234567', id: 'wamid.Y', type: 'text', text: { body: 'Salam, do you ship to Karachi?' } }] } }] }] };
+      await run(leadsApi, { method: 'POST', query: { wa: 'webhook', key: 'vt-secret' }, body: p2 }, { db: db2, env: ENV });
+    } finally { globalThis.fetch = realFetch; }
+    const out = (t2.wa_messages || []).filter(m => m.direction === 'out');
+    ok(out.length === 1 && out[0].msg_id === 'wamid.OUT', 'wa_auto_reply=on sends exactly one reply');
+    ok(calls.length >= 1 && String(calls[0].url).includes('graph.facebook.com'), 'reply goes through the Graph API');
+    ok(['AI agent', 'Auto-reply'].includes(out[0].actor), 'auto-reply is honestly attributed, never as a human');
+  }
+
+  // Known sender: no auto-captured duplicate lead
+  ok((tables.leads || []).length === 1, 'a KNOWN sender never auto-creates a second lead');
+
+  // Auto-capture (2026-11): an unknown number's first message files a lead
+  {
+    const { db: dbA, tables: tA } = memDb({ leads: [] });
+    const pA = { entry: [{ changes: [{ value: { contacts: [{ wa_id: '15550001111', profile: { name: 'Grace' } }], messages: [{ from: '15550001111', id: 'wamid.N1', type: 'text', text: { body: 'Do you ship to Georgetown?' } }] } }] }] };
+    let rA = await run(leadsApi, { method: 'POST', query: { wa: 'webhook', key: 'vt-secret' }, body: pA }, { db: dbA, env: ENV });
+    const auto = (tA.leads || [])[0];
+    ok(rA.statusCode === 200 && auto && auto.phone === '+15550001111' && auto.name === 'Grace', 'unknown sender is auto-captured as a lead with name and phone');
+    ok(auto && auto.source === 'WhatsApp' && auto.status === 'new', 'auto-captured lead is honestly sourced as WhatsApp, status new');
+    ok(auto && /Do you ship to Georgetown\?/.test(auto.notes || ''), 'the first message is kept on the lead notes');
+    ok((tA.wa_messages || [])[0]?.lead_id === auto?.id, 'the stored message is linked back to the auto-captured lead');
+    ok((tA.activities || []).some(a => /auto-captured/.test(a.action || '')), 'auto-capture leaves an activity-log receipt');
+    // Meta retry (same msg_id) must not create a second lead
+    rA = await run(leadsApi, { method: 'POST', query: { wa: 'webhook', key: 'vt-secret' }, body: pA }, { db: dbA, env: ENV });
+    ok((tA.leads || []).length === 1, 'a Meta retry cannot duplicate the auto-captured lead');
+  }
+
+  // Ordinary lead POSTs still work with the webhook branch in place
+  const { db: db3 } = memDb({ leads: [] });
+  r = await run(leadsApi, { method: 'POST', query: {}, body: { name: 'Buyer', phone: '+254700000000', country: 'Kenya', source: 'Website' } }, { db: db3, notify: false });
+  ok(r.statusCode === 201 && r.body.ok === true, 'plain enquiry POST is untouched by the webhook branch');
+}
+
+// ---------------------------------------------------------------------------
+say('\n4) staff desk on /api/crm?entity=wa');
+{
+  const seed = {
+    wa_messages: [
+      { id: 'm1', wa_id: '254711223344', profile_name: 'Daniel', direction: 'in', body: 'Hello', created_at: '2026-11-01T10:00:00Z' },
+      { id: 'm2', wa_id: '254711223344', direction: 'out', body: 'Hi Daniel!', actor: 'Sara', created_at: '2026-11-01T10:05:00Z' },
+      { id: 'm3', wa_id: '923001234567', profile_name: 'Ali', direction: 'in', body: 'Price?', created_at: '2026-11-02T09:00:00Z' }
+    ]
+  };
+
+  // Any signed-in member may read
+  let { db } = memDb(seed);
+  let r = await run(crm, { method: 'GET', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' } }, { db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
+  ok(r.statusCode === 200 && r.body.configured === false, 'GET works for a viewer and reports configured:false without env');
+  ok((r.body.conversations || []).length === 2, 'conversations grouped per number');
+  const daniel = r.body.conversations.find(c => c.wa_id === '254711223344');
+  ok(daniel && daniel.name === 'Daniel' && daniel.count === 2, 'conversation carries name and message count');
+
+  // Thread read
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'GET', query: { entity: 'wa', with: '254711223344' }, headers: { authorization: 'Bearer ok' } }, { db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
+  ok(r.statusCode === 200 && (r.body.messages || []).length === 2, 'thread read returns the two messages for that number');
+
+  // Viewer cannot send
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { to: '254711223344', body: 'hi' } }, { db, getUser: userFor('v1', 'viewer'), permsFor, env: ENV });
+  ok(r.statusCode === 403, 'viewer (no leads.write) cannot send');
+
+  // Sales without env → honest 503 with the setup path
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { to: '254711223344', body: 'hi' } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: {} });
+  ok(r.statusCode === 503 && /WHATSAPP_TOKEN/.test(r.body.error || ''), 'unconfigured send answers 503 naming the env vars');
+
+  // Sales with env sends through Graph and stores the outbound row
+  const mem = memDb(seed);
+  const calls = [];
+  const fetchStub = async (url, init) => { calls.push({ url, init }); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.SENT' }] }) }; };
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { to: '+254 711 223344', body: 'Your Vitz invoice is ready.' } }, { db: mem.db, getUser: userFor('s1', 'sales'), permsFor, env: ENV, fetch: fetchStub });
+  ok(r.statusCode === 201 && r.body.msg_id === 'wamid.SENT', 'send stores the outbound row with the Graph message id');
+  ok(calls.length === 1 && calls[0].url.includes('/1234567890/messages'), 'Graph called on the configured phone-number id');
+  ok(JSON.parse(calls[0].init.body).to === '254711223344', 'recipient number is normalised to digits');
+
+  // AI draft endpoint never sends — no fetch, just text
+  const mem2 = memDb(seed);
+  const calls2 = [];
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { ai: 'draft', wa_id: '254711223344' } }, { db: mem2.db, getUser: userFor('s1', 'sales'), permsFor, env: ENV, fetch: async (...a) => { calls2.push(a); return { ok: true, json: async () => ({}) }; } });
+  ok(r.statusCode === 200 && typeof r.body.text === 'string' && r.body.text.length > 10, 'AI draft returns reply text');
+  ok(r.body.source === 'canned' || r.body.source === 'ai', 'draft is honest about its source');
+  ok((mem2.tables.wa_messages || []).length === 3, 'drafting stores nothing and sends nothing');
+
+  // Connection test (2026-11): POST {test:1} asks Graph about the phone id.
+  // Always 200 — a failed test is a result, not a server error.
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { test: 1 } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: {} });
+  ok(r.statusCode === 200 && r.body.ok === false && /WHATSAPP_TOKEN/.test(r.body.error || ''), 'unconfigured test answers ok:false naming the missing variables');
+
+  ({ db } = memDb(seed));
+  const testCalls = [];
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { test: 1 } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: ENV, fetch: async url => { testCalls.push(String(url)); return { ok: true, json: async () => ({ display_phone_number: '+81 90 0000 0000', verified_name: 'AR7 Traders' }) }; } });
+  ok(r.statusCode === 200 && r.body.ok === true && r.body.number === '+81 90 0000 0000', 'configured test reports the number Meta says is connected');
+  ok(testCalls.length === 1 && testCalls[0].includes('/1234567890?fields='), 'test asks Graph about the configured phone-number id and sends nothing');
+
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { test: 1 } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: ENV, fetch: async () => ({ ok: false, status: 401, json: async () => ({ error: { code: 190, message: 'Error validating access token' } }) }) });
+  ok(r.statusCode === 200 && r.body.ok === false && /190/.test(r.body.error || '') && /Error validating access token/.test(r.body.error || ''), "a bad token surfaces Meta's exact error, not a guess");
+
+  // Unknown entity contract still intact
+  ({ db } = memDb(seed));
+  r = await run(crm, { method: 'GET', query: { entity: 'nope' }, headers: { authorization: 'Bearer ok' } }, { db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
+  ok(r.statusCode === 400, 'unknown entity still 400s');
+}
+
+// ---------------------------------------------------------------------------
+say('\n4b) direct connect — credentials pasted into the desk (2026-11-11)');
+{
+  // Sales (no settings.write) cannot save credentials — it is a settings
+  // change, not outreach.
+  let { db } = memDb({});
+  let r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'tkn2', phone_id: '555000111', verify_token: 'vt-direct' } } }, { db, getUser: userFor('s1', 'sales'), permsFor, env: {} });
+  ok(r.statusCode === 403, 'sales (no settings.write) cannot save credentials');
+
+  // Admin connect: Meta accepts → rows stored, desk configured with NO env.
+  const mem = memDb({});
+  const calls = [];
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'tkn2', phone_id: '+55 5000 111', verify_token: 'vt-direct' } } }, { db: mem.db, getUser: userFor('a1', 'admin'), permsFor, env: {}, fetch: async url => { calls.push(String(url)); return { ok: true, json: async () => ({ display_phone_number: '+81 80 1111 2222', verified_name: 'AR7 Traders' }) }; } });
+  ok(r.statusCode === 200 && r.body.ok === true && r.body.number === '+81 80 1111 2222', 'connect validates with Meta first and reports the live number');
+  ok(calls.length === 1 && calls[0].includes('/555000111?fields='), 'phone-number id is normalised to digits before asking Meta');
+  const saved = mem.tables.site_settings || [];
+  ok(saved.find(x => x.key === 'wa_cloud_token')?.value === 'tkn2'
+    && saved.find(x => x.key === 'wa_cloud_phone_id')?.value === '555000111'
+    && saved.find(x => x.key === 'wa_cloud_verify_token')?.value === 'vt-direct', 'all three credentials stored in site_settings');
+  r = await run(crm, { method: 'GET', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' } }, { db: mem.db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
+  ok(r.statusCode === 200 && r.body.configured === true && r.body.source === 'desk', 'desk credentials make the desk configured with NO env vars');
+
+  // The public webhook verifies with the DB-stored token too.
+  r = await run(leadsApi, { method: 'GET', query: { wa: 'webhook', 'hub.mode': 'subscribe', 'hub.verify_token': 'vt-direct', 'hub.challenge': '777' } }, { db: mem.db, env: {} });
+  ok(r.statusCode === 200 && String(r.body) === '777', 'webhook handshake works from the DB credentials (no env)');
+
+  // Sending a reply uses the stored token and phone id.
+  const sendCalls = [];
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { to: '254711223344', body: 'hello' } }, { db: mem.db, getUser: userFor('s1', 'sales'), permsFor, env: {}, fetch: async (url, init) => { sendCalls.push({ url: String(url), init }); return { ok: true, json: async () => ({ messages: [{ id: 'wamid.D1' }] }) }; } });
+  ok(r.statusCode === 201 && sendCalls.length === 1 && sendCalls[0].url.includes('/555000111/messages') && sendCalls[0].init.headers.Authorization === 'Bearer tkn2', 'sending a reply uses the desk-stored credentials');
+
+  // Authenticated settings GET never echoes the secrets back.
+  const settingsApi = (await import('../api/settings.js')).default;
+  r = await run(settingsApi, { method: 'GET', headers: { authorization: 'Bearer ok' } }, { db: mem.db, getUser: userFor('a1', 'admin') });
+  ok(r.statusCode === 200 && r.body.wa_cloud_token === '•••saved' && r.body.wa_cloud_verify_token === '•••saved', 'authenticated settings GET masks the stored secrets');
+  r = await run(settingsApi, { method: 'GET', headers: {} }, { db: mem.db, getUser: userFor('a1', 'admin') });
+  ok(r.statusCode === 200 && !('wa_cloud_token' in r.body) && !('wa_cloud_phone_id' in r.body) && !('wa_cloud_verify_token' in r.body), 'anonymous settings GET never exposes the credentials at all');
+
+  // Meta refuses → nothing is saved, Meta's exact error is surfaced.
+  const mem2 = memDb({});
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'bad', phone_id: '1', verify_token: 'vt-direct' } } }, { db: mem2.db, getUser: userFor('a1', 'admin'), permsFor, env: {}, fetch: async () => ({ ok: false, status: 401, json: async () => ({ error: { code: 190, message: 'Invalid OAuth access token' } }) }) });
+  ok(r.statusCode === 200 && r.body.ok === false && /190/.test(r.body.error || '') && !(mem2.tables.site_settings || []).length, "refused credentials are NOT saved and Meta's error is surfaced");
+
+  // Partial input is a 400, nothing saved.
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { connect: { token: 'x', phone_id: '', verify_token: 'vt-direct' } } }, { db: mem2.db, getUser: userFor('a1', 'admin'), permsFor, env: {} });
+  ok(r.statusCode === 400 && !(mem2.tables.site_settings || []).length, 'missing fields are a 400 and nothing is saved');
+
+  // Disconnect removes all three rows; without env the desk is unconfigured.
+  r = await run(crm, { method: 'POST', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' }, body: { disconnect: 1 } }, { db: mem.db, getUser: userFor('a1', 'admin'), permsFor, env: {} });
+  ok(r.statusCode === 200 && !(mem.tables.site_settings || []).some(x => /^wa_cloud_/.test(x.key)), 'disconnect deletes all three settings rows');
+  r = await run(crm, { method: 'GET', query: { entity: 'wa' }, headers: { authorization: 'Bearer ok' } }, { db: mem.db, getUser: userFor('v1', 'viewer'), permsFor, env: {} });
+  ok(r.body.configured === false, 'after disconnect the desk is honestly unconfigured again');
+}
+
+// ---------------------------------------------------------------------------
+say('\n5) prospects entity rides the generic CRM contract');
+{
+  const { db, tables } = memDb({ prospects: [] });
+  let r = await run(crm, { method: 'POST', query: { entity: 'prospects' }, headers: { authorization: 'Bearer ok' }, body: { company: 'Mombasa Auto', website: 'https://example.co.ke', emails: ['sales@example.co.ke'], phones: [], status: 'new', evil_column: 'x' } }, { db, getUser: userFor('s1', 'sales'), permsFor });
+  ok(r.statusCode === 201 && r.body.company === 'Mombasa Auto', 'sales can create a prospect (leads.write)');
+  ok(!('evil_column' in (tables.prospects[0] || {})), 'non-whitelisted columns are stripped');
+  r = await run(crm, { method: 'POST', query: { entity: 'prospects' }, headers: { authorization: 'Bearer ok' }, body: { company: 'Nope Ltd' } }, { db, getUser: userFor('v1', 'viewer'), permsFor });
+  ok(r.statusCode === 403, 'viewer cannot create prospects');
+  r = await run(crm, { method: 'GET', query: { entity: 'prospects' }, headers: { authorization: 'Bearer ok' } }, { db, getUser: userFor('v1', 'viewer'), permsFor });
+  ok(r.statusCode === 200 && r.body.length === 1, 'any signed-in member can read prospects');
+}
+
+say(`\n${pass} passed, ${fail} failed`);
+if (fail) process.exit(1);

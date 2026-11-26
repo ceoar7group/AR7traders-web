@@ -10,10 +10,17 @@
 //   • every emitted URL is a route src/routing.js actually resolves — a
 //     sitemap that advertises a dead path is worse than no sitemap;
 //   • success is publicly cacheable in the minutes range;
-//   • a database failure is an honest non-200, never 200 with broken XML;
-//   • GET only.
+//   • it advertises exactly what the SITE is serving: the published database
+//     rows when there are any, otherwise the built-in catalogue the client
+//     keeps in place (hydrateMachines) — so a missing table no longer hides
+//     live pages from a crawler behind a 503, it names the source instead
+//     (X-Machinery-Source) and caches briefly;
+//   • never 200 with broken XML, whatever the database did;
+//   • GET only (405 with Allow).
 //
 // No real database and no secrets: an in-memory Supabase-shaped client.
+import { readFileSync } from 'node:fs';
+
 let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
 const bad = s => process.stderr.write(s + '\n');
@@ -32,7 +39,9 @@ function memDb(rows, opts = {}) {
         order: () => api,
         limit: () => api,
         then(resolve) {
-          if (opts.error) return resolve({ data: null, error: { message: opts.error } });
+          // A string is the "something went wrong" case; an object is the
+          // Supabase shape ({message, code}), which the classifier reads.
+          if (opts.error) return resolve({ data: null, error: typeof opts.error === 'string' ? { message: opts.error } : opts.error });
           return resolve({ data: table.filter(r => ctx.filters.every(f => f(r))), error: null });
         }
       };
@@ -52,6 +61,7 @@ function fakeRes() {
 }
 
 const api = (await import('../api/site-content.js')).default;
+const { builtinCatalogueMachines, machineryDoctor } = await import('../api/_machinery.js');
 const { parseRoute } = await import('../src/routing.js');
 
 const req = (method, query) => ({ method, query, headers: {} });
@@ -78,6 +88,18 @@ const locs = xml => [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]);
 // ---------------------------------------------------------------------------
 say('\n-- a published catalogue --');
 {
+  // The other side of the rule: when the database answers with rows, those are
+  // the pages the site renders, so those are the only ones advertised.
+  {
+    const db = memDb([machine()]);
+    const r = await fetchSitemap(db);
+    ok(r.headers['x-machinery-source'] === 'database', 'a readable database names itself as the source');
+    ok(!r.headers['x-machinery-storage'], 'with no storage problem to report');
+    const urls = locs(r.body);
+    ok(urls.some(u => u.endsWith('/machinery/excavators/AR7-MC-001')), 'the stored machine is advertised');
+    ok(!urls.some(u => u.includes('AR7-MC-002')),
+      'and a built-in catalogue row the database did not return is NOT advertised');
+  }
   const db = memDb([
     machine(),
     machine({ id: 'mch-2', ref: 'AR7-MC-002', type: 'Loaders', sort_order: 2 }),
@@ -144,26 +166,59 @@ say('\n-- unpublished machines are excluded --');
 }
 
 // ---------------------------------------------------------------------------
-say('\n-- an empty catalogue --');
+say('\n-- an empty database: the site is showing the built-in catalogue --');
 {
+  // hydrateMachines() keeps the built-in catalogue when a response is empty, so
+  // the machinery pages are live. This sitemap must advertise them rather than
+  // serve an empty urlset that tells a crawler the section does not exist.
   const r = await fetchSitemap(memDb([]));
-  ok(r.status === 200, 'an empty catalogue still answers 200');
+  ok(r.status === 200, 'an empty database still answers 200');
+  ok(r.headers['x-machinery-source'] === 'bundled-catalogue',
+    `and names the source the site is serving (${r.headers['x-machinery-source']})`);
   ok(r.body.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'),
-    'an empty catalogue is still a valid urlset');
-  ok(locs(r.body).length === 0, 'and lists no URLs');
+    'the body is still a valid urlset');
+  const urls = locs(r.body);
+  ok(urls.length === 16,
+    `the built-in catalogue is advertised: 4 type pages + 12 machines (${urls.length} URL(s))`);
+  ok(urls.includes('https://ar7traders.com/machinery/excavators/AR7-MC-001'),
+    'including the machine pages themselves');
+  ok(urls.every(u => u.startsWith('https://ar7traders.com/')), 'all on the canonical domain');
+  ok(urls.every(u => !u.includes('www.')), 'never www.');
+  ok(urls.every(u => parseRoute(new URL(u).pathname) !== null),
+    'every advertised URL is a route the SPA resolves');
+  ok(r.headers['cache-control'].includes('max-age=60'),
+    `and it caches only briefly, so the real rows appear as soon as the migration runs (${r.headers['cache-control']})`);
 }
 
 // ---------------------------------------------------------------------------
-say('\n-- failure and method handling --');
+say('\n-- the storage failure production is in right now --');
 {
-  const broken = await fetchSitemap(memDb([], { error: 'connection refused' }));
-  ok(broken.status !== 200, `a database failure is not a 200 (got ${broken.status})`);
-  ok(!broken.body.includes('<urlset'), 'and never emits a broken urlset');
+  // The exact production answer: public.machinery does not exist. Used to be an
+  // anonymous 503 that Search Console reported on a sitemap robots.txt declares,
+  // while the site happily served the built-in catalogue at every one of those
+  // URLs.
+  // PostgREST's real shape: code PGRST205 + the message production returns.
+  const error = { message: "Could not find the table 'public.machinery' in the schema cache", code: 'PGRST205' };
+  const r = await fetchSitemap(memDb([], { error }));
+  ok(r.status === 200, `a missing table no longer makes the sitemap unfetchable (got ${r.status})`);
+  ok(!r.body.includes('<urlset') === false, 'and it still emits a real urlset');
+  ok(r.headers['x-machinery-source'] === 'bundled-catalogue', 'naming the built-in catalogue as the source');
+  ok(r.headers['x-machinery-storage'] === 'missing-table', 'and reporting the storage state it failed with');
+  ok(locs(r.body).length === 16, 'with the pages the website is actually serving');
+
+  // Any read failure behaves the same way: the site keeps the built-in
+  // catalogue, so the sitemap does too.
+  const transient = await fetchSitemap(memDb([], { error: 'connection refused' }));
+  ok(transient.status === 200 && transient.headers['x-machinery-source'] === 'bundled-catalogue',
+    'a transient read failure degrades the same way, like the client does');
+  ok(transient.headers['x-machinery-storage'] === 'unknown',
+    `and reports the state the classifier gave it (${transient.headers['x-machinery-storage']})`);
+  ok(!transient.body.includes('<urlset') === false, 'never 200 with broken XML');
 
   const post = fakeRes();
   await api(req('POST', { sitemap: 'machinery' }), post, { db: memDb([]) });
-  ok(post.statusCode === 200 || post.statusCode === 405,
-    'a POST is not treated as a sitemap read');
+  ok(post.statusCode === 405 && post.headers.allow === 'GET',
+    `a POST is refused with Allow: GET (got ${post.statusCode})`);
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +231,99 @@ say('\n-- a machine with no rights basis on its photo --');
   ok(r.status === 200, 'the page is still advertised');
   ok(r.body.includes('AR7-MC-001'), 'the machine page remains in the sitemap');
   ok(!r.body.includes('watermarked'), 'the unlicensed photo is not referenced anywhere in the sitemap');
+}
+
+// ---------------------------------------------------------------------------
+say('\n-- the dynamic fallback and the static sitemap agree --');
+{
+  // public/sitemap.xml already lists the built-in catalogue's machinery URLs —
+  // it is generated from the same MACHINES export (scripts/seo-agent.mjs). Two
+  // documents that describe one catalogue must not disagree: a crawler that
+  // reads both would otherwise see the section twice with different members.
+  const staticXml = readFileSync(new URL('../public/sitemap.xml', import.meta.url), 'utf8');
+  const r = await fetchSitemap(memDb([]));
+  const dynamic = locs(r.body);
+  const missingFromStatic = dynamic.filter(u => !staticXml.includes(`<loc>${u}</loc>`));
+  ok(missingFromStatic.length === 0,
+    `every URL the fallback advertises is already in public/sitemap.xml${missingFromStatic.length ? ' — missing ' + missingFromStatic.slice(0, 3).join(', ') : ''}`);
+
+  // And the static sitemap's machinery machine pages must all be real routes —
+  // the same rule the dynamic one is held to.
+  const staticMachinery = [...staticXml.matchAll(/<loc>https:\/\/ar7traders\.com(\/machinery[^<]*)<\/loc>/g)]
+    .map(m => m[1]).filter(p => p.split('/').length === 4);
+  ok(staticMachinery.length === 12, `public/sitemap.xml lists the 12 built-in machine pages (${staticMachinery.length})`);
+  ok(staticMachinery.every(p => parseRoute(p) !== null), 'and every one resolves in the SPA router');
+  const orphaned = staticMachinery.filter(p => !dynamic.includes('https://ar7traders.com' + p));
+  ok(orphaned.length === 0,
+    `and the dynamic sitemap advertises every one of them while it is serving the fallback${orphaned.length ? ' — ' + orphaned.slice(0, 3).join(', ') : ''}`);
+}
+
+// ---------------------------------------------------------------------------
+say('\n-- both responses are well-formed XML, not just well-shaped strings --');
+{
+  // A regex over <loc> happily matches a document no crawler can parse. jsdom's
+  // XML parser is the honest check: one urlset element, the sitemaps.org
+  // namespace, and exactly one <loc> per <url>.
+  const { JSDOM } = await import('jsdom');
+  const parse = xml => new JSDOM(xml, { contentType: 'text/xml' }).window.document;
+
+  for (const [label, r] of [
+    ['database rows', await fetchSitemap(memDb([machine()]))],
+    ['the built-in catalogue', await fetchSitemap(memDb([]))]
+  ]) {
+    const doc = parse(r.body);
+    ok(doc.querySelector('parsererror') === null, `${label}: parses as XML with no error`);
+    const root = doc.documentElement;
+    ok(root.tagName === 'urlset', `${label}: the root element is urlset (${root.tagName})`);
+    ok(root.namespaceURI === 'http://www.sitemaps.org/schemas/sitemap/0.9',
+      `${label}: in the sitemaps.org namespace`);
+    const urls = [...doc.getElementsByTagName('url')];
+    ok(urls.length === locs(r.body).length,
+      `${label}: ${urls.length} <url> element(s), one per <loc>`);
+    const locsPerUrl = urls.map(u => u.getElementsByTagName('loc').length);
+    ok(locsPerUrl.every(n => n === 1), `${label}: every <url> carries exactly one <loc>`);
+    const emptyLoc = urls.filter(u => !(u.getElementsByTagName('loc')[0]?.textContent || '').trim());
+    ok(emptyLoc.length === 0, `${label}: no empty <loc>`);
+    ok(urls.every(u => {
+      const raw = u.getElementsByTagName('loc')[0].textContent;
+      return raw.startsWith('https://') && !/\s/.test(raw) && parseRoute(new URL(raw).pathname) !== null;
+    }), `${label}: every loc is an absolute, whitespace-free, resolvable URL`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+say('\n-- the doctor and the sitemap describe the same catalogue --');
+{
+  // Two answers to "what is the public site showing?": the CRM's doctor names
+  // the source, and this sitemap advertises the pages. If they ever disagree,
+  // the owner is told something the crawler is not.
+  const fallback = builtinCatalogueMachines();
+  ok(fallback.length === 12, `the built-in catalogue has 12 addressable machines (${fallback.length})`);
+  ok(fallback.every(m => m.type && m.ref && m.published === true),
+    'each one carries the type, the public reference and a published flag');
+  ok(new Set(fallback.map(m => m.ref)).size === fallback.length, 'and the references are unique');
+  ok(fallback.every(m => parseRoute('/machinery/' + m.type.toLowerCase() + '/' + m.ref) !== null),
+    'every built-in machine resolves to a route');
+
+  // The sitemap's fallback must be exactly this list.
+  const r = await fetchSitemap(memDb([], { error: { message: 'boom', code: 'XX000' } }));
+  const advertised = new Set(locs(r.body));
+  const missing = fallback.filter(m => !advertised.has('https://ar7traders.com/machinery/' + m.type.toLowerCase() + '/' + m.ref));
+  ok(missing.length === 0,
+    `the sitemap advertises every machine the doctor says is on the site${missing.length ? ' — missing ' + missing.map(m => m.ref).join(', ') : ''}`);
+
+  // And the doctor's own words for a missing table.
+  const report = await machineryDoctor({
+    from() {
+      const q = { select: () => q, limit: () => q, order: () => q, eq: () => q, range: () => q,
+        then: resolve => resolve({ data: null, error: { message: "Could not find the table 'public.machinery' in the schema cache", code: 'PGRST205' } }) };
+      return q;
+    }
+  });
+  ok(report.storage.state === 'missing-table', 'the doctor names the missing table');
+  ok(/built-in/i.test(report.catalogue.publicSource), `and says the public catalogue is the built-in one (${report.catalogue.publicSource})`);
+  ok(report.catalogue.fallback === fallback.length,
+    'counting exactly the machines this sitemap advertises');
 }
 
 say(`\n${pass} passed, ${fail} failed`);

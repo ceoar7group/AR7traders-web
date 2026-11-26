@@ -111,6 +111,7 @@ ok(drift === '', `vercel.json and the SQL are regenerable from scripts/image-pat
 // ── 4. both entry points wire the module ──────────────────────────────────
 console.log('\n-- the app installs the fallback --');
 const main = read('src/main.jsx');
+const innerPage = read('src/inner-page.jsx');
 const crm = read('src/crm.jsx');
 ok(/from '\.\/image-fallback\.js'/.test(main), 'src/main.jsx imports the fallback module');
 ok(/installImageFallback\(\)/.test(main), 'src/main.jsx installs it');
@@ -118,10 +119,17 @@ ok(/from '\.\/image-fallback\.js'/.test(crm), 'src/crm.jsx imports the fallback 
 ok(/imageFallback\(e\)/.test(crm), 'src/crm.jsx chains it into its own imgFallback');
 
 // The existing onError handlers must not fight the retry.
-ok(/hasRetried\(e\.currentTarget\)/.test(main) || true,
-  'src/main.jsx guards its own onError handlers');
-ok((main.match(/hasRetried\(e\.currentTarget\)/g) || []).length >= 3,
-  'src/main.jsx guards every onError handler that rewrites a src');
+const publicAppSrc = main + '\n' + innerPage;
+ok(/hasRetried\(e\.currentTarget\)/.test(publicAppSrc) || true,
+  'public entry/inner-page guards its own onError handlers');
+// 2026-11-03: JapanStockPage retired (merged into /inventory) — its guarded
+// onError handler went with it, leaving the two on the vehicle detail gallery
+// in src/inner-page.jsx. Every other onError delegates to logoOnError, which
+// guards itself via dataset.logoFb.
+ok((publicAppSrc.match(/hasRetried\(e\.currentTarget\)/g) || []).length >= 2,
+  'src/main.jsx + src/inner-page.jsx guard every onError handler that rewrites a src');
+ok(!/onError=\{e=>/.test(publicAppSrc.replace(/onError=\{e\s*=>\s*\{if\s*\(hasRetried\(e\.currentTarget\)\)/g, '').replace(/onError=\{e\s*=>\s*\{if\s*\(hasRetried\(e\.currentTarget\)\|\|/g, '').replace(/onError=\{e=>\{if\(hasRetried\(e\.currentTarget\)\)/g, '').replace(/onError=\{e=>\{if\(hasRetried\(e\.currentTarget\)\|\|/g, '')),
+  'no unguarded inline onError handler rewrites a src in src/main.jsx or src/inner-page.jsx');
 
 // ── 5. the retry itself: once, and only once ──────────────────────────────
 console.log('\n-- the retry fires once and only once --');

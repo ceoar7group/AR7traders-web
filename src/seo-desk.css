@@ -158,3 +158,49 @@
 @media(max-width:620px){.seo-live-status-grid,.seo-indexing-columns{grid-template-columns:1fr}.seo-inspection-form{grid-template-columns:1fr}.seo-crawl-row-head{display:grid}.seo-crawl-row-head>div:last-child{justify-content:flex-start}.seo-crawl-progress{grid-template-columns:1fr}.seo-crawl-progress>span{grid-row:2}.seo-crawl-progress progress{grid-row:3}.seo-draft-list>li{align-items:flex-start;flex-direction:column}.seo-draft-list button{align-self:flex-start}}
 .seo-review-check{display:flex;align-items:flex-start;gap:9px;margin:12px 0;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);font-size:10.5px;line-height:1.5;font-weight:700;cursor:pointer}
 .seo-review-check input{flex:none;width:16px;height:16px;margin:1px 0 0;accent-color:var(--gold)}
+
+/* ---------------------------------------------------------------------------
+   Topic Scout + upgrade report + how-this-desk-works (2026-11-08).
+   --------------------------------------------------------------------------- */
+.seo-howto details{border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:0}
+.seo-howto summary{display:flex;align-items:center;gap:9px;cursor:pointer;font:700 13px Manrope;padding:14px 16px;color:var(--ink)}
+.seo-howto summary svg{color:var(--gold)}
+.seo-howto ol{margin:0;padding:0 18px 8px 18px;list-style:none;display:grid;gap:9px}
+.seo-howto li{font-size:12px;line-height:1.65;color:var(--muted)}
+.seo-howto li b{color:var(--ink)}
+.seo-howto p{padding:0 18px 14px}
+.seo-scout-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:12px}
+.seo-scout-topic{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;border:1px solid var(--line);border-radius:14px;background:var(--bg);padding:14px 16px}
+.seo-scout-topic.is-published{border-color:var(--green-text)}
+.seo-scout-topic.is-failed{border-color:#c25454}
+.seo-scout-main{display:grid;gap:5px;min-width:0;flex:1}
+.seo-scout-main>b{font:700 13.5px Manrope;color:var(--ink)}
+.seo-scout-main>small{font-size:11px;color:var(--muted);line-height:1.5}
+.seo-scout-main details{font-size:11px;color:var(--muted)}
+.seo-scout-main summary{cursor:pointer;font-weight:700;color:var(--green-text)}
+.seo-scout-main details ul{margin:7px 0 0;padding-left:16px;display:grid;gap:4px}
+.seo-scout-state{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:5px;font:600 11px Manrope;color:var(--muted)}
+.seo-scout-state.published{color:var(--green-text)}
+.seo-scout-state.failed{color:#c25454}
+.seo-scout-state a{color:var(--green-text);display:inline-flex;align-items:center;gap:4px}
+.seo-scout-actions{display:grid;gap:7px;flex:none;justify-items:stretch}
+.seo-scout-actions .gold-btn{white-space:nowrap}
+.seo-spin{animation:seoSpin 1s linear infinite}
+@keyframes seoSpin{to{transform:rotate(360deg)}}
+.seo-report-bar{display:flex;align-items:center;gap:12px;margin:16px 0;padding:13px 16px;border:1px solid var(--gold);border-radius:12px;background:color-mix(in srgb,var(--gold) 8%,var(--bg))}
+.seo-report-bar>svg{color:var(--gold);flex:none}
+.seo-report-bar span{flex:1;font-size:11.5px;line-height:1.55;color:var(--muted)}
+.seo-report-bar span b{color:var(--ink)}
+.seo-report-bar .gold-btn{flex:none;white-space:nowrap}
+@media(max-width:700px){.seo-scout-topic{flex-direction:column}.seo-scout-actions{grid-auto-flow:column;justify-content:start}.seo-report-bar{flex-wrap:wrap}}
+
+/* Per-URL diagnostics digest (2026-11-07): verdict chips up top, short
+   problems-first list, full 400+ row list behind one click. */
+.seo-crawl-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}
+.seo-crawl-summary span{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 11px;font:700 10.5px Manrope;border:1px solid var(--line);background:var(--bg);color:var(--muted)}
+.seo-crawl-summary span.fail{color:#b4231f;border-color:rgba(180,35,31,.3);background:rgba(180,35,31,.07)}
+.seo-crawl-summary span.warn{color:#8a6400;border-color:rgba(138,100,0,.3);background:rgba(138,100,0,.07)}
+.seo-crawl-summary span.pass{color:#1d7a3d;border-color:rgba(29,122,61,.3);background:rgba(29,122,61,.07)}
+.seo-crawl-summary em{font:600 10.5px Manrope;color:var(--muted);font-style:normal}
+.seo-crawl-more{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:10px}
+.seo-crawl-more small{color:var(--muted);font-size:10.5px}

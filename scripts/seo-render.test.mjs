@@ -51,8 +51,8 @@ const jpegSize = (buf) => {
 
 // ---- home -----------------------------------------------------------------
 applySeo('home', null);
-ok(document.title.includes('Japanese Car Exporter'), 'home title is the exporter headline');
-ok(meta('meta[name="description"]')?.includes('Auction-sourced'), 'home description meta is set');
+ok(document.title.includes('Car Exporter from Japan & China'), 'home title is the Japan & China exporter headline');
+ok(meta('meta[name="description"]')?.includes('Japanese auctions'), 'home description meta is set');
 ok(!meta('meta[name="description"]')?.includes('35+'), 'home description no longer claims 35+ countries');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/', 'home canonical is the root URL');
 ok(meta('meta[name="robots"]')?.startsWith('index,follow'), 'home is indexable');
@@ -128,7 +128,7 @@ ok(jsonld('list-jsonld') === null, 'ItemList is removed off the landing pages');
 // ---- model landing pages (/cars/toyota/land-cruiser) -----------------------
 applySeo('inventory', null, null, { make: 'Toyota', model: 'land cruiser', vehicleCount: 4 });
 const modelLanding = carsLandingSeo('Toyota', 'land cruiser', 4);
-ok(document.title === modelLanding.title && modelLanding.title.includes('Toyota Land Cruiser for Export'),
+ok(document.title === modelLanding.title && modelLanding.title.includes('Toyota Land Cruiser for Sale'),
   'model landing page titles name make and model');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/cars/toyota/land-cruiser',
   'model landing canonical uses the slugged path');
@@ -185,6 +185,12 @@ ok(machineOffer?.price === '90000' && machineOffer.priceCurrency === 'USD',
 ok(machineOffer?.priceValidUntil === '2026-12-31',
   'machine structured offer expires on its per-stock end date');
 
+// External machinery photos must not be prefixed with the site origin.
+applySeo('machinery', null, null, { machine: { ...discountedMachine, images: ['https://cdn.example.com/machine.jpg', '/assets/ar7-mark.png'] } });
+ok(meta('meta[property="og:image"]') === 'https://cdn.example.com/machine.jpg', 'machine share image preserves external URL');
+ok(JSON.stringify(jsonld('machine-jsonld')?.image) === JSON.stringify(['https://cdn.example.com/machine.jpg', 'https://ar7traders.com/assets/ar7-mark.png']),
+  'machine structured images use absolute URLs without duplicating the origin');
+
 // ---- FAQ markup is scoped to /faq -----------------------------------------
 applySeo('faq', null);
 let faq = jsonld('faq-jsonld');
@@ -202,7 +208,10 @@ ok(jsonld('machinery-faq-jsonld') === null, 'machinery FAQ markup does not ride 
 for (const a of NEWS) {
   const slug = articleSlug(a);
   applySeo('news', slug);
-  ok(document.title === `${a.title} | AR7 Traders`, `/news/${slug} gets its own title`);
+  // 2026-11-07: the brand suffix is conditional (dropped past 60 chars so
+  // Google shows the full title) — src/news-data.js articleSeo.
+  const expectedTitle = `${a.title} | AR7 Traders`.length > 60 ? a.title : `${a.title} | AR7 Traders`;
+  ok(document.title === expectedTitle, `/news/${slug} gets its own title`);
   ok(meta('meta[name="description"]') === a.ex, `/news/${slug} gets its own description`);
   ok(document.head.querySelector('link[rel="canonical"]')?.href === `https://ar7traders.com/news/${slug}`,
     `/news/${slug} canonical points at the guide URL`);
@@ -213,6 +222,7 @@ for (const a of NEWS) {
   ok(bc?.itemListElement.length === 3 && bc.itemListElement[2].name === a.title,
     `/news/${slug} breadcrumb is Home → News & Guides → ${a.title}`);
   const articleData = jsonld('article-jsonld');
+  ok(meta('meta[property="og:type"]') === 'article', 'guide uses article OG type');
   const articleMetadata = articleSeo(a);
   ok(articleData?.['@type'] === 'Article', `/news/${slug} injects Article JSON-LD`);
   ok(articleData?.headline === a.title && articleData.description === articleMetadata.description,
@@ -245,13 +255,14 @@ const car43 = {
 applySeo('inventory', '43', car43);
 ok(document.title.includes('2023 Toyota Harrier S'), 'vehicle title names the car');
 ok(!document.title.includes('Japanese Cars for Export'), 'vehicle title is not the listing-level default');
-ok(document.title.includes('Stock 43'), 'vehicle title carries the stock reference');
+ok(document.title.includes('Japan export'), 'vehicle title describes the export offer');
 ok(document.title.endsWith('AR7 Traders'), 'vehicle title ends with the brand');
 ok(meta('meta[name="description"]')?.includes('24,204 km'), 'vehicle description includes mileage');
 ok(meta('meta[name="description"]')?.includes('$21,000'), 'vehicle description includes the published price');
 ok(meta('meta[property="og:title"]') === document.title && meta('meta[property="og:description"]') === meta('meta[name="description"]'),
   'vehicle OG tags match the page title/description');
 ok(meta('meta[name="twitter:title"]') === document.title, 'vehicle Twitter title matches');
+ok(meta('meta[property="og:type"]') === 'website', 'vehicle pages reset the article OG type');
 ok(document.head.querySelector('link[rel="canonical"]')?.href === 'https://ar7traders.com/inventory/43', 'vehicle canonical includes the stock ref');
 const v = jsonld('vehicle-jsonld');
 ok(v?.['@type'] === 'Car', 'Car JSON-LD is injected on the detail page');
@@ -311,7 +322,7 @@ ok(jsonld('vehicle-jsonld')?.name === '2023 Toyota Harrier S', 'late vehicle dat
   ok(jp?.offers?.price === '2980000' && jp.offers.priceCurrency === 'JPY', '\u00a5 price keeps JPY currency');
 }
 // Missing / zero / non-numeric prices → no offer (never a false price).
-for (const price of [null, '', 0, 'POA', 'Price on request']) {
+for (const price of [null, '', 0, 'POA', 'Price on request', 'Call 24/7', '$10,000–$15,000']) {
   applySeo('inventory', '43', { ...car43, price });
   const o = jsonld('vehicle-jsonld');
   ok(o && !('offers' in o), `price ${JSON.stringify(price)} omits the offer instead of publishing a false one`);
@@ -381,7 +392,27 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // 2026-10-03: +4 machinery type pages (/machinery/<type>), then +12 machine
   // detail pages (/machinery/<type>/<REF>) — a unit nobody can find in a
   // search result is a unit nobody quotes.
-  ok(locs.length === 37, `sitemap lists 37 URLs (found ${locs.length})`);
+  // 2026-10-08: +6 market pages (/destinations/<market>) — one indexable URL
+  // per market we ship to, because "import a used car from japan to kenya" has
+  // to be answerable by a page of its own. The count stays hard-coded on
+  // purpose: every URL added to the sitemap should make someone update it.
+  // 2026-10-09: Australia, USA and two document/quotation guides.
+  // 2026-11-03: /japan-stock retired (merged into /inventory) — 47 → 46.
+  // 2026-11-07: /privacy, /cookies and /terms — the footer's legal links now
+  // reach real pages instead of /faq — 46 → 49.
+  // 2026-11-08: market expansion (owner direction) — 19 new destination
+  // guides (East/Southern Africa, Caribbean, Pacific, South Asia, Gulf,
+  // RHD Europe, Mongolia) — 49 → 68.
+  ok(locs.length === 68, `sitemap lists 68 URLs (found ${locs.length})`);
+  {
+    const { DEST, destinationHref } = await import('../src/destinations.js');
+    for (const d of DEST) {
+      const u = 'https://ar7traders.com' + destinationHref(d[0]);
+      ok(locs.includes(u), `sitemap includes the market page ${destinationHref(d[0])}`);
+      ok(locs.filter(x => x === u).length === 1, `and lists ${destinationHref(d[0])} exactly once — one canonical per market`);
+    }
+    ok(new Set(locs).size === locs.length, `no URL appears twice in the sitemap (${locs.length} entries, ${new Set(locs).size} unique)`);
+  }
   {
     const { MACHINES, machineHref } = await import('../src/machinery-data.js');
     for (const m of MACHINES) {
@@ -405,7 +436,7 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // present (vehicle detail URLs are dynamic and intentionally excluded).
   const sitemapPages = locs.map(l => new URL(l).pathname.replace(/^\//, '').split('/')[0] || 'home');
   for (const p of ['home', 'inventory', 'auction', 'services', 'brands', 'destinations', 'tools',
-    'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'shipping', 'japan-stock']) {
+    'world', 'howbuy', 'news', 'about', 'reviews', 'faq', 'contact', 'shipping']) {
     ok(sitemapPages.includes(p), `sitemap covers /${p === 'home' ? p : p}`);
   }
 }
@@ -417,13 +448,13 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   // accidental re-grouping has to be a conscious, reviewed change.
   const EXPECTED = {
     home: '/assets/used-japanese-cars-auction-export-toyota-3.jpg',
-    inventory: '/assets/og/inventory.jpg', brands: '/assets/og/inventory.jpg', 'japan-stock': '/assets/og/inventory.jpg',
+    inventory: '/assets/og/inventory.jpg', brands: '/assets/og/inventory.jpg',
     auction: '/assets/og/auction.jpg', services: '/assets/og/auction.jpg', howbuy: '/assets/og/auction.jpg',
     shipping: '/assets/og/shipping.jpg', destinations: '/assets/og/shipping.jpg', world: '/assets/og/shipping.jpg',
     faq: '/assets/og/help.jpg', news: '/assets/og/help.jpg', reviews: '/assets/og/help.jpg',
     contact: '/assets/og/help.jpg', about: '/assets/og/help.jpg', tools: '/assets/og/help.jpg'
   };
-  ok(Object.keys(EXPECTED).length === 16, 'the OG map covers all 16 public routes');
+  ok(Object.keys(EXPECTED).length === 15, 'the OG map covers all 15 public routes');
   ok(Object.keys(EXPECTED).every(p => PAGE_SEO[p]), 'every OG-mapped route has PAGE_SEO metadata');
   for (const [page, asset] of Object.entries(EXPECTED)) {
     applySeo(page, null);
@@ -481,6 +512,8 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
   ok(!!m, 'static business JSON-LD is present and addressable');
   const graph = JSON.parse(m[1])['@graph'].map(n => n['@type']);
   ok(graph.includes('AutoDealer') && graph.includes('WebSite'), 'static graph keeps AutoDealer + WebSite');
+  ok(m[1].includes('"SearchAction"') && m[1].includes('/inventory?q={search_term_string}'),
+    'the static shell WebSite node carries the same SearchAction crawlers read without JS');
   ok(!graph.includes('FAQPage'), 'static graph no longer ships FAQPage on every route');
   ok(!html.includes('35+ countries'), 'static shell no longer claims 35+ countries');
   // The static shell keeps the default og:image and declares its true size.
@@ -493,6 +526,186 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
     'used-japanese-cars-auction-export-toyota-3.jpg')));
   ok(!!shellActual && Number(shellW?.[1]) === shellActual.width && Number(shellH?.[1]) === shellActual.height,
     `static shell og:image dimensions (${shellW?.[1]}x${shellH?.[1]}) match the actual asset file`);
+}
+
+// ---- hreflang / URL-addressable languages (2026-11 international SEO) ------
+// Every indexable page publishes the same 16-link cluster (15 languages +
+// x-default) built from its clean canonical; non-English renders are
+// self-canonical at their ?lang= variant. Noindex pages carry none.
+{
+  const alts = () => [...document.head.querySelectorAll('link[rel="alternate"][hreflang]')]
+    .map(el => [el.getAttribute('hreflang'), el.href]);
+  const altFor = (code) => alts().find(([c]) => c === code)?.[1];
+  const canonical = () => document.head.querySelector('link[rel="canonical"]')?.href;
+
+  applySeo('contact', null);
+  ok(alts().length === 16, 'contact publishes 15 language alternates + x-default');
+  ok(altFor('en') === 'https://ar7traders.com/contact', 'the English alternate is the clean URL');
+  ok(altFor('ur') === 'https://ar7traders.com/contact?lang=ur', 'the Urdu alternate is the ?lang=ur variant');
+  ok(altFor('x-default') === 'https://ar7traders.com/contact', 'x-default is the clean English URL');
+  ok(meta('meta[property="og:locale"]') === 'en', 'og:locale names the rendered language');
+
+  // The provider stamps <html data-lang>; applySeo reads it.
+  document.documentElement.setAttribute('data-lang', 'ur');
+  applySeo('contact', null);
+  ok(canonical() === 'https://ar7traders.com/contact?lang=ur',
+    'an Urdu render is self-canonical at its ?lang=ur variant, never an alternate of English');
+  ok(meta('meta[property="og:url"]') === 'https://ar7traders.com/contact?lang=ur', 'og:url follows the language canonical');
+  ok(meta('meta[property="og:locale"]') === 'ur', 'og:locale follows the rendered language');
+  ok(alts().length === 16 && altFor('ur') === 'https://ar7traders.com/contact?lang=ur' &&
+     altFor('x-default') === 'https://ar7traders.com/contact',
+    'the Urdu variant publishes the SAME cluster — bidirectional confirmation holds');
+
+  // Landing paths keep their path canonical and gain the language variant.
+  applySeo('inventory', null, null, { make: 'Toyota', vehicleCount: 12 });
+  ok(canonical() === 'https://ar7traders.com/cars/toyota?lang=ur',
+    'a brand landing in Urdu canonicalises to /cars/toyota?lang=ur');
+  ok(altFor('sw') === 'https://ar7traders.com/cars/toyota?lang=sw', 'landing alternates are built from the landing path');
+
+  // Staff pages: noindex, clean canonical, no cluster — nothing to rank.
+  applySeo('crm', null);
+  ok(meta('meta[name="robots"]')?.startsWith('noindex'), 'crm stays noindex with a language stamped');
+  ok(alts().length === 0, 'noindex pages publish no hreflang cluster');
+  ok(canonical() === 'https://ar7traders.com/crm', 'noindex pages keep the clean URL — no ?lang= canonical');
+
+  // A missing vehicle is noindex: no cluster either.
+  applySeo('inventory', '999999', null, { vehicleMissing: true });
+  ok(alts().length === 0, 'a missing vehicle page publishes no hreflang cluster');
+
+  // An unsupported stamp falls back to English cleanly.
+  document.documentElement.setAttribute('data-lang', 'xx');
+  applySeo('contact', null);
+  ok(canonical() === 'https://ar7traders.com/contact', 'an unknown language stamp falls back to the clean canonical');
+
+  document.documentElement.setAttribute('data-lang', 'en');
+  applySeo('contact', null);
+  ok(canonical() === 'https://ar7traders.com/contact' && meta('meta[property="og:locale"]') === 'en',
+    'switching back to English restores the clean canonical');
+}
+
+// ---- localized titles & descriptions (2026-11-12, R38) ----------------------
+// The ?lang= variants used to repeat the English snippet on Google's results
+// page. Static public routes now serve hand-written translations from
+// src/seo-i18n.js; dynamic pages compose from live data and stay English.
+{
+  console.log('\n-- localized titles & descriptions --');
+  const canonical = () => document.head.querySelector('link[rel="canonical"]')?.href;
+  const { PAGE_SEO_I18N, localizedPageSeo } = await import('../src/seo-i18n.js');
+  const LOCALIZED_PAGES = ['home', 'inventory', 'auction', 'services', 'brands',
+    'destinations', 'tools', 'world', 'howbuy', 'news', 'about', 'reviews',
+    'faq', 'contact', 'shipping', 'machinery'];
+  const langs = Object.keys(PAGE_SEO_I18N);
+  ok(langs.length === 14, `all 14 non-English languages carry SEO strings (found ${langs.length})`);
+  let holes = 0, english = 0, overlong = 0;
+  for (const l of langs) {
+    for (const p of LOCALIZED_PAGES) {
+      const e = PAGE_SEO_I18N[l][p];
+      if (!Array.isArray(e) || e.length !== 2 || !e[0] || !e[1]) { holes++; continue; }
+      if (e[0] === PAGE_SEO[p][0] || e[1] === PAGE_SEO[p][1]) english++;
+      if (e[1].length > 200) overlong++;
+    }
+  }
+  ok(holes === 0, `every language covers all ${LOCALIZED_PAGES.length} static public routes (${holes} hole(s))`);
+  ok(english === 0, `no localized entry is still identical to English (${english} found)`);
+  ok(overlong === 0, `descriptions stay within results-page length (${overlong} over 200 chars)`);
+  // The brand name stays untranslated wherever the English title carries it
+  // (the English 'reviews' title leads with the service, not the brand).
+  ok(langs.every(l => LOCALIZED_PAGES.every(p =>
+    !/AR7 Traders/.test(PAGE_SEO[p][0]) || /AR7 Traders/.test(PAGE_SEO_I18N[l][p][0]))),
+    'the brand name stays untranslated in every title that names it in English');
+
+  // The strings ride the lazy language chunk (first-load JS budget): until
+  // the provider registers them, a non-English render serves English.
+  const { registerSeoI18n } = await import('../src/seo.js');
+  document.documentElement.setAttribute('data-lang', 'de');
+  applySeo('about', null);
+  ok(document.title === PAGE_SEO.about[0],
+    'before the lazy chunk registers, the English snippet serves (no half-loaded state)');
+
+  // Rendering: German /about shows the German snippet…
+  registerSeoI18n(PAGE_SEO_I18N);
+  applySeo('about', null);
+  ok(document.title === PAGE_SEO_I18N.de.about[0], 'German /about serves the German title');
+  ok(meta('meta[name="description"]') === PAGE_SEO_I18N.de.about[1], '…and the German description');
+  ok(meta('meta[property="og:title"]') === PAGE_SEO_I18N.de.about[0] &&
+     meta('meta[name="twitter:title"]') === PAGE_SEO_I18N.de.about[0],
+    'og:/twitter: titles follow the localized title');
+  ok(canonical() === 'https://ar7traders.com/about?lang=de', 'the localized render keeps its ?lang= canonical');
+
+  // …a dynamic page (brand landing) stays English rather than half-mixed…
+  applySeo('inventory', null, null, { make: 'Toyota', vehicleCount: 12 });
+  ok(/Toyota/.test(document.title) && !/^\u200f?ماركات/.test(document.title),
+    'dynamic landing pages keep their data-driven English text');
+
+  // …a noindex page never localizes (it is not in the index at all)…
+  applySeo('crm', null);
+  ok(document.title === PAGE_SEO.crm[0], 'noindex staff pages keep the English title');
+
+  // …and English stays byte-for-byte what it always was.
+  document.documentElement.setAttribute('data-lang', 'en');
+  applySeo('home', null);
+  ok(document.title === PAGE_SEO.home[0], 'the English title is unchanged');
+  ok(localizedPageSeo('home', 'en') === null && localizedPageSeo('privacy', 'de') === null,
+    'localizedPageSeo: English and un-localized routes fall back to PAGE_SEO');
+}
+
+// ---- AEO structured data (2026-11, R39) -----------------------------------
+// /howbuy carries a HowTo built from the same eight i18n steps the page
+// renders; the home page carries the Organization + WebSite identity graph.
+// Both are scoped to their route and removed everywhere else.
+{
+  const { translate, LANGUAGES } = await import('../src/i18n.js');
+  document.documentElement.setAttribute('data-lang', 'en');
+
+  applySeo('howbuy', null);
+  const howto = jsonld('howto-jsonld');
+  ok(howto?.['@type'] === 'HowTo', '/howbuy carries HowTo JSON-LD');
+  ok(howto?.step?.length === 8, 'the HowTo has exactly 8 steps');
+  ok(howto?.step?.every((s, i) =>
+      s['@type'] === 'HowToStep' && s.position === i + 1 &&
+      s.name === translate('en', `hb.s${i + 1}t`) && s.text === translate('en', `hb.s${i + 1}p`)),
+    'every step mirrors the visible hb.sNt/hb.sNp copy in order');
+  ok(howto?.name === document.title && howto?.description === meta('meta[name="description"]'),
+    'the HowTo name/description reuse the stamped head, never a second copy');
+  ok(jsonld('org-jsonld') === null, 'the Organization graph does not ride along to /howbuy');
+
+  applySeo('home', null);
+  const graph = jsonld('org-jsonld')?.['@graph'];
+  ok(Array.isArray(graph) && graph.length === 2, 'home carries an Organization + WebSite graph');
+  const [org, site] = graph || [{}, {}];
+  ok(org['@type'] === 'Organization' && org.name === 'AR7 Traders' &&
+     org.url === 'https://ar7traders.com/' && org.logo === 'https://ar7traders.com/assets/ar7-mark-256.webp',
+    'Organization identity: name, url and logo');
+  ok(org.contactPoint?.email === 'ar7tradersinfo@gmail.com' &&
+     org.contactPoint?.telephone === '+44 7347 132624',
+    'Organization contact facts mirror llms.txt (no invented data)');
+  ok(org.contactPoint?.availableLanguage?.length === LANGUAGES.length,
+    'the contact point lists all supported languages');
+  ok(site['@type'] === 'WebSite' && site.publisher?.['@id'] === org['@id'] &&
+     site.inLanguage?.length === LANGUAGES.length,
+    'WebSite links back to the Organization and declares all languages');
+  ok(site.potentialAction?.['@type'] === 'SearchAction' &&
+     site.potentialAction?.target?.urlTemplate === 'https://ar7traders.com/inventory?q={search_term_string}' &&
+     site.potentialAction?.['query-input'] === 'required name=search_term_string',
+    'WebSite advertises the /inventory?q= SearchAction (sitelinks search box)');
+  ok(jsonld('howto-jsonld') === null, 'the HowTo is removed when leaving /howbuy');
+
+  applySeo('contact', null);
+  ok(jsonld('org-jsonld') === null && jsonld('howto-jsonld') === null,
+    'neither AEO block rides along to other routes');
+}
+
+// ---- route-level Suspense fallbacks hold the viewport (2026-11, CLS fix) ---
+// Lazy page chunks used to swap in under a short fallback, shoving the footer
+// down for a 0.35 layout shift on /howbuy. Every route-level fallback must
+// carry .route-fallback, and the CSS must reserve viewport height for it.
+{
+  const mainSrc = readFileSync(path.join(dir, '../src/main.jsx'), 'utf8');
+  const bad = [...mainSrc.matchAll(/fallback=\{<div className="empty-state(?! route-fallback)"/g)];
+  ok(bad.length === 0, `route-level Suspense fallbacks all carry .route-fallback (${bad.length} missing)`);
+  const css = readFileSync(path.join(dir, '../src/expanded.css'), 'utf8');
+  ok(/\.route-fallback\{[^}]*min-height:calc\(100vh/.test(css),
+    '.route-fallback reserves (at least) the viewport height');
 }
 
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');

@@ -191,16 +191,149 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // a hero page, gone before the hero's first line of copy can slide under it,
 // back on scroll-up). That is ~0.6 kB of first-load JS; the CSS it deleted
 // stays inside the unchanged CSS budget. Measured 477.61 kB raw / 140.99 kB gzip.
-// Ratcheted 479 → 481 kB raw on 2026-11-25 (gzip unchanged at 142 kB): the
-// vehicle detail pager — back link, Previous / Next, and "43 of 412 in all
-// inventory" — is markup in src/main.jsx, so it lands in the entry chunk.
-// Measured 478.93 kB raw / 141.34 kB gzip.
-const BUDGET_GZIP = 142 * 1024;
-const BUDGET_RAW = 481 * 1024;
+// Ratcheted 142 → 143 kB gzip / 479 → 482 kB raw on 2026-10-08 for the six
+// market landing pages (/destinations/<market>). The page markup itself is a
+// route-level React.lazy chunk (destination-page-*.js, asserted below not to be
+// preloaded), and the hub's duplicated inline guide was deleted in the same
+// change — one owner for that copy, and no duplicate paragraphs for a crawler
+// to choose between. What remains in first load is the market copy src/seo.js
+// has to read synchronously to build each URL's title, description, breadcrumb
+// and FAQPage markup: document packs, authorities and the five FAQ templates.
+// Measured 481.36 kB raw / 142.07 kB gzip.
+// 2026-10-09: two missing market copy sets and two substantive buyer guides
+// share the existing synchronous SEO/news data. No new first-load library.
+// Ratcheted 488 → 498 kB raw on 2026-11-06: the curated showroom grew from 12
+// to 18 real cars (six bundled spec records with 12-photo gallery URL lists
+// each, ~8 kB of data, no new library). Measured 495.90 kB raw; gzip stays
+// inside the unchanged 145 kB budget.
+// Ratcheted 498 → 503 kB raw on 2026-11-07: inventory pagination (numbered
+// Pager + per-page selector) and the hero motion showcase with brand-count
+// chips replaced the lazy globe on /inventory — plain React in main.jsx,
+// ~2 kB minified, no new library. Measured 500.10 kB raw; gzip stays inside
+// the unchanged 145 kB budget.
+// Ratcheted 503 → 504 kB raw / 145 → 146 kB gzip on 2026-11-07: the global
+// search trigger in the header, the Ctrl+K listener and the cookie notice —
+// plain React in main.jsx/site-header.jsx, ~1 kB minified. The search overlay
+// and the legal pages themselves are lazy chunks (global-search.jsx,
+// legal.jsx) and cost first-load nothing. Measured 502.95 kB raw /
+// 145.12 kB gzip.
+// Ratcheted 504 → 506 kB raw on 2026-11-08 (gzip unchanged at 146): the
+// restructured inventory brand-pulse strip (label + chips row) and the
+// stock-alert capture bar under the inventory grid — plain React in
+// main.jsx, ~1 kB minified. The Topic Scout, upgrade report and Upgrade
+// Advisor all live in the lazy CRM chunk and cost first-load nothing.
+// Measured 504.81 kB raw / 145.60 kB gzip.
+// Ratcheted 506 → 509 kB raw / 146 → 147 kB gzip on 2026-11-07: the brand
+// cards gained an IO-gated stock slideshow, the inventory showcase gained
+// drag/arrows, and the hero slides gained srcset (owner's UI round).
+// Ratcheted 509 → 513 kB raw / 147 → 148 kB gzip on 2026-11-07 (later the
+// same day): saved searches & stock alerts — the shared criteria matcher
+// (src/saved-search.js) and the inventory's SaveSearchBar.
+// Ratcheted 513 → 531 kB raw / 148 → 153 kB gzip on 2026-11-08: the market
+// expansion tripled the destination guides (8 → 27 markets of real route
+// copy + 19 vector flags) and every stock card gained WhatsApp/offer
+// actions. This is deliberate first-load content, not dependency creep.
+// Ratcheted 153 → 154 kB gzip on 2026-11-08 (3): account-synced favourites
+// (pull/merge/push effects in the app shell). Actual: 153.33 kB gzip.
+// 2026-11-09: 154 → 155 kB gzip — split day/night + blue&gold theme controls,
+// burger-sheet close row, and the TEMP hero-layout preview switcher (A/B/C).
+// Tighten back when the unused hero variants + switcher are deleted.
+// 2026-11-13: 155 → 160 kB gzip — three i18n rounds of English source copy in
+// src/i18n.js (nav/world, home sections + car cards, inner-page heroes + FAQ,
+// How-to-Buy flow + Services + Tools calculators; 464 keys now). The 13
+// translated dictionaries stay lazy-loaded — this is the EN source only.
+// Actual: 159.66 kB gzip.
+// 2026-11-14: 160 → 163 kB gzip — fourth i18n round: 97 EN source keys for
+// the related-stock strips, brands/news page internals and the buyer-account
+// screens (login/signup/reset). English is the fallback dictionary so it must
+// ride first load; the 13 translations stay in the lazy i18n-dicts chunk.
+// Measured after the change: 161.30 kB gzip / 556.33 kB raw.
+// 2026-11-18: 163 → 164 kB gzip — public track-your-shipment box on
+// /shipping (courier-style lookup against /api/my-account?track=NO with the
+// milestone strip and the free VesselFinder live-position link). It sits on
+// an inner page of the main bundle, so it rides first load.
+// Measured: 163.47 kB gzip.
+// 2026-11-18 (3): 165 → 166 kB gzip — hero search console v2 (make-aware
+// Model select) + runtime stock-CDN preconnect + landed-price cards earlier
+// the same day. Measured 165.22 kB.
+// 2026-11-18 (2): 164 → 165 kB gzip — fifth i18n round: 46 ma.* EN source
+// keys for the signed-in My Account view (orders, payments, Where-is-my-car
+// shipment tracking). English is the fallback dictionary so it rides first
+// load; the 13 translations stay in the lazy i18n-dicts chunk.
+// Measured: 164.13 kB gzip.
+// 2026-11-18 (4): 166 → 167 kB gzip — sixth i18n round: 55 ma.*/enq.ref* EN
+// source keys (refer-a-friend card, saved cars/searches, profile + password
+// panels, enquiry referral field). English is the fallback dictionary so it
+// rides first load; the 13 translations stay in the lazy i18n-dicts chunk.
+// Measured: 166.21 kB gzip.
+// 2026-11-19: 167 → 170 kB gzip — src/jp-display.js: display-side English
+// translation of goo-net Japanese fields (colour token dictionary, the
+// 47-prefecture map, transmission patterns, model word map). It must ride the
+// first-load bundle because enrichCar runs on every hydrated car before the
+// first paint of a card. Measured 169.35 kB gzip.
+// 2026-11-13 perf round: 170 → 165 kB gzip (ratchet DOWN) — the chat widget
+// left the boot bundle for an idle-mounted lazy chunk; nothing needs the chat
+// panel during first paint. Measured 161.67 kB gzip.
+const BUDGET_GZIP = 165 * 1024;
+// 2026-11-08 (2): +1 kB raw for the recently-sold home strip (renders only
+// when the CRM marks listings Sold) and the last visible "demo" kicker fixes.
+// Actual after the change: 531.06 kB raw; gzip stayed inside its budget.
+// 2026-11-08 (3): 532 → 533 kB raw for the favourites sync (actual 532.23).
+// 2026-11-08 (4): 533 → 534 kB raw — the home hero swaps its flat cross-fade
+// card for the inventory-style 3D showroom stage (per-slide links, drag/swipe,
+// blur-fill frames) and the inventory stage gains the same drag-guard fixes.
+// Actual: 533.56 kB raw; gzip stayed inside its 154 kB budget (153.64).
+// 2026-11-08 (5): 534 → 535 kB raw — third public theme (light/dark/blue
+// cycle) and the dealer-signage crop rules. Actual: 534.07 kB raw.
+// 2026-11-09: 535 → 537 kB raw — same additions as the gzip note above.
+// 2026-11-09 (later): 537 → 539 kB raw — six new vector flags (China, India,
+// Germany, Russia, France, Turkey) plus the world-map flag layer and the
+// China origin chip on the big globe.
+// 2026-11-13: 539 → 553 kB raw — same i18n EN-source growth as the gzip note
+// above (the per-screen t() wiring + 464 English keys). Actual: 551.63 kB raw.
+// 2026-11-14: 553 → 558 kB raw — same fourth-round i18n EN-source growth as
+// the gzip note above. Measured 556.33 kB raw.
+// 2026-11-14 (quick-quote): 558 → 560 kB raw — 27 qq.* English fallback keys
+// plus the DeferredQuickQuote wrapper ride first load; the wizard itself and
+// its CSS are a lazy quick-quote chunk. Measured 558.14 kB raw / 161.80 gzip.
+// 2026-11-17: 560 → 562 kB raw — round-7 mobile QA: the wizard's destination
+// currency selector (4 qq.* keys), interaction-gated Supabase auth restore,
+// the prev/next home stock pager and the promo-bar shift-free reservation.
+// Measured 560.86 kB raw / gzip well inside 163.
+// 2026-11-18: 562 → 564 kB raw — the public track-your-shipment box (same
+// change as the gzip note above). Measured 562.69 kB raw.
+// 2026-11-18 (4): 568 → 570 kB raw — hero search console v2 + runtime
+// stock-CDN preconnect (origin derived from data, never hardcoded).
+// 2026-11-18 (3): 566 → 568 kB raw — landed-price cards: the CIF-destination
+// picker on the inventory toolbar + the per-card indicative CIF chip
+// (estimateFor reuse, localStorage persistence). Measured 566.70 kB.
+// 2026-11-18 (2): 564 → 566 kB raw — the 46 ma.* EN source keys for the
+// signed-in My Account view (same change as the gzip note above).
+// Measured 564.52 kB raw.
+// 2026-11-18 (5): 570 → 572 kB raw — the 55 EN source keys of the sixth i18n
+// round (same change as the gzip note above). Measured 570.28 kB raw.
+// 2026-11-19: 572 → 578 kB raw — src/jp-display.js (same change as the gzip
+// note above). Measured 576.31 kB raw.
+// 2026-11-13 perf round: 578 → 565 kB raw (ratchet DOWN) — chat widget moved
+// to its idle-mounted lazy chunk. Measured 555.14 kB raw.
+const BUDGET_RAW = 565 * 1024;
 ok(gzip <= BUDGET_GZIP,
   `first-load JS is ${kb(gzip)} gzipped (budget ${kb(BUDGET_GZIP)})`);
 ok(raw <= BUDGET_RAW,
   `first-load JS is ${kb(raw)} raw (budget ${kb(BUDGET_RAW)})`);
+
+// ---- SPA shell head hygiene (2026-11-18) ------------------------------------
+// Search Console showed 93 pages "not indexed": this shell is served for EVERY
+// client-rendered route, so a static canonical pointing at "/" declared every
+// vehicle page an alternate of the homepage in Google's first HTML pass.
+// applySeo() owns the canonical at runtime; prerendered pages bake theirs.
+console.log('\n-- SPA shell head hygiene --');
+ok(!/rel="canonical"/.test(html),
+  'the SPA shell carries NO static canonical — applySeo sets the per-route one (pinned: do not re-add)');
+// The stock-photo CDN preconnect is injected at RUNTIME from the data (see
+// the App boot effect in main.jsx) because the public shell never names the
+// sourcing site — pinned by the ui-audit index.html checks.
+ok(!/goo-net/i.test(html), 'the shell still never names the sourcing site');
 
 // ---- measure first-load CSS ------------------------------------------------
 console.log('\n-- first-load CSS budget --');
@@ -236,16 +369,103 @@ for (const file of entryCss) {
 // public first paint is unchanged. Measured 189.29 kB raw / 36.72 kB gzip.
 // Ratcheted 37 → 38 kB gzip / 190 → 192 kB raw on 2026-10-05 for the
 // fixed header, resized hero callouts and responsive founder-stat corrections.
-// Ratcheted 38 → 40 kB gzip / 192 → 206 kB raw on 2026-11-25: the vehicle
-// detail pass (src/detail-v2.css) — a studio matte instead of the dark photo
-// frame, one quiet control row under the photo instead of a bordered toolbar,
-// a Previous / Next inventory pager, the tinted price panel, borderless spec
-// tiles and the hairline specification list. It also deletes the 1.2 kB dark
-// toolbar block in src/expanded.css that it supersedes. The page is not
-// lazily routed, so its styles are part of first paint.
-//     FIRST-LOAD CSS        204.93 kB  ( 39.15 kB gzip)
-const CSS_BUDGET_GZIP = 40 * 1024;
-const CSS_BUDGET_RAW = 206 * 1024;
+// Ratcheted 192 → 194 kB raw on 2026-11-07 (gzip unchanged at 38): the
+// inventory hero showcase + brand-pulse chips + numbered pager styles
+// (src/extra-pages.css, ~2.3 kB) and the CRM per-lead AI-assist modal
+// (src/crm.css, ~2.4 kB — a staff-tool surface). Measured 192.50 kB raw.
+// Ratcheted 194 → 196 kB raw on 2026-11-07 (gzip unchanged at 38): the
+// header search pill and the one-time cookie notice (src/site-layout.css,
+// ~2.1 kB). The search overlay and legal-page styles ship in their lazy
+// chunks (global-search.css, legal.css) and cost first-load nothing.
+// Measured 194.21 kB raw / 37.71 kB gzip.
+// Ratcheted 196 → 198 kB raw / 38 → 39 kB gzip on 2026-11-08: the labelled
+// brand-pulse strip (glass panel + mobile side-scroll) and the stock-alert
+// bar in src/extra-pages.css, ~2 kB. CRM-only styles (scout, advisor) ship
+// in the lazy chunks. Measured 196.89 kB raw / 38.13 kB gzip.
+// CSS ratcheted 39 → 40 kB gzip / 202 → 204 kB raw on 2026-11-07: the
+// save-search panel (extra-pages.css) and the account page's saved-search
+// cards (portal.css).
+// 2026-11-08: 40 → 41 kB gzip for the burger-menu refresh (clean bar below
+// 900px, dimmed backdrop, tablet drawer, 48px rows). Actual: 40.13 kB gzip.
+// 2026-11-08 (2): 41 → 42 kB gzip for the landing showroom stage + premium
+// stage arrows + the phone-bar overflow fix. The dead cross-fade rules
+// (.hero-stack, .car-float-title, .image-shade) were pruned to offset part
+// of it. Actual: 41.06 kB gzip.
+// 2026-11-11: 43 -> 43.25 kB. Owner request: machinery (China desk) cards
+// join the premium metal finish (chips, type badge, FOB tray, view/chat
+// buttons) and the maker row grew. Measured 43.07 kB gz after merging the
+// new selectors; raw stayed inside 225.
+// 2026-11-11 (2): 43.25 → 43.5 kB. Owner UI/UX round: the article-overflow
+// guards (minmax track pin + overflow-wrap), the WCAG AA contrast pass
+// (--gold-ink switches, status-chip tones, hero kicker) and the
+// content-visibility block for below-the-fold home sections. Measured
+// 43.26 kB gz / 225.28 kB raw — ~300 bytes of deliberate fixes.
+// 2026-11-03 (R41): 43.5 → 44.5 kB. Owner round: per-page hero motion scenes
+// (auction/shipping/about/contact + extra-page accents, CSS/SVG only — the
+// alternative was a JS animation library, which this budget exists to avoid),
+// the footer rebrand (transparent mark, wordmark, visible social buttons),
+// the home "shop by" rails and the integrated card-open split button, all in
+// src/landing-anim.css. Measured 44.35 kB gz / 228.14 kB raw.
+// 2026-11-03 (R42): 44.5 → 45 kB. Owner round: the inventory grid/list view
+// toggle + full list-view layout (desktop rows + compact phone rows), the
+// vehicle-card refresh and the footer logo halo. The removed card-open
+// split-button rules partly offset it. Measured 44.61 kB gz / 229.24 kB raw.
+const CSS_BUDGET_GZIP = 45 * 1024;
+// Ratcheted 198 → 202 kB raw on 2026-11-07: budget-card slideshow, the gold
+// search buttons (header + floating), the language pill and the metric-matched
+// Manrope fallback face.
+// 204 → 206 kB raw on 2026-11-08: card action buttons + wider home sections.
+// 2026-11-08 (2): 206 → 208 kB raw for the responsive polish pass — 44px
+// touch targets on card actions/pager, stacked CRM bulk bar, my-account
+// breakpoints (which had none) and the iOS focus-zoom fix (16px inputs on
+// phones). Actual after the change: 206.09 kB raw; gzip stayed in budget.
+// 2026-11-08 (3): 208 → 213 kB raw — the landing showroom stage (hero-stage
+// slides, blur-fill frames, premium arrows at two breakpoints) plus the
+// phone-bar overflow fix; ~1.3 kB of dead cross-fade hero rules pruned from
+// styles.css/landing-v2.css/site-layout.css. Actual: 211.71 kB raw.
+// 2026-11-08 (4): 213 → 214 kB raw — the blue & gold theme layer (navy
+// variable set + overrides for the hard-coded emerald surfaces) and the
+// open-stage mask rules. Actual: 213.22 kB raw; gzip 41.47 in a 42 budget.
+// 2026-11-09: 214 → 219 kB raw (gzip 42 → 43) — mobile menu close row, split
+// theme buttons, and the TEMP A/B/C hero-layout variant layers in
+// landing-v2.css. Two of the three variants are deleted once the owner picks;
+// tighten this back then.
+// 2026-11 (owner request): 222 → 225 kB raw — premium brushed-metal finish
+// for the card spec chips, compare chip, stock badges, price arrow and the
+// gold/green CTAs (expanded.css "PREMIUM METAL FINISH" block). Measured
+// 223.77 kB raw / 42.93 kB gzip — gzip stays inside the unchanged 43.
+// 2026-11-18: 221 → 222 kB raw — landed-price cards: .card-cif chip and
+// .cif-dest-pick picker styles. Measured 221.19 kB.
+// 2026-11-17: 219 → 221 kB raw — round-7 mobile QA: single-line mobile promo
+// row, 44px home pager buttons, hv=c foot-band contrast block and the ≤560
+// two-row route chip. Measured 219.98 kB raw / gzip inside 43.
+// 2026-11-11 (2): 225 → 225.5 kB raw — same fix set as the gzip note above.
+// 2026-11-11 (3): 225.5 → 227 kB raw — the dark-theme contrast pass the owner
+// asked for: the home world band flips to a deep-green surface in dark mode
+// (plus re-pointed text pins), machinery facet/count dark rules, and the
+// brand-gold wordmark tokens. Measured 226.34 kB raw / 43.48 kB gzip — the
+// gzip budget is unchanged and still holds.
+// 2026-11-03 (R41): 227 → 229.5 kB raw — src/landing-anim.css (same change
+// set as the gzip note above). Measured 228.14 kB raw.
+// 2026-11-13 (perf round): 229.5 → 230.5 kB raw — the compositor pass: the
+// hero edge fade moved from mask-image to two gradient strips, the slide
+// dimmers moved from animated brightness() filters to a shared ::after
+// overlay, the world-clock cells got a fixed min-width (the page's top CLS
+// culprit), and the ribbon globe swapped drop-shadow for a static halo.
+// Measured 229.95 kB raw / 44.34 kB gzip — the gzip budget (what actually
+// ships) is untouched and still holds under 45.
+// 2026-11 (R46, unused-CSS split): 230.5 → 221 kB raw — the Brands / How to
+// buy / Tools / News / FAQ-topic / destinations-hub rules moved from the
+// eager src/expanded.css + src/pages.css into the lazy pages-static chunk,
+// and the /destinations/{market} page styles into a new lazy
+// destination-page.css. The first paint stops downloading rules only those
+// routes render. Measured 219.38 kB raw / 42.90 kB gzip.
+// 2026-11-13 (owner request): 221 → 221.5 kB raw — the stock-card premium
+// price ledger (open hairline + gold tick instead of the boxed price field,
+// refined CTA hierarchy, outlined compare chip, location closing line) and
+// the smaller edge-pinned hero carousel arrows. Measured 221.24 kB raw /
+// 43.25 kB gzip — gzip (what actually ships) is untouched under 45.
+const CSS_BUDGET_RAW = 221.5 * 1024;
 ok(cssGzip <= CSS_BUDGET_GZIP,
   `first-load CSS is ${kb(cssGzip)} gzipped (budget ${kb(CSS_BUDGET_GZIP)})`);
 ok(cssRaw <= CSS_BUDGET_RAW,
@@ -302,17 +522,25 @@ ok(!('compress' in vercel),
 
 // ---- fonts -----------------------------------------------------------------
 console.log('\n-- fonts --');
-// Only the two above-the-fold weights may be preloaded; the rest are fetched
-// when something actually uses them.
+// Only the above-the-fold weights may be preloaded; the rest are fetched when
+// something actually uses them. Re-ratcheted 2 → 4 on 2026-11-07 from a field
+// PageSpeed trace: the hero <h1> is weight 800 and the nav is 600/700, so the
+// browser discovered manrope-600/800 late via CSS and the swap landed 688ms
+// in — the longest critical chain on the page.
+// Re-ratcheted 4 → 5 on 2026-11-11 from the next field PSI trace: with the
+// other four preloaded, manrope-500 (body/medium text) became the new tail —
+// the page's longest network dependency chain at 799ms, discovered late via
+// CSS. All five weights the first paint uses are now preloaded; there is no
+// sixth face to ratchet to.
 const fontPreloads = [...html.matchAll(/<link[^>]*rel="preload"[^>]*as="font"[^>]*href="([^"]+)"/g)].map(m => m[1]);
-ok(fontPreloads.length === 2,
-  `exactly two font faces are preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ')})`);
+ok(fontPreloads.length === 5,
+  `exactly five font faces are preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ')})`);
 ok(fontPreloads.every(f => /\/assets\/fonts\/[\w-]+\.woff2$/.test(f)),
   'every preloaded font is a self-hosted woff2');
-ok(fontPreloads.every(f => /(400|700)\.woff2$/.test(f)),
-  'the preloaded faces are the two above-the-fold weights (400 and 700)');
-ok(!/fonts\/(500|600|800)\.woff2/.test(html.match(/<head>[\s\S]*?<\/head>/)[0]),
-  'the 500/600/800 faces are not preloaded');
+ok(fontPreloads.every(f => /(400|500|600|700|800)\.woff2$/.test(f)),
+  'the preloaded faces are the above-the-fold weights (400, 500, 600, 700, 800)');
+ok(/fonts\/manrope-500\.woff2/.test(html.match(/<head>[\s\S]*?<\/head>/)[0]),
+  'the 500 face is preloaded (2026-11-11 PSI: it was the 799ms chain tail)');
 
 // Every @font-face must swap, or the first paint blocks on the font.
 const cssFiles = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.css'));
@@ -339,7 +567,7 @@ ok(imports === 0, `no @import in the built CSS (found ${imports})`);
 console.log('\n-- images carry explicit dimensions --');
 // CLS: an <img> without width/height reflows the grid when it decodes. Count
 // the ones in the source that name a photo, and confirm they all declare a box.
-for (const rel of ['src/main.jsx', 'src/reviews.jsx', 'src/crm.jsx']) {
+for (const rel of ['src/main.jsx', 'src/inner-page.jsx', 'src/reviews.jsx', 'src/crm.jsx']) {
   const src = readFileSync(join(ROOT, rel), 'utf8');
   const imgs = [...src.matchAll(/<img\b[^>]*?\/>/g)].map(m => m[0]);
   const withBox = imgs.filter(t => /\swidth=/.test(t) && /\sheight=/.test(t));
@@ -348,7 +576,7 @@ for (const rel of ['src/main.jsx', 'src/reviews.jsx', 'src/crm.jsx']) {
 }
 // The homepage hero image must ask to be fetched early, and the below-the-fold
 // photos must not block first paint.
-const main = readFileSync(join(ROOT, 'src/main.jsx'), 'utf8');
+const main = readFileSync(join(ROOT, 'src/main.jsx'), 'utf8') + '\n' + readFileSync(join(ROOT, 'src/inner-page.jsx'), 'utf8');
 ok(/fetchPriority="high"/.test(main),
   'the detail-page hero image asks for fetchpriority=high');
 ok((main.match(/loading="lazy"/g) || []).length >= 15,
@@ -382,8 +610,10 @@ ok(!/Disallow:\s*\/\s*$/m.test(robots), 'robots.txt does not disallow the whole 
 // URL in it must be a route the SPA actually serves — a sitemap listing a dead
 // path is worse than no sitemap.
 const staticSitemap = readFileSync(join(ROOT, 'public/sitemap.xml'), 'utf8');
-ok(staticSitemap.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'),
-  'public/sitemap.xml is a sitemaps.org urlset');
+// 2026-11-12 (R38): the urlset also declares the xhtml namespace — every URL
+// now announces its 15 ?lang= alternates + x-default to the crawlers.
+ok(staticSitemap.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'),
+  'public/sitemap.xml is a sitemaps.org urlset (with the xhtml alternates namespace)');
 const staticLocs = [...staticSitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]);
 ok(staticLocs.length > 0, `the static sitemap lists ${staticLocs.length} URLs`);
 ok(staticLocs.every(l => l.startsWith('https://ar7traders.com/')),

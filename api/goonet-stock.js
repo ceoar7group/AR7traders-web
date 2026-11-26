@@ -11,6 +11,8 @@
 // Writes need the `site.write` permission (Administrator + Manager by default),
 // decided by CRM → Team & permissions rather than a hard-coded role check.
 import {adminClient, requireUser, send} from './_supabase.js';
+import {PUBLIC_DEALER_LIMIT} from '../src/japan-stock-map.js';
+import {readDealerPage, DEALER_MAX_PAGES} from './_dealer-pages.js';
 import {requirePerm} from './_perm.js';
 import {GOONET_COLUMNS} from './_columns.js';
 import {
@@ -255,9 +257,19 @@ export default async function handler(req, res, injected = {}) {
 
     // ---- Public read: the Japan dealer stock page -------------------------
     if (req.method === 'GET' && req.query.all !== '1') {
-      let q = db.from('japan_dealer_stock').select('*')
-        .eq('available', true).order('imported_at', { ascending: false }).limit(300);
-      const { data, error } = await q;
+      // Opt-in pages preserve the legacy unpaged array response for old clients.
+      if (req.query.page !== undefined) {
+        const raw = String(req.query.page);
+        if (!/^(0|[1-9]\d*)$/.test(raw) || Number(raw) > DEALER_MAX_PAGES) return send(res, 400, { error: 'Invalid page' });
+        try {
+          const data = await readDealerPage(db, Number(raw));
+          // Avoid mixing independently cached snapshots while the importer runs.
+          res.setHeader('Cache-Control', 'no-store');
+          return send(res, 200, data);
+        } catch (error) { return send(res, 500, { error: error.message }); }
+      }
+      const { data, error } = await db.from('japan_dealer_stock').select('*')
+        .eq('available', true).order('imported_at', { ascending: false }).limit(PUBLIC_DEALER_LIMIT);
       if (error) return send(res, 500, { error: error.message });
       res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=600');
       return send(res, 200, data || []);

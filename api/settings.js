@@ -41,8 +41,38 @@ const WRITABLE_KEYS = new Set([
   'goonet_max_new_per_run', 'goonet_max_delist_per_run',
   'goonet_weekly_delist_limit', 'goonet_weekly_promote_limit',
   'goonet_jpy_usd_rate', 'goonet_bookmark_page', 'goonet_auto_promote',
-  'goonet_last_run_at', 'goonet_last_weekly_delist', 'goonet_last_weekly_promote'
+  'goonet_sort_order', 'goonet_max_price_jpy', 'goonet_min_price_jpy',
+  // Per-run promotion (2026-11-03): where a passing import is copied the
+  // moment it lands ('listings' | 'vehicles' | 'both') and how many fresh
+  // rows one run may promote. The stuck-bookmark auto-reset stays opt-in.
+  'goonet_auto_promote_target', 'goonet_max_promote_per_run',
+  'goonet_auto_reset_bookmark',
+  'goonet_last_run_at', 'goonet_last_weekly_delist', 'goonet_last_weekly_promote',
+  // The machinery importer's rules (2026-10-08). They were already readable
+  // through machinerySettings() but not WRITABLE here, so the CRM's "Make
+  // default" for the per-run batch had nowhere legal to land. Bounds below
+  // mirror api/_machinery.js: the batch may lower the hard ceiling of 24
+  // (MAX_SCRAPER_MACHINES) and never raise it.
+  'machinery_autopublish', 'machinery_scraper_batch', 'machinery_min_photos',
+  'machinery_scraper_sort', 'machinery_scraper_max_price',
+  'machinery_max_reprice_per_run', 'machinery_stale_after_days',
+  'machinery_allow_placeholder_photo',
+  // WhatsApp desk (2026-11-03): whether the AI agent answers inbound
+  // WhatsApp messages on its own ('on') or only drafts for staff ('off',
+  // the default). An explicit owner switch — never on by default.
+  'wa_auto_reply'
 ]);
+
+// Bounded integer machinery rules: [min, max]. The scraper batch is the one a
+// person tunes per desk; 1–24 keeps it inside the politeness ceiling.
+const MACHINERY_INTS = {
+  machinery_scraper_batch: [1, 24],
+  machinery_min_photos: [0, 20],
+  machinery_max_reprice_per_run: [1, 200],
+  machinery_stale_after_days: [1, 365]
+};
+// The two flags are booleans stored as 'true'/'false', like the goonet flags.
+const MACHINERY_BOOLS = new Set(['machinery_autopublish', 'machinery_allow_placeholder_photo']);
 
 // Per-key value caps. exchange_rates is a JSON blob; everything else is short.
 const MAX_VALUE = { exchange_rates: 8000, goonet_search_url: 500, promo: 1200, stock_discounts: 32000 };
@@ -84,6 +114,34 @@ function validate(key, value) {
   if ((key === 'contact_email' || key === 'enquiry_inbox') && s && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) {
     return `"${key}" must be a valid email address`;
   }
+  if (MACHINERY_BOOLS.has(key)) {
+    if (s && s !== 'true' && s !== 'false') return `"${key}" must be true or false`;
+    return null;
+  }
+  if (MACHINERY_INTS[key]) {
+    const [lo, hi] = MACHINERY_INTS[key];
+    const n = Number(s);
+    if (!s || !Number.isInteger(n) || n < lo || n > hi)
+      return `"${key}" must be a whole number between ${lo} and ${hi}`;
+    return null;
+  }
+  if (key === 'goonet_sort_order' || key === 'machinery_scraper_sort') {
+    if (s && !['price_asc', 'price_desc', 'source'].includes(s))
+      return `"${key}" must be price_asc, price_desc, or source`;
+    return null;
+  }
+  if (key === 'goonet_max_price_jpy' || key === 'goonet_min_price_jpy' || key === 'machinery_scraper_max_price') {
+    if (s) {
+      const n = Number(s);
+      if (!Number.isFinite(n) || n <= 0 || n > 100000000)
+        return `"${key}" must be a positive number (or blank)`;
+    }
+    return null;
+  }
+  if (key === 'wa_auto_reply') {
+    if (s && s !== 'on' && s !== 'off') return '"wa_auto_reply" must be on or off';
+    return null;
+  }
   if (key === 'promo' && s) return validPromo(s);
   if (key === 'stock_discounts') {
     const checked = validateStockDiscounts(s);
@@ -107,6 +165,12 @@ export default async function handler(req,res,injected={}){
     const getUser=injected.getUser||requireUser;
     const {profile}=await getUser(req);
     res.setHeader('Cache-Control','private, no-store');
+    // WhatsApp direct-connect secrets (written only by the admin-gated
+    // connect action in api/_wa.js) are never echoed back — staff see THAT
+    // they are saved, never the values. PUBLIC_KEYS excludes them, and
+    // WRITABLE_KEYS keeps the generic PATCH from touching them.
+    for(const k of ['wa_cloud_token','wa_cloud_verify_token'])
+      if(all[k]!=null&&all[k]!=='')all[k]='•••saved';
     return send(res,200,all);
    }
    const pub={};

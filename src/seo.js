@@ -15,10 +15,24 @@
 //   • the FAQPage markup is scoped to /faq only (it used to sit in the static
 //     shell where every route inherited it).
 import {useEffect} from 'react';
+import { vehicleSeo } from './vehicle-seo.js';
+export { vehicleSeo } from './vehicle-seo.js';
 import { hrefFor, slugify } from './routing.js';
 import { articleBySlug, articleSeo } from './news-data.js';
-import { listPriceUSD } from './machinery-data.js';
+import { listPriceUSD, machineYear, machineHours } from './machinery-data.js';
+import { destinationPath } from './sitemap-helpers.js';
+import { destinationFacts, destinationFaqs } from './destinations.js';
 import { priceWithOffer } from './offers.js';
+import { LANGUAGES, DEFAULT_LANG, normalizeLangCode, langHref, translate } from './i18n.js';
+
+// R38 (2026-11-12): localized titles/descriptions live in src/seo-i18n.js,
+// which is loaded LAZILY alongside the language dictionaries — the English
+// first paint never ships ~60 KB of strings it cannot show (the first-load
+// JS budget pins this). The language provider (src/i18n.jsx) registers the
+// map here and re-fires 'ar7:language' so useSeo re-stamps the head once
+// the localized text is available; until then the English snippet serves.
+let SEO_I18N = null;
+export function registerSeoI18n(map) { SEO_I18N = map || null; }
 
 export const BASE = 'https://ar7traders.com';
 
@@ -26,8 +40,9 @@ const PAGE_LABELS = {
   inventory: 'Vehicle Inventory', auction: 'Auction Bidding', services: 'Export Services',
   brands: 'Brands We Export', destinations: 'Shipping Destinations', tools: 'Import Cost Calculator',
   world: 'Global Network', howbuy: 'How to Buy', news: 'News & Guides', about: 'About',
-  reviews: 'Reviews', faq: 'FAQ', contact: 'Contact', 'japan-stock': 'Japan Dealer Stock',
-  shipping: 'Shipping', machinery: 'Machinery & Equipment'
+  reviews: 'Reviews', faq: 'FAQ', contact: 'Contact',
+  shipping: 'Shipping', machinery: 'Machinery & Equipment',
+  privacy: 'Privacy Policy', cookies: 'Cookie Policy', terms: 'Terms & Export Policy'
 };
 
 // Only canonicalize makes we explicitly recognize. Keep the current catalogue
@@ -57,8 +72,9 @@ export function brandSeo(make) {
 }
 
 export const PAGE_SEO = {
-  home:        ['Japanese Car Exporter | Cars & Machinery | AR7 Traders',
-                'Auction-sourced vehicles from Japan, inspected, documented and shipped to your port. Translated auction sheets and one clear price.'],
+  home:        ['Car Exporter from Japan & China | Cars & Machinery | AR7 Traders',
+                // 160 chars — ≤165 so Google shows it whole (2026-11-07 crawl report).
+                'RHD cars from Japanese auctions, LHD cars from vetted Chinese suppliers and heavy machinery — inspected and shipped worldwide with one clear price to your port.'],
   inventory:   ['Japanese Cars for Export | Live Stock | AR7 Traders',
                 'Browse verified Japanese vehicles ready for export: Toyota, Nissan, Honda, Lexus, Mercedes and more, with mileage, grade and shipping cost to your port.'],
   auction:     ['Japan Car Auction Access | Bid With AR7 Traders',
@@ -93,8 +109,12 @@ export const PAGE_SEO = {
                 'Track bids, shipments, documents and payments in the AR7 Traders client portal.'],
   machinery:   ['Construction Machinery for Export | AR7 Traders',
                 'Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers, inspected and shipped to your port. Indicative FOB prices.'],
-  'japan-stock': ['Japan Dealer Stock | Fresh Japan Imports — AR7 Traders',
-                'Hand-picked dealer stock from Japan: fresh arrivals with verified photos, full specs and export pricing, updated regularly.'],
+  privacy:     ['Privacy Policy | AR7 Traders',
+                'What AR7 Traders collects when you enquire or buy, where it is stored, how long we keep it and how to have it deleted.'],
+  cookies:     ['Cookie Policy | AR7 Traders',
+                'No advertising cookies, no cross-site tracking: every key this site stores on your device, listed and explained.'],
+  terms:       ['Terms & Export Policy | AR7 Traders',
+                'Prices, ordering, payment, shipping documents and the export compliance rules that govern buying a vehicle through AR7 Traders.'],
   crm:         ['AR7 Traders Staff CRM', 'Internal operations console for AR7 Traders staff: leads, customers, quotes, shipments and approvals.'],
   studio:      ['Responsive Preview | AR7 Traders', 'Preview the AR7 Traders website across phone, tablet, laptop and desktop.'],
   seo:         ['SEO Desk | AR7 Traders', 'Staff-only SEO audit desk: the same checks the AR7 SEO agent runs, on the live page.']
@@ -142,8 +162,8 @@ export function carsLandingSeo(make, model, count) {
   if (model) {
     const label = String(model).replace(/\b\w/g, c => c.toUpperCase());
     return {
-      title: `${m} ${label} for Export from Japan | AR7 Traders`,
-      description: `Used ${m} ${label} cars from Japanese auctions with a translated auction sheet. ${stock} · export price in USD, shipping to your port.`,
+      title: `${m} ${label} for Sale from Japan | AR7 Traders`,
+      description: `Browse ${m} ${label} vehicles from Japanese auctions and dealers. ${stock} · view specifications, photos and export prices, with shipping quoted to your port.`,
       h1: `${m} ${label} for export`,
       canonicalPath: `/cars/${slugify(m)}/${slugify(model)}`,
       label: `${m} ${label}`
@@ -217,19 +237,77 @@ export function machineSeo(machine, {percent = 0} = {}) {
   const list = listPriceUSD(machine);
   const price = percent > 0 ? priceWithOffer(list, percent).now : list;
   const priced = price ? `indicative FOB $${Number(price).toLocaleString('en-US')}` : 'FOB price on request';
-  const usage = machine.type === 'Trucks'
-    ? `${Number(machine.hours).toLocaleString('en-US')} km`
-    : `${Number(machine.hours).toLocaleString('en-US')} hours`;
+  // 2026-10-08: an unstated hour meter is "on request", never 0 — and an
+  // unstated model year is left out of the sentence rather than printed as
+  // "null" in a description Google reads.
+  const hours = machineHours(machine);
+  const usage = hours == null
+    ? (machine.type === 'Trucks' ? 'km on request' : 'hours on request')
+    : `${hours.toLocaleString('en-US')} ${machine.type === 'Trucks' ? 'km' : 'hours'}`;
+  const year = machineYear(machine);
   const type = String(machine.type || '').toLowerCase().replace(/s$/, '');
+  // 2026-11-13 (SEO audit): the single long sentence ran 190–199 characters
+  // and Google truncated it on every machine page. Same pattern as
+  // destinationSeo below — the longest version that fits the 165-character
+  // budget wins, and the clauses that earn the click (usage, price) are
+  // dropped last. Every tier keeps the house claims: sourced to order (never
+  // "in stock"), indicative FOB, freight quoted to the buyer's port.
+  const lead = `${year ? `${year} ` : ''}${machine.name} ${type} (${machine.ref})`;
+  const tail = 'Freight quoted to your port.';
+  const description = [
+    `${lead} sourced to order from a vetted Chinese supplier — ${usage}, inspected, ${priced}. ${tail}`,
+    `${lead} sourced to order from China — ${usage}, inspected, ${priced}. ${tail}`,
+    `${lead} sourced to order from China — ${usage}, ${priced}. ${tail}`,
+    `${lead} sourced to order from China — ${priced}. ${tail}`
+  ].find(d => d.length <= 165) || `${lead} sourced to order from China. ${tail}`;
   return {
     title: `${machine.name} ${type} for export from China | AR7 Traders`,
-    description: `${machine.year} ${machine.name} ${type} (${machine.ref}) sourced to order from a vetted Chinese supplier — ${usage}, inspected with photos and video, ${priced}. Quoted with freight to your port.`,
+    description,
     canonicalPath: `/machinery/${machine.type.toLowerCase()}/${machine.ref}`,
     price,
     listPrice: list,
     type
   };
 }
+
+/**
+ * One market's page: /destinations/kenya (2026-10-08).
+ *
+ * The title carries the route the way a buyer types it, the description carries
+ * the three facts that decide whether this exporter is usable for that market —
+ * the port, the planning transit window and the models the route carries — and
+ * both stay inside the length budgets src/seo-audit.js measures. Every price
+ * claim is the house one: indicative FOB, confirmed by a written quotation.
+ *
+ * @param {Array|object} dest  a DEST tuple, or the facts object built from one
+ */
+export function destinationSeo(dest) {
+  const f = Array.isArray(dest) ? destinationFacts(dest) : dest;
+  if (!f || !f.country) return null;
+  const title = `Japan to ${f.country} — Used Car Imports | AR7 Traders`;
+  // Longest version that fits the 165-character budget the audit measures:
+  // the models clause is what earns the click, so it is dropped last.
+  const head = `Japan to ${f.country} used car imports via ${f.port}: ${f.transit} planning transit`;
+  const tail = 'Indicative FOB, confirmed by written quotation.';
+  const description = [
+    `${head}, ${f.models.join(' · ')}, export documents couriered before arrival. ${tail}`,
+    `${head}, ${f.models.slice(0, 2).join(' · ')}. ${tail}`,
+    `${head}. ${tail}`
+  ].find(d => d.length <= 165) || `${head}. ${tail}`;
+  return {
+    title,
+    description,
+    canonicalPath: destinationPath(f.country),
+    h1: f.h1,
+    label: f.country,
+    faqs: destinationFaqs(Array.isArray(dest) ? dest : null) || []
+  };
+}
+
+const MISSING_DESTINATION_SEO = [
+  'Market guide not found | AR7 Traders',
+  'We have no guide for that market yet. See the destinations we ship to from Japan — route facts, planning transit windows and the document pack each port needs.'
+];
 
 const MISSING_VEHICLE_SEO = [
   'Vehicle no longer listed | AR7 Traders',
@@ -307,7 +385,7 @@ const OG_SET = {
 // are noindex and fall back to the default image.
 export const PAGE_OG = {
   home: OG_DEFAULT,
-  inventory: OG_SET.inventory, brands: OG_SET.inventory, 'japan-stock': OG_SET.inventory,
+  inventory: OG_SET.inventory, brands: OG_SET.inventory,
   auction: OG_SET.auction, services: OG_SET.auction, howbuy: OG_SET.auction,
   shipping: OG_SET.shipping, destinations: OG_SET.shipping, world: OG_SET.shipping,
   faq: OG_SET.help, news: OG_SET.help, reviews: OG_SET.help,
@@ -323,7 +401,11 @@ const carName = car => [car?.year, car?.make, car?.model].filter(Boolean).join('
 /** Numeric price from the published display string ('"$21,000"' → 21000). */
 function priceNumber(price) {
   if (typeof price === 'number') return Number.isFinite(price) && price > 0 ? price : null;
-  const n = Number(String(price || '').replace(/[^0-9.]/g, ''));
+  const s = String(price || '').trim();
+  // Reject prose and ranges: stripping every non-digit could turn 'call 24/7'
+  // or '10,000–15,000' into an invented numeric Offer.
+  if (!/^(?:(?:US\$|USD\s*|\$|JPY\s*|¥|EUR\s*|€|GBP\s*|£|AED\s*|PKR\s*)\s*)?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?\s*(?:USD|JPY|EUR|GBP|AED|PKR)?$/i.test(s)) return null;
+  const n = Number(s.replace(/[^0-9.]/g, ''));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
@@ -337,34 +419,6 @@ function priceCurrency(price) {
   if (/AED/i.test(s)) return 'AED';
   if (/PKR/i.test(s)) return 'PKR';
   return 'USD';
-}
-
-/** Display form of the published price for descriptions ('$21,000' stays as
- *  published; a number is formatted in its currency). */
-function priceText(price) {
-  if (typeof price === 'string' && price.trim()) return price.trim();
-  const n = priceNumber(price);
-  if (!n) return null;
-  const cur = priceCurrency(price);
-  const symbol = {USD: '$', JPY: '\u00a5', EUR: '\u20ac', GBP: '\u00a3'}[cur];
-  return symbol ? symbol + n.toLocaleString('en-US') : `${n} ${cur}`;
-}
-
-/** Vehicle-specific title — replaces the listing-level default. */
-export function vehicleSeo(car, carId) {
-  const name = carName(car) || 'Vehicle';
-  const facts = [];
-  if (car?.km) facts.push(String(car.km).replace(/,\s*/g, ',') + ' km');
-  if (car?.fuel) facts.push(car.fuel);
-  if (car?.tr) facts.push(car.tr);
-  const price = priceText(car?.price);
-  if (price) facts.push('export price from ' + price);
-  const ref = carId != null && String(carId) !== '' ? ` (Stock ${String(carId)})` : '';
-  const title = `${name}${ref} — Japanese Import | AR7 Traders`;
-  const desc = facts.length
-    ? `${name} for export from Japan: ${facts.join(', ')}. See the full specification, photos and stock reference, then ask our team for a landed quote.`
-    : `${name} for export from Japan. See the full specification and photos, then ask our team for a landed quote.`;
-  return [title, desc];
 }
 
 /** schema.org availability that matches the record's status — or null when the
@@ -383,7 +437,7 @@ function availabilityFor(car) {
 function imageFor(src) {
   const s = String(src || '').trim();
   if (!s) return null;
-  return /^https?:\/\//i.test(s) ? s : BASE + s;
+  return /^https?:\/\//i.test(s) ? s : BASE + (s.startsWith('/') ? s : '/' + s);
 }
 
 /** Builds schema.org JSON-LD for a single vehicle's detail page. Only fields
@@ -488,6 +542,11 @@ export function applySeo(page, carId, car, opts = {}) {
   // One machine's own page beats the type page: it is more specific, it is what
   // the visitor asked for, and it is the page that can rank for the model.
   const machinePage = page === 'machinery' && opts.machine ? machineSeo(opts.machine, {percent: opts.machineOfferPercent || 0}) : null;
+  // A market page names its market in the URL; an unknown slug renders the
+  // "no guide for that market" state and leaves the index rather than being
+  // served as a duplicate of the hub.
+  const destPage = page === 'destinations' && opts.destination ? destinationSeo(opts.destination) : null;
+  const destMissing = !!(page === 'destinations' && opts.destSlug && !destPage);
   const isArticlePage = page === 'news' && carId != null && String(carId) !== '';
   const article = isArticlePage ? articleBySlug(carId, opts.articleList) : null;
   const articleMissing = isArticlePage && !article;
@@ -511,6 +570,10 @@ export function applySeo(page, carId, car, opts = {}) {
                 ? machineTypeSeo
                 : brand
                 ? [brand.title, brand.description]
+                : destMissing
+                ? MISSING_DESTINATION_SEO
+                : destPage
+                ? [destPage.title, destPage.description]
                 : (PAGE_SEO[page] || PAGE_SEO.home);
   const url = machineMissing
     ? BASE + '/machinery'
@@ -526,16 +589,50 @@ export function applySeo(page, carId, car, opts = {}) {
               ? BASE + '/machinery/' + String(opts.machineType).toLowerCase()
               : brand
                 ? BASE + brand.canonicalPath
+                : destMissing
+                ? BASE + '/destinations'
+                : destPage
+                ? BASE + destPage.canonicalPath
                 : BASE + hrefFor(page, carId);
-  const noindex = ['crm', 'account', 'portal', 'studio', 'seo'].includes(page) || vehicleMissing || machineMissing || articleMissing;
+  const noindex = ['crm', 'account', 'portal', 'studio', 'seo', 'call'].includes(page) || vehicleMissing || machineMissing || articleMissing || destMissing;
 
-  doc.title = title;
-  setMeta('meta[name="description"]', 'content', description, doc);
-  setMeta('meta[property="og:title"]', 'content', title, doc);
-  setMeta('meta[property="og:description"]', 'content', description, doc);
-  setMeta('meta[property="og:url"]', 'content', url, doc);
-  setMeta('meta[name="twitter:title"]', 'content', title, doc);
-  setMeta('meta[name="twitter:description"]', 'content', description, doc);
+  // Which language this render serves (2026-11, international SEO). The
+  // provider stamps the visitor's choice on <html data-lang> before it
+  // announces `ar7:language`; a scratch document (build-time prerender, SEO
+  // desk audits) carries no stamp and is English. A non-English page is its
+  // own canonical at the ?lang= variant — never an "alternate of the English
+  // page" — which is what lets Google index all 15 language versions.
+  // Noindex pages stay on the clean URL: there is nothing to rank.
+  const lang = (!noindex && normalizeLangCode(opts.lang ?? doc.documentElement?.getAttribute('data-lang'))) || DEFAULT_LANG;
+  const pageUrl = langHref(url, lang);
+
+  // 2026-11-12 (R38, owner backlog "localized titles/descriptions"): the
+  // ?lang= variants used to repeat the English title/description on the
+  // results page — the one place an international buyer decides whether to
+  // click. When the render landed on plain PAGE_SEO (a static public route,
+  // none of the dynamic cases above fired), a non-English language swaps in
+  // the hand-written translation from src/seo-i18n.js. Dynamic pages
+  // (vehicles, brands, articles, machines, markets) compose their text from
+  // live data and stay English for now; a missing entry falls back to
+  // English rather than mixing languages.
+  const usedPageSeo = !vehicleMissing && !machineMissing && !(isVehiclePage && car) &&
+    !articleMissing && !artSeo && !landing && !machinePage && !machineTypeSeo &&
+    !brand && !destMissing && !destPage;
+  const i18nEntry = usedPageSeo && lang !== DEFAULT_LANG
+    ? SEO_I18N?.[lang]?.[PAGE_SEO[page] ? page : 'home'] : null;
+  const i18nSeo = Array.isArray(i18nEntry) && i18nEntry.length === 2 ? i18nEntry : null;
+  const title2 = i18nSeo ? i18nSeo[0] : title;
+  const description2 = i18nSeo ? i18nSeo[1] : description;
+
+  doc.title = title2;
+  setMeta('meta[name="description"]', 'content', description2, doc);
+  setMeta('meta[property="og:type"]', 'content', artSeo ? 'article' : 'website', doc);
+  setMeta('meta[property="og:title"]', 'content', title2, doc);
+  setMeta('meta[property="og:description"]', 'content', description2, doc);
+  setMeta('meta[property="og:url"]', 'content', pageUrl, doc);
+  setMeta('meta[property="og:locale"]', 'content', lang, doc);
+  setMeta('meta[name="twitter:title"]', 'content', title2, doc);
+  setMeta('meta[name="twitter:description"]', 'content', description2, doc);
 
   // Per-page preview image: the vehicle's own photo on detail pages (when it
   // has one), the guide's own photo on /news/<slug>, otherwise the page's
@@ -572,7 +669,29 @@ export function applySeo(page, carId, car, opts = {}) {
     link.rel = 'canonical';
     doc.head.appendChild(link);
   }
-  link.href = url;
+  link.href = pageUrl;
+
+  // hreflang (2026-11): every indexable page exists in all 15 languages at
+  // ?lang= variants of its canonical URL; English is the clean URL and the
+  // x-default. The set is computed from the clean URL, so every variant
+  // publishes the SAME set and lists itself in it — the bidirectional
+  // confirmation Google requires before honouring hreflang. The prerender
+  // (scripts/prerender-guides.jsx) runs this same code, so every prerendered
+  // head (destinations, guides, static pages, machinery) carries the set in
+  // the first HTML pass; shell-served routes get it when the app boots, which
+  // Google's render pass sees — same as the canonical. Noindex pages: none.
+  for (const el of Array.from(doc.head.querySelectorAll('link[rel="alternate"][hreflang]'))) el.remove();
+  if (!noindex) {
+    const addAlt = (code, href) => {
+      const alt = doc.createElement('link');
+      alt.rel = 'alternate';
+      alt.setAttribute('hreflang', code);
+      alt.href = href;
+      doc.head.appendChild(alt);
+    };
+    for (const l of LANGUAGES) addAlt(l.code, langHref(url, l.code));
+    addAlt('x-default', url);
+  }
 
   // Breadcrumb rich result: inventory and guide detail routes retain their
   // three-level parent context; other top-level routes remain Home → Page.
@@ -596,6 +715,9 @@ export function applySeo(page, carId, car, opts = {}) {
     } else if (machineTypeSeo) {
       crumbs.push({'@type': 'ListItem', position: 2, name: 'Machinery', item: BASE + '/machinery'});
       crumbs.push({'@type': 'ListItem', position: 3, name: String(opts.machineType), item: url});
+    } else if (destPage) {
+      crumbs.push({'@type': 'ListItem', position: 2, name: PAGE_LABELS.destinations, item: BASE + '/destinations'});
+      crumbs.push({'@type': 'ListItem', position: 3, name: destPage.label, item: url});
     } else if (brand) {
       crumbs.push({'@type': 'ListItem', position: 2, name: 'Inventory', item: BASE + '/inventory'});
       crumbs.push({'@type': 'ListItem', position: 3, name: brand.make, item: url});
@@ -637,7 +759,7 @@ export function applySeo(page, carId, car, opts = {}) {
     sku: opts.machine.ref,
     brand: {'@type': 'Brand', name: opts.machine.brand},
     description: opts.machine.summary,
-    image: machineImagesFor(opts.machine).map(i => BASE + i).slice(0, 6),
+    image: machineImagesFor(opts.machine).map(imageFor).filter(Boolean).slice(0, 6),
     offers: machinePage.price ? {
       '@type': 'Offer',
       price: String(machinePage.price),
@@ -681,6 +803,90 @@ export function applySeo(page, carId, car, opts = {}) {
       acceptedAnswer: {'@type': 'Answer', text: a}
     }))
   }) : null, doc);
+
+  // Market FAQ — /destinations/<market> renders these five questions visibly
+  // (src/main.jsx DestinationPage), so the markup describes content that is on
+  // the page. Its own node id keeps it independent of /faq and the machinery
+  // block; an unknown market slug gets none.
+  const destFaq = destPage && !destMissing && Array.isArray(destPage.faqs) && destPage.faqs.length
+    ? destPage.faqs : null;
+  setJsonLd('destination-faq-jsonld', destFaq ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: destFaq.map(([q, a]) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: {'@type': 'Answer', text: a}
+    }))
+  }) : null, doc);
+
+  // ---- AEO/GEO (2026-11-12, R39) -------------------------------------------
+  // Answer engines (Google AI Overviews, ChatGPT, Perplexity) assemble their
+  // answers from machine-readable facts. Two additions:
+  //
+  // /howbuy — a HowTo built from the SAME eight steps the page renders
+  // (hb.s1..s8 in the i18n dictionary, via translate() so markup always
+  // matches the visible copy — including when the page is read in Urdu).
+  // "How do I buy a car from Japan?" is the single highest-intent question
+  // in this business, and a stepped answer with our name on it is the
+  // snippet we want quoted.
+  setJsonLd('howto-jsonld', page === 'howbuy' ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: doc.title,
+    description: getMetaContent('meta[name="description"]', doc),
+    step: [1, 2, 3, 4, 5, 6, 7, 8].map(i => ({
+      '@type': 'HowToStep',
+      position: i,
+      name: translate(lang, `hb.s${i}t`),
+      text: translate(lang, `hb.s${i}p`)
+    }))
+  }) : null, doc);
+
+  // Home — Organization + WebSite identity. The contact facts mirror
+  // public/llms.txt (already public); no invented social profiles.
+  setJsonLd('org-jsonld', page === 'home' ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [{
+      '@type': 'Organization',
+      '@id': BASE + '/#organization',
+      name: 'AR7 Traders',
+      url: BASE + '/',
+      logo: BASE + '/assets/ar7-mark-256.webp',
+      description: 'Vehicle exporter: RHD cars from Japanese auctions, LHD cars from vetted Chinese suppliers and heavy machinery, inspected and shipped worldwide.',
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'sales',
+        email: 'ar7tradersinfo@gmail.com',
+        telephone: '+44 7347 132624',
+        availableLanguage: LANGUAGES.map(l => l.label)
+      }
+    }, {
+      '@type': 'WebSite',
+      '@id': BASE + '/#website',
+      name: 'AR7 Traders',
+      url: BASE + '/',
+      publisher: {'@id': BASE + '/#organization'},
+      inLanguage: LANGUAGES.map(l => l.code),
+      // Sitelinks search box: Google may render a search field under the
+      // ar7traders.com result and send the query straight to /inventory?q=…
+      // (the Inventory page reads ?q on load — see InnerPage in main.jsx).
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: BASE + '/inventory?q={search_term_string}'
+        },
+        'query-input': 'required name=search_term_string'
+      }
+    }]
+  }) : null, doc);
+}
+
+/** Current content of a head meta tag (JSON-LD helpers read what applySeo
+ *  itself just stamped, so description text is never duplicated here). */
+function getMetaContent(sel, doc) {
+  return doc.head?.querySelector(sel)?.getAttribute('content') || '';
 }
 
 /** Keeps the tab title, share preview and structured data in step with the page. */
@@ -696,17 +902,32 @@ export function useSeo(page, carId, car, opts = {}) {
   const vehicleOfferPercent = opts.vehicleOfferPercent ?? 0;
   const vehicleOfferUntil = opts.vehicleOfferUntil ?? null;
   const vehicleCount = opts.vehicleCount ?? null;
+  // The market page's facts (a DEST tuple) and the slug in the URL: the slug
+  // alone tells applySeo that a market was asked for and did not resolve.
+  const destination = opts.destination ?? null;
+  const destSlug = opts.destSlug ?? null;
   useEffect(() => {
-    applySeo(page, carId, car, { vehicleMissing, make, model, machineType, machineRef, machine,
-      machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount });
+    const run = () => applySeo(page, carId, car, { vehicleMissing, make, model, machineType, machineRef, machine,
+      machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount,
+      destination, destSlug });
+    run();
+    // A language switch moves the canonical between the clean URL and its
+    // ?lang= variant (and back) without any route change — re-stamp the head
+    // when the provider announces it. On first load the provider's effect
+    // runs AFTER this one (child effects fire first), so the listener is
+    // already in place when a stored/URL language is announced.
+    if (typeof window === 'undefined') return undefined;
+    window.addEventListener('ar7:language', run);
+    return () => window.removeEventListener('ar7:language', run);
   }, [page, carId, car, vehicleMissing, make, model, machineType, machineRef, machine,
-      machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount]);
+      machineOfferPercent, machineOfferUntil, vehicleOfferPercent, vehicleOfferUntil, vehicleCount,
+      destination, destSlug]);
 }
 
 /** The machine's own photograph for a share card, or the site card. */
 function machineShareImage(machine) {
   const first = (Array.isArray(machine?.images) && machine.images.filter(Boolean)[0]) || machine?.image;
-  return first ? BASE + first : OG_DEFAULT.image;
+  return imageFor(first) || OG_DEFAULT.image;
 }
 
 const machineImagesFor = machine => (Array.isArray(machine?.images) ? machine.images.filter(Boolean) : machine?.image ? [machine.image] : []);

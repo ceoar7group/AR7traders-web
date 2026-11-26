@@ -4,9 +4,10 @@
 //
 // Runs the same sync as scripts/sync-site-listings.mjs, but on the server,
 // so the CRM's "Sync website stock to latest" button works without a
-// terminal: site_listings is made to match src/site-content.seed.json
-// exactly (25 cars = 12 showroom + 13 Goo-net). Cars not in the seed are
-// hidden with published=false (reversible), never deleted.
+// terminal: the seed cars in site_listings are made to match
+// src/site-content.seed.json exactly. Cars not in the seed are hidden with
+// published=false (reversible), never deleted — except importer-managed
+// cars (japan_dealer_stock), which the sync never touches.
 //
 // Same auth pattern as api/site-content.js: public reads only, everything
 // else requires an authenticated admin via the service role.
@@ -31,7 +32,15 @@ export default async function handler(req, res) {
   const {data: dbRows, error: readErr} = await db.from('site_listings').select('*');
   if (readErr) return send(res, 500, {error: 'Could not read site_listings: ' + readErr.message});
 
-  const plan = computePlan(seedData.listings || [], dbRows || [], {hardDelete: false});
+  // Cars the Goo-net importer promoted into site_listings are managed by the
+  // importer, not the seed — the sync must never hide them. (2026-11-05: a
+  // sync without this guard unpublished 162 live imported cars.)
+  const {data: importerRows, error: impErr} = await db.from('japan_dealer_stock').select('stock_no,goonet_id');
+  if (impErr) return send(res, 500, {error: 'Could not read japan_dealer_stock: ' + impErr.message});
+  const protectedStocks = new Set((importerRows || [])
+    .map(r => String(r.stock_no || r.goonet_id || '').trim()).filter(Boolean));
+
+  const plan = computePlan(seedData.listings || [], dbRows || [], {hardDelete: false, protectedStocks});
   try {
     const done = await applyPlan(db, plan);
     try {

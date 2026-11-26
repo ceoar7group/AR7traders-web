@@ -1,0 +1,263 @@
+{
+  "base": "http://127.0.0.1:5198",
+  "label": "before",
+  "generatedAt": "2026-10-11T21:22:28.512Z",
+  "viewports": {
+    "1440x900": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 292,
+        "right": 1408,
+        "width": 1116,
+        "scrollWidth": 1463,
+        "clientWidth": 1114
+      },
+      "actions": {
+        "trigger": false,
+        "editInViewportNoScroll": false,
+        "editRightOverflowPx": 43,
+        "editLeftOfScroller": 1123,
+        "actionCell": {
+          "left": 1127,
+          "right": 1407,
+          "width": 280
+        },
+        "tapTargets": [
+          {
+            "label": "On website",
+            "w": 85,
+            "h": 32
+          },
+          {
+            "label": "Inventory",
+            "w": 78,
+            "h": 32
+          },
+          {
+            "label": "Delist",
+            "w": 30,
+            "h": 30
+          },
+          {
+            "label": "Photos",
+            "w": 67,
+            "h": 32
+          },
+          {
+            "label": "Edit",
+            "w": 36,
+            "h": 32
+          },
+          {
+            "label": "",
+            "w": 30,
+            "h": 30
+          }
+        ],
+        "coversRowContent": 349
+      },
+      "focus": {
+        "skipped": "geometry-only run"
+      },
+      "interaction": {
+        "skipped": "geometry-only run"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-before-1440x900.jpg"
+    },
+    "1024x768": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 292,
+        "right": 992,
+        "width": 700,
+        "scrollWidth": 1463,
+        "clientWidth": 698
+      },
+      "actions": {
+        "trigger": false,
+        "editInViewportNoScroll": false,
+        "editRightOverflowPx": 43,
+        "editLeftOfScroller": 707,
+        "actionCell": {
+          "left": 711,
+          "right": 991,
+          "width": 280
+        },
+        "tapTargets": [
+          {
+            "label": "On website",
+            "w": 85,
+            "h": 32
+          },
+          {
+            "label": "Inventory",
+            "w": 78,
+            "h": 32
+          },
+          {
+            "label": "Delist",
+            "w": 30,
+            "h": 30
+          },
+          {
+            "label": "Photos",
+            "w": 67,
+            "h": 32
+          },
+          {
+            "label": "Edit",
+            "w": 36,
+            "h": 32
+          },
+          {
+            "label": "",
+            "w": 30,
+            "h": 30
+          }
+        ],
+        "coversRowContent": 765
+      },
+      "focus": {
+        "skipped": "geometry-only run"
+      },
+      "interaction": {
+        "skipped": "geometry-only run"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-before-1024x768.jpg"
+    },
+    "768x1024": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "scrollWidth": 1463,
+        "clientWidth": 734
+      },
+      "actions": {
+        "trigger": false,
+        "editInViewportNoScroll": false,
+        "editRightOverflowPx": 43,
+        "editLeftOfScroller": 743,
+        "actionCell": {
+          "left": 471,
+          "right": 751,
+          "width": 280
+        },
+        "tapTargets": [
+          {
+            "label": "On website",
+            "w": 85,
+            "h": 32
+          },
+          {
+            "label": "Inventory",
+            "w": 78,
+            "h": 32
+          },
+          {
+            "label": "Delist",
+            "w": 30,
+            "h": 30
+          },
+          {
+            "label": "Photos",
+            "w": 67,
+            "h": 32
+          },
+          {
+            "label": "Edit",
+            "w": 36,
+            "h": 32
+          },
+          {
+            "label": "",
+            "w": 30,
+            "h": 30
+          }
+        ],
+        "coversRowContent": 729
+      },
+      "focus": {
+        "skipped": "geometry-only run"
+      },
+      "interaction": {
+        "skipped": "geometry-only run"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-before-768x1024.jpg"
+    },
+    "390x844": {
+      "opened": true,
+      "rows": 4,
+      "found": null,
+      "warnings": [],
+      "scroller": {
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "scrollWidth": 1463,
+        "clientWidth": 356
+      },
+      "actions": {
+        "trigger": false,
+        "editInViewportNoScroll": false,
+        "editRightOverflowPx": 43,
+        "editLeftOfScroller": 365,
+        "actionCell": {
+          "left": 93,
+          "right": 373,
+          "width": 280
+        },
+        "tapTargets": [
+          {
+            "label": "On website",
+            "w": 85,
+            "h": 32
+          },
+          {
+            "label": "Inventory",
+            "w": 78,
+            "h": 32
+          },
+          {
+            "label": "Delist",
+            "w": 30,
+            "h": 30
+          },
+          {
+            "label": "Photos",
+            "w": 67,
+            "h": 32
+          },
+          {
+            "label": "Edit",
+            "w": 36,
+            "h": 32
+          },
+          {
+            "label": "",
+            "w": 30,
+            "h": 30
+          }
+        ],
+        "coversRowContent": 1107
+      },
+      "focus": {
+        "skipped": "geometry-only run"
+      },
+      "interaction": {
+        "skipped": "geometry-only run"
+      },
+      "screenshot": "pr-visuals/2026-10-11/crm-actions-before-390x844.jpg"
+    }
+  }
+}

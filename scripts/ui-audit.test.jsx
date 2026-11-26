@@ -35,7 +35,7 @@ const note = (check, route, detail) => {
 };
 
 const ROUTES = [
-  '/', '/inventory', '/inventory?make=Toyota', '/japan-stock', '/auction',
+  '/', '/inventory', '/inventory?make=Toyota', '/auction',
   '/services', '/brands', '/destinations', '/tools', '/world', '/howbuy',
   '/news', '/news/why-land-cruiser-demand-keeps-climbing-in-pakistan',
   '/about', '/reviews', '/faq', '/contact', '/shipping', '/machinery',

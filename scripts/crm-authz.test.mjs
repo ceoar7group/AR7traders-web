@@ -171,6 +171,20 @@ say('\n1) api/crm.js — writes need the entity permission');
   ok(r.statusCode === 201, `sales can still create a lead (${r.statusCode})`);
   ok((tables.leads || []).length === 1, 'the allowed lead was stored');
 
+  // Call Desk (2026-11-12): a PATCH carrying call_outcome writes a readable
+  // "Call logged — …" audit entry, and call_outcome itself NEVER becomes a
+  // lead column (clean() strips it).
+  const leadId = tables.leads[0].id;
+  r = await run(crm, { method: 'PATCH', query: { entity: 'leads' }, ...auth('sales'), body: { id: leadId, status: 'qualified', call_outcome: 'No answer' } }, { db, getUser: userFor('s1', 'sales'), permsFor });
+  ok(r.statusCode === 200, `a sales call outcome logs cleanly (${r.statusCode})`);
+  ok(tables.leads[0].call_outcome === undefined, 'call_outcome is not stored on the lead record');
+  ok((tables.activities || []).some(a => a.action === 'Call logged — No answer'),
+    'the audit trail reads "Call logged — No answer", not a generic update');
+  // Without call_outcome the audit message stays the generic one.
+  r = await run(crm, { method: 'PATCH', query: { entity: 'leads' }, ...auth('sales'), body: { id: leadId, status: 'proposal' } }, { db, getUser: userFor('s1', 'sales'), permsFor });
+  ok((tables.activities || []).some(a => a.action === 'Updated lead record'),
+    'a plain edit still logs the generic update message');
+
   // accounts has leads.write = false
   r = await run(crm, { method: 'POST', query: { entity: 'leads' }, ...auth('accounts'), body: { name: 'Nope' } }, { db, getUser: userFor('a1', 'accounts'), permsFor });
   ok(r.statusCode === 403, `accounts cannot create a lead — leads.write is off (${r.statusCode})`);
@@ -330,6 +344,24 @@ say('\n7) the code defaults match the database seed');
       ok((m[1] === 'true') === expected, `seed ('${role}','${key}') = ${m[1]} matches the code default ${expected}`);
     }
   }
+}
+
+
+say('\n8) CRM server failures do not log customer details');
+{
+  const secret = '+923001234567';
+  const db = { from: () => ({ select: () => ({ order: () => ({ limit: async () => ({ data: null, error: { code: '23505', message: `duplicate key value violates unique constraint: phone=${secret}` } }) }) }) }) };
+  const logs = [];
+  const realError = console.error;
+  console.error = (...args) => logs.push(args.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '));
+  const res = fakeRes();
+  try {
+    await crm({ method: 'GET', query: { entity: 'leads' }, headers: { authorization: 'Bearer ok' } }, res, { db, getUser: userFor('a1', 'admin'), permsFor });
+  } finally { console.error = realError; }
+  ok(res.statusCode === 500, 'a database failure is still a 500');
+  ok(!JSON.stringify(res.body).includes(secret), 'the browser response does not echo the row-level error');
+  ok(!logs.join('\n').includes(secret), 'the server log does not contain the customer phone from the error');
+  ok(logs.join('\n').includes('crm request failed'), 'the server log keeps a privacy-safe stage marker');
 }
 
 say(`\n${pass} passed, ${fail} failed`);

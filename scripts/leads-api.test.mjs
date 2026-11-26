@@ -9,7 +9,7 @@ const say = s => process.stdout.write(s + '\n');
 const bad = s => process.stderr.write(s + '\n');
 const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fail++; bad('  ✗ ' + msg); } };
 
-function memDb(seed = {}) {
+function memDb(seed = {}, failures = {}) {
   const tables = { leads: [], activities: [], ...(seed || {}) };
   const from = name => {
     const rows = tables[name] || (tables[name] = []);
@@ -21,10 +21,14 @@ function memDb(seed = {}) {
       then: resolve => resolve({ data: (q._f ? rows.filter(q._f) : rows).slice(0, q._lim || rows.length), error: null }),
       catch() { return Promise.resolve({ data: [], error: null }); },
       insert(rec) {
-        const list = [rec].map(r => ({ ...r, id: 'lead-1' }));
-        rows.push(...list);
-        return { data: list[0], error: null,
-          select: () => ({ single: async () => ({ data: list[0], error: null }) }) };
+        if (failures[name]) {
+          const result = { data: null, error: failures[name] };
+          return { select: () => ({ single: async () => result }), then: resolve => resolve(result) };
+        }
+        const row = { ...rec, id: name === 'leads' ? 'lead-1' : 'activity-1' };
+        rows.push(row);
+        const result = { data: row, error: null };
+        return { select: () => ({ single: async () => result }), then: resolve => resolve(result) };
       }
     };
     return q;
@@ -39,12 +43,13 @@ function fakeRes() {
   return r;
 }
 const { default: handler } = await import('../api/leads.js');
-async function post(body, seed) {
-  const { db, tables } = memDb(seed);
+async function post(body, seed, failures = {}, options = {}) {
+  const { db, tables } = memDb(seed, failures);
   const res = fakeRes();
-  const realError = console.error; console.error = () => {};
-  try { await handler({ method: 'POST', body }, res, { db }); } finally { console.error = realError; }
-  return { res, tables };
+  const logs = [];
+  const realError = console.error; console.error = (...args) => logs.push(args);
+  try { await handler({ method: 'POST', body }, res, { db, notify: options.notify ?? false }); } finally { console.error = realError; }
+  return { res, tables, logs };
 }
 
 say('\napi/leads.js — the public enquiry form');
@@ -77,36 +82,36 @@ say('\napi/leads.js — the public enquiry form');
   ok(res.statusCode === 400, 'a nameless enquiry is refused');
 }
 {
-  const { res, tables } = await post({ name: 'X'.repeat(5000), email: 'a@b.com' });
-  ok(res.statusCode === 201, 'an oversized name is accepted rather than erroring out');
-  ok(tables.leads[0].name.length === 120, `the stored name is capped at 120 characters (got ${tables.leads[0].name.length})`);
+  const { res, tables } = await post({ name: 'X'.repeat(5000), email: 'a@b.com', phone: '+92 300 1234567' });
+  ok(res.statusCode === 400 && res.body.field === 'name', 'an oversized name is refused with a useful field error');
+  ok(tables.leads.length === 0, 'the oversized name never reaches the database');
 }
 {
-  const { res, tables } = await post({ name: 'Imran Khan', email: 'a@b.com', vehicle_interest: 'Y'.repeat(9000) });
+  const { res, tables } = await post({ name: 'Imran Khan', email: 'a@b.com', phone: '+92 300 1234567', vehicle_interest: 'Y'.repeat(9000) });
   ok(tables.leads[0].vehicle_interest.length === 180, `vehicle_interest is capped at 180 characters (got ${tables.leads[0].vehicle_interest.length})`);
   ok(res.statusCode === 201, 'the enquiry still goes through');
 }
 {
-  const { res, tables } = await post({ name: 'Imran Khan', email: 'a@b.com', budget: 'not-a-number' });
+  const { res, tables } = await post({ name: 'Imran Khan', email: 'a@b.com', phone: '+92 300 1234567', budget: 'not-a-number' });
   ok(tables.leads[0].budget === null, 'a non-numeric budget is stored as null, not NaN');
   ok(res.statusCode === 201, 'the enquiry still goes through');
 }
 {
-  const { tables } = await post({ name: 'Imran Khan', email: 'a@b.com', budget: 25000 });
+  const { tables } = await post({ name: 'Imran Khan', email: 'a@b.com', phone: '+92 300 1234567', budget: 25000 });
   ok(tables.leads[0].budget === 25000, 'a real budget is kept');
 }
 {
-  const { tables } = await post({ name: 'Imran Khan', email: 'a@b.com', budget: -5 });
+  const { tables } = await post({ name: 'Imran Khan', email: 'a@b.com', phone: '+92 300 1234567', budget: -5 });
   ok(tables.leads[0].budget === null, 'a negative budget is dropped');
 }
 {
-  const { tables } = await post({ name: 'Imran Khan', email: 'a@b.com' });
+  const { tables } = await post({ name: 'Imran Khan', email: 'a@b.com', phone: '+92 300 1234567' });
   ok(tables.leads[0].country === 'Other', 'a missing country defaults to Other');
   ok(tables.leads[0].vehicle_interest === 'General enquiry', 'a missing interest defaults to General enquiry');
 }
 {
   const { res, tables } = await post({ website: 'https://spam.example', name: 'bot', email: 'b@b.com' });
-  ok(res.statusCode === 200 && tables.leads.length === 0, 'the honeypot field silently drops bot submissions');
+  ok(res.statusCode === 400 && res.body.ok !== true && tables.leads.length === 0, 'the honeypot is refused without a fake success or a database write');
 }
 {
   const res = fakeRes();
@@ -115,6 +120,95 @@ say('\napi/leads.js — the public enquiry form');
   ok(res.statusCode === 405, 'GET is refused');
 }
 
+
+say('\napi/leads.js — mandatory phone and honest persistence');
+for (const phone of [undefined, '', '   ', '123456', '+1234567890123456', 'call me', '+92 (300) 123-4567 ext']) {
+  const { res, tables } = await post({ name: 'Fixture Buyer', email: 'fixture@example.test', phone });
+  ok(res.statusCode === 400 && res.body.field === 'phone' && tables.leads.length === 0,
+    `missing/invalid phone is refused before persistence (${JSON.stringify(phone)})`);
+}
+for (const phone of ['+92 300 1234567', '+44 7347 132624', '0300 1234567', '(020) 7946-0958', '+1 (415) 555-2671']) {
+  const { res, tables } = await post({ name: 'Fixture Buyer', email: 'fixture@example.test', phone });
+  ok(res.statusCode === 201 && tables.leads[0].phone === phone.replace(/\s+/g, ' '),
+    `international/national phone is accepted (${phone})`);
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '0300 1234567', message: 'Please quote a Toyota Aqua to Karachi.', source: 'Website contact', vehicle_interest: 'Toyota Aqua' });
+  ok(res.statusCode === 201 && res.body.ok === true && res.body.id === 'lead-1', 'success includes the persisted lead id');
+  ok(tables.leads[0].notes.includes('Customer enquiry:') && tables.leads[0].notes.includes('Toyota Aqua to Karachi'), 'the buyer message is stored in CRM notes');
+  ok(tables.leads[0].source === 'Website contact', 'the contact source is preserved from the allowlist');
+  ok(tables.activities[0].action === 'New website enquiry' && !tables.activities[0].action.includes('Fixture Buyer'), 'the activity log contains no customer name');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '0300 1234567', source: 'Staff admin' });
+  ok(res.statusCode === 201 && tables.leads[0].source === 'Website', 'an unknown source cannot spoof an internal lead source');
+}
+
+say('\napi/leads.js — offers (negotiation requests, never price acceptance)');
+{
+  const { res, tables } = await post({
+    name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer',
+    vehicle_interest: '2021 Toyota Harrier (AR7-1042)', stock_ref: 'AR7-1042', offer_amount: '18500',
+    message: 'Can you do this for Karachi delivery?'
+  });
+  ok(res.statusCode === 201 && res.body.ok === true && res.body.id === 'lead-1', 'a vehicle offer persists as a lead with a confirmed id');
+  ok(tables.leads[0].source === 'Vehicle offer', 'the Vehicle offer source is on the allowlist');
+  ok(tables.leads[0].budget === 18500, 'the offer amount is stored in the existing budget column');
+  ok(tables.leads[0].notes.includes('Offer: USD 18,500') && tables.leads[0].notes.includes('negotiation request'),
+    'the notes say the offer is a negotiation request, never an accepted price');
+  ok(tables.leads[0].notes.includes('Stock reference: AR7-1042'), 'the stock reference reaches CRM notes');
+  ok(tables.leads[0].vehicle_interest.includes('AR7-1042'), 'the stock context stays in vehicle_interest');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Machinery offer', stock_ref: 'AR7-MC-003', offer_amount: 42000 });
+  ok(res.statusCode === 201 && tables.leads[0].source === 'Machinery offer' && tables.leads[0].budget === 42000,
+    'a machinery offer persists with its source and amount');
+  ok(tables.leads[0].email === null, 'an offer without an email is accepted — phone-first buyers');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer', offer_amount: '-500' });
+  ok(res.statusCode === 400 && res.body.field === 'offer_amount' && tables.leads.length === 0,
+    'a negative offer amount is refused before persistence');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer', offer_amount: 'twenty grand' });
+  ok(res.statusCode === 400 && res.body.field === 'offer_amount' && tables.leads.length === 0,
+    'a non-numeric offer amount is refused before persistence');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', source: 'Vehicle offer' });
+  ok(res.statusCode === 201 && tables.leads[0].budget === null, 'an offer without an amount is still a valid negotiation lead');
+}
+{
+  const { res, tables } = await post({ name: 'Chat Visitor', phone: '+92 300 1234567', source: 'Chat lead', vehicle_interest: 'Chat — call back requested' });
+  ok(res.statusCode === 201 && tables.leads[0].source === 'Chat lead', 'a chat call-back request persists with the Chat lead source');
+}
+{
+  const { res, tables } = await post({ name: 'Alert Signup', phone: '+92 300 1234567', email: 'fixture@example.test', source: 'Stock alerts', vehicle_interest: 'Stock alerts signup' });
+  ok(res.statusCode === 201 && tables.leads[0].source === 'Stock alerts', 'a stock-alerts signup persists with its own source');
+}
+{
+  const { res, tables, logs } = await post({ name: 'Fixture Buyer', email: 'fixture@example.test', phone: '+92 300 1234567' }, {}, { leads: { code: '42501', message: 'permission denied for fixture@example.test +92 300 1234567' } });
+  ok(res.statusCode === 503 && res.body.ok !== true && tables.leads.length === 0, 'a database permission failure is never reported as sent');
+  ok(!JSON.stringify(logs).includes('fixture@example.test') && !JSON.stringify(logs).includes('300 1234567'), 'database failure logs contain no email or phone');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567' }, {}, { activities: { code: '42501', message: 'activity denied' } });
+  ok(res.statusCode === 201 && tables.leads.length === 1, 'an activity-log failure does not lose an already persisted lead');
+}
+{
+  const res = fakeRes();
+  await handler({ method: 'POST', body: { name: 'Fixture Buyer', email: 'fixture@example.test' } }, res);
+  ok(res.statusCode === 400 && res.body.field === 'phone', 'missing phone is a client error even before database configuration is needed');
+}
+{
+  const { res, tables } = await post(JSON.stringify({ name: 'Fixture Buyer', phone: '+92 300 1234567' }));
+  ok(res.statusCode === 201 && tables.leads.length === 1, 'a JSON string body is parsed safely');
+}
+{
+  const { res, tables } = await post({ name: 'Fixture Buyer', phone: '+92 300 1234567', email: 'not-an-email' });
+  ok(res.statusCode === 400 && res.body.field === 'email' && tables.leads.length === 0, 'a supplied email must still be valid');
+}
 
 say('\napi/leads.js — the on-site assistant (action:"chat")');
 {
@@ -175,7 +269,7 @@ say('\napi/leads.js — instant lead e-mail (Resend, fire-and-forget)');
   const seen = [];
   const realFetch = global.fetch;
   global.fetch = async (u, opts) => { seen.push({ u: String(u), opts }); return { ok: true, status: 200, json: async () => ({ id: 'mail-1' }) }; };
-  const { res, tables } = await post({ name: 'Imran Khan', email: 'imran@example.com', country: 'Pakistan' });
+  const { res, tables } = await post({ name: 'Imran Khan', email: 'imran@example.com', phone: '+92 300 1234567', country: 'Pakistan' }, {}, {}, { notify: true });
   global.fetch = realFetch;
   const mail = seen.find(c => c.u.includes('api.resend.com'));
   ok(res.statusCode === 201 && mail && mail.opts.headers.Authorization === 'Bearer re_test'
@@ -189,7 +283,7 @@ say('\napi/leads.js — instant lead e-mail (Resend, fire-and-forget)');
   process.env.LEAD_NOTIFY_TO = 'owner@example.com';
   const realFetch = global.fetch;
   global.fetch = async () => { throw new Error('resend down'); };
-  const { res } = await post({ name: 'Imran Khan', email: 'a@b.com' });
+  const { res } = await post({ name: 'Imran Khan', email: 'a@b.com', phone: '+92 300 1234567' }, {}, {}, { notify: true });
   global.fetch = realFetch;
   delete process.env.RESEND_API_KEY;
   delete process.env.LEAD_NOTIFY_TO;
@@ -199,9 +293,32 @@ say('\napi/leads.js — instant lead e-mail (Resend, fire-and-forget)');
   const seen = [];
   const realFetch = global.fetch;
   global.fetch = async (u) => { seen.push(String(u)); return { ok: true, status: 200, json: async () => ({}) }; };
-  const { res } = await post({ name: 'Imran Khan', email: 'a@b.com' });
+  const { res } = await post({ name: 'Imran Khan', email: 'a@b.com', phone: '+92 300 1234567' });
   global.fetch = realFetch;
   ok(res.statusCode === 201 && seen.length === 0, 'without RESEND_API_KEY no mail call is made');
+}
+
+// ---- referral codes (2026-11-18) -------------------------------------------
+// A friend's share code rides on the lead for CRM attribution. Normalised to
+// uppercase with spaces stripped; junk becomes null and NEVER blocks the lead.
+say('\n-- referral codes --');
+{
+  const base = { name: 'Imran Khan', email: 'imran@example.com', phone: '+92 300 1234567' };
+  let { res, tables } = await post({ ...base, referral_code: ' ar7-7k q2m ' });
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === 'AR7-7KQ2M',
+    'a referral code is normalised to uppercase with spaces stripped and stored on the lead');
+
+  ({ res, tables } = await post({ ...base, referral_code: '<script>alert(1)</script>' }));
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === null,
+    'junk that does not look like a code becomes null — it never blocks the enquiry');
+
+  ({ res, tables } = await post({ ...base, referral_code: 'ab' }));
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === null,
+    'a too-short code is dropped, the lead still lands');
+
+  ({ res, tables } = await post(base));
+  ok(res.statusCode === 201 && tables.leads[0].referral_code === null,
+    'no referral code at all stays a plain null column');
 }
 
 say(`\n${pass} passed, ${fail} failed`);

@@ -18,9 +18,9 @@
 .reviews-slider-status{display:flex;align-items:center;gap:10px}
 .reviews-slider-controls{display:flex;align-items:center;gap:8px}
 .slider-ctrl-btn{height:38px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:0 13px;display:inline-flex;align-items:center;gap:6px;font:700 11.5px Manrope;cursor:pointer;transition:.22s}
-.slider-ctrl-btn:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-1px)}
+.slider-ctrl-btn:hover{border-color:var(--gold);color:var(--gold-ink);transform:translateY(-1px)}
 .slider-ctrl-btn svg{width:15px;height:15px}
-.slider-ctrl-btn.play-toggle.is-paused{background:color-mix(in srgb,var(--gold) 15%,var(--card));border-color:var(--gold);color:var(--gold)}
+.slider-ctrl-btn.play-toggle.is-paused{background:color-mix(in srgb,var(--gold) 15%,var(--card));border-color:var(--gold);color:var(--gold-ink)}
 
 .reviews-slider-progress{height:3px;background:color-mix(in srgb,var(--line) 65%,transparent);overflow:hidden;position:relative}
 .reviews-progress-fill{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--gold),var(--gold2));transform-origin:0 50%;animation:reviewSlideProgress 6.2s linear forwards}
@@ -52,13 +52,12 @@
 .review-slide-badges{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .review-market-badge,.review-buyer-badge,.review-date-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;font:700 10.5px Manrope;letter-spacing:.3px;background:var(--bg);border:1px solid var(--line);color:var(--ink)}
 .review-buyer-badge.is-business{background:color-mix(in srgb,var(--gold) 16%,var(--card));border-color:color-mix(in srgb,var(--gold) 45%,var(--line));color:var(--green-text)}
-html[data-theme=dark] .review-buyer-badge.is-business{color:var(--gold2)}
 .review-date-badge{color:var(--muted)}
 .review-date-badge svg{width:13px;color:var(--gold)}
 
 .review-vehicle-tag{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,var(--bg) 80%,var(--card));border:1px solid var(--line);font-size:13px}
 .review-vehicle-tag>svg{width:17px;color:var(--green-text);flex:none}
-.review-brand-link{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font:700 11.5px Manrope;color:var(--gold)}
+.review-brand-link{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font:700 11.5px Manrope;color:var(--gold-ink)}
 .review-brand-link svg{width:14px}
 
 .review-slide-content .review-headline{font:800 clamp(20px,2.2vw,26px)/1.28 Manrope;letter-spacing:-.6px;margin:0;color:var(--ink)}
@@ -67,7 +66,7 @@ html[data-theme=dark] .review-buyer-badge.is-business{color:var(--gold2)}
 .review-milestone-pill{display:flex;align-items:center;gap:12px;padding:12px 15px;border-radius:13px;background:color-mix(in srgb,var(--green) 7%,var(--card));border:1px solid color-mix(in srgb,var(--green) 22%,var(--line))}
 .review-milestone-pill>svg{width:20px;height:20px;color:var(--green-text);flex:none}
 .review-milestone-pill div{display:grid;gap:2px}
-.review-milestone-pill small{font:800 8.5px Manrope;letter-spacing:1.4px;color:var(--gold)}
+.review-milestone-pill small{font:800 8.5px Manrope;letter-spacing:1.4px;color:var(--gold-ink)}
 .review-milestone-pill b{font-size:12px;color:var(--ink)}
 
 .review-slide-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-top:14px;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -112,7 +111,7 @@ html[data-theme=dark] .review-buyer-badge.is-business{color:var(--gold2)}
 .reviews-explorer-head p,.reviews-seo-head p{color:var(--muted);font-size:14.5px;line-height:1.65;max-width:640px;margin:0}
 .reviews-filter-bar{display:flex;gap:8px;flex-wrap:wrap}
 .reviews-filter-btn{height:40px;padding:0 14px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--ink);display:inline-flex;align-items:center;gap:8px;font:700 12px Manrope;cursor:pointer;transition:.22s}
-.reviews-filter-btn:hover{border-color:var(--gold);color:var(--gold)}
+.reviews-filter-btn:hover{border-color:var(--gold);color:var(--gold-ink)}
 .reviews-filter-btn b{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--bg);color:var(--muted)}
 .reviews-filter-btn.active{background:var(--green);color:#fff;border-color:var(--green)}
 .reviews-filter-btn.active b{background:rgba(255,255,255,.18);color:#fff}
@@ -131,7 +130,6 @@ html[data-theme=dark] .review-buyer-badge.is-business{color:var(--gold2)}
 .review-card-author small{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
 .review-card-role{font:800 9.5px Manrope;letter-spacing:.6px;text-transform:uppercase;padding:5px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
 .review-card-role.is-business{background:color-mix(in srgb,var(--gold) 15%,var(--card));border-color:color-mix(in srgb,var(--gold) 45%,var(--line));color:var(--green-text)}
-html[data-theme=dark] .review-card-role.is-business{color:var(--gold2)}
 
 .review-card-vehicle,.review-card-route{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:var(--bg);font-size:11.5px;flex-wrap:wrap}
 .review-card-vehicle span,.review-card-route span{display:inline-flex;align-items:center;gap:6px;color:var(--ink);font-weight:600}
@@ -144,9 +142,9 @@ html[data-theme=dark] .review-card-role.is-business{color:var(--gold2)}
 .review-card-Check svg{width:15px;color:var(--gold);flex:none}
 .review-card-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:6px}
 .review-card-actions .ghost-btn{height:36px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);display:inline-flex;align-items:center;gap:6px;font:700 11px Manrope;cursor:pointer}
-.review-card-actions .ghost-btn:hover{border-color:var(--gold);color:var(--gold)}
+.review-card-actions .ghost-btn:hover{border-color:var(--gold);color:var(--gold-ink)}
 .review-card-actions .ghost-btn svg,.review-card-stock-link svg{width:13px}
-.review-card-stock-link{display:inline-flex;align-items:center;gap:5px;font:700 11.5px Manrope;color:var(--gold)}
+.review-card-stock-link{display:inline-flex;align-items:center;gap:5px;font:700 11.5px Manrope;color:var(--gold-ink)}
 
 /* SEO Keyword Guide & Topic Cloud */
 .reviews-seo-guide{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:38px 40px;display:grid;gap:28px;box-shadow:0 14px 42px rgba(0,0,0,.05)}
@@ -164,7 +162,7 @@ html[data-theme=dark] .review-card-role.is-business{color:var(--gold2)}
 .reviews-keyword-cloud small{font:800 9.5px Manrope;letter-spacing:1.8px;color:var(--muted)}
 .reviews-keyword-cloud>div{display:flex;flex-wrap:wrap;gap:8px}
 .reviews-keyword-cloud a{padding:7px 13px;border-radius:999px;background:var(--bg);border:1px solid var(--line);font:600 11.5px Manrope;color:var(--ink);transition:.2s}
-.reviews-keyword-cloud a:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-1px)}
+.reviews-keyword-cloud a:hover{border-color:var(--gold);color:var(--gold-ink);transform:translateY(-1px)}
 
 /* /reviews trust card — the initials cluster is decorative (aria-hidden) and
    disclosed as placeholders in the copy; no fabricated reviewers or ratings

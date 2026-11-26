@@ -25,26 +25,39 @@ const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fa
 // that table read fail, which is how the graceful-degradation path is tested.
 function memDb(seedRows, opts = {}) {
   const rows = seedRows.map(r => ({ ...r }));
-  const dealer = (opts.dealerRows || []).map(r => ({ ...r }));
+  const tables = {
+    site_listings: rows,
+    japan_dealer_stock: (opts.dealerRows || []).map(r => ({ ...r })),
+    machinery: (opts.machineryRows || []).map(r => ({ ...r })),
+    site_articles: (opts.articleRows || []).map(r => ({ ...r }))
+  };
   return {
     from(name) {
-      if (name !== 'site_listings' && name !== 'japan_dealer_stock') {
+      if (!(name in tables)) {
         throw new Error(`unexpected table ${name}`);
       }
       const isDealer = name === 'japan_dealer_stock';
-      const table = isDealer ? dealer : rows;
-      const ctx = { filters: [] };
+      const table = tables[name];
+      const ctx = { filters: [], columns: null, limit: null, range: null };
       const api = {
-        select: () => api,
+        select: columns => { ctx.columns = columns; return api; },
         eq: (k, v) => { ctx.filters.push(r => r[k] === v); return api; },
         order: () => api,
-        limit: () => api,
+        limit: n => { ctx.limit = n; return api; },
+        range: (a,b) => { ctx.range = [a,b]; return api; },
         then(resolve) {
+          if (isDealer && opts.onDealerQuery) opts.onDealerQuery(ctx);
+          if (isDealer && opts.strictDealer && ctx.columns !== '*') {
+            return resolve({ data: null, error: { message: 'column does not exist' } });
+          }
+          if (isDealer && ctx.range && ctx.range[0] === opts.dealerErrorAt) return resolve({ data:null, error:{ message:'page failed' } });
           if (isDealer && opts.dealerError) {
             return resolve({ data: null, error: { message: opts.dealerError } });
           }
           if (opts.error) return resolve({ data: null, error: { message: opts.error } });
-          return resolve({ data: table.filter(r => ctx.filters.every(f => f(r))), error: null });
+          let result = table.filter(r => ctx.filters.every(f => f(r)));
+          if (ctx.range) result = result.slice(ctx.range[0], ctx.range[1] + 1);
+          return resolve({ data: result, error: null });
         }
       };
       return api;
@@ -300,6 +313,292 @@ const DEALER_SEED = [
   const { hrefFor } = await import('../src/sitemap-helpers.js');
   ok(hrefFor('news', 'how-online-bidding-works-with-ar7') === '/news/how-online-bidding-works-with-ar7',
     'sitemap-helpers hrefFor builds /news/<slug> paths');
+}
+
+// ============================================================================
+// OG car cards (GET ?head=<ref>) — the social link-preview head that
+// vercel.json serves to crawler user-agents for /inventory/<ref>.
+// ============================================================================
+const { vehicleHead, buildVehicleHeadHtml } = await import('../api/site-content.js');
+
+async function runHead(req, db) {
+  const res = fakeRes();
+  const realError = console.error;
+  console.error = () => {};
+  try { await vehicleHead(req, res, db ? { db } : {}); }
+  finally { console.error = realError; }
+  return res;
+}
+
+const HEAD_SEED = [
+  { id: 7, stock_no: 'AR7-0007', make: 'Toyota', model: 'Vezel "Z"', year: 2019,
+    km: '42,000', fuel: 'Hybrid', tr: 'AT', grade: '4.5', price: 12500,
+    image: '/assets/inventory/700052000730260404001.webp', status: 'In Stock', published: true },
+  { id: 8, stock_no: 'AR7-SOLD', make: 'Nissan', model: 'Note', year: 2017,
+    price: 6000, image: '/assets/ar7-mark-256.webp', status: 'Sold', published: true },
+  { id: 9, stock_no: 'AR7-DRAFT', make: 'Honda', model: 'Fit', year: 2018,
+    price: 7000, image: '/assets/ar7-mark-128.webp', status: 'In Stock', published: false },
+];
+const HEAD_DEALER = [
+  { goonet_id: '700912345', stock_no: 'GN-700912345', make: 'Suzuki', model: 'Every',
+    year: 2020, km: 31000, price_usd: 5400, images: ['https://cdn.example.jp/every.jpg'],
+    available: true },
+];
+
+say('\n-- OG car card: a published listing renders its own card --');
+{
+  const res = await runHead({ method: 'GET', query: { head: 'AR7-0007' } }, memDb(HEAD_SEED));
+  ok(res.statusCode === 200, 'the card responds 200');
+  ok(/text\/html/.test(res.headers['content-type'] || ''), 'as HTML');
+  ok(/public/.test(res.headers['cache-control'] || ''), 'publicly cacheable for the crawlers');
+  ok(res.body.includes('2019 Toyota Vezel &quot;Z&quot; — Japan export | AR7 Traders'),
+    'og:title carries year, make and the HTML-escaped model');
+  ok(res.body.includes('42,000 km · Hybrid · AT · price $12,500.'),
+    'the description lists the spec line with the formatted FOB price');
+  ok(res.body.includes('content="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
+    'og:image is the absolute URL of the cover photo');
+  ok(res.body.includes('https://ar7traders.com/inventory/AR7-0007'),
+    'og:url/canonical point at the real vehicle page');
+  ok(res.body.includes('summary_large_image'), 'Twitter renders the large card');
+  ok(res.body.includes('http-equiv="refresh"'),
+    'a stray human still lands on the real page via the refresh fallback');
+}
+
+say('\n-- search bots get the full content-parity render (2026-11-12) --');
+{
+  // Why: GSC left vehicle pages "Crawled, currently not indexed" — the SPA
+  // shell has no canonical/title and the head-only social card would read as
+  // thin content. render=full serves the same vehicle the hydrated page
+  // shows: h1 + specs + photo + Product JSON-LD, and NO meta refresh (a
+  // 0-second refresh to the page's own URL reads as a redirect loop).
+  const res = await runHead({ method: 'GET', query: { head: 'AR7-0007', render: 'full' } }, memDb(HEAD_SEED));
+  ok(res.statusCode === 200, 'the full render responds 200');
+  ok(!res.body.includes('http-equiv="refresh"'),
+    'the full render carries NO meta refresh (self-refresh = redirect loop)');
+  ok(res.body.includes('<h1>2019 Toyota Vezel &quot;Z&quot; — Japan export | AR7 Traders</h1>'),
+    'the vehicle name is a real h1, not meta-only');
+  ok(res.body.includes('aria-label="Browse the catalogue"') && res.body.includes('href="/machinery/excavators"') && res.body.includes('href="/cars/toyota"'),
+    'full vehicle crawler render includes public catalogue navigation');
+  ok(res.body.includes('<li>Mileage: 42,000 km</li>') && res.body.includes('<li>Fuel: Hybrid</li>'),
+    'the spec list mirrors what the hydrated page shows (content parity)');
+  ok(res.body.includes('<img src="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
+    'the cover photo is in the body, not just og:image');
+  const ld = res.body.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  ok(ld, 'the full render carries JSON-LD');
+  const product = JSON.parse(ld[1]);
+  ok(product['@type'] === 'Product' && product.offers.price === 12500 &&
+     product.offers.priceCurrency === 'USD' && product.brand.name === 'Toyota',
+    'JSON-LD is a Product with the USD offer and the brand');
+  ok(res.body.includes('<link rel="canonical" href="https://ar7traders.com/inventory/AR7-0007"/>'),
+    'the canonical still points at the real vehicle page');
+  ok(res.body.includes('href="https://ar7traders.com/inventory"'),
+    'the body links back to the inventory (crawl path out of the leaf)');
+  // and the social card is untouched by the new flag:
+  const social = await runHead({ method: 'GET', query: { head: 'AR7-0007' } }, memDb(HEAD_SEED));
+  ok(social.body.includes('http-equiv="refresh"') && !social.body.includes('<h1>'),
+    'without render=full the lean OG card (with refresh fallback) is unchanged');
+}
+
+say('\n-- the card never breaks a share: unknown, sold, draft, DB-down --');
+{
+  const generic = 'AR7 Traders | Car Exporter from Japan &amp; China';
+  for (const [label, ref, db] of [
+    ['an unknown ref', 'NOPE-404', memDb(HEAD_SEED)],
+    ['a sold car', 'AR7-SOLD', memDb(HEAD_SEED)],
+    ['an unpublished draft', 'AR7-DRAFT', memDb(HEAD_SEED)],
+  ]) {
+    const res = await runHead({ method: 'GET', query: { head: ref } }, db);
+    ok(res.statusCode === 200 && res.body.includes(generic),
+      `${label} degrades to the generic AR7 card, still HTTP 200`);
+  }
+  const broken = await runHead({ method: 'GET', query: { head: 'AR7-0007', render:'full' } }, memDb(HEAD_SEED, {error:'boom'}));
+  ok(broken.statusCode === 503 && !broken.body.includes('noindex'), 'database outages do not create false noindex pages');
+  const sold = await runHead({ method: 'GET', query: { head: 'AR7-SOLD' } }, memDb(HEAD_SEED));
+  ok(!sold.body.includes('Nissan'), 'a sold car leaks nothing about itself');
+}
+
+{
+  const formatted = buildVehicleHeadHtml({make:'Toyota', model:'Prius', price:'$5,400'}, 'P1', {full:true});
+  ok(formatted.includes('List price: US$5,400') && !formatted.includes('\"offers\"'), 'formatted list price is visible without an unverified discounted offer');
+  const nonUsd = buildVehicleHeadHtml({make:'Toyota', model:'Prius', price:'¥540,000'}, 'P1', {full:true});
+  ok(!nonUsd.includes('US$540,000'), 'non-USD prices are not labelled as USD');
+}
+say('\n-- imported dealer cars share the same card endpoint --');
+{
+  const res = await runHead({ method: 'GET', query: { head: '700912345' } },
+    memDb([], { dealerRows: HEAD_DEALER }));
+  ok(res.statusCode === 200 && res.body.includes('2020 Suzuki Every — Japan export'),
+    'a goonet ref resolves through japan_dealer_stock');
+  ok(res.body.includes('https://cdn.example.jp/every.jpg'),
+    'an already-absolute dealer photo URL is kept as-is');
+}
+
+say('\n-- method and escaping discipline --');
+{
+  const post = await runHead({ method: 'POST', query: { head: 'AR7-0007' } }, memDb(HEAD_SEED));
+  ok(post.statusCode === 405, 'POST is refused');
+  const html = buildVehicleHeadHtml(
+    { make: '<script>', model: 'x"y', year: 2020, price: 1 }, 'R<EF>');
+  ok(!html.includes('<script>') && !html.includes('R<EF>'),
+    'row fields and the ref are HTML-escaped everywhere they appear');
+}
+
+// Browser and crawler must describe the same record with the same snippet.
+{
+  const { vehicleSeo } = await import('../src/vehicle-seo.js');
+  const record = { year: 2023, make: 'Toyota', model: 'Harrier', km: '24,204', fuel: 'Petrol', tr: 'AT', price: '$21,000' };
+  const [title, description] = vehicleSeo(record);
+  const html = buildVehicleHeadHtml(record, 'PARITY', {full:true});
+  ok(html.includes(`<title>${title}</title>`) && html.includes(`<meta name="description" content="${description}"/>`),
+    'crawler vehicle title and description use the shared browser metadata');
+  ok(description.length <= 165 && description.includes('Toyota Harrier') && description.includes('$21,000'),
+    'vehicle snippet includes the model and published price within a practical length');
+  ok(!vehicleSeo({...record, price:'Contact us 24 hours'})[1].includes('price Contact'),
+    'non-price text does not become a price claim');
+  const { buildNewsHeadHtml } = await import('../api/_crawler-render.js');
+  const { articleSeo } = await import('../src/news-data.js');
+  const article = {title:'A detailed vehicle export guide with a deliberately longer headline', excerpt:'Clear export advice '.repeat(12), body:'Useful guidance'};
+  const seo = articleSeo(article);
+  const newsHtml = buildNewsHeadHtml(article, {full:true});
+  ok(newsHtml.includes(`<title>${seo.title}</title>`) && newsHtml.includes(`<meta name="description" content="${seo.description}"/>`),
+    'crawler guide metadata matches the browser title and description');
+}
+
+say('\n-- dynamic crawler parity: vehicles noindex, cars make/model, DB machinery & DB news --');
+{
+  const { default: siteContentHandler } = await import('../api/site-content.js');
+  const runSite = async (query, db) => {
+    const res = fakeRes();
+    await siteContentHandler({ method: 'GET', query }, res, { db });
+    return res;
+  };
+
+  // Sold/unknown vehicle in full mode emits noindex,follow; valid vehicle includes BreadcrumbList + /cars/<make>
+  const missingVehicle = await runSite({ head: 'AR7-SOLD', render: 'full' }, memDb(HEAD_SEED));
+  ok(missingVehicle.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'missing/sold vehicle full render marks noindex,follow');
+  const validVehicle = await runSite({ head: 'AR7-0007', render: 'full' }, memDb(HEAD_SEED));
+  ok(validVehicle.body.includes('<meta name="robots" content="index,follow"/>') &&
+     validVehicle.body.includes('"@type":"BreadcrumbList"') &&
+     validVehicle.body.includes('/cars/toyota'),
+    'valid vehicle full render adds index,follow, BreadcrumbList JSON-LD and /cars/toyota link');
+
+  // /cars/:make and /cars/:make/:model
+  const carsDb = memDb([
+    { id: 10, stock_no: 'AR7-0010', make: 'Toyota', model: 'Land Cruiser', year: 2022,
+      km: '18,000', fuel: 'Diesel', tr: 'AT', price: 68000, image: '/assets/japan-used-car-export-inventory-toyota-h-1.webp',
+      status: 'In Stock', published: true },
+    ...HEAD_SEED
+  ]);
+  const makeFull = await runSite({ carsmake: 'toyota', render: 'full' }, carsDb);
+  ok(makeFull.statusCode === 200 &&
+     makeFull.body.includes('<h1>Toyota from Japan') &&
+     makeFull.body.includes('"@type":"CollectionPage"') &&
+     makeFull.body.includes('/inventory/AR7-0010') &&
+     makeFull.body.includes('/cars/toyota/land-cruiser') &&
+     makeFull.body.includes('<meta name="robots" content="index,follow"/>'),
+    '/cars/toyota full render lists matching stock, links to model pages and sets CollectionPage JSON-LD');
+  const emptyMake = await runSite({ carsmake: 'bugatti', render: 'full' }, carsDb);
+  ok(emptyMake.body.includes('aria-label="Browse the catalogue"'), 'full landing crawler HTML has catalogue navigation');
+  ok(emptyMake.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'empty make page full render marks noindex,follow instead of indexing a thin 0-car shell');
+
+  // DB machinery unit beyond AR7-MC-001..012
+  const mchDb = memDb([], {
+    machineryRows: [{
+      id: 99, ref: 'AR7-MC-045', type: 'Excavators', brand: 'Caterpillar', model: 'CAT 320D',
+      year: 2019, hours: 3100, price_usd: 42000, location: 'Shanghai', origin: 'China',
+      summary: 'Inspected 20-tonne hydraulic excavator ready for quotation.',
+      specs: [['Operating weight', '20,800 kg']],
+      images: [{ src: 'https://cdn.example.cn/cat320d.jpg', rights: 'verified-public' }],
+      published: true
+    }]
+  });
+  const mchFull = await runSite({ machhead: 'AR7-MC-045', machtype: 'excavators', render: 'full' }, mchDb);
+  ok(mchFull.statusCode === 200 &&
+     mchFull.body.includes('<h1>Caterpillar CAT 320D') &&
+     mchFull.body.includes('https://ar7traders.com/machinery/excavators/AR7-MC-045') &&
+     mchFull.body.includes('Operating weight: 20,800 kg') &&
+     mchFull.body.includes('<meta name="robots" content="index,follow"/>'),
+    'DB machinery detail route renders full specification parity and canonical');
+  const mchMiss = await runSite({ machhead: 'AR7-MC-999', machtype: 'excavators', render: 'full' }, mchDb);
+  ok(mchMiss.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'missing machinery ref marks noindex,follow');
+
+  // DB /news/:slug article beyond the 6 built-in guides
+  const newsDb = memDb([], {
+    articleRows: [{
+      id: 41, title: 'How JEVIC Inspection Works For Kenya Imports',
+      category: 'EXPORT GUIDE', date: 'Nov 10, 2026', read_min: 4,
+      image: '/assets/japanese-car-auction-inspection-shipping-1.webp',
+      excerpt: 'Pre-export inspection rules before shipping a vehicle to Mombasa.',
+      body: 'Every used passenger vehicle destined for Mombasa requires roadworthiness inspection.\n\nBook inspection before vessel loading.',
+      published: true
+    }]
+  });
+  const newsFull = await runSite({ newshead: 'how-jevic-inspection-works-for-kenya-imports', render: 'full' }, newsDb);
+  ok(newsFull.statusCode === 200 &&
+     newsFull.body.includes('<h1>How JEVIC Inspection Works For Kenya Imports</h1>') &&
+     newsFull.body.includes('"@type":"Article"') &&
+     newsFull.body.includes('Every used passenger vehicle destined for Mombasa') &&
+     newsFull.body.includes('https://ar7traders.com/news/how-jevic-inspection-works-for-kenya-imports'),
+    'CRM-published news article renders full Article HTML, body and JSON-LD');
+  const newsMiss = await runSite({ newshead: 'does-not-exist-anywhere', render: 'full' }, newsDb);
+  ok(newsMiss.body.includes('<meta name="robots" content="noindex,follow"/>'),
+    'unknown news slug marks noindex,follow');
+}
+
+say('\n-- live dealer schema and Prius discoverability --');
+{
+  const dealerRows = [
+    {goonet_id:'P-1', stock_no:'P-1', make:'Toyota', model:'Prius', year:2018, available:true, images:['https://example.com/prius.jpg']},
+    {goonet_id:'P-2', stock_no:'P-2', make:'Toyota', model:'Prius S', year:2019, available:true},
+    {goonet_id:'H-1', stock_no:'H-1', make:'Honda', model:'Prius', year:2020, available:true}
+  ];
+  const queries=[];
+  const db=memDb([], {dealerRows, strictDealer:true, onDealerQuery: q => queries.push({...q})});
+  const sitemap=await run({method:'GET'},db);
+  ok(sitemap.body.includes('/inventory/P-1') && sitemap.body.includes('/cars/toyota/prius'), 'sitemap includes visible Japan stock and its Prius model page without optional columns');
+  const {carsLandingHead}=await import('../api/_crawler-render.js');
+  const res=fakeRes();
+  await carsLandingHead({method:'GET',query:{carsmake:'toyota',carsmodel:'prius',render:'full'}},res,{db});
+  ok(res.body.includes('/inventory/P-1') && res.body.includes('/inventory/P-2') && !res.body.includes('/inventory/H-1'), 'crawler model page links Prius and its trim for the selected make only');
+  ok(res.body.includes('Toyota Prius for Sale from Japan'), 'Prius crawler title reflects buyer intent');
+  ok(res.body.includes('rel="canonical" href="https://ar7traders.com/cars/toyota/prius"') && res.body.includes('index,follow'), 'Prius crawler page remains indexable at its own canonical');
+  ok(queries.length===2 && queries.every(q=>q.columns==='*' && q.range?.[0]===0 && q.range?.[1]===499), 'sitemap and crawler read the same paginated public dealer window without nonexistent columns');
+}
+
+say('\n-- multi-page dealer stock --');
+{
+  const rows = Array.from({length:1201}, (_,i) => ({id:String(i),goonet_id:'JP-'+i,stock_no:'JP-'+i,make:'Toyota',model:'Prius',available:true}));
+  const pages=[];
+  const db=memDb([], {dealerRows:rows,onDealerQuery:q=>pages.push(q.range)});
+  const res=await run({method:'GET'},db);
+  ok(res.statusCode===200 && res.body.includes('/inventory/JP-1200'), 'sitemap contains dealer stock after the first 1,000 rows');
+  ok(pages.length===3 && pages[2][0]===1000, 'sitemap reads all three pages');
+  const broken=await run({method:'GET'},memDb([], {dealerRows:rows,dealerErrorAt:500}));
+  ok(broken.statusCode===503, 'later-page failure does not publish a partial sitemap');
+  const {carsLandingHead}=await import('../api/_crawler-render.js');
+  const crawler=fakeRes();
+  const original=console.error; console.error=()=>{};
+  try { await carsLandingHead({method:'GET',query:{carsmake:'toyota',carsmodel:'prius',render:'full'}},crawler,{db:memDb([], {dealerRows:rows,dealerErrorAt:500})}); }
+  finally { console.error=original; }
+  ok(crawler.statusCode===503, 'later-page failure does not serve a partial or noindex crawler landing');
+}
+
+say('\n-- crawler detail data failures --');
+{
+  const { machineryHead, newsHead } = await import('../api/_crawler-render.js');
+  const broken = { from() { throw new Error('database offline'); } };
+  const old = console.error; console.error = () => {};
+  try {
+    for (const [handler, query] of [[machineryHead, {machhead:'AR7-MC-006',machtype:'excavators',render:'full'}],
+                                    [newsHead, {newshead:'how-online-bidding-works-with-ar7',render:'full'}]]) {
+      const res = fakeRes();
+      await handler({method:'GET',query}, res, {db:broken});
+      ok(res.statusCode === 503 && res.headers['cache-control'] === 'no-store', 'detail crawler returns uncached 503 when data is unavailable');
+    }
+  } finally { console.error = old; }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -1,9 +1,13 @@
 /* Small-device paint and detail-page safety rules. */
 @media(max-width:650px){
- .nav-wrap .nav,.floating-card,.detail-gallery .detail-gallery-toolbar,.ar7cur-menu{-webkit-backdrop-filter:none;backdrop-filter:none}
+ .nav-wrap .nav,.hero-facts .route-strip,.hero-facts .auction-chip,.detail-gallery .detail-gallery-toolbar,.ar7cur-menu{-webkit-backdrop-filter:none;backdrop-filter:none}
  .grain{opacity:.018;background-image:radial-gradient(rgba(4,63,40,.24) .55px,transparent .7px);background-size:7px 7px}
  .hero-visual,.hero-orb,.page-orb-wrap,.detail-gallery,.world-map{max-width:100%}
 }
+
+/* Reserve space for deferred QuickQuote before its lazy JS/CSS chunk loads. */
+.qq-lazy{min-height:440px}
+@media(max-width:650px){.qq-lazy{min-height:520px}}
 
 /* Reserve the home network globe's square while its route chunk is deferred. */
 .globe-lazy.world-globe-deferred{width:min(470px,86vw);aspect-ratio:1;min-height:240px;margin:auto;display:grid;place-items:center}
@@ -13,9 +17,28 @@
 .detail-gallery .detail-gallery-toolbar{flex-wrap:wrap}
 .detail-gallery .detail-gallery-toolbar .gallery-arrow,.detail-gallery .detail-gallery-toolbar .gallery-expand{min-width:40px;min-height:40px}
 
+/* 2026-11-11 Lighthouse: ~2.3 s of mobile main-thread work was style/layout/
+   paint for home sections nobody has scrolled to yet. content-visibility:auto
+   lets the browser skip rendering them until they approach the viewport;
+   contain-intrinsic-size reserves realistic space so the scrollbar stays
+   stable and CLS stays at zero. Above-the-fold (.hero, .ticker) is untouched.
+   The LCP (hero) is unaffected — these sections start below it. */
+.inventory.section,.sold-strip,.mch-teaser,.motion-showcase,.world.section,
+.brand-budgets,.process,.auction-preview,.cta.section,footer.site-footer{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 900px;
+}
+footer.site-footer{contain-intrinsic-size:auto 700px}
+@media(max-width:650px){
+  .inventory.section,.mch-teaser,.brand-budgets{contain-intrinsic-size:auto 1650px}
+}
+/* Anchor navigation (e.g. /#inventory) must land exactly on the section even
+   while it is skipped: scroll-margin keeps the fixed header clear of it. */
+.inventory.section,.process,.auction-preview{scroll-margin-top:90px}
+
 /* Decorative motion stops when the user asks for reduced motion; controls stay usable. */
 @media(prefers-reduced-motion:reduce){
  html{scroll-behavior:auto}
- .grain,.nav-wrap .nav,.floating-card,.wa-float,.detail-actions,.car-card,.contact-grid,.ticker>div,.world-time-track{transition:none!important;animation:none!important}
+ .grain,.nav-wrap .nav,.hero-facts .route-strip,.hero-facts .auction-chip,.wa-float,.detail-actions,.car-card,.contact-grid,.ticker>div,.world-time-track{transition:none!important;animation:none!important}
  .car-card:hover,.primary:hover,.icon-btn:hover,.menu-btn:hover,.navlinks a:hover,.navlinks button:hover{transform:none!important}
 }

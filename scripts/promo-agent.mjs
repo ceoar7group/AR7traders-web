@@ -30,6 +30,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { editorialPlan } from '../src/editorial-plan.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -198,6 +199,7 @@ ar7tradersinfo@gmail.com · +44 7347 132624`
    --------------------------------------------------------------------------- */
 function plan() {
   const campaigns = generators();
+  const guides = editorialPlan(new Date(), opt('guides-per-month') || 2);
   const s = state();
   const run = new Set(s.history.map(h => h.id));
   const lines = [];
@@ -220,6 +222,10 @@ function plan() {
     lines.push(`- ${c.sub}`);
     lines.push('');
   }
+  lines.push('## Buyer-guide publishing calendar (2–4 per month)');
+  lines.push('Draft → verify authority sources → review in CRM SEO desk → publish → check sitemap and indexing. Dates are editorial targets, not proof of publication.');
+  for (const g of guides) lines.push(`- ${g.due}: **${g.title}** — ${g.brief} Link: ${g.target}. Status: ${g.status}.`);
+  lines.push('');
   lines.push('## Launching a campaign');
   lines.push('');
   lines.push('Review the candidate and publish it from the CRM\'s SEO desk → Campaign launchpad.');
@@ -240,6 +246,7 @@ function plan() {
   // CRM campaign list; staff choose and publish in the SEO desk.
   writeFileSync(path.join(PUBLIC, 'promo-plan.json'), JSON.stringify({
     generatedAt: new Date().toISOString(),
+    guides,
     campaigns: campaigns.map(c => ({ ...c, ran: run.has(c.id) }))
   }, null, 2) + '\n');
   return { campaigns, lines: lines.join('\n') };
@@ -341,6 +348,7 @@ function report() {
   const s = state();
   const pub = read(PROMO_FILE, { active: false });
   console.log('Promotions — local fallback and history\n');
+  console.log('Guide cadence: 2–4/month. Run promo:plan -- --guides-per-month 2; review and publish in the CRM SEO desk.');
   console.log(`  Static fallback: ${pub.active ? pub.headline + '  →  ' + pub.href : '(none)'}`);
   if (pub.active) {
     console.log(`  Published: ${pub.publishedAt}${pub.until ? ` · runs until ${pub.until}` : ''}`);

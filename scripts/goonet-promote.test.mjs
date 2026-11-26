@@ -449,7 +449,7 @@ console.log('\n9) The importer survives a failed promotion (weekly auto-promote)
     let body = '', status = 200;
     if (u === 'https://www.goo-net.com/') body = '<html><body>goo-net</body></html>';
     else if (u.startsWith('https://r.jina.ai/')) { body = ''; status = 500; }
-    else if (u.includes('price--100')) body = listingHtml;
+    else if (u.includes('summary.php')) body = listingHtml; // the saved domestic search translates to the exchange
     else if (u.includes('/usedcar/spread/goo/')) body = detailHtml;
     else { body = '<html><body>ページが見つかりません</body></html>'; status = 404; }
     return { ok: status < 400, status, text: async () => body };
@@ -470,9 +470,18 @@ console.log('\n9) The importer survives a failed promotion (weekly auto-promote)
   ok(res.body?.failed >= 1, 'the report counts the failed copy (failed: ' + res.body?.failed + ')');
   ok((res.body?.skipped || []).some(s => /permission denied/.test(s)),
     'and carries the database reason in the report');
-  eq(res.body?.promoted, 0, 'no car is counted as promoted');
+  // 2026-11-03 (P3): the run now also auto-promotes ITS OWN fresh import. The
+  // website copy fails (injected permission error), but the CRM inventory
+  // copy lands — so exactly that one car counts as promoted, its provenance
+  // flag says 'vehicles' (never 'listings'/'both' without a successful
+  // website copy), and both failed website copies are in the report.
+  eq(res.body?.promoted, 1, 'only the car whose copy actually landed is counted as promoted');
+  const freshCar = tables.japan_dealer_stock.find(r => r.id !== 'row-1' && r.promoted !== 'none');
+  eq(freshCar?.promoted, 'vehicles', "the fresh import's flag records only the destination that succeeded");
+  ok(!tables.site_listings.some(r => r.stock_no === freshCar?.stock_no),
+    'no website row exists for the car whose website copy failed');
   const waiting = tables.japan_dealer_stock.find(r => r.id === 'row-1');
-  eq(waiting.promoted, 'none', 'the car is left unpromoted so a later run can try again');
+  eq(waiting.promoted, 'none', 'the weekly car is left unpromoted so a later run can try again');
   ok(tables.japan_dealer_stock.length >= 1 && Array.isArray(tables.activities), 'the importer went on to do its other work');
 }
 

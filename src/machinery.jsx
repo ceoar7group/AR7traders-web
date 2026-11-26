@@ -18,20 +18,23 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {
-  ArrowLeft, ArrowRight, BadgeCheck, Camera, Check, ClipboardCheck, Container, Gauge,
-  Images, MapPin, MessageCircle, PackageCheck, Search, Settings2, Ship, ShieldCheck, Sparkles,
-  Truck, Wrench, X
+  ArrowLeft, ArrowRight, BadgeCheck, BadgePercent, Camera, Check, ClipboardCheck, Container, Gauge,
+  Images, LayoutGrid, LayoutList, MapPin, MessageCircle, PackageCheck, Search, Settings2, Ship,
+  ShieldCheck, Sparkles, Truck, Wrench, X
 } from 'lucide-react';
+import {WhatsAppIcon} from './brand-icons.jsx';
 import {useCurrency} from './currency.jsx';
 import {useSettings, telHref, waLink} from './site-settings.js';
 import {useLang} from './i18n.jsx';
 import {
   MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machinesByType,
-  machineByRef, machineHref
+  machineByRef, machineHref, machineYear, machineHours, machineYearText,
+  machineLoc, machineBrandLockup
 } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useStockDiscounts, stockDiscountFor, priceWithOffer, formatDate} from './offers.js';
 import {MACHINERY_FAQS} from './seo.js';
+import './pages.css';
 import './machinery.css';
 
 // The catalogue's FAQ block — rendered visibly on the hub and every type page,
@@ -71,9 +74,12 @@ const MACHINE_INTRO = {
   All: 'Excavators, wheel loaders, tippers and cranes sourced to order from vetted Chinese suppliers — inspected, photographed and shipped to your port with the paperwork handled.'
 };
 
+// `Number(null)` is 0, so the null test comes first: an unstated hour meter
+// reads "hours on request", never "0 h" (2026-10-08, machineHours in
+// src/machinery-data.js is the one place that decides).
 const usageOf = m => {
-  const h = Number(m.hours);
-  if (!Number.isFinite(h) || h <= 0) return m.type === 'Trucks' ? 'km on request' : 'hours on request';
+  const h = machineHours(m);
+  if (h == null) return m.type === 'Trucks' ? 'km on request' : 'hours on request';
   return m.type === 'Trucks' ? `${h.toLocaleString('en-US')} km` : `${h.toLocaleString('en-US')} h`;
 };
 
@@ -113,13 +119,24 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [zoom, photos.length]);
+  const crumbLink = (href, onClickPath) => e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(onClickPath ?? href);
+  };
   return <section className="inner-page machinery-page mch-detail-page">
     <div className="shell page-content">
-      <a className="back-btn" href={back} onClick={e => {
-        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        navigate(back);
-      }}>
+      {/* The visible twin of the BreadcrumbList JSON-LD this page already
+          publishes — a buyer always sees where they are and has a one-tap
+          way back to the type catalogue or the whole desk. */}
+      <nav className="mch-crumbs" aria-label="Breadcrumb">
+        <a href="/machinery" onClick={crumbLink('/machinery')}>Machinery</a>
+        <span aria-hidden="true">/</span>
+        <a href={back} onClick={crumbLink(back)}>{machine.type}</a>
+        <span aria-hidden="true">/</span>
+        <b aria-current="page">{machine.ref}</b>
+      </nav>
+      <a className="back-btn" href={back} onClick={crumbLink(back)}>
         <ArrowLeft size={14}/> Back to {machine.type}
       </a>
 
@@ -163,13 +180,13 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
             {price.hasOffer && <em className="mch-offer-line">Individual stock discount{offer?.until ? ` — ends ${formatDate(offer.until)}` : ''}. Indicative FOB price; confirmed with your written quotation.</em>}
           </div>
           <div className="mch-detail-meta">
-            <span><Gauge/> {machine.year} · {usageOf(machine)}</span>
+            <span><Gauge/> {machineYearText(machine)} · {usageOf(machine)}</span>
             <span><MapPin/> {machine.location}, {machine.origin}</span>
             <span><PackageCheck/> Sourced to order</span>
           </div>
           <table className="mch-detail-specs">
             <tbody>
-              {[[t('machinery.year'), machine.year], [t('machinery.usage'), usageOf(machine)], [t('machinery.location'), `${machine.location}, ${machine.origin}`]]
+              {[[t('machinery.year'), machineYearText(machine)], [t('machinery.usage'), usageOf(machine)], [t('machinery.location'), `${machine.location}, ${machine.origin}`]]
                 .concat(machine.specs)
                 .map(([k, v]) => <tr key={k}><th>{k}</th><td>{v}</td></tr>)}
             </tbody>
@@ -181,8 +198,15 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
             <li><Settings2/> Attachments and specifications can be changed to your requirement</li>
           </ul>
           <div className="mch-detail-actions">
-            <button className="primary" type="button" onClick={onQuote}>Request a quotation <ArrowRight/></button>
-            <button className="mch-chat" type="button" onClick={onChat} aria-label={`Ask about the ${machine.name} on WhatsApp`}><MessageCircle/></button>
+            <button className="primary" type="button" aria-haspopup="dialog"
+              onClick={() => onQuote({ kind: 'machinery-offer', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref })}>
+              Make an offer <ArrowRight/>
+            </button>
+            <button className="outline-btn" type="button" aria-haspopup="dialog"
+              onClick={() => onQuote({ kind: 'machinery', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref })}>
+              Request a quotation
+            </button>
+            <button className="mch-chat" type="button" onClick={onChat} title="Chat with the machinery desk" aria-label={`Chat about the ${machine.name}`}><MessageCircle/></button>
           </div>
           <p className="mch-detail-note">
             Photos show the unit offered, not a library shot. The quotation confirms the final price, the specification
@@ -208,7 +232,7 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
                 }}>
                 {machineImages(m)[0] && <img loading="lazy" decoding="async" width="420" height="290" src={machineImages(m)[0]} alt={`${m.name} for export — ${m.ref}`}/>}
                 <b>{m.name}</b>
-                <small>{m.year} · {usageOf(m)} · {m.location}</small>
+                <small>{machineYearText(m)} · {usageOf(m)} · {m.location}</small>
                 {p.hasOffer ? <span className="mch-related-price"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span> : <span className="mch-related-price"><b>{fmt(p.now)}</b></span>}
               </a>;
             })}
@@ -239,10 +263,11 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   </section>;
 }
 
-function MachineCard({machine, onQuote, onChat, navigate, discounts}) {
+function MachineCard({machine, onQuote, navigate, discounts, waNumber}) {
   const {fmt} = useCurrency();
   const {t} = useLang();
-  const label = machine.type.endsWith('s') ? machine.type.slice(0, -1) : machine.type;
+  const lockup = machineBrandLockup(machine);
+  const label = lockup.label;
   const photos = machineImages(machine);
   const [shot, setShot] = useState(0);
   const offer = stockDiscountFor(discounts, 'machine', machine.ref);
@@ -250,6 +275,10 @@ function MachineCard({machine, onQuote, onChat, navigate, discounts}) {
   const price = priceWithOffer(listPriceUSD(machine), percent);
   const href = machineHref(machine);
   const open = () => navigate(href);
+  const openWa = () => {
+    const msg = `Hello AR7, I'm interested in the ${machine.name} (ref ${machine.ref}) on your website. Is it still available?`;
+    if (typeof window !== 'undefined') window.open(waLink(waNumber, msg), '_blank', 'noopener');
+  };
   // Leave modified clicks to the browser: Ctrl/Cmd/middle-click opens the
   // machine in a new tab, exactly like a car card. A plain click is ours.
   const openClick = e => {
@@ -290,14 +319,17 @@ function MachineCard({machine, onQuote, onChat, navigate, discounts}) {
       </button>}
     </div>
     <div className="mch-info">
-      <div className="mch-head">
-        <b>{machine.name}</b>
-        <small><MapPin/> {machine.location}, {machine.origin} · {t('machinery.ref')} {machine.ref}</small>
+      <div className="car-head">
+        <span className="mch-brand-mark" aria-hidden="true">{lockup.code || <Wrench size={15}/>}</span>
+        <div className="car-head-txt">
+          <span className="make">{lockup.eyebrow}</span>
+          <a className="mch-title-link" href={href} onClick={openClick}><b className="mch-title">{machine.name}</b></a>
+        </div>
       </div>
       <p>{machine.summary}</p>
-      <div className="mch-meta"><span><Gauge/> {machine.year} · {usageOf(machine)}</span>{machine.specs[0] && <span><Wrench/> {machine.specs[0][0]}: <b>{machine.specs[0][1]}</b></span>}</div>
+      <div className="mch-meta"><span><Gauge/> {machineYearText(machine)} · {usageOf(machine)}</span>{machine.specs[0] && <span><Wrench/> {machine.specs[0][0]}: <b>{machine.specs[0][1]}</b></span>}</div>
       <ul className="mch-specs">{machine.specs.slice(1).map(([k, v]) => <li key={k}><small>{k}</small><b>{v}</b></li>)}</ul>
-      <div className="mch-foot">
+      <div className="car-bottom mch-ledger">
         <div>
           <small>{t('machinery.indicative')}</small>
           {price.hasOffer
@@ -305,11 +337,13 @@ function MachineCard({machine, onQuote, onChat, navigate, discounts}) {
             : <b>{fmt(price.now)}</b>}
           {price.hasOffer && <small className="mch-offer-line">{offer?.until ? `Individual discount ends ${formatDate(offer.until)}. ` : 'Individual stock discount. '}Indicative FOB; confirmed in quotation.</small>}
         </div>
-        <div className="mch-actions">
-          <a className="mch-view" href={href} onClick={openClick}>View machine <ArrowRight/></a>
-          <button className="mch-chat" type="button" onClick={onChat} aria-label={`Ask about the ${machine.name} on WhatsApp`}><MessageCircle/></button>
-        </div>
       </div>
+      <div className="card-actions">
+        <button type="button" className="card-wa" aria-label={`WhatsApp us about the ${machine.name}`} onClick={openWa}><WhatsAppIcon size={14}/> WhatsApp</button>
+        <button type="button" className="card-offer" aria-label={`Make offer on the ${machine.name}`} onClick={() => onQuote({kind: 'machinery-offer', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref})}><BadgePercent/> Make offer</button>
+        <a className="cmp-chip mch-view" href={href} onClick={openClick} aria-label={`View machine ${machine.name} — ${machine.ref}`}>View machine <ArrowRight/></a>
+      </div>
+      <div className="loc"><MapPin/> {machineLoc(machine)} · {t('machinery.ref')} {machine.ref}</div>
     </div>
   </article>;
 }
@@ -348,11 +382,22 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
   const [band, setBand] = useState('Any');
   const [yearFrom, setYearFrom] = useState('Any');
   const [sort, setSort] = useState('Featured');
+  const [mchView, setMchView] = useState(() => {
+    try { return localStorage.getItem('ar7-mch-view') === 'list' ? 'list' : 'grid'; }
+    catch { return 'grid'; }
+  });
+  const setView = v => {
+    setMchView(v);
+    try { localStorage.setItem('ar7-mch-view', v); } catch {}
+  };
   // Redraw when the CRM's machines land, so the catalogue shows the live list.
   useMachineryVersion();
 
   const brands = [...new Set(MACHINES.map(m => m.brand))].sort();
-  const years = [...new Set(MACHINES.map(m => m.year))].sort((a, b) => b - a);
+  // Only years somebody stated are offered as filters: a machine with no year
+  // cannot promise to be "2019 or newer", and a null option in the dropdown
+  // would filter to nothing.
+  const years = [...new Set(MACHINES.map(machineYear).filter(y => y != null))].sort((a, b) => b - a);
   const [, lo, hi] = PRICE_BANDS.find(b => b[0] === band) || PRICE_BANDS[0];
 
   const list = useMemo(() => {
@@ -360,13 +405,13 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
     if (make !== 'All') out = out.filter(m => m.brand === make);
     if (lo != null) out = out.filter(m => listPriceUSD(m) >= lo);
     if (hi != null) out = out.filter(m => listPriceUSD(m) <= hi);
-    if (yearFrom !== 'Any') out = out.filter(m => m.year >= Number(yearFrom));
+    if (yearFrom !== 'Any') out = out.filter(m => (machineYear(m) || 0) >= Number(yearFrom));
     const by = {
       'Featured': null,
       'FOB price: low to high': (a, b) => listPriceUSD(a) - listPriceUSD(b),
       'FOB price: high to low': (a, b) => listPriceUSD(b) - listPriceUSD(a),
-      'Newest first': (a, b) => b.year - a.year,
-      'Lowest hours': (a, b) => (a.hours || 0) - (b.hours || 0)
+      'Newest first': (a, b) => (machineYear(b) || 0) - (machineYear(a) || 0),
+      'Lowest hours': (a, b) => (machineHours(a) || 0) - (machineHours(b) || 0)
     }[sort];
     return by ? [...out].sort(by) : out;
   }, [type, make, band, yearFrom, sort, lo, hi]);
@@ -466,13 +511,19 @@ export function MachineryPage({navigate, openAuction, openChat, initialType, mac
             </select>
           </label>
           {filtersOn && <button className="mch-clear" type="button" onClick={() => { setMake('All'); setBand('Any'); setYearFrom('Any'); }}>Clear filters</button>}
-          <span className="mch-count"><b>{list.length}</b> {list.length === 1 ? 'machine' : 'machines'} match</span>
+          <span className="mch-count-group">
+            <span className="mch-count"><b>{list.length}</b> {list.length === 1 ? 'machine' : 'machines'} match</span>
+            <div className="view-toggle" role="group" aria-label="Layout">
+              <button type="button" className={mchView === 'grid' ? 'active' : ''} aria-pressed={mchView === 'grid'} aria-label={t('inv.viewGrid')} title={t('inv.viewGrid')} onClick={() => setView('grid')}><LayoutGrid size={14}/></button>
+              <button type="button" className={mchView === 'list' ? 'active' : ''} aria-pressed={mchView === 'list'} aria-label={t('inv.viewList')} title={t('inv.viewList')} onClick={() => setView('list')}><LayoutList size={14}/></button>
+            </div>
+          </span>
         </div>
         <p className="mch-note">{MACHINERY_NOTE}</p>
       </div>
 
-      <div className="mch-grid">
-        {list.map(m => <MachineCard key={m.id} machine={m} onQuote={openAuction} onChat={openChat} navigate={navigate} discounts={discounts}/>)}
+      <div className={`mch-grid${mchView === 'list' ? ' list-view' : ''}`}>
+        {list.map(m => <MachineCard key={m.id} machine={m} onQuote={openAuction} navigate={navigate} discounts={discounts} waNumber={s.whatsapp_number}/>)}
       </div>
       {list.length === 0 && (
         <div className="mch-empty">

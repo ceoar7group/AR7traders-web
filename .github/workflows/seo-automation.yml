@@ -1,0 +1,45 @@
+name: SEO research and technical audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '25 5 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: seo-research-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Repair crawl declarations and build indexable HTML
+        run: npm run build
+      - name: Generate keyword and publishing plans
+        run: |
+          npm run seo:keywords
+          npm run promo:plan -- --guides-per-month 2
+      - name: Audit and test SEO automation
+        run: |
+          npm run seo
+          npm run test:seo-automation
+          node scripts/indexing-followup.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seo-research-and-audit
+          path: |
+            seo-report.md
+            seo-report.json
+            KEYWORDS.md
+            keywords-plan.json
+            PROMO-PLAN.md
+          retention-days: 14
+# Reports are reviewed, not presented as automatic Google indexing or a
+# deployment. Crawl repairs also run on every real production build.

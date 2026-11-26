@@ -6,8 +6,22 @@
    "Arabic" does. */
 
 .lang-switch{position:relative}
-.lang-btn{gap:5px;width:auto;padding:0 10px;height:42px;font-size:0}
-.lang-code{font:800 10px/1 Manrope;letter-spacing:.5px}
+/* 2026-11-07 redesign: a proper language pill — small gold globe chip, the
+   active code, a chevron — instead of the old square icon-box that looked
+   like every other utility button. */
+.lang-btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 11px 0 5px;
+  border:1px solid color-mix(in srgb,var(--gold) 38%,var(--line));border-radius:999px;
+  background:color-mix(in srgb,var(--gold) 9%,var(--card));color:var(--ink);cursor:pointer;
+  transition:border-color .2s,background .2s,transform .2s,box-shadow .2s}
+.lang-btn:hover{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 16%,var(--card));transform:translateY(-1px);box-shadow:0 6px 16px rgba(176,138,48,.18)}
+.lang-btn[aria-expanded="true"]{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,var(--card))}
+.lang-globe{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;flex:none;
+  background:linear-gradient(145deg,var(--gold),color-mix(in srgb,var(--gold) 62%,#7a5d1d));color:#1b1405}
+.lang-globe svg{width:15px;height:15px}
+.lang-code{font:800 11px/1 Manrope;letter-spacing:.7px}
+.lang-chev{color:var(--muted);flex:none;transition:transform .2s}
+.lang-btn[aria-expanded="true"] .lang-chev{transform:rotate(180deg)}
+@media(max-width:560px){.lang-btn{height:34px;padding:0 9px 0 4px;gap:5px}.lang-globe{width:25px;height:25px}.lang-globe svg{width:13px;height:13px}}
 .lang-panel{position:absolute;z-index:70;top:calc(100% + 9px);inset-inline-end:0;width:232px;max-height:min(420px,70vh);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);padding:7px;animation:langIn .18s ease}
 @keyframes langIn{from{opacity:0;transform:translateY(-6px)}}
 .lang-panel-head{font:800 9px Manrope;letter-spacing:1.7px;text-transform:uppercase;color:var(--muted);padding:8px 10px 6px}
@@ -92,7 +106,13 @@ html[dir="rtl"] .navlinks a:after,
 html[dir="rtl"] .navlinks button:after{transform-origin:right}
 
 @media(max-width:899px){
-  .lang-panel{inset-inline-end:auto;inset-inline-start:0;width:min(280px,calc(100vw - 36px))}
+  /* 2026-11-09 (owner screenshot): anchoring the panel to the pill's leading
+     edge pushed it off the right side of phones. The pill's wrapper goes
+     static so the panel anchors to the bar's action block instead — its
+     trailing edge hugs the bar's trailing edge, the width is clamped to the
+     viewport, and it can never leave the screen in LTR or RTL. */
+  .lang-switch{position:static}
+  .lang-panel{top:calc(100% + 9px);inset-inline-start:auto;inset-inline-end:0;width:min(300px,calc(100vw - 24px))}
 }
 @media(prefers-reduced-motion:reduce){
   .lang-panel{animation:none}

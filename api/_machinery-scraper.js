@@ -34,7 +34,9 @@
 //     existing machine (URL or brand+model+year) is skipped, not duplicated.
 
 import { previewMachine, toRow, findExisting } from './_machinery-import.js';
-import { MACHINERY_TABLE, machinerySettings } from './_machinery.js';
+import { machinerySettings, readMachineryRows } from './_machinery.js';
+import { parseAmount } from '../src/machinery-source.js';
+import { relayBaseUrl, relayApiKey, relayRequestHeaders, RELAY_TIMEOUT_MS } from '../scripts/goonet-core.mjs';
 
 /** The honest identity the importer already uses elsewhere. */
 export const SCRAPER_UA = 'AR7Traders-Import/1.0 (+https://ar7traders.com)';
@@ -143,18 +145,32 @@ export function robotsAllowed(rules, pathWithQuery) {
 // Link extraction
 // ---------------------------------------------------------------------------
 
+function stripInlineTags(html) {
+  return String(html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
 /**
- * Product links from a Made-in-China category page. Two shapes exist:
- *   • /product/<hash>/<Title>.html      — the current supplier-hosted pages;
- *   • /co_<company>/product_<…>.html    — the older locale-subdomain pages.
- * Product-LIST and catalogue pages (/product-list-1.html, /Product-Catalogs/)
- * are deliberately not products. Query strings are dropped because
- * made-in-china.com's robots.txt disallows `*html?*`. Only *.made-in-china.com
- * hosts are kept — anything else is a marketplace redirect we do not follow.
+ * Extract an explicit USD price hint from a category listing snippet, strictly
+ * requiring a USD/dollar marker so years, weights, or model numbers are never
+ * mistaken for prices.
  */
-export function extractProductLinks(html, baseUrl) {
-  const out = [];
-  for (const m of String(html || '').matchAll(/<a\b[^>]*\bhref=["']([^"']+)["']/gi)) {
+export function extractCardPriceHint(htmlSnippet) {
+  const text = stripInlineTags(htmlSnippet);
+  if (!text) return null;
+  const m = text.match(/(?:US\s*\$|\bUSD\s*\$?|\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  if (!m) return null;
+  const parsed = parseAmount(m[1]);
+  return parsed && parsed > 0 ? Math.round(parsed) : null;
+}
+
+/**
+ * Product candidates from a Made-in-China category page along with any USD
+ * price hint shown on the listing card, ordered as they appear in the HTML.
+ */
+export function extractProductCandidates(html, baseUrl) {
+  const source = String(html || '');
+  const rawMatches = [];
+  for (const m of source.matchAll(/<a\b[^>]*\bhref=["']([^"']+)["']/gi)) {
     const href = m[1].trim();
     if (!href || href.startsWith('#') || /^(?:javascript|mailto|data):/i.test(href)) continue;
     let abs;
@@ -165,10 +181,87 @@ export function extractProductLinks(html, baseUrl) {
       /\/product\/[^/]+\/[^/]+\.html?$/i.test(p) ||
       /(^|\/)product_[^/]+\.html?$/i.test(p);
     if (!isProduct) continue;
-    const url = abs.origin + p;
-    if (!out.includes(url)) out.push(url);
+    rawMatches.push({ url: abs.origin + p, index: m.index ?? 0 });
   }
-  return out;
+  const byUrl = new Map();
+  for (let i = 0; i < rawMatches.length; i++) {
+    const cur = rawMatches[i];
+    const nextIndex = i + 1 < rawMatches.length ? rawMatches[i + 1].index : source.length;
+    const windowEnd = Math.min(nextIndex, cur.index + 650);
+    const hint = extractCardPriceHint(source.slice(cur.index, windowEnd));
+    if (!byUrl.has(cur.url)) {
+      byUrl.set(cur.url, { url: cur.url, hintPriceUsd: hint });
+    } else if (byUrl.get(cur.url).hintPriceUsd == null && hint != null) {
+      byUrl.get(cur.url).hintPriceUsd = hint;
+    }
+  }
+  return Array.from(byUrl.values());
+}
+
+/**
+ * Product links from a Made-in-China category page. Two shapes exist:
+ *   • /product/<hash>/<Title>.html      — the current supplier-hosted pages;
+ *   • /co_<company>/product_<…>.html    — the older locale-subdomain pages.
+ * Product-LIST and catalogue pages (/product-list-1.html, /Product-Catalogs/)
+ * are deliberately not products. Query strings are dropped because
+ * made-in-china.com's robots.txt disallows `*html?*`. Only *.made-in-china.com
+ * hosts are kept — anything else is a marketplace redirect we do not follow.
+ */
+export function extractProductLinks(html, baseUrl) {
+  return extractProductCandidates(html, baseUrl).map(c => c.url);
+}
+
+/** Numeric USD price for sorting/filtering a previewed machine. */
+export function machinePriceUsd(machine) {
+  const sup = Number(machine?.supplierPrice);
+  if (Number.isFinite(sup) && sup > 0) return sup;
+  const list = Number(machine?.listPrice);
+  if (Number.isFinite(list) && list > 0) return list;
+  return null;
+}
+
+/**
+ * Normalize scraper sort direction: `'price_asc'` (default, lowest price
+ * first), `'price_desc'`, or `'source'` (category HTML order).
+ */
+export function normalizeScraperSort(sort) {
+  const s = String(sort || '').trim().toLowerCase();
+  if (s === 'price_desc' || s === 'desc') return 'price_desc';
+  if (s === 'source' || s === 'none') return 'source';
+  return 'price_asc';
+}
+
+/**
+ * Filter and sort scraped machine preview records by price. Unpriced machines
+ * sort after priced ones so priced low-cost listings surface first.
+ */
+export function filterAndSortMachinePreviews(previews, { sort = 'price_asc', maxPrice = null } = {}) {
+  const order = normalizeScraperSort(sort);
+  const maxUsd = Number(maxPrice) > 0 ? Math.round(Number(maxPrice)) : null;
+  const kept = [];
+  const filteredOut = [];
+  for (const item of previews || []) {
+    const m = item?.machine || item;
+    const sup = Number(m?.supplierPrice);
+    const p = Number.isFinite(sup) && sup > 0 ? sup : machinePriceUsd(m);
+    if (maxUsd && p != null && p > maxUsd) {
+      filteredOut.push({ item, reason: `supplier price $${p.toLocaleString()} exceeds max $${maxUsd.toLocaleString()}` });
+    } else {
+      kept.push(item);
+    }
+  }
+  if (order === 'source') return { kept, filteredOut };
+  const dir = order === 'price_desc' ? -1 : 1;
+  const sorted = kept
+    .map((item, idx) => ({ item, idx, price: machinePriceUsd(item?.machine || item) }))
+    .sort((a, b) => {
+      if (a.price != null && b.price != null && a.price !== b.price) return (a.price - b.price) * dir;
+      if (a.price != null && b.price == null) return -1;
+      if (a.price == null && b.price != null) return 1;
+      return a.idx - b.idx;
+    })
+    .map(entry => entry.item);
+  return { kept: sorted, filteredOut };
 }
 
 const normUrl = u => String(u || '').trim().toLowerCase().replace(/[?#].*$/, '');
@@ -177,21 +270,97 @@ const normUrl = u => String(u || '').trim().toLowerCase().replace(/[?#].*$/, '')
 // The run
 // ---------------------------------------------------------------------------
 
-async function defaultFetch(url, { timeoutMs = SCRAPER_FETCH_TIMEOUT_MS } = {}) {
+/** Bounded, polite retry for transient transport/server failures only, plus
+ * ONE relay rescue for IP-reputation walls. Direct attempts never retry
+ * 401/403/429 or captcha/bot gates. But 2026-11-04 the marketplace started
+ * answering a flat 403 to every request from Vercel's egress IPs — the same
+ * datacenter-IP wall goo-net raised against the car importer, on pages it
+ * serves to any real visitor. The cure is also the same: when the direct
+ * fetch comes back blocked (401/403/429) or dead and a relay key is
+ * configured, the page is fetched once through the reader relay the car
+ * importer already uses (keyed, rotating proxy pool, plain-HTTP engine).
+ * robots.txt is still honoured BEFORE any page is fetched, the pacing between
+ * fetches is unchanged, and the honest user agent is what the relay is shown.
+ * The caller's deadline caps every timeout, so no rescue can push a preview
+ * past the serverless budget. */
+export async function fetchWithRetry(url, options = {}) {
+  const direct = await directFetchWithRetry(url, options);
+  if (direct.ok) return direct;
+  const blocked = direct.status === 401 || direct.status === 403 || direct.status === 429;
+  if (!blocked && !direct.networkError) return direct; // 404s etc. are honest answers, not walls
+  const key = relayApiKey();
+  if (!key) return { ...direct, relaySkipped: 'no relay key configured' };
+  const { deadline = Infinity, now = Date.now, fetchImpl = globalThis.fetch } = options;
+  const remaining = deadline - now();
+  if (remaining <= 0) return direct;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(RELAY_TIMEOUT_MS, remaining)));
   try {
-    const res = await fetch(url, {
+    const res = await fetchImpl(relayBaseUrl() + url, {
       signal: ctrl.signal,
       redirect: 'follow',
-      headers: { 'user-agent': SCRAPER_UA, accept: 'text/html,application/xhtml+xml' }
+      headers: relayRequestHeaders({ userAgent: SCRAPER_UA }),
     });
-    return { ok: res.ok, status: res.status, text: res.ok ? await res.text() : '', networkError: false };
-  } catch (e) {
-    return { ok: false, status: 0, text: '', networkError: true, error: e.message };
+    if (!res.ok) return { ...direct, relayError: `the relay answered ${res.status}` };
+    return { ok: true, status: res.status, text: await res.text(), networkError: false, attempts: direct.attempts + 1, via: 'relay', directStatus: direct.status };
+  } catch (error) {
+    return { ...direct, relayError: `the relay failed (${error.message})` };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function directFetchWithRetry(url, {
+  timeoutMs = SCRAPER_FETCH_TIMEOUT_MS,
+  retries = 2,
+  backoffMs = 500,
+  deadline = Infinity,
+  now = Date.now,
+  sleep = ms => new Promise(r => setTimeout(r, ms)),
+  fetchImpl = globalThis.fetch,
+} = {}) {
+  const maxAttempts = Math.max(1, Math.min(3, Number(retries) + 1 || 1));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const remaining = deadline - now();
+    if (remaining <= 0) return { ok: false, status: 0, text: '', networkError: true, error: 'Run time budget exhausted', attempts: attempt };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), Math.max(1, Math.min(timeoutMs, remaining)));
+    let transient = false;
+    try {
+      const res = await fetchImpl(url, {
+        signal: ctrl.signal,
+        redirect: 'follow',
+        headers: { 'user-agent': SCRAPER_UA, accept: 'text/html,application/xhtml+xml' },
+      });
+      transient = res.status >= 500 && res.status <= 599;
+      if (res.ok || !transient || attempt === maxAttempts - 1) {
+        return { ok: res.ok, status: res.status, text: res.ok ? await res.text() : '', networkError: false, attempts: attempt + 1 };
+      }
+    } catch (error) {
+      if (attempt === maxAttempts - 1) {
+        return { ok: false, status: 0, text: '', networkError: true, error: error.message, attempts: attempt + 1 };
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+    const wait = Math.min(backoffMs * (2 ** attempt), Math.max(0, deadline - now()));
+    if (wait <= 0) return { ok: false, status: 0, text: '', networkError: true, error: 'Run time budget exhausted', attempts: attempt + 1 };
+    await sleep(wait);
+  }
+  return { ok: false, status: 0, text: '', networkError: true, error: 'Retry budget exhausted', attempts: maxAttempts };
+}
+
+async function defaultFetch(url, options = {}) {
+  return fetchWithRetry(url, options);
+}
+
+/** One honest sentence about why a page could not be read, including what the
+ *  relay rescue did (or why it never ran). */
+export function describeFetchFailure(page) {
+  let base = page.networkError ? `network error${page.error ? ': ' + page.error : ''}` : 'the site answered ' + page.status;
+  if (page.relayError) base += ` — ${page.relayError}`;
+  else if (page.relaySkipped) base += ` — ${page.relaySkipped}`;
+  return base;
 }
 
 /** Which category pages this run crawls. A known name → that one page; an
@@ -216,20 +385,30 @@ export async function runScraper(db, {
   categories = null,
   limit = null,
   batch = null,
+  sort = null,
+  maxPrice = null,
   fetch: fetchImpl = null,
   sleep: sleepImpl = null,
-  markup = 0.25
+  markup = 0.25,
+  now = Date.now,
+  budgetMs = 45000
 } = {}) {
+  const deadline = now() + Math.min(45000, Math.max(0, budgetMs));
+  let timedOut = false;
+  const exhausted = () => (timedOut ||= now() >= deadline);
   const doFetch = fetchImpl || defaultFetch;
   const sleep = sleepImpl || (ms => new Promise(r => setTimeout(r, ms)));
   const delayMs = SCRAPER_DELAY_MS;
 
   const warnings = [];
   const skipped = [];
-  const machines = [];
-  const previews = [];
+  let machines = [];
+  let previews = [];
   const previewRows = []; // prior previews in this run, for brand/model/year dedupe
-  const stats = { categories: 0, linksFound: 0, fetched: 0, deduped: 0, robotsBlocked: 0, capped: 0 };
+  const stats = { categories: 0, linksFound: 0, fetched: 0, deduped: 0, robotsBlocked: 0, capped: 0, priceFiltered: 0 };
+
+  let settings = {};
+  try { settings = await machinerySettings(db); } catch { /* an unreadable settings table must not stop a crawl */ }
 
   // How many machines this run may pull. Precedence: the caller's limit, then
   // the `machinery_scraper_batch` setting, then the pinned constant. The
@@ -237,13 +416,15 @@ export async function runScraper(db, {
   let wanted = Number(limit) > 0 ? Math.floor(Number(limit)) : null;
   if (wanted === null && batch !== null && Number(batch) > 0) wanted = Math.floor(Number(batch));
   if (wanted === null) {
-    try {
-      const settings = await machinerySettings(db);
-      const configured = Number(settings.machinery_scraper_batch);
-      if (configured > 0) wanted = Math.floor(configured);
-    } catch { /* an unreadable settings table must not stop a crawl */ }
+    const configured = Number(settings.machinery_scraper_batch);
+    if (configured > 0) wanted = Math.floor(configured);
   }
   const maxMachines = Math.max(1, Math.min(MAX_SCRAPER_MACHINES, wanted || MAX_SCRAPER_MACHINES));
+  const sortOrder = normalizeScraperSort(sort || settings.machinery_scraper_sort || 'price_asc');
+  const rawMaxPrice = maxPrice != null && maxPrice !== '' ? Number(maxPrice) : Number(settings.machinery_scraper_max_price);
+  const maxPriceUsd = Number.isFinite(rawMaxPrice) && rawMaxPrice > 0 ? Math.round(rawMaxPrice) : null;
+  stats.sort = sortOrder;
+  stats.maxPrice = maxPriceUsd;
   // One category, several, or 'all' — the desk can ask for the whole set in a
   // single run instead of four separate ones.
   const requested = categories == null ? category : categories;
@@ -255,19 +436,22 @@ export async function runScraper(db, {
   stats.categories = catList.length;
 
   // ---- dedupe seed: what the catalogue already holds -----------------------
-  let existing = [];
-  try {
-    const { data } = await db.from(MACHINERY_TABLE).select('*');
-    existing = Array.isArray(data) ? data : [];
-  } catch { /* no readable catalogue means nothing to dedupe against */ }
+  const existing = await readMachineryRows(db);
+  const hiddenExisting = existing.filter(r => r.published !== true && r.source_url)
+    .map(r => ({ id: r.id, ref: r.ref, name: [r.brand, r.model].filter(Boolean).join(' '),
+      status: r.status, hold_reason: r.hold_reason || null }));
   const seenUrls = new Set(existing.map(r => normUrl(r?.source_url)).filter(Boolean));
 
   // ---- paced fetch: one delay BEFORE every fetch after the first -----------
   let fetchCount = 0;
   async function pacedFetch(url) {
+    if (exhausted() || deadline - now() <= delayMs) {
+      timedOut = true;
+      return { ok: false, status: 0, networkError: true, text: '', error: 'Run time budget exhausted' };
+    }
     if (fetchCount > 0) await sleep(delayMs);
     fetchCount++;
-    return doFetch(url);
+    return doFetch(url, { timeoutMs: Math.max(1, Math.min(SCRAPER_FETCH_TIMEOUT_MS, deadline - now())), deadline, now });
   }
 
   // ---- robots.txt per host, cached, fail-closed -----------------------------
@@ -295,10 +479,13 @@ export async function runScraper(db, {
     return robotsAllowed(rules, u.pathname + u.search);
   }
 
-  // ---- 1. collect product links from the category pages ---------------------
-  const links = [];
+  // ---- 1. collect product candidates from the category pages ----------------
+  // Gather candidates across requested categories first so cheaper machines or
+  // those below maxPriceUsd are prioritized before the per-run detail cap.
+  const candidates = [];
+  const seenCandidateUrls = new Set();
   for (const cat of catList) {
-    if (links.length >= maxMachines) break;
+    if (exhausted()) break;
     const catUrl = SCRAPER_ORIGIN + cat.path;
     if (!(await pathAllowed(catUrl))) {
       stats.robotsBlocked++;
@@ -307,25 +494,49 @@ export async function runScraper(db, {
     }
     const page = await pacedFetch(catUrl);
     if (!page.ok) {
-      warnings.push(`Category "${cat.key}" could not be read (${page.networkError ? 'network error' : 'the site answered ' + page.status}).`);
+      warnings.push(`Category "${cat.key}" could not be read (${describeFetchFailure(page)}).`);
       continue;
     }
-    const found = extractProductLinks(page.text, catUrl);
-    for (const link of found) {
-      if (links.includes(link)) continue;
-      if (seenUrls.has(normUrl(link))) {
+    const found = extractProductCandidates(page.text, catUrl);
+    for (const cand of found) {
+      if (seenCandidateUrls.has(cand.url)) continue;
+      seenCandidateUrls.add(cand.url);
+      if (seenUrls.has(normUrl(cand.url))) {
         stats.deduped++;
-        skipped.push({ url: link, reason: 'already in the catalogue (source link)' });
+        skipped.push({ url: cand.url, reason: 'already in the catalogue (source link)', ref: existing.find(r => normUrl(r.source_url) === normUrl(cand.url))?.ref });
         continue;
       }
-      links.push(link);
-      if (links.length >= maxMachines) break;
+      if (maxPriceUsd && cand.hintPriceUsd != null && cand.hintPriceUsd > maxPriceUsd) {
+        stats.priceFiltered++;
+        skipped.push({ url: cand.url, reason: `listing price $${cand.hintPriceUsd.toLocaleString()} exceeds max $${maxPriceUsd.toLocaleString()}` });
+        continue;
+      }
+      candidates.push(cand);
     }
   }
-  stats.linksFound = links.length;
+  const orderedCandidates = sortOrder === 'source'
+    ? candidates
+    : candidates
+        .map((c, idx) => ({ c, idx }))
+        .sort((a, b) => {
+          const ap = a.c.hintPriceUsd;
+          const bp = b.c.hintPriceUsd;
+          const dir = sortOrder === 'price_desc' ? -1 : 1;
+          if (ap != null && bp != null && ap !== bp) return (ap - bp) * dir;
+          if (ap != null && bp == null) return -1;
+          if (ap == null && bp != null) return 1;
+          return a.idx - b.idx;
+        })
+        .map(entry => entry.c);
 
-  // ---- 2. preview each link through the existing pipeline -------------------
-  for (const link of links) {
+  const selectedCandidates = orderedCandidates.slice(0, maxMachines);
+  stats.linksFound = selectedCandidates.length;
+  stats.capped = Math.max(0, orderedCandidates.length - selectedCandidates.length);
+
+  // ---- 2. preview each selected link through the existing pipeline ----------
+  for (const cand of selectedCandidates) {
+    const link = cand.url;
+    if (exhausted()) break;
     if (machines.length >= maxMachines) { stats.capped++; continue; }
 
     if (!(await pathAllowed(link))) {
@@ -336,7 +547,7 @@ export async function runScraper(db, {
 
     const page = await pacedFetch(link);
     if (!page.ok) {
-      warnings.push(`Could not read ${link} (${page.networkError ? 'network error' : 'the site answered ' + page.status}).`);
+      warnings.push(`Could not read ${link} (${describeFetchFailure(page)}).`);
       continue;
     }
     stats.fetched++;
@@ -347,6 +558,13 @@ export async function runScraper(db, {
     const preview = await previewMachine({ url: link, html: page.text, markup });
     if (!preview.ok) {
       warnings.push(`${link}: ${preview.error}`);
+      continue;
+    }
+
+    const supPrice = Number(preview.machine?.supplierPrice);
+    if (maxPriceUsd && Number.isFinite(supPrice) && supPrice > maxPriceUsd) {
+      stats.priceFiltered++;
+      skipped.push({ url: link, reason: `supplier price $${supPrice.toLocaleString()} exceeds max $${maxPriceUsd.toLocaleString()}` });
       continue;
     }
 
@@ -372,8 +590,15 @@ export async function runScraper(db, {
     });
   }
 
+  const pricePlan = filterAndSortMachinePreviews(previews, { sort: sortOrder, maxPrice: maxPriceUsd });
+  previews = pricePlan.kept;
+  machines = previews.map(p => p.machine);
+
+  if (timedOut) warnings.push('Time limit reached. Review and confirm the collected previews, then run again; confirmed source links will be skipped.');
   return {
     ok: true,
+    partial: timedOut,
+    existingHidden: hiddenExisting,
     machines,
     previews,
     skipped,

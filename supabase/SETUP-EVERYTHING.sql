@@ -37,7 +37,8 @@ alter table public.profiles enable row level security; alter table public.leads 
 drop policy if exists "staff read own profile" on public.profiles;
 create policy "staff read own profile" on public.profiles for select to authenticated using(id=auth.uid());
 drop policy if exists "staff update own profile" on public.profiles;
-create policy "staff update own profile" on public.profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid());
+-- Profile writes go through /api/team; direct updates can otherwise change role and active.
+revoke update on table public.profiles from anon, authenticated;
 -- Business tables are accessed through authenticated Vercel functions using the service role.
 -- No direct browser policies are created, preventing anon/authenticated users from querying CRM data directly.
 
@@ -832,7 +833,10 @@ insert into public.site_settings (key,value,label) values
   ('goonet_last_run_at','','When the importer last ran'),
   ('goonet_last_weekly_delist','','When the weekly delisting last ran'),
   ('goonet_last_weekly_promote','','When the weekly promotion last ran'),
-  ('goonet_auto_promote','true','Auto-promote a few fresh cars to the website each week')
+  ('goonet_auto_promote','true','Auto-promote passing imports (same run) and a few fresh cars weekly'),
+  ('goonet_auto_promote_target','both','Where a passing import is copied: listings | vehicles | both'),
+  ('goonet_max_promote_per_run','','Max fresh imports one run promotes (blank = same as max new per run)'),
+  ('goonet_auto_reset_bookmark','false','Opt-in: reset a stuck bookmark to page 1 after repeated fetch failures')
 on conflict (key) do nothing;
 
 alter table public.japan_dealer_stock enable row level security;

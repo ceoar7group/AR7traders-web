@@ -23,11 +23,13 @@ import {
   fetchPage, isDelistedPage, parseListingPage, parseDetailPage,
   mergeCardAndDetail, qualityScore, detailUrlFor, listingPageUrlFor,
   pageDiagnostics, DEFAULT_SEARCH_URL, FALLBACK_SEARCH_URL,
-  GATE_PAGE_BYTES, relayApiKey,
+  GATE_PAGE_BYTES, relayApiKey, relayProxy, classifyListingFailure, RELAY_TIMEOUT_MS,
+  translateSearchUrl, parseCarKeyword,
+  carPriceJpy, applyExchangePriceFilter, filterAndSortCarsByPrice, yenToUsd, usdText,
   llmConfigured, extractCardsWithLlm, buildParserDiagnostic
 } from '../scripts/goonet-core.mjs';
 
-export const config = { maxDuration: 60 };
+export const config = { maxDuration: 90 };
 
 // Vercel Hobby runs this function for up to `maxDuration` (60s, set below).
 // The budget is split: a hard stop for the whole run, and a separate allowance
@@ -35,6 +37,12 @@ export const config = { maxDuration: 60 };
 // the request — the listing fetch (up to 7s) plus a relay or rescue fetch could
 // consume all of it, so the import loop began already over budget and the run
 // reported `inserted: 0` even though goo-net had been read perfectly.
+// 2026-11-04: the relay leg is now patient (RELAY_TIMEOUT_MS, 20s — r.jina.ai
+// renders the page and routinely needs 10–20s; our old 7s timer cancelled a
+// willing relay on every leg). Worst all-timeout case: warm-up ~2.5s +
+// first fetch (7s direct + 20s relay) + one direct-only retry (7s) + fallback
+// (7s direct + remaining-budget relay) ≈ 60s, then every later step is gated
+// by overBudget(). maxDuration 90 leaves room for the DB writes after that.
 const RUN_BUDGET_MS = 45000;      // hard stop for the whole run
 const IMPORT_BUDGET_MS = 30000;   // the import loop's own allowance
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -273,19 +281,28 @@ async function carryOn(report, stepPromise, row) {
  * can tell those apart.
  */
 async function machineryJob(db, actor, { overBudget, res }) {
-  const { previewMachine, toRow, planImport, applyImport, markStale } = await import('./_machinery-import.js');
-  const { toPublic } = await import('./_machinery.js');
+  const { previewMachine, toRow, planImport, applyImport } = await import('./_machinery-import.js');
+  const { readMachineryRows, machineryVisibility } = await import('./_machinery.js');
 
   const report = {
     job: 'machinery', actor, sources: 0, seen: 0, created: 0, updated: 0,
     rePriced: [], unchanged: 0, missing: 0, flagged: 0, cleared: 0,
-    failed: [], note: null
+    failed: [], note: null,
+    // 2026-10-11: say what this run IS. It re-reads links a person already
+    // imported; it does not discover stock. A refresh must never be reported
+    // as "machinery importing worked" — the two are different jobs.
+    mode: 'refresh',
+    modeLabel: 'Refresh of already-imported supplier links',
+    modeMeaning: 'Re-reads each stored source_url, records price changes and flags listings the supplier has withdrawn. This run does NOT discover new stock and does NOT save new listings — a new machine enters the catalogue only when a person previews a link and confirms the import in CRM → Machinery desk.',
+    newStock: { discovered: 0, saved: 0, note: 'Discovery and saving happen only through CRM → Machinery desk (scrape → preview → select → confirm).' },
+    outcomes: { checked: 0, unchanged: 0, rePriced: 0, flaggedGone: 0, unreadable: 0 }
   };
 
-  const { data: rows, error } = await db.from('machinery').select('*');
-  if (error) return send(res, 500, { error: 'Could not read the machinery table', details: error.message });
-  const all = Array.isArray(rows) ? rows : [];
-  const sourced = all.filter(r => r.source_url);
+  const all = await readMachineryRows(db);
+  report.inventory = machineryVisibility(all);
+  // Oldest checks first so large catalogues do not recheck only page one.
+  const sourced = all.filter(r => r.source_url && r.status !== 'Archived')
+    .sort((a,b) => String(a.source_last_seen_at || '').localeCompare(String(b.source_last_seen_at || '')));
   report.sources = sourced.length;
 
   if (!sourced.length) {
@@ -294,10 +311,9 @@ async function machineryJob(db, actor, { overBudget, res }) {
   }
 
   const candidates = [];
-  const seenIds = [];
   // Which machines were ALREADY flagged before this run, so the report can say
   // how many came back. applyImport() clears the flag as part of its update,
-  // so by the time markStale() looks, the flag is gone and it would report 0.
+  // so count cleared flags from the stored rows after the update.
   const wasFlagged = new Set(sourced.filter(r => r.source_missing_since).map(r => String(r.id)));
 
   for (const row of sourced) {
@@ -310,13 +326,22 @@ async function machineryJob(db, actor, { overBudget, res }) {
         rights: row.rights_basis || null,
         adapter: row.adapter || null
       });
+      report.outcomes.checked++;
       if (!p.ok) {
         // Unreadable (bot gate, expired listing) is not the same as gone, but
         // it is worth recording rather than swallowing.
-        report.failed.push({ ref: row.ref, reason: p.error });
+        report.outcomes.unreadable++;
+        report.failed.push({ ref: row.ref, reason: p.error, sourceStatus: p.sourceStatus || null });
+        // Only a confirmed gone response can flag THIS row. A timeout/403 or
+        // an unvisited sibling on the same host must never look delisted.
+        if ([404, 410].includes(p.sourceStatus) && !row.source_missing_since) {
+          const { error } = await db.from('machinery')
+            .update({ source_missing_since: new Date().toISOString() }).eq('id', row.id);
+          if (error) report.failed.push({ ref: row.ref, reason: error.message });
+          else { report.flagged++; report.outcomes.flaggedGone++; }
+        }
         continue;
       }
-      seenIds.push(row.id);
       report.seen++;
       // Keep this machine's own reference — toMachine() would otherwise
       // invent 'AR7-MC-NEW' and the run would rewrite the reference (and so
@@ -331,20 +356,32 @@ async function machineryJob(db, actor, { overBudget, res }) {
 
   if (candidates.length) {
     const plan = planImport(all, candidates);
+    // A scheduled price refresh is not an instruction to republish a hidden
+    // listing or change Reserved/Sold back to Available.
+    for (const u of plan.updates) {
+      for (const key of ['published', 'status', 'hold_reason', 'published_by', 'published_by_name', 'published_at', 'imported_at']) {
+        if (key in u.before) u.next[key] = u.before[key];
+        else delete u.next[key];
+      }
+    }
+    report.failed.push(...plan.errors.map(e => ({ ref: e.ref, reason: e.errors.map(x => x.message).join('; ') })));
     const out = await applyImport(db, plan, { id: null, full_name: actor, email: null });
     report.created = out.created.length;
     report.updated = out.updated.length;
     report.rePriced = out.rePriced.map(r => ({ ref: r.ref, before: r.before, after: r.after }));
     report.failed.push(...out.failed.map(f => ({ ref: f.ref, reason: f.error })));
     report.unchanged = out.updated.length - out.rePriced.length;
+    report.outcomes.rePriced = out.rePriced.length;
+    report.outcomes.unchanged = report.unchanged;
+    // A refresh never creates rows: every candidate matched a stored source.
+    // If one ever does, it is reported rather than passed off as new stock.
+    if (out.created.length) report.newStock = { discovered: out.created.length, saved: out.created.length,
+      note: 'These matched a stored source link, so they refreshed existing rows, not new stock.' };
   }
 
-  // Flag, never delete, the ones this run did not see.
-  const hosts = [...new Set(sourced.map(r => { try { return new URL(r.source_url).host; } catch { return null; } }).filter(Boolean))];
-  for (const host of hosts) {
-    const m = await markStale(db, { sourceHost: host, seenIds });
-    report.flagged += m.flagged;
-  }
+  // A detail-page recheck is NOT a complete supplier inventory crawl.
+  // Timeouts, bot gates and unvisited rows do not prove removal. Never pass
+  // this partial seenIds list to markStale (which flags all absent host rows).
   // Count what actually came back: flagged before this run, clean now.
   if (wasFlagged.size) {
     const { data: after } = await db.from('machinery').select('*');
@@ -352,7 +389,16 @@ async function machineryJob(db, actor, { overBudget, res }) {
       .filter(r => wasFlagged.has(String(r.id)) && !r.source_missing_since).length;
   }
   report.missing = report.flagged;
-
+  report.counts = {
+    sources: report.sources, checked: report.outcomes.checked,
+    unchanged: report.unchanged, rePriced: report.outcomes.rePriced,
+    flaggedGone: report.outcomes.flaggedGone, unreadable: report.outcomes.unreadable,
+    failed: report.failed.length
+  };
+  report.note = report.note || `${report.outcomes.checked} of ${report.sources} stored source link(s) re-read: `
+    + `${report.unchanged} unchanged, ${report.outcomes.rePriced} re-priced, `
+    + `${report.outcomes.flaggedGone} flagged as withdrawn, ${report.outcomes.unreadable} unreadable. `
+    + 'Refreshed rows only — no new listings were discovered by this run.';
   return send(res, 200, report);
 }
 
@@ -379,7 +425,9 @@ export default async function handler(req, res, injected) {
     }
   }
 
-  const db = injected.db || adminClient();
+  let db;
+  try { db = injected.db || adminClient(); }
+  catch (e) { return send(res, 500, { error: e.message, stage: 'database-configuration' }); }
   const start = Date.now();
   const overBudget = () => Date.now() - start > RUN_BUDGET_MS;
 
@@ -388,8 +436,76 @@ export default async function handler(req, res, injected) {
   // scheduled machinery run costs no extra Serverless Function. It re-reads
   // every machine that came from a link, records any price change, and flags
   // (never deletes) the ones the supplier has taken down.
-  if (String(req.query?.job || '') === 'machinery') {
-    return machineryJob(db, actor, { overBudget, res });
+  // ---- AI Growth agents: ?job=agents ---------------------------------------
+  // The scheduled runner. It comes through THIS function (with the same sync
+  // key) rather than a new api/*.js file, so the Vercel Hobby 12-function cap
+  // is untouched and no Vercel cron add-on is needed — the GitHub Actions
+  // workflow .github/workflows/ai-growth.yml drives it, exactly like the
+  // importers. Every agent it runs is still bounded, leased and idempotent, and
+  // it can only ever produce drafts.
+  if (String(req.query?.job || '') === 'agents') {
+    try {
+      const { runScheduledAgents } = await import('./_agents.js');
+      const query = req.body && typeof req.body === 'object' ? req.body : {};
+      const report = await runScheduledAgents(db, {
+        agent: String(req.query.agent || query.agent || '') || null,
+        mode: String(req.query.mode || query.mode || '') || null,
+        actor: { full_name: actor, email: null }
+      });
+      const failed = (report.results || []).filter(r => ['failed', 'locked', 'limit-reached'].includes(r.state));
+      return send(res, report.state === 'not-configured' ? 503 : 200, {
+        ...report,
+        failed: failed.length,
+        note: report.ownerAction ? `${report.note} ${report.ownerAction}` : report.note
+      });
+    } catch (e) {
+      console.error('agents job failed', e);
+      return send(res, ['missing-tables', 'permission', 'unreachable'].includes(e.state) ? 503 : 500, {
+        error: 'AI Growth run failed', details: e.message, state: e.state || null,
+        ownerAction: e.ownerAction || null
+      });
+    }
+  }
+
+  if (['machinery', 'machinery-audit', 'machinery-recover', 'machinery-doctor'].includes(String(req.query?.job || ''))) {
+    try {
+      if (req.query.job === 'machinery-recover') {
+        if (req.method !== 'POST' || req.body?.confirm !== true) return send(res, 400, {error:'Recovery needs POST with explicit confirmation'});
+        const {recoverImportedMachines} = await import('./_machinery.js');
+        return send(res, 200, {job:'machinery-recover', ...await recoverImportedMachines(db,{full_name:actor},{confirm:true})});
+      }
+      if (req.query.job === 'machinery-audit') {
+        const { readMachineryRows, machineryVisibility } = await import('./_machinery.js');
+        return send(res, 200, { job: 'machinery-audit', readOnly: true,
+          inventory: machineryVisibility(await readMachineryRows(db)) });
+      }
+      // 2026-10-11: the preflight. Runs before the refresh and answers "can
+      // this run do anything at all?" — storage present, catalogue source,
+      // hidden eligible imports, and the exact owner action when it cannot.
+      if (req.query.job === 'machinery-doctor') {
+        const { machineryDoctor } = await import('./_machinery.js');
+        const report = await machineryDoctor(db);
+        return send(res, report.ok ? 200 : 503, report);
+      }
+      return await machineryJob(db, actor, { overBudget, res });
+    } catch (e) {
+      console.error('machinery-sync failed', e);
+      // A missing table is not a crash to shrug at: it is the reason nothing
+      // has ever imported. Report it with HTTP 503 and the file to run, so the
+      // nightly workflow's log says what to do instead of only "500".
+      const storage = e.storage || null;
+      return send(res, storage ? 503 : 500, {
+        error: storage ? `Machinery storage unavailable (${storage.state})` : 'Machinery sync failed',
+        details: e.message || 'Unknown error',
+        code: e.code || null,
+        stage: e.stage || null,
+        storage,
+        ownerAction: storage?.ownerAction || null,
+        hint: storage ? storage.ownerAction
+          : ['42P01', '42703', 'PGRST205'].includes(e.code) ? 'Apply the machinery schema migration in supabase/MIGRATION-2026-10-machinery.sql and check schema compatibility.'
+          : 'Check the Vercel function log and Supabase service-role configuration.'
+      });
+    }
   }
   const report = {
     page: null, cardsSeen: 0, inserted: 0, updated: 0,
@@ -414,7 +530,8 @@ export default async function handler(req, res, injected) {
     // relay runs with an API key. When a blocked report shows
     // relayKey: 'free (no key)', the keyless relay tier is the first suspect
     // — see GOONET-SYNC.md → "The importer is blocked every run".
-    via: 'direct', relayKey: relayApiKey() ? 'configured' : 'free (no key)'
+    via: 'direct', relayKey: relayApiKey() ? 'configured' : 'free (no key)',
+    relayProxy: relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)'
   };
 
   try {
@@ -426,29 +543,240 @@ export default async function handler(req, res, injected) {
     const weeklyDelistLimit = num(s.goonet_weekly_delist_limit, 5);
     const weeklyPromoteLimit = num(s.goonet_weekly_promote_limit, 2);
     const autoPromote = bool(s.goonet_auto_promote, true);
-    const baseUrl = s.goonet_search_url || DEFAULT_SEARCH_URL;
-    const bookmark = Math.max(1, num(s.goonet_bookmark_page, 1));
+    const bodyObj = (req.body && typeof req.body === 'object') ? req.body : {};
+    const isPreview = bodyObj.preview === true || String(req.query?.preview || '') === '1';
+    const rawSelectedIds = Array.isArray(bodyObj.selectedIds) ? bodyObj.selectedIds : null;
+    if (rawSelectedIds !== null && rawSelectedIds.length === 0) {
+      return send(res, 400, { error: 'Select at least one car from the preview before importing.' });
+    }
+    const selectedIdSet = rawSelectedIds !== null
+      ? new Set(rawSelectedIds.map(id => String(id).trim()).filter(Boolean))
+      : null;
+    if (selectedIdSet !== null && selectedIdSet.size === 0) {
+      return send(res, 400, { error: 'Select at least one car from the preview before importing.' });
+    }
+    const sortOrder = (() => {
+      const raw = String(bodyObj.sort ?? req.query?.sort ?? s.goonet_sort_order ?? 'price_asc').trim().toLowerCase();
+      return ['price_asc', 'price_desc', 'source'].includes(raw) ? raw : 'price_asc';
+    })();
+    const maxPriceJpy = (() => {
+      const raw = bodyObj.maxPriceJpy ?? req.query?.maxPriceJpy ?? s.goonet_max_price_jpy;
+      const v = Number(raw);
+      return raw !== '' && raw != null && Number.isFinite(v) && v > 0 ? Math.round(v) : null;
+    })();
+    const minPriceJpy = (() => {
+      const raw = bodyObj.minPriceJpy ?? req.query?.minPriceJpy ?? s.goonet_min_price_jpy;
+      const v = Number(raw);
+      return raw !== '' && raw != null && Number.isFinite(v) && v > 0 ? Math.round(v) : null;
+    })();
+    const jpyUsdRate = (() => {
+      const r = Number(s.goonet_jpy_usd_rate);
+      return Number.isFinite(r) && r > 0 ? r : 0.0068;
+    })();
+    const requestedLimit = Number(bodyObj.limit ?? req.query?.limit);
+    const effectiveMaxNew = selectedIdSet
+      ? Math.min(24, selectedIdSet.size)
+      : (Number.isFinite(requestedLimit) && requestedLimit > 0
+        ? Math.min(24, Math.round(requestedLimit))
+        : maxNew);
+    report.sortOrder = sortOrder;
+    if (maxPriceJpy) report.maxPriceJpy = maxPriceJpy;
+    if (minPriceJpy) report.minPriceJpy = minPriceJpy;
+    // Where a passing import goes the moment it lands: the public website
+    // (site_listings), the CRM inventory (vehicles), or both. 'both' is the
+    // default so a valid scrape surfaces on the all-cars page AND in the CRM
+    // without a manual promote step. Unknown values fall back to 'both'
+    // rather than silently promoting nowhere.
+    const autoPromoteTarget = (() => {
+      const v = String(s.goonet_auto_promote_target || 'both').trim().toLowerCase();
+      return ['listings', 'vehicles', 'both'].includes(v) ? v : 'both';
+    })();
+    // Per-run promotion bound — defaults to the import bound, since a run can
+    // never need to promote more fresh rows than it just inserted. 0 is a
+    // legitimate value ("import only, promote nothing"), so num()'s >0 rule
+    // does not apply here.
+    const runPromoteLimit = (() => {
+      const n = Number(s.goonet_max_promote_per_run);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n) : effectiveMaxNew;
+    })();
+    // ---- On-demand keyword search ("Toyota Alphard 2020") -----------------
+    // The CRM can ask for ONE specific car instead of the configured search.
+    // The keyword becomes the exchange's make/model landing URL (the only
+    // server-rendered search the exchange has — free_word is ignored and
+    // maker_search answers 500, probed live 2026-11-05). Keyword runs are
+    // guests: they read page 1 of their own search, never touch the stored
+    // bookmark, and never fall back to the generic search (importing random
+    // cheap cars when someone asked for a Land Cruiser is worse than a clean
+    // "nothing found").
+    const keyword = String(
+      (bodyObj.keyword ?? bodyObj.search) ||
+      req.query?.keyword || ''
+    ).trim().slice(0, 120);
+    let kw = null;
+    if (keyword) {
+      kw = parseCarKeyword(keyword);
+      if (!kw) {
+        return send(res, 400, { error: `Could not recognize a car in "${keyword}". Try make + model, with an optional year — e.g. "Toyota Alphard 2020", "Lexus RX", "jimny".` });
+      }
+      if (!kw.modelSlug) {
+        return send(res, 400, { error: `"${keyword}" names a make but no model — the exchange only lists cars under make + model. Add the model, e.g. "${keyword} Alphard".` });
+      }
+      report.keyword = keyword;
+      report.keywordSearch = kw.url;
+      report.keywordLabel = kw.label;
+    }
+
+    // A pre-exchange goonet_search_url still points at the domestic site this
+    // host cannot reach; translate it to the equivalent exchange search.
+    const rawBaseUrl = kw ? kw.url : (translateSearchUrl(s.goonet_search_url) || DEFAULT_SEARCH_URL);
+    const baseUrl = (!kw && (maxPriceJpy || minPriceJpy))
+      ? applyExchangePriceFilter(rawBaseUrl, { maxPriceJpy, minPriceJpy })
+      : rawBaseUrl;
+    const bookmark = kw ? 1 : Math.max(1, num(s.goonet_bookmark_page, 1));
 
     // ---- 1. Crawl the bookmarked listing page -----------------------------
+    //
+    // The fetch can fail four different ways, and each gets its own bounded
+    // recovery (this used to be one opaque 502 — "Could not fetch … This
+    // operation was aborted" — that pinned the importer to a page forever):
+    //   timeout / network / 5xx → one retry after a short backoff, then one
+    //     fallback fetch of page 1 of the fallback search (within budget).
+    //   403/429 (blocked)       → NO retry, NO fallback. fetchPage already
+    //     tried the relay once; hammering the gate only makes it stickier.
+    // The bookmark NEVER advances on any recovery path, so no page is skipped.
     const pageUrl = listingPageUrlFor(baseUrl, bookmark);
-    const fetched = await fetchPage(pageUrl, { timeoutMs: 7000 });
-    if (!fetched.ok && fetched.status !== 404) {
-      return send(res, 502, { error: 'Could not fetch ' + pageUrl + (fetched.error ? ' — ' + fetched.error : '') });
+    let fetched = await fetchPage(pageUrl, { timeoutMs: 7000 });
+    let failure = classifyListingFailure(fetched);
+    let retried = false;
+    if (failure && failure.transient && !overBudget()) {
+      retried = true;
+      await new Promise(r => setTimeout(r, 600));   // one bounded backoff — not a storm
+      // Direct only: the first attempt already gave the relay its patient
+      // 20s try. Re-waiting on the same relay back-to-back buys nothing the
+      // fallback fetch below (which still carries a relay leg) does not.
+      const firstDiag = fetched.diagnostics || {};
+      fetched = await fetchPage(pageUrl, { timeoutMs: 7000, allowRelay: false });
+      // The retry carries no relay leg, so without this the failure report
+      // would claim "relay: not attempted" about a run whose FIRST attempt
+      // did try (and time out on) the relay. Keep the first attempt's relay
+      // evidence on the final diagnostics.
+      if (fetched.diagnostics && firstDiag.relayAttempted && !fetched.diagnostics.relayAttempted) {
+        for (const k of ['relayAttempted', 'relayStatus', 'relayError', 'relayTimedOut', 'relayDiagnostics']) {
+          if (firstDiag[k] !== undefined) fetched.diagnostics[k] = firstDiag[k];
+        }
+      }
+      failure = classifyListingFailure(fetched);
+    }
+    let fallbackUsed = false, fallbackUrl = null, fallbackError = null, fetchedBeforeFallbackKind = null;
+    if (failure && failure.transient && !kw && !overBudget()) {
+      fallbackUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, 1);
+      if (fallbackUrl !== pageUrl) {
+        // The fallback's relay leg gets whatever patience is left: at least
+        // the old 7s ceiling, at most the full RELAY_TIMEOUT_MS, bounded so
+        // the response still lands inside maxDuration with room to spare.
+        const fallbackRelayMs = Math.max(7000, Math.min(RELAY_TIMEOUT_MS, (RUN_BUDGET_MS + 15000) - (Date.now() - start) - 7000));
+        const fb = await fetchPage(fallbackUrl, { timeoutMs: 7000, relayTimeoutMs: fallbackRelayMs });
+        if (!classifyListingFailure(fb) && fb.status !== 404) {
+          fetchedBeforeFallbackKind = failure.kind;
+          fetched = fb;
+          fallbackUsed = true;
+          failure = null;
+        } else {
+          fallbackError = fb.error || ('HTTP ' + fb.status);
+        }
+      }
+    }
+    if (failure) {
+      if (kw) {
+        // A keyword run is a guest: its failure must not touch the scheduled
+        // crawl's stuck-bookmark counters, and its page is always page 1 of
+        // its own search — there is no bookmark to reset.
+        return send(res, 502, {
+          error: `The exchange did not answer the search for "${keyword}" (` + (failure.kind || 'fetch failed') + '). Try again in a minute.',
+          keyword, keywordSearch: kw.url
+        });
+      }
+      // Stuck-bookmark protection: count consecutive failures of the SAME
+      // page so the report can say "this is not a one-off" and name the
+      // owner action. The optional auto-reset only fires when the owner has
+      // explicitly set goonet_auto_reset_bookmark=true in site_settings.
+      const prevFailPage = String(s.goonet_fetch_fail_page || '');
+      const prevCount = Number(s.goonet_fetch_fail_count) || 0;
+      const failCount = (prevFailPage === String(bookmark) ? prevCount : 0) + 1;
+      await setSetting(db, 'goonet_fetch_fail_page', String(bookmark));
+      await setSetting(db, 'goonet_fetch_fail_count', String(failCount));
+      const autoReset = bool(s.goonet_auto_reset_bookmark, false);
+      let bookmarkReset = false;
+      if (autoReset && failCount >= 3 && bookmark > 1) {
+        await setSetting(db, 'goonet_bookmark_page', '1');
+        await setSetting(db, 'goonet_fetch_fail_count', '0');
+        bookmarkReset = true;
+      }
+      const d = fetched.diagnostics || {};
+      const relayAttempted = d.relayAttempted === true;
+      const stuck = failCount >= 3;
+      const suggestedAction = bookmarkReset
+        ? 'The bookmark was auto-reset to page 1 (goonet_auto_reset_bookmark is on) — run the import again.'
+        : failure.kind === 'blocked'
+          ? 'goo-net is refusing this host (HTTP ' + fetched.status + '). Do not retry in a loop — wait, or point goonet_search_url at a search this host can read.'
+          : stuck
+            ? 'Page ' + bookmark + ' has now failed ' + failCount + ' run(s) in a row. Reset the bookmark to page 1 (CRM → Japan dealer stock → Reset bookmark), or point goonet_search_url at a narrower search such as ' + DEFAULT_SEARCH_URL + '.'
+            : 'This looks transient — retry later. If it keeps failing on the same page, reset the bookmark from CRM → Japan dealer stock.';
+      const kindLabel = failure.kind === 'timeout' ? 'timed out (no answer within 7s)'
+        : failure.kind === 'blocked' ? 'was refused (HTTP ' + fetched.status + ')'
+        : failure.kind.startsWith('http-') ? 'answered with a server error (HTTP ' + fetched.status + ')'
+        : 'could not be reached (network failure)';
+      return send(res, 502, {
+        error: 'The listing page ' + kindLabel + ': ' + pageUrl
+          + '. The bookmark was held on page ' + bookmark + ' so no pages were skipped. ' + suggestedAction,
+        failure: {
+          kind: failure.kind,
+          pageUrl,
+          bookmarkHeldOn: bookmark,
+          bookmarkReset,
+          failCount,
+          directStatus: fetched.status ?? 0,
+          directError: fetched.error || null,
+          timedOut: fetched.timedOut === true || d.timedOut === true,
+          retried,
+          relayAttempted,
+          relayStatus: d.relayStatus ?? null,
+          relayError: d.relayError || (relayAttempted ? 'relay did not return a readable page' : 'not attempted'),
+          relayKey: relayApiKey() ? 'configured' : 'free (no key)',
+          relayProxy: relayApiKey() ? (relayProxy('jp') || 'off') : 'none (keyless tier)',
+          fallbackTried: !!fallbackUrl,
+          fallbackUrl,
+          fallbackError,
+          suggestedAction
+        }
+      });
+    }
+    // A readable answer clears the consecutive-failure counter (only when the
+    // bookmarked page itself was read — a fallback read proves nothing about it).
+    if (!isPreview && !fallbackUsed && !kw && Number(s.goonet_fetch_fail_count) > 0) {
+      await setSetting(db, 'goonet_fetch_fail_count', '0');
     }
     if (fetched.status === 404) {
+      if (kw) {
+        report.note = `The exchange has no listing page for "${keyword}" (` + kw.url + ' answered 404). The model may not be exported under that name.';
+        report.page = 1;
+        return send(res, 200, isPreview ? { ...report, ok: true, preview: true, candidates: [], readyCount: 0, wouldImport: 0 } : report);
+      }
       report.note = 'Listing page not found (maybe the search URL changed). Reset the bookmark from CRM → Japan dealer stock.';
       report.page = bookmark;
-      await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
-      return send(res, 200, report);
+      if (!isPreview) await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
+      return send(res, 200, isPreview ? { ...report, ok: true, preview: true, candidates: [], readyCount: 0, wouldImport: 0 } : report);
     }
-    let page = parseListingPage(fetched.html, pageUrl);
+    const parsedUrl = fallbackUsed ? fallbackUrl : pageUrl;
+    let page = parseListingPage(fetched.html, parsedUrl);
     let usedFetch = fetched;
 
     // Rescue: the bookmarked search can come back (nearly) empty — retry the
-    // same bookmark page against a wider, always-populated search.
-    if (page.cars.length < 2) {
+    // same bookmark page against a wider, always-populated search. (Skipped
+    // when the run already fell back to the fallback search's page 1.)
+    if (page.cars.length < 2 && !fallbackUsed && !kw) {
       const rescueUrl = listingPageUrlFor(FALLBACK_SEARCH_URL, bookmark);
-      if (rescueUrl !== pageUrl) {
+      if (rescueUrl !== pageUrl && !overBudget()) {
         const rescue = await fetchPage(rescueUrl, { timeoutMs: 7000 });
         if (rescue.ok) {
           const rescuePage = parseListingPage(rescue.html, rescueUrl);
@@ -463,10 +791,21 @@ export default async function handler(req, res, injected) {
     if (usedFetch.via === 'relay') {
       report.note = 'goo-net blocked the direct request (bot protection) — page fetched via relay.';
     }
+    if (fallbackUsed) {
+      report.fallbackUsed = true;
+      report.fallbackUrl = fallbackUrl;
+      report.note = 'The bookmarked page ' + pageUrl + ' could not be read (' + (fetchedBeforeFallbackKind || 'transient failure')
+        + (retried ? ', retried once' : '') + ') — this run read page 1 of the fallback search instead. '
+        + 'The bookmark was held on page ' + bookmark + '.';
+    }
 
     report.page = bookmark;
     report.cardsSeen = page.cars.length;
     report.via = usedFetch.via || 'direct';
+    if (kw) {
+      report.note = `On-demand search: "${keyword}" → ` + kw.url
+        + (page.cars.length ? ` — ${page.cars.length} match(es) on page 1.` : ' — the exchange lists no cars for this search right now.');
+    }
 
     // ---- Why did we see (almost) no cards? --------------------------------
     // Two unrelated failures look identical in the counts, and telling them
@@ -526,17 +865,19 @@ export default async function handler(req, res, injected) {
       // one, with the structured data named explicitly when there is not —
       // plus the charset/byte facts. The CRM surfaces it via "Copy parser
       // diagnostic" (GET /api/goonet-stock?action=diag).
-      try {
-        await setSetting(db, 'goonet_parsemiss_sample', JSON.stringify(buildParserDiagnostic({
-          html: usedFetch.html || '',
-          page: pageUrl,
-          source: usedFetch.diagnostics?.url || pageUrl,
-          via: usedFetch.via || 'direct',
-          run: blocked ? 'blocked' : 'parseMiss',
-          meta: usedFetch.meta || null
-        })));
-      } catch (e) { console.error('goonet evidence save failed', e.message); }
-    } else {
+      if (!isPreview) {
+        try {
+          await setSetting(db, 'goonet_parsemiss_sample', JSON.stringify(buildParserDiagnostic({
+            html: usedFetch.html || '',
+            page: pageUrl,
+            source: usedFetch.diagnostics?.url || pageUrl,
+            via: usedFetch.via || 'direct',
+            run: blocked ? 'blocked' : 'parseMiss',
+            meta: usedFetch.meta || null
+          })));
+        } catch (e) { console.error('goonet evidence save failed', e.message); }
+      }
+    } else if (!isPreview) {
       // A clean read (2+ cards by the regex parser) means the last stored
       // diagnostic is stale — drop it so nobody copies an old sample.
       try { await db.from('site_settings').delete().eq('key', 'goonet_parsemiss_sample'); } catch { /* evidence is best-effort */ }
@@ -564,19 +905,42 @@ export default async function handler(req, res, injected) {
       }
     }
 
-    // ---- 2. Import new cars that pass the quality gate --------------------
+    // ---- 2. Filter/sort cars by price (low to high by default) & import/preview ----
+    const pricePlan = filterAndSortCarsByPrice(page.cars, {
+      maxPriceJpy,
+      minPriceJpy,
+      sort: sortOrder,
+      jpyUsdRate
+    });
+    for (const out of pricePlan.filteredOut) {
+      report.rejected++;
+      report.skipped.push(`${out.card.stock_no || out.card.goonet_id}: ${out.reason}`);
+    }
+
     const known = await getKnownIds(db);
     const importStart = Date.now();
     const overImportBudget = () => overBudget() || Date.now() - importStart > IMPORT_BUDGET_MS;
     let imported = 0;
-    for (const card of page.cars) {
-      if (overImportBudget() || imported >= maxNew) break;
-      if (known.has(String(card.goonet_id))) { report.alreadyKnown++; continue; }
-      const blocked = await isBlocked(db, card.goonet_id);
-      if (blocked) {
+    const previewCandidates = [];
+    for (const card of pricePlan.kept) {
+      const targetCount = isPreview ? previewCandidates.length : imported;
+      if (overImportBudget() || targetCount >= effectiveMaxNew) break;
+      const cardId = String(card.goonet_id);
+      if (selectedIdSet && !selectedIdSet.has(cardId)) continue;
+      if (known.has(cardId)) { report.alreadyKnown++; continue; }
+      const cardBlocked = await isBlocked(db, card.goonet_id);
+      if (cardBlocked) {
         report.rejected++;
         report.skipped.push(`${card.stock_no}: blocked (previously deleted)`);
         continue;
+      }
+
+      // Skip obvious keyword year mismatches before spending a detail fetch.
+      if (kw && (kw.yearMin || kw.yearMax) && card.year) {
+        if ((kw.yearMin && card.year < kw.yearMin) || (kw.yearMax && card.year > kw.yearMax)) {
+          report.skipped.push(`${card.stock_no}: ${card.year} is outside the requested ${kw.yearMin === kw.yearMax ? kw.yearMin : kw.yearMin + '–' + kw.yearMax}`);
+          continue;
+        }
       }
 
       // Fetch the detail page: full gallery + specs drive the quality gate.
@@ -594,7 +958,28 @@ export default async function handler(req, res, injected) {
         report.skipped.push(`${card.stock_no}: detail fetch failed`);
         continue;
       }
-      const q = qualityScore(car, { minPhotos, minYear });
+
+      // Apply configured price ceiling/floor on the detail-merged price too.
+      const mergedPriceJpy = carPriceJpy(car, jpyUsdRate);
+      if (mergedPriceJpy !== null && maxPriceJpy && mergedPriceJpy > maxPriceJpy) {
+        report.rejected++;
+        report.skipped.push(`${card.stock_no}: price ¥${mergedPriceJpy.toLocaleString()} exceeds max ¥${maxPriceJpy.toLocaleString()}`);
+        continue;
+      }
+      if (mergedPriceJpy !== null && minPriceJpy && mergedPriceJpy < minPriceJpy) {
+        report.rejected++;
+        report.skipped.push(`${card.stock_no}: price ¥${mergedPriceJpy.toLocaleString()} below min ¥${minPriceJpy.toLocaleString()}`);
+        continue;
+      }
+      if (mergedPriceJpy) {
+        const usd = yenToUsd(mergedPriceJpy, jpyUsdRate);
+        car = { ...car, price_jpy: mergedPriceJpy, price_usd: usd, price: usdText(usd) || car.price };
+      }
+
+      // An explicit year in the keyword outranks the standing oldest-year
+      // rule: the owner who types "Hilux Surf 1997" has already decided.
+      const effectiveMinYear = (kw && kw.yearMin && kw.yearMin < minYear) ? kw.yearMin : minYear;
+      const q = qualityScore(car, { minPhotos, minYear: effectiveMinYear });
       if (!q.pass) {
         report.rejected++;
         report.skipped.push(`${card.stock_no} ${car.make || ''} ${car.model || ''} (${q.reasons.join(', ')})`);
@@ -612,6 +997,16 @@ export default async function handler(req, res, injected) {
         continue;
       }
 
+      // A keyword with a year (or range) means exactly that: "Alphard 2020"
+      // must not import a 2014. The landing URL cannot carry years, so the
+      // filter runs here on the parsed car.
+      if (kw && (kw.yearMin || kw.yearMax) && car.year) {
+        if ((kw.yearMin && car.year < kw.yearMin) || (kw.yearMax && car.year > kw.yearMax)) {
+          report.skipped.push(`${card.stock_no}: ${car.year} is outside the requested ${kw.yearMin === kw.yearMax ? kw.yearMin : kw.yearMin + '–' + kw.yearMax}`);
+          continue;
+        }
+      }
+
       // Verify all required fields
       const requiredFields = ['make', 'model', 'year', 'price_jpy', 'km', 'fuel', 'body'];
       const missingFields = requiredFields.filter(f => !car[f] || car[f] === 'Unknown' || car[f] === '');
@@ -623,8 +1018,8 @@ export default async function handler(req, res, injected) {
 
       const now = new Date().toISOString();
       const row = {
-        goonet_id: String(card.goonet_id),
-        stock_no: card.stock_no || card.goonet_id,
+        goonet_id: cardId,
+        stock_no: card.stock_no || cardId,
         make: car.make || 'Unknown', model: car.model || 'Car',
         year: car.year, km: car.km, fuel: car.fuel, body: car.body,
         price_jpy: car.price_jpy, price_usd: car.price_usd, price: car.price,
@@ -638,9 +1033,46 @@ export default async function handler(req, res, injected) {
         available: true, promoted: 'none',
         imported_at: now, last_seen_at: now, updated_at: now
       };
+      if (isPreview) {
+        previewCandidates.push({
+          ...row,
+          title: car.title || `${row.make} ${row.model}`,
+          repair_history: car.repair_history || null,
+          photos: (car.images || []).slice(0, 6)
+        });
+        continue;
+      }
       const { error } = await db.from('japan_dealer_stock').insert(row);
-      if (!error) { imported++; known.add(String(card.goonet_id)); }
+      if (!error) { imported++; known.add(cardId); }
       else if (!/duplicate/i.test(error.message)) { report.rejected++; report.skipped.push(`${card.stock_no}: ${error.message}`); }
+    }
+
+    if (isPreview) {
+      const sortedPreview = filterAndSortCarsByPrice(previewCandidates, {
+        sort: sortOrder,
+        jpyUsdRate
+      }).kept;
+      const orderText = sortOrder === 'price_asc' ? 'low to high price'
+        : sortOrder === 'price_desc' ? 'high to low price' : 'listing order';
+      const previewNote = blocked
+        ? 'goo-net is bot-gating this host right now — could not read listings for preview.'
+        : sortedPreview.length
+          ? `Preview for "${keyword || 'search'}" — ${sortedPreview.length} car${sortedPreview.length === 1 ? '' : 's'} ready to import (${orderText}). Deselect any car before importing.`
+          : (report.alreadyKnown > 0 || report.rejected > 0
+            ? `No new qualifying cars to import for "${keyword || 'search'}" on page ${bookmark} (${report.alreadyKnown} already in stock, ${report.rejected} filtered out).`
+            : report.note || `No matching cars found for "${keyword || 'search'}".`);
+      return send(res, 200, {
+        ...report,
+        ok: true,
+        preview: true,
+        blocked: blocked || false,
+        parseMiss: parseMiss || false,
+        diagnostics: thinRunDiag || null,
+        readyCount: sortedPreview.length,
+        wouldImport: sortedPreview.length,
+        candidates: sortedPreview,
+        note: previewNote
+      });
     }
     report.inserted = imported;
 
@@ -654,9 +1086,12 @@ export default async function handler(req, res, injected) {
     // An AI-fallback run read the page through the LLM, not the parser — the
     // parser may still be missing cards beyond the extraction window, so the
     // bookmark stays held exactly like a plain parse miss.
-    const advance = page.cars.length >= 2 && !llmUsed;
+    // A fallback-search run never read the bookmarked page at all, so the
+    // bookmark must stay exactly where it is — advancing it would skip the
+    // page that failed without ever importing from it.
+    const advance = !kw && page.cars.length >= 2 && !llmUsed && !fallbackUsed;
     const nextBookmark = advance ? bookmark + 1 : bookmark;
-    await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
+    if (!kw) await setSetting(db, 'goonet_bookmark_page', String(nextBookmark));
     await setSetting(db, 'goonet_last_run_at', new Date().toISOString());
     report.bookmarkAdvanced = advance;
 
@@ -711,6 +1146,42 @@ export default async function handler(req, res, injected) {
           + 'press "Copy parser diagnostic" for the saved markup sample.';
       }
       report.diagnostics = thinRunDiag;
+    }
+
+    // ---- 2b. Promote THIS RUN's fresh imports straight to the site --------
+    // A car that passes the quality gate should not sit in the provenance
+    // table waiting for the weekly sweep — it flows on to the public website
+    // and/or the CRM inventory in the same run, bounded by runPromoteLimit
+    // and the run budget. The imported_at >= run-start filter is deliberate:
+    // rows imported on earlier runs (the unpromoted backlog) are an owner
+    // decision and are never swept up by automation here. The promoted flag
+    // is only written by promoteTo* AFTER the copy lands, and both helpers
+    // upsert by stock number, so a re-run can never create duplicates.
+    if (autoPromote && imported > 0 && runPromoteLimit > 0 && !overBudget()) {
+      const runStartedAt = new Date(start).toISOString();
+      const promoOrderCol = sortOrder === 'price_asc' ? 'price_jpy' : 'quality_score';
+      const promoAsc = sortOrder === 'price_asc';
+      const { data: freshRows } = await db.from('japan_dealer_stock')
+        .select('*').eq('available', true).eq('promoted', 'none')
+        .gte('imported_at', runStartedAt)
+        .order(promoOrderCol, { ascending: promoAsc }).limit(runPromoteLimit);
+      for (const row of freshRows || []) {
+        if (overBudget()) break;
+        let copied = false;
+        if (autoPromoteTarget === 'listings' || autoPromoteTarget === 'both') {
+          // Keep the in-memory flag in step so the second copy upgrades the
+          // row to 'both' instead of downgrading it to a single destination.
+          const step = promoteToListings(db, row, actor + ' (auto-promote)')
+            .then(r => { row.promoted = r.promoted; });
+          if (await carryOn(report, step, row)) copied = true;
+        }
+        if (autoPromoteTarget === 'vehicles' || autoPromoteTarget === 'both') {
+          const step = promoteToInventory(db, row, actor + ' (auto-promote)')
+            .then(r => { row.promoted = r.promoted; });
+          if (await carryOn(report, step, row)) copied = true;
+        }
+        if (copied) report.promoted++;
+      }
     }
 
     // ---- 3. Delist check on a few existing cars ---------------------------

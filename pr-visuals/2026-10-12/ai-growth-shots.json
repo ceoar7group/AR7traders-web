@@ -1,0 +1,1506 @@
+{
+  "base": "http://127.0.0.1:5199",
+  "capturedAt": "2026-10-11T21:51:48.072Z",
+  "viewports": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "navLabels": [
+        "Overview",
+        "Leads1",
+        "Customers",
+        "Customer accounts",
+        "Cars33",
+        "Profit & sourcing",
+        "Japan dealer stock4",
+        "Quotes",
+        "Shipments",
+        "Tasks",
+        "Shipping routes",
+        "News & guides",
+        "Machinery desk13",
+        "Approvals",
+        "Team & permissions",
+        "People & payroll",
+        "Website settings",
+        "Price offers",
+        "SEO desk",
+        "AI Growth",
+        "Site guardian",
+        "Activity log"
+      ],
+      "aiGrowthNavEntry": "AI Growth",
+      "contrast": {
+        "emerald": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 14.7,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 7.33,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 12.36,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 7.24,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 4.83,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 4.83,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 8.6,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 8.6,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ],
+        "dark": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 15.97,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 8.2,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 14.18,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 7.49,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 5.37,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 5.37,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 8.44,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 8.44,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ],
+        "light": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 16.31,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 5.47,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 15.48,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 6.06,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 9.8,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 9.8,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 6.38,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 6.38,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ]
+      },
+      "measured": {
+        "banner": "AI Growth is enabled",
+        "bannerText": "Provider: formatter · model gemini-3.8-flash · tier free. Drafts are never presented as published.",
+        "tabs": [
+          "Overview",
+          "Lead workspace",
+          "SEO workspace",
+          "Social workspace"
+        ],
+        "draftCount": 3,
+        "actionButtons": [
+          {
+            "label": "Open",
+            "w": 76,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Approve",
+            "w": 93,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Reject",
+            "w": 83,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Open",
+            "w": 76,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Approve",
+            "w": 93,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Reject",
+            "w": 83,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Open",
+            "w": 76,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Execute",
+            "w": 92,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Cancel",
+            "w": 86,
+            "h": 36,
+            "visible": true
+          }
+        ],
+        "clippedButtons": [],
+        "smallTargets": [],
+        "overflowRight": 0,
+        "pageHeadHeight": 133,
+        "heading": "Lead Gen & CRM, SEO Engine and Social Media, managed from on",
+        "statusChips": [
+          "awaiting_review",
+          "awaiting_review",
+          "approved"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "navLabels": [
+        "Overview",
+        "Leads1",
+        "Customers",
+        "Customer accounts",
+        "Cars33",
+        "Profit & sourcing",
+        "Japan dealer stock4",
+        "Quotes",
+        "Shipments",
+        "Tasks",
+        "Shipping routes",
+        "News & guides",
+        "Machinery desk13",
+        "Approvals",
+        "Team & permissions",
+        "People & payroll",
+        "Website settings",
+        "Price offers",
+        "SEO desk",
+        "AI Growth",
+        "Site guardian",
+        "Activity log"
+      ],
+      "aiGrowthNavEntry": "AI Growth",
+      "contrast": {
+        "emerald": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 14.7,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 7.33,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 12.36,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 7.24,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 4.83,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 4.83,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 8.6,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 8.6,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ],
+        "dark": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 15.97,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 8.2,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 14.18,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 7.49,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 5.37,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 5.37,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 8.44,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 8.44,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ],
+        "light": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 16.31,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 5.47,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 15.48,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 6.06,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 9.8,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 9.8,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 6.38,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 6.38,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ]
+      },
+      "measured": {
+        "banner": "AI Growth is enabled",
+        "bannerText": "Provider: formatter · model gemini-3.8-flash · tier free. Drafts are never presented as published.",
+        "tabs": [
+          "Overview",
+          "Lead workspace",
+          "SEO workspace",
+          "Social workspace"
+        ],
+        "draftCount": 3,
+        "actionButtons": [
+          {
+            "label": "Open",
+            "w": 76,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Approve",
+            "w": 93,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Reject",
+            "w": 83,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Open",
+            "w": 76,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Approve",
+            "w": 93,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Reject",
+            "w": 83,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Open",
+            "w": 76,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Execute",
+            "w": 92,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Cancel",
+            "w": 86,
+            "h": 36,
+            "visible": true
+          }
+        ],
+        "clippedButtons": [],
+        "smallTargets": [],
+        "overflowRight": 0,
+        "pageHeadHeight": 153,
+        "heading": "Lead Gen & CRM, SEO Engine and Social Media, managed from on",
+        "statusChips": [
+          "awaiting_review",
+          "awaiting_review",
+          "approved"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "navLabels": [
+        "Overview",
+        "Leads1",
+        "Customers",
+        "Customer accounts",
+        "Cars33",
+        "Profit & sourcing",
+        "Japan dealer stock4",
+        "Quotes",
+        "Shipments",
+        "Tasks",
+        "Shipping routes",
+        "News & guides",
+        "Machinery desk13",
+        "Approvals",
+        "Team & permissions",
+        "People & payroll",
+        "Website settings",
+        "Price offers",
+        "SEO desk",
+        "AI Growth",
+        "Site guardian",
+        "Activity log"
+      ],
+      "aiGrowthNavEntry": "AI Growth",
+      "contrast": {
+        "emerald": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 14.7,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 7.33,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 12.36,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 7.24,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 14.7,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 4.83,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 4.83,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 8.6,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 7.24,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.94,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ],
+        "dark": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 15.97,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 8.2,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 14.18,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 7.49,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 15.97,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 5.37,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 5.37,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 8.44,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 7.49,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 6.47,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ],
+        "light": [
+          {
+            "label": "banner status",
+            "selector": ".ai-banner b",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 13,
+            "text": "AI Growth is enabled"
+          },
+          {
+            "label": "banner detail",
+            "selector": ".ai-banner span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 12.5,
+            "text": "Provider: formatter · model ge"
+          },
+          {
+            "label": "KPI number",
+            "selector": ".ai-kpis article b",
+            "ratio": 16.31,
+            "required": 3,
+            "size": 20,
+            "text": "2"
+          },
+          {
+            "label": "KPI label",
+            "selector": ".ai-kpis article span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          },
+          {
+            "label": "agent name",
+            "selector": ".ai-agent header b",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 14,
+            "text": "Lead Gen & CRM"
+          },
+          {
+            "label": "agent config key",
+            "selector": ".ai-agent dt",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "Mode"
+          },
+          {
+            "label": "agent config value",
+            "selector": ".ai-agent dd",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 12,
+            "text": "Dry run — no external effects"
+          },
+          {
+            "label": "draft chip",
+            "selector": ".ai-drafts .crm-status",
+            "ratio": 5.47,
+            "required": 4.5,
+            "size": 10,
+            "text": "awaiting_review"
+          },
+          {
+            "label": "draft title",
+            "selector": ".ai-draft-head b",
+            "ratio": 15.48,
+            "required": 4.5,
+            "size": 13.5,
+            "text": "Reply draft — Toyota Harrier e"
+          },
+          {
+            "label": "draft meta",
+            "selector": ".ai-draft-head small",
+            "ratio": 6.06,
+            "required": 4.5,
+            "size": 11,
+            "text": "Lead Gen & CRM · lead-reply · "
+          },
+          {
+            "label": "review button",
+            "selector": ".ai-draft-actions button",
+            "ratio": 16.31,
+            "required": 4.5,
+            "size": 12,
+            "text": "Open"
+          },
+          {
+            "label": "approve button",
+            "selector": ".ai-draft-actions .save",
+            "ratio": 9.8,
+            "required": 4.5,
+            "size": 12,
+            "text": "Approve"
+          },
+          {
+            "label": "workspace tab",
+            "selector": ".ai-tabs button",
+            "ratio": 9.8,
+            "required": 4.5,
+            "size": 12,
+            "text": "Overview"
+          },
+          {
+            "label": "panel explanation",
+            "selector": ".ai-panel .crm-hint",
+            "ratio": 6.38,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "Input scope, timing, step outc"
+          },
+          {
+            "label": "job row meta",
+            "selector": ".ai-table-wrap td small",
+            "ratio": 6.06,
+            "required": 4.5,
+            "size": 10.5,
+            "text": "dev-run- · manual"
+          },
+          {
+            "label": "KPI caption",
+            "selector": ".ai-kpis article span",
+            "ratio": 4.61,
+            "required": 4.5,
+            "size": 11.5,
+            "text": "awaiting review"
+          }
+        ]
+      },
+      "measured": {
+        "banner": "AI Growth is enabled",
+        "bannerText": "Provider: formatter · model gemini-3.8-flash · tier free. Drafts are never presented as published.",
+        "tabs": [
+          "Overview",
+          "Lead workspace",
+          "SEO workspace",
+          "Social workspace"
+        ],
+        "draftCount": 3,
+        "actionButtons": [
+          {
+            "label": "Open",
+            "w": 88,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Approve",
+            "w": 102,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Reject",
+            "w": 92,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Open",
+            "w": 88,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Approve",
+            "w": 102,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Reject",
+            "w": 92,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Open",
+            "w": 88,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Execute",
+            "w": 100,
+            "h": 36,
+            "visible": true
+          },
+          {
+            "label": "Cancel",
+            "w": 94,
+            "h": 36,
+            "visible": true
+          }
+        ],
+        "clippedButtons": [],
+        "smallTargets": [],
+        "overflowRight": 0,
+        "pageHeadHeight": 240,
+        "heading": "Lead Gen & CRM, SEO Engine and Social Media, managed from on",
+        "statusChips": [
+          "awaiting_review",
+          "awaiting_review",
+          "approved"
+        ]
+      }
+    }
+  ]
+}

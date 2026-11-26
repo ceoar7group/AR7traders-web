@@ -45,78 +45,6 @@
   border-top:1px solid var(--line);color:var(--muted);font-size:9.5px;line-height:1.5}
 .ar7cur-menu-foot svg{width:11px;flex:none;margin-top:1px;color:var(--gold)}
 
-/* ---- CRM top-bar currency picker -------------------------------------- */
-.ar7cur-crm-pill{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 9px;
-  border:1px solid var(--crm-border,var(--line));border-radius:10px;
-  background:var(--crm-panel,var(--card));color:var(--crm-ink,var(--ink));cursor:pointer}
-.ar7cur-crm-pill svg{width:14px;color:var(--crm-gold,var(--gold))}
-.ar7cur-crm-pill select{border:0;background:none;color:inherit;font:700 12px inherit;
-  outline:none;cursor:pointer;padding-right:2px}
-.ar7cur-crm-pill select option{color:#102018}
-
-/* ---- Ledger forms: amount + currency entry ----------------------------- */
-.ar7cur-amount label{display:grid;gap:7px}
-.ar7cur-amount-row{display:grid;grid-template-columns:1fr 118px;gap:8px}
-.ar7cur-amount-row input,.ar7cur-amount-row select{
-  height:46px;border:1px solid var(--crm-border,var(--line));
-  background:var(--crm-input-bg,var(--bg));border-radius:10px;padding:0 12px;
-  color:var(--crm-ink,var(--ink));font:500 13px 'Manrope';outline:none;width:100%}
-.ar7cur-amount-row input:focus,.ar7cur-amount-row select:focus{border-color:var(--crm-gold,var(--gold))}
-.ar7cur-conv{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-  color:var(--crm-muted,var(--muted));font-size:10.5px}
-.ar7cur-conv b{color:var(--crm-gold,var(--gold))}
-
-/* ---- Original-currency badge on ledger rows --------------------------- */
-.ar7cur-badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:7px;
-  border:1px solid var(--crm-border,var(--line));border-radius:999px;
-  background:color-mix(in srgb,var(--crm-gold,var(--gold)) 14%,transparent);
-  color:var(--crm-ink,var(--ink));font:700 10.5px 'Manrope';white-space:nowrap}
-
-/* ---- CRM settings: exchange rate manager ------------------------------- */
-.ar7cur-rates{margin-top:28px;border:1px solid var(--crm-border,var(--line));border-radius:16px;
-  background:var(--crm-panel,var(--card));padding:22px}
-.ar7cur-rates-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
-.ar7cur-rates-head small{font:700 9px 'Manrope';letter-spacing:1.8px;color:var(--crm-gold,var(--gold))}
-.ar7cur-rates-head h3{margin:6px 0 4px;font-size:19px;letter-spacing:-.5px;color:var(--crm-ink,var(--ink))}
-.ar7cur-rates-head p{margin:0;font-size:12px;color:var(--crm-muted,var(--muted));line-height:1.6}
-.ar7cur-reset{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;
-  border:1px solid var(--crm-border,var(--line));border-radius:9px;background:none;
-  color:var(--crm-ink,var(--ink));font:700 11px 'Manrope';cursor:pointer;white-space:nowrap}
-.ar7cur-reset:hover{border-color:var(--crm-gold,var(--gold))}
-
-.ar7cur-rates-grid{display:grid;gap:6px}
-.ar7cur-rates-row{display:grid;grid-template-columns:minmax(150px,1.05fr) minmax(170px,1.25fr) minmax(130px,1fr);
-  align-items:center;gap:14px;padding:9px 12px;border-radius:11px;
-  border:1px solid var(--crm-border-subtle,var(--line))}
-.ar7cur-rates-row.base{background:color-mix(in srgb,var(--crm-primary,var(--green)) 9%,transparent)}
-.ar7cur-rates-cur{display:flex;align-items:center;gap:9px;min-width:0}
-.ar7cur-rates-cur i{font-style:normal;font-size:17px}
-.ar7cur-rates-cur b{font-size:13px;color:var(--crm-ink,var(--ink))}
-.ar7cur-rates-cur small{font-size:10px;color:var(--crm-muted,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ar7cur-rates-input{display:flex;align-items:center;gap:8px}
-.ar7cur-rates-input em{font-style:normal;font-size:10.5px;color:var(--crm-muted,var(--muted));white-space:nowrap}
-.ar7cur-rates-input input{width:100%;min-width:70px;height:36px;padding:0 10px;border-radius:8px;
-  border:1px solid var(--crm-border,var(--line));background:var(--crm-input-bg,var(--bg));
-  color:var(--crm-ink,var(--ink));font:700 12.5px 'Manrope';outline:none;text-align:right}
-.ar7cur-rates-input input:focus{border-color:var(--crm-gold,var(--gold))}
-.ar7cur-rates-input input:disabled{opacity:.55;cursor:not-allowed}
-.ar7cur-rates-input b{font-size:11px;color:var(--crm-muted,var(--muted))}
-.ar7cur-rates-fixed{font:700 12.5px 'Manrope';color:var(--crm-ink,var(--ink))}
-.ar7cur-rates-fixed em{font-style:normal;font-size:10px;color:var(--crm-muted,var(--muted));margin-left:4px}
-.ar7cur-rates-note{display:flex;align-items:center;gap:6px;justify-self:end;
-  font:600 11px 'Manrope';color:var(--crm-muted,var(--muted));white-space:nowrap}
-.ar7cur-rates-note svg{width:12px;color:var(--crm-gold,var(--gold))}
-
-.ar7cur-rates-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;
-  margin-top:16px;padding-top:14px;border-top:1px solid var(--crm-border-subtle,var(--line))}
-.ar7cur-rates-foot small{display:flex;align-items:center;gap:6px;color:var(--crm-muted,var(--muted));font-size:10.5px;line-height:1.5}
-.ar7cur-rates-foot small svg{width:12px;flex:none;color:var(--crm-gold,var(--gold))}
-.ar7cur-rates-foot .save{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;
-  border:0;border-radius:10px;background:var(--crm-primary,var(--green));color:var(--crm-primary-text,#fff);
-  font:700 12px 'Manrope';cursor:pointer;white-space:nowrap}
-.ar7cur-rates-foot .save:disabled{opacity:.5;cursor:not-allowed}
-.ar7cur-rates-locked{margin:14px 0 0}
-
 /* ---- Portal: conversion footnote --------------------------------------- */
 .ar7cur-note{display:flex;align-items:flex-start;gap:9px;margin:14px 0 0;padding:12px 14px;
   border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:11.5px;line-height:1.6}
@@ -124,20 +52,4 @@
 
 @media(max-width:720px){
   .ar7cur-menu{right:auto;left:50%;transform:translateX(-50%)}
-  .ar7cur-rates-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
-  .ar7cur-rates-note{grid-column:1/-1;justify-self:start}
-  .ar7cur-rates-head{flex-direction:column}
-  .ar7cur-rates-foot{flex-direction:column;align-items:stretch}
-  .ar7cur-rates-foot .save{justify-content:center}
 }
-
-/* ---- CRM rate control modal --------------------------------------------- */
-.ar7cur-rates-launch{margin-top:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 24px;border:1px solid var(--crm-border,var(--line));border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--crm-panel,var(--card)) 92%,var(--crm-gold,var(--gold))),var(--crm-panel,var(--card)))}
-.ar7cur-rates-launch small,.ar7cur-section-label span{font:700 9px Manrope;letter-spacing:1.7px;color:var(--crm-gold,var(--gold))}.ar7cur-rates-launch h3{margin:6px 0 3px;color:var(--crm-ink,var(--ink))}.ar7cur-rates-launch p{margin:0;color:var(--crm-muted,var(--muted));font-size:12px}.ar7cur-rates-launch em{display:block;margin-top:7px;color:var(--crm-muted,var(--muted));font-size:10px}.ar7cur-rates-launch button{height:40px;padding:0 16px;border:0;border-radius:10px;display:flex;align-items:center;gap:8px;background:var(--crm-primary,var(--green));color:#fff;font:700 11px Manrope;cursor:pointer;white-space:nowrap}
-.ar7cur-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:rgba(2,12,8,.76);backdrop-filter:blur(12px)}
-.ar7cur-modal{width:min(1040px,96vw);max-height:92vh;overflow:auto;margin:0;padding:26px;box-shadow:0 40px 110px rgba(0,0,0,.48)}
-.ar7cur-modal-actions{display:flex;gap:8px}.ar7cur-modal-close{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--crm-border,var(--line));border-radius:9px;background:transparent;color:var(--crm-ink,var(--ink));cursor:pointer}
-.ar7cur-matrix{overflow:auto;margin:0 0 22px;border:1px solid var(--crm-border-subtle,var(--line));border-radius:13px}.ar7cur-matrix-row{min-width:650px;display:grid;grid-template-columns:1.3fr repeat(5,1fr);border-top:1px solid var(--crm-border-subtle,var(--line))}.ar7cur-matrix-row:first-child{border:0}.ar7cur-matrix-row>*{padding:9px 12px;text-align:right;color:var(--crm-ink,var(--ink));font-size:11px}.ar7cur-matrix-row>*+*{border-left:1px solid var(--crm-border-subtle,var(--line))}.ar7cur-matrix-row>b:first-child{text-align:left;display:flex;align-items:center;gap:7px}.ar7cur-matrix-row.head{background:color-mix(in srgb,var(--crm-gold,var(--gold)) 10%,transparent)}.ar7cur-matrix-row.head b{font-size:9px;letter-spacing:1px;color:var(--crm-muted,var(--muted))}
-.ar7cur-section-label{margin:20px 0 9px;display:flex;align-items:center;justify-content:space-between}.ar7cur-section-label small{font-size:10px;color:var(--crm-muted,var(--muted))}
-.ar7cur-sim-grid{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:8px}.ar7cur-sim-grid article{display:grid;grid-template-columns:auto 1fr;gap:5px 8px;padding:12px;border:1px solid var(--crm-border-subtle,var(--line));border-radius:11px;background:color-mix(in srgb,var(--crm-panel,var(--card)) 92%,transparent)}.ar7cur-sim-grid article small{align-self:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--crm-muted,var(--muted));font-size:9px}.ar7cur-sim-grid article b,.ar7cur-sim-grid article em{grid-column:1/-1}.ar7cur-sim-grid article b{font-size:13px;color:var(--crm-ink,var(--ink))}.ar7cur-sim-grid article em{font:500 9px Manrope;color:var(--crm-muted,var(--muted))}
-@media(max-width:760px){.ar7cur-rates-launch{align-items:flex-start;flex-direction:column}.ar7cur-modal-backdrop{padding:8px}.ar7cur-modal{padding:16px}.ar7cur-sim-grid{grid-template-columns:repeat(2,1fr)}}

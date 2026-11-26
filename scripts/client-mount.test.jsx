@@ -64,7 +64,14 @@ setGlobal('dispatchEvent', dom.window.dispatchEvent.bind(dom.window));
 // jsdom ships a real localStorage/sessionStorage for the url we gave it.
 setGlobal('localStorage', dom.window.localStorage);
 setGlobal('sessionStorage', dom.window.sessionStorage);
-setGlobal('fetch', () => Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' }));
+let resolveArticles;
+const articleResponse = new Promise(resolve => { resolveArticles = resolve; });
+setGlobal('fetch', url => {
+  if (String(url).includes('entity=articles')) return articleResponse;
+  // An unrelated stalled stock feed must not prevent article hydration.
+  if (String(url).includes('/api/goonet-stock?')) return new Promise(() => {});
+  return Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' });
+});
 
 const React = (await import('react')).default;
 const { act } = await import('react');
@@ -118,13 +125,51 @@ let unmounted = false;
 ok(!crash(), 'the site mounts without the boot error boundary');
 ok(document.querySelector('.site'), 'the site shell renders');
 {
-  const stockLinks = [...document.querySelectorAll('.hero-copy .hero-vignettes a')];
-  ok(stockLinks.length === 2 && /Cars/.test(stockLinks[0]?.textContent) && /Japan stock/.test(stockLinks[0]?.textContent),
-    'the hero clearly links to Cars / Japan stock from the hero-copy column');
-  ok(stockLinks.length === 2 && /Machines/.test(stockLinks[1]?.textContent) && /China desk/.test(stockLinks[1]?.textContent),
-    'the hero clearly links to Machines / China desk from the hero-copy column');
+  await goto('/news/live-article-from-the-database');
+  ok(!!document.querySelector('.article-missing'), 'a not-yet-loaded live article initially uses the fallback state');
+  await act(async () => {
+    resolveArticles({ok: true, json: async () => [
+      {id:'live-news-test', title:'Live article from the database', category:'MARKET WATCH', date:'Nov 16, 2026', read_min:3, image:'/assets/og/help.jpg', excerpt:'Published test guide', body:'Live article body.', published:true},
+      {id:'private-news-test', title:'Unpublished test draft', category:'MARKET WATCH', body:'Private draft', published:false}
+    ]});
+    await new Promise(r => setTimeout(r, 50));
+  });
+  ok(document.querySelector('.news-article h2')?.textContent === 'Live article from the database', 'live article deep link loads after the article response, even while stock is stalled');
+  await goto('/news');
+  ok([...document.querySelectorAll('.news-card h2')].some(el => el.textContent === 'Live article from the database'), 'published database article appears on the public guide list');
+  ok(!document.body.textContent.includes('Unpublished test draft'), 'unpublished articles are not displayed');
+  ok([...document.querySelectorAll('.news-card h2')].some(el => el.textContent === 'Checking your Japanese vehicle export documents'), 'built-in guides remain available alongside live articles');
+  await goto('/');
+}
+{
+  // 2026-10-07 hero rebuild: the `.hero-vignettes` chip pair is gone. Both
+  // desks are still one click away — as the hero's own two CTA anchors, which
+  // unlike the old `onClick={()=>go('inventory')}` button are real hrefs, so
+  // Ctrl/Cmd-click, middle-click and crawlers all work.
+  // 2026-11-10 hero v3: the CTA row moved into the stage foot band under the
+  // photograph, merged with the facts chips into one horizontal strip.
+  const stockLinks = [...document.querySelectorAll('.hero .stage-foot .hero-cta a')];
+  ok(stockLinks.length === 2, `the hero CTA row is two real anchors (got ${stockLinks.length})`);
   ok(stockLinks[0]?.getAttribute('href') === '/inventory' && stockLinks[1]?.getAttribute('href') === '/machinery',
-    'both origin links are keyboard-focusable same-site links to their real desks');
+    'both desks are keyboard-focusable same-site anchors to their real pages');
+  ok(stockLinks.every(a => a.classList.contains('primary') || a.classList.contains('ghost-btn')),
+    'the two anchors keep the hero CTA styling, not a bare text link');
+  ok(!document.querySelector('.hero-copy .hero-vignettes'),
+    'the duplicated vignette chips no longer float over the photograph');
+  // 2026-11-10 hero v3: the facts row lives in the stage's foot band under
+  // the photograph (.stage-foot) — nothing is layered on the stage photograph.
+  const facts = document.querySelector('.hero .stage-foot .hero-facts');
+  ok(!!facts, 'the hero renders its facts row inside the stage foot band');
+  ok(!!facts?.querySelector('.route-strip') && !!facts?.querySelector('.auction-chip'),
+    'the facts row carries the shipping-lane strip and the next-auction chip');
+  ok(!document.querySelector('.hero-visual .floating-card') && !document.querySelector('.hero-visual .floating-badge'),
+    'no card or badge is absolutely positioned on the vehicle photograph');
+  ok(!document.querySelector('.hero-visual .spark'), 'the six decorative sparkles are gone from the photo box');
+  ok((facts?.textContent || '').includes('Shipping lane · ') && (facts?.textContent || '').includes('Next auction · '),
+    'both facts cards label themselves');
+  // 2026-11-09 (owner direction): the "sample" tag was removed from both cards.
+  ok((facts?.querySelectorAll('.card-demo') || []).length === 0,
+    'neither facts card carries the retired "sample" tag');
   const counter = document.querySelector('.hero-card .car-counter');
   const before = counter?.textContent.trim();
   const next = document.querySelector('.hero-carousel-controls button[aria-label="Next"]');
@@ -136,16 +181,48 @@ ok(document.querySelector('.site'), 'the site shell renders');
   if (previous) await act(async () => { previous.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
 }
 
+// Homepage car actions remain independent of the full-card detail link.
+{
+  const card = document.querySelector('#inventory .home-car-card');
+  const cover = card?.querySelector('.home-car-cover-link');
+  const detail = card?.querySelector('.home-car-details');
+  const wa = card?.querySelector('.card-wa');
+  const offer = card?.querySelector('.card-offer');
+  const fav = card?.querySelector('.fav');
+  const href = cover?.getAttribute('href');
+  const ref = href?.split('/').pop();
+  ok(!!card && !!href && detail?.getAttribute('href') === href, 'home vehicle card and Details link target the same real vehicle');
+  ok(wa?.tagName === 'A' && wa.target === '_blank' && wa.rel.includes('noopener') && decodeURIComponent(wa.href).includes(ref), 'WhatsApp is a safe link prefilled with the selected stock reference');
+  ok(!!offer && !!fav && !card.querySelector('a button, a a'), 'offer and favourite controls are not nested inside links');
+  if (fav) {
+    const before = fav.getAttribute('aria-pressed');
+    await act(async () => { fav.click(); });
+    ok(fav.getAttribute('aria-pressed') !== before && location.pathname === '/', 'favourite toggles without navigating');
+    await act(async () => { fav.click(); });
+  }
+  if (offer) {
+    await act(async () => { offer.click(); await new Promise(r => setTimeout(r, 250)); });
+    ok(location.pathname === '/' && !!document.querySelector('.enquiry-modal'), 'Make offer opens a dialog without navigating');
+    ok(document.querySelector('.enquiry-modal input[name="stock_ref"]')?.value === ref && document.querySelector('.enquiry-modal input[name="vehicle_interest"]')?.value.includes(ref), 'offer form carries the exact vehicle reference');
+    await act(async () => { document.querySelector('.enquiry-modal .modal-x')?.click(); });
+  }
+  if (detail) {
+    await act(async () => { detail.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true, cancelable:true})); });
+    ok(location.pathname === href, 'Details opens the selected vehicle');
+    await goto('/');
+  }
+}
+
 // ---- navigate every route, back and forth ----------------------------------
 // path -> text that must be on screen once we get there. Without this, a
 // navigation that silently fails would pass the "keeps the app alive" check.
 const ROUTES = [
-  ['/', 'Cars from Japan'],
+  ['/', 'Any vehicle. Any machine.'], // 2026-11-10 round 5: headline rewritten — scope in six words, drive sides live in the lead
   ['/inventory', 'inv-toolbar'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],   // retired page: resolves to the merged /inventory list
   ['/services', 'AR7 SERVICE'],
   ['/machinery', 'Machines sourced from China'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],
   ['/brands', 'brands'],
   ['/tools', 'Calculator'],
   ['/auction', 'AUCTION'],
@@ -156,12 +233,17 @@ const ROUTES = [
   ['/faq', 'POPULAR QUESTIONS'],
   ['/about', 'ABOUT'],
   ['/contact', 'Contact'],
-  ['/destinations', 'DEMO ROUTE CALCULATOR'],
+  // 2026-11-08: the hub's kicker dropped the word "demo" from visible copy.
+  ['/destinations', 'ROUTE FINDER'],
+  // 2026-10-08: each market has its own page; mounting it must show that
+  // market's H1, not the hub's picker.
+  ['/destinations/kenya', 'Import a used car from Japan to Kenya'],
+  ['/destinations/united-kingdom', 'Import a used car from Japan to United Kingdom'],
   ['/world', 'world-page'],
   ['/account', 'AR7'],
   ['/studio', 'AR7'],
   ['/portal', 'portal-demo'],
-  ['/japan-stock', 'LIVE JAPAN DEALER STOCK'],
+  ['/japan-stock', 'inv-toolbar'],
   ['/crm', 'crm-'],
   ['/inventory', 'inv-toolbar'],
   ['/services', 'AR7 SERVICE']
@@ -172,6 +254,13 @@ for (const [path, marker] of ROUTES) {
   ok(!crash(), `navigating to ${path} keeps the app alive`);
   ok(markup.includes(marker), `${path} actually shows its own content ("${marker}")`);
 }
+// Google sign-in is deferred: neither account tab should offer the option.
+await goto('/account');
+ok(!document.body.textContent.includes('Continue with Google'), 'login does not show the deferred Google option');
+const signupTab = document.querySelector('.account-tabs button');
+if (signupTab) await act(async () => { signupTab.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+ok(!!document.querySelector('input[name="password"]') && !document.body.textContent.includes('Continue with Google'),
+  'signup keeps its email/password form without the Google option');
 ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 0,
   `no hook-order violations while navigating${errors.some(e => /hook/i.test(e)) ? ' — ' + errors.find(e => /hook/i.test(e)) : ''}`);
 
@@ -184,12 +273,16 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   if (invBtn) {
     await act(async () => { invBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
     ok(invBtn.getAttribute('aria-expanded') === 'true', 'clicking Inventory sets aria-expanded');
+    // /japan-stock is retired: the dropdown carries no link to it any more,
+    // and imported dealer cars live in All Inventory.
     const jpLink = [...document.querySelectorAll('.inventory-panel a')].find(a => (a.textContent || '').trim() === 'Japan dealer stock');
-    ok(!!jpLink, 'Japan dealer stock is in the Inventory dropdown');
-    if (jpLink) {
-      await act(async () => { jpLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
-      ok(location.pathname === '/japan-stock' || document.body.textContent.includes('LIVE JAPAN DEALER STOCK'),
-        'clicking Japan dealer stock lands on the Japan dealer stock page');
+    ok(!jpLink, 'the retired Japan dealer stock page is no longer linked from the Inventory dropdown');
+    const invLink = [...document.querySelectorAll('.inventory-panel a')].find(a => (a.textContent || '').trim() === 'All Inventory');
+    ok(!!invLink, 'All Inventory is in the Inventory dropdown');
+    if (invLink) {
+      await act(async () => { invLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); });
+      ok(location.pathname === '/inventory' || document.body.innerHTML.includes('inv-toolbar'),
+        'clicking All Inventory lands on the merged inventory page');
     }
     await act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     ok(invBtn.getAttribute('aria-expanded') === 'false', 'Escape closes the Inventory panel');
@@ -227,6 +320,37 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   }
 }
 
+// Model landing routes keep their full URL across navigation, hash updates and remount.
+{
+  await goto('/cars/toyota/prius');
+  ok(location.pathname === '/cars/toyota/prius', 'popstate preserves the model landing path');
+  await act(async () => { location.hash = '#/inventory'; dom.window.dispatchEvent(new dom.window.HashChangeEvent('hashchange')); });
+  ok(location.pathname === '/cars/toyota/prius', 'hash handling preserves the model landing path');
+  const modelRoot = await boot();
+  ok(location.pathname === '/cars/toyota/prius', 'initial mount and refresh preserve the model landing path');
+  await act(async () => { modelRoot.unmount(); });
+  await goto('/inventory');
+  await goto('/cars/toyota/prius#/inventory');
+  ok(location.pathname === '/cars/toyota/prius', 'returning to the model page preserves the path');
+}
+
+// The showroom must not bury Japan inventory under every curated car.
+{
+  await goto('/inventory');
+  let showroom = document.querySelector('.showroom-group');
+  ok(!!showroom && showroom.querySelectorAll('.car-card').length === 6, 'showroom initially renders six cards');
+  let more = showroom?.querySelector('.showroom-more button');
+  ok(!!more && /View more/.test(more.textContent), 'showroom offers a view-more action');
+  if (more) await act(async () => { more.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+  ok(showroom?.querySelectorAll('.car-card').length === 12, 'view more adds six cards');
+  more = showroom?.querySelector('.showroom-more button');
+  if (more && /View more/.test(more.textContent)) await act(async () => { more.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+  more = showroom?.querySelector('.showroom-more button');
+  ok(!!more && /Show fewer/.test(more.textContent), 'expanded showroom can be collapsed');
+  if (more) await act(async () => { more.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+  ok(showroom?.querySelectorAll('.car-card').length === 6, 'collapse restores six cards');
+}
+
 // ---- back navigation from a car details page returns to inventory ----------
 {
   const { cars } = await import('../src/main.jsx');
@@ -241,7 +365,25 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(!!gallery && !gallery.querySelector('.detail-orb, .hero-orb'), 'vehicle detail photos no longer carry the decorative globe');
     ok(!!gallery?.querySelector('.detail-main-image img') && !!gallery.querySelector('.detail-gallery-toolbar .gallery-expand'),
       'the main vehicle photo and enlarge control remain available');
-    const enlarge = gallery?.querySelector('.gallery-expand');
+    const nextPhoto = gallery?.querySelector('.detail-gallery-toolbar .gallery-arrow.next');
+    const mainPhoto = gallery?.querySelector('.detail-main-image img');
+    ok(gallery?.querySelectorAll('.detail-main-image button').length === 0, 'the main image has no duplicate overlay arrows');
+    if (nextPhoto && mainPhoto) {
+      const before = mainPhoto.getAttribute('src');
+      await act(async () => { nextPhoto.dispatchEvent(new dom.window.MouseEvent('click', {bubbles:true})); });
+      const after = mainPhoto.getAttribute('src');
+      ok(before !== after, 'clicking the gallery toolbar next arrow changes the vehicle photo');
+      await act(async () => { window.dispatchEvent(new dom.window.KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true,cancelable:true})); });
+      ok(mainPhoto.getAttribute('src') === before, 'keyboard left arrow returns to the previous photo');
+    } else ok(false, 'multiple-photo vehicle shows a next arrow in the gallery toolbar');
+    const nextVehicle = document.querySelector('.detail-vehicle-nav button:last-child');
+    ok(!!nextVehicle && !nextVehicle.disabled, 'vehicle details offer a next vehicle control');
+    if(nextVehicle && !nextVehicle.disabled){
+      await act(async()=>{nextVehicle.dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true}));});
+      ok(dom.window.location.pathname.includes(encodeURIComponent(cars[1].stock_no)), 'next vehicle opens the next inventory listing');
+      await goto('/inventory/' + encodeURIComponent(stock));
+    }
+    const enlarge = document.querySelector('.detail-gallery .gallery-expand');
     if (enlarge) await act(async () => { enlarge.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
     ok(!!document.querySelector('.gallery-lightbox[role="dialog"]'), 'the gallery zoom/lightbox still opens from vehicle details');
     const closeLightbox = document.querySelector('.lightbox-close');
@@ -303,6 +445,26 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(dom.window.location.pathname === relatedHref && relatedHref !== path,
       `a related-machine link opens that machine (${dom.window.location.pathname})`);
     ok(!!document.querySelector('.mch-detail-page'), 'and still renders a machine detail page');
+  }
+
+  // The detail page's enquiry buttons must actually open the dialog — the
+  // owner reported "Request a quotation" doing nothing in production
+  // (2026-11-04; a stale-deploy chunk failure). This pins the happy path end
+  // to end: click → enquiry dialog with the machinery copy.
+  await goto(path);
+  ok(!!document.querySelector('.mch-crumbs'),
+    'the machine page shows a breadcrumb trail (Machinery / type / ref)');
+  const quoteBtn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Request a quotation');
+  ok(!!quoteBtn, 'the detail page offers a Request a quotation button');
+  if (quoteBtn) {
+    await act(async () => { quoteBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    await act(async () => { await new Promise(r => setTimeout(r, 250)); });
+    ok(!!document.querySelector('.modal-backdrop'), 'clicking it opens the enquiry dialog');
+    ok(document.body.textContent.includes('Request a machinery quotation'),
+      'and the dialog carries the machinery-desk copy, not the generic contact form');
+    const closeBtn = document.querySelector('.modal-x');
+    if (closeBtn) await act(async () => { closeBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    ok(!document.querySelector('.modal-backdrop'), 'the dialog closes cleanly');
   }
 
   // Ctrl/Cmd-click must NOT be hijacked: that is how a buyer opens a machine
@@ -495,6 +657,22 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   ok(document.body.textContent.includes(cars[0].model), 'the same deep link still resolves after a remount');
   await act(async () => { root2.unmount(); });
   unmounted = true;
+}
+
+// Saved refs resolve against the live inventory, including missing listings.
+{
+  const { SavedCars } = await import('../src/customer-portal.jsx');
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ok:true,json:async()=>({refs:['STOCK-1','REMOVED']})});
+  const node = document.createElement('div'); document.body.appendChild(node);
+  const cardRoot = createRoot(node);
+  try {
+    await act(async()=>{cardRoot.render(React.createElement(SavedCars,{session:{access_token:'test'},navigate:()=>{},cars:[{id:1,stock_no:'STOCK-1',year:2020,make:'Toyota',model:'Prius',km:'32,000',price:'$9,000',image:'/assets/ar7-mark-128.webp'}]}));});
+    ok(node.textContent.includes('2020 Toyota Prius') && node.textContent.includes('$9,000') && node.querySelector('img'),
+      'saved car card shows its actual name, price and photo');
+    ok(node.querySelector('a[href="/inventory/STOCK-1"]') && node.textContent.includes('REMOVED') && node.textContent.includes('Not found in the current inventory'),
+      'saved cards link to available vehicles and retain an honest missing listing state');
+  } finally {await act(async()=>{cardRoot.unmount()});node.remove();globalThis.fetch=oldFetch;}
 }
 
 console.error = realError;

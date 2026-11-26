@@ -7,7 +7,17 @@
 import React, {useEffect, useState} from 'react';
 import {useSettings, waLink} from './site-settings.js';
 import {WhatsAppIcon} from './brand-icons.jsx';
-import {supabase, hasSupabase} from './supabase-client.js';
+
+// 2026-11-08 Lighthouse round: this module is in the always-loaded bundle
+// (main.jsx imports the session hook for the header), and it used to import
+// supabase-client.js statically — which dragged the whole @supabase/supabase-js
+// vendor chunk (~50 kB raw) into every visitor's first load just to ask
+// "is someone signed in?". The client is now imported dynamically after
+// mount, so the vendor code downloads off the critical path; the /account
+// and /crm chunks keep their static imports and share the same module
+// instance (one GoTrueClient, as before).
+const SUPABASE_CONFIGURED =
+  !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
 /* ------------------------------------------------------------------ */
 /*  Floating WhatsApp button — on every page, gently pulsing           */
@@ -33,16 +43,51 @@ export function WhatsAppButton(){
 /* ------------------------------------------------------------------ */
 export function useCustomerSession(){
  const [session,setSession] = useState(null);
- const [ready,setReady] = useState(!hasSupabase);
+ const [ready,setReady] = useState(!SUPABASE_CONFIGURED);
  const [recovery,setRecovery] = useState(false);
  useEffect(()=>{
-  if(!supabase){setReady(true);return}
-  supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});
-  const {data:{subscription}} = supabase.auth.onAuthStateChange((event,s)=>{
-    setSession(s);
-    if(event==='PASSWORD_RECOVERY') setRecovery(true);
-  });
-  return ()=>subscription.unsubscribe();
+  if(!SUPABASE_CONFIGURED){setReady(true);return}
+  // 2026-11-17 (Lighthouse mobile: vendor-supabase ~51KB of unused JS on the
+  // home page): the auth bundle used to load at startup for EVERY visitor,
+  // though an anonymous one has no session to restore. It now loads up front
+  // only when there is something to do right away — a stored `sb-*-auth-token`
+  // (returning signed-in buyer) or an auth redirect in the URL (password
+  // recovery hash / PKCE ?code=). Everyone else gets it lazily on their first
+  // tap or keypress, long before any sign-in form can be reached.
+  let alive=true,subscription=null,started=false;
+  const start=()=>{
+   if(started||!alive)return;started=true;
+   import('./supabase-client.js').then(({supabase})=>{
+    if(!alive||!supabase){setReady(true);return}
+    supabase.auth.getSession().then(({data})=>{if(!alive)return;setSession(data.session);setReady(true)});
+    const res = supabase.auth.onAuthStateChange((event,s)=>{
+     if(!alive)return;
+     setSession(s);
+     if(event==='PASSWORD_RECOVERY') setRecovery(true);
+    });
+    subscription = res.data.subscription;
+   }).catch(()=>{if(alive)setReady(true)});
+  };
+  const hasToken=(()=>{
+   try{
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('sb-')&&k.endsWith('-auth-token'))return true}
+   }catch{/* storage blocked: treat as anonymous */}
+   return false;
+  })();
+  const authUrl=/access_token|type=recovery/.test(String(location.hash||''))||/[?&]code=/.test(String(location.search||''));
+  let onFirst=null;
+  if(hasToken||authUrl){start()}
+  else{
+   setReady(true); // nothing to restore — the page must not wait on auth
+   onFirst=()=>{removeEventListener('pointerdown',onFirst);removeEventListener('keydown',onFirst);start()};
+   addEventListener('pointerdown',onFirst,{passive:true});
+   addEventListener('keydown',onFirst,{passive:true});
+  }
+  return ()=>{
+   alive=false;
+   if(onFirst){removeEventListener('pointerdown',onFirst);removeEventListener('keydown',onFirst)}
+   if(subscription)subscription.unsubscribe();
+  };
  },[]);
  return {session,ready,recovery,clearRecovery:()=>setRecovery(false)};
 }

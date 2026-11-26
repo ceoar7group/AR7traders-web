@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {missingCanonical} from './guardian-canonical.mjs';
+const seo=readFileSync('src/seo.js','utf8');
+assert.equal(missingCanonical('dist/index.html','<html></html>',seo),false);
+assert.equal(missingCanonical('dist/index.html','<html></html>',''),true);
+assert.equal(missingCanonical('dist/index.html','<link rel="canonical" href="https://ar7traders.com/">',seo),true);
+assert.equal(missingCanonical('dist/contact/index.html','<html></html>',seo),true);
+assert.equal(missingCanonical('dist/contact/index.html','<link rel="canonical" href="https://ar7traders.com/contact">',seo),false);
+console.log('Guardian shell and prerender canonical checks pass.');

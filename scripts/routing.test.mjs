@@ -1,7 +1,7 @@
 import {
   parseRoute, parseNavTarget, hrefFor, hrefFromTarget, canonicalHref,
   findCar, carRef, carSlug, hashFor, writeLocation, makeFrom, inventoryHref,
-  LAST_VEHICLE_KEY
+  LAST_VEHICLE_KEY, PAGES, PAGE_REDIRECTS
 } from '../src/routing.js';
 
 let failed = 0;
@@ -10,6 +10,8 @@ const ok = (cond, msg) => {
   else console.log('ok  :', msg);
 };
 
+ok(hrefFromTarget('/cars/toyota/prius') === '/cars/toyota/prius', 'model links expose their indexable path');
+ok(hrefFromTarget('/cars/toyota') === '/cars/toyota', 'brand links expose their indexable path');
 ok(parseRoute({ pathname: '/', hash: '', search: '' }).page === 'home', 'bare path is home');
 ok(parseRoute({ pathname: '/inventory', hash: '', search: '' }).page === 'inventory', '/inventory is inventory');
 ok(parseRoute({ pathname: '/inventory/43', hash: '', search: '' }).carId === '43', '/inventory/43 keeps the car id');
@@ -86,6 +88,12 @@ ok(!brandAndCar.make && brandAndCar.carId === '43', 'a car deep link ignores the
 
 ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?make=Toyota&embed=1' }) === '/inventory?make=Toyota&embed=1#/inventory', 'canonical keeps a legacy brand query with other params');
 
+// `?q=` is the SearchAction entry point (seo.js WebSite node): every search
+// phrase shows the same inventory, so the canonical must drop the query —
+// one indexable page, not one thin page per phrase.
+ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?q=land+cruiser' }) === '/inventory#/inventory', 'a SearchAction query canonicalises to the clean inventory page');
+ok(canonicalHref({ pathname: '/inventory', hash: '', search: '?q=corolla&make=Toyota' }) === '/inventory?make=Toyota#/inventory', 'dropping q never loses the brand filter next to it');
+
 // writeLocation must persist the filter (and clear it when we leave the list).
 const store = { [LAST_VEHICLE_KEY]: '51' };
 globalThis.sessionStorage = {
@@ -98,11 +106,21 @@ globalThis.location = { pathname: '/', search: '', hash: '', origin: 'https://ar
 globalThis.history = { pushState: (s, t, url) => { pushed = url; }, replaceState: (s, t, url) => { pushed = url; } };
 ok(writeLocation('inventory', null, { make: 'Toyota' }) === '/cars/toyota#/inventory', 'writeLocation writes the landing path for a brand');
 ok(pushed === '/cars/toyota#/inventory', 'the landing path reaches history.pushState');
+ok(writeLocation('inventory', null, { make: 'Toyota', model: 'prius' }) === '/cars/toyota/prius#/inventory', 'model landing survives the initial history write');
+ok(parseRoute({pathname:'/cars/toyota/prius', hash:'#/inventory', search:''}).model === 'prius', 'model landing survives a refresh');
 location.pathname = '/inventory'; location.search = '?make=Toyota'; location.hash = '#/inventory';
 ok(writeLocation('inventory', null) === '/inventory#/inventory', 'leaving a brand clears ?make from the URL');
 location.search = ''; location.hash = '';
 ok(writeLocation('inventory', '43', { make: 'Toyota' }) === '/inventory/43#/inventory/43', 'opening a car drops the brand filter from the URL');
 ok(parseRoute({ pathname: '/inventory', hash: '', search: '?make=Toyota' }, { restoreOnReload: true }).carId === null, 'a brand link is never hijacked by the last-open vehicle');
+// The language variant (?lang=ur — 2026-11 international SEO) must survive
+// navigation: writeLocation rebuilds the query from location.search and may
+// only ever drop `car` and `make`. An Urdu reader who taps Contact must not
+// be flipped back to English by the router.
+location.pathname = '/'; location.search = '?lang=ur'; location.hash = '';
+ok(writeLocation('contact', null) === '/contact?lang=ur#/contact', 'writeLocation carries the ?lang= language variant across navigation');
+ok(writeLocation('inventory', '43') === '/inventory/43?lang=ur#/inventory/43', 'opening a car keeps the language variant too');
+location.search = '';
 
 // ---- a machine's own page is a real URL, not just renderable --------------
 // Regression: clicking a machine used to write /machinery to the address bar
@@ -128,6 +146,33 @@ ok(writeLocation('machinery', null) === '/machinery#/machinery',
 ok(parseNavTarget('/machinery/excavators/AR7-MC-001').machineRef === 'AR7-MC-001',
   'navigate("/machinery/excavators/AR7-MC-001") carries the ref into the router');
 
+
+// ---- one market's own URL (/destinations/kenya) ---------------------------
+// 2026-10-08 (traffic): the hub's picker is a control on one page — invisible
+// to a search engine. "import a used car from japan to kenya" needs a URL that
+// can answer it, so each market gets a path, a canonical and a sitemap entry.
+ok(parseRoute({ pathname: '/destinations/kenya', hash: '', search: '' }).destSlug === 'kenya',
+  '/destinations/kenya carries the market slug');
+ok(parseRoute({ pathname: '/destinations/united-kingdom', hash: '', search: '' }).destSlug === 'united-kingdom',
+  'a two-word market keeps its hyphenated slug');
+ok(parseRoute({ pathname: '/destinations', hash: '', search: '' }).destSlug === null,
+  'the hub itself carries no slug, so it still renders the picker');
+ok(parseRoute({ pathname: '/destinations/Kenya', hash: '', search: '' }).destSlug === 'kenya',
+  'a capitalised market link resolves to the same slug');
+ok(hrefFromTarget('/destinations/kenya') === '/destinations/kenya',
+  'hrefFromTarget keeps the market path, so the <a href> a crawler follows is the market');
+ok(hrefFromTarget('/destinations/kenya?x=1#y') === '/destinations/kenya',
+  'and it survives query/hash noise');
+ok(canonicalHref({ pathname: '/destinations/kenya', search: '', hash: '' }).startsWith('/destinations/kenya'),
+  'one canonical per market — the hub and the market page never share one');
+location.pathname = '/destinations'; location.search = ''; location.hash = '';
+ok(writeLocation('destinations', null, { destSlug: 'kenya' }) === '/destinations/kenya#/destinations',
+  'writeLocation writes the market path, so refresh and share land on the market');
+ok(pushed === '/destinations/kenya#/destinations', 'the market path reaches history.pushState');
+ok(writeLocation('destinations', null) === '/destinations#/destinations',
+  'leaving a market clears the slug from the address bar');
+ok(parseNavTarget('/destinations/pakistan').destSlug === 'pakistan',
+  'navigate("/destinations/pakistan") carries the slug into the router');
 
 store[LAST_VEHICLE_KEY] = '51'; // the writeLocation calls above clear it
 const restored = parseRoute({ pathname: '/', hash: '', search: '' }, { restoreOnReload: true });
@@ -156,6 +201,14 @@ ok(findCar(cars, carSlug(cars[0]))?.id === 'uuid-43', 'find by slug');
 ok(carRef(cars[0]) === '0710232A30260801W001', 'prefer stock number in the URL');
 ok(carRef(cars[1]) === '1', 'fall back to id when no stock number');
 ok(!findCar(cars, 'missing'), 'unknown ref returns null — do not silently pick another car');
+
+// ---- retired page redirects -----------------------------------------------
+// /japan-stock merged into /inventory: both the path and the legacy hash form
+// must resolve to the inventory page, never to a dead route.
+ok(parseRoute({ pathname: '/japan-stock', hash: '', search: '' }).page === 'inventory', '/japan-stock resolves to inventory');
+ok(parseRoute({ pathname: '/', hash: '#/japan-stock', search: '' }).page === 'inventory', '#/japan-stock resolves to inventory');
+ok(PAGE_REDIRECTS['japan-stock'] === 'inventory', 'PAGE_REDIRECTS maps japan-stock to inventory');
+ok(![...PAGES].includes('japan-stock'), 'japan-stock is no longer a registered page');
 
 console.log(failed ? `\n${failed} FAILURES` : '\nALL PASS');
 process.exit(failed ? 1 : 0);

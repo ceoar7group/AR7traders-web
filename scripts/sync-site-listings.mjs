@@ -54,7 +54,18 @@ if (readErr) {
 }
 console.log(`  Database: ${dbRows.length} rows in site_listings\n`);
 
-const plan = computePlan(seedListings, dbRows, {hardDelete});
+// Importer-managed cars (promoted from japan_dealer_stock) are not the
+// seed's business — never hide them.
+const {data: importerRows, error: impErr} = await db.from('japan_dealer_stock').select('stock_no,goonet_id');
+if (impErr) {
+  console.error(`  ✗ Could not read japan_dealer_stock: ${impErr.message}`);
+  process.exit(1);
+}
+const protectedStocks = new Set((importerRows || [])
+  .map(r => String(r.stock_no || r.goonet_id || '').trim()).filter(Boolean));
+console.log(`  Protected: ${protectedStocks.size} importer-managed stock numbers\n`);
+
+const plan = computePlan(seedListings, dbRows, {hardDelete, protectedStocks});
 
 if (plan.toInsert.length) {
   console.log(`  + INSERT ${plan.toInsert.length}:`);

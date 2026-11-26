@@ -352,6 +352,19 @@ export function extractProduct(html, url = '') {
   const yearFromSpecs = yearRow ? (String(yearRow[1]).match(/\b(19[89]\d|20[0-4]\d)\b/) || [])[1] : null;
   const yearMatch = stripTags(title + ' ' + html.slice(0, 60000)).match(/\b(19[89]\d|20[0-4]\d)\b/);
 
+  // Hour meter: exactly the same discipline as the year (2026-10-08). Only a
+  // spec row that says it is the hour meter is read — "6,800", "6800 hours",
+  // "6 800 h" all count, a number that happens to sit near the word does not.
+  // Absent means null, which the site renders as "hours on request"
+  // (src/machinery.jsx usageOf) rather than as a confident zero.
+  const hoursRow = uniqueSpecs.find(([k]) =>
+    /^(hours?|working hours?|operating hours?|running hours?|heures?|horas?|betriebsstunden)$/i
+      .test(String(k).trim()));
+  const hoursDigits = hoursRow ? String(hoursRow[1]).replace(/[^\d]/g, '') : '';
+  const hoursParsed = hoursDigits ? Number(hoursDigits) : NaN;
+  const hours = Number.isFinite(hoursParsed) && hoursParsed >= 0 && hoursParsed <= 100000
+    ? hoursParsed : null;
+
   return {
     url,
     title,
@@ -361,6 +374,7 @@ export function extractProduct(html, url = '') {
     images: [...images].slice(0, 12),
     specs: uniqueSpecs.slice(0, 14),
     year: yearFromSpecs ? Number(yearFromSpecs) : (yearMatch ? Number(yearMatch[1]) : null),
+    hours,
     fields: {
       title: !!title,
       price: priceUSD != null,
@@ -479,8 +493,17 @@ export function toMachine(product, {
     name,
     brand: brand || 'Unbranded',
     type: type || 'Excavators',
-    year: product.year || new Date().getFullYear(),
-    hours: 0,
+    // 2026-10-08: NEVER invent a model year. A supplier page that states no
+    // year used to be given `new Date().getFullYear()`, so a listing could
+    // claim a 2026 model year that nobody verified — the one fabricated fact
+    // the whole importer existed to avoid. Absent now means null: the preview
+    // warns, the desk shows "year not stated", the site lists the machine
+    // without a year, and validateRow() accepts null.
+    year: product.year ?? null,
+    // Same rule as the year: a stated hour meter is read from the supplier's
+    // own spec row; an unstated one is null — "hours on request"
+    // (src/machinery.jsx usageOf), never a confident 0.
+    hours: product.hours ?? null,
     supplierPrice: price,
     listPrice: price ? Math.round((price * (1 + (markup ?? 0.25))) / 50) * 50 : null,
     origin: 'China',

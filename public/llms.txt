@@ -17,7 +17,7 @@
 - [Auction access](https://ar7traders.com/auction) — how bidding at Japanese auctions works with AR7
 - [Export services](https://ar7traders.com/services) — inspection, documents, shipping
 - [Shipping & logistics](https://ar7traders.com/shipping) — RoRo vs container, documents, insurance
-- [Japan dealer stock](https://ar7traders.com/japan-stock) — fresh Japan dealer arrivals
+- [Japan dealer stock](https://ar7traders.com/inventory) — fresh Japan dealer arrivals in the main inventory
 - [Brands](https://ar7traders.com/brands) — Toyota, Nissan, Honda, Lexus and more
 - [Destinations](https://ar7traders.com/destinations) — ports, transit times, duty guidance
 - [Import cost calculator](https://ar7traders.com/tools) — landed-cost estimates
@@ -27,6 +27,19 @@
 - [Reviews](https://ar7traders.com/reviews) — customer experiences
 - [FAQ](https://ar7traders.com/faq) — common import questions
 - [Contact](https://ar7traders.com/contact) — enquiry form and direct contacts
+
+## How buying a car from Japan works (8 steps)
+
+1. **Tell us the car** — share make, model, year, budget and destination port; we shortlist auction and dealer-stock matches against your country's import rules.
+2. **Get translated sheets** — every auction sheet is translated into plain English, with photos of flags and repair marks.
+3. **Set a bid limit** — a written maximum bid is agreed before the lot enters the lane; no escalation.
+4. **We bid for you** — our agents bid live at USS, TAA, JU, CAA and other venues while you follow in the portal.
+5. **Inspect & prepare** — independent yard photos, underbody check and pre-export inspection (QISJ, JEVIC or biosecurity cleaning where required).
+6. **Pay in stages** — deposit activates bidding; the balance splits before and after shipment per an itemized proforma invoice (bank transfer / T/T).
+7. **Export paperwork** — Japanese de-registration (Export Certificate), Commercial Invoice, marine insurance and the Original Bill of Lading couriered via DHL.
+8. **Track to your port** — live vessel milestones from the Japan yard to arrival, with customs-ready documents for your clearing agent.
+
+Full guide: https://ar7traders.com/howbuy
 
 ## Contact
 
@@ -53,3 +66,21 @@
 - Wheel loaders: https://ar7traders.com/machinery/loaders
 - Tipper trucks: https://ar7traders.com/machinery/trucks
 - Cranes: https://ar7traders.com/machinery/cranes
+- Full machinery catalogue sitemap: https://ar7traders.com/api/sitemap-machinery.xml
+
+## Key shipping destinations (27 markets)
+- Pakistan (Karachi / Port Qasim): https://ar7traders.com/destinations/pakistan
+- UAE (Jebel Ali / Dubai): https://ar7traders.com/destinations/uae
+- Kenya (Mombasa): https://ar7traders.com/destinations/kenya
+- Tanzania (Dar es Salaam): https://ar7traders.com/destinations/tanzania
+- United Kingdom (Southampton / Felixstowe): https://ar7traders.com/destinations/united-kingdom
+- New Zealand (Auckland / Lyttelton): https://ar7traders.com/destinations/new-zealand
+- Australia (Brisbane / Sydney / Melbourne): https://ar7traders.com/destinations/australia
+- Full destination directory: https://ar7traders.com/destinations
+
+## Sitemaps
+- Main static & destination pages: https://ar7traders.com/sitemap.xml
+- Live vehicle & brand/model pages: https://ar7traders.com/api/sitemap-vehicles.xml
+- Live machinery catalogue pages: https://ar7traders.com/api/sitemap-machinery.xml
+- News & buyer guides: https://ar7traders.com/api/sitemap-news.xml
+
