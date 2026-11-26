@@ -49,13 +49,23 @@ const EXT = /\.(jsx?|mjs|css|html|txt|xml|json|md|sql)$/i;
 // AR7-owned brand-neutral scenes under assets/covers/ (~870 KB of webp, each
 // under the per-file cap) grow the pool past the catalogue size. Real new
 // media, not build artefacts.
-// The responsive showroom variants add about 670 KB on disk, while allowing
-// each visitor to download only the right-sized image instead of the original.
-// Allow up to 700 KB for these variants, without loosening the old budget for
-// all other assets.
+// The responsive variants add megabytes on disk while allowing each visitor to
+// download only the right-sized image instead of the original — the opposite
+// trade from new media. They have their own allowance so they can never loosen
+// the budget for the originals.
+//
+// Ratcheted 0.7 → 6.0 MB on 2026-11-26: scripts/photo-variants.mjs now writes
+// 400/800 siblings for every photograph the site owns (machinery, covers,
+// showroom, referenced root photos) instead of only the hand-made showroom
+// hero pair. That is 4.1 MB of derivatives which removed 142 kB from a phone's
+// visit to /news, 75 kB from a machine page and ~27 kB per catalogue card on a
+// 1× screen. Nothing here is a new photograph: every file is a smaller copy of
+// an original that is already counted in the budget below.
 const MAX_PUBLIC_BYTES = 9.0 * 1000 * 1000;
-const MAX_RESPONSIVE_BYTES = 700 * 1000;
-const responsiveVariant = /\/assets\/showroom\/hero-(?:\d{2}(?:-v\d+)?-560|(?:09-v2|10-v3|11|12-v2|13-v2|14-v3|15-v2|16-v4|17-v3|18)-760)\.webp$/;
+const MAX_RESPONSIVE_BYTES = 6.0 * 1000 * 1000;
+// Any generated width sits in the derivative bucket; the two categories are
+// mutually exclusive so a cover cannot be counted twice.
+const responsiveVariant = /-(400|560|760|800)\.webp$/;
 const MAX_FILE_BYTES = 200 * 1024;
 
 const SKIP = /(^|[\\/])(node_modules|\.git|dist|build|\.tmp)([\\/]|$)/;
@@ -158,8 +168,9 @@ let total = 0, responsive = 0, editorialCovers = 0, heaviest = { size: 0, file: 
 for (const file of publicFiles) {
   const size = statSync(file).size;
   total += size;
-  if (responsiveVariant.test(file.replace(/\\/g, '/'))) responsive += size;
-  if (/\/assets\/covers\/(editorial-|guide-|news-japan-electric-car\.)/.test(file.replace(/\\/g, '/'))) editorialCovers += size;
+  const normalised = file.replace(/\\/g, '/');
+  if (responsiveVariant.test(normalised)) responsive += size;
+  else if (/\/assets\/covers\/(editorial-|guide-|news-japan-electric-car\.)/.test(normalised)) editorialCovers += size;
   if (size > heaviest.size) heaviest = { size, file };
 }
 const mb = n => (n / 1e6).toFixed(2) + ' MB';

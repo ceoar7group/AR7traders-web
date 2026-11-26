@@ -167,6 +167,25 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(detail.includes('detail-grid') && detail.includes('detail-gallery'),
     `a deep vehicle link (/inventory/${stock}) renders the detail view, not the list`);
   ok(!detail.includes('inv-toolbar'), 'the detail view replaces the inventory toolbar');
+  // 2026-11-26: the car's main photo and the 72 px strip thumbnails are the
+  // machine-page treatment too — real widths for the browser to choose from,
+  // and the smallest file in slots that never grow.
+  {
+    const mainImg = (detail.match(/<img[^>]*fetchPriority="high"[^>]*>/) || [])[0] || '';
+    // Two or more width-labelled rungs, ascending, plus `sizes` — without sizes
+    // the browser assumes 100vw and the srcset does nothing useful.
+    const rungs = (mainImg.match(/srcset="([^"]*)"/i) || [])[1] || '';
+    const widths = [...rungs.matchAll(/ (\d+)w/g)].map(m => Number(m[1]));
+    ok(widths.length >= 2 && widths.every((w, i) => i === 0 || w > widths[i - 1]) && /sizes="[^"]+"/.test(mainImg),
+      `the vehicle's main photograph offers an ascending srcset and a sizes attribute (${widths.join(' < ') || 'none'})`);
+    // The catalogue cards are the many-image case: every photograph the site
+    // owns should offer the browser a smaller rung.
+    const list = await renderPage('/inventory');
+    const cardImgs = [...list.matchAll(/<img[^>]*>/g)].map(m => m[0]).filter(t => /inv-|car-card|width="520"/.test(t));
+    const withSet = cardImgs.filter(t => /srcset="[^"]+\d+w/i.test(t));
+    ok(cardImgs.length === 0 || withSet.length >= Math.min(3, cardImgs.length),
+      `inventory cards offer a srcset (${withSet.length} of ${cardImgs.length})`);
+  }
   ok(detail.includes('class="buyer-guide"') && (detail.match(/class="buyer-guide-step"/g) || []).length === 5,
     'vehicle detail page renders BuyerGuide with 5 ordered steps from enquiry to port');
   ok(detail.includes('FOB (Free on Board)') && detail.includes('CIF (Cost, Insurance &amp; Freight)'),
@@ -740,6 +759,18 @@ function checkFounderStat(html, variant, where) {
     'its accessible name says which machine is being shared');
   ok(/role="status"[^>]*>/.test(machineDetail) && !/mch-share[^>]*>[\s\S]{0,40}Share<\/button>/.test(machineDetail),
     'the share confirmation has a live region, and the square button carries no text of its own');
+  // 2026-11-26: the page shipped one 900 px file into every slot, so a phone
+  // pulled ~37 kB per photograph to fill a 150 px thumbnail. The photographs we
+  // own now carry a srcset (scripts/photo-variants.mjs); anything not in the
+  // manifest keeps a plain src rather than risking a 404 rung.
+  // React's server renderer writes `srcSet`; a browser sets the property either
+  // way, so match the name case-insensitively.
+  ok(/srcset="\/assets\/machinery\/doosan-dx300lc-1-400\.webp 400w, \/assets\/machinery\/doosan-dx300lc-1\.webp 900w"/i.test(machineDetail),
+    'the machine\'s main photograph offers a 400w rung before the original, with real widths');
+  ok(/sizes="\(max-width:650px\) 100vw/.test(machineDetail), 'and declares how wide it is drawn, so the browser can choose');
+  const thumbs = machineDetail.match(/class="mch-detail-strip"[\s\S]{0,900}/) || [];
+  ok(thumbs.length > 0 && /src="\/assets\/machinery\/[a-z0-9-]+-400\.webp"/.test(thumbs[0]),
+    'the 150 px thumbnail strip loads the 400w file, not the full photograph');
   const missingMachine = await renderPage('/machinery/excavators/AR7-MC-999');
   ok(/not on the site any more/.test(missingMachine), 'an unknown machine reference says so instead of rendering a blank page');
 }
