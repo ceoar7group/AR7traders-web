@@ -303,13 +303,19 @@
   width: 100%;
   height: auto !important;
   aspect-ratio: 3 / 2;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
   border-radius: 14px;
   background: transparent !important;
 }
 
 .detail-page .detail-gallery > .detail-thumbs button small {
   display: none;
+}
+
+/* A single photo needs no chooser — the strip would be one lonely tile. */
+.detail-page .detail-gallery > .detail-thumbs:has(> button:only-child) {
+  display: none !important;
 }
 
 .detail-page .detail-gallery > .detail-thumbs button.active {
@@ -446,6 +452,7 @@
   letter-spacing: -1.2px;
   color: var(--green-text);
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .detail-page .detail-info .detail-price .stock-price-display {
@@ -724,8 +731,8 @@
 
 /* ---------- 6. Big screens: the gallery holds still while the copy scrolls - */
 
-@media (min-width: 1001px) {
-  .detail-page .detail-gallery {
+@media (min-width: 1001px) and (min-height: 800px) {
+  .detail-page .detail-gallery:not(:has(.video-walk)) {
     position: sticky;
     top: calc(var(--head-h, 92px) + 18px);
   }
