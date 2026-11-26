@@ -8,7 +8,7 @@ import { useLang } from './i18n.jsx'; // 2026-11-11: world screen translates
 // TRUE orthographic sphere from Natural Earth 110m geometry on canvas, and
 // the chips/flags below are plain DOM positioned by the engine every frame.
 // network.jsx stays a lazy chunk, so none of this touches first-load budget.
-import { mountGlobe } from './globe3d.js';
+import { mountGlobeFull } from './globe-full.js';
 import './pages.css';
 import './network.css';
 export { Flag };
@@ -117,7 +117,7 @@ export function BigNetworkGlobe({navigate,compact}){
   // 2026-11-11 (owner: "do all the globe upgrades"): the big globe gets the
   // full feature set — starfield, drifting clouds, night city lights, country
   // hover tooltips + highlight, pinch/ctrl-wheel zoom, sun-side lighting.
-  const api=mountGlobe(el,{
+  const api=mountGlobeFull(el,{
    night:true,borders:true,graticule:true,detail:1,
    stars:true,clouds:true,cities:true,names:true,zoom:true,
    origin:JP,

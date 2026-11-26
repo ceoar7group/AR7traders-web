@@ -538,6 +538,57 @@ for (const f of lazyCss) {
     `${f.replace(/^\/assets\//, '')} is not linked into first paint`);
 }
 
+// ---- the globe's chunk graph ------------------------------------------------
+// A decorative orb paints land and nothing else, and it mounts inside the
+// viewport on every page, so what its graph contains is what every visitor
+// downloads. 2026-11-26: the engine used to import the whole Natural Earth set
+// at the top, which put 49 KiB gzipped of country borders and named-country
+// rings into an ornament's download. The geometry is injected now, and this
+// block fails if the detail creeps back into the lite graph — or if the lite
+// graph stops being self-contained.
+console.log('\n-- the globe graph: an ornament gets land, not countries --');
+{
+  const chunkOf = prefix => allJs.find(f => f.startsWith(prefix + '-') && f.endsWith('.js'));
+  /** Every chunk reachable from `entry`, following relative imports. */
+  const closureOf = entry => {
+    const seen = new Set();
+    const stack = [entry];
+    while (stack.length) {
+      const file = stack.pop();
+      if (!file || seen.has(file)) continue;
+      seen.add(file);
+      let text = '';
+      try { text = readFileSync(join(outDir, 'assets', file), 'utf8'); } catch { continue; }
+      for (const m of text.matchAll(/["']\.\/([\w.-]+\.js)["']/g)) stack.push(m[1]);
+    }
+    return [...seen];
+  };
+  const liteEntry = chunkOf('globe-lite');
+  const fullEntry = chunkOf('globe-full');
+  ok(!!liteEntry && !!fullEntry, `the build emits named globe entry chunks (${liteEntry}, ${fullEntry})`);
+  if (liteEntry && fullEntry) {
+    const liteGraph = closureOf(liteEntry);
+    const fullGraph = closureOf(fullEntry);
+    const gz = files => files.reduce((n, f) => n + gzipSync(readFileSync(join(outDir, 'assets', f))).length, 0);
+    // "Kosovo" is a COUNTRIES name: it exists only in the detail geometry.
+    const hasDetail = files => files.some(f => {
+      try { return readFileSync(join(outDir, 'assets', f), 'utf8').includes('Kosovo'); } catch { return false; }
+    });
+    ok(!liteGraph.includes(chunkOf('globe-detail') || '-'), `the ornament's graph excludes globe-detail (${liteGraph.join(', ')})`);
+    ok(!hasDetail(liteGraph),
+      `no named-country data reaches the ornament's graph (${(gz(liteGraph) / 1024).toFixed(1)} KiB gzipped)`);
+    ok(hasDetail(fullGraph), `the full globe still gets the detail (${(gz(fullGraph) / 1024).toFixed(1)} KiB gzipped)`);
+    ok(liteGraph.includes(chunkOf('globe-engine')) && liteGraph.includes(chunkOf('globe-land')),
+      'the ornament graph is engine + land, and both are actually in it');
+    ok(gz(liteGraph) < (gz(fullGraph) * 0.75),
+      `an ornament costs well under the full globe (${(gz(liteGraph) / 1024).toFixed(1)} vs ${(gz(fullGraph) / 1024).toFixed(1)} KiB gzipped)`);
+    // Whatever the split does, none of it may ride first load.
+    for (const f of [...liteGraph, ...fullGraph]) {
+      ok(!firstLoad.includes('/assets/' + f), `${f} stays out of first load`);
+    }
+  }
+}
+
 // ---- delivery headers ------------------------------------------------------
 console.log('\n-- delivery headers --');
 const vercel = JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'));

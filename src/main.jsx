@@ -928,9 +928,13 @@ export function InteractiveGlobe({compact,lite,cls,onTap}){
   // slot, so hydration and the LCP never compete with it. The styled shell
   // (sphere, orbits, halo) renders instantly either way.
   const start=()=>{
-   const go=()=>{import('./globe3d.js').then(m=>{
+   // Two literal imports, so Rollup emits two graphs: an ornament gets the
+   // land-only engine (src/globe-lite.js), the showcase globe gets borders and
+   // named countries too (src/globe-full.js). Both stay out of first load.
+   const load=lite?import('./globe-lite.js'):import('./globe-full.js');
+   const go=()=>{load.then(m=>{
     if(!alive||!ref.current)return;
-    cleanup=m.mountGlobe(ref.current,mountOpts);
+    cleanup=lite?m.mountGlobeLite(ref.current,mountOpts):m.mountGlobeFull(ref.current,mountOpts);
    }).catch(()=>{/* offline chunk load — the styled shell still shows */})};
    if(typeof requestIdleCallback==='function')idle=requestIdleCallback(go,{timeout:2500});
    else idle=setTimeout(go,300);

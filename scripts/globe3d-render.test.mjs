@@ -59,7 +59,12 @@ g.requestAnimationFrame = () => 1;
 g.cancelAnimationFrame = () => {};
 if (!g.performance) g.performance = { now: () => Date.now() };
 
-const { mountGlobe } = await import('../src/globe3d.js');
+// 2026-11-26: the engine no longer imports its geometry — the wrapper does,
+// so this suite exercises the same entry point the app uses (the full globe,
+// which is the one that draws borders and names countries).
+const { mountGlobeFull: mountGlobe } = await import('../src/globe-full.js');
+// The decorative orb's entry point: same engine, land-only geometry.
+const { mountGlobeLite } = await import('../src/globe-lite.js');
 
 console.log('\n-- the engine mounts, projects and cleans up --');
 {
@@ -125,6 +130,34 @@ console.log('\n-- the engine mounts, projects and cleans up --');
 
   cleanup();
   ok((host.listeners.pointerdown || []).length === 0, 'cleanup removes the drag listeners');
+}
+
+console.log('\n-- the land-only orb draws land, with no country detail to draw --');
+{
+  const host = new FakeElement('div');
+  const canvas = new FakeElement('canvas'); canvas.cls = 'g3-canvas'; canvas.ctx = new FakeCtx();
+  host.appendChild(canvas);
+  // The lite orb's real option set (see mountOpts in src/main.jsx): no borders,
+  // no names, no hover detail — exactly the features whose data it no longer
+  // downloads.
+  const cleanup = mountGlobeLite(host, {
+    detail: 0, borders: false, names: false, markers: false,
+    clouds: false, zoom: false, sleep: true, autoRotate: 0.07, night: false,
+    routes: [],
+  });
+  ok(typeof cleanup === 'function', 'mountGlobeLite mounts on the land-only geometry');
+  ok(canvas.width > 0 && canvas.height > 0, 'it still sizes the backing store');
+  const land = canvas.ctx.fills.length;
+  ok(land > 0, `it paints land (${land} fill(s) recorded on the first frame)`);
+  // A hover hit-test against an empty country set must be a no-op, not a crash.
+  const c = new FakeCtx();
+  const host2 = new FakeElement('div');
+  const canvas2 = new FakeElement('canvas'); canvas2.cls = 'g3-canvas'; canvas2.ctx = c;
+  host2.appendChild(canvas2);
+  const api = mountGlobeLite(host2, { detail: 0, borders: false, names: true, zoom: true });
+  if (api && typeof api.flyTo === 'function') api.flyTo(0, 0, 1);
+  ok(typeof api === 'function', 'a lite globe asked for names/zoom still returns a working cleanup');
+  cleanup(); api();
 }
 
 console.log('\n-- environments without a real canvas stay silent --');

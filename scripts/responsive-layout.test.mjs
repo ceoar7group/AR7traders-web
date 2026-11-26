@@ -65,7 +65,10 @@ assert.match(layoutCss, /\.nav-wrap \.brand-group \.nav-orb \.iglobe-sphere \{[^
 // now: it clamps latitude at the poles and spins endlessly in longitude, and
 // main.jsx mounts it lazily so first load never pays for the geometry.
 const globeEngine = readFileSync(new URL('../src/globe3d.js', import.meta.url), 'utf8');
-assert.match(main, /import\('\.\/globe3d\.js'\)/);
+// 2026-11-26: still lazy, but through two wrappers — an ornament loads the
+// land-only graph and the showcase globe loads borders and named countries too.
+assert.match(main, /import\('\.\/globe-lite\.js'\)/);
+assert.match(main, /import\('\.\/globe-full\.js'\)/);
 assert.match(globeEngine, /Math\.max\(-85, Math\.min\(85, st\.phi\)\)/);
 assert.match(globeEngine, /st\.lam -= dx \* k/);
 assert.match(globeEngine, /st\.phi \+= dy \* k/);
