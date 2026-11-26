@@ -151,6 +151,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // One named chunk per language dictionary (src/i18n-dicts/<code>.js).
+          // Without this Rollup names the file after the module basename, so the
+          // Urdu dictionary shipped as `ur-<hash>.js` — indistinguishable in a
+          // dist listing from a page, and invisible to the bundle-budget guard.
+          const dict = id.match(/[\\/]src[\\/]i18n-dicts[\\/]([a-z]{2})\.js$/);
+          if (dict) return `i18n-${dict[1]}`;
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) return 'vendor-react';
           // lucide-react is deliberately NOT pinned to a vendor chunk.

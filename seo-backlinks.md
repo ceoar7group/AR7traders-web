@@ -1,6 +1,6 @@
 # AR7 Traders — backlink plan
 
-Generated: 2026-11-11T19:29:07.828Z
+Generated: 2026-11-26T20:53:37.955Z
 
 - Prospects on the list: **80**
 - Contacted: **0**

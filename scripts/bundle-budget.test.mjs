@@ -131,9 +131,14 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // first page a visitor sees — the switcher sits in the header, and the gallery
 // is what makes a machinery listing credible. Measured 131.34 kB gzip /
 // 447.29 kB raw. The thirteen non-English dictionaries were deliberately split
-// into their own lazy chunk (dist/assets/i18n-dicts-*.js, ~12 kB gzip) that
-// only downloads when somebody actually picks a language; do not move them
-// back into the entry, and every further raise needs the same dated comment.
+// into a lazy chunk that only downloads when somebody actually picks a
+// language; do not move them back into the entry, and every further raise needs
+// the same dated comment.
+// 2026-11-26: that lazy chunk held *all fourteen* languages — 637 kB raw /
+// 201 KiB gzip — so an Urdu reader on a phone downloaded thirteen languages they
+// will never see. It is now one chunk per language (dist/assets/i18n-ur-*.js,
+// 14.0–17.4 kB gzip each, asserted below), and the provider fetches only the
+// language the visitor chose.
 // Ratcheted 450 → 451 kB raw (gzip unchanged) on 2026-10-03: the home hero
 // rotation now weaves the China machinery slides in with the car slides, so the
 // hero states the real scope of the business instead of looking like a car lot.
@@ -177,9 +182,10 @@ console.log(`      ${'' .padEnd(34)} ${kb(raw).padStart(10)} raw  ${kb(gzip).pad
 // so it cannot move into the lazy i18n chunk the way the thirteen non-English
 // dictionaries do. Growing it 43 → 125 keys costs ~3.3 kB of English prose in
 // the entry, plus ~60 t() call sites. Measured 466.25 kB raw / 137.92 kB gzip.
-// The dictionaries themselves stay lazy (i18n-dicts-*.js, ~29 kB gzip, asserted
-// below not to be preloaded); the 1.1 kB of headroom is deliberate so ordinary
-// copy edits do not trip this file.
+// The dictionaries themselves stay lazy — one chunk per language since
+// 2026-11-26 (i18n-<code>-*.js, 14–17 kB gzip each, asserted below not to be
+// preloaded); the 1.1 kB of headroom is deliberate so ordinary copy edits do not
+// trip this file.
 // Ratcheted 139 → 141 kB gzip / 469 → 476 kB raw on 2026-10-04 for the SEO
 // content pass (machinery FAQ markup + guide → machinery internal links);
 // see the table entry above. Measured 473.26 kB raw / 140.00 kB gzip.
@@ -486,6 +492,41 @@ for (const f of lazyChunks) {
   ok(!preloaded.includes(f) && !entryScripts.includes(f),
     `${f.replace(/^\/assets\//, '')} is not preloaded into first paint`);
 }
+// ---- one chunk per language -------------------------------------------------
+// The dictionaries used to be a single chunk. That is the regression this
+// block exists to catch: it is invisible in first-load bytes (the chunk was
+// already lazy) and only shows up as 200 KiB of somebody else's language on a
+// phone in Algiers or Karachi.
+console.log('\n-- the dictionaries are one chunk per language --');
+{
+  const dictChunks = allJs.filter(f => /^i18n-[a-z]{2}-[\w-]+\.js$/.test(f));
+  const mono = allJs.filter(f => /^i18n-dicts-/.test(f));
+  ok(mono.length === 0,
+    `no monolithic dictionary chunk is shipped${mono.length ? ': ' + mono.join(', ') : ''}`);
+  // Every language the switcher offers must have its own chunk: a missing one
+  // means a visitor picking that language downloads nothing and stays English.
+  const advertised = [...readFileSync(join(ROOT, 'src/i18n.js'), 'utf8')
+    .matchAll(/\{\s*code:\s*'([a-z]{2})'/g)].map(m => m[1]).filter(c => c !== 'en');
+  const shipped = dictChunks.map(f => f.match(/^i18n-([a-z]{2})-/)[1]);
+  const missing = advertised.filter(c => !shipped.includes(c));
+  ok(advertised.length >= 13 && missing.length === 0,
+    `every advertised language has its own chunk (${shipped.length} of ${advertised.length}${missing.length ? ', missing ' + missing.join(', ') : ''})`);
+  let worst = { code: '', gz: 0 };
+  for (const f of dictChunks) {
+    const gz = gzipSync(readFileSync(join(outDir, 'assets', f))).length;
+    if (gz > worst.gz) worst = { code: f, gz };
+    ok(gz <= 20 * 1024, `${f} is ${(gz / 1024).toFixed(1)} kB gzipped (cap 20.0, one language only)`);
+  }
+  ok(worst.gz > 0 && worst.gz <= 20 * 1024,
+    `the heaviest language is ${worst.code} at ${(worst.gz / 1024).toFixed(1)} kB gzipped — was 201 KiB for all fourteen`);
+  // And nothing about a language may ride first load: the entry must not
+  // contain a language's own script.
+  const entryText = firstLoad.filter(f => f.endsWith('.js'))
+    .map(f => readFileSync(join(outDir, f.replace(/^\/assets\//, 'assets/')), 'utf8')).join('\n');
+  ok(!/[\u0600-\u06FF]{8,}/.test(entryText),
+    'no Arabic/Urdu/Persian script rides first load — the dictionaries are the only source of it');
+}
+
 const allCss = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.css'));
 const lazyCss = allCss
   .map(f => '/assets/' + f)
