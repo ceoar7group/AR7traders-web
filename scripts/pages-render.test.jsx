@@ -178,6 +178,27 @@ for (const [path, markers] of Object.entries(ROUTES)) {
     const widths = [...rungs.matchAll(/ (\d+)w/g)].map(m => Number(m[1]));
     ok(widths.length >= 2 && widths.every((w, i) => i === 0 || w > widths[i - 1]) && /sizes="[^"]+"/.test(mainImg),
       `the vehicle's main photograph offers an ascending srcset and a sizes attribute (${widths.join(' < ') || 'none'})`);
+    // 2026-11-26: three card-sized photo sites in src/main.jsx were still
+    // shipping the source file — the related-stock strip, the related-machines
+    // strip and the recently-sold row. Each renders a 180–260 px card from a
+    // 820–900 px photograph. Asserted at source level because the demo data
+    // fills neither strip, so no page render can prove it.
+    {
+      const src = readFileSync('src/main.jsx', 'utf8');
+      const sites = [
+        ['related-stock card', /src=\{c\.image\|\|'\/assets\/ar7-mark-460\.webp'\} srcSet=\{photoSrcSet\(/],
+        ['related-machines card', /src=\{machineImages\(m\)\[0\]\} srcSet=\{photoSrcSet\(machineImages\(m\)\[0\]\)\}/],
+        ['recently-sold card', /src=\{c\.image\|\|'\/assets\/ar7-mark-460\.webp'\} srcSet=\{photoSrcSet\(c\.image/],
+      ];
+      for (const [label, re] of sites) {
+        ok(re.test(src), `the ${label} offers the manifest's widths (srcSet from photoSrcSet)`);
+      }
+      ok(/const RELATED_CARD_SIZES='\(max-width:560px\) 45vw/.test(src) && /const SOLD_CARD_SIZES=/.test(src),
+        'both strips declare sizes that match their real card width, not 100vw');
+      ok((src.match(/photoSrcSet\(/g) || []).length >= 6,
+        'every one of those images pairs its srcSet with a sizes attribute');
+    }
+
     // The catalogue cards are the many-image case: every photograph the site
     // owns should offer the browser a smaller rung.
     const list = await renderPage('/inventory');

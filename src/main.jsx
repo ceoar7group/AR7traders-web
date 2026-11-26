@@ -104,6 +104,12 @@ import { parseRoute, parseNavTarget, hrefFor, hrefFromTarget, linkClick, findCar
 import { carAlt } from './car-alt.js';
 import { slugify } from './sitemap-helpers.js';
 import {showroomSrcSet, SHOWROOM_CARD_SIZES, SHOWROOM_HERO_SIZES} from './showroom-images.js';
+import { photoSrcSet } from './photo-srcset.js';
+// 2026-11-26: widths for the card-sized photographs outside the showroom set —
+// the related strips and the recently-sold row. Each was shipping its full
+// file (900 px machine, 820 px car) into a 180–260 px card.
+const RELATED_CARD_SIZES='(max-width:560px) 45vw, (max-width:980px) 30vw, 260px';
+const SOLD_CARD_SIZES='(max-width:700px) 45vw, 260px';
 import {observeVisibleCarousel} from './visible-carousel.js';
 import { mapDealerRows, isImportedCar } from './japan-stock-map.js';
 import { fetchDealerStock } from './dealer-feed.js';
@@ -616,7 +622,7 @@ export function RelatedStock({navigate,pick,limit=3,kicker,note,fill=false}){
   <div className="kicker">{kicker||t('rel.stockNow')}</div>
   {note&&<p className="related-stock-note">{note}</p>}
   <div className="related-stock-grid">{shown.map(c=><PageLink key={c.id} className="related-stock-card" to={'/inventory/'+encodeURIComponent(carRef(c))} navigate={navigate}>
-   <img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark-460.webp'} alt={carAlt(c)}/>
+   <img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark-460.webp'} srcSet={photoSrcSet(c.image||'/assets/ar7-mark-460.webp')} sizes={photoSrcSet(c.image||'/assets/ar7-mark-460.webp') ? RELATED_CARD_SIZES : undefined} alt={carAlt(c)}/>
    <b>{c.make} {c.model}</b><small>{c.year?`${c.year} · `:''}{carRef(c)}</small>
   </PageLink>)}</div>
   <PageLink className="outline-btn" to="inventory" navigate={navigate}>{t('rel.browseAll')} <ArrowRight/></PageLink>
@@ -649,7 +655,7 @@ export function RelatedMachines({navigate,pick,limit=3,kicker,note}){
   <div className="kicker">{kicker||t('rel.machKicker')}</div>
   {note&&<p className="related-stock-note">{note}</p>}
   <div className="related-stock-grid">{shown.map(m=><PageLink key={m.id} className="related-stock-card" to={machineHref(m)} navigate={navigate}>
-   <img loading="lazy" decoding="async" width="820" height="550" src={machineImages(m)[0]} alt={`${m.name} for export from China`}/>
+   <img loading="lazy" decoding="async" width="820" height="550" src={machineImages(m)[0]} srcSet={photoSrcSet(machineImages(m)[0])} sizes={photoSrcSet(machineImages(m)[0]) ? RELATED_CARD_SIZES : undefined} alt={`${m.name} for export from China`}/>
    <b>{m.name}</b><small>{machineYearText(m)} · ${listPriceUSD(m).toLocaleString('en-US')} FOB · {m.type}</small>
   </PageLink>)}</div>
   <PageLink className="outline-btn" to="/machinery" navigate={navigate}>{t('rel.browseAllMach')} <ArrowRight/></PageLink>
@@ -1491,7 +1497,7 @@ export function App(){
     return sold.length?<section className="sold-strip shell section" aria-label="Recently sold vehicles">
      <div className="section-head"><div><div className="kicker">{t('home.soldKicker')}</div><h2>{t('home.soldH2a')}<br/><em>{t('home.soldH2b')}</em></h2></div><p>{t('home.soldBody')}</p></div>
      <div className="sold-grid">{sold.map(c=><div className="sold-card" key={c.id}>
-      <img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark-460.webp'} alt={carAlt(c)}/>
+      <img loading="lazy" decoding="async" width="820" height="550" src={c.image||'/assets/ar7-mark-460.webp'} srcSet={photoSrcSet(c.image||'/assets/ar7-mark-460.webp')} sizes={photoSrcSet(c.image||'/assets/ar7-mark-460.webp') ? SOLD_CARD_SIZES : undefined} alt={carAlt(c)}/>
       <span className="sold-flag">{t('card.statusSold').toUpperCase()}</span>
       <b>{[c.year,c.make,c.model].filter(Boolean).join(' ')}</b>
       <small>{stockNo(c)}{c.location?' · '+c.location+', Japan':''}</small>
