@@ -90,6 +90,7 @@ import { Flag } from './flag.jsx';
 import { WhatsAppIcon } from './brand-icons.jsx';
 import { referralCodeFrom } from './lead-validation.js';
 import { englishCarFields } from './jp-display.js';
+import { shouldDeferDecorative } from './net-hints.js';
 import { useSettings, telHref, waLink, FALLBACK } from './site-settings.js';
 import { useSeo } from './seo.js';
 import { DEST, destinationBySlug } from './destinations.js';
@@ -918,7 +919,7 @@ export function InteractiveGlobe({compact,lite,cls,onTap}){
  const ref=useRef(null);
  const {t}=useLang();
  useEffect(()=>{
-  let alive=true,cleanup=null,idle=0,io=null;
+  let alive=true,cleanup=null,idle=0,io=null,detachIntent=null;
   // 2026-11-08 Lighthouse round: the engine chunk (globe3d + Natural Earth
   // geometry) used to be imported the moment this component mounted — on the
   // home page that evaluated ~10s of CPU (throttled trace) during first load
@@ -936,6 +937,22 @@ export function InteractiveGlobe({compact,lite,cls,onTap}){
   };
   const el=ref.current;
   if(!el){return()=>{alive=false};}
+  // 2026-11-26 (mobile round): a lite orb is a decorative ornament that sits
+  // inside the viewport on EVERY page, so the 320 px observer below fires at
+  // once and the visitor pays 101 KiB gzipped for the engine and Natural Earth
+  // geometry before they have asked for anything. On a data saver or a 2G/3G
+  // connection that is the wrong trade: wait for an actual gesture (hover, tap,
+  // focus) instead. The styled shell — sphere, sheen, orbit rings — is already
+  // the pre-chunk state, so nothing looks broken in the meantime. Fast
+  // connections keep the old behaviour, and Safari (no navigator.connection)
+  // is never treated as slow.
+  const waitForIntent=()=>{
+   const fire=()=>{ detach(); start(); };
+   const events=['pointerdown','pointerenter','touchstart','focusin'];
+   const detach=()=>{ for (const e of events) el.removeEventListener(e,fire); };
+   for (const e of events) el.addEventListener(e,fire,{passive:true,once:true});
+   return detach;
+  };
   const mountOpts={
     night:false,
     borders:!lite,
@@ -956,7 +973,10 @@ export function InteractiveGlobe({compact,lite,cls,onTap}){
     // a touch of motion on the showcase globe: three sample export lanes
     routes:lite?[]:[{lon:55.2,lat:25},{lon:39.7,lat:-4},{lon:-1.4,lat:50.9}]
   };
-  if(typeof IntersectionObserver!=='function'){start();}
+  const deferForIntent = !!lite && shouldDeferDecorative();
+  if(deferForIntent){
+   detachIntent=waitForIntent();
+  }else if(typeof IntersectionObserver!=='function'){start();}
   else{
    io=new IntersectionObserver(entries=>{
     if(entries.some(e=>e.isIntersecting)){io.disconnect();io=null;start();}
@@ -965,6 +985,7 @@ export function InteractiveGlobe({compact,lite,cls,onTap}){
   }
   return()=>{
    alive=false;
+   if(detachIntent)detachIntent();
    if(io)io.disconnect();
    if(idle){if(typeof cancelIdleCallback==='function')cancelIdleCallback(idle);else clearTimeout(idle);}
    if(cleanup)cleanup();
