@@ -16,3 +16,10 @@ export const shareCardPath = ref =>
 
 /** Absolute card URL for og:image / twitter:image. */
 export const shareCardUrl = (base, ref) => base + shareCardPath(ref);
+
+/** Machinery cards: /api/og/m/<ref> — the `m/` segment keeps the two
+ *  catalogues from ever resolving each other's references. */
+export const machineCardPath = ref =>
+  `/api/og/m/${encodeURIComponent(String(ref ?? '').trim())}`;
+
+export const machineCardUrl = (base, ref) => base + machineCardPath(ref);

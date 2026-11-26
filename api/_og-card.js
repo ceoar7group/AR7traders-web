@@ -30,7 +30,8 @@
 import sharp from 'sharp';
 // The URL and dimensions live in a browser-safe module so the SPA head and this
 // renderer can never publish a link that disagrees with the image served.
-import { SHARE_CARD, shareCardPath, shareCardUrl } from '../src/share-card.js';
+import { SHARE_CARD, shareCardPath, shareCardUrl, machineCardPath, machineCardUrl } from '../src/share-card.js';
+import { listPriceUSD, machineYearText, machineHours } from '../src/machinery-data.js';
 
 export const CARD = { width: SHARE_CARD.width, height: SHARE_CARD.height };
 
@@ -39,6 +40,9 @@ export const cardPath = shareCardPath;
 
 /** Absolute card URL for og:image / twitter:image. */
 export const cardUrl = shareCardUrl;
+
+/** Machinery uses its own path segment (and its own content builder below). */
+export const machineCard = { path: machineCardPath, url: machineCardUrl };
 
 // Fonts: Manrope is the site face but a serverless image runtime will rarely
 // have it; the stack degrades through whatever the distro ships and the ink
@@ -137,10 +141,35 @@ export function cardContent(row, ref) {
   };
 }
 
+/** Machinery content: name, category, year, usage and the indicative price.
+ *  The pill is tagged "INDICATIVE FOB" because that is exactly how the price
+ *  is described on the machinery pages — a share card must not upgrade an
+ *  indicative figure into a firm quotation. */
+export function machineryCardContent(machine, ref) {
+  const use = machineHours(machine);
+  const usageText = use == null
+    ? (machine?.type === 'Trucks' ? '' : '')
+    : `${use.toLocaleString('en-US')} ${machine?.type === 'Trucks' ? 'km' : 'h'}`;
+  const label = String(machine?.type || '').replace(/s$/i, '');
+  const priceUsd = machine ? listPriceUSD(machine) : 0;
+  const name = tidy(machine?.name);
+  return {
+    name: name || 'Machinery and equipment for export',
+    specs: machine
+      ? [tidy(machineYearText(machine)), usageText, label, tidy(machine.brand)].filter(Boolean).join(' · ')
+      : '',
+    price: priceUsd > 0 ? `US$${priceUsd.toLocaleString('en-US')}` : '',
+    priceTag: 'INDICATIVE FOB',
+    ref: tidy(ref) ? `REF ${tidy(ref).toUpperCase()}` : '',
+    kicker: name ? 'AR7 TRADERS · CHINA MACHINERY' : 'AR7 TRADERS · JAPAN & CHINA EXPORT',
+    host: 'ar7traders.com'
+  };
+}
+
 /** The SVG layer that sits on top of the photo. `withText:false` keeps the
  *  frame (scrim, gold rule, monogram, footer marks) without any glyphs. */
-export function buildCardSvg(content, { withText = true, hasPhoto = true, priceWidth = 0 } = {}) {
-  const { name, specs, price, ref, kicker, host } = content;
+export function buildCardSvg(content, { withText = true, hasPhoto = true, priceWidth = 0, tagWidth = 0 } = {}) {
+  const { name, specs, price, ref, kicker, host, priceTag = 'FOB' } = content;
   const pad = 56;
   const textWidth = 780;
   const nameSize = 50;
@@ -167,12 +196,15 @@ export function buildCardSvg(content, { withText = true, hasPhoto = true, priceW
   const priceText = tidy(price);
   const priceFont = 34;
   const priceEstimate = priceWidth > 0 ? priceWidth : priceText.length * priceFont * 0.56;
-  const fobWidth = 46;
+  const tagText = tidy(priceTag) || 'FOB';
+  // Measured like the price (see measureText): letterspacing alone adds ~22px
+  // on "INDICATIVE FOB", which is enough to push the tag past the pill edge.
+  const fobWidth = tagWidth > 0 ? tagWidth : Math.round(tagText.length * 17 * 0.72);
   const pillWidth = Math.min(textWidth, Math.max(200, 26 + priceEstimate + 24 + fobWidth + 24));
   const pill = priceText
     ? `<g><rect x="${pad}" y="${pillY}" width="${pillWidth.toFixed(0)}" height="${pillHeight}" rx="${pillHeight / 2}" fill="#ffffff"/>` +
       `<text x="${pad + 26}" y="${pillBottomBaseline}" font-family="${FONT}" font-size="${priceFont}" font-weight="800" fill="${DEEP}">${xmlEscape(priceText)}</text>` +
-      `<text x="${(pad + 26 + priceEstimate + 24).toFixed(0)}" y="${pillBottomBaseline - 4}" font-family="${FONT}" font-size="17" font-weight="700" fill="#5c6f65" letter-spacing="1.6">FOB</text></g>`
+      `<text x="${(pad + 26 + priceEstimate + 24).toFixed(0)}" y="${pillBottomBaseline - 4}" font-family="${FONT}" font-size="17" font-weight="700" fill="#5c6f65" letter-spacing="1.6">${xmlEscape(tagText)}</text></g>`
     : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD.width}" height="${CARD.height}" viewBox="0 0 ${CARD.width} ${CARD.height}">` +
@@ -245,13 +277,41 @@ export async function hasGlyphInk(svg, { minInk = 900 } = {}) {
   }
 }
 
-async function background({ photoBuffer, photo, fetch: fetchImpl }) {
+// Our own machinery photos are delivered as a branded template: a 900×491
+// image whose bottom ~11% is a green caption band carrying AR7 TRADERS, the
+// machine name and its reference. Left in place, the card would print that
+// caption twice — once in the photo, once in its own type. Cropping the band
+// is exact for the template and skipped for any photo that is not one.
+const CAPTION_BAND = { aspect: 900 / 491, tolerance: 0.05, ratio: 0.106 };
+
+/** Drop the branded caption band our machinery template bakes into the bottom
+ *  of every photo (900×491, band ≈ 11% of the height). Any other geometry is
+ *  returned untouched, so a supplier photo or a car photo passes straight
+ *  through. Exported because the geometry is a contract worth testing. */
+export async function stripCaptionBand(buffer) {
+  try {
+    const { width, height } = await sharp(buffer).metadata();
+    if (!width || !height) return buffer;
+    if (Math.abs(width / height - CAPTION_BAND.aspect) > CAPTION_BAND.tolerance) return buffer;
+    const cut = Math.round(height * CAPTION_BAND.ratio);
+    if (cut <= 0 || cut >= height) return buffer;
+    return await sharp(buffer)
+      .extract({ left: 0, top: 0, width, height: height - cut })
+      .png()
+      .toBuffer();
+  } catch {
+    return buffer;
+  }
+}
+
+async function background({ photoBuffer, photo, fetch: fetchImpl, cropCaptionBand = false }) {
   if (photoBuffer || photo) {
     try {
       const source = photoBuffer || (await fetchPhoto(photo, { fetch: fetchImpl }));
       if (source) {
-        return await sharp(source)
-          .rotate()                                  // honour EXIF orientation
+        const upright = await sharp(source).rotate().png().toBuffer();   // honour EXIF orientation
+        const img = sharp(cropCaptionBand ? await stripCaptionBand(upright) : upright);
+        return await img
           .resize(CARD.width, CARD.height, { fit: 'cover', position: 'centre' })
           .toColourspace('srgb')
           .png()
@@ -285,14 +345,15 @@ async function fetchPhoto(url, { timeout = 4500, fetch: fetchImpl } = {}) {
   }
 }
 
-/** Compose the card. Always resolves to a JPEG buffer. */
-export async function renderVehicleCard(content, opts = {}) {
+/** Compose the card — vehicles and machinery both. Always a JPEG buffer. */
+export async function renderShareCard(content, opts = {}) {
   const base = await background(opts);
   const hasPhoto = !!base;
   const priceWidth = content?.price ? await measureText(content.price, 34, 800) : 0;
-  const textSvg = buildCardSvg(content, { withText: true, hasPhoto, priceWidth });
+  const tagWidth = content?.price ? await measureText(content.priceTag || 'FOB', 17, 700) : 0;
+  const textSvg = buildCardSvg(content, { withText: true, hasPhoto, priceWidth, tagWidth });
   const textDraws = await hasGlyphInk(textSvg);
-  const svg = textDraws ? textSvg : buildCardSvg(content, { withText: false, hasPhoto, priceWidth });
+  const svg = textDraws ? textSvg : buildCardSvg(content, { withText: false, hasPhoto, priceWidth, tagWidth });
 
   const canvas = base || await sharp({
     create: { width: CARD.width, height: CARD.height, channels: 3, background: DEEP }

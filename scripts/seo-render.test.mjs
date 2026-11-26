@@ -186,10 +186,23 @@ ok(machineOffer?.priceValidUntil === '2026-12-31',
   'machine structured offer expires on its per-stock end date');
 
 // External machinery photos must not be prefixed with the site origin.
+// 2026-11-26: og:image is now the generated machinery card (/api/og/m/<ref>) —
+// a hot-linked supplier photo is the kind of URL a messenger refuses, and it
+// never said what the machine was. External absolute URLs still have to stay
+// untouched everywhere a real photo is used, which is what the JSON-LD below
+// keeps proving.
 applySeo('machinery', null, null, { machine: { ...discountedMachine, images: ['https://cdn.example.com/machine.jpg', '/assets/ar7-mark.png'] } });
-ok(meta('meta[property="og:image"]') === 'https://cdn.example.com/machine.jpg', 'machine share image preserves external URL');
+ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/api/og/m/MACH-SEO-1',
+  'machine og:image is that machine\'s share card');
+ok(meta('meta[property="og:image:width"]') === '1200' && meta('meta[property="og:image:height"]') === '630' &&
+  meta('meta[property="og:image:type"]') === 'image/jpeg',
+  'the machinery card declares its real size and encoding');
 ok(JSON.stringify(jsonld('machine-jsonld')?.image) === JSON.stringify(['https://cdn.example.com/machine.jpg', 'https://ar7traders.com/assets/ar7-mark.png']),
   'machine structured images use absolute URLs without duplicating the origin');
+applySeo('machinery', null, null, { machine: { ...discountedMachine, ref: '' }, machineRef: '' });
+ok(meta('meta[property="og:image"]') !== 'https://ar7traders.com/api/og/m/',
+  'a machine without a reference never produces an empty card URL');
+
 
 // ---- FAQ markup is scoped to /faq -----------------------------------------
 applySeo('faq', null);
