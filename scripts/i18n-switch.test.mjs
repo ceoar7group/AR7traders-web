@@ -25,6 +25,7 @@
 // dictionaries were written by an agent. They are structurally complete but
 // need review by a native speaker before being treated as final copy.
 import fs from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -272,6 +273,49 @@ console.log('\n-- URL-addressable languages --');
   ok(/hreflang/.test(seoJs) && /'x-default'/.test(seoJs), 'applySeo publishes the hreflang cluster with an x-default');
   ok(/langHref\(url, l\.code\)/.test(seoJs), 'the cluster is built from the clean canonical for every language');
   ok(/addEventListener\('ar7:language'/.test(seoJs), 'the SEO head re-stamps itself when the language changes');
+}
+
+// ---- the dictionaries are one chunk per language --------------------------
+// 2026-11-26: `import('./i18n-dicts.js')` was a single 637 kB / 201 KiB-gzipped
+// chunk, so an Urdu reader on a phone downloaded thirteen languages they will
+// never read. src/i18n.jsx now imports one language. These assertions keep the
+// three pieces in step — the language table, the loader map, and the files —
+// because a language that is advertised but has no loader simply never loads,
+// and the visitor silently stays in English.
+console.log('\n-- one dictionary per language, loaded on demand --');
+{
+  // Comments are stripped first: the provider's own explanation of *why* the
+  // aggregator is gone quotes the import it replaced.
+  const provider = fs.readFileSync(path.join(ROOT, 'src/i18n.jsx'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  const loaders = [...provider.matchAll(/^\s*([a-z]{2}):\s*\(\)\s*=>\s*import\('\.\/i18n-dicts\/([a-z]{2})\.js'\)/gm)]
+    .map(m => ({ key: m[1], file: m[2] }));
+  const advertised = langTable.map(l => l.code).filter(c => c !== 'en');
+  ok(loaders.length === advertised.length && loaders.every(l => l.key === l.file),
+    `the provider has exactly one loader per language (${loaders.length})`);
+  const unloaded = advertised.filter(c => !loaders.some(l => l.key === c));
+  ok(unloaded.length === 0, `every advertised language has a loader${unloaded.length ? ': missing ' + unloaded.join(', ') : ''}`);
+  ok(!/import\('\.\/i18n-dicts\.js'\)/.test(provider),
+    'the provider does NOT import the all-languages aggregator — that is the 206 kB chunk this replaced');
+
+  // The files on disk, and the aggregator, must agree with the loader map.
+  const files = readdirSync(path.join(ROOT, 'src/i18n-dicts')).filter(f => f.endsWith('.js')).map(f => f.replace(/\.js$/, '')).sort();
+  ok(files.join(',') === [...advertised].sort().join(','),
+    `src/i18n-dicts/ holds one file per advertised language (${files.length})`);
+  ok(Object.keys(dicts).sort().join(',') === files.join(','),
+    'the aggregator re-exports exactly those files (it exists for these tests, not for the app)');
+
+  // A dictionary edited in one place and not the other would be a silent fork,
+  // so compare the per-language module with what the aggregator hands these
+  // assertions.
+  let forked = 0;
+  for (const code of files) {
+    const own = (await import(`../src/i18n-dicts/${code}.js`)).default;
+    if (Object.keys(own).length !== Object.keys(dicts[code] || {}).length) forked++;
+    else if (Object.keys(own).some(k => own[k] !== dicts[code][k])) forked++;
+  }
+  ok(forked === 0, `each language module matches the aggregator (${forked} forked)`);
 }
 
 // ---- coverage report ------------------------------------------------------

@@ -21,16 +21,40 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { LANGUAGES, DEFAULT_LANG, LANG_KEY, LANG_PARAM, langFromSearch, translate, isRtl, langMeta, registerDicts, loadedLangs } from './i18n.js';
 import { registerSeoI18n } from './seo.js';
 
-/** Non-English assets arrive together, as lazy chunks: the UI dictionaries
- *  and the localized SEO titles/descriptions (R38). One failing import does
- *  not take the other down — a missing SEO chunk just leaves English
- *  snippets, which is the pre-R38 behaviour. */
-async function loadLanguageAssets() {
+/** One dynamic import per language, so Vite emits one chunk per language.
+ *  Before this, `import('./i18n-dicts.js')` was a single 637 kB chunk (201 KiB
+ *  gzipped) containing all fourteen languages: an Urdu reader on a phone paid
+ *  for thirteen languages they will never see. Now the visitor pays for the one
+ *  they chose — and only once, because registerDicts keeps it. */
+const DICT_LOADERS = {
+  ar: () => import('./i18n-dicts/ar.js'),
+  ps: () => import('./i18n-dicts/ps.js'),
+  ur: () => import('./i18n-dicts/ur.js'),
+  fa: () => import('./i18n-dicts/fa.js'),
+  fr: () => import('./i18n-dicts/fr.js'),
+  de: () => import('./i18n-dicts/de.js'),
+  ru: () => import('./i18n-dicts/ru.js'),
+  es: () => import('./i18n-dicts/es.js'),
+  pt: () => import('./i18n-dicts/pt.js'),
+  tr: () => import('./i18n-dicts/tr.js'),
+  zh: () => import('./i18n-dicts/zh.js'),
+  sw: () => import('./i18n-dicts/sw.js'),
+  ha: () => import('./i18n-dicts/ha.js'),
+  ja: () => import('./i18n-dicts/ja.js'),
+};
+
+/** Non-English assets arrive as lazy chunks: the one dictionary for `code`,
+ *  and the localized SEO titles/descriptions (R38), which are shared by every
+ *  language and small enough to stay together. One failing import does not take
+ *  the other down — a missing SEO chunk just leaves English snippets, which is
+ *  the pre-R38 behaviour. */
+async function loadLanguageAssets(code) {
+  const dict = DICT_LOADERS[code];
   const [dicts, seo] = await Promise.allSettled([
-    import('./i18n-dicts.js'),
+    dict ? dict() : Promise.reject(new Error(`no dictionary for ${code}`)),
     import('./seo-i18n.js'),
   ]);
-  if (dicts.status === 'fulfilled') registerDicts(dicts.value.default);
+  if (dicts.status === 'fulfilled') registerDicts({ [code]: dicts.value.default });
   if (seo.status === 'fulfilled') registerSeoI18n(seo.value.PAGE_SEO_I18N);
   if (dicts.status !== 'fulfilled') throw dicts.reason;   // caller keeps current language
 }
@@ -70,9 +94,10 @@ export function LanguageProvider({ children }) {
   const [ready, setReady] = useState(false);   // dictionaries loaded
 
   /**
-   * Load the dictionaries once, then keep them. English is already in the
-   * bundle; everything else arrives as its own chunk the first time somebody
-   * needs it — which is the only moment it is worth downloading.
+   * Load the one dictionary this visitor needs, then keep it. English is
+   * already in the bundle; a non-English dictionary arrives as its own chunk
+   * the first time somebody needs it — which is the only moment it is worth
+   * downloading, and never more than the language they actually chose.
    */
   useEffect(() => {
     let alive = true;
@@ -80,7 +105,7 @@ export function LanguageProvider({ children }) {
       const start = browserDefault();
       if (start === DEFAULT_LANG) { if (alive) setReady(true); return; }
       try {
-        await loadLanguageAssets();
+        await loadLanguageAssets(start);
         // The [code] effect already announced the language before the
         // localized SEO strings arrived; re-fire so useSeo re-stamps the
         // head with the translated title/description (R38).
@@ -95,7 +120,7 @@ export function LanguageProvider({ children }) {
     if (next === DEFAULT_LANG) { setCode(DEFAULT_LANG); return; }
     if (!loadedLangs().includes(next)) {
       try {
-        await loadLanguageAssets();
+        await loadLanguageAssets(next);
       } catch { return; }   // dictionary unavailable: keep the current language
     }
     setCode(next);
