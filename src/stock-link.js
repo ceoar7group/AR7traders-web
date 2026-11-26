@@ -1,4 +1,4 @@
-// Stock links for staff replies.
+// Stock links for staff replies — both catalogues.
 //
 // The public pages and the CRM must send the same thing about a car: the page's
 // own forward text plus the listing URL, which WhatsApp turns into the 1200×630
@@ -13,6 +13,7 @@
 //
 // Pure and framework-free so the picker in src/crm.jsx stays a thin list.
 import { vehicleShareLink, vehicleShareMessage } from './vehicle-actions.jsx';
+import { machineShareMessage, machineHref } from './machinery-data.js';
 
 /** The public reference for a listing — identical to the site's own rule. */
 export const stockRefOf = car => {
@@ -48,10 +49,57 @@ export function stockLinkFor(car, origin = 'https://ar7traders.com') {
   return vehicleShareLink(car, ref, origin);
 }
 
+// ---------------------------------------------------------------------------
+//  Machinery — the same job, on the other catalogue.
+//
+//  A machine has its own URL (/machinery/<type>/<ref>) and its own card
+//  (/api/og/m/<ref>), and its price is INDICATIVE FOB by house rule. So the
+//  text is machineShareMessage(), which already says "indicative FOB", and the
+//  price label is passed in: the desk formats it with the CRM's own currency
+//  setting, exactly as the public machine page formats the visitor's.
+//
+//  Only machines the website publishes are offered, and — unlike a car — a
+//  machine without a reference is not offered at all: its type and ref are the
+//  URL, so there is nothing honest to link to.
+// ---------------------------------------------------------------------------
+
+/** The reference a machine's URL and card are keyed by. */
+export const machineRefOf = machine => String(machine?.ref ?? '').trim();
+
+/** Machines the website itself shows, i.e. linkable. */
+export const publishedMachines = rows =>
+  (Array.isArray(rows) ? rows : []).filter(m => m && m.published !== false && machineRefOf(m));
+
+export function matchMachines(rows, query, limit = 6) {
+  const words = String(query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = publishedMachines(rows).filter(m => {
+    const haystack = [m.ref, m.name, m.brand, m.model, m.type, m.year, m.status, m.location]
+      .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+      .join(' ').toLowerCase();
+    return words.every(word => haystack.includes(word));
+  });
+  return hits.slice(0, Math.max(0, limit));
+}
+
+/** What a staff member drops into a reply about a machine. `priceLabel` is the
+ *  already-formatted price (see the desk's currency setting); an empty label
+ *  simply leaves it out — the message never invents one. */
+export function machineLinkFor(machine, priceLabel = '', origin = 'https://ar7traders.com') {
+  const text = machineShareMessage(machine, priceLabel || '');
+  if (!machine || machine.published === false || !machineRefOf(machine)) return text;
+  const base = String(origin || '').replace(/\/+$/, '');
+  return `${text} ${base}${machineHref(machine)}`;
+}
+
 /** Insert a link into whatever the staff member has already typed, without
  *  disturbing it: a blank draft becomes the link, a draft keeps its own line. */
-export function appendStockLink(draft, car, origin) {
-  const snippet = stockLinkFor(car, origin);
+const appendSnippet = (draft, snippet) => {
   const existing = String(draft || '').replace(/\s+$/, '');
   return existing ? `${existing}\n${snippet}` : snippet;
-}
+};
+
+export const appendStockLink = (draft, car, origin) =>
+  appendSnippet(draft, stockLinkFor(car, origin));
+
+export const appendMachineLink = (draft, machine, priceLabel, origin) =>
+  appendSnippet(draft, machineLinkFor(machine, priceLabel, origin));

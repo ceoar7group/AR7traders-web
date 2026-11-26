@@ -4822,7 +4822,8 @@ html[data-crm-theme="light"] .crm-shell,
 .crm-wa-stock{margin-top:10px;border:1px solid rgba(128,128,128,.24);border-radius:10px;background:rgba(128,128,128,.06);padding:8px}
 .crm-wa-stock input{width:100%;height:34px;border:1px solid rgba(128,128,128,.3);border-radius:8px;background:transparent;color:inherit;font:inherit;padding:0 10px}
 .crm-wa-stock input:focus-visible{outline:2px solid var(--crm-gold,#f0ab42);outline-offset:1px}
-.crm-wa-stock ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-height:190px;overflow:auto}
+.crm-wa-stock-head{display:block;margin:8px 0 0;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.crm-wa-stock ul{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:4px;max-height:190px;overflow:auto}
 .crm-wa-stock li button{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:1px solid transparent;border-radius:8px;background:transparent;color:inherit;font:inherit;padding:6px 9px;cursor:pointer}
 .crm-wa-stock li button:hover,.crm-wa-stock li button:focus-visible{border-color:rgba(128,128,128,.35);background:rgba(47,158,104,.12);outline:none}
 .crm-wa-stock li b{font-size:.86rem}

@@ -71,6 +71,8 @@ const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { default: CrmApp, MachineryImportPanel, uniqueCarCount, WaDeskView } = await import('../src/crm.jsx');
 const { vehicleShareMessage } = await import('../src/vehicle-actions.jsx');
+const { machineShareMessage } = await import('../src/machinery-data.js');
+const { formatMoney } = await import('../src/currency.jsx');
 
 let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
@@ -705,6 +707,12 @@ say('\nWhatsApp desk stock link');
     Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
     await act(async () => { el.dispatchEvent(new dom.window.Event('input', {bubbles: true})); });
   };
+  const MACHINERY = [
+    {id: 1, ref: 'AR7-MC-001', type: 'Excavators', brand: 'Doosan', model: 'DX300LC-9C', name: 'Doosan DX300LC-9C',
+      year: 2019, hours: 6800, price_usd: 62500, status: 'Available', published: true},
+    {id: 2, ref: 'AR7-MC-009', type: 'Loaders', brand: 'XCMG', model: 'ZL50GN', name: 'XCMG ZL50GN',
+      year: 2020, hours: 3200, price_usd: 38000, status: 'Available', published: false}
+  ];
   const notes = [];
   const host = document.createElement('div');
   document.body.appendChild(host);
@@ -712,7 +720,7 @@ say('\nWhatsApp desk stock link');
   await act(async () => {
     desk.render(React.createElement(WaDeskView, {
       token: 'test-token', canWrite: true, canToggleAuto: false,
-      notify: m => notes.push(String(m)), stock: STOCK
+      notify: m => notes.push(String(m)), stock: STOCK, machinery: MACHINERY
     }));
   });
 
@@ -730,7 +738,10 @@ say('\nWhatsApp desk stock link');
   ok(!!panel, 'clicking it opens the picker');
   ok(stockBtn.getAttribute('aria-expanded') === 'true', 'and aria-expanded follows');
   const listed = [...host.querySelectorAll('.crm-wa-stock li button')];
-  eq(listed.length, 2, 'the picker lists the published listings only');
+  eq(listed.length, 3, 'the picker lists the published stock — two cars and one machine');
+  eq(listed.filter(b => /AR7-0007|AR7-0008/.test(b.textContent)).length, 2, 'both published cars appear');
+  eq([...host.querySelectorAll('.crm-wa-stock-head')].map(h => h.textContent.trim()).join('/'), 'Cars/Machinery',
+    'grouped by catalogue, so a car and a machine can never be confused for one another');
   ok(!/Honda/.test(panel.textContent), 'an unpublished draft is never offered — a link to a car the site hides is an apology waiting to happen');
   ok(/Harrier/.test(panel.textContent) && /AR7-0007/.test(panel.textContent) && /\$12,500/.test(panel.textContent),
     'each row names the car, its reference and the price the listing publishes');
@@ -740,7 +751,7 @@ say('\nWhatsApp desk stock link');
   eq(host.querySelectorAll('.crm-wa-stock li button').length, 1, 'typing a make narrows the list');
   await type(search, 'toyota 2021');
   eq(host.querySelectorAll('.crm-wa-stock li button').length, 0, 'a query that matches nothing returns nothing rather than a random car');
-  ok(/No published vehicle matches that/.test(host.querySelector('.crm-wa-stock').textContent),
+  ok(/No published car or machine matches that/.test(host.querySelector('.crm-wa-stock').textContent),
     'and the empty result explains why, instead of offering the nearest thing');
   await type(search, 'harrier');
 
@@ -757,6 +768,39 @@ say('\nWhatsApp desk stock link');
     'and it ends with the absolute listing URL, which is what makes WhatsApp draw the card');
   ok(!/\b(verified|guaranteed|best price|in stock now)\b/i.test(after.value),
     'the reply claims nothing the listing does not publish');
+
+  // ---- Machinery: the second catalogue, same rules -----------------------
+  // Machines live at /machinery/<type>/<ref> with the card at /api/og/m/<ref>,
+  // and the house rule is that their price is INDICATIVE FOB. A reply about a
+  // machine has to say so, and must never link an unpublished row.
+  await act(async () => { stockBtn.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  const search2 = host.querySelector('.crm-wa-stock input[aria-label="Search stock"]');
+  await type(search2, 'excavator');
+  const heads = [...host.querySelectorAll('.crm-wa-stock-head')].map(h => h.textContent.trim());
+  ok(heads.includes('Machinery'), `the picker groups the two catalogues (heads: ${heads.join(', ') || 'none'})`);
+  const machineRows = [...host.querySelectorAll('.crm-wa-stock li button')];
+  eq(machineRows.length, 1, 'searching a machine type returns the one published machine');
+  ok(/Doosan/.test(machineRows[0].textContent) && /AR7-MC-001/.test(machineRows[0].textContent),
+    'the machine row names the machine and its reference');
+  ok(!/Doosan[^·]*Doosan/.test(machineRows[0].textContent) && /2019 Doosan DX300LC-9C/.test(machineRows[0].textContent),
+    'its name already carries the brand, so the row does not repeat it');
+  ok(/indicative FOB/.test(machineRows[0].textContent), 'and labels its price indicative FOB on the row the staff member reads');
+  ok(!/XCMG/.test(host.querySelector('.crm-wa-stock').textContent),
+    'an unpublished machine is never offered — the same rule as cars');
+
+  const beforeMachine = host.querySelector('textarea[aria-label="WhatsApp reply"]').value;
+  await act(async () => { machineRows[0].dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  const withMachine = host.querySelector('textarea[aria-label="WhatsApp reply"]').value;
+  ok(withMachine.startsWith(beforeMachine + '\n'), 'the car text already in the draft survives adding a machine');
+  const machineText = machineShareMessage(
+    {ref: 'AR7-MC-001', name: 'Doosan DX300LC-9C', year: 2019, hours: 6800, type: 'Excavators'},
+    formatMoney(62500, 'USD')
+  );
+  ok(withMachine.includes(machineText), `the inserted text is the machine page's own forward text ("${machineText}")`);
+  ok(/indicative FOB/.test(withMachine), 'including the indicative-FOB wording the machinery catalogue always carries');
+  ok(withMachine.includes('https://ar7traders.com/machinery/excavators/AR7-MC-001'),
+    'and the machine listing URL, which draws the machinery card rather than the car one');
+  ok(!/\b(in stock now|guaranteed|best price)\b/i.test(withMachine), 'the reply still claims nothing extra');
 
   await act(async () => { desk.unmount(); });
   host.remove();
