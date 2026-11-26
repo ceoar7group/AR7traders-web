@@ -4060,12 +4060,13 @@ html[data-crm-theme="light"] .crm-shell,
 
 /* --------------------------------------------------------------------------
    Phone layout for the data tables that carry row actions.
-   An 11-column table cannot fit a 390px viewport, so below 700px each row is
-   presented as a labelled card: the header band is hidden and every cell
+   An 11-column table cannot fit a 390px viewport, so below 820px — the width
+   at which the CRM shell itself drops its sidebar and goes single-column — each
+   row is presented as a labelled card: the header band is hidden and every cell
    prints its own label from `data-label`. The actions then sit at the end of
    the card, in view, instead of at the far right of a 1,326px-wide scroll box.
-   -------------------------------------------------------------------------- */
-@media (max-width: 700px) {
+   --------------------------------------------------------------------------- */
+@media (max-width: 820px) {
   .crm-cards-sm .crm-table-wrap, .crm-table-wrap.crm-cards-sm{overflow:visible}
   .crm-cards-sm table, .crm-table-wrap.crm-cards-sm table{min-width:0;width:100%;display:block}
   .crm-cards-sm thead, .crm-table-wrap.crm-cards-sm thead{display:none}

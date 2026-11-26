@@ -46,6 +46,15 @@ setGlobal('fetch', (url, options = {}) => {
   // The WhatsApp desk, for the stock-link block at the end of this file. A
   // configured desk with one open thread is the only state in which the
   // composer (and therefore the picker) exists.
+  // The member table, for the phone-cards block at the end: the demo desk has
+  // no team API, so the rows are stubbed here rather than the assertion being
+  // skipped.
+  if (value.includes('/api/team?action=members')) {
+    return Promise.resolve({ok: true, status: 200, json: async () => ([
+      {id: 'm1', full_name: 'Ahmed Khan', email: 'ahmed@ar7traders.com', role: 'sales', active: true},
+      {id: 'm2', full_name: 'Daniel Mwangi', email: 'daniel@ar7traders.com', role: 'viewer', active: false}
+    ])});
+  }
   if (value.includes('entity=wa')) {
     if (value.includes('&with=')) return Promise.resolve({ok: true, status: 200, json: async () => ({
       messages: [{id: 1, direction: 'in', body: 'Do you have a Toyota Harrier?', created_at: '2026-11-26T10:00:00Z'}]
@@ -344,6 +353,34 @@ ok(gridRows.length === ENFORCED.length,
 ok(colsPerRow.every(n => n === 5), 'every permission row has a box for each of the 5 roles');
 const adminBoxes = gridRows.map(r => r.querySelectorAll('.perm-cell input')[0]);
 ok(adminBoxes.every(b => b.checked && b.disabled), 'the admin column is ticked and locked on every row');
+
+// ---- tables that carry row actions become labelled cards on a phone --------
+// The permission matrix stays a matrix (it is a grid of role × permission by
+// nature), but the member table does not: below 820px each row is a card and
+// every cell prints the header it lost, so "which column is this?" never
+// depends on scrolling a 900px table sideways.
+const memberTable = document.querySelector('.crm-team .crm-table-wrap.crm-cards-sm');
+ok(!!memberTable, 'the member table carries crm-cards-sm, so it cards below 820px');
+{
+  const cells = [...(memberTable?.querySelectorAll('tbody td') || [])];
+  ok(cells.length > 0, `the member table renders rows (${cells.length} cells)`);
+  ok(cells.every(td => td.hasAttribute('data-label') || td.classList.contains('crm-row-actions')),
+    'every member cell carries its header as a label (or is the action row, which needs none)');
+  ok(cells.some(td => td.classList.contains('crm-cell-title')), 'and the name is the card title, not a labelled field');
+}
+
+// ---- Price offers: the same card treatment --------------------------------
+say('\nPrice offers on a phone');
+await clickText('.crm-side nav button', 'Price offers');
+{
+  const wrap = document.querySelector('.stock-discount-current .crm-table-wrap');
+  ok(!!wrap && wrap.classList.contains('crm-cards-sm'),
+    'the published-discounts table cards below 820px instead of scrolling sideways');
+  const cells = [...(wrap?.querySelectorAll('tbody td') || [])].filter(td => !td.hasAttribute('colspan'));
+  ok(cells.length === 0 || cells.every(td => td.hasAttribute('data-label') || td.classList.contains('crm-row-actions')),
+    'every discount cell prints its header (or is the action row)');
+}
+await clickText('.crm-side nav button', 'Team & permissions');
 
 // ---- the machinery desk ---------------------------------------------------
 // The owner's acceptance criteria, at the level only a render test can see:
