@@ -52,6 +52,17 @@ export function vehicleShareMessage(car, stockRef) {
   return `${name}${facts ? ` — ${facts}` : ''}. Export from Japan by AR7 Traders.`;
 }
 
+/** The same message as an absolute link, for anywhere a link is sent rather
+ *  than opened — the CRM's WhatsApp desk drops this into a reply, and because
+ *  that desk sends with `preview_url: true` the customer sees the 1200×630
+ *  share card /api/og/<ref> draws, not a bare URL. `origin` is passed in so the
+ *  CRM preview and production never disagree about the host. */
+export function vehicleShareLink(car, stockRef, origin = 'https://ar7traders.com') {
+  const ref = String(stockRef ?? '').trim();
+  const base = String(origin || '').replace(/\/+$/, '');
+  return `${vehicleShareMessage(car, ref)}${ref ? ` ${base}/inventory/${encodeURIComponent(ref)}` : ''}`;
+}
+
 /** The prefilled WhatsApp text: concise, names the car and its stock reference. */
 export function vehicleWhatsAppMessage(car, stockRef) {
   const name = vehicleName(car) || 'vehicle';

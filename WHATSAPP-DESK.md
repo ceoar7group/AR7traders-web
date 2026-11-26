@@ -82,6 +82,20 @@ In the Meta app dashboard → WhatsApp → **Configuration** → Webhook:
 Send a WhatsApp message to the business/test number. Within seconds it
 appears in CRM → WhatsApp. Type a reply (or press **AI draft**) and send.
 
+### Sending a car instead of a bare URL
+Press **Stock link** in the composer, search the live stock by make, model,
+year or reference, and pick the car. The desk appends exactly what the public
+listing page forwards — name, reference, the published price with its FOB
+label, and the absolute `/inventory/<ref>` URL — so WhatsApp draws the
+listing's own 1200×630 preview card (`api/_og-card.js`) under the reply.
+
+- Only **published** listings are offered. A draft or a removed car never
+  appears, because a customer who taps a sold car gets an apology, not a car.
+- The text states nothing beyond what the listing publishes; the picker adds
+  it to whatever you already typed rather than replacing your wording.
+- This is still a free-form reply inside the 24-hour window — attaching a link
+  does not turn the message into a paid template.
+
 ## The AI agent
 
 - **AI draft** (always available): the same Gemini key that powers the
