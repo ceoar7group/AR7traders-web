@@ -975,14 +975,14 @@
   }
 
   .detail-mobile-cta .dmc-price small {
-    font: 800 8px/1 Manrope, sans-serif;
-    letter-spacing: 1.2px;
+    font: 800 8.5px/1 Manrope, sans-serif;
+    letter-spacing: 1.1px;
     text-transform: uppercase;
     color: var(--muted);
   }
 
   .detail-mobile-cta .dmc-price b {
-    font: 800 16px/1.1 Manrope, sans-serif;
+    font: 800 18px/1.1 Manrope, sans-serif;
     letter-spacing: -.3px;
     color: var(--green-text);
     font-variant-numeric: tabular-nums;
@@ -1007,63 +1007,56 @@
     display: none;
   }
 
-  .detail-mobile-cta .dmc-wa {
-    flex: none;
-    width: 46px;
-    height: 46px;
-    display: grid;
-    place-items: center;
-    border-radius: 14px;
-    background: color-mix(in srgb, #25d366 14%, transparent);
-    color: #168a3d;
+  /* Both enquiry routes share the one line with the price: the solid offer
+     first, the quieter enquiry beside it. Neither is allowed to wrap. */
+  .detail-mobile-cta :is(.dmc-cta, .dmc-enquire) {
+    flex: 0 1 auto;
+    height: 44px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 13px;
+    font: 700 12.5px/1 Manrope, sans-serif;
+    letter-spacing: -.1px;
+    white-space: nowrap;
   }
 
   .detail-mobile-cta .dmc-cta {
-    flex: 0 0 auto;
-    height: 46px;
-    padding: 0 16px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 0;
-    border-radius: 14px;
     background: var(--green);
     color: #fff;
-    font: 700 13px/1 Manrope, sans-serif;
-    white-space: nowrap;
-    box-shadow: 0 12px 24px -14px rgba(4, 63, 40, .8);
+    box-shadow: 0 12px 24px -16px rgba(4, 63, 40, .9);
   }
 
-  .detail-mobile-cta .dmc-cta svg {
-    width: 15px;
-    height: 15px;
+  .detail-mobile-cta .dmc-enquire {
+    background: var(--d-surface);
+    color: var(--ink);
   }
 
-  .detail-mobile-cta :is(.dmc-wa, .dmc-cta):focus-visible {
+  .detail-mobile-cta :is(.dmc-cta, .dmc-enquire):focus-visible {
     outline: 3px solid var(--gold);
     outline-offset: 2px;
   }
+
 
   /* Keep the page (and the footer under it) clear of the bar. */
   body:has(.detail-mobile-cta) {
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
-  body:has(.detail-mobile-cta) .wa-float {
+  /* The bar now carries both enquiry routes, so the chat bubble stands aside
+     and the WhatsApp bubble rides just above the bar. */
+  body:has(.detail-mobile-cta) .aw-float {
     display: none;
   }
 
-  body:has(.detail-mobile-cta) .aw-float {
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  body:has(.detail-mobile-cta) .wa-float {
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
   }
 }
 
 /* Dark theme: the phone bar's two accents need to lift off a dark surface. */
-html[data-theme=dark] .detail-mobile-cta .dmc-wa {
-  color: #6ce69a;
-  background: color-mix(in srgb, #25d366 20%, transparent);
-}
-
 html[data-theme=dark] .detail-mobile-cta .dmc-cta {
   background: #0e6b41;
   color: #f2fff8;
@@ -1071,6 +1064,24 @@ html[data-theme=dark] .detail-mobile-cta .dmc-cta {
 
 html[data-theme=dark] .detail-mobile-cta .dmc-cta:hover {
   background: #128452;
+}
+
+html[data-theme=dark] .detail-mobile-cta .dmc-enquire {
+  background: color-mix(in srgb, #eff7f2 12%, transparent);
+  color: #eff7f2;
+}
+
+/* Very narrow phones: the price loses its caption so both buttons keep their
+   width on the one line. */
+@media (max-width: 400px) {
+  .detail-mobile-cta .dmc-price small {
+    display: none;
+  }
+
+  .detail-mobile-cta :is(.dmc-cta, .dmc-enquire) {
+    padding: 0 10px;
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 380px) {
@@ -1121,6 +1132,10 @@ html[data-theme=dark] .detail-mobile-cta .dmc-cta:hover {
 
   .detail-mobile-cta .dmc-cta:hover {
     background: #08613c;
+  }
+
+  .detail-mobile-cta .dmc-enquire:hover {
+    background: var(--d-surface-2);
   }
 }
 

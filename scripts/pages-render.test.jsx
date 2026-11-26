@@ -396,6 +396,46 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(/:focus-visible\s*\{[^}]*outline\s*:\s*[3-9]px solid/.test(section),
     'keyboard focus draws a clear 3px+ outline on every CTA');
   ok(!/--crm-/.test(section), 'the public action-stack CSS uses --* site tokens, never the CRM --crm-* set');
+
+  // ---- phone action bar: the same two intents, one line, behind the thumb ----
+  {
+    const start = detail.indexOf('<div class="detail-mobile-cta"');
+    const endTag = detail.indexOf('</button></div>', start);
+    const barHtml = start >= 0 && endTag > start ? detail.slice(start, endTag + '</button></div>'.length) : '';
+    const bar = attrsOf(tagOf(barHtml));
+    ok(bar.role === 'group' && bar['aria-label'] === `Buy the ${vehicleName(car)}`,
+      `the phone bar is a labelled group naming the car ("${bar['aria-label']}")`);
+    ok(/class="dmc-price"[\s\S]*?>Export price \(FOB\)</.test(barHtml) && /class="dmc-price"[\s\S]*?<b[^>]*>\$[\d,]/.test(barHtml),
+      'the phone bar leads with the export price, so the shopper never scrolls back up for it');
+    const barControls = [...barHtml.matchAll(/<(button|a)\b[^>]*>[\s\S]*?<\/\1>/g)].map(m => m[0]);
+    const barLabels = barControls.map(textOf);
+    ok(barLabels.join(' | ') === 'Make an offer | Enquire now',
+      `the phone bar carries exactly the offer and the enquiry on one line (${barLabels.join(' | ')})`);
+    ok(barControls.every(c => attrsOf(tagOf(c))['aria-haspopup'] === 'dialog' && attrsOf(tagOf(c)).type === 'button'),
+      'both phone-bar actions are buttons that announce the dialog they open');
+    ok(!/dmc-wa|wa\.me/.test(detail.slice(detail.indexOf('<div class="detail-mobile-cta"'), detail.indexOf('<footer'))),
+      'the phone bar leaves WhatsApp to the floating bubble instead of repeating it');
+
+    const dockCss = readFileSync('src/detail-v2.css', 'utf8');
+    const dockBase = (dockCss.match(/\n\.detail-mobile-cta\s*\{([^}]*)\}/) || [])[1] || '';
+    ok(/display\s*:\s*none/.test(dockBase), 'the phone bar is off on desktop — the action stack already covers it');
+    const phone = (() => {
+      const m = /@media \(max-width:\s*650px\)\s*\{/.exec(dockCss);
+      if (!m) return '';
+      const start = m.index + m[0].length - 1;
+      for (let k = start, depth = 0; k < dockCss.length; k++) {
+        if (dockCss[k] === '{') depth++;
+        else if (dockCss[k] === '}' && --depth === 0) return dockCss.slice(start, k + 1);
+      }
+      return '';
+    })();
+    ok(/\.detail-mobile-cta\s*\{[^}]*display\s*:\s*flex/.test(phone) && /position\s*:\s*fixed/.test(phone),
+      'below 650px the bar becomes a fixed dock');
+    ok(/:is\(\.dmc-cta, \.dmc-enquire\)\s*\{[^}]*white-space\s*:\s*nowrap/.test(phone),
+      'the two dock buttons share one row and never wrap their labels');
+    ok(/env\(safe-area-inset-bottom/.test(phone) && /body:has\(\.detail-mobile-cta\)\s*\{[^}]*padding-bottom/.test(phone),
+      'the dock respects the home-indicator inset and the page pads itself so the last section stays reachable');
+  }
 }
 {
   // Phase C1 buyer content checks across /faq, /destinations, /howbuy, and /news
