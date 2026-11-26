@@ -31,6 +31,7 @@ import {
   machineByRef, machineHref, machineYear, machineHours, machineYearText,
   machineLoc, machineBrandLockup, machineShareMessage, machineUsdLabel
 } from './machinery-data.js';
+import { photoSrcSet, photoThumb } from './photo-srcset.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useStockDiscounts, stockDiscountFor, priceWithOffer, formatDate} from './offers.js';
 import {useShareAction} from './share-action.js';
@@ -158,7 +159,8 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
           {photos.length
             ? <button className="mch-detail-shot" type="button" onClick={() => setZoom(true)}
                 aria-label={`Enlarge the ${machine.name} photograph`}>
-                <img width="900" height="600" src={photos[shot]} loading="eager" decoding="async" fetchPriority="high"
+                <img width="900" height="600" src={photos[shot]} srcSet={photoSrcSet(photos[shot])} loading="eager" decoding="async" fetchPriority="high"
+                  sizes="(max-width:650px) 100vw, (max-width:900px) 100vw, 46vw"
                   alt={`${machine.name} ${label.toLowerCase()} offered for export from China — ${machine.ref}, photo ${shot + 1} of ${photos.length}`}/>
               </button>
             : <div className="mch-nophoto large">
@@ -171,7 +173,7 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
             <div className="mch-detail-strip" role="group" aria-label={`${machine.name} photos`}>
               {photos.map((src, i) => <button key={src} type="button" className={i === shot ? 'active' : ''}
                 onClick={() => setShot(i)} aria-label={`Show photo ${i + 1} of ${photos.length}`}>
-                <img loading="lazy" decoding="async" width="150" height="100" src={src} alt=""/>
+                <img loading="lazy" decoding="async" width="150" height="100" src={photoThumb(src)} alt=""/>
               </button>)}
             </div>
           )}
@@ -253,7 +255,9 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
                   e.preventDefault();
                   navigate(machineHref(m));
                 }}>
-                {machineImages(m)[0] && <img loading="lazy" decoding="async" width="420" height="290" src={machineImages(m)[0]} alt={`${m.name} for export — ${m.ref}`}/>}
+                {machineImages(m)[0] && <img loading="lazy" decoding="async" width="420" height="290" src={machineImages(m)[0]}
+                  srcSet={photoSrcSet(machineImages(m)[0])} sizes="(max-width:650px) 100vw, (max-width:1100px) 45vw, 300px"
+                  alt={`${m.name} for export — ${m.ref}`}/>}
                 <b>{m.name}</b>
                 <small>{machineYearText(m)} · {usageOf(m)} · {m.location}</small>
                 {p.hasOffer ? <span className="mch-related-price"><s>{fmt(p.was)}</s> <b>{fmt(p.now)}</b></span> : <span className="mch-related-price"><b>{fmt(p.now)}</b></span>}
@@ -318,6 +322,7 @@ function MachineCard({machine, onQuote, navigate, discounts, waNumber}) {
         ? <a className="mch-photo-link" href={href} onClick={openClick}
             aria-label={`Open the ${machine.name} page — ${machine.ref}`}>
             <img loading="lazy" decoding="async" width="820" height="560" src={photos[shot]}
+              srcSet={photoSrcSet(photos[shot])} sizes="(max-width:650px) 100vw, 50vw"
               alt={`${machine.name} ${label.toLowerCase()} ${shot ? `photo ${shot + 1} of ${photos.length}` : 'available for export'} — ${machine.ref}`}/>
           </a>
         : <button className="mch-nophoto" type="button" onClick={open}>
@@ -334,7 +339,7 @@ function MachineCard({machine, onQuote, navigate, discounts, waNumber}) {
           className={i === shot ? 'active' : ''}
           onClick={() => setShot(i)}
           aria-label={`Show photo ${i + 1} of ${photos.length}`}>
-          <img loading="lazy" decoding="async" width="120" height="82" src={src} alt=""/>
+          <img loading="lazy" decoding="async" width="120" height="82" src={photoThumb(src)} alt=""/>
         </button>)}
       </div>}
       {photos.length > 0 && <button className="mch-expand" type="button" onClick={open}>

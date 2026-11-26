@@ -227,6 +227,27 @@ only way past the screen is `--allow-photo-flags`, which exists so a human who
 has actually looked at a clean machine with an unfortunate title is not
 blocked by a keyword.
 
+### The same photograph, in the width the visitor needs
+
+A 900 px photograph in a 150 px thumbnail wastes ~28 kB on every phone that
+opens the page, and a 1,280 px news cover is 100–143 kB of JPEG for a 390 px
+card. `scripts/photo-variants.mjs` writes the smaller widths beside each
+photograph the site owns and records them in `src/photo-widths.js`;
+`src/photo-srcset.js` turns that into a `srcset` + `sizes` pair.
+
+    npm run photos                          # write missing/stale variants
+    npm run test:photo-variants -- --check  # fail if the manifest drifts
+
+- A width is only written when it is meaningfully narrower than the source (or
+  already exists by hand — the hero photographs ship 560/760 siblings, which are
+  reused rather than duplicated).
+- The manifest is what makes the `srcset` safe: a rung pointing at a file that
+  does not exist is worse than no `srcset`, so anything not in it (a CRM upload,
+  a remote URL, a photograph added without running the script) keeps a plain
+  `src`.
+- The test suite fails if a catalogue photograph has no variants, if an
+  advertised variant is missing from disk, or if one is not actually smaller.
+
 There is no "fix it in Photoshop" route. Retouching a photograph to hide a
 machine's condition is the one thing that would make every other standard here
 pointless.
