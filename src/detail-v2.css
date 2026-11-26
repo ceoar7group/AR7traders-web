@@ -1,0 +1,928 @@
+/* ============================================================================
+   Vehicle detail page — "quiet studio" pass (2026-11-25)
+   ----------------------------------------------------------------------------
+   Imported by src/inner-page.jsx immediately AFTER inner-page.css, so it is the
+   last word on the detail view. Everything is scoped to `.detail-page`, so no
+   other route is touched, and !important only appears where an older layer
+   already used it (inner-page.css, detail-responsive.css, performance.css).
+
+   The brief for this pass:
+     • smoother, more modern — soft surfaces, generous radii, no hard frames;
+     • fewer borders — hairlines at 8% and tinted panels replace 1px outlines;
+     • smarter button placement — one quiet row above the fold (back + pager),
+       the gallery controls in a single row under the photo (nothing floating
+       over the car, nothing boxed), Enlarge pulled to the far right;
+     • better info hierarchy — eyebrow → name → price panel → spec tiles →
+       an airy two-column specification list.
+
+   Tokens: public site tokens only (--ink/--card/--bg/--green/--gold/--muted).
+   Dark mode follows the same rules because every tint is mixed from --ink,
+   which flips with the theme. Motion is hover-only and off under
+   prefers-reduced-motion.
+   ========================================================================== */
+
+.detail-page {
+  /* local, scoped tokens — no global variable names invented */
+  --d-surface: color-mix(in srgb, var(--ink) 4.5%, transparent);
+  --d-surface-2: color-mix(in srgb, var(--ink) 8%, transparent);
+  --d-hair: color-mix(in srgb, var(--ink) 8%, transparent);
+  --d-radius: 26px;
+  --d-ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+/* ---------- 1. Top bar: back link + position in the inventory ------------- */
+
+.detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+
+.detail-page .back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 10px 16px 10px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--d-surface);
+  color: var(--muted);
+  font: 700 12px/1 Manrope, sans-serif;
+  letter-spacing: .2px;
+  cursor: pointer;
+  transition: background .2s var(--d-ease), color .2s var(--d-ease), transform .2s var(--d-ease);
+}
+
+.detail-page .back-btn svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+/* Previous / Next vehicle + "43 of 412 in all inventory", as one pill group.
+   The markup is inner-page.jsx's own `.detail-vehicle-nav` (buttons + span);
+   here it only loses its three separate 1px boxes. */
+.detail-page .detail-vehicle-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--d-surface);
+}
+
+.detail-page .detail-vehicle-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 13px 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: 700 11.5px/1 Manrope, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .2s var(--d-ease), color .2s var(--d-ease), box-shadow .2s var(--d-ease);
+}
+
+.detail-page .detail-vehicle-nav button:last-child {
+  padding: 0 9px 0 13px;
+}
+
+.detail-page .detail-vehicle-nav button:disabled {
+  opacity: .32;
+  cursor: not-allowed;
+}
+
+.detail-page .detail-vehicle-nav button svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.detail-page .detail-vehicle-nav > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0 10px;
+  color: var(--muted);
+  font: 700 11px/1 Manrope, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.detail-page .detail-vehicle-nav > span b {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.detail-page .detail-vehicle-nav > span small {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+/* ---------- 2. Gallery: studio matte, no frame, one control row ---------- */
+
+.detail-page .detail-grid {
+  align-items: start;
+  grid-template-columns: minmax(0, 1.06fr) minmax(340px, .94fr);
+  column-gap: clamp(28px, 3.4vw, 54px);
+}
+
+.detail-page .detail-gallery {
+  min-width: 0;
+}
+
+/* The photo sits on a studio matte (near-white, warmed at the edges) instead
+   of the old dark plate: white-background dealer photos blend into it. */
+.detail-page .detail-gallery > .detail-main-image {
+  margin: 0;
+  border-radius: var(--d-radius);
+  overflow: hidden;
+  background:
+    radial-gradient(125% 115% at 50% 0%, color-mix(in srgb, var(--card) 96%, #fff) 0%,
+      color-mix(in srgb, var(--green) 6%, var(--card)) 58%,
+      color-mix(in srgb, var(--gold) 8%, var(--card)) 100%);
+  box-shadow: 0 34px 66px -54px color-mix(in srgb, var(--deep) 80%, transparent);
+}
+
+/* inner-page.css keeps the <img> absolutely filling the 31:20 box so the space
+   is reserved before the photo loads; only its finish changes here. */
+.detail-page .detail-gallery > .detail-main-image > img {
+  border-radius: var(--d-radius) !important;
+  background: transparent !important;
+  cursor: zoom-in;
+  transition: transform .55s var(--d-ease);
+}
+
+/* The control row sits *under* the photo, on the page, not in a dark bar:
+   arrows are quiet circles, the counter sits between them, Enlarge is pushed
+   to the far right where the eye leaves the block. */
+.detail-page .detail-gallery .detail-gallery-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  margin-top: 14px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-arrow {
+  position: static !important;
+  inset: auto !important;
+  translate: none !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--d-surface) !important;
+  color: var(--ink) !important;
+  display: grid !important;
+  place-items: center !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: background .2s var(--d-ease), color .2s var(--d-ease);
+}
+
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-count {
+  position: static !important;
+  inset: auto !important;
+  margin: 0 !important;
+  padding: 0 8px !important;
+  min-width: 56px;
+  text-align: center;
+  background: none !important;
+  color: var(--muted) !important;
+  font: 700 11.5px/1 Manrope, sans-serif !important;
+  letter-spacing: 1.2px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-count b {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-count i {
+  font-style: normal;
+  margin: 0 3px;
+  opacity: .45;
+}
+
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-expand {
+  position: static !important;
+  inset: auto !important;
+  margin-left: auto !important;
+  width: auto !important;
+  height: 38px !important;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--ink) 92%, transparent) !important;
+  color: var(--bg) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px;
+  font: 700 11px/1 Manrope, sans-serif !important;
+  letter-spacing: .3px;
+  cursor: pointer;
+  transition: background .2s var(--d-ease), transform .2s var(--d-ease);
+}
+
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-expand svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Thumbnails: soft tiles, no borders; the active one is full-strength with a
+   gold ring, the rest sit back at 55%. Five or fewer stay a tidy 5-up grid;
+   a car with a long photo set turns the row into a snap filmstrip instead of
+   pushing dozens of thumbnail rows down the page. */
+.detail-page .detail-gallery > .detail-thumbs {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
+
+.detail-page .detail-gallery > .detail-thumbs:has(> button:nth-child(6)) {
+  display: flex !important;
+  grid-template-columns: none !important;
+  gap: 8px !important;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.detail-page .detail-gallery > .detail-thumbs:has(> button:nth-child(6)) > button {
+  flex: 0 0 clamp(96px, 11vw, 118px);
+  scroll-snap-align: start;
+}
+
+.detail-page .detail-gallery > .detail-thumbs button {
+  position: relative;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 14px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  opacity: .55;
+  cursor: pointer;
+  transition: opacity .2s var(--d-ease), transform .2s var(--d-ease), box-shadow .2s var(--d-ease);
+}
+
+.detail-page .detail-gallery > .detail-thumbs button img {
+  display: block;
+  width: 100%;
+  height: auto !important;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
+  border-radius: 14px;
+  background: transparent !important;
+}
+
+.detail-page .detail-gallery > .detail-thumbs button small {
+  display: none;
+}
+
+.detail-page .detail-gallery > .detail-thumbs button.active {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--gold), 0 14px 26px -20px color-mix(in srgb, var(--gold) 90%, transparent);
+}
+
+.detail-page .detail-gallery > .detail-thumbs button.active img {
+  border-color: transparent;
+}
+
+/* Video walkaround: same matte and radius language as the photo above it. */
+.detail-page .video-walk {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  aspect-ratio: 16 / 9;
+  box-shadow: 0 24px 50px -48px color-mix(in srgb, var(--deep) 80%, transparent);
+}
+
+.detail-page .video-walk > button {
+  border-radius: 20px;
+}
+
+.detail-page .video-walk-play {
+  border: 0;
+  background: color-mix(in srgb, var(--ink) 72%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.detail-page .video-walk-tag {
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 62%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 7px 11px;
+}
+
+.detail-page .sheet-tag {
+  left: 14px;
+  top: 14px;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 84%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  backdrop-filter: blur(14px) saturate(1.3);
+  color: var(--ink);
+  font: 700 10px/1 Manrope, sans-serif;
+  letter-spacing: .6px;
+  box-shadow: 0 12px 28px -20px rgba(0, 0, 0, .8);
+}
+
+.detail-page .sheet-tag svg {
+  width: 13px;
+  color: var(--gold);
+}
+
+/* ---------- 3. Info column: eyebrow → name → price → tiles → specs ------- */
+
+.detail-page .detail-info {
+  width: 100%;
+  min-width: 0;
+}
+
+.detail-page .detail-info > .kicker {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  font: 700 10.5px/1 Manrope, sans-serif;
+  letter-spacing: 1.9px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detail-page .detail-eyebrow .eyebrow-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.detail-page .detail-eyebrow .stock-ref {
+  margin-left: 2px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: color-mix(in srgb, var(--gold) 52%, var(--ink));
+  font: 800 10px/1 Manrope, sans-serif;
+  letter-spacing: 1.1px;
+}
+
+.detail-page .detail-info h1 {
+  display: grid;
+  margin: 16px 0 20px;
+  font: 800 clamp(34px, 3.5vw, 47px)/1 Manrope, sans-serif;
+  letter-spacing: -1.8px;
+  color: var(--ink);
+}
+
+.detail-page .detail-info h1 .detail-model {
+  color: var(--gold);
+  font-style: normal;
+  letter-spacing: -1.2px;
+}
+
+.detail-page .detail-info .detail-price {
+  display: grid;
+  gap: 7px;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--green) 7%, var(--card));
+}
+
+.detail-page .detail-info .detail-price > small {
+  font: 800 10px/1 Manrope, sans-serif;
+  letter-spacing: 1.9px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detail-page .detail-info .detail-price b {
+  font: 800 clamp(29px, 3.1vw, 38px)/1.05 Manrope, sans-serif;
+  letter-spacing: -1.2px;
+  color: var(--green-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-page .detail-info .detail-price .stock-price-display {
+  gap: 5px;
+}
+
+.detail-page .detail-info .detail-price .stock-price-values {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail-page .detail-info .detail-price .stock-price-values s {
+  font-size: .58em;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.detail-page .detail-info .detail-price .stock-price-display em {
+  font-style: normal;
+  font: 800 10px/1.4 Manrope, sans-serif;
+  letter-spacing: .5px;
+  color: var(--green-text);
+}
+
+.detail-page .detail-info .detail-price .stock-price-display small {
+  font: 600 10px/1.45 Manrope, sans-serif;
+  color: var(--muted);
+}
+
+/* Six quick facts as borderless tiles: icon, value, label. */
+.detail-page .detail-specs {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px;
+  margin: 16px 0 22px;
+}
+
+.detail-page .detail-specs > span {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 3px;
+  align-items: center;
+  padding: 12px;
+  border: 0 !important;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+}
+
+.detail-page .detail-specs svg {
+  grid-row: 1 / 3;
+  width: 16px;
+  height: 16px;
+  color: var(--gold);
+}
+
+.detail-page .detail-specs b {
+  font: 800 13px/1.15 Manrope, sans-serif;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.detail-page .detail-specs small {
+  font: 700 9px/1.2 Manrope, sans-serif;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Full specifications: an airy two-column definition list whose only lines
+   are 8% hairlines — no box, no dashed rules. */
+.detail-page .spec-table {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 30px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.detail-page .spec-table h4 {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 4px;
+  font: 800 10.5px/1 Manrope, sans-serif;
+  letter-spacing: 1.9px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.detail-page .spec-table h4:after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--d-hair);
+}
+
+.detail-page .spec-table span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--d-hair);
+  font-size: 12.5px;
+}
+
+.detail-page .spec-table small {
+  flex: none;
+  font: 600 10.5px/1.35 Manrope, sans-serif;
+  letter-spacing: .3px;
+  text-transform: none;
+  color: var(--muted);
+  align-self: center;
+}
+
+.detail-page .spec-table b {
+  min-width: 0;
+  max-width: 62%;
+  font: 700 12.5px/1.35 Manrope, sans-serif;
+  color: var(--ink);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 4. The rest of the column, in the same quiet language --------- */
+
+.detail-page .feat-box {
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.detail-page .feat-box h4 {
+  margin: 0 0 10px;
+  font: 800 10.5px/1 Manrope, sans-serif;
+  letter-spacing: 1.9px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.detail-page .feat-chips {
+  gap: 7px;
+}
+
+.detail-page .feat-chips span {
+  padding: 8px 12px;
+  border: 0;
+  background: var(--d-surface);
+  color: var(--ink);
+  font: 700 11px/1 Manrope, sans-serif;
+}
+
+.detail-page .feat-chips svg {
+  color: var(--green-text);
+}
+
+.detail-page .cif-box {
+  gap: 12px;
+  margin-top: 20px;
+  padding: 18px;
+  border: 0;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.detail-page .cif-box .kicker {
+  font-size: 10px;
+  letter-spacing: 1.8px;
+  color: var(--muted);
+}
+
+.detail-page .cif-box select {
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  color: var(--ink);
+}
+
+.detail-page .cif-rows span {
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+
+.detail-page .brand-brandlogo {
+  gap: 12px;
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.detail-page .brand-brandlogo img {
+  width: 58px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.detail-page .brand-brandlogo span {
+  font: 700 9.5px/1.4 Manrope, sans-serif;
+  letter-spacing: 1.6px;
+  color: var(--muted);
+}
+
+.detail-page .sheet-box {
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  color: var(--ink);
+}
+
+.detail-page .sheet-box svg {
+  width: 17px;
+  margin-top: 1px;
+  color: var(--gold);
+}
+
+.detail-page .sheet-box b {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.detail-page .sheet-box p {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.detail-page .detail-actions {
+  margin-top: 20px;
+}
+
+/* ---------- 5. Below the fold: same language, softer edges ---------------- */
+
+.detail-page .buyer-guide {
+  border: 0;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow: 0 40px 80px -70px color-mix(in srgb, var(--deep) 90%, transparent);
+}
+
+.detail-page .buyer-guide-step,
+.detail-page .buyer-guide-card {
+  border: 0;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.detail-page .buyer-guide-step > span {
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: color-mix(in srgb, var(--gold) 60%, var(--ink));
+}
+
+.detail-page .related-stock-card {
+  border: 0;
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  box-shadow: 0 24px 44px -40px color-mix(in srgb, var(--deep) 90%, transparent);
+}
+
+/* ---------- 6. Big screens: the gallery holds still while the copy scrolls - */
+
+@media (min-width: 1001px) {
+  .detail-page .detail-gallery {
+    position: sticky;
+    top: calc(var(--head-h, 92px) + 18px);
+  }
+}
+
+/* ---------- 7. Small screens --------------------------------------------- */
+
+@media (max-width: 650px) {
+  .detail-topbar {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .detail-page .detail-vehicle-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .detail-page .detail-vehicle-nav button {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .detail-page .detail-vehicle-nav button:last-child {
+    padding: 0 10px;
+  }
+
+  .detail-page .detail-vehicle-nav button .nav-word {
+    display: none;
+  }
+
+  /* the position stays the star on a phone: 43 of 412 between two arrows */
+  .detail-page .detail-vehicle-nav > span {
+    flex: 1;
+    justify-content: center;
+    padding: 0 2px;
+  }
+
+  .detail-page .detail-vehicle-nav > span small {
+    display: none;
+  }
+
+  .detail-page .detail-gallery {
+    position: relative;
+    top: auto;
+  }
+
+  .detail-page .detail-gallery > .detail-main-image {
+    border-radius: 18px;
+  }
+
+  .detail-page .detail-gallery > .detail-main-image > img {
+    border-radius: 16px !important;
+  }
+
+  /* long photo sets: a filmstrip on every width (see :has rule above) */
+  .detail-page .detail-gallery > .detail-thumbs:has(> button:nth-child(6)) {
+    gap: 6px !important;
+  }
+
+  .detail-page .detail-gallery > .detail-thumbs:has(> button:nth-child(6)) > button {
+    flex: 0 0 82px;
+  }
+
+  .detail-page .detail-gallery > .detail-thumbs button {
+    border-radius: 11px;
+  }
+
+  .detail-page .detail-gallery > .detail-thumbs button img {
+    border-radius: 11px;
+    aspect-ratio: 3 / 2;
+  }
+
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-expand {
+    width: 38px !important;
+    padding: 0 !important;
+    gap: 0;
+    font-size: 0 !important;
+  }
+
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-expand svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-count {
+    min-width: 48px;
+    padding: 0 4px;
+    letter-spacing: .8px;
+  }
+
+  .detail-page .detail-info h1 {
+    margin: 14px 0 16px;
+    font-size: clamp(29px, 8.6vw, 40px);
+    letter-spacing: -1.2px;
+  }
+
+  .detail-page .detail-info .detail-price {
+    padding: 16px;
+    border-radius: 17px;
+  }
+
+  .detail-page .detail-specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px;
+    margin: 14px 0 18px;
+  }
+
+  .detail-page .detail-specs > span {
+    padding: 11px 10px;
+    border-radius: 13px;
+    column-gap: 8px;
+  }
+
+  .detail-page .detail-specs b {
+    font-size: 12px;
+  }
+
+  .detail-page .spec-table {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .detail-page .spec-table b {
+    max-width: 58%;
+  }
+
+  .detail-page .cif-box {
+    padding: 15px;
+    border-radius: 17px;
+  }
+
+  .detail-page .video-walk {
+    border-radius: 16px;
+  }
+}
+
+/* ---------- 8. Motion: hover only, and never for reduced-motion visitors - */
+
+@media (hover: hover) {
+  .detail-page .back-btn:hover {
+    background: var(--d-surface-2);
+    color: var(--ink);
+    transform: translateY(-1px);
+  }
+
+  .detail-page .detail-vehicle-nav button:not(:disabled):hover {
+    background: var(--card);
+    color: var(--green-text);
+    box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--deep) 90%, transparent);
+  }
+
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-arrow:hover {
+    background: var(--d-surface-2);
+    color: var(--green-text);
+  }
+
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-expand:hover {
+    background: var(--green);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
+  .detail-page .detail-gallery > .detail-main-image:hover > img {
+    transform: scale(1.014);
+  }
+
+  .detail-page .detail-gallery > .detail-thumbs button:hover {
+    opacity: .85;
+    transform: translateY(-2px);
+  }
+}
+
+.detail-page .back-btn:focus-visible,
+.detail-page .detail-vehicle-nav button:focus-visible,
+.detail-page .detail-gallery .gallery-arrow:focus-visible,
+.detail-page .detail-gallery .gallery-expand:focus-visible,
+.detail-page .detail-gallery > .detail-thumbs button:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-page .back-btn,
+  .detail-page .detail-vehicle-nav button,
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-arrow,
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-expand,
+  .detail-page .detail-gallery > .detail-main-image > img,
+  .detail-page .detail-gallery > .detail-thumbs button {
+    transition: none;
+  }
+
+  .detail-page .detail-gallery > .detail-main-image:hover > img,
+  .detail-page .detail-gallery > .detail-thumbs button:hover,
+  .detail-page .back-btn:hover,
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-expand:hover {
+    transform: none;
+  }
+}
