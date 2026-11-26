@@ -467,6 +467,38 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
     ok(!document.querySelector('.modal-backdrop'), 'the dialog closes cleanly');
   }
 
+  // Share works on machines too, and shares the machine — not a car, not a
+  // bare URL. The link draws the machinery card (/api/og/m/<ref>), so a
+  // forwarded machine arrives looking like the listing.
+  {
+    const written = [];
+    Object.defineProperty(dom.window.navigator, 'clipboard', {
+      value: { writeText: async t => { written.push(t); } }, configurable: true
+    });
+    const shareBtn = () => document.querySelector('.mch-detail-actions .mch-share');
+    const shareNote = () => (document.querySelector('.mch-detail-actions .mch-sr')?.textContent || '').trim();
+    await goto(path);
+    ok(!!shareBtn() && shareBtn().getAttribute('aria-label').startsWith('Share the '),
+      'the machine page offers a labelled Share action beside the enquiry buttons');
+    await act(async () => { shareBtn().dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    ok(written.length === 1 && written[0].includes(location.origin + path),
+      'sharing a machine copies its own URL');
+    ok(written[0].includes('AR7-MC-001') && written[0].includes('indicative FOB'),
+      'and the message carries the reference and the indicative price the page shows');
+    ok(shareNote() === 'Link copied' && shareBtn().classList.contains('is-done'),
+      'the clipboard path confirms with "Link copied" on the machine page too');
+    Object.defineProperty(dom.window.navigator, 'share', {
+      value: async payload => { written.push(payload.url); }, configurable: true
+    });
+    await act(async () => { await new Promise(r => setTimeout(r, 1900)); });
+    await act(async () => { shareBtn().dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })); });
+    ok(written.length === 2 && written[1].includes(path),
+      'with a native sheet available it shares the same machine URL');
+    ok(shareNote() === 'Shared', 'and confirms with "Shared"');
+    delete dom.window.navigator.share;
+    await act(async () => { await new Promise(r => setTimeout(r, 1900)); });
+  }
+
   // Ctrl/Cmd-click must NOT be hijacked: that is how a buyer opens a machine
   // in a new tab. The handler leaves the event alone.
   await goto('/machinery');

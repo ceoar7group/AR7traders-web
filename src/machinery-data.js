@@ -403,6 +403,24 @@ export const machineYear = m => {
 };
 
 /** A machine's hour meter (kilometres on a truck) as a number, or null. */
+/** The text a buyer forwards about a machine: name, reference, the indicative
+ *  FOB figure and year/usage when the record carries them. "Indicative" is not
+ *  decoration — the machine pages say the quotation confirms the final price,
+ *  and a share card must not upgrade that into a firm figure (CLAIMS-POLICY.md). */
+export function machineShareMessage(machine, priceLabel = '') {
+  const name = String(machine?.name || '').trim() || 'Machine';
+  const ref = String(machine?.ref || '').trim();
+  const price = String(priceLabel || '').trim();
+  const usage = machineHours(machine);
+  const facts = [
+    ref ? `REF ${ref}` : '',
+    price ? `${price} indicative FOB` : '',
+    [machineYear(machine), usage == null ? '' : `${usage.toLocaleString('en-US')} ${machine?.type === 'Trucks' ? 'km' : 'h'}`]
+      .filter(Boolean).join(' · ')
+  ].filter(Boolean).join(' · ');
+  return `${name}${facts ? ` — ${facts}` : ''}. Sourced from China by AR7 Traders.`;
+}
+
 export const machineHours = m => {
   const v = m?.hours;
   if (v == null || v === '') return null;
