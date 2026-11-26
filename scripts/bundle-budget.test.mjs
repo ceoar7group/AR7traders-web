@@ -624,15 +624,39 @@ console.log('\n-- fonts --');
 // the page's longest network dependency chain at 799ms, discovered late via
 // CSS. All five weights the first paint uses are now preloaded; there is no
 // sixth face to ratchet to.
+// 2026-11-26: five static weights (70.2 kB of woff2, all preloaded) became one
+// variable font (24.8 kB, weights 200–800). The earlier rounds kept adding a
+// preload for each weight the first paint discovered late — the variable face
+// removes the whole class of problem, so the ratchet now runs the other way:
+// exactly one preload, and it is the whole weight range.
 const fontPreloads = [...html.matchAll(/<link[^>]*rel="preload"[^>]*as="font"[^>]*href="([^"]+)"/g)].map(m => m[1]);
-ok(fontPreloads.length === 5,
-  `exactly five font faces are preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ')})`);
+ok(fontPreloads.length === 1,
+  `exactly one font file is preloaded (found ${fontPreloads.length}: ${fontPreloads.join(', ') || 'none'})`);
 ok(fontPreloads.every(f => /\/assets\/fonts\/[\w-]+\.woff2$/.test(f)),
-  'every preloaded font is a self-hosted woff2');
-ok(fontPreloads.every(f => /(400|500|600|700|800)\.woff2$/.test(f)),
-  'the preloaded faces are the above-the-fold weights (400, 500, 600, 700, 800)');
-ok(/fonts\/manrope-500\.woff2/.test(html.match(/<head>[\s\S]*?<\/head>/)[0]),
-  'the 500 face is preloaded (2026-11-11 PSI: it was the 799ms chain tail)');
+  'the preloaded font is a self-hosted woff2');
+ok(/manrope-var-latin\.woff2$/.test(fontPreloads[0] || ''),
+  'it is the variable latin face, which covers every weight the first paint uses');
+{
+  const fontDir = join(ROOT, 'public/assets/fonts');
+  const varFont = statSync(join(fontDir, 'manrope-var-latin.woff2')).size;
+  ok(varFont <= 26 * 1024,
+    `the preloaded variable face is ${(varFont / 1024).toFixed(1)} kB (cap 26.0, was 70.2 kB across five files)`);
+  // The subsets that are not preloaded must be declared with a unicode-range,
+  // or the browser downloads them on every page instead of on the pages that
+  // actually contain those letters.
+  const builtCss = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.css'))
+    .map(f => readFileSync(join(outDir, 'assets', f), 'utf8')).join('\n');
+  for (const [file, label] of [['manrope-var-latin-ext.woff2', 'latin-ext (Turkish, Polish, Czech)'],
+    ['manrope-var-cyrillic.woff2', 'cyrillic (Russian)']]) {
+    const block = (builtCss.match(new RegExp(`@font-face\\{[^}]*${file}[^}]*\\}`)) || [])[0] || '';
+    ok(/unicode-range:/.test(block) && !fontPreloads.some(f => f.includes(file)),
+      `the ${label} subset is on demand: declared with unicode-range, never preloaded`);
+  }
+  ok(!readdirSync(fontDir).some(f => /manrope-(400|500|600|700|800)\.woff2$/.test(f)),
+    'the five static weight files are gone — one variable file replaces them');
+  ok(readdirSync(fontDir).includes('OFL.txt'),
+    'the Manrope OFL licence ships beside the files it covers');
+}
 
 // Every @font-face must swap, or the first paint blocks on the font.
 const cssFiles = readdirSync(join(outDir, 'assets')).filter(f => f.endsWith('.css'));
