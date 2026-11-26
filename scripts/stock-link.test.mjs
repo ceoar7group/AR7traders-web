@@ -5,15 +5,19 @@
 // — and WhatsApp renders the 1200×630 card behind that URL only because
 // api/_wa.js sends with preview_url: true.
 //
-// This suite pins the three things that can go wrong in a staff-facing tool:
-//   • a link to a car the site is not showing (sold, draft, unpublished);
-//   • a reference that does not match the URL the card is keyed by;
-//   • a message that claims more than the listing says.
+// This suite pins the things that can go wrong in a staff-facing tool:
+//   • a link to a car or machine the site is not showing (draft, unpublished);
+//   • a reference or URL that does not match the page the card is keyed by;
+//   • a message that claims more than the listing says — and, for machinery,
+//     one that forgets the price is only indicative FOB.
 import assert from 'node:assert/strict';
 
-const { stockRefOf, publishedStock, matchStock, stockLinkFor, appendStockLink } =
-  await import('../src/stock-link.js');
+const {
+  stockRefOf, publishedStock, matchStock, stockLinkFor, appendStockLink,
+  machineRefOf, publishedMachines, matchMachines, machineLinkFor, appendMachineLink
+} = await import('../src/stock-link.js');
 const { vehicleShareMessage } = await import('../src/vehicle-actions.jsx');
+const { machineShareMessage, machineHref, MACHINES } = await import('../src/machinery-data.js');
 
 let pass = 0; const failures = [];
 const ok = (cond, msg) => { if (cond) pass++; else failures.push(msg); };
@@ -77,6 +81,57 @@ console.log('\n-- the inserted message is the page\'s own --');
     `Thanks for your message.\n${stockLinkFor(CAR)}`,
     'an existing draft keeps its own wording and gets the link on a new line');
   ok(!appendStockLink('Hi', CAR, 'https://ar7traders.com').includes('\n\n'), 'and never inserts a blank line');
+}
+
+console.log('\n-- machinery: a machine links to its own page and card --');
+{
+  const MCH = {
+    id: 1, ref: 'AR7-MC-001', type: 'Excavators', brand: 'Doosan', model: 'DX300LC-9C',
+    name: 'Doosan DX300LC-9C', year: 2019, hours: 6800, price_usd: 62500, status: 'Available', published: true
+  };
+  const DRAFT_MCH = {...MCH, id: 2, ref: 'AR7-MC-009', name: 'XCMG ZL50GN', published: false};
+  const NO_REF = {...MCH, id: 3, ref: ''};
+
+  eq(machineRefOf(MCH), 'AR7-MC-001', 'a machine is identified by its reference');
+  eq(machineRefOf({ref: '  '}), '', 'a blank reference is no reference');
+  eq(machineRefOf(null), '', 'and no row means no reference');
+
+  eq(publishedMachines([MCH, DRAFT_MCH]).length, 1, 'an unpublished machine is not offered');
+  eq(publishedMachines(null).length, 0, 'no rows is an empty list, not a crash');
+  ok(publishedMachines([NO_REF]).length === 0, 'a machine with no reference is not offered: its ref is the URL');
+
+  eq(matchMachines([MCH], 'doosan').length, 1, 'a brand finds the machine');
+  eq(matchMachines([MCH], 'excavator').length, 1, 'the machine type finds it — that is how staff think about them');
+  eq(matchMachines([MCH], 'ar7-mc-001').length, 1, 'so does the reference');
+  eq(matchMachines([MCH], 'doosan 2020').length, 0, 'every word must match, so a wrong year excludes it');
+  eq(matchMachines([MCH, DRAFT_MCH], '').length, 1, 'an empty query lists published machines only');
+  eq(matchMachines(Array.from({length: 12}, (_, i) => ({...MCH, ref: 'AR7-MC-' + (100 + i)})), '').length, 6,
+    'and an empty query lists at most six — cars keep the rest of the panel');
+
+  const link = machineLinkFor(MCH, 'US$62,500', 'https://ar7traders.com');
+  eq(link, `${machineShareMessage(MCH, 'US$62,500')} https://ar7traders.com/machinery/excavators/AR7-MC-001`,
+    'the text is the machine page\'s own forward text plus its listing URL');
+  ok(/indicative FOB/.test(link), 'the machinery price is always labelled indicative FOB — never a firm quote');
+  ok(link.includes(machineHref(MCH)), 'the URL is the one the site itself builds for that machine');
+  ok(link.endsWith('/machinery/excavators/AR7-MC-001'), 'which is the type path, not the car /inventory path');
+  ok(stockLinkFor({id: 1, stock_no: 'AR7-1', make: 'Toyota'}, 'https://ar7traders.com').includes('/inventory/'),
+    'and a car still links to /inventory, so the two catalogues never cross');
+  ok(!machineLinkFor(DRAFT_MCH, 'US$1').includes('/machinery/'), 'an unpublished machine gets text but no link');
+  ok(!machineLinkFor(NO_REF, 'US$1').includes('/machinery/'), 'and a machine with no reference gets no link either');
+  eq(machineLinkFor(MCH, '', 'https://ar7traders.com'), `${machineShareMessage(MCH, '')} https://ar7traders.com/machinery/excavators/AR7-MC-001`,
+    'no price label means no price — the message never invents one');
+  ok(!/\$\s?[\d,]{3,}|US\$|null|undefined|NaN/.test(machineShareMessage(MCH, '')),
+    'a machine posted without a price carries no number at all');
+
+  // The bundled catalogue is the row shape the desk actually receives.
+  const bundled = MACHINES[0];
+  ok(machineLinkFor(bundled, 'US$62,500').includes('/machinery/excavators/' + bundled.ref),
+    'a bundled-catalogue machine links to its real page too');
+
+  eq(appendMachineLink('', MCH, 'US$62,500', 'https://ar7traders.com'), machineLinkFor(MCH, 'US$62,500'),
+    'an empty draft becomes the machine link');
+  eq(appendMachineLink('See below.', MCH, 'US$62,500', 'https://ar7traders.com'),
+    `See below.\n${machineLinkFor(MCH, 'US$62,500')}`, 'a draft keeps its wording and gains a line');
 }
 
 if (failures.length) {
