@@ -24,7 +24,7 @@ import { destinationPath } from './sitemap-helpers.js';
 import { destinationFacts, destinationFaqs } from './destinations.js';
 import { priceWithOffer } from './offers.js';
 import { LANGUAGES, DEFAULT_LANG, normalizeLangCode, langHref, translate } from './i18n.js';
-import { SHARE_CARD, shareCardUrl } from './share-card.js';
+import { SHARE_CARD, shareCardUrl, machineCardUrl } from './share-card.js';
 
 // R38 (2026-11-12): localized titles/descriptions live in src/seo-i18n.js,
 // which is loaded LAZILY alongside the language dictionaries — the English
@@ -650,15 +650,23 @@ export function applySeo(page, carId, car, opts = {}) {
   // exactly the same URL, so a share never depends on JavaScript running.
   const vehicleCard = isVehiclePage && car && String(carId ?? '').trim()
     ? shareCardUrl(BASE, carId) : null;
+  // Machinery gets the same treatment: a supplier photo hot-linked from a
+  // Chinese marketplace is often refused by messengers, and it never said what
+  // the machine actually is. /api/og/m/<ref> draws it from the record instead.
+  const machineRef = String(opts.machineRef ?? opts.machine?.ref ?? '').trim();
+  const machineCard = machinePage && machineRef ? machineCardUrl(BASE, machineRef) : null;
   const articlePhoto = artSeo ? imageFor(artSeo.ogImage) : null;
+  const cardOg = image => ({ image, width: SHARE_CARD.width, height: SHARE_CARD.height, type: SHARE_CARD.type });
   const og = isVehiclePage
     ? (vehicleCard
-      ? { image: vehicleCard, width: SHARE_CARD.width, height: SHARE_CARD.height, alt: carName(car) + ' at AR7 Traders', type: SHARE_CARD.type }
+      ? { ...cardOg(vehicleCard), alt: carName(car) + ' at AR7 Traders' }
       : OG_DEFAULT)
     : (artSeo && articlePhoto)
       ? { image: articlePhoto, width: null, height: null, alt: article.title }
       : machinePage
-        ? { image: machineShareImage(opts.machine), width: null, height: null, alt: `${opts.machine.name} for export from China` }
+        ? (machineCard
+          ? { ...cardOg(machineCard), alt: `${opts.machine.name} for export from China` }
+          : { image: machineShareImage(opts.machine), width: null, height: null, alt: `${opts.machine.name} for export from China` })
         : ogFor(page);
   setMeta('meta[property="og:image"]', 'content', og.image, doc);
   setMeta('meta[property="og:image:alt"]', 'content', og.alt, doc);

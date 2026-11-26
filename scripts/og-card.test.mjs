@@ -19,11 +19,14 @@ const bad = s => process.stderr.write(s + '\n');
 const ok = (cond, msg) => { if (cond) { pass++; say('  ✓ ' + msg); } else { fail++; bad('  ✗ ' + msg); } };
 
 const {
-  CARD, CARD_META, cardPath, cardUrl, cardContent, buildCardSvg, wrapLines,
-  hasGlyphInk, measureText, renderVehicleCard, xmlEscape
+  CARD, CARD_META, cardPath, cardUrl, cardContent, machineryCardContent, buildCardSvg,
+  wrapLines, hasGlyphInk, measureText, renderShareCard, stripCaptionBand, xmlEscape
 } = await import('../api/_og-card.js');
-const { SHARE_CARD, shareCardPath, shareCardUrl } = await import('../src/share-card.js');
-const { buildVehicleHeadHtml, vehicleOgImage, cardPriceLabel } = await import('../api/site-content.js');
+const { SHARE_CARD, shareCardPath, shareCardUrl, machineCardPath, machineCardUrl } =
+  await import('../src/share-card.js');
+const { buildVehicleHeadHtml, ogCardImage, cardPriceLabel } = await import('../api/site-content.js');
+const { buildMachineryHeadHtml, loadMachineForCard } = await import('../api/_crawler-render.js');
+const { MACHINES } = await import('../src/machinery-data.js');
 const sharp = (await import('sharp')).default;
 const { readFileSync } = await import('node:fs');
 
@@ -73,6 +76,20 @@ function memDb(rows, opts = {}) {
   };
 }
 
+/** A Supabase-shaped client holding machinery rows — readMachineryRows only
+ *  needs from().select().order()[.eq()] to resolve. */
+function machDb(rows, { error = null } = {}) {
+  return {
+    from() {
+      const chain = {
+        select: () => chain, order: () => chain, eq: () => chain,
+        then: resolve => resolve(error ? { data: null, error } : { data: rows, error: null })
+      };
+      return chain;
+    }
+  };
+}
+
 const CAR = {
   id: 7, stock_no: 'AR7-0007', make: 'Toyota', model: 'Vezel "Z"', year: 2019,
   km: '42,000', fuel: 'Hybrid', tr: 'AT', grade: '4.5', price: 12500,
@@ -94,6 +111,10 @@ say('-- the card has one fixed, messenger-safe shape --');
     'a ref is URL-encoded, so a hostile ref cannot climb out of the path');
   ok(shareCardUrl('https://ar7traders.com', 'GN-700912345').endsWith('/api/og/GN-700912345'),
     'imported dealer refs use the same endpoint');
+  ok(machineCardPath('AR7-MC-001') === '/api/og/m/AR7-MC-001' &&
+    machineCardUrl('https://ar7traders.com', 'AR7-MC-001') === 'https://ar7traders.com/api/og/m/AR7-MC-001',
+    'machinery uses its own segment, so the two catalogues cannot resolve each other\'s refs');
+  ok(machineCardPath('A B') === '/api/og/m/A%20B', 'and a machinery ref is URL-encoded too');
 }
 
 say('\n-- the card says only what the listing says --');
@@ -118,6 +139,78 @@ say('\n-- the card says only what the listing says --');
     'the generic card describes the business, not a car');
   ok(cardContent({ price: 'Ask us' }, 'X').price === '',
     'prose is not turned into a price');
+}
+
+say('\n-- machinery says "indicative", because that is what the page says --');
+{
+  const machine = MACHINES.find(m => m.ref === 'AR7-MC-001') || MACHINES[0];
+  const content = machineryCardContent(machine, machine.ref);
+  ok(content.name === machine.name, `the card is named after the machine (${content.name})`);
+  ok(content.kicker === 'AR7 TRADERS · CHINA MACHINERY', 'and says China, not Japan');
+  ok(content.ref === `REF ${machine.ref}`, 'the machine reference is on the card, labelled REF');
+  ok(/\d{4}/.test(content.specs) && /h$|km$/.test(content.specs.split(' · ')[1] || ''),
+    `the spec line carries year and usage hours (${content.specs})`);
+  const priceUsd = Number(String(content.price).replace(/[^0-9]/g, ''));
+  ok(priceUsd > 0 && String(content.price).startsWith('US$'),
+    `the price is the machine's own indicative figure (${content.price})`);
+  ok(content.priceTag === 'INDICATIVE FOB',
+    'and the pill is tagged INDICATIVE FOB — a share card must not upgrade it to a firm quote');
+  const svg = buildCardSvg(content, { priceWidth: 180 });
+  ok(svg.includes('INDICATIVE FOB') && svg.includes('CHINA MACHINERY'),
+    'both labels reach the rendered SVG');
+  const noPrice = machineryCardContent({ ...machine, price: 0, supplierPrice: 0 }, machine.ref);
+  ok(noPrice.price === '' && !buildCardSvg(noPrice).includes('INDICATIVE FOB'),
+    'a machine with no price carries no pill at all');
+  const unnamed = machineryCardContent(null, '');
+  ok(unnamed.name === 'Machinery and equipment for export' && !unnamed.ref,
+    'the generic machinery card describes the desk, not a machine');
+}
+
+say('\n-- the machinery template\'s own caption band is dropped, once --');
+{
+  // Our machinery photos ship as a 900×491 template with a green caption band
+  // along the bottom. Left in place the card prints that caption twice.
+  const tpl = await sharp({
+    create: { width: 900, height: 491, channels: 3, background: { r: 200, g: 200, b: 200 } }
+  }).composite([{
+    input: Buffer.from('<svg width="900" height="491"><rect y="439" width="900" height="52" fill="#0b4a33"/></svg>'),
+    top: 0, left: 0
+  }]).png().toBuffer();
+  const stripped = await stripCaptionBand(tpl);
+  const strippedMeta = await sharp(stripped).metadata();
+  ok(strippedMeta.width === 900 && strippedMeta.height === 439,
+    `the template's caption band is cropped off (491 → ${strippedMeta.height}px)`);
+  ok(strippedMeta.height / strippedMeta.width === 439 / 900,
+    'and the crop keeps the template\'s own aspect, so the machine is not distorted');
+
+  const other = await photoFixture(1000, 700);
+  const untouched = await sharp(await stripCaptionBand(await sharp(other).png().toBuffer())).metadata();
+  ok(untouched.width === 1000 && untouched.height === 700,
+    'a photo that is not the template passes through completely untouched');
+
+  const broken = Buffer.from('not an image');
+  ok(Buffer.compare(await stripCaptionBand(broken), broken) === 0,
+    'unreadable bytes are returned as they came, never thrown');
+
+  const content = machineryCardContent(MACHINES[0], MACHINES[0].ref);
+  const rendered = await renderShareCard(content, { photoBuffer: tpl, cropCaptionBand: true });
+  ok((await sharp(rendered).metadata()).height === 630,
+    'the finished machinery card is still exactly 630 px tall');
+  const plain = await renderShareCard(content, { photoBuffer: tpl });
+  ok(Buffer.compare(rendered, plain) !== 0,
+    'the crop is applied only when the caller asks for it');
+}
+
+say('\n-- a long price tag sizes its own pill --');
+{
+  const content = { ...machineryCardContent(MACHINES[0], MACHINES[0].ref) };
+  const pillWidth = svg => Number((svg.match(/<rect x="56" y="\d+" width="(\d+)" height="62"/) || [])[1]);
+  const narrow = pillWidth(buildCardSvg({ ...content, price: 'US$1' }, { priceWidth: 20, tagWidth: 40 }));
+  const wide = pillWidth(buildCardSvg({ ...content, price: 'US$1' }, { priceWidth: 20, tagWidth: 200 }));
+  ok(Number.isFinite(narrow) && Number.isFinite(wide) && wide > narrow,
+    'the pill grows with the measured tag, so "INDICATIVE FOB" stays inside it');
+  ok(pillWidth(buildCardSvg(content, { priceWidth: 180 })) > 200,
+    'and an unmeasured tag still gets a workable fallback width');
 }
 
 say('\n-- wrapping and escaping keep the copy inside the card --');
@@ -148,18 +241,18 @@ say('\n-- the renderer always produces a real image --');
   const photo = await photoFixture();
   const content = cardContent({ ...CAR, priceLabel: '$12,500' }, 'AR7-0007');
 
-  const withPhoto = await renderVehicleCard(content, { photoBuffer: photo });
+  const withPhoto = await renderShareCard(content, { photoBuffer: photo });
   const meta = await sharp(withPhoto).metadata();
   ok(meta.format === 'jpeg' && meta.width === 1200 && meta.height === 630,
     `a card with a photo is a 1200×630 JPEG (${meta.width}×${meta.height})`);
   ok(withPhoto.length < 400 * 1024, `and stays small enough for WhatsApp (${Math.round(withPhoto.length / 1024)} kB)`);
 
-  const brandOnly = await renderVehicleCard(cardContent(null, ''), {});
+  const brandOnly = await renderShareCard(cardContent(null, ''), {});
   const brandMeta = await sharp(brandOnly).metadata();
   ok(brandMeta.width === 1200 && brandMeta.height === 630 && brandOnly.length > 5000,
     'with no photo at all the brand card is still a real image');
 
-  const broken = await renderVehicleCard(content, { photo: 'https://example.invalid/x.jpg' });
+  const broken = await renderShareCard(content, { photo: 'https://example.invalid/x.jpg' });
   ok((await sharp(broken).metadata()).width === 1200,
     'an unreachable photo degrades to the brand card instead of throwing');
 
@@ -190,7 +283,7 @@ say('\n-- the endpoint never fails a crawler --');
     const res = fakeRes();
     const realError = console.error;
     console.error = () => {};
-    try { await vehicleOgImage({ method, query }, res, { db, fetch: fetchImpl }); }
+    try { await ogCardImage({ method, query }, res, { db, fetch: fetchImpl }); }
     finally { console.error = realError; }
     return res;
   };
@@ -228,6 +321,73 @@ say('\n-- the endpoint never fails a crawler --');
   ok(post.statusCode === 405 && post.headers.allow === 'GET', 'POST is refused');
 }
 
+say('\n-- machinery heads and the /api/og/m endpoint agree --');
+{
+  const machine = MACHINES.find(m => m.ref === 'AR7-MC-001') || MACHINES[0];
+  const head = buildMachineryHeadHtml(machine, { ref: machine.ref, type: machine.type });
+  ok(head.includes(`content="https://ar7traders.com/api/og/m/${machine.ref}"`),
+    'machinery og:image is the machine card');
+  ok(head.includes('<meta property="og:image:width" content="1200"/>') &&
+    head.includes('<meta property="og:image:height" content="630"/>') &&
+    head.includes('<meta property="og:image:type" content="image/jpeg"/>'),
+    'the machinery card declares its size and encoding');
+  ok(/<meta property="product:price:amount" content="\d+"/.test(head),
+    'and the indicative price is machine-readable');
+  const full = buildMachineryHeadHtml(machine, { ref: machine.ref, type: machine.type, full: true });
+  ok(/<img src="https:\/\/ar7traders\.com\/assets\/machinery\//.test(full),
+    'while the body still shows the real machine photo (content parity)');
+  const missing = buildMachineryHeadHtml(null, { ref: 'NOPE', type: 'Excavators' });
+  ok(!missing.includes('/api/og/m/'),
+    'an unknown machine ref publishes no card URL');
+
+  const photo = await photoFixture(1000, 700);
+  const fetchOk = async () => ({
+    ok: true, headers: { get: () => String(photo.length) },
+    arrayBuffer: async () => photo.buffer.slice(photo.byteOffset, photo.byteOffset + photo.byteLength)
+  });
+  const run = async (query, opts = {}) => {
+    const res = fakeRes();
+    const realError = console.error;
+    console.error = () => {};
+    try { await ogCardImage({ method: 'GET', query }, res, { fetch: fetchOk, ...opts }); }
+    finally { console.error = realError; }
+    return res;
+  };
+  // The lookup itself: a database row is mapped the same way the page maps it.
+  const MACH_ROW = {
+    id: 1, ref: machine.ref, brand: 'Doosan', model: 'DX300LC-9C', type: 'Excavators',
+    year: 2019, hours: 6800, price: 62500, published: true,
+    images: [{ src: '/assets/machinery/doosan-dx300lc-1.webp', basis: 'own' }]
+  };
+  const found = await loadMachineForCard(machine.ref, 'Excavators', { db: machDb([MACH_ROW]) });
+  ok(found && found.name === 'Doosan DX300LC-9C' && found.ref === machine.ref,
+    'the card lookup maps a database row exactly like the page does');
+  ok((await loadMachineForCard('NOPE-404', '', { db: machDb([MACH_ROW]) })) === null,
+    'an unknown machine ref resolves to nothing');
+  ok((await loadMachineForCard(machine.ref, 'Loaders', { db: machDb([MACH_ROW]) })) === null,
+    'a ref opened under the wrong category resolves to nothing (no misleading card)');
+  const thin = await loadMachineForCard(machine.ref, 'Excavators', {
+    db: machDb([{ id: 1, ref: machine.ref, type: 'Excavators', published: true }])
+  });
+  ok(thin && thin.name, 'a thin catalogue row borrows the bundled record so the card can still name the machine');
+
+  const card = await run({ og: machine.ref, ogkind: 'machinery' }, { db: machDb([MACH_ROW]) });
+  const meta = Buffer.isBuffer(card.body) ? await sharp(card.body).metadata() : {};
+  ok(card.statusCode === 200 && card.headers['content-type'] === 'image/jpeg' &&
+    meta.width === 1200 && meta.height === 630,
+    'the machinery card endpoint answers with a 1200×630 JPEG');
+  const unknown = await run({ og: 'NOPE-404', ogkind: 'machinery' }, { db: machDb([MACH_ROW]) });
+  ok(unknown.statusCode === 200 && Buffer.isBuffer(unknown.body) &&
+    Buffer.compare(unknown.body, card.body) !== 0,
+    'an unknown machine ref still gets the generic card, not another machine\'s');
+  const down = await run({ og: machine.ref, ogkind: 'machinery' }, { db: machDb([], { error: { message: 'boom' } }) });
+  ok(down.statusCode === 200 && Buffer.isBuffer(down.body),
+    'a machinery database outage still yields a card');
+  const vehicleKind = await run({ og: 'NOPE-404' });
+  ok(vehicleKind.statusCode === 200 && Buffer.isBuffer(vehicleKind.body),
+    'and the vehicle branch is unaffected by the machinery one');
+}
+
 say('\n-- the head points at the endpoint the endpoint serves --');
 {
   const html = buildVehicleHeadHtml({ ...CAR }, 'AR7-0007');
@@ -250,6 +410,11 @@ say('\n-- the head points at the endpoint the endpoint serves --');
   const rule = (config.rewrites || []).find(r => r.source === '/api/og/:ref');
   ok(rule && rule.destination === '/api/site-content?og=:ref',
     '/api/og/:ref rewrites to the existing site-content function (no new Vercel Function)');
+  const machRule = (config.rewrites || []).find(r => r.source === '/api/og/m/:ref');
+  ok(machRule && machRule.destination === '/api/site-content?og=:ref&ogkind=machinery',
+    '/api/og/m/:ref does the same for machinery');
+  ok((config.rewrites || []).indexOf(machRule) < (config.rewrites || []).indexOf(rule),
+    'the machinery rule sits first, so /api/og/m/<ref> is never read as a vehicle ref');
   const index = (config.rewrites || []).indexOf(rule);
   const earlier = (config.rewrites || []).slice(0, index)
     .filter(r => !r.has && new RegExp(`^${r.source}$`).test('/api/og/AR7-0007'));

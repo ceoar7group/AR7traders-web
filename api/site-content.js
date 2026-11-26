@@ -74,7 +74,8 @@ import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath,
 import { mapDealerRows } from '../src/japan-stock-map.js';
 // The 1200×630 share card: one shared `_`-module, so the preview image costs no
 // extra Serverless Function (the deployment sits at Vercel Hobby's cap of 12).
-import { cardUrl, cardContent, renderVehicleCard, CARD_META } from './_og-card.js';
+import { cardUrl, cardContent, machineryCardContent, renderShareCard, CARD_META } from './_og-card.js';
+import { machineImages } from '../src/machinery-data.js';
 import {readAllDealerPages} from './_dealer-pages.js';
 export { carRef, hrefFor };
 
@@ -101,7 +102,7 @@ import { handleSeoWorkflow } from './_seo-workflows.js';
 // Dynamic crawler / OG rendering for /cars/:make, /cars/:make/:model,
 // /machinery/:type/:ref and /news/:slug (0 extra Serverless Functions).
 import {
-  machineryHead, buildMachineryHeadHtml,
+  machineryHead, buildMachineryHeadHtml, loadMachineForCard,
   newsHead, buildNewsHeadHtml,
   carsLandingHead, buildCarsLandingHeadHtml
 } from './_crawler-render.js';
@@ -601,20 +602,21 @@ export function cardPriceLabel(row) {
   return usd ? `US$${usd.toLocaleString('en-US')}` : '';
 }
 
-/** GET ?og=<ref> — the 1200×630 share card itself (rewritten from
- *  /api/og/<ref> in vercel.json).
+/** GET ?og=<ref>[&ogkind=machinery] — the 1200×630 share card itself
+ *  (rewritten from /api/og/<ref> and /api/og/m/<ref> in vercel.json).
  *
- *  Contract, same spirit as the head: this endpoint exists to make a shared
+ *  Contract, same spirit as the heads: this endpoint exists to make a shared
  *  link look like something, so it answers with an image even when the record
  *  is gone or the photo cannot be fetched — the brand card is a fine
  *  fallback, an error status is not. The only true failure path redirects to
  *  the static fallback photo. */
-export async function vehicleOgImage(req, res, injected = {}) {
+export async function ogCardImage(req, res, injected = {}) {
   if ((req.method || 'GET') !== 'GET') {
     res.setHeader('Allow', 'GET');
     return sendPlain(res, 405, 'Method not allowed');
   }
   const ref = String(req.query.og || '').trim().slice(0, 80);
+  const machinery = String(req.query.ogkind || '') === 'machinery';
   const sendImage = (buffer) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', CARD_META.type);
@@ -623,25 +625,43 @@ export async function vehicleOgImage(req, res, injected = {}) {
     res.end(buffer);
   };
   try {
-    let row = null;
-    if (ref) {
-      try {
-        row = await loadVehicleRow(ref, injected);
-      } catch (e) {
-        // A share preview must still render while the stock table is down.
-        console.error('vehicle-og-image:', e);
+    let content = null;
+    let photo = null;
+    let cropCaptionBand = false;
+    if (machinery) {
+      let machine = null;
+      if (ref) {
+        try {
+          machine = await loadMachineForCard(ref, String(req.query.ogtype || '').trim(), injected);
+        } catch (e) {
+          // A share preview must still render while the desk is unreachable.
+          console.error('machine-og-image:', e);
+        }
       }
+      content = machineryCardContent(machine, machine ? ref : '');
+      const shot = machine ? headPhoto({ image: null, images: machineImages(machine) }) : null;
+      photo = shot ? absoluteAssetUrl(shot) : null;
+      // Our bundled machinery photos already carry a branded caption band;
+      // a supplier/CDN photo (absolute URL) does not, so only strip ours.
+      cropCaptionBand = !!shot && !/^https?:\/\//i.test(shot);
+    } else {
+      let row = null;
+      if (ref) {
+        try {
+          row = await loadVehicleRow(ref, injected);
+        } catch (e) {
+          console.error('vehicle-og-image:', e);
+        }
+      }
+      content = cardContent(row ? { ...row, priceLabel: cardPriceLabel(row) } : null, row ? ref : '');
+      photo = row ? absoluteAssetUrl(headPhoto(row)) : null;
     }
-    const content = cardContent(
-      row ? { ...row, priceLabel: cardPriceLabel(row) } : null,
-      row ? ref : ''
-    );
-    const photo = row ? absoluteAssetUrl(headPhoto(row)) : null;
-    return sendImage(await renderVehicleCard(content, { photo, fetch: injected.fetch }));
+    return sendImage(await renderShareCard(content, { photo, fetch: injected.fetch, cropCaptionBand }));
   } catch (e) {
-    console.error('vehicle-og-image:', e);
+    console.error('og-card-image:', e);
     try {
-      return sendImage(await renderVehicleCard(cardContent(null, ''), {}));
+      const fallback = machinery ? machineryCardContent(null, '') : cardContent(null, '');
+      return sendImage(await renderShareCard(fallback, {}));
     } catch {
       res.statusCode = 302;
       res.setHeader('Location', HEAD_FALLBACK_IMAGE);
@@ -1223,7 +1243,7 @@ export default async function handler(req, res, injected = {}) {
   }
   // ---- The share card image: /api/og/<ref> (vercel.json rewrite) -----------
   if (String(req.query.og || '') !== '') {
-    return vehicleOgImage(req, res, injected);
+    return ogCardImage(req, res, injected);
   }
   if (String(req.query.machhead || '') !== '') {
     return machineryHead(req, res, injected);

@@ -10,12 +10,14 @@
 
 import { adminClient } from './_supabase.js';
 import { listMachines, builtinCatalogueMachines, resolveType } from './_machinery.js';
+import { MACHINES } from '../src/machinery-data.js';
 import { listPriceUSD, machineYearText, machineHours } from '../src/machinery-data.js';
 import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath, topVehicleModels, publishedUsdPrice } from '../src/sitemap-helpers.js';
 import { mapDealerRows } from '../src/japan-stock-map.js';
 import {readAllDealerPages} from './_dealer-pages.js';
 import { NEWS, articleSlug, articleSeo } from '../src/news-data.js';
 import { CATALOGUE_LINKS } from '../src/catalogue-links.js';
+import { SHARE_CARD, machineCardUrl } from '../src/share-card.js';
 
 export const BASE_URL = 'https://ar7traders.com';
 const HEAD_CACHE = 'public, max-age=300, s-maxage=1800';
@@ -86,7 +88,11 @@ function breadcrumbJsonLd(items) {
 
 function renderDocument({
   title, description, url, image, alt, ogType = 'website',
-  full = false, indexable = true, jsonLd = [], bodyHtml = ''
+  full = false, indexable = true, jsonLd = [], bodyHtml = '',
+  // Both optional and both only emitted when the caller knows the real values:
+  // `imageMeta` when og:image is a generated card of known size and encoding,
+  // `price` when the page itself states one.
+  imageMeta = null, price = null
 }) {
   const robots = full ? (indexable ? 'index,follow' : 'noindex,follow') : null;
   return '<!doctype html>\n<html lang="en"><head>\n' +
@@ -102,6 +108,12 @@ function renderDocument({
     `<meta property="og:url" content="${esc(url)}"/>\n` +
     `<meta property="og:image" content="${esc(image)}"/>\n` +
     `<meta property="og:image:alt" content="${esc(alt)}"/>\n` +
+    (imageMeta ? `<meta property="og:image:type" content="${esc(imageMeta.type)}"/>\n` +
+      `<meta property="og:image:width" content="${imageMeta.width}"/>\n` +
+      `<meta property="og:image:height" content="${imageMeta.height}"/>\n` +
+      `<meta property="og:image:secure_url" content="${esc(image)}"/>\n` : '') +
+    (price && Number(price.amount) > 0 ? `<meta property="product:price:amount" content="${Number(price.amount)}"/>\n` +
+      `<meta property="product:price:currency" content="${esc(price.currency || 'USD')}"/>\n` : '') +
     '<meta name="twitter:card" content="summary_large_image"/>\n' +
     `<meta name="twitter:title" content="${esc(title)}"/>\n` +
     `<meta name="twitter:description" content="${esc(description)}"/>\n` +
@@ -166,7 +178,13 @@ export function buildMachineryHeadHtml(machine, opts = {}) {
   const photos = Array.isArray(machine.images) && machine.images.length
     ? machine.images.map(s => absUrl(s, FALLBACK_MCH_IMAGE))
     : (machine.image ? [absUrl(machine.image, FALLBACK_MCH_IMAGE)] : [FALLBACK_MCH_IMAGE]);
-  const image = photos[0];
+  // The body and the Product JSON-LD keep the real machine photos; the share
+  // image is the generated 1200×630 card (see api/_og-card.js) — a supplier
+  // photo hot-linked from a Chinese marketplace is exactly the kind of URL a
+  // messenger refuses to render, and it never carried the machine's name,
+  // category, hours or indicative price.
+  const image = machineCardUrl(BASE_URL, machine.ref || reqRef);
+  const photo = photos[0];
   const alt = `${machine.name} ${label.toLowerCase()} for export — ${machine.ref}`;
   const specs = Array.isArray(machine.specs) ? machine.specs : [];
   const typeUrl = BASE_URL + machineTypePath(machine.type || reqType);
@@ -191,7 +209,7 @@ export function buildMachineryHeadHtml(machine, opts = {}) {
 
   const bodyHtml =
     `<h1>${esc(machine.name)} — ${esc(label)} for export</h1>\n` +
-    `<img src="${esc(image)}" alt="${esc(alt)}" width="820" height="560"/>\n` +
+    `<img src="${esc(photo)}" alt="${esc(alt)}" width="820" height="560"/>\n` +
     '<ul>' + [
       `<li>Reference: ${esc(machine.ref)}</li>`,
       `<li>Category: ${esc(machine.type)}</li>`,
@@ -207,6 +225,8 @@ export function buildMachineryHeadHtml(machine, opts = {}) {
 
   return renderDocument({
     title, description, url, image, alt, full, indexable: true,
+    imageMeta: { width: SHARE_CARD.width, height: SHARE_CARD.height, type: SHARE_CARD.type },
+    price: priceUsd > 0 ? { amount: priceUsd, currency: 'USD' } : null,
     jsonLd: [
       productLd,
       breadcrumbJsonLd([
@@ -218,6 +238,31 @@ export function buildMachineryHeadHtml(machine, opts = {}) {
     ],
     bodyHtml
   });
+}
+
+/** The public machine behind a ref, or null when it is not listed (or the
+ *  route's category disagrees with the record's).
+ *
+ *  Shared by the crawler head and the share card so the preview image can never
+ *  describe a machine the page does not show. Throws only when the catalogue
+ *  itself is unreadable, which each caller decides how to handle. */
+export async function loadMachineForCard(ref, type, injected = {}) {
+  if (!ref) return null;
+  const db = injected.db || adminClient();
+  const rows = await listMachines(db, { publishedOnly: true });
+  const catalogue = rows.length ? rows : builtinCatalogueMachines();
+  let machine = catalogue.find(m => String(m.ref || '').toUpperCase() === String(ref).toUpperCase()) || null;
+  if (machine && type) {
+    const wantType = resolveType(type);
+    if (wantType && String(machine.type || '').toLowerCase() !== wantType.toLowerCase()) machine = null;
+  }
+  // A thin catalogue row (ref/type/status only) cannot caption a card; use the
+  // bundled record for the copy when the database has nothing richer.
+  if (machine && !machine.name) {
+    const bundled = (MACHINES || []).find(m => String(m.ref || '').toUpperCase() === String(machine.ref).toUpperCase());
+    if (bundled) machine = { ...bundled, ...Object.fromEntries(Object.entries(machine).filter(([, v]) => v !== null && v !== undefined && v !== '')) };
+  }
+  return machine;
 }
 
 export async function machineryHead(req, res, injected = {}) {
@@ -232,19 +277,10 @@ export async function machineryHead(req, res, injected = {}) {
 
   let machine = null;
   try {
-    const db = injected.db || adminClient();
-    const rows = await listMachines(db, { publishedOnly: true });
-    const catalogue = rows.length ? rows : builtinCatalogueMachines();
-    machine = catalogue.find(m => String(m.ref || '').toUpperCase() === ref.toUpperCase()) || null;
+    machine = await loadMachineForCard(ref, type, injected);
   } catch (e) {
     console.error('machinery-head:', e?.message || e);
     return sendPlain(res, 503, 'Machinery catalogue temporarily unavailable');
-  }
-  if (machine && type) {
-    const wantType = resolveType(type);
-    if (wantType && String(machine.type || '').toLowerCase() !== wantType.toLowerCase()) {
-      machine = null;
-    }
   }
   return sendHtml(res, 200, buildMachineryHeadHtml(machine, { ref, type, full }));
 }
