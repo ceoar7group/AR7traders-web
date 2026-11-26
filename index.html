@@ -156,11 +156,11 @@
      from, so the LCP file is discovered right here, at high priority. -->
 <link rel="preload" as="image" href="/assets/showroom/hero-01.webp" imagesrcset="/assets/showroom/hero-01-560.webp 560w, /assets/showroom/hero-01-760.webp 760w, /assets/showroom/hero-01.webp 1400w" imagesizes="(max-width:900px) 80vw, 36vw" fetchpriority="high"/>
 <link rel="preload" as="image" href="/assets/ar7-mark-128.webp"/>
-<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-400.woff2" crossorigin/>
-<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-500.woff2" crossorigin/>
-<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-600.woff2" crossorigin/>
-<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-700.woff2" crossorigin/>
-<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-800.woff2" crossorigin/>
+<!-- 2026-11-26: one variable font (200–800) instead of five static weights.
+     24.8 kB preloaded instead of 70.2 kB. latin-ext and cyrillic are declared
+     in CSS with unicode-range, so the browser fetches them only when a page
+     actually contains those letters — never on a first paint. -->
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/manrope-var-latin.woff2" crossorigin/>
 
 <script type="application/ld+json" id="breadcrumb-jsonld">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://ar7traders.com/"}]}</script>
 <script type="application/ld+json" id="business-jsonld">
