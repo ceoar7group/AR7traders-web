@@ -29,7 +29,7 @@ import {useLang} from './i18n.jsx';
 import {
   MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machinesByType,
   machineByRef, machineHref, machineYear, machineHours, machineYearText,
-  machineLoc, machineBrandLockup, machineShareMessage
+  machineLoc, machineBrandLockup, machineShareMessage, machineUsdLabel
 } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useStockDiscounts, stockDiscountFor, priceWithOffer, formatDate} from './offers.js';
@@ -126,7 +126,10 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   }, [zoom, photos.length]);
   const shareMachine = () => share({
     title: `${machine.name} — ${machine.ref}`,
-    text: machineShareMessage(machine, fmt(price.now)),
+    // USD with the currency spelled out, exactly as the card writes it: a
+    // forwarded machine must not say "$62,500" while its card says
+    // "US$62,500" (or a converted figure the recipient cannot reproduce).
+    text: machineShareMessage(machine, machineUsdLabel(machine)),
     url: location.origin + machineHref(machine)
   });
   const crumbLink = (href, onClickPath) => e => {

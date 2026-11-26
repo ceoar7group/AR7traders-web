@@ -71,8 +71,7 @@ const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { default: CrmApp, MachineryImportPanel, uniqueCarCount, WaDeskView } = await import('../src/crm.jsx');
 const { vehicleShareMessage } = await import('../src/vehicle-actions.jsx');
-const { machineShareMessage } = await import('../src/machinery-data.js');
-const { formatMoney } = await import('../src/currency.jsx');
+const { machineShareMessage, machineUsdLabel } = await import('../src/machinery-data.js');
 
 let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
@@ -730,6 +729,17 @@ say('\nWhatsApp desk stock link');
   const box = host.querySelector('textarea[aria-label="WhatsApp reply"]');
   ok(!!box, 'opening the thread shows the composer');
 
+  // ---- Layout contract the phone breakpoint depends on -------------------
+  {
+    const grid = host.querySelector('.crm-wa-grid');
+    ok(!!grid && !/grid-template-columns/.test(grid.getAttribute('style') || ''),
+      'the desk grid carries no inline columns — crm.css stacks it below 820px');
+    ok(grid.classList.contains('is-thread'), 'and it says a thread is open, so the stylesheet can act on it');
+    ok(!!host.querySelector('.crm-wa-compose'), 'the composer is the wrapping one from crm.css (Send never falls off a phone)');
+    ok(!!host.querySelector('.crm-wa-msgs'), 'the thread scrolls inside .crm-wa-msgs rather than dragging the page with it');
+    ok(!!host.querySelector('.crm-wa-convos'), 'the conversation list is its own capped scroller too');
+  }
+
   const stockBtn = [...host.querySelectorAll('button')].find(b => /Stock link/.test(b.textContent));
   ok(!!stockBtn, 'the composer offers Stock link beside AI draft and Send');
   ok(stockBtn.getAttribute('aria-expanded') === 'false', 'the picker announces itself as closed');
@@ -747,13 +757,22 @@ say('\nWhatsApp desk stock link');
     'each row names the car, its reference and the price the listing publishes');
 
   const search = host.querySelector('.crm-wa-stock input[aria-label="Search stock"]');
-  await type(search, 'nissan');
+  // Escape closes the panel: it is a popover in the middle of typing, so the
+  // keyboard must be able to dismiss it without reaching for the mouse.
+  await act(async () => {
+    search.dispatchEvent(new dom.window.KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
+  });
+  ok(!host.querySelector('.crm-wa-stock') && stockBtn.getAttribute('aria-expanded') === 'false',
+    'Escape closes the picker');
+  await act(async () => { stockBtn.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  const searchAgain = host.querySelector('.crm-wa-stock input[aria-label="Search stock"]');
+  await type(searchAgain, 'nissan');
   eq(host.querySelectorAll('.crm-wa-stock li button').length, 1, 'typing a make narrows the list');
-  await type(search, 'toyota 2021');
+  await type(searchAgain, 'toyota 2021');
   eq(host.querySelectorAll('.crm-wa-stock li button').length, 0, 'a query that matches nothing returns nothing rather than a random car');
   ok(/No published car or machine matches that/.test(host.querySelector('.crm-wa-stock').textContent),
     'and the empty result explains why, instead of offering the nearest thing');
-  await type(search, 'harrier');
+  await type(searchAgain, 'harrier');
 
   // Put a sentence in the draft first: attaching must not eat what was typed.
   await type(box, 'Yes — one is available.');
@@ -793,8 +812,8 @@ say('\nWhatsApp desk stock link');
   const withMachine = host.querySelector('textarea[aria-label="WhatsApp reply"]').value;
   ok(withMachine.startsWith(beforeMachine + '\n'), 'the car text already in the draft survives adding a machine');
   const machineText = machineShareMessage(
-    {ref: 'AR7-MC-001', name: 'Doosan DX300LC-9C', year: 2019, hours: 6800, type: 'Excavators'},
-    formatMoney(62500, 'USD')
+    {ref: 'AR7-MC-001', name: 'Doosan DX300LC-9C', year: 2019, hours: 6800, type: 'Excavators', price_usd: 62500},
+    machineUsdLabel({price_usd: 62500})
   );
   ok(withMachine.includes(machineText), `the inserted text is the machine page's own forward text ("${machineText}")`);
   ok(/indicative FOB/.test(withMachine), 'including the indicative-FOB wording the machinery catalogue always carries');

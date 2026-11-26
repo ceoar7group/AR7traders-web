@@ -76,6 +76,24 @@ export const listPriceUSD = machine => {
   return supplier ? roundPrice(supplier * (1 + MACHINERY_MARKUP)) : 0;
 };
 
+/**
+ * The machine's price written the way the share card writes it: USD, currency
+ * spelled out, no decimals. The card has always said `US$62,500`; a forwarded
+ * message used to print the viewer's own currency instead (`$62,500`,
+ * `KSh 8,000,000`), so the message and the card behind it could disagree about
+ * the same machine. Both now read this one function.
+ *
+ * Empty string when the listing carries no price — never "0" or a guess.
+ */
+export const machineUsdLabel = machine => {
+  // listPriceUSD is what the card prices from; a thin desk row that only
+  // carries price_usd still gets its price rather than silently none.
+  const listed = Number(listPriceUSD(machine));
+  const stored = Number(machine?.price_usd);
+  const usd = listed > 0 ? listed : (Number.isFinite(stored) && stored > 0 ? stored : 0);
+  return usd > 0 ? `US$${Math.round(usd).toLocaleString('en-US')}` : '';
+};
+
 /** Every photo of a machine, main shot first. */
 export const machineImages = machine => {
   if (!machine || machine.photosPending) return [];

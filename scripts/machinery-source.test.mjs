@@ -180,5 +180,30 @@ say('\n-- machineShareMessage says what the page says --');
   ok(!/verified|guarantee|best price/i.test(full), 'no claim the listing does not make');
 }
 
+say('\n-- the forwarded message and the card agree, word for word --');
+{
+  // 2026-11-26: the machine page and the CRM desk used to print the viewer's
+  // own currency ("$62,500", "KSh 8,000,000") while the card behind the link
+  // said "US$62,500". A forwarded machine whose text and card disagree about
+  // the price is worse than no price at all, so both read machineUsdLabel().
+  const { machineUsdLabel, listPriceUSD, MACHINES } = await import('../src/machinery-data.js');
+  const { machineryCardContent } = await import('../api/_og-card.js');
+
+  for (const machine of MACHINES.slice(0, 4)) {
+    const label = machineUsdLabel(machine);
+    const card = machineryCardContent(machine, machine.ref);
+    ok(label === card.price,
+      `${machine.ref}: the message label (${label || 'none'}) is the card price (${card.price || 'none'})`);
+    ok(/^US\$[\d,]+$/.test(label), `${machine.ref}: the price names its currency — US$, the currency the business quotes FOB in`);
+    ok(card.priceTag === 'INDICATIVE FOB', `${machine.ref}: and the card still tags it INDICATIVE FOB`);
+  }
+
+  eq(machineUsdLabel(MACHINES[0]), 'US$' + Math.round(listPriceUSD(MACHINES[0])).toLocaleString('en-US'),
+    'the label is listPriceUSD, rounded, with the currency spelled out');
+  eq(machineUsdLabel({}), '', 'a machine with no price gets an empty label, never "US$0"');
+  eq(machineUsdLabel({ price_usd: 38000 }), 'US$38,000', 'a thin desk row carrying only price_usd still prices');
+  eq(machineUsdLabel({ price: 0, supplierPrice: 0 }), '', 'and a zero price is no price');
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

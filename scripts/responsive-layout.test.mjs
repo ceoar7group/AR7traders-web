@@ -75,6 +75,39 @@ assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-switch\s*\{[^}]*pos
 // the right of the scrollable table so buttons never sit out of frame.
 assert.match(crmCss, /grid-template-columns:\s*260px minmax\(0,\s*1fr\)/);
 assert.match(crmCss, /\.crm-table-wrap th\.th-actions,\s*\.crm-table-wrap td\.crm-row-actions\{position:sticky;right:0/s);
+// WhatsAp desk (2026-11-26): the conversation list + thread grid is CSS, not
+// inline styles, so a phone can stack it. A fixed 220–300px column beside the
+// thread left ~100px for the conversation on a 390px screen.
+assert.ok(!/crm-wa-grid[^>]*style=\{\{[^}]*gridTemplateColumns/.test(read('../src/crm.jsx')),
+  'the WhatsApp desk grid is not re-inlined — a breakpoint cannot override an inline style');
+assert.match(crmCss, /\.crm-wa-grid\{display:grid;grid-template-columns:minmax\(220px,300px\) minmax\(0,1fr\)/);
+assert.match(crmCss, /@media \(max-width:820px\)\{[\s\S]*?\.crm-wa-grid\{grid-template-columns:1fr\}[\s\S]*?\n\}/,
+  'below 820px the desk stacks to one column');
+// The reply box takes its own line and the three controls share the next one,
+// so Send is never pushed off the edge of a phone.
+assert.match(crmCss, /\.crm-wa-compose\{[^}]*flex-wrap:wrap/);
+assert.match(crmCss, /\.crm-wa-compose textarea\{flex:1 1 100%\}/);
+assert.match(crmCss, /\.crm-wa-compose button\{flex:1 1 auto;justify-content:center\}/);
+// Long threads and the stock list scroll inside themselves, not the page.
+assert.match(crmCss, /\.crm-wa-thread-head\{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap\}/,
+  'the thread header wraps, so Refresh is not pushed out of the thread on a narrow phone');
+assert.match(crmCss, /\.crm-wa-msgs\{[^}]*max-height:48vh;overflow-y:auto;padding:4px 2px;overscroll-behavior:contain\}/);
+assert.match(crmCss, /\.crm-wa-grid\.is-thread \.crm-wa-convos\{max-height:20vh\}/,
+  'with a thread open on a phone the list shrinks to a switcher strip');
+assert.match(crmCss, /\.crm-wa-stock li button\{min-height:44px/, 'stock rows are finger-sized on a phone');
+assert.match(crmCss, /\.crm-wa-stock input\{height:40px\}/, 'and so is the stock search box');
+// Phone browsers: 100vh reserves room for chrome that is already on screen,
+// so the desk's last row could hide under the URL bar. dvh tracks what is
+// actually visible; the vh line stays as the fallback for older browsers.
+assert.match(crmCss, /\.crm-shell \{\n  min-height: 100vh;\n  min-height: 100dvh;/);
+assert.match(crmCss, /\.crm-side \{\n  height: 100vh;\n  height: 100dvh;\n  max-height: 100vh;\n  max-height: 100dvh;/);
+// iOS zooms the page for any focused control under 16px and never zooms back.
+assert.match(crmCss, /@media \(max-width:820px\)\{[\s\S]*?\.crm-shell input:not\(\[type="checkbox"\]\)[^{]*\{[^}]*font-size: 16px;/,
+  'CRM controls take the 16px floor on phones, so focusing a field cannot zoom the page');
+// The phone dock is fixed over scrolling content: keep the bar, drop the blur.
+const detailCssNow = read('../src/detail-v2.css');
+assert.match(detailCssNow, /@media \(max-width:650px\)\{\s*\.detail-mobile-cta\{-webkit-backdrop-filter:none;backdrop-filter:none/,
+  'the fixed phone dock drops its per-frame backdrop blur below 650px');
 // Home page: running inventory slide + make/budget explorer exist.
 assert.match(main, /home-carousel-dots/);
 assert.match(main, /brand-budgets shell section/);

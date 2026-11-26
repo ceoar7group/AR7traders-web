@@ -31,7 +31,7 @@ import sharp from 'sharp';
 // The URL and dimensions live in a browser-safe module so the SPA head and this
 // renderer can never publish a link that disagrees with the image served.
 import { SHARE_CARD, shareCardPath, shareCardUrl, machineCardPath, machineCardUrl } from '../src/share-card.js';
-import { listPriceUSD, machineYearText, machineHours } from '../src/machinery-data.js';
+import { listPriceUSD, machineUsdLabel, machineYearText, machineHours } from '../src/machinery-data.js';
 
 export const CARD = { width: SHARE_CARD.width, height: SHARE_CARD.height };
 
@@ -151,14 +151,14 @@ export function machineryCardContent(machine, ref) {
     ? (machine?.type === 'Trucks' ? '' : '')
     : `${use.toLocaleString('en-US')} ${machine?.type === 'Trucks' ? 'km' : 'h'}`;
   const label = String(machine?.type || '').replace(/s$/i, '');
-  const priceUsd = machine ? listPriceUSD(machine) : 0;
+  const priceLabel = machine ? machineUsdLabel(machine) : '';
   const name = tidy(machine?.name);
   return {
     name: name || 'Machinery and equipment for export',
     specs: machine
       ? [tidy(machineYearText(machine)), usageText, label, tidy(machine.brand)].filter(Boolean).join(' · ')
       : '',
-    price: priceUsd > 0 ? `US$${priceUsd.toLocaleString('en-US')}` : '',
+    price: priceLabel,
     priceTag: 'INDICATIVE FOB',
     ref: tidy(ref) ? `REF ${tidy(ref).toUpperCase()}` : '',
     kicker: name ? 'AR7 TRADERS · CHINA MACHINERY' : 'AR7 TRADERS · JAPAN & CHINA EXPORT',

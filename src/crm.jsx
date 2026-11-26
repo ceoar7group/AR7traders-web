@@ -59,6 +59,7 @@ import { RowActions, placeMenu } from './row-actions.jsx';
 // pages' own share text — so what a customer receives matches the listing and
 // WhatsApp draws the share card (api/_og-card.js) behind it.
 import { matchStock, appendStockLink, stockRefOf, matchMachines, appendMachineLink, machineRefOf } from './stock-link.js';
+import { machineUsdLabel } from './machinery-data.js';
 export { RowActions, placeMenu };
 
 const PHOTO_PRESETS = [
@@ -3098,18 +3099,15 @@ export function WaDeskView({ token, canWrite, canToggleAuto, notify, stock = [],
   // the listing's 1200×630 card (api/_wa.js sends with preview_url: true).
   // Both catalogues: cars (/inventory/<ref>) and machines
   // (/machinery/<type>/<ref>, "indicative FOB", card /api/og/m/<ref>).
-  const { fmt } = useCurrency();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const origin = typeof location !== 'undefined' ? location.origin : 'https://ar7traders.com';
   const closePicker = () => { setPickerOpen(false); setPickerQuery(''); };
   const attachStock = car => { setDraft(d => appendStockLink(d, car, origin)); closePicker(); };
-  // A machine's price label is the same string the public page formats — the
-  // listing's own price, never a number the row does not carry.
-  const machinePrice = m => {
-    const v = Number(m?.price_usd ?? m?.price);
-    return Number.isFinite(v) && v > 0 ? fmt(v) : '';
-  };
+  // A machine's price label is the one the share card prints (US$62,500): the
+  // message and the card a customer sees must agree word for word, and a
+  // machine with no price gets no number at all.
+  const machinePrice = m => machineUsdLabel(m);
   // "2019 Doosan DX300LC-9C", never "2019 Doosan Doosan DX300LC-9C": the
   // machine's name already contains its brand.
   const machineTitle = m => {
@@ -3215,7 +3213,9 @@ export function WaDeskView({ token, canWrite, canToggleAuto, notify, stock = [],
         </div>
       )}
 
-      <div className="crm-wa-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,300px) 1fr', gap: 14, alignItems: 'start' }}>
+      {/* Layout lives in crm.css (.crm-wa-grid): on a phone the thread needs
+          the full width, so the two-column desk stacks. */}
+      <div className={'crm-wa-grid' + (active ? ' is-thread' : '')}>
         <div className="crm-wa-list">
           <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
             <input value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="+2547… start a chat" aria-label="WhatsApp number to open"
@@ -3225,7 +3225,7 @@ export function WaDeskView({ token, canWrite, canToggleAuto, notify, stock = [],
           {state.loading && <p className="crm-hint">Loading conversations…</p>}
           {state.error && <p className="crm-hint">{state.error}</p>}
           {!state.loading && !(state.conversations || []).length && <p className="crm-hint">No conversations yet. When a customer messages your WhatsApp number, the thread appears here.</p>}
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <ul className="crm-wa-convos">
             {(state.conversations || []).map(c => (
               <li key={c.wa_id}>
                 <button type="button" onClick={() => openThread(c.wa_id)}
@@ -3243,12 +3243,12 @@ export function WaDeskView({ token, canWrite, canToggleAuto, notify, stock = [],
         <div className="crm-wa-thread">
           {!active && <div className="crm-empty"><MessageCircle /><h3>Pick a conversation</h3><p>Open a thread on the left, or start one with a customer's number. Remember: free-form replies reach customers who wrote to you in the last 24 hours; otherwise WhatsApp requires a paid template message.</p></div>}
           {active && (<>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div className="crm-wa-thread-head">
               <b>+{active}</b>
               <a className="crm-call-act is-wa" href={'https://wa.me/' + active} target="_blank" rel="noreferrer"><PhoneCall size={13} /> Voice call (your phone)</a>
               <button type="button" className="crm-call-act" onClick={() => openThread(active)}><RefreshCw size={13} /> Refresh</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '48vh', overflowY: 'auto', padding: '4px 2px' }}>
+            <div className="crm-wa-msgs">
               {thread.loading && <p className="crm-hint">Loading messages…</p>}
               {thread.error && <p className="crm-hint">{thread.error}</p>}
               {!thread.loading && !thread.messages.length && <p className="crm-hint">No stored messages with this number yet — your first message below starts the thread (24-hour rule applies).</p>}
@@ -3266,7 +3266,8 @@ export function WaDeskView({ token, canWrite, canToggleAuto, notify, stock = [],
             {pickerOpen && (
               <div className="crm-wa-stock" role="group" aria-label="Attach a listing link to this reply">
                 <input value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} autoFocus
-                  placeholder="Search cars and machines by make, model or reference…" aria-label="Search stock" />
+                  placeholder="Search cars and machines by make, model or reference…" aria-label="Search stock"
+                  onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); closePicker(); } }} />
                 {stockMatches.length > 0 && (
                   <>
                     <b className="crm-wa-stock-head">Cars</b>
@@ -3307,9 +3308,8 @@ export function WaDeskView({ token, canWrite, canToggleAuto, notify, stock = [],
                 <small className="crm-hint">Adds the listing's own text and link to your reply. WhatsApp shows its card beside the message; nothing about the price is stated beyond what the listing publishes.</small>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'flex-end' }}>
-              <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={2} placeholder="Write a reply…" aria-label="WhatsApp reply"
-                style={{ flex: 1, resize: 'vertical' }} />
+            <div className="crm-wa-compose">
+              <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={2} placeholder="Write a reply…" aria-label="WhatsApp reply" />
               <button type="button" className="crm-call-act" onClick={() => { setPickerOpen(o => !o); setPickerQuery(''); }}
                 aria-expanded={pickerOpen} title="Attach a car or machine from the live stock list — the reply carries its link and WhatsApp draws the card">
                 <CarFront size={14} /> Stock link
