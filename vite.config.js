@@ -157,6 +157,13 @@ export default defineConfig({
           // dist listing from a page, and invisible to the bundle-budget guard.
           const dict = id.match(/[\\/]src[\\/]i18n-dicts[\\/]([a-z]{2})\.js$/);
           if (dict) return `i18n-${dict[1]}`;
+          // The globe's three pieces are named for what they are (2026-11-26).
+          // Left unnamed, Rollup put the engine and the land geometry in one
+          // `world-land` chunk and the country detail in `globe-full`, which is
+          // unreadable in a dist listing and hides which globes pay for what.
+          if (/[\\/]src[\\/]globe3d\.js$/.test(id)) return 'globe-engine';
+          if (/[\\/]src[\\/]world-land\.js$/.test(id)) return 'globe-land';
+          if (/[\\/]src[\\/]world-detail\.js$/.test(id)) return 'globe-detail';
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) return 'vendor-react';
           // lucide-react is deliberately NOT pinned to a vendor chunk.

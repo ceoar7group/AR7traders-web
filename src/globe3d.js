@@ -6,7 +6,8 @@
 // The previous globes slid a FLAT equirectangular strip behind a circular
 // mask — countries near the edge were stretched and the "rotation" was a
 // scroll, not a spin. This engine renders a true ORTHOGRAPHIC projection of
-// real Natural Earth 110m geometry (src/world-geo.js) on a <canvas>:
+// real Natural Earth 110m geometry on a <canvas> (the geometry set is passed
+// in — src/globe-lite.js gives it land, src/globe-full.js land + detail):
 //
 //   • free rotation on BOTH axes — drag anywhere, with inertia; longitude is
 //     endless, latitude is clamped at the poles like every real globe app;
@@ -23,8 +24,13 @@
 // No dependencies: ~5k vertices × a handful of multiplications per frame.
 // This module lives only in lazy chunks — never in the first-load bundle.
 // ---------------------------------------------------------------------------
-import { LAND, BORDERS, COUNTRIES } from './world-geo.js';
 import earcut from 'earcut';
+// 2026-11-26: the geometry is INJECTED, not imported. This module used to pull
+// src/world-geo.js in at the top, so the header ornament — which draws land and
+// nothing else — dragged 142 kB of borders and named-country rings along with
+// it (see src/globe-lite.js / src/globe-full.js). mountGlobe takes the set it
+// needs; nothing here decides for it. Prepare each set once and cache it, so
+// navigating back to a globe does not rebuild the sin/cos tables.
 
 const RAD = Math.PI / 180;
 
@@ -46,8 +52,21 @@ function prep(flat) {
 // per-triangle culling makes that impossible — a triangle only ever covers
 // its own few square degrees of land, so the sea stays green from every
 // angle. o = ring offsets (coastline strokes), t = Uint16 triangle indices.
-const LAND_P = LAND.map(p => ({ ...prep(p.v), o: p.o, t: Uint16Array.from(p.t) }));
-const BORDER_P = BORDERS.map(prep);
+const PREPARED = new WeakMap();
+
+/** Build (once per geometry set) everything the draw loop wants precomputed.
+ *  Keyed on the set object itself, so the lite and full globes can coexist on
+ *  one page — the home page mounts both — without either inheriting the
+ *  other's geometry. */
+function prepare(geo) {
+  const key = geo || EMPTY_GEO;
+  const cached = PREPARED.get(key);
+  if (cached) return cached;
+  const LAND = key.LAND || EMPTY_GEO.LAND;
+  const BORDERS = key.BORDERS || EMPTY_GEO.BORDERS;
+  const COUNTRIES = key.COUNTRIES || EMPTY_GEO.COUNTRIES;
+  const LAND_P = LAND.map(p => ({ ...prep(p.v), o: p.o, t: Uint16Array.from(p.t) }));
+  const BORDER_P = BORDERS.map(prep);
 
 // 2026-11-11 (owner: "do all the globe upgrades") — named country polygons.
 // Hover/tap hit-testing uses even-odd ray casting over the raw rings (holes
@@ -62,11 +81,23 @@ const bboxOf = f => {
   }
   return [a, b, c, d];
 };
-const CTRY_P = COUNTRIES.map(c => ({ n: c.n, rings: c.r, p: c.r.map(prep), b: c.r.map(bboxOf) }));
-const ctryTriCache = new Map(); // country index -> per-ring Uint16 triangle lists
-const ctryTris = ci => {
-  let t = ctryTriCache.get(ci);
-  if (!t) { t = CTRY_P[ci].rings.map(f => Uint16Array.from(earcut(f, null, 2))); ctryTriCache.set(ci, t); }
+  const CTRY_P = COUNTRIES.map(c => ({ n: c.n, rings: c.r, p: c.r.map(prep), b: c.r.map(bboxOf) }));
+  const ctryTriCache = new Map(); // country index -> per-ring Uint16 triangle lists
+  const MAX_POLY = Math.max(
+    LAND_P.reduce((m, p) => Math.max(m, p.n), 0),
+    CTRY_P.reduce((m, c) => Math.max(m, ...c.p.map(r => r.n)), 0)
+  );
+  const built = { LAND_P, BORDER_P, CTRY_P, ctryTriCache, MAX_POLY };
+  PREPARED.set(key, built);
+  return built;
+}
+
+const EMPTY_GEO = { LAND: [], BORDERS: [], COUNTRIES: [] };
+
+/** Per-ring triangle indices for a named country, triangulated on demand. */
+const ctryTris = (G, ci) => {
+  let t = G.ctryTriCache.get(ci);
+  if (!t) { t = G.CTRY_P[ci].rings.map(f => Uint16Array.from(earcut(f, null, 2))); G.ctryTriCache.set(ci, t); }
   return t;
 };
 const inRing = (f, lon, lat) => {
@@ -77,9 +108,9 @@ const inRing = (f, lon, lat) => {
   }
   return hit;
 };
-const hitCountry = (lon, lat) => {
-  for (let ci = 0; ci < CTRY_P.length; ci++) {
-    const c = CTRY_P[ci];
+const hitCountry = (G, lon, lat) => {
+  for (let ci = 0; ci < G.CTRY_P.length; ci++) {
+    const c = G.CTRY_P[ci];
     let odd = false;
     for (let r = 0; r < c.rings.length; r++) {
       const b = c.b[r];
@@ -91,10 +122,6 @@ const hitCountry = (lon, lat) => {
   return -1;
 };
 
-const MAX_POLY = Math.max(
-  LAND_P.reduce((m, p) => Math.max(m, p.n), 0),
-  CTRY_P.reduce((m, c) => Math.max(m, ...c.p.map(r => r.n)), 0)
-);
 
 // Major port & trade cities — warm "city lights" on the night side.
 const CITIES = [
@@ -151,7 +178,7 @@ function gcPoint(aLon, aLat, bLon, bLat, t) {
  * Mount a 3D globe inside `host`. Returns a cleanup function.
  * The canvas child `.g3-canvas` must already exist in the host.
  */
-export function mountGlobe(host, opts = {}) {
+export function mountGlobe(host, opts = {}, geo = null) {
   const noop = () => {};
   if (!host) return noop;
   const canvas = host.querySelector('.g3-canvas');
@@ -163,6 +190,12 @@ export function mountGlobe(host, opts = {}) {
   let ctx = null;
   try { ctx = canvas.getContext('2d'); } catch { return noop; }
   if (!ctx) return noop;
+  // `geo` is the Natural Earth set this globe draws: {LAND} for the decorative
+  // orbs, {LAND, BORDERS, COUNTRIES} for the full globe. An empty set is legal —
+  // the sphere, graticule and routes still render, which is what a caller that
+  // passes nothing asked for.
+  const G = prepare(geo);
+  const { LAND_P, BORDER_P, CTRY_P, MAX_POLY } = G;
 
   const o = {
     lam: 95, phi: 22,            // start centred near Japan↔Gulf trade lanes
@@ -395,7 +428,7 @@ export function mountGlobe(host, opts = {}) {
     /* hovered/tapped country — brighter gold fill + crisp outline */
     if (o.names && st.hoverC >= 0) {
       const c = CTRY_P[st.hoverC];
-      const tris = ctryTris(st.hoverC);
+      const tris = ctryTris(G, st.hoverC);
       const hp = new Path2D(), ho = new Path2D();
       for (let r = 0; r < c.p.length; r++) {
         const pr = c.p[r];
@@ -780,7 +813,7 @@ export function mountGlobe(host, opts = {}) {
     const px = e.clientX - rect.left, py = e.clientY - rect.top;
     st.hvX = px; st.hvY = py;
     const ll = screenToLL(px, py);
-    const ci = ll ? hitCountry(ll[0], ll[1]) : -1;
+    const ci = ll ? hitCountry(G, ll[0], ll[1]) : -1;
     if (ci !== st.hoverC) {
       st.hoverC = ci;
       if (ci >= 0) host.classList.add('over-country'); else host.classList.remove('over-country');
