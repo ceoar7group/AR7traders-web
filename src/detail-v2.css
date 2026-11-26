@@ -699,8 +699,71 @@
   color: var(--muted);
 }
 
+/* The stack is four actions and two utilities. Left to a wrapping flex row
+   they broke into a ragged 3 + 1 + 1 arrangement with mixed widths; here it is
+   always two tidy columns of equal buttons:
+     [Make an offer] [Enquire now]
+     [WhatsApp]      [Chat Now]
+     [Save]          [Copy link]                                        */
+/* The phone action bar only exists below 650px (see section 7). */
+.detail-mobile-cta {
+  display: none;
+}
+
 .detail-page .detail-actions {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 10px;
   margin-top: 20px;
+}
+
+.detail-page .detail-primary-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-page .detail-primary-row:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.detail-page .detail-actions-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px;
+}
+
+.detail-page .detail-actions :is(.primary, .outline-btn, .detail-cta, .ghost-btn) {
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+  min-height: 50px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 14px;
+  justify-content: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Fewer boxes: the secondary actions are tinted surfaces rather than outlined
+   cards, so the solid "Make an offer" is the only strong shape in the stack. */
+.detail-page .detail-actions :is(.detail-enquire, .ghost-btn) {
+  border: 0;
+  background: var(--d-surface);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.detail-page .detail-actions :is(.detail-cta--wa, .detail-cta--chat) {
+  border: 0;
+}
+
+.detail-page .detail-actions :is(.detail-enquire, .ghost-btn):focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
 }
 
 /* ---------- 5. Below the fold: same language, softer edges ---------------- */
@@ -869,6 +932,151 @@
   .detail-page .video-walk {
     border-radius: 16px;
   }
+
+  /* ---- Phone action bar: price + the one dominant action, always in reach.
+     The global WhatsApp bubble and the chat bubble would otherwise sit on top
+     of it, so on a vehicle page the bar replaces the WhatsApp bubble (it has
+     its own WhatsApp button) and lifts the chat bubble clear. --------------- */
+  .detail-page .detail-actions :is(.primary, .outline-btn, .detail-cta, .ghost-btn) {
+    height: 48px;
+    min-height: 48px;
+    padding: 0 10px;
+    font-size: 13px;
+    gap: 7px;
+  }
+
+  .detail-page .detail-actions :is(.primary, .outline-btn, .detail-cta, .ghost-btn) svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .detail-mobile-cta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 110;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--card) 90%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border-top: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+    box-shadow: 0 -18px 40px -34px rgba(0, 0, 0, .6);
+  }
+
+  .detail-mobile-cta .dmc-price {
+    display: grid;
+    gap: 3px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-inline-start: 2px;
+  }
+
+  .detail-mobile-cta .dmc-price small {
+    font: 800 8px/1 Manrope, sans-serif;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .detail-mobile-cta .dmc-price b {
+    font: 800 16px/1.1 Manrope, sans-serif;
+    letter-spacing: -.3px;
+    color: var(--green-text);
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .detail-mobile-cta .dmc-price .stock-price-display {
+    display: block;
+  }
+
+  .detail-mobile-cta .dmc-price .stock-price-values {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .detail-mobile-cta .dmc-price .stock-price-values s,
+  .detail-mobile-cta .dmc-price .stock-price-display em,
+  .detail-mobile-cta .dmc-price .stock-price-display small {
+    display: none;
+  }
+
+  .detail-mobile-cta .dmc-wa {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: color-mix(in srgb, #25d366 14%, transparent);
+    color: #168a3d;
+  }
+
+  .detail-mobile-cta .dmc-cta {
+    flex: 0 0 auto;
+    height: 46px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--green);
+    color: #fff;
+    font: 700 13px/1 Manrope, sans-serif;
+    white-space: nowrap;
+    box-shadow: 0 12px 24px -14px rgba(4, 63, 40, .8);
+  }
+
+  .detail-mobile-cta .dmc-cta svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .detail-mobile-cta :is(.dmc-wa, .dmc-cta):focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  /* Keep the page (and the footer under it) clear of the bar. */
+  body:has(.detail-mobile-cta) {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body:has(.detail-mobile-cta) .wa-float {
+    display: none;
+  }
+
+  body:has(.detail-mobile-cta) .aw-float {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Dark theme: the phone bar's two accents need to lift off a dark surface. */
+html[data-theme=dark] .detail-mobile-cta .dmc-wa {
+  color: #6ce69a;
+  background: color-mix(in srgb, #25d366 20%, transparent);
+}
+
+html[data-theme=dark] .detail-mobile-cta .dmc-cta {
+  background: #0e6b41;
+  color: #f2fff8;
+}
+
+html[data-theme=dark] .detail-mobile-cta .dmc-cta:hover {
+  background: #128452;
+}
+
+@media (max-width: 380px) {
+  .detail-page .detail-primary-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ---------- 8. Motion: hover only, and never for reduced-motion visitors - */
@@ -904,6 +1112,15 @@
   .detail-page .detail-gallery > .detail-thumbs button:hover {
     opacity: .85;
     transform: translateY(-2px);
+  }
+
+  .detail-page .detail-actions :is(.detail-enquire, .ghost-btn):hover {
+    background: var(--d-surface-2);
+    color: var(--ink);
+  }
+
+  .detail-mobile-cta .dmc-cta:hover {
+    background: #08613c;
   }
 }
 
