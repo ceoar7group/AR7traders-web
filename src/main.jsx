@@ -155,7 +155,11 @@ export const FOUNDER_CLAIM = {
 // (screen readers, crawlers); the rolling digits are aria-hidden. `delay`
 // (ms from mount) lets the hero wait for its own entrance animation — it only
 // applies when the block is already on screen at load.
-const COUNT_MS=2000;
+// 2026-11-27: 2000 ms, started 900 ms after mount, meant the hero figure was
+  // still moving at 2.9 s — and Speed Index counts every frame of that. The
+  // count is still a count; it just lands while the visitor is looking at the
+  // hero rather than long after they have scrolled past it.
+  const COUNT_MS=800;
 const countEase=t=>t>=1?1:1-Math.pow(2,-10*t); // easeOutExpo: quick rush, soft landing
 export function FounderStat({variant,delay=0}){
  const {figure,unit,detail}=FOUNDER_CLAIM;
@@ -1395,7 +1399,7 @@ export function App(){
       <div className="eyebrow"><span className="live-dot"/> {t('hero.eyebrow')}</div>
       <h1>{t('hero.h1a')}<br/><em>{t('hero.h1b')}</em></h1>
       <p>{t('hero.lead')} <b>{t('hero.leadEm')}</b>.</p>
-      <FounderStat variant="hero" delay={900}/>
+      <FounderStat variant="hero" delay={80}/>
     </div>
     {/* 2026-11-10 hero v3 (owner direction): the search console moves to the
         TOP of the stage — a slim full-width bar just under the header, above
@@ -1433,7 +1437,7 @@ export function App(){
       const ref=carRef(c), href=hrefFor('inventory',ref);
       const label=[c.year,c.make,c.model].filter(Boolean).join(' ');
       const waMsg=`Hello AR7, I'm interested in the ${label} (ref ${ref}) on your website. Is it still available?`;
-      return <article className="car-card home-car-card" key={c.id} style={{'--delay':i*80+'ms'}}>
+      return <article className="car-card home-car-card" key={c.id} style={{'--delay':Math.min(i,4)*55+'ms'}}>
       <a className="home-car-cover-link" href={href} aria-label={`View details for ${label} — ${ref}`} onClick={linkClick(`inventory?car=${ref}`,navigate)}/>
       <div className="car-image"><img loading="lazy" decoding="async" width="820" height="550" src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt={carAlt(c)}/><span className={'status '+statusSlug(c.status)}>{statusLabel(t,c.status)}</span><button type="button" aria-label={t('card.fav')} aria-pressed={favs.includes(c.id)} className={favs.includes(c.id)?'fav active':'fav'} onClick={()=>setFavs(v=>v.includes(c.id)?v.filter(x=>x!==c.id):[...v,c.id])}><Heart fill={favs.includes(c.id)?'currentColor':'none'}/></button>{c.grade?<span className="grade">{t('card.grade')} <b>{c.grade}</b></span>:null}</div>
       <div className="car-info"><div className="car-head"><img loading="lazy" decoding="async" width="64" height="40" src={LOGO(c.make)} alt="" onError={logoOnError}/><div className="car-head-txt"><span className="make">{c.make}</span><h3>{c.model}</h3></div></div><div className="specs"><span><CalendarDays/> {c.year}</span><span><Gauge/> {c.km} km</span><span><Fuel/> {c.fuel}</span>{c.tr?<span><ArrowLeftRight/> {c.tr}</span>:null}</div><div className="car-bottom"><div><small>{t('card.priceFrom')}</small><VehiclePriceDisplay car={c} discounts={liveDiscounts}/></div></div>
