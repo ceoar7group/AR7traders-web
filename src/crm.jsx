@@ -5507,20 +5507,23 @@ function TeamView({ token, authUser, profile, perms, setPerms, notify, onEdit })
         <div className="crm-tools"><button className="crm-add" onClick={() => setAdding(true)} type="button"><Plus /> Add member</button></div>
       </div>
 
-      <div className="crm-table-wrap">
+      {/* crm-cards-sm: below 820px each member is a labelled card, so the
+          Edit / Password / Disable controls are not at the far right of a
+          sideways-scrolling table on a phone. */}
+      <div className="crm-table-wrap crm-cards-sm">
         <table>
           <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th /></tr></thead>
           <tbody>
             {members.map(m => (
               <tr key={m.id}>
-                <td>{m.full_name}</td>
-                <td>{m.email || '—'}</td>
-                <td>
+                <td className="crm-cell-title" data-label="Name">{m.full_name}</td>
+                <td data-label="Email">{m.email || '—'}</td>
+                <td data-label="Role">
                   <select value={m.role} disabled={m.id === profile.id} onChange={e => update(m.id, { role: e.target.value })}>
                     {ROLE_LIST.map(r => <option key={r} value={r}>{pretty(r)}</option>)}
                   </select>
                 </td>
-                <td><em className={'crm-status ' + (m.active ? 'active' : 'inactive')}>{m.active ? 'Active' : 'Disabled'}</em></td>
+                <td data-label="Status"><em className={'crm-status ' + (m.active ? 'active' : 'inactive')}>{m.active ? 'Active' : 'Disabled'}</em></td>
                 <td className="crm-row-actions">
                   <button onClick={() => onEdit(m)} type="button"><UserCog size={14} /> Edit</button>
                   <button onClick={() => setPw(m)} type="button"><KeyRound size={14} /> Password</button>
@@ -6228,19 +6231,19 @@ function CustomerAccount({ token, profile, perms, customerId, onBack, notify, li
       <section className="cust-panel">
         <h3>Vehicle Orders</h3>
         {!orders.length ? <p className="muted">No orders yet.</p> : (
-          <div className="crm-table-wrap">
+          <div className="crm-table-wrap crm-cards-sm">
             <table>
               <thead><tr><th>Order</th><th>Vehicle</th><th>Source</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
               <tbody>
                 {orders.map(o => (
                   <tr key={o.id}>
-                    <td>{o.order_no}</td>
-                    <td>{o.vehicle}</td>
-                    <td><em className="crm-status">{o.source === 'website' ? 'Website' : 'Manual'}</em></td>
-                    <td>{fmt(o.amount)}<CurrencyBadge record={o} /></td>
-                    <td>{fmt(o.paid)}</td>
-                    <td className={Number(o.balance_due) > 0 ? 'due' : 'clear'}>{fmt(o.balance_due)}</td>
-                    <td><em className={'crm-status ' + statusClass(o.status)}>{pretty(o.status)}</em></td>
+                    <td data-label="Order">{o.order_no}</td>
+                    <td className="crm-cell-title" data-label="Vehicle">{o.vehicle}</td>
+                    <td data-label="Source"><em className="crm-status">{o.source === 'website' ? 'Website' : 'Manual'}</em></td>
+                    <td data-label="Amount">{fmt(o.amount)}<CurrencyBadge record={o} /></td>
+                    <td data-label="Paid">{fmt(o.paid)}</td>
+                    <td data-label="Balance" className={Number(o.balance_due) > 0 ? 'due' : 'clear'}>{fmt(o.balance_due)}</td>
+                    <td data-label="Status"><em className={'crm-status ' + statusClass(o.status)}>{pretty(o.status)}</em></td>
                   </tr>
                 ))}
               </tbody>
@@ -6561,11 +6564,11 @@ function OffersView({token, profile, perms, notify, rows, onOpenSeo}) {
 
       <section className="stock-discount-current">
         <div className="stock-discount-section-head"><div><b>Published stock discounts</b><small>{current.length} saved · expired entries remain here until removed or renewed</small></div></div>
-        <div className="crm-table-wrap"><table className="crm-table"><thead><tr><th>Stock</th><th>Reference</th><th>List (FOB)</th><th>Discount</th><th>Buyer pays</th><th>Ends</th><th></th></tr></thead><tbody>
+        <div className="crm-table-wrap crm-cards-sm"><table className="crm-table"><thead><tr><th>Stock</th><th>Reference</th><th>List (FOB)</th><th>Discount</th><th>Buyer pays</th><th>Ends</th><th></th></tr></thead><tbody>
           {current.map(({key, discount, stock}) => {
             const price = priceWithOffer(stock.price, discount.percent);
             const liveNow = !!stockDiscountFor({version: 1, items: {[key]: discount}}, discount.kind, discount.ref);
-            return <tr key={key}><td><b>{stock.name}</b><br/><small>{stock.category}</small></td><td>{discount.kind}:{discount.ref}</td><td>{stock.price ? fmt0(stock.price) : '—'}</td><td><em className={'crm-status '+(liveNow ? 'approved' : 'pending')}>{discount.percent}% off{!liveNow ? ' · expired' : ''}</em>{discount.label && <small className="stock-discount-row-label">{discount.label}</small>}</td><td><b>{stock.price ? fmt0(price.now) : '—'}</b></td><td>{discount.until ? formatDate(discount.until) : 'No end date'}</td><td><button className="crm-ghost" type="button" onClick={() => {setSelectedKey(key);setSearch('');setKind('all');}} aria-label={`Edit discount for ${stock.name}`}>Edit</button><button className="crm-ghost danger" type="button" onClick={() => removeDiscount(key)} disabled={!canPublish || busy} aria-label={`Remove discount for ${stock.name}`}><Trash2 size={13}/></button></td></tr>;
+            return <tr key={key}><td className="crm-cell-title" data-label="Stock"><b>{stock.name}</b><br/><small>{stock.category}</small></td><td data-label="Reference">{discount.kind}:{discount.ref}</td><td data-label="List (FOB)">{stock.price ? fmt0(stock.price) : '—'}</td><td data-label="Discount"><em className={'crm-status '+(liveNow ? 'approved' : 'pending')}>{discount.percent}% off{!liveNow ? ' · expired' : ''}</em>{discount.label && <small className="stock-discount-row-label">{discount.label}</small>}</td><td data-label="Buyer pays"><b>{stock.price ? fmt0(price.now) : '—'}</b></td><td data-label="Ends">{discount.until ? formatDate(discount.until) : 'No end date'}</td><td className="crm-row-actions"><button className="crm-ghost" type="button" onClick={() => {setSelectedKey(key);setSearch('');setKind('all');}} aria-label={`Edit discount for ${stock.name}`}>Edit</button><button className="crm-ghost danger" type="button" onClick={() => removeDiscount(key)} disabled={!canPublish || busy} aria-label={`Remove discount for ${stock.name}`}><Trash2 size={13}/></button></td></tr>;
           })}
           {!current.length && <tr><td colSpan="7"><span className="crm-hint">No stock discounts have been published.</span></td></tr>}
         </tbody></table></div>

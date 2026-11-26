@@ -89,6 +89,17 @@ assert.match(crmCss, /\.crm-wa-compose\{[^}]*flex-wrap:wrap/);
 assert.match(crmCss, /\.crm-wa-compose textarea\{flex:1 1 100%\}/);
 assert.match(crmCss, /\.crm-wa-compose button\{flex:1 1 auto;justify-content:center\}/);
 // Long threads and the stock list scroll inside themselves, not the page.
+// Data tables that carry row actions become labelled cards below 820px — the
+// same width at which the shell drops its sidebar — not merely on phones.
+assert.match(crmCss, /@media \(max-width: 820px\) \{\s*\n  \.crm-cards-sm \.crm-table-wrap/,
+  'the card treatment starts where the CRM shell goes single-column, so a 780px tablet does not scroll a table sideways');
+assert.match(crmCss, /\.crm-cards-sm tbody td::before[^}]*content:attr\(data-label\)/,
+  'and each cell prints the header it lost');
+assert.match(crmCss, /\.crm-table-wrap\.crm-cards-sm td\.crm-row-actions \.crm-row-primary/,
+  'with the row actions at the end of the card, in view');
+const crmJsx = read('../src/crm.jsx');
+assert.ok((crmJsx.match(/crm-table-wrap crm-cards-sm/g) || []).length >= 4,
+  'the member, order and discount tables all opt in (plus the imported-cars table)');
 assert.match(crmCss, /\.crm-wa-thread-head\{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap\}/,
   'the thread header wraps, so Refresh is not pushed out of the thread on a narrow phone');
 assert.match(crmCss, /\.crm-wa-msgs\{[^}]*max-height:48vh;overflow-y:auto;padding:4px 2px;overscroll-behavior:contain\}/);
