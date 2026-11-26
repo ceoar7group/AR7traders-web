@@ -355,8 +355,22 @@ say('\n-- OG car card: a published listing renders its own card --');
     'og:title carries year, make and the HTML-escaped model');
   ok(res.body.includes('42,000 km · Hybrid · AT · price $12,500.'),
     'the description lists the spec line with the formatted FOB price');
-  ok(res.body.includes('content="https://ar7traders.com/assets/inventory/700052000730260404001.webp"'),
-    'og:image is the absolute URL of the cover photo');
+  // 2026-11-26: og:image is now the generated 1200×630 share card for this
+  // ref, not the raw yard photo — a forwarded link shows the car's name,
+  // specs and price at a fixed size on every phone.
+  ok(res.body.includes('content="https://ar7traders.com/api/og/AR7-0007"'),
+    'og:image is the vehicle\'s share card, keyed by the ref');
+  ok(res.body.includes('<meta property="og:image:width" content="1200"/>') &&
+    res.body.includes('<meta property="og:image:height" content="630"/>') &&
+    res.body.includes('<meta property="og:image:type" content="image/jpeg"/>'),
+    'the card declares the size and encoding it really has');
+  ok(res.body.includes('<meta property="product:price:amount" content="12500"/>') &&
+    res.body.includes('<meta property="product:price:currency" content="USD"/>'),
+    'the published price is machine-readable for the platforms that read it');
+  ok(!res.body.includes('700052000730260404001.webp'),
+    'the lean card publishes no raw photo URL — the image IS the card');
+  ok(!res.body.includes('api/og/AR7-SOLD') && !res.body.includes('api/og/NOPE-404'),
+    'no card URL is published for a car that is not public');
   ok(res.body.includes('https://ar7traders.com/inventory/AR7-0007'),
     'og:url/canonical point at the real vehicle page');
   ok(res.body.includes('summary_large_image'), 'Twitter renders the large card');
@@ -429,8 +443,12 @@ say('\n-- imported dealer cars share the same card endpoint --');
     memDb([], { dealerRows: HEAD_DEALER }));
   ok(res.statusCode === 200 && res.body.includes('2020 Suzuki Every — Japan export'),
     'a goonet ref resolves through japan_dealer_stock');
-  ok(res.body.includes('https://cdn.example.jp/every.jpg'),
-    'an already-absolute dealer photo URL is kept as-is');
+  ok(res.body.includes('content="https://ar7traders.com/api/og/700912345"'),
+    'the imported car gets its own card, keyed by the ref that resolved it');
+  const full = await runHead({ method: 'GET', query: { head: '700912345', render: 'full' } },
+    memDb([], { dealerRows: HEAD_DEALER }));
+  ok(full.body.includes('<img src="https://cdn.example.jp/every.jpg"'),
+    'an already-absolute dealer photo URL is still the listing photo in the body');
 }
 
 say('\n-- method and escaping discipline --');

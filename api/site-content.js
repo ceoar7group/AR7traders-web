@@ -72,6 +72,9 @@ import { carRef, hrefFor, carLandingPath, slugify, machinePath, machineTypePath,
 // Imported dealer cars are mapped by the SAME pure module the public site
 // uses, so the sitemap can only ever list a car the site actually shows.
 import { mapDealerRows } from '../src/japan-stock-map.js';
+// The 1200×630 share card: one shared `_`-module, so the preview image costs no
+// extra Serverless Function (the deployment sits at Vercel Hobby's cap of 12).
+import { cardUrl, cardContent, renderVehicleCard, CARD_META } from './_og-card.js';
 import {readAllDealerPages} from './_dealer-pages.js';
 export { carRef, hrefFor };
 
@@ -422,7 +425,16 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
     ? vehicleDescription
     : 'RHD cars from Japan, LHD cars from China and heavy machinery — inspected, documented and shipped to your port with one clear price.';
   const url = row ? SITEMAP_BASE + hrefFor('inventory', ref) : SITEMAP_BASE + '/inventory';
-  const image = (row && absoluteAssetUrl(headPhoto(row))) || HEAD_FALLBACK_IMAGE;
+  // Two different images, on purpose:
+  //   • `photo` is the listing photo — the Product JSON-LD and the body <img>
+  //     must keep showing the actual car (content parity with the SPA);
+  //   • `image` is the 1200×630 share card generated from that photo plus the
+  //     vehicle's own name, specs and price. It is what WhatsApp, Facebook and
+  //     X draw beside the link: fixed dimensions, always legible, always named.
+  // An unknown ref keeps the plain fallback photo (there is no vehicle to
+  // caption), so the generic card never pretends a car exists.
+  const photo = (row && absoluteAssetUrl(headPhoto(row))) || HEAD_FALLBACK_IMAGE;
+  const image = row ? cardUrl(SITEMAP_BASE, ref) : HEAD_FALLBACK_IMAGE;
   const alt = name ? `${name} listed for export by AR7 Traders`
     : 'Japanese vehicles prepared for export by AR7 Traders';
   return '<!doctype html>\n<html lang="en"><head>\n' +
@@ -438,6 +450,14 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
     `<meta property="og:url" content="${esc(url)}"/>\n` +
     `<meta property="og:image" content="${esc(image)}"/>\n` +
     `<meta property="og:image:alt" content="${esc(alt)}"/>\n` +
+    (row ? `<meta property="og:image:type" content="${CARD_META.type}"/>\n` +
+      `<meta property="og:image:width" content="${CARD_META.width}"/>\n` +
+      `<meta property="og:image:height" content="${CARD_META.height}"/>\n` +
+      `<meta property="og:image:secure_url" content="${esc(image)}"/>\n` : '') +
+    // The price a buyer sees on the card, in the machine-readable form the
+    // platforms expect. Only stated when the listing actually carries one.
+    (usdPrice ? `<meta property="product:price:amount" content="${usdPrice}"/>\n` +
+      '<meta property="product:price:currency" content="USD"/>\n' : '') +
     '<meta name="twitter:card" content="summary_large_image"/>\n' +
     `<meta name="twitter:title" content="${esc(title)}"/>\n` +
     `<meta name="twitter:description" content="${esc(description)}"/>\n` +
@@ -455,7 +475,7 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
       '@context': 'https://schema.org',
       '@type': 'Product',
       name,
-      image: [image],
+      image: [photo],
       description,
       brand: row.make ? { '@type': 'Brand', name: String(row.make) } : undefined,
       offers: Number(row.price) > 0 ? {
@@ -477,7 +497,7 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
     '</head><body>\n' +
     (opts.full ? (
       `<h1>${esc(title)}</h1>\n` +
-      (row ? `<img src="${esc(image)}" alt="${esc(alt)}" width="760" height="507"/>\n` : '') +
+      (row ? `<img src="${esc(photo)}" alt="${esc(alt)}" width="760" height="507"/>\n` : '') +
       (row ? '<ul>' + [
         row.year ? `<li>Year: ${esc(String(row.year))}</li>` : '',
         row.km != null && String(row.km).trim() !== '' ? `<li>Mileage: ${esc(String(row.km))} km</li>` : '',
@@ -493,27 +513,14 @@ export function buildVehicleHeadHtml(row, ref, opts = {}) {
     '</body></html>\n';
 }
 
-/** GET ?head=<ref> — the OG card for one vehicle. Never fails a crawler:
- *  unknown ref, unpublished/sold car or a broken database all degrade to the
- *  generic AR7 card with HTTP 200, because a share preview that errors would
- *  simply show nothing. */
-export async function vehicleHead(req, res, injected = {}) {
-  if ((req.method || 'GET') !== 'GET') {
-    res.setHeader('Allow', 'GET');
-    return sendPlain(res, 405, 'Method not allowed');
-  }
-  const ref = String(req.query.head || '').trim().slice(0, 80);
-  // Search crawlers (second UA rewrite in vercel.json) ask for the full
-  // content-parity page; social crawlers keep the lean OG card.
-  const full = String(req.query.render || '') === 'full';
-  const sendCard = (row) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', HEAD_CACHE);
-    res.end(buildVehicleHeadHtml(row, ref, { full }));
-  };
-  if (!ref) return sendCard(null);
-  try {
+/** The public listing behind a share/preview URL, or null.
+ *
+ *  One lookup shared by the OG head, the OG image and the crawler render, so a
+ *  card can never describe a record the page does not show. Returns null for
+ *  an unknown ref, a draft and a sold car; throws when the database is down,
+ *  which each caller handles on its own terms (HTML → 503, image → generic
+ *  card, because a share preview with no image is worse than a plain one). */
+async function loadVehicleRow(ref, injected = {}) {
     const db = injected.db || adminClient();
     let row = null;
     const { data, error } = await db.from('site_listings')
@@ -545,14 +552,102 @@ export async function vehicleHead(req, res, injected = {}) {
         if (!/relation .*japan_dealer_stock.* does not exist/i.test(e?.message || '')) throw e;
       }
     }
-    if (row && (row.published === false ||
-      (row.status != null && SITEMAP_UNAVAILABLE.test(String(row.status))))) {
-      row = null;
-    }
-    return sendCard(row);
+  if (row && (row.published === false ||
+    (row.status != null && SITEMAP_UNAVAILABLE.test(String(row.status))))) {
+    row = null;
+  }
+  return row;
+}
+
+/** GET ?head=<ref> — the OG card for one vehicle. Never fails a crawler:
+ *  unknown ref, unpublished/sold car or a broken database all degrade to the
+ *  generic AR7 card with HTTP 200, because a share preview that errors would
+ *  simply show nothing. */
+export async function vehicleHead(req, res, injected = {}) {
+  if ((req.method || 'GET') !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+  const ref = String(req.query.head || '').trim().slice(0, 80);
+  // Search crawlers (second UA rewrite in vercel.json) ask for the full
+  // content-parity page; social crawlers keep the lean OG card.
+  const full = String(req.query.render || '') === 'full';
+  const sendCard = (row) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', HEAD_CACHE);
+    res.end(buildVehicleHeadHtml(row, ref, { full }));
+  };
+  if (!ref) return sendCard(null);
+  try {
+    return sendCard(await loadVehicleRow(ref, injected));
   } catch (e) {
     console.error('vehicle-head:', e);
     return sendPlain(res, 503, 'Vehicle stock temporarily unavailable');
+  }
+}
+
+/** The price string drawn on the card. A single published price is shown as
+ *  written (currency included); ranges and prose are not turned into a number;
+ *  anything unreadable simply leaves the pill off the card. */
+export function cardPriceLabel(row) {
+  const raw = String(row?.price ?? '').trim();
+  // A published string that already names its currency is shown exactly as the
+  // listing shows it — never re-labelled into another currency.
+  if (/^(?:(?:US\$|\$|¥|€|£)\s?|(?:USD|JPY|EUR|GBP|AED|PKR)\s*)\d[\d,]*(?:\.\d{1,2})?$/i.test(raw)) return raw;
+  // A bare figure ("12500" or 12500) is quoted in the site's base display
+  // currency, with the same label rule the metadata uses.
+  const usd = publishedUsdPrice(row?.price);
+  return usd ? `US$${usd.toLocaleString('en-US')}` : '';
+}
+
+/** GET ?og=<ref> — the 1200×630 share card itself (rewritten from
+ *  /api/og/<ref> in vercel.json).
+ *
+ *  Contract, same spirit as the head: this endpoint exists to make a shared
+ *  link look like something, so it answers with an image even when the record
+ *  is gone or the photo cannot be fetched — the brand card is a fine
+ *  fallback, an error status is not. The only true failure path redirects to
+ *  the static fallback photo. */
+export async function vehicleOgImage(req, res, injected = {}) {
+  if ((req.method || 'GET') !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+  const ref = String(req.query.og || '').trim().slice(0, 80);
+  const sendImage = (buffer) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', CARD_META.type);
+    res.setHeader('Cache-Control', CARD_META.cache);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.end(buffer);
+  };
+  try {
+    let row = null;
+    if (ref) {
+      try {
+        row = await loadVehicleRow(ref, injected);
+      } catch (e) {
+        // A share preview must still render while the stock table is down.
+        console.error('vehicle-og-image:', e);
+      }
+    }
+    const content = cardContent(
+      row ? { ...row, priceLabel: cardPriceLabel(row) } : null,
+      row ? ref : ''
+    );
+    const photo = row ? absoluteAssetUrl(headPhoto(row)) : null;
+    return sendImage(await renderVehicleCard(content, { photo, fetch: injected.fetch }));
+  } catch (e) {
+    console.error('vehicle-og-image:', e);
+    try {
+      return sendImage(await renderVehicleCard(cardContent(null, ''), {}));
+    } catch {
+      res.statusCode = 302;
+      res.setHeader('Location', HEAD_FALLBACK_IMAGE);
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      return res.end();
+    }
   }
 }
 
@@ -1125,6 +1220,10 @@ export default async function handler(req, res, injected = {}) {
   // ---- Social & search crawler renders: zero extra Serverless Functions ----
   if (String(req.query.head || '') !== '') {
     return vehicleHead(req, res, injected);
+  }
+  // ---- The share card image: /api/og/<ref> (vercel.json rewrite) -----------
+  if (String(req.query.og || '') !== '') {
+    return vehicleOgImage(req, res, injected);
   }
   if (String(req.query.machhead || '') !== '') {
     return machineryHead(req, res, injected);
