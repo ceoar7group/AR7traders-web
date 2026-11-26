@@ -562,8 +562,8 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
 
 // ---- the vehicle page's action stack, driven through the real <App/> --------
 // Chat Now must open the existing ChatWidget through its ref (no DOM queries, no
-// second chat system); WhatsApp must name the car on screen; and Save, Copy link
-// and Enquire now must keep working beside them.
+// second chat system); WhatsApp must name the car on screen; and Save, Share and
+// Enquire now must keep working beside them.
 {
   const { cars } = await import('../src/main.jsx');
   const { carRef } = await import('../src/routing.js');
@@ -580,8 +580,8 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   const waText = () => { try { return new URL(waLink()?.getAttribute('href') || '').searchParams.get('text') || ''; } catch { return ''; } };
 
   await goto(pathFor(cars[0]));
-  ok(['Enquire now', 'WhatsApp', 'Chat Now', 'Save', 'Copy link'].every(t => !!control(t)),
-    'the vehicle page shows Enquire now, WhatsApp, Chat Now, Save and Copy link');
+  ok(['Enquire now', 'WhatsApp', 'Chat Now', 'Save', 'Share'].every(t => !!control(t)),
+    'the vehicle page shows Enquire now, WhatsApp, Chat Now, Save and Share');
 
   // WhatsApp: a new-tab link whose message follows the car on screen (no stale state between vehicles)
   ok(waLink()?.tagName === 'A' && waLink().getAttribute('href').startsWith('https://wa.me/') && waLink().getAttribute('target') === '_blank'
@@ -623,18 +623,57 @@ ok(errors.filter(e => /hook|Hooks|reusable|rendered fewer/i.test(e)).length === 
   await click(document.querySelector('.aw-float'));
   ok(!panel(), 'and still closes it');
 
-  // Save / Copy link / Enquire now keep working
+  // Save / Share / Enquire now keep working
   await click(control('Save'));
   ok(!!control('Saved') && control('Saved').classList.contains('fav-on') && control('Saved').querySelector('svg')?.getAttribute('fill') === 'currentColor',
     'Save still saves the vehicle (Saved, filled heart)');
   await click(control('Saved'));
   ok(!!control('Save') && !control('Saved'), 'and un-saves it again');
-  await click(control('Copy link'));
-  ok(written.length === 1 && written[0].startsWith(location.origin + '/inventory/') && written[0].includes(encodeURIComponent(carRef(cars[0]))),
-    'Copy link still copies this vehicle\'s URL');
-  ok(!!control('Link copied') && control('Link copied').classList.contains('is-done'), 'and confirms with "Link copied"');
+
+  // Share without a native sheet (desktop, or any browser that lacks it) copies
+  // a message that carries the car and the link — not a bare URL.
+  await click(control('Share'));
+  ok(written.length === 1 && written[0].includes(location.origin + '/inventory/') && written[0].includes(encodeURIComponent(carRef(cars[0]))),
+    'Share copies a message containing this vehicle\'s URL');
+  ok(written[0].includes(stockRef(cars[0])) && written[0].includes(`${cars[0].make} ${cars[0].model}`),
+    'and that message names the car and its stock reference, so a forward makes sense on its own');
+  ok(!!control('Link copied') && control('Link copied').classList.contains('is-done'), 'the clipboard path confirms with "Link copied"');
   await act(async () => { await new Promise(r => setTimeout(r, 1900)); });
-  ok(!!control('Copy link') && !control('Link copied'), 'the confirmation resets after a moment');
+  ok(!!control('Share') && !control('Link copied'), 'the confirmation resets after a moment');
+
+  // Share WITH a native sheet (a phone): the platform UI does the work, the
+  // button says "Shared", and nothing is written to the clipboard behind it.
+  const shared = [];
+  Object.defineProperty(dom.window.navigator, 'share', {
+    value: async payload => { shared.push(payload); }, configurable: true
+  });
+  await click(control('Share'));
+  ok(shared.length === 1 && shared[0].url.includes('/inventory/') && shared[0].url.includes(encodeURIComponent(carRef(cars[0]))),
+    'with navigator.share available, Share hands the platform this vehicle\'s link');
+  ok(shared[0].title.includes(cars[0].make) && shared[0].text.includes(stockRef(cars[0])),
+    'and names the car in the sheet title and text');
+  ok(!!control('Shared') && control('Shared').classList.contains('is-done'),
+    'the native path confirms with "Shared", not "Link copied"');
+  ok(written.length === 1, 'and it does not also copy to the clipboard');
+
+  // A cancelled sheet is not a share and must not claim one.
+  Object.defineProperty(dom.window.navigator, 'share', {
+    value: async () => { const e = new Error('cancelled'); e.name = 'AbortError'; throw e; }, configurable: true
+  });
+  await act(async () => { await new Promise(r => setTimeout(r, 1900)); });
+  await click(control('Share'));
+  ok(!!control('Share') && !control('Shared') && !control('Link copied') && written.length === 1,
+    'closing the share sheet says nothing and copies nothing');
+
+  // Share that the platform refuses for any other reason falls back to copying.
+  Object.defineProperty(dom.window.navigator, 'share', {
+    value: async () => { throw new Error('NotAllowedError'); }, configurable: true
+  });
+  await click(control('Share'));
+  ok(written.length === 2 && !!control('Link copied'),
+    'a rejected native share still leaves the visitor with the copied message');
+  delete dom.window.navigator.share;
+  await act(async () => { await new Promise(r => setTimeout(r, 1900)); });
   await click(control('Enquire now'));
   ok(!!document.querySelector('.modal-backdrop .modal'), 'Enquire now still opens the access modal');
   await click(document.querySelector('.modal .modal-x'));

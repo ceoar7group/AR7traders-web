@@ -3,7 +3,16 @@
 //   Enquire now      — the one solid, dominant action: opens the access form
 //   WhatsApp         — opens the CRM-configured conversation with THIS car named
 //   Chat Now         — opens the existing on-site assistant (ChatWidget)
-//   Save · Copy link — quiet utilities
+//   Save · Share    — quiet utilities
+
+// Share is one button for two jobs, because they are the same job: on a phone
+// it opens the native share sheet (WhatsApp, SMS, mail, whatever the visitor
+// actually uses) carrying this car's name, reference, published price and the
+// link that draws the 1200×630 card; nowhere else does it copy that same
+// message, which is what "Copy link" used to do with the bare URL. The label
+// says which happened: "Shared" after the sheet, "Link copied" after the
+// clipboard. Cancelling the sheet says nothing at all — an aborted share is
+// not an error, and flashing "copied" when nothing was copied would be a lie.
 //
 // The pairs live in their own rows so each wraps on its own: two across at every
 // real width, one column only when a pair genuinely would not fit, and a missing
@@ -31,6 +40,18 @@ export const vehicleName = car =>
     .map(v => String(v).trim())
     .join(' ');
 
+/** The text a visitor forwards to a friend: the car, its reference and — when
+ *  the listing publishes one — the price, using the same "FOB" label the page
+ *  prints above it. Nothing here claims anything the record does not say
+ *  (CLAIMS-POLICY.md). */
+export function vehicleShareMessage(car, stockRef) {
+  const name = vehicleName(car) || 'Vehicle';
+  const ref = String(stockRef ?? '').trim();
+  const price = typeof car?.price === 'string' ? car.price.trim() : '';
+  const facts = [ref ? `stock ${ref}` : '', price ? `${price} FOB` : ''].filter(Boolean).join(' · ');
+  return `${name}${facts ? ` — ${facts}` : ''}. Export from Japan by AR7 Traders.`;
+}
+
 /** The prefilled WhatsApp text: concise, names the car and its stock reference. */
 export function vehicleWhatsAppMessage(car, stockRef) {
   const name = vehicleName(car) || 'vehicle';
@@ -44,7 +65,7 @@ export function vehicleWhatsAppHref(settings, car, stockRef) {
   return number ? waLink(number, vehicleWhatsAppMessage(car, stockRef)) : '';
 }
 
-export function VehicleActions({ car, stockRef, settings, saved, copied, onOffer, onEnquire, onChat, onToggleSave, onCopy }) {
+export function VehicleActions({ car, stockRef, settings, saved, shareNote, onOffer, onEnquire, onChat, onToggleSave, onShare }) {
   const name = vehicleName(car);
   const subject = name ? `the ${name}` : 'this vehicle';
   const waHref = vehicleWhatsAppHref(settings, car, stockRef);
@@ -84,8 +105,13 @@ export function VehicleActions({ car, stockRef, settings, saved, copied, onOffer
         <button className={saved ? 'ghost-btn fav-on' : 'ghost-btn'} onClick={onToggleSave} type="button">
           <Heart fill={saved ? 'currentColor' : 'none'}/> {saved ? 'Saved' : 'Save'}
         </button>
-        <button className={copied ? 'ghost-btn is-done' : 'ghost-btn'} type="button" onClick={onCopy}>
-          {copied ? <Check/> : <Share2/>} {copied ? 'Link copied' : 'Copy link'}
+        <button
+          className={shareNote ? 'ghost-btn is-done' : 'ghost-btn'}
+          type="button"
+          onClick={onShare}
+          aria-label={`Share ${subject} — link, reference and price`}
+        >
+          {shareNote ? <Check/> : <Share2/>} {shareNote || 'Share'}
         </button>
       </div>
     </div>
