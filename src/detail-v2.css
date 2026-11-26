@@ -704,7 +704,7 @@
    always two tidy columns of equal buttons:
      [Make an offer] [Enquire now]
      [WhatsApp]      [Chat Now]
-     [Save]          [Copy link]                                        */
+     [Save]          [Share]                                        */
 /* The phone action bar only exists below 650px (see section 7). */
 .detail-mobile-cta {
   display: none;

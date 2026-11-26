@@ -285,7 +285,7 @@ for (const [path, markers] of Object.entries(ROUTES)) {
     'related stock links to all same-make inventory');
 }
 {
-  // ---- vehicle detail action stack: Enquire now + WhatsApp + Chat Now + Save / Copy link ----
+  // ---- vehicle detail action stack: Enquire now + WhatsApp + Chat Now + Save / Share ----
   // Server markup only. That Chat Now really opens the widget, and that Save,
   // Copy link and Enquire now still work, is proven in client-mount.test.jsx.
   const car = CARS[0];
@@ -305,8 +305,8 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   const group = attrsOf(tagOf(stackHtml));
   ok(group.role === 'group' && group['aria-label'] === `Actions for the ${vehicleName(car)}`,
     `the vehicle page renders its actions as a labelled group naming the car ("${group['aria-label']}")`);
-  ok(labels.join(' | ') === 'Make an offer | Enquire now | WhatsApp | Chat Now | Save | Copy link',
-    `the stack reads Make an offer, Enquire now, WhatsApp, Chat Now, Save, Copy link (${labels.join(' | ')})`);
+  ok(labels.join(' | ') === 'Make an offer | Enquire now | WhatsApp | Chat Now | Save | Share',
+    `the stack reads Make an offer, Enquire now, WhatsApp, Chat Now, Save, Share (${labels.join(' | ')})`);
 
   const offer = controls[0] || '';
   ok(offer.startsWith('<button') && attrsOf(tagOf(offer)).class === 'primary' && (stackHtml.match(/class="primary"/g) || []).length === 1,
@@ -340,14 +340,17 @@ for (const [path, markers] of Object.entries(ROUTES)) {
   ok(chat['aria-label'] === 'Chat Now with the AR7 assistant' && chat['aria-haspopup'] === 'dialog',
     'Chat Now has a clear accessible name and announces that it opens a dialog');
 
-  ok(controls.slice(4).every(c => attrsOf(tagOf(c)).class === 'ghost-btn') && labels[4] === 'Save' && labels[5] === 'Copy link',
-    'Save and Copy link stay as neutral .ghost-btn utilities in their idle state');
+  ok(controls.slice(4).every(c => attrsOf(tagOf(c)).class === 'ghost-btn') && labels[4] === 'Save' && labels[5] === 'Share',
+    'Save and Share stay as neutral .ghost-btn utilities in their idle state');
+  const share = controls[5] || '';
+  ok(share.startsWith('<button') && attrsOf(tagOf(share))['aria-label'] === `Share the ${vehicleName(car)} — link, reference and price`,
+    'Share is a button whose accessible name says exactly what it shares');
   ok((stackHtml.match(/<div class="detail-actions-row">/g) || []).length === 2,
     'the contact pair and the utility pair each sit in their own row, so they wrap independently');
 
   // The component on its own: other settings / states, and no dead link when no number is configured.
   const noop = () => {};
-  const props = { car, stockRef: ref, settings: FALLBACK, saved: false, copied: false, onEnquire: noop, onChat: noop, onToggleSave: noop, onCopy: noop };
+  const props = { car, stockRef: ref, settings: FALLBACK, saved: false, shareNote: '', onEnquire: noop, onChat: noop, onToggleSave: noop, onShare: noop };
   const noWa = renderToStaticMarkup(<VehicleActions {...props} settings={{ ...FALLBACK, whatsapp_number: '' }} />);
   ok(!noWa.includes('wa.me') && !noWa.includes('detail-cta--wa') && noWa.includes('detail-cta--chat') && noWa.includes('Enquire now'),
     'with no WhatsApp number configured the link is omitted (never a dead wa.me/) and Chat Now fills its row');
@@ -355,9 +358,12 @@ for (const [path, markers] of Object.entries(ROUTES)) {
     'the WhatsApp link follows whatever number the CRM settings carry');
   ok(vehicleWhatsAppHref({}, car, ref) === '' && vehicleWhatsAppHref(null, car, ref) === '',
     'no configured number means no WhatsApp href');
-  const done = renderToStaticMarkup(<VehicleActions {...props} saved copied />);
+  const done = renderToStaticMarkup(<VehicleActions {...props} saved shareNote="Link copied" />);
   ok(/class="ghost-btn fav-on"[^>]*>[\s\S]*?Saved<\/button>/.test(done) && /class="ghost-btn is-done"[^>]*>[\s\S]*?Link copied<\/button>/.test(done),
     'the saved and copied states render Saved / Link copied with their state classes');
+  const shared = renderToStaticMarkup(<VehicleActions {...props} shareNote="Shared" />);
+  ok(/class="ghost-btn is-done"[^>]*>[\s\S]*?Shared<\/button>/.test(shared),
+    'a completed native share says "Shared" in the same slot');
   ok(vehicleWhatsAppMessage({ year: 2023, make: 'Toyota', model: 'Harrier S' }, 'AR7-26043')
       === "Hello AR7 Traders, I'm interested in the 2023 Toyota Harrier S (stock AR7-26043). Is it still available?",
     'the WhatsApp message wording is exact');
