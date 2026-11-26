@@ -117,6 +117,9 @@ html[data-crm-theme="light"] .crm-shell,
 /* --- Shell Layout --- */
 .crm-shell {
   min-height: 100vh;
+  min-height: 100dvh; /* phone browsers: 100vh reserves space for chrome that
+                         is already on screen, so the desk's last row could sit
+                         under the URL bar. dvh tracks the visible viewport. */
   background: var(--crm-bg);
   color: var(--crm-ink);
   display: grid;
@@ -130,7 +133,9 @@ html[data-crm-theme="light"] .crm-shell,
 /* --- Sidebar --- */
 .crm-side {
   height: 100vh;
+  height: 100dvh;
   max-height: 100vh;
+  max-height: 100dvh;
   position: sticky;
   top: 0;
   background: var(--crm-side-bg);
@@ -2121,6 +2126,7 @@ html[data-crm-theme="light"] .crm-shell,
 /* Login Screen */
 .crm-login {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   background: #03140e;
@@ -2199,6 +2205,7 @@ html[data-crm-theme="light"] .crm-shell,
 /* Setup & Boot Screen */
 .crm-setup, .crm-boot {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   align-content: center;
@@ -4829,3 +4836,59 @@ html[data-crm-theme="light"] .crm-shell,
 .crm-wa-stock li b{font-size:.86rem}
 .crm-wa-stock li small,.crm-wa-stock>small{font-size:.72rem;opacity:.72}
 .crm-wa-stock>small{display:block;margin-top:6px;line-height:1.5}
+
+/* ---------------------------------------------------------------------------
+   WhatsApp desk — layout and phone behaviour (2026-11-26).
+
+   The desk used to carry its grid as inline styles: a fixed 220–300px
+   conversation column beside a thread. That is right on a laptop and unusable
+   on a phone, where the thread — the thing the staff member came for — was
+   squeezed into whatever was left. The grid now lives here so a breakpoint can
+   stack it, and the composer wraps instead of pushing Send off the edge.
+   --------------------------------------------------------------------------- */
+.crm-wa-grid{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:14px;align-items:start}
+.crm-wa-convos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+/* The number, the voice-call link and Refresh share a row: on a 360px screen
+   they did not fit and Refresh was pushed out of the thread. */
+.crm-wa-thread-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+/* The thread scrolls on its own; `contain` stops a long conversation from
+   chaining the page's scroll on a touch screen. */
+.crm-wa-msgs{display:flex;flex-direction:column;gap:6px;max-height:48vh;overflow-y:auto;padding:4px 2px;overscroll-behavior:contain}
+.crm-wa-compose{display:flex;gap:6px;margin-top:10px;align-items:flex-end;flex-wrap:wrap}
+.crm-wa-compose textarea{flex:1 1 220px;min-height:44px;resize:vertical}
+.crm-wa-compose button{min-height:40px}
+
+@media (max-width:820px){
+  /* One column: the conversation list first (capped, so it never becomes the
+     page), then the thread at full width. */
+  .crm-wa-grid{grid-template-columns:1fr}
+  .crm-wa-convos{max-height:32vh;overflow-y:auto;overscroll-behavior:contain}
+  .crm-wa-msgs{max-height:42vh}
+  /* Reading a thread? The list becomes a switcher strip so the conversation
+     and the reply box own the screen instead of competing with it. */
+  .crm-wa-grid.is-thread .crm-wa-convos{max-height:20vh}
+  /* Reply box on its own line, the three controls share the next row: every
+     one of them stays a thumb-sized target instead of being cut off. */
+  .crm-wa-compose textarea{flex:1 1 100%}
+  .crm-wa-compose button{flex:1 1 auto;justify-content:center}
+}
+
+@media (max-width:560px){
+  /* The stock picker is the one panel opened mid-reply, so it keeps the thread
+     visible and gives each listing a finger-sized row. */
+  .crm-wa-stock ul{max-height:40vh}
+  .crm-wa-stock li button{min-height:44px;padding:8px 10px}
+  .crm-wa-stock input{height:40px}
+}
+
+@media (max-width:820px){
+  /* iOS Safari zooms the whole page when a focused control's text is under
+     16px — and does not zoom back out when the keyboard closes. Staff type
+     WhatsApp replies on their phones, so on small screens the CRM's controls
+     take the 16px floor: no surprise zoom, no half-visible composer. */
+  .crm-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .crm-shell textarea,
+  .crm-shell select,
+  .crm-login input,
+  .crm-login select { font-size: 16px; }
+}

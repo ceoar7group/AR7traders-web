@@ -1165,3 +1165,12 @@ html[data-theme=dark] .detail-mobile-cta .dmc-enquire {
     transform: none;
   }
 }
+
+/* Mobile paint (2026-11-26): the phone dock is fixed over content that keeps
+   scrolling under it, so its backdrop blur re-blurs the whole strip every
+   frame — the most expensive thing on the page for a mid-range Android. At
+   phone widths it becomes a 97%-opaque bar: the same weight on screen, no
+   per-frame blur. (src/performance.css does the same for the header.) */
+@media (max-width:650px){
+  .detail-mobile-cta{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--card) 97%,transparent)}
+}
