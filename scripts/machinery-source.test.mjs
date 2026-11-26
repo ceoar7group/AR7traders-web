@@ -160,5 +160,25 @@ say('\n-- an unstated year and hour meter stay null --');
   ok(!/null/.test(String(machineYearText({ year: null }))), 'never the string "null"');
 }
 
+// ---- the forwarded message a buyer sends about a machine -------------------
+// 2026-11-26: machines are shared from their own page now (src/machinery.jsx →
+// src/share-action.js). The message must say what the page says and nothing
+// stronger: the price is INDICATIVE, and a machine with no year or hours states
+// neither rather than inventing one.
+say('\n-- machineShareMessage says what the page says --');
+{
+  const { machineShareMessage } = await import('../src/machinery-data.js');
+  const full = machineShareMessage({ name: 'Doosan DX300LC-9C', ref: 'AR7-MC-001', type: 'Excavators', year: 2019, hours: 6800 }, 'US$62,500');
+  eq(full, 'Doosan DX300LC-9C — REF AR7-MC-001 · US$62,500 indicative FOB · 2019 · 6,800 h. Sourced from China by AR7 Traders.',
+    'the message carries name, reference, the indicative figure, year and hours');
+  ok(/indicative FOB/.test(full) && !/\bprice\b/.test(full.split('indicative FOB')[0]),
+    'the price is labelled indicative, never presented as a firm quote');
+  const sparse = machineShareMessage({ name: 'Sany SY215C', ref: 'AR7-MC-003', type: 'Trucks' }, '');
+  eq(sparse, 'Sany SY215C — REF AR7-MC-003. Sourced from China by AR7 Traders.',
+    'a machine with no price, year or usage states none of them');
+  ok(!/null|undefined|NaN/.test(sparse), 'and never leaks a placeholder value');
+  ok(!/verified|guarantee|best price/i.test(full), 'no claim the listing does not make');
+}
+
 say(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

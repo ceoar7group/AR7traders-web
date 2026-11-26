@@ -19,7 +19,7 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {
   ArrowLeft, ArrowRight, BadgeCheck, BadgePercent, Camera, Check, ClipboardCheck, Container, Gauge,
-  Images, LayoutGrid, LayoutList, MapPin, MessageCircle, PackageCheck, Search, Settings2, Ship,
+  Images, LayoutGrid, LayoutList, MapPin, MessageCircle, PackageCheck, Search, Settings2, Share2, Ship,
   ShieldCheck, Sparkles, Truck, Wrench, X
 } from 'lucide-react';
 import {WhatsAppIcon} from './brand-icons.jsx';
@@ -29,10 +29,11 @@ import {useLang} from './i18n.jsx';
 import {
   MACHINES, MACHINE_TYPES, MACHINERY_NOTE, listPriceUSD, machineImages, machinesByType,
   machineByRef, machineHref, machineYear, machineHours, machineYearText,
-  machineLoc, machineBrandLockup
+  machineLoc, machineBrandLockup, machineShareMessage
 } from './machinery-data.js';
 import { useMachineryVersion } from './machinery-hydrate.jsx';
 import {useStockDiscounts, stockDiscountFor, priceWithOffer, formatDate} from './offers.js';
+import {useShareAction} from './share-action.js';
 import {MACHINERY_FAQS} from './seo.js';
 import './pages.css';
 import './machinery.css';
@@ -98,6 +99,10 @@ const usageOf = m => {
  */
 function MachineDetailPage({machine, navigate, onQuote, onChat}) {
   const {fmt} = useCurrency();
+  // Same share behaviour as the car pages (share-action.js): the phone's native
+  // sheet, or a copied message everywhere else. The link draws the machinery
+  // card (/api/og/m/<ref>), so a forwarded machine looks like the listing.
+  const {note: shareNote, share} = useShareAction();
   const {t} = useLang();
   const discounts = useStockDiscounts();
   const offer = stockDiscountFor(discounts, 'machine', machine.ref);
@@ -119,6 +124,11 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [zoom, photos.length]);
+  const shareMachine = () => share({
+    title: `${machine.name} — ${machine.ref}`,
+    text: machineShareMessage(machine, fmt(price.now)),
+    url: location.origin + machineHref(machine)
+  });
   const crumbLink = (href, onClickPath) => e => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
@@ -206,6 +216,16 @@ function MachineDetailPage({machine, navigate, onQuote, onChat}) {
               onClick={() => onQuote({ kind: 'machinery', vehicle_interest: `${machine.name} (${machine.ref})`, stock_ref: machine.ref })}>
               Request a quotation
             </button>
+            {/* A square utility beside the chat bubble, not a third pill: the
+                row already carries two full-width enquiry buttons and a labelled
+                share would push the bubble onto a line of its own. The tick and
+                the live region report what happened without moving anything. */}
+            <button className={shareNote ? 'mch-share is-done' : 'mch-share'} type="button" onClick={shareMachine}
+              title={shareNote || 'Share this machine'}
+              aria-label={`Share the ${machine.name} — reference, price and link`}>
+              {shareNote ? <Check size={18}/> : <Share2 size={18}/>}
+            </button>
+            <span className="mch-sr" role="status" aria-live="polite">{shareNote}</span>
             <button className="mch-chat" type="button" onClick={onChat} title="Chat with the machinery desk" aria-label={`Chat about the ${machine.name}`}><MessageCircle/></button>
           </div>
           <p className="mch-detail-note">

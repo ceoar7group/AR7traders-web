@@ -732,6 +732,14 @@ function checkFounderStat(html, variant, where) {
   ok(machineDetail.includes('Doosan DX300LC-9C'), 'a machine URL renders that machine');
   ok(/mch-detail/.test(machineDetail), 'it renders as a page, not a modal');
   ok(machineDetail.includes('Request a quotation'), 'the machine page keeps the quotation call to action');
+  // 2026-11-26: a machine is forwarded the same way a car is, and the link
+  // draws the machinery card (/api/og/m/<ref>), so the page needs the action.
+  ok(/class="mch-share"[^>]*type="button"[^>]*>/.test(machineDetail),
+    'the machine page offers a Share action beside the enquiry buttons');
+  ok(/aria-label="Share the Doosan DX300LC-9C — reference, price and link"/.test(machineDetail),
+    'its accessible name says which machine is being shared');
+  ok(/role="status"[^>]*>/.test(machineDetail) && !/mch-share[^>]*>[\s\S]{0,40}Share<\/button>/.test(machineDetail),
+    'the share confirmation has a live region, and the square button carries no text of its own');
   const missingMachine = await renderPage('/machinery/excavators/AR7-MC-999');
   ok(/not on the site any more/.test(missingMachine), 'an unknown machine reference says so instead of rendering a blank page');
 }

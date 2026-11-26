@@ -33,6 +33,7 @@ import { slugify, topVehicleModels } from './sitemap-helpers.js';
 import { logoOnError } from './site-header.jsx';
 import { telHref, useSettings, waLink } from './site-settings.js';
 import { VehicleActions, vehicleShareMessage, vehicleName } from './vehicle-actions.jsx';
+import { useShareAction } from './share-action.js';
 import {
   BRANDS, FounderStat, InteractiveGlobe, LOGO, PageLink,
   VehicleCard, VehiclePriceDisplay, carDiscountedUSD, cars, galleryFor,
@@ -419,7 +420,7 @@ export function InnerPage({page, navigate, openAuction, openChat, favs, setFavs,
   const [cifDest, setCifDest] = useState(loadCifDest);
   const [comp, setComp] = useState([]);
   const [showCmp, setShowCmp] = useState(false);
-  const [shareNote, setShareNote] = useState('');
+  const { note: shareNote, share } = useShareAction();
   const [pageNo, setPageNo] = useState(1);
   const [showroomLimit, setShowroomLimit] = useState(6);
   const [perPage, setPerPage] = useState(() => { try { const v = Number(localStorage.getItem('ar7-inv-pp')); return [25, 50, 100].includes(v) ? v : 25; } catch { return 25; } });
@@ -488,25 +489,17 @@ export function InnerPage({page, navigate, openAuction, openChat, favs, setFavs,
   const offerAction = () => openAuction({ kind: 'vehicle-offer', vehicle_interest: `${selected.year} ${selected.make} ${selected.model} (${stockNo(selected)})`, stock_ref: stockNo(selected) });
   const enquireAction = () => openAuction({ kind: 'vehicle', vehicle_interest: `${selected.year} ${selected.make} ${selected.model} (${stockNo(selected)})`, stock_ref: stockNo(selected) });
   // One button, two jobs: the native share sheet where it exists (a phone), the
-  // clipboard everywhere else. Both carry the same text — the car, its stock
-  // reference and its published price — plus the link that draws the share card,
-  // so a forwarded message looks like the listing instead of a bare URL.
-  const shareVehicle = async () => {
-    const url = location.origin + hrefFor('inventory', carRef(selected)) + hashFor('inventory', carRef(selected));
-    const text = vehicleShareMessage(selected, stockNo(selected));
-    const settle = note => { setShareNote(note); setTimeout(() => setShareNote(''), 1800); };
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title: vehicleName(selected) || 'AR7 Traders', text, url });
-        settle('Shared');
-        return;
-      } catch (e) {
-        // Closing the sheet is not a failure and must not claim a copy.
-        if (e && e.name === 'AbortError') return;
-      }
-    }
-    try { await navigator.clipboard.writeText(`${text} ${url}`); settle('Link copied'); }
-    catch { setShareNote(''); }
+  // clipboard everywhere else (share-action.js owns both, so the machinery page
+  // behaves identically). Either way the message carries the car, its stock
+  // reference and its published price, plus the link that draws the share card.
+  const shareVehicle = () => {
+    if (!selected) return undefined;
+    const ref = carRef(selected);
+    return share({
+      title: vehicleName(selected) || 'AR7 Traders',
+      text: vehicleShareMessage(selected, stockNo(selected)),
+      url: location.origin + hrefFor('inventory', ref) + hashFor('inventory', ref)
+    });
   };
 
   useEffect(() => {
