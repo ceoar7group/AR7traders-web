@@ -8,10 +8,18 @@
    ============================================================ */
 
 /* ---------- HERO: entrance choreography ---------- */
-.hero-copy .eyebrow{animation:fadeUp .8s .05s both}
-.hero-copy h1{animation:fadeUp .9s .15s both}
-.hero-copy>p{animation:fadeUp .9s .3s both}
-.hero-copy .hero-cta{animation:fadeUp .9s .45s both}
+/* 2026-11-27 (owner: "check performance has gone slow"): the choreography used
+   to land the hero at 1.5 s — eyebrow .8/.05, h1 .9/.15, copy .9/.3, CTAs
+   .9/.45 — while the founder figure waited until .6 s and then counted for two
+   more. First Contentful Paint was 0.2 s and Speed Index 1.4 s: the page was
+   ready long before it LOOKED ready, and a visitor read that as slow. The same
+   stagger now finishes at 0.66 s, so the hero is settled while it is still the
+   only thing on screen. Do not lengthen these without re-checking Speed Index —
+   the guard in scripts/home-performance.test.mjs caps the total at 0.75 s. */
+.hero-copy .eyebrow{animation:fadeUp .4s 0s both}
+.hero-copy h1{animation:fadeUp .5s .04s both}
+.hero-copy>p{animation:fadeUp .5s .1s both}
+.hero-copy .hero-cta{animation:fadeUp .5s .16s both}
 
 /* ---------- HERO: the car ad IS the card (2026-10-07 rebuild) ---------- */
 /* Radius, border and shadow are owned by `.hero-card` in src/styles.css; this
@@ -159,6 +167,9 @@ html,body{overflow-x:clip}
 /* ---------- PERFORMANCE: no loops for reduced-motion users ---------- */
 @media (prefers-reduced-motion: reduce){
  .orbit-ring,.orbiter,.imover,.iglobe-sheen:before,.iglobe-halo,.igate,.moving-car,.moving-ship,.moving-plane,.iglobe-plane,.ticker>div,.car-float-title{animation:none!important}
+ /* 2026-11-27: the hero entrance is motion, not information. A reduced-motion
+    visitor was still made to wait through it (and to see the page fade in). */
+ .hero-copy .eyebrow,.hero-copy h1,.hero-copy>p,.hero-copy .hero-cta{animation:none!important}
 }
 
 /* ---------- responsive ---------- */

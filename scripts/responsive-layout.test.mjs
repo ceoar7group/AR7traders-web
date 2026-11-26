@@ -40,7 +40,7 @@ assert.doesNotMatch(currencyCss, /grid-template-rows:\s*auto auto/);
 // Below 640px the link row is the panel only: no second bar row, no wrapping.
 assert.match(layoutCss, /\.nav-wrap \.navlinks \{\s*display: none;/);
 assert.match(layoutCss, /\.nav-wrap \.navlinks\.open \{\s*display: flex;/);
-assert.match(stylesCss, /@media\(max-width:899px\)\{\.nav\{position:relative\}/);
+assert.match(stylesCss, /@media\(max-width:899px\)\{\.nav\{position:relative[;}]/);
 assert.match(stylesCss, /\.navlinks\{position:absolute;top:calc\(100% \+ 10px\);left:0;right:0/);
 // Between 640px and 899px the bar keeps its quick links and only the
 // `.nav-tier-full` items (Auction access / More) move into the panel — the
@@ -74,6 +74,18 @@ assert.match(globeEngine, /st\.lam -= dx \* k/);
 assert.match(globeEngine, /st\.phi \+= dy \* k/);
 assert.match(layoutCss, /\.nav-panel-actions/);
 assert.match(currencyCss, /\.nav-wrap \.nav-actions \.ar7cur-switch\s*\{[^}]*position:\s*static/s);
+// 2026-11-27 (mobile round): on phones the header is fixed, so its backdrop
+// blur was re-rastered on every scroll frame. The mobile block must turn it off
+// and paint a solid bar instead — the fill was already 90% card.
+{
+  const block = (readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+    .match(/@media\(max-width:899px\)\{\.nav\{position:relative[\s\S]*?\}\n?/) || [])[0] || '';
+  assert.match(block, /backdrop-filter:none/,
+    'the phone header drops its backdrop blur (a fixed bar re-blurring on every scroll frame)');
+  assert.match(block, /background:var\(--card\)/,
+    'the phone header paints a solid card fill instead, so it still reads as a bar');
+}
+
 // CRM: the shell's content track can shrink and the row actions stay pinned to
 // the right of the scrollable table so buttons never sit out of frame.
 assert.match(crmCss, /grid-template-columns:\s*260px minmax\(0,\s*1fr\)/);
@@ -233,7 +245,9 @@ assert.match(innerPage, /className="inv-toolbar inv-toolbar-facets"/);
 assert.match(detailCss, /\.inv-toolbar-facets\{display:flex!important/);
 assert.match(detailCss, /\.inv-toolbar-facets>\.inv-facets\{display:flex;flex-wrap:wrap/);
 assert.match(detailCss, /\.inv-toolbar-facets>\.inv-search\{[^}]*width:100%/);
-assert.match(main, /<FounderStat variant="hero" delay=\{900\}\/>/);
+// 2026-11-27: the hero figure used to wait 900 ms before counting (see the
+// Speed Index note in scripts/home-performance.test.mjs); it now starts at 80 ms.
+assert.match(main, /<FounderStat variant="hero" delay=\{\d{1,3}\}\/>/);
 assert.match(detailCss, /\.hero \.scroll-cue\{display:flex!important/);
 assert.match(detailCss, /\.hero-copy \.founder-stat--hero\{display:flex;visibility:visible;opacity:1/);
 // The mobile hero no longer needs a hard-coded bottom pad to clear the cue: the
