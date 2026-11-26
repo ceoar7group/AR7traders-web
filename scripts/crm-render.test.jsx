@@ -43,6 +43,19 @@ const scraperCandidates = Array.from({length: 8}, (_, index) => ({
 }));
 setGlobal('fetch', (url, options = {}) => {
   const value = String(url);
+  // The WhatsApp desk, for the stock-link block at the end of this file. A
+  // configured desk with one open thread is the only state in which the
+  // composer (and therefore the picker) exists.
+  if (value.includes('entity=wa')) {
+    if (value.includes('&with=')) return Promise.resolve({ok: true, status: 200, json: async () => ({
+      messages: [{id: 1, direction: 'in', body: 'Do you have a Toyota Harrier?', created_at: '2026-11-26T10:00:00Z'}]
+    })});
+    if ((options.method || 'GET').toUpperCase() === 'POST') return Promise.resolve({ok: true, status: 200, json: async () => ({ok: true})});
+    return Promise.resolve({ok: true, status: 200, json: async () => ({
+      configured: true, number_id: '1099887766', source: 'env',
+      conversations: [{wa_id: '254711223344', name: 'Ahmed Khan', last: 'Do you have a Toyota Harrier?', last_at: '2026-11-26T10:00:00Z', count: 1}]
+    })});
+  }
   if (value.includes('/api/site-content?import=machinery&step=scraper')) {
     scraperRequests.push({url: value, options});
     return Promise.resolve({ok: true, status: 200, json: async () => ({
@@ -56,7 +69,8 @@ setGlobal('fetch', (url, options = {}) => {
 const React = (await import('react')).default;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { default: CrmApp, MachineryImportPanel, uniqueCarCount } = await import('../src/crm.jsx');
+const { default: CrmApp, MachineryImportPanel, uniqueCarCount, WaDeskView } = await import('../src/crm.jsx');
+const { vehicleShareMessage } = await import('../src/vehicle-actions.jsx');
 
 let pass = 0, fail = 0;
 const say = s => process.stdout.write(s + '\n');
@@ -667,6 +681,85 @@ say('\nWhatsApp templates speak the lead\u2019s language');
   }
   ok(texts.length > 0 && texts.every(t => !/\$\s?\d|USD|JPY|KES|PKR|in stock|available now/i.test(t)),
     'no template in any language claims a price or stock — that stays in verified quotations');
+}
+
+// ---- WhatsApp desk: the stock-link picker ----------------------------------
+// A staff member answering "do you have a Toyota Harrier?" used to leave the
+// CRM, copy a listing URL and paste it. Now the desk offers the published stock
+// and inserts the page's own forward text plus the link, which WhatsApp renders
+// as the listing card. This mounts the real <WaDeskView/> against a configured
+// desk: the demo shell shows the setup path instead, so the composer — and this
+// picker — only exists once a number is connected.
+say('\nWhatsApp desk stock link');
+{
+  const STOCK = [
+    {id: 7, stock_no: 'AR7-0007', make: 'Toyota', model: 'Harrier S', year: 2019, price: '$12,500', status: 'In Stock', published: true},
+    {id: 8, stock_no: 'AR7-0008', make: 'Nissan', model: 'Note', year: 2017, price: '$6,000', status: 'In Stock', published: true},
+    {id: 9, stock_no: 'AR7-0009', make: 'Honda', model: 'Fit', year: 2018, published: false}
+  ];
+  // React installs its own value tracker on each input; assigning `.value`
+  // directly updates the tracker too, so React sees "no change" and never fires
+  // onChange. Type through the prototype setter, as a real keystroke would.
+  const type = async (el, value) => {
+    const proto = el.tagName === 'TEXTAREA' ? dom.window.HTMLTextAreaElement.prototype : dom.window.HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+    await act(async () => { el.dispatchEvent(new dom.window.Event('input', {bubbles: true})); });
+  };
+  const notes = [];
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const desk = createRoot(host);
+  await act(async () => {
+    desk.render(React.createElement(WaDeskView, {
+      token: 'test-token', canWrite: true, canToggleAuto: false,
+      notify: m => notes.push(String(m)), stock: STOCK
+    }));
+  });
+
+  const convo = [...host.querySelectorAll('button')].find(b => /Ahmed Khan/.test(b.textContent));
+  ok(!!convo, 'a configured desk lists the customer who wrote in');
+  await act(async () => { convo.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  const box = host.querySelector('textarea[aria-label="WhatsApp reply"]');
+  ok(!!box, 'opening the thread shows the composer');
+
+  const stockBtn = [...host.querySelectorAll('button')].find(b => /Stock link/.test(b.textContent));
+  ok(!!stockBtn, 'the composer offers Stock link beside AI draft and Send');
+  ok(stockBtn.getAttribute('aria-expanded') === 'false', 'the picker announces itself as closed');
+  await act(async () => { stockBtn.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  const panel = host.querySelector('.crm-wa-stock');
+  ok(!!panel, 'clicking it opens the picker');
+  ok(stockBtn.getAttribute('aria-expanded') === 'true', 'and aria-expanded follows');
+  const listed = [...host.querySelectorAll('.crm-wa-stock li button')];
+  eq(listed.length, 2, 'the picker lists the published listings only');
+  ok(!/Honda/.test(panel.textContent), 'an unpublished draft is never offered — a link to a car the site hides is an apology waiting to happen');
+  ok(/Harrier/.test(panel.textContent) && /AR7-0007/.test(panel.textContent) && /\$12,500/.test(panel.textContent),
+    'each row names the car, its reference and the price the listing publishes');
+
+  const search = host.querySelector('.crm-wa-stock input[aria-label="Search stock"]');
+  await type(search, 'nissan');
+  eq(host.querySelectorAll('.crm-wa-stock li button').length, 1, 'typing a make narrows the list');
+  await type(search, 'toyota 2021');
+  eq(host.querySelectorAll('.crm-wa-stock li button').length, 0, 'a query that matches nothing returns nothing rather than a random car');
+  ok(/No published vehicle matches that/.test(host.querySelector('.crm-wa-stock').textContent),
+    'and the empty result explains why, instead of offering the nearest thing');
+  await type(search, 'harrier');
+
+  // Put a sentence in the draft first: attaching must not eat what was typed.
+  await type(box, 'Yes — one is available.');
+  const pick = host.querySelector('.crm-wa-stock li button');
+  await act(async () => { pick.dispatchEvent(new dom.window.MouseEvent('click', {bubbles: true, cancelable: true})); });
+  const after = host.querySelector('textarea[aria-label="WhatsApp reply"]');
+  ok(!host.querySelector('.crm-wa-stock'), 'choosing a car closes the picker');
+  ok(after.value.startsWith('Yes — one is available.\n'), 'the staff member\'s own wording is kept');
+  ok(after.value.includes(vehicleShareMessage(STOCK[0], 'AR7-0007')),
+    'the inserted text is exactly what the public page forwards — same name, reference, price, trader');
+  ok(after.value.includes('https://ar7traders.com/inventory/AR7-0007'),
+    'and it ends with the absolute listing URL, which is what makes WhatsApp draw the card');
+  ok(!/\b(verified|guaranteed|best price|in stock now)\b/i.test(after.value),
+    'the reply claims nothing the listing does not publish');
+
+  await act(async () => { desk.unmount(); });
+  host.remove();
 }
 
 // ---- React logged nothing ---------------------------------------------------

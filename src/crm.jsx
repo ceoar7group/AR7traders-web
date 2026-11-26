@@ -55,6 +55,10 @@ const KEY_ACTIVATE = (run) => (e) => { if (e.key === 'Enter' || e.key === ' ') {
 // can reuse it without a circular import. It is imported (the CRM's own tables
 // use it) and re-exported unchanged for every existing caller and the tests.
 import { RowActions, placeMenu } from './row-actions.jsx';
+// The WhatsApp desk drops a listing link into a reply, straight from the public
+// pages' own share text — so what a customer receives matches the listing and
+// WhatsApp draws the share card (api/_og-card.js) behind it.
+import { matchStock, appendStockLink, stockRefOf } from './stock-link.js';
 export { RowActions, placeMenu };
 
 const PHOTO_PRESETS = [
@@ -1946,6 +1950,7 @@ export default function CrmApp() {
             canWrite={canWrite('wa')}
             canToggleAuto={hasPerm(perms, profile?.role, 'settings.write')}
             notify={setNotice}
+            stock={rows.listings || []}
           />
         ) : tab === 'prospects' ? (
           <ProspectsView
@@ -2993,7 +2998,7 @@ function CallDeskView({ leads, activities = [], canWrite, quickPatch, aiAssist, 
 //  instead of a dead UI. Replies are free inside Meta's 24-hour service
 //  window; the desk never sends paid template messages.
 // ---------------------------------------------------------------------------
-function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
+export function WaDeskView({ token, canWrite, canToggleAuto, notify, stock = [] }) {
   const [state, setState] = useState({ loading: true, configured: false, conversations: [] });
   const [active, setActive] = useState(null);           // wa_id of the open thread
   const [thread, setThread] = useState({ loading: false, messages: [] });
@@ -3084,6 +3089,21 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
       setThread({ loading: false, messages: r.messages || [] });
     } catch (e) { setThread({ loading: false, messages: [], error: e.message }); }
   };
+
+  // Stock picker (2026-11-26): a staff member answering "what have you got in
+  // that budget?" used to open the website in another tab, copy a URL and paste
+  // it. The desk now picks the listing from the same published stock the site
+  // shows and inserts the public share text + link, which WhatsApp renders as
+  // the listing's 1200×630 card (api/_wa.js sends with preview_url: true).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const attachStock = car => {
+    const origin = typeof location !== 'undefined' ? location.origin : 'https://ar7traders.com';
+    setDraft(d => appendStockLink(d, car, origin));
+    setPickerOpen(false);
+    setPickerQuery('');
+  };
+  const stockMatches = matchStock(stock, pickerQuery);
 
   const sendReply = async () => {
     const body = draft.trim();
@@ -3227,9 +3247,34 @@ function WaDeskView({ token, canWrite, canToggleAuto, notify }) {
                 </div>
               ))}
             </div>
+            {pickerOpen && (
+              <div className="crm-wa-stock" role="group" aria-label="Attach a vehicle link to this reply">
+                <input value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} autoFocus
+                  placeholder="Search stock by make, model or reference…" aria-label="Search stock" />
+                {stockMatches.length ? (
+                  <ul>
+                    {stockMatches.map(c => (
+                      <li key={c.id}>
+                        <button type="button" onClick={() => attachStock(c)}>
+                          <b>{[c.year, c.make, c.model].filter(Boolean).join(' ')}</b>
+                          <small>{stockRefOf(c)}{c.price ? ' · ' + c.price : ''}</small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : pickerQuery.trim()
+                  ? <small className="crm-hint">No published vehicle matches that. The link is only ever to a live listing — a customer who clicks a sold car gets an apology, not a car.</small>
+                  : <small className="crm-hint">No published stock to link yet. A vehicle appears here the moment it is published on the website — drafts and removed cars never do.</small>}
+                <small className="crm-hint">Adds the listing's own text and link to your reply. WhatsApp shows the vehicle card beside it; nothing about the price is stated beyond what the listing publishes.</small>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'flex-end' }}>
               <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={2} placeholder="Write a reply…" aria-label="WhatsApp reply"
                 style={{ flex: 1, resize: 'vertical' }} />
+              <button type="button" className="crm-call-act" onClick={() => { setPickerOpen(o => !o); setPickerQuery(''); }}
+                aria-expanded={pickerOpen} title="Attach a vehicle from the live stock list — the reply carries its link and WhatsApp draws the card">
+                <CarFront size={14} /> Stock link
+              </button>
               <button type="button" className="crm-call-act is-ai" onClick={aiDraft} disabled={drafting} title="AI writes a draft from the conversation and live stock — you review and send">
                 <Sparkles size={14} /> {drafting ? 'Drafting…' : 'AI draft'}
               </button>
