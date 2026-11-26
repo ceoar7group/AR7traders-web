@@ -24,6 +24,7 @@ import { destinationPath } from './sitemap-helpers.js';
 import { destinationFacts, destinationFaqs } from './destinations.js';
 import { priceWithOffer } from './offers.js';
 import { LANGUAGES, DEFAULT_LANG, normalizeLangCode, langHref, translate } from './i18n.js';
+import { SHARE_CARD, shareCardUrl } from './share-card.js';
 
 // R38 (2026-11-12): localized titles/descriptions live in src/seo-i18n.js,
 // which is loaded LAZILY alongside the language dictionaries — the English
@@ -634,16 +635,25 @@ export function applySeo(page, carId, car, opts = {}) {
   setMeta('meta[name="twitter:title"]', 'content', title2, doc);
   setMeta('meta[name="twitter:description"]', 'content', description2, doc);
 
-  // Per-page preview image: the vehicle's own photo on detail pages (when it
-  // has one), the guide's own photo on /news/<slug>, otherwise the page's
-  // mapped branded asset. twitter:image stays in lockstep, og:image:alt
-  // describes what the image actually shows, and width/height only ever
-  // describe the real asset (never left stale from a previously visited route).
-  const vehiclePhoto = isVehiclePage && car ? imageFor(car.image) : null;
+  // Per-page preview image: the generated 1200×630 share card on vehicle
+  // pages, the guide's own photo on /news/<slug>, otherwise the page's mapped
+  // branded asset. twitter:image stays in lockstep, og:image:alt describes what
+  // the image actually shows, and width/height only ever describe the real
+  // asset (never left stale from a previously visited route).
+  //
+  // Why a card and not the listing photo (2026-11-26): a shared car link is
+  // forwarded between buyers, and the raw yard photo arrived with no name, no
+  // price and a different shape for every listing. /api/og/<ref> draws the same
+  // photo with the vehicle's own name, specs and price at a fixed size — and
+  // since it is built from the same record the page shows, it can never name a
+  // car that is not there. The crawler rewrite (api/site-content.js) publishes
+  // exactly the same URL, so a share never depends on JavaScript running.
+  const vehicleCard = isVehiclePage && car && String(carId ?? '').trim()
+    ? shareCardUrl(BASE, carId) : null;
   const articlePhoto = artSeo ? imageFor(artSeo.ogImage) : null;
   const og = isVehiclePage
-    ? (vehiclePhoto
-      ? { image: vehiclePhoto, width: null, height: null, alt: carName(car) + ' photo' }
+    ? (vehicleCard
+      ? { image: vehicleCard, width: SHARE_CARD.width, height: SHARE_CARD.height, alt: carName(car) + ' at AR7 Traders', type: SHARE_CARD.type }
       : OG_DEFAULT)
     : (artSeo && articlePhoto)
       ? { image: articlePhoto, width: null, height: null, alt: article.title }
@@ -660,6 +670,10 @@ export function applySeo(page, carId, car, opts = {}) {
     removeMeta('meta[property="og:image:width"]', doc);
     removeMeta('meta[property="og:image:height"]', doc);
   }
+  // Only the generated card has a known encoding; the photo assets keep their
+  // existing behaviour of declaring nothing rather than guessing.
+  if (og.type) setMeta('meta[property="og:image:type"]', 'content', og.type, doc);
+  else removeMeta('meta[property="og:image:type"]', doc);
   setMeta('meta[name="robots"], meta[name="robots"]', 'content',
     noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1', doc);
 

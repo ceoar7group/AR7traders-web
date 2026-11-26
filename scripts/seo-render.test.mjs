@@ -475,16 +475,25 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
     'staff route falls back to the default image');
 }
 
-// ---- vehicle pages: og:image = the car's own photo --------------------------
+// ---- vehicle pages: og:image = the generated 1200×630 share card -----------
+// 2026-11-26: a shared car link is forwarded between buyers; the raw listing
+// photo arrived with no name, no price and a different shape for every car.
+// /api/og/<ref> now draws that photo with the vehicle's own name, specs and
+// price at a fixed size. The crawler rewrite (api/site-content.js) publishes
+// the identical URL — see sitemap-vehicles.test.mjs for the server half.
 {
+  const card = 'https://ar7traders.com/api/og/43';
   applySeo('inventory', '43', car43);
-  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/inventory/700071023230260801001.webp',
-    'vehicle og:image is the car photo (absolute URL)');
-  ok(meta('meta[name="twitter:image"]') === meta('meta[property="og:image"]'),
-    'vehicle twitter:image is synced with the car photo');
-  ok(!meta('meta[property="og:image:width"]') && !meta('meta[property="og:image:height"]'),
-    'a listing photo never carries fabricated width/height dimensions');
-  ok(meta('meta[property="og:image:alt"]') === '2023 Toyota Harrier S photo',
+  ok(meta('meta[property="og:image"]') === card,
+    'vehicle og:image is that vehicle\'s share card, keyed by the ref in the URL');
+  ok(meta('meta[name="twitter:image"]') === card,
+    'vehicle twitter:image is synced with the share card');
+  ok(meta('meta[property="og:image:width"]') === '1200' &&
+    meta('meta[property="og:image:height"]') === '630',
+    'the card publishes the dimensions it is actually rendered at');
+  ok(meta('meta[property="og:image:type"]') === 'image/jpeg',
+    'the card declares its real encoding');
+  ok(meta('meta[property="og:image:alt"]') === '2023 Toyota Harrier S at AR7 Traders',
     'vehicle og:image:alt names the car');
   // Leaving the detail page restores the page image and its real dimensions.
   applySeo('shipping', null);
@@ -492,17 +501,18 @@ for (const page of ['crm', 'account', 'portal', 'studio']) {
     meta('meta[property="og:image:width"]') === '1200' &&
     meta('meta[property="og:image:height"]') === '630',
     'navigating away restores the page image and its real dimensions');
-  // Vehicle without a photo falls back to the default image, dims included.
+  ok(!meta('meta[property="og:image:type"]'),
+    'and drops the card\'s image type rather than leaving it stale');
+  // A vehicle with no photo still gets a card: the renderer falls back to the
+  // brand backdrop on the server instead of the page losing its preview.
   applySeo('inventory', '43', { ...car43, image: null });
-  ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg',
-    'vehicle without a photo falls back to the default image');
-  ok(meta('meta[property="og:image:width"]') === '1240' && meta('meta[property="og:image:height"]') === '800',
-    'the fallback image carries its real dimensions');
-  // Still loading (or confirmed missing): the default image until a photo lands.
+  ok(meta('meta[property="og:image"]') === card && meta('meta[property="og:image:width"]') === '1200',
+    'a vehicle without a photo still shares its own card');
+  // Still loading (or confirmed missing): the default image until a car lands.
   applySeo('inventory', '43');
   ok(meta('meta[property="og:image"]') === 'https://ar7traders.com/assets/used-japanese-cars-auction-export-toyota-3.jpg' &&
     meta('meta[property="og:image:width"]') === '1240',
-    'a vehicle page still loading uses the default image until the photo arrives');
+    'a vehicle page still loading uses the default image until the car arrives');
 }
 
 // ---- static shell: homepage business graph only, no sitewide FAQ ----------
