@@ -1369,16 +1369,25 @@ export function App(){
  const [homeOff,setHomeOff]=useState(0);
  const homeHover=useRef(false);
  const homeInventoryRef=useRef(null);
+ // 2026-11-27 (Lighthouse TBT, round two): the stock grid is now STAGED like the
+ // rest of the below-the-fold page, so its section does not exist when App first
+ // mounts. The auto-advancing slide used to attach its observer in a mount effect
+ // that looked the node up once (`[page]`) — with the section arriving later that
+ // look-up ran while it was still null and the carousel never started. A callback
+ // ref publishes the node, and the effect below depends on it, so the observer
+ // attaches the moment the section lands and detaches when it goes.
+ const [homeInventoryEl,setHomeInventoryEl]=useState(null);
+ const mountHomeInventory=React.useCallback(el=>{homeInventoryRef.current=el;setHomeInventoryEl(el)},[]);
  const homeFiltered=(filter==='All'?cars:cars.filter(c=>c.status===filter)).filter(c=>c&&carRef(c));
  const HOME_N=6;
  const homeLen=homeFiltered.length;
  const shown=homeLen?Array.from({length:Math.min(HOME_N,homeLen)},(_,i)=>homeFiltered[(homeOff+i)%homeLen]):[];
  useEffect(()=>{
-  const el=homeInventoryRef.current;
+  const el=homeInventoryEl;
   if(page!=='home'||!el||typeof window==='undefined')return;
   if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   return observeVisibleCarousel(el,()=>{if(!document.hidden&&!homeHover.current&&!homeInventoryRef.current?.matches(':focus-within'))setHomeOff(v=>v+3)});
- },[page]);
+ },[page,homeInventoryEl]);
  const homePages=Math.max(1,Math.ceil(homeLen/HOME_N));
  const homePage=homeLen?Math.floor((homeOff%homeLen)/HOME_N)%homePages:0;
  const {fmt}=useCurrency();
@@ -1449,7 +1458,16 @@ export function App(){
 
    <MotionShowcase navigate={navigate}/>
 
-   <section className="inventory shell section" id="inventory" ref={homeInventoryRef} onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
+   {/* 2026-11-27 (Lighthouse TBT 230 ms — the owner's last orange metric):
+       everything from here down is below the fold, and rendering it in the same
+       commit as the hero was ~1,000 elements of main-thread work the visitor
+       could not see yet. StageQueue mounts one group per idle slice; see
+       src/progressive.jsx for the guarantees (no markup depends on a callback,
+       and any scroll, tap, anchor load or the 2.5 s deadline mounts the rest at
+       once). The grouping below is by measured element cost per section. */}
+   <StageQueue steps={5}>
+   <Stage n={1}>
+   <section className="inventory shell section" id="inventory" ref={mountHomeInventory} onMouseEnter={()=>{homeHover.current=true}} onMouseLeave={()=>{homeHover.current=false}}>
     <div className="section-head"><div><div className="kicker">{t('home.stockKicker')}</div><h2>{t('home.stockH2a')}<br/><em>{t('home.stockH2b')}</em></h2></div><p>{t('home.stockBody')}</p></div>
     <div className="inventory-tools"><div className="filters">{['All','In Stock','Auction','New Arrival'].map(f=><button className={filter===f?'active':''} onClick={()=>setFilter(f)} key={f} type="button">{f==='All'?t('home.filterAll'):statusLabel(t,f)}</button>)}</div><PageLink className="search-btn" to="inventory" navigate={navigate}><Search/> {t('home.searchVehicles')} <SlidersHorizontal/></PageLink></div>
     <div className="car-grid">{shown.map((c,i)=>{
@@ -1479,6 +1497,7 @@ export function App(){
     </div>
     <PageLink className="outline-btn" to="inventory" navigate={navigate}>{t('home.viewAll')} <ArrowRight/></PageLink>
    </section>
+   </Stage>
 
    {/* 2026-11-03 (owner request, competitor reference screenshots): compact
        "shop by" rails — make, body type and price — kept in AR7's own green/
@@ -1488,15 +1507,7 @@ export function App(){
        body and price via the same sessionStorage handshake the hero search
        already uses — the inventory consumes ar7-inv-body / ar7-inv-price on
        mount). */}
-   {/* 2026-11-27 (Lighthouse TBT 230 ms — the owner's last orange metric):
-       everything from here down is below the fold, and rendering it in the same
-       commit as the hero was ~1,000 elements of main-thread work the visitor
-       could not see yet. StageQueue mounts one group per idle slice; see
-       src/progressive.jsx for the guarantees (no markup depends on a callback,
-       and any scroll, tap, anchor load or the 2.5 s deadline mounts the rest at
-       once). The grouping below is by measured element cost per section. */}
-   <StageQueue steps={4}>
-   <Stage n={1}>
+   <Stage n={2}>
    <section className="shop-by shell section" aria-label="Shop by make, body type and price">
     <div className="section-head"><div><div className="kicker">{t('home.shopKicker')}</div><h2>{t('home.shopH2a')}<br/><em>{t('home.shopH2b')}</em></h2></div><p>{t('home.shopBody')}</p></div>
     <div className="shop-by-grid">
@@ -1525,7 +1536,7 @@ export function App(){
        published listings marked "Sold" — no sold cars, no section, so the
        strip can never show invented sales. Marking a car Sold in the CRM
        lights it up here on the next hydration. */}
-   <Stage n={1}>
+   <Stage n={2}>
    {(()=>{
     const sold=cars.filter(c=>c&&c.published!==false&&String(c.status||'').trim().toLowerCase()==='sold').slice(0,6);
     return sold.length?<section className="sold-strip shell section" aria-label="Recently sold vehicles">
@@ -1543,11 +1554,11 @@ export function App(){
    {/* Quick-quote wizard: three taps (market → budget → body) to a written
        quote. Match counts come straight from the live `cars` list, so the
        section never claims stock it doesn't have. */}
-   <Stage n={2}>
+   <Stage n={3}>
    <DeferredQuickQuote navigate={navigate} cars={cars}/>
    </Stage>
 
-   <Stage n={2}>
+   <Stage n={3}>
    <section className="mch-teaser shell section" id="machinery">
     <div className="mch-teaser-head">
      <div><div className="kicker">{t('home.mchKicker')}</div><h2>{t('home.mchH2a')}<br/><em>{t('home.mchH2b')}</em></h2></div>
@@ -1576,11 +1587,11 @@ export function App(){
    </section>
    </Stage>
 
-   <Stage n={2}>
+   <Stage n={3}>
    <section className="world section"><div className="world-map"><DeferredBigGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">{t('home.worldKicker')}</div><h2>{t('home.worldH2a')} <em>{t('home.worldH2em')}</em></h2><p>{t('home.worldBody')}</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>{t('home.worldExplore')} <ArrowRight/></PageLink></div></section>
    </Stage>
 
-   <Stage n={3}>
+   <Stage n={4}>
    <section className="brand-budgets shell section" id="budgets">
     <div className="section-head"><div><div className="kicker">{t('home.budgetKicker')}</div><h2>{t('home.budgetH2a')}<br/><em>{t('home.budgetH2b')}</em></h2></div><p>{t('home.budgetBody')}</p></div>
     <div className="budget-grid">{brandBudgets.map(b=><a key={b.name} className="budget-card" href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)}><div className="budget-head"><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt="" onError={logoOnError}/><b>{b.name}</b><span>{b.count} {b.count===1?t('home.budgetCar'):t('home.budgetCars')}</span></div><BudgetSlides make={b.name}/><div className="budget-models">{b.models.map(m=><span key={m}>{m}</span>)}</div><div className="budget-range"><small>{t('home.budgetRange')}</small><b>{b.lo?fmt(Math.round(b.lo/100)*100)+' – '+fmt(Math.round(b.hi/100)*100):t('home.budgetOnRequest')}</b>{b.y0?<span className="budget-years">{b.y0===b.y1?b.y0:b.y0+' – '+b.y1} · {t('home.budgetReady')}</span>:null}</div><span className="budget-cta">{t('home.budgetBrowse',{make:b.name})} <ArrowRight/></span></a>)}</div>
@@ -1588,7 +1599,7 @@ export function App(){
    </section>
    </Stage>
 
-   <Stage n={3}>
+   <Stage n={4}>
    <section className="process section" id="process"><div className="shell">
     <div className="section-head light"><div><div className="kicker">{t('home.processKicker')}</div><h2>{t('home.processH2a')}<br/>{t('home.processH2b')} <em>{t('home.processH2em')}</em></h2></div><p>{t('home.processBody')}</p></div>
     <div className="flow-line"><span/></div>
@@ -1599,7 +1610,7 @@ export function App(){
    </div></section>
    </Stage>
 
-   <Stage n={4}>
+   <Stage n={5}>
    <section className="auction-preview section shell" id="about">
     <div className="dash-wrap">
       <div className="dash-copy"><div className="kicker">{t('home.auctionKicker')}</div><h2>{t('home.auctionH2a')}<br/>{t('home.auctionH2b')} <em>{t('home.auctionH2em')}</em></h2><p>{t('home.auctionBody')}</p><ul><li><Check/> {t('home.auctionLi1')}</li><li><Check/> {t('home.auctionLi2')}</li><li><Check/> {t('home.auctionLi3')}</li></ul><button className="primary" onClick={()=>setEnquiry({kind:'auction'})} type="button">{t('home.auctionCta')} <ArrowRight/></button></div>
@@ -1608,7 +1619,7 @@ export function App(){
    </section>
    </Stage>
 
-   <Stage n={4}>
+   <Stage n={5}>
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">{t('home.ctaKicker')}</div><h2>{t('home.ctaH2a')}<br/>{t('home.ctaH2b')} <em>{t('home.ctaH2em')}</em></h2><p>{t('home.ctaBody')}</p></div><button className="gold-btn large" onClick={()=>openEnquiry()} type="button">{t('home.ctaBtn')} <ArrowUpRight/></button></section>
    </Stage>
    </StageQueue>
