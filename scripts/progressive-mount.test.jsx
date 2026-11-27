@@ -93,7 +93,7 @@ assert.equal(await flushIdle(), true, 'the first idle slice opens stage 1');
 assert.equal(ids(), 'a', 'one stage per slice: only stage 1 is mounted after one slice');
 await flushIdle();
 assert.equal(ids(), 'ab', 'the second slice opens stage 2');
-assert.equal(host.querySelector('#c'), null, 'stage 3 is still held back');
+assert.equal(host.querySelector('#c') === null, true, 'stage 3 is still held back');
 say('staged: 0 → a → ab, one slice at a time');
 
 /* ---------- 2. an interaction mounts everything at once ---------- */
@@ -152,7 +152,9 @@ for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll']) {
   assert.ok(code.includes(`'${ev}'`), `a ${ev} flushes the remaining stages`);
 }
 assert.match(code, /const DEADLINE_MS = \d+;/, 'a hard deadline exists for a main thread too busy for idle callbacks');
-assert.match(code, /setTimeout\(onAny, DEADLINE_MS\)/, 'the deadline actually flushes the queue');
+assert.match(code, /setTimeout\(\(\) => setStage\(total\), DEADLINE_MS\)/,
+  'the deadline flushes the queue, once, from mount');
+assert.equal((code.match(/DEADLINE_MS\)/g) || []).length, 1, 'the deadline is a single timer, not one per stage');
 say('every escape hatch is present (5 events + deadline)');
 
 const main = readFileSync('src/main.jsx', 'utf8');
@@ -166,7 +168,7 @@ const footAt = main.indexOf('<footer className="site-footer">');
 assert.ok(footAt > 0, 'the footer still exists');
 assert.ok(main.lastIndexOf('<Stage n=', footAt) > main.lastIndexOf('</Stage>', footAt),
   'the footer (about 190 elements of links and trust marks) is staged too');
-assert.match(main, /<StageQueue steps=\{4\}>/, 'the home sections share one queue of four slices');
+assert.match(main, /<StageQueue steps=\{5\}>/, 'the home sections share one queue of five slices');
 say('home sections and the footer are inside <Stage> groups');
 
 /* ---------- 8. the ribbon's duplicated half ------------------------------- */
@@ -217,17 +219,34 @@ const pageRoot = createRoot(page);
 await act(async () => { pageRoot.render(React.createElement(CurrencyProvider, null, React.createElement(App))); });
 assert.ok(page.querySelector('.hero'), 'the hero is in the first commit');
 assert.ok(page.querySelector('.ticker'), 'the ticker under the hero is in the first commit');
-assert.equal(page.querySelector('.site-footer'), null, 'the footer is NOT in the first commit');
-assert.equal(page.querySelector('.shop-by'), null, 'the shop-by rails are NOT in the first commit');
+assert.equal(page.querySelector('.site-footer') === null, true, 'the footer is NOT in the first commit');
+assert.equal(page.querySelector('.shop-by') === null, true, 'the shop-by rails are NOT in the first commit');
+assert.equal(page.querySelector('.inventory') === null, true,
+  'the stock grid is not in the first commit either');
 assert.equal(page.querySelectorAll('.world-time-group').length, 1,
   'the header ribbon carries ONE copy of the eighteen cities in the first commit');
 assert.equal(page.querySelector('.world-time-ribbon').hasAttribute('data-ready'), false,
   'the marquee is held at frame zero until its second copy exists');
-for (let i = 0; i < 5; i++) await flushIdle();   // a few slices: the chat, the ribbon, the queue
-assert.equal(page.querySelectorAll('.world-time-group').length, 2,
-  'the duplicate half arrives within the first few idle slices');
+
+// Every slice must stay small enough to be a short task rather than a new long
+// one — a stage that quietly grew to 900 elements would put the blocking time
+// straight back. 450 elements is roughly half of the old single commit's biggest
+// section, and each group is one section.
+let prev = page.querySelectorAll('*').length;
+for (let i = 0; i < 6; i++) {
+  await flushIdle();
+  const now = page.querySelectorAll('*').length;
+    assert.ok(now - prev <= 450, `idle slice ${i + 1} added ${now - prev} elements (cap 450)`);
+  prev = now;
+}
+assert.ok(page.querySelectorAll('.world-time-group').length === 2,
+  'the ribbon duplicate arrived (its own slice)');
 assert.equal(page.querySelector('.world-time-ribbon').hasAttribute('data-ready'), true,
   'and the slide is released once the seam can no longer show');
+assert.ok(page.querySelector('.inventory'), 'the stock grid arrived on one of those slices');
+// The footer runs its own queue, so by now it may or may not have had its slice
+// (flushing the shared idle list advances whichever queue was scheduled first) —
+// what is pinned is that it was absent from the first commit, asserted above.
 await act(async () => { dom.window.dispatchEvent(new dom.window.Event('scroll')); });
 assert.ok(page.querySelector('.site-footer'), 'a scroll mounts the footer');
 assert.ok(page.querySelector('.shop-by'), 'a scroll mounts the shop-by rails');

@@ -81,20 +81,27 @@ export function StageQueue({steps, children}) {
 
   // The escape hatches. Anything that suggests the visitor is on their way down
   // the page mounts the rest immediately, so a fast scroll can never outrun the
-  // queue; the deadline covers a main thread too busy to run an idle callback.
+  // queue.
   useEffect(() => {
     if (!staged.current || stage >= total) return;
     const events = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'];
     const onAny = () => setStage(total);
     for (const e of events) window.addEventListener(e, onAny, {passive: true, once: true});
     window.addEventListener('beforeprint', onAny);
-    const timer = setTimeout(onAny, DEADLINE_MS);
     return () => {
       for (const e of events) window.removeEventListener(e, onAny);
       window.removeEventListener('beforeprint', onAny);
-      clearTimeout(timer);
     };
   }, [stage, total]);
+
+  // One deadline for the whole queue, measured from mount — not one per stage, or
+  // a busy main thread could push the last section out four times over. It covers
+  // the case where no idle callback and no interaction happens at all.
+  useEffect(() => {
+    if (!staged.current) return;
+    const timer = setTimeout(() => setStage(total), DEADLINE_MS);
+    return () => clearTimeout(timer);
+  }, [total]);
 
   return <StageCtx.Provider value={stage}>{children}</StageCtx.Provider>;
 }
