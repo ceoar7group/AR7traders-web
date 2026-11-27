@@ -1,6 +1,9 @@
 import React, {useEffect, useLayoutEffect, useRef, useState, useReducer} from 'react';
 import { createRoot } from 'react-dom/client';
 import { CATALOGUE_LINKS } from './catalogue-links.js';
+// 2026-11-27 (Lighthouse TBT): below-the-fold sections mount one idle slice at a
+// time — see src/progressive.jsx for why and for the two promises it keeps.
+import { Stage, StageQueue } from './progressive.jsx';
 import { ArrowUpRight, Search, SlidersHorizontal, Heart, Gauge, CalendarDays, Fuel, Ship, Gavel, BadgeCheck, ClipboardCheck, MapPin, ChevronDown, ChevronLeft, ChevronRight, Check, Mail, Phone, Camera, MessageCircle, Send, ArrowRight, Globe2, LockKeyhole, Play, Clock3, Monitor, CarFront, LogIn, Plane, ArrowLeftRight, ShieldCheck, FileCheck, BadgePercent, Newspaper, Wrench, Sparkles} from 'lucide-react';
 import './styles.css';
 import './motion-account.css';
@@ -1119,6 +1122,19 @@ function WorldTimeRibbon(){
  // into its <strong> node. With tabular-nums and the fixed min-width in
  // .world-time-item>strong, a tick can never move a sibling again.
  const rootRef=useRef(null);
+ // 2026-11-27 (Lighthouse TBT): the ribbon scrolls TWO identical copies of the
+ // eighteen cities — the second one exists only so the marquee has no seam. That
+ // duplicate is ~300 elements of flags and text (a twelfth of the whole first
+ // commit) for something no visitor can see at load, so it mounts on the first
+ // idle slice instead. Until it does, the track is held at its start position
+ // (`data-ready` in expanded.css), so the ribbon is static for a few
+ // milliseconds rather than sliding away from a half-empty rail.
+ const [ready,setReady]=useState(false);
+ useEffect(()=>{
+  if(typeof window.requestIdleCallback!=='function'){setReady(true);return;}
+  const id=window.requestIdleCallback(()=>setReady(true),{timeout:300});
+  return()=>{if(typeof window.cancelIdleCallback==='function')window.cancelIdleCallback(id)};
+ },[]);
  useEffect(()=>{
   const cells=rootRef.current?Array.from(rootRef.current.querySelectorAll('strong[data-wt]')):[];
   const paint=()=>{const now=new Date();for(const el of cells){const c=WORLD_CLOCKS[+el.dataset.wt];if(!c)continue;const t=worldClockTime(c,now);if(el.textContent!==t)el.textContent=t}};
@@ -1129,13 +1145,16 @@ function WorldTimeRibbon(){
   start();
   document.addEventListener('visibilitychange',onVisibility);
   return()=>{stop();document.removeEventListener('visibilitychange',onVisibility)};
- },[]);
+  // `ready` is a dependency because the duplicate copy's clocks only exist once
+  // it mounts — without this the second copy would keep the time it was born
+  // with while the first one ticked.
+ },[ready]);
  const track=React.useMemo(()=>{
   const now=new Date();
   const group=(copy,hidden=false)=><div className="world-time-group" aria-hidden={hidden||undefined} key={copy}>{WORLD_CLOCKS.map((c,i)=>{const zone=c.formatter.formatToParts(now).find(p=>p.type==='timeZoneName')?.value||'';return <span className="world-time-item" key={copy+c.city}><span className="world-time-flag"><Flag c={c.country} w={18} h={12}/></span><i>{c.code}</i><b>{c.city}</b><strong data-wt={i}>{worldClockTime(c,now)}</strong><small>{zone}</small></span>})}</div>;
-  return <>{group('a')}{group('b',true)}</>;
+  return [group('a'),group('b',true)];
  },[]);
- return <div className="world-time-ribbon" aria-label="Live international times" ref={rootRef}><div className="world-time-label"><Globe2/><span>WORLD TIME</span><i/></div><div className="world-time-viewport"><div className="world-time-track">{track}</div></div></div>
+ return <div className="world-time-ribbon" aria-label="Live international times" ref={rootRef} data-ready={ready?'1':undefined}><div className="world-time-label"><Globe2/><span>WORLD TIME</span><i/></div><div className="world-time-viewport"><div className="world-time-track">{track[0]}{ready?track[1]:null}</div></div></div>
 }
 
 /* Cookie / storage notice. The site sets no advertising cookies (Vercel Web
@@ -1469,6 +1488,15 @@ export function App(){
        body and price via the same sessionStorage handshake the hero search
        already uses — the inventory consumes ar7-inv-body / ar7-inv-price on
        mount). */}
+   {/* 2026-11-27 (Lighthouse TBT 230 ms — the owner's last orange metric):
+       everything from here down is below the fold, and rendering it in the same
+       commit as the hero was ~1,000 elements of main-thread work the visitor
+       could not see yet. StageQueue mounts one group per idle slice; see
+       src/progressive.jsx for the guarantees (no markup depends on a callback,
+       and any scroll, tap, anchor load or the 2.5 s deadline mounts the rest at
+       once). The grouping below is by measured element cost per section. */}
+   <StageQueue steps={4}>
+   <Stage n={1}>
    <section className="shop-by shell section" aria-label="Shop by make, body type and price">
     <div className="section-head"><div><div className="kicker">{t('home.shopKicker')}</div><h2>{t('home.shopH2a')}<br/><em>{t('home.shopH2b')}</em></h2></div><p>{t('home.shopBody')}</p></div>
     <div className="shop-by-grid">
@@ -1491,11 +1519,13 @@ export function App(){
      </div>
     </div>
    </section>
+   </Stage>
 
    {/* 2026-11-08: recently-sold proof strip. Renders ONLY when the CRM has
        published listings marked "Sold" — no sold cars, no section, so the
        strip can never show invented sales. Marking a car Sold in the CRM
        lights it up here on the next hydration. */}
+   <Stage n={1}>
    {(()=>{
     const sold=cars.filter(c=>c&&c.published!==false&&String(c.status||'').trim().toLowerCase()==='sold').slice(0,6);
     return sold.length?<section className="sold-strip shell section" aria-label="Recently sold vehicles">
@@ -1508,12 +1538,16 @@ export function App(){
      </div>)}</div>
      <button className="outline-btn" onClick={()=>openEnquiry({kind:'vehicle',message:'I saw the recently sold cars — please source a similar one for me.'})} type="button">{t('home.soldCta')} <ArrowRight/></button>
     </section>:null})()}
+   </Stage>
 
    {/* Quick-quote wizard: three taps (market → budget → body) to a written
        quote. Match counts come straight from the live `cars` list, so the
        section never claims stock it doesn't have. */}
+   <Stage n={2}>
    <DeferredQuickQuote navigate={navigate} cars={cars}/>
+   </Stage>
 
+   <Stage n={2}>
    <section className="mch-teaser shell section" id="machinery">
     <div className="mch-teaser-head">
      <div><div className="kicker">{t('home.mchKicker')}</div><h2>{t('home.mchH2a')}<br/><em>{t('home.mchH2b')}</em></h2></div>
@@ -1540,15 +1574,21 @@ export function App(){
     </article>})}</div>
     <div className="mch-teaser-foot"><PageLink className="primary" to="machinery" navigate={navigate}>{t('home.mchBrowseAll')} <ArrowRight/></PageLink><button className="ghost-btn" type="button" onClick={()=>setEnquiry({kind:'vehicle',vehicle_interest:'Left-hand-drive car from China',message:'I am looking for a left-hand-drive car from your China desk. '})}>{t('home.mchRequestLhd')} <ArrowRight/></button><p className="mch-teaser-note">{t('machinery.note')}</p></div>
    </section>
+   </Stage>
 
+   <Stage n={2}>
    <section className="world section"><div className="world-map"><DeferredBigGlobe navigate={navigate} compact/></div><div className="world-content shell"><div className="kicker">{t('home.worldKicker')}</div><h2>{t('home.worldH2a')} <em>{t('home.worldH2em')}</em></h2><p>{t('home.worldBody')}</p><FounderStat variant="world"/><PageLink className="primary" to="destinations" navigate={navigate}>{t('home.worldExplore')} <ArrowRight/></PageLink></div></section>
+   </Stage>
 
+   <Stage n={3}>
    <section className="brand-budgets shell section" id="budgets">
     <div className="section-head"><div><div className="kicker">{t('home.budgetKicker')}</div><h2>{t('home.budgetH2a')}<br/><em>{t('home.budgetH2b')}</em></h2></div><p>{t('home.budgetBody')}</p></div>
     <div className="budget-grid">{brandBudgets.map(b=><a key={b.name} className="budget-card" href={inventoryHref(b.name)} onClick={linkClick(inventoryHref(b.name),navigate)}><div className="budget-head"><img loading="lazy" decoding="async" width="44" height="26" src={LOGO(b.name)} alt="" onError={logoOnError}/><b>{b.name}</b><span>{b.count} {b.count===1?t('home.budgetCar'):t('home.budgetCars')}</span></div><BudgetSlides make={b.name}/><div className="budget-models">{b.models.map(m=><span key={m}>{m}</span>)}</div><div className="budget-range"><small>{t('home.budgetRange')}</small><b>{b.lo?fmt(Math.round(b.lo/100)*100)+' – '+fmt(Math.round(b.hi/100)*100):t('home.budgetOnRequest')}</b>{b.y0?<span className="budget-years">{b.y0===b.y1?b.y0:b.y0+' – '+b.y1} · {t('home.budgetReady')}</span>:null}</div><span className="budget-cta">{t('home.budgetBrowse',{make:b.name})} <ArrowRight/></span></a>)}</div>
     <div className="budget-bands">{budgetBands.map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}</div>
    </section>
+   </Stage>
 
+   <Stage n={3}>
    <section className="process section" id="process"><div className="shell">
     <div className="section-head light"><div><div className="kicker">{t('home.processKicker')}</div><h2>{t('home.processH2a')}<br/>{t('home.processH2b')} <em>{t('home.processH2em')}</em></h2></div><p>{t('home.processBody')}</p></div>
     <div className="flow-line"><span/></div>
@@ -1557,18 +1597,29 @@ export function App(){
     </div>
     <div className="process-cta"><span><LockKeyhole/> {t('home.processPortal')}</span><button className="gold-btn" onClick={()=>openEnquiry()} type="button">{t('home.processStart')} <ArrowUpRight/></button></div>
    </div></section>
+   </Stage>
 
+   <Stage n={4}>
    <section className="auction-preview section shell" id="about">
     <div className="dash-wrap">
       <div className="dash-copy"><div className="kicker">{t('home.auctionKicker')}</div><h2>{t('home.auctionH2a')}<br/>{t('home.auctionH2b')} <em>{t('home.auctionH2em')}</em></h2><p>{t('home.auctionBody')}</p><ul><li><Check/> {t('home.auctionLi1')}</li><li><Check/> {t('home.auctionLi2')}</li><li><Check/> {t('home.auctionLi3')}</li></ul><button className="primary" onClick={()=>setEnquiry({kind:'auction'})} type="button">{t('home.auctionCta')} <ArrowRight/></button></div>
       <a className="dashboard" href="/portal" onClick={linkClick('portal',navigate)} title="Open the client portal preview"><span className="dash-demo-chip">PREVIEW</span><div className="dash-nav"><img width="128" height="53" src="/assets/ar7-mark-128.webp" alt="AR7 Traders" loading="lazy" decoding="async"/><span/><span/><span/></div><div className="dash-title"><div><small>GOOD MORNING, IMRAN</small><b>Auction workspace</b></div><div className="dash-search"><Search/> Search lot or chassis</div></div><div className="dash-stats"><div><i className="green"/><span>Live now<b>12 auctions</b></span></div><div><Gavel/><span>Your bids<b>04 active</b></span></div><div><BadgeCheck/><span>Won this month<b>07 vehicles</b></span></div></div><div className="dash-cars">{cars.slice(0,3).map(c=><div key={c.id}><img loading="lazy" decoding="async" width="820" height="550" src={c.image} srcSet={showroomSrcSet(c.image)} sizes={showroomSrcSet(c.image) ? SHOWROOM_CARD_SIZES : undefined} alt={carAlt(c)}/><span><small>{stockLabel(c)}</small><b>{c.make} {c.model.split(' ')[0]}</b><em>{c.grade?'Grade '+c.grade:(c.st||'RHD')}</em></span><strong>{price(c)}</strong></div>)}</div></a>
     </div>
    </section>
+   </Stage>
 
+   <Stage n={4}>
    <section className="cta shell section"><div className="cta-bg"/><div><div className="kicker">{t('home.ctaKicker')}</div><h2>{t('home.ctaH2a')}<br/>{t('home.ctaH2b')} <em>{t('home.ctaH2em')}</em></h2><p>{t('home.ctaBody')}</p></div><button className="gold-btn large" onClick={()=>openEnquiry()} type="button">{t('home.ctaBtn')} <ArrowUpRight/></button></section>
+   </Stage>
+   </StageQueue>
    </>:page==='world'?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the network…</h3></div>}><Globe navigate={navigate}/></React.Suspense>:page==='account'?<React.Suspense fallback={<div className="empty-state route-fallback"><LogIn/><h3>Loading your account…</h3></div>}><CustomerAccount navigate={navigate} cars={cars}/></React.Suspense>:page==='studio'?<React.Suspense fallback={<div className="empty-state route-fallback"><Monitor/><h3>Loading the studio…</h3></div>}><DeviceStudio navigate={navigate}/></React.Suspense>:page==='machinery'?<React.Suspense fallback={<div className="empty-state route-fallback"><Wrench/><h3>Loading the machinery desk…</h3></div>}><MachineryPage navigate={navigate} initialType={machineRoute.type} machineRef={machineRoute.ref} openAuction={ctx=>openEnquiry({kind:'machinery',...(ctx&&typeof ctx==='object'&&!('nativeEvent' in ctx)?ctx:{})})} openChat={openChatNow}/></React.Suspense>:page==='destinations'&&destRoute?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the market guide…</h3></div>}><DestinationPage dest={destinationBySlug(destRoute)} destSlug={destRoute} navigate={navigate} openAuction={openEnquiry} Link={PageLink} Related={RelatedStock} Flag={Flag}/></React.Suspense>:['privacy','cookies','terms'].includes(page)?<React.Suspense fallback={<div className="empty-state route-fallback"><LockKeyhole/><h3>Loading the policy…</h3></div>}><LegalPage type={page} navigate={navigate}/></React.Suspense>:['services','destinations','reviews','faq','portal'].includes(page)?<React.Suspense fallback={<div className="empty-state route-fallback"><Globe2/><h3>Loading the page…</h3></div>}><ExtraPage type={page} navigate={navigate} openAuction={openEnquiry} discounts={liveDiscounts}/></React.Suspense>:['brands','howbuy','tools','news'].includes(page)?<React.Suspense fallback={<div className="empty-state route-fallback"><Newspaper/><h3>Loading the page…</h3></div>}><ExtraPages2 type={page} navigate={navigate} openAuction={openEnquiry} articleSlug={page==='news'?vehicleId:null} discounts={liveDiscounts}/></React.Suspense>:<React.Suspense fallback={<div className="empty-state route-fallback"><CarFront/><h3>Loading page…</h3></div>}><InnerPage page={page} navigate={navigate} vehicleId={vehicleId} initialMake={makeFilter} initialModel={modelFilter} openAuction={openEnquiry} openChat={openChatNow} favs={favs} setFavs={setFavs}/></React.Suspense>}
   </main>
 
+  {/* 2026-11-27 (Lighthouse TBT): the footer is ~190 elements of links and
+      trust marks — every one of them below the fold on every route. It mounts in
+      its own idle slice through the same queue as the home sections. */}
+  <StageQueue steps={1}>
+  <Stage n={1}>
   <footer className="site-footer">
    <div className="shell footer-news">
     <div className="footer-news-copy"><div className="kicker">{t('footer.newsKicker')}</div><h2>{t('footer.newsH2a')}<br/><em>{t('footer.newsH2b')}</em></h2><p>{t('footer.newsBody')}</p></div>
@@ -1594,6 +1645,8 @@ export function App(){
    <nav className="shell footer-catalogue" aria-label="Browse the catalogue"><b>Browse the catalogue</b><div>{CATALOGUE_LINKS.map(([href,label])=><a key={href} href={href} onClick={linkClick(href,navigate)}>{label}</a>)}</div></nav>
    <div className="shell footer-bottom"><span>{t('footer.copyright',{year:new Date().getFullYear()})}</span><span><a href="/privacy" onClick={linkClick('privacy',navigate)}>{t('footer.privacy')}</a> · <a href="/cookies" onClick={linkClick('cookies',navigate)}>Cookies</a> · <a href="/terms" onClick={linkClick('terms',navigate)}>{t('footer.terms')}</a> · <a href="/terms" onClick={linkClick('terms',navigate)}>{t('footer.exportPolicy')}</a></span><div className="footer-badges"><span><BadgeCheck/> {t('footer.verifiedStock')}</span><span><LockKeyhole/> {t('footer.trustSecure')}</span></div><b>AR7TRADERS.COM</b></div>
   </footer>
+  </Stage>
+  </StageQueue>
 
   <WhatsAppButton/>
 

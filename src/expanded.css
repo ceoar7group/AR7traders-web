@@ -318,6 +318,11 @@ section[id]{scroll-margin-top:120px}
 @keyframes clockLive{50%{opacity:.45}}
 .world-time-viewport{min-width:0;overflow:hidden;flex:1;height:100%;display:flex;align-items:center;mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent)}
 .world-time-track{display:flex;align-items:center;width:max-content;will-change:transform;animation:worldClockSlide 42s linear infinite}
+/* 2026-11-27 (Lighthouse TBT): the duplicate half of the ribbon mounts on the
+   first idle slice (src/main.jsx), so the slide is held at frame zero until it
+   exists — otherwise the single copy would glide away from a half-empty rail for
+   the few milliseconds before it arrives. */
+.world-time-ribbon:not([data-ready]) .world-time-track{animation-play-state:paused}
 .world-time-ribbon:hover .world-time-track{animation-play-state:paused}
 .world-time-group{display:flex;align-items:center;gap:0;flex:none;padding-right:24px}
 .world-time-item{height:34px;display:flex;align-items:center;gap:7px;padding:0 15px;position:relative;white-space:nowrap}
