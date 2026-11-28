@@ -1122,16 +1122,22 @@ function WorldTimeRibbon(){
  // into its <strong> node. With tabular-nums and the fixed min-width in
  // .world-time-item>strong, a tick can never move a sibling again.
  const rootRef=useRef(null);
- // 2026-11-27 (Lighthouse TBT): the ribbon scrolls TWO identical copies of the
- // eighteen cities — the second one exists only so the marquee has no seam. That
- // duplicate is ~300 elements of flags and text (a twelfth of the whole first
- // commit) for something no visitor can see at load, so it mounts on the first
- // idle slice instead. Until it does, the track is held at its start position
+ // 2026-11-27 (Lighthouse TBT): the ribbon scrolls TWO identical copies of its
+ // nine cities — the second one exists only so the marquee has no seam. Measured
+ // in the rendered markup, the ribbon is 145 elements with one copy and about 280
+ // with both: the duplicate is ~134 elements of flags, codes and clock faces for
+ // something no visitor can see at load, so it mounts on the first idle slice. Until it does, the track is held at its start position
  // (`data-ready` in expanded.css), so the ribbon is static for a few
  // milliseconds rather than sliding away from a half-empty rail.
  const [ready,setReady]=useState(false);
  useEffect(()=>{
   if(typeof window.requestIdleCallback!=='function'){setReady(true);return;}
+  // A data saver, or a 2G/3G connection, keeps the ribbon static: the duplicate
+  // copy exists only so the marquee has no seam, and a scrolling ribbon is a
+  // luxury there. Leaving `ready` false keeps the track paused at frame zero
+  // (expanded.css), so the visitor still sees every city and its time — just not
+  // moving. Same rule as the header orb's 101 KiB engine.
+  if(shouldDeferDecorative())return;
   const id=window.requestIdleCallback(()=>setReady(true),{timeout:300});
   return()=>{if(typeof window.cancelIdleCallback==='function')window.cancelIdleCallback(id)};
  },[]);
@@ -1338,14 +1344,23 @@ export function App(){
   // Clean the address bar too, so a client-side landing never shows a URL that
   // disagrees with the canonical /inventory the page declares.
   useEffect(()=>{try{if(/^\/japan-stock\/?$/.test(location.pathname))history.replaceState(history.state,'','/inventory')}catch{}},[]);
+ // 2026-11-27 (scroll cost): --scroll is read by exactly ONE rule in the whole
+ // stylesheet — .car-main, the parallax on the vehicle detail page (pinned by
+ // scripts/home-performance.test.mjs, so it cannot quietly become a document-wide
+ // variable again). Writing it on :root meant every scroll frame invalidated
+ // style for the entire document, on every route — including the home page, which
+ // has no .car-main at all and therefore did that work for nothing. It is now
+ // written on the element that reads it, and not at all on routes without one.
  useEffect(()=>{
-  let t=0,last=-1;
+  let t=0,last=-1,target=null;
   const fn=()=>{
    if(t)return;
    t=requestAnimationFrame(()=>{
     t=0;
+    if(!target||!target.isConnected)target=document.querySelector('.car-main');
+    if(!target)return;               // no parallax on this screen: nothing to write
     const y=window.scrollY||0;
-    if(y!==last){last=y;document.documentElement.style.setProperty('--scroll',y+'px');}
+    if(y!==last){last=y;target.style.setProperty('--scroll',y+'px');}
    });
   };
   window.addEventListener('scroll',fn,{passive:true});
@@ -1460,8 +1475,9 @@ export function App(){
 
    {/* 2026-11-27 (Lighthouse TBT 230 ms — the owner's last orange metric):
        everything from here down is below the fold, and rendering it in the same
-       commit as the hero was ~1,000 elements of main-thread work the visitor
-       could not see yet. StageQueue mounts one group per idle slice; see
+       commit as the hero was ~1,350 elements of main-thread work the visitor
+       could not see yet (measured per section: stock grid 432, shop-by 201,
+       budgets 198, footer 182, machinery teaser 154, process 74, auction 79). StageQueue mounts one group per idle slice; see
        src/progressive.jsx for the guarantees (no markup depends on a callback,
        and any scroll, tap, anchor load or the 2.5 s deadline mounts the rest at
        once). The grouping below is by measured element cost per section. */}

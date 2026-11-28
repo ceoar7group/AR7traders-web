@@ -224,7 +224,7 @@ assert.equal(page.querySelector('.shop-by') === null, true, 'the shop-by rails a
 assert.equal(page.querySelector('.inventory') === null, true,
   'the stock grid is not in the first commit either');
 assert.equal(page.querySelectorAll('.world-time-group').length, 1,
-  'the header ribbon carries ONE copy of the eighteen cities in the first commit');
+  'the header ribbon carries ONE copy of its nine cities in the first commit');
 assert.equal(page.querySelector('.world-time-ribbon').hasAttribute('data-ready'), false,
   'the marquee is held at frame zero until its second copy exists');
 
@@ -253,6 +253,29 @@ assert.ok(page.querySelector('.shop-by'), 'a scroll mounts the shop-by rails');
 assert.ok(page.querySelector('.cta'), 'a scroll mounts the closing call to action');
 say('the real home page: hero first, everything else on the first flush');
 await act(async () => { pageRoot.unmount(); });
+
+/* ---------- 10. a data saver gets a still ribbon, not a lighter one ---------- */
+// The duplicate copy exists only so the marquee has no seam. On a data saver or a
+// 2G/3G connection it is never built and the track stays paused: the visitor
+// still sees every city and its time, they just do not move. Same
+// rule that keeps the header orb's 101 KiB engine away.
+Object.defineProperty(dom.window.navigator, 'connection', {
+  value: {saveData: true, effectiveType: '3g'}, configurable: true
+});
+const lean = dom.window.document.createElement('div');
+dom.window.document.body.appendChild(lean);
+const leanRoot = createRoot(lean);
+await act(async () => { leanRoot.render(React.createElement(CurrencyProvider, null, React.createElement(App))); });
+for (let i = 0; i < 6; i++) await flushIdle();
+assert.equal(lean.querySelectorAll('.world-time-group').length, 1,
+  'a data saver never builds the second copy of the ribbon');
+assert.equal(lean.querySelector('.world-time-ribbon').hasAttribute('data-ready'), false,
+  'so the marquee stays at frame zero instead of scrolling');
+// Nine cities, one copy: the ribbon is complete, it simply does not scroll.
+assert.equal(lean.querySelectorAll('.world-time-item').length, 9,
+  'every city and its clock is still on the page');
+say('a data saver gets one still copy of the ribbon');
+await act(async () => { leanRoot.unmount(); });
 
 process.stdout.write('\nProgressive mount checks passed.\n');
 // jsdom's pretendToBeVisual keeps a frame timer alive, so the process has to be

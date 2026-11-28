@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { showroomSrcSet, SHOWROOM_HERO_SIZES } from '../src/showroom-images.js';
 import { observeVisibleCarousel } from '../src/visible-carousel.js';
 
@@ -72,6 +73,46 @@ assert.ok(shell.includes(`imagesizes="${SHOWROOM_HERO_SIZES}"`));
   const reduced = landing.slice(landing.indexOf('@media (prefers-reduced-motion: reduce)'));
   assert.ok(/\.hero-copy[^{]*\{[^}]*animation:none!important/.test(reduced),
     'reduced-motion users get the hero immediately, not a fade-in');
+}
+
+// 2026-11-27 (scroll cost): the parallax variable must stay a single-element
+// concern. Written on :root — where it used to live — every scroll frame
+// invalidated style for the whole document on every route, including the pages
+// that never read it. If a future rule other than the vehicle parallax starts
+// reading --scroll, or the writer goes back to documentElement, this fails.
+{
+  const main = readFileSync('src/main.jsx', 'utf8');
+  const cssFiles = readdirSync('src').filter(f => f.endsWith('.css'));
+  const readers = [];
+  for (const file of cssFiles) {
+    const css = readFileSync(join('src', file), 'utf8');
+    // every selector that reads the variable, not the :root declaration itself
+    for (const m of css.matchAll(/([^{}]+)\{[^}]*var\(--scroll\)/g)) {
+      readers.push(m[1].split('}').pop().trim());
+    }
+  }
+  assert.deepEqual(readers, ['.car-main'],
+    'exactly one rule reads --scroll (the vehicle-detail parallax), and it is .car-main');
+  assert.ok(!/documentElement\.style\.setProperty\('--scroll'/.test(main),
+    '--scroll is not written on :root (that invalidates style document-wide, every scroll frame)');
+  assert.ok(/target\.style\.setProperty\('--scroll'/.test(main),
+    '--scroll is written on the element that reads it');
+  const scrollEffect = main.slice(main.indexOf("const fn=()=>{"),
+    main.indexOf("window.addEventListener('scroll',fn"));
+  assert.ok(/if\(!target\)return;/.test(scrollEffect),
+    'routes without a parallax write nothing at all on scroll');
+}
+
+// 2026-11-27 (redesign of the ribbon): on a data saver or a 2G/3G connection the
+// duplicate half of the world-clock ribbon is never built — the ribbon stays
+// static instead of scrolling. Same rule that keeps the 101 KiB globe orb away.
+{
+  const main = readFileSync('src/main.jsx', 'utf8');
+  const ribbon = main.slice(main.indexOf('function WorldTimeRibbon()'), main.indexOf('function CookieNotice('));
+  assert.ok(/if\(shouldDeferDecorative\(\)\)return;/.test(ribbon),
+    'a data saver or slow connection keeps the ribbon to one static copy');
+  assert.ok(ribbon.indexOf('shouldDeferDecorative()') < ribbon.indexOf('requestIdleCallback(()=>setReady(true)'),
+    'the connection check runs before the duplicate is ever scheduled');
 }
 
 const oldSet = globalThis.setInterval, oldClear = globalThis.clearInterval;
