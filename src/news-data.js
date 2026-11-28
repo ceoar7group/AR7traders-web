@@ -6,6 +6,8 @@
 
 export const MAX_SLUG_LENGTH = 90;
 
+import { articleCoverPath } from './article-cover.js';
+
 export function articleSlug(input) {
   const raw = typeof input === 'object' && input !== null
     ? (input.title || input.slug || '')
@@ -95,6 +97,12 @@ function fromSiteArticle(row) {
     date: String(row.date || row.published_at || '').trim(),
     min: Math.max(1, Number(row.read_min || row.min) || 2),
     img: String(row.image || row.img || '/assets/og/auction.jpg').trim(),
+    // 2026-11-25 (owner: "a separate image for each article"): every article
+    // written through the desk also gets its own GENERATED cover, composed
+    // server-side from its slug (api/_article-image.js) — free, deterministic
+    // and visibly different from every other article. `img` stays the real
+    // photograph for the share card; `cover` is what the news pages draw.
+    cover: articleCoverPath(slug),
     title,
     ex: String(row.excerpt || row.ex || '').trim(),
     body: String(row.body || '').trim(),

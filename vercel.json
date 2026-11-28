@@ -297,6 +297,10 @@
       "destination": "/api/site-content?og=:ref"
     },
     {
+      "source": "/api/cover/:slug",
+      "destination": "/api/site-content?cover=:slug"
+    },
+    {
       "source": "/inventory/:ref",
       "has": [
         {
