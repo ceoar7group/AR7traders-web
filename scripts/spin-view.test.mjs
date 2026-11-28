@@ -49,8 +49,15 @@ say('\n3) free tech only');
   const frames = read('src/spin-frames.js');
   ok(!/https?:\/\//.test(view) && !/https?:\/\//.test(frames), 'no third-party viewer, CDN or API is called');
   const imports = (view.match(/^import .*$/gm) || []).join('\n');
-  ok(!/three|babylon|model-viewer|sirv|cloudimage|@google/i.test(imports),
-    `no paid spin service and no WebGL dependency (imports: react + ./spin-frames.js only)`);
+  ok(!/babylon|model-viewer|sirv|cloudimage|@google/i.test(imports),
+    'no paid spin service and no hosted viewer — only our own modules are imported');
+  ok(/\nimport Walkaround3D from '\.\/walkaround-3d\.jsx';/.test(imports),
+    'the 3D tab comes from our own module');
+  // three.js is allowed, but ONLY behind a dynamic import in that module: it is
+  // ~170 kB and no visitor should download it to look at a photograph.
+  const three3d = read('src/walkaround-3d.jsx');
+  ok(/await import\('three'\)/.test(three3d) && !/^import .*from 'three'/m.test(three3d),
+    'three.js is fetched lazily, never on first paint');
   ok(/deviceorientation/.test(view), 'tilt steering uses the phone’s own sensor — free where it exists');
   ok(/requestPermission/.test(view), 'and asks iOS for permission instead of silently doing nothing');
   ok(/ArrowLeft/.test(view) && /ArrowRight/.test(view), 'the arrow keys turn the vehicle');
