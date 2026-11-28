@@ -122,6 +122,13 @@ import {
   AI_GROWTH_MIGRATION_FILE, pickUnusedCover
 } from './_agents.js';
 import { socialStatus, connectPlatform, disconnectPlatform } from './_social.js';
+// 2026-11-25 (owner: "an AI that generates a separate image for each article —
+// i need free"). Composed server-side with sharp, seeded from the article's own
+// slug: a distinct 1200×630 cover per article, no API key, no quota. The
+// optional keyless free-AI path stays behind ARTICLE_COVER_AI=on.
+import {
+  renderArticleCover, freeAiArt, ARTICLE_COVER_TYPE, ARTICLE_COVER_CACHE
+} from './_article-image.js';
 export { machinePath, machineTypePath, publishedUsdPrice };
 
 // The public read and the vehicle sitemap are quick, but the paste-a-link
@@ -662,6 +669,71 @@ export async function ogCardImage(req, res, injected = {}) {
     try {
       const fallback = machinery ? machineryCardContent(null, '') : cardContent(null, '');
       return sendImage(await renderShareCard(fallback, {}));
+    } catch {
+      res.statusCode = 302;
+      res.setHeader('Location', HEAD_FALLBACK_IMAGE);
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      return res.end();
+    }
+  }
+}
+
+
+/** GET ?cover=<slug> — the generated cover for one article (rewritten from
+ *  /api/cover/<slug> in vercel.json).
+ *
+ *  Contract mirrors the share cards: this exists so an article has an image of
+ *  its own, so it answers with an image even when the record is unknown, the
+ *  photo is gone or the runtime has no fonts. There is no error path that shows
+ *  a broken picture.
+ *
+ *  Free by construction: the composition runs locally on sharp (already a
+ *  dependency), the palette/geometry are seeded from the slug so one article
+ *  always renders the same cover, and `ARTICLE_COVER_AI=on` optionally asks the
+ *  keyless Pollinations API first — falling back here instantly if it is slow.
+ */
+export async function articleCoverImage(req, res, injected = {}) {
+  if ((req.method || 'GET') !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return sendPlain(res, 405, 'Method not allowed');
+  }
+  const wanted = articleSlug(String(req.query.cover || '').trim().slice(0, 140));
+  const send = (buffer, source) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', ARTICLE_COVER_TYPE);
+    res.setHeader('Cache-Control', ARTICLE_COVER_CACHE);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.setHeader('X-Cover-Source', source);
+    res.end(buffer);
+  };
+  let article = { title: wanted.replace(/-/g, ' ') || 'AR7 Traders', category: 'EXPORT GUIDE', slug: wanted };
+  let photo = null;
+  try {
+    const db = injected.db || adminClient();
+    const { data } = await db.from('site_articles').select('title,slug,category,image').limit(500);
+    const hit = (data || []).find(row => articleSlug(row?.title) === wanted);
+    if (hit) {
+      article = { title: hit.title, category: hit.category || 'EXPORT GUIDE', slug: wanted };
+      photo = hit.image || null;
+    } else {
+      const seeded = NEWS.find(a => articleSlug(a.title) === wanted);
+      if (seeded) {
+        article = { title: seeded.title, category: seeded.cat || 'EXPORT GUIDE', slug: wanted };
+        photo = seeded.img || null;
+      }
+    }
+  } catch { /* unknown article still gets a branded cover */ }
+  const useAi = String(injected.env?.ARTICLE_COVER_AI || process.env.ARTICLE_COVER_AI || '') === 'on';
+  try {
+    if (useAi) {
+      const art = await freeAiArt(article, { fetch: injected.fetch });
+      if (art) return send(await renderArticleCover(article, { photo: art, fetch: injected.fetch }), 'pollinations-free');
+    }
+    return send(await renderArticleCover(article, { photo, fetch: injected.fetch }), 'generated');
+  } catch (e) {
+    console.error('article-cover:', e);
+    try {
+      return send(await renderArticleCover(article, {}), 'generated');
     } catch {
       res.statusCode = 302;
       res.setHeader('Location', HEAD_FALLBACK_IMAGE);
@@ -1244,6 +1316,10 @@ export default async function handler(req, res, injected = {}) {
   // ---- The share card image: /api/og/<ref> (vercel.json rewrite) -----------
   if (String(req.query.og || '') !== '') {
     return ogCardImage(req, res, injected);
+  }
+  // ---- The generated per-article cover: /api/cover/<slug> (vercel.json) ----
+  if (String(req.query.cover || '') !== '') {
+    return articleCoverImage(req, res, injected);
   }
   if (String(req.query.machhead || '') !== '') {
     return machineryHead(req, res, injected);

@@ -26,7 +26,7 @@ import {
   sanitiseUntrusted, readinessScore, estimateCif, agentSettings, readAgents,
   updateAgent, acquireLease, releaseLease, runsToday, runAgent, AI_GROWTH_MIGRATION_FILE,
   approveDraft, executeDraft, cancelDraft, cancelRun, growthOverview,
-  draftDetail, runScheduledAgents
+  draftDetail, runScheduledAgents, selectFeaturedStock
 } from '../api/_agents.js';
 import { aiGrowthStorageStatus, AI_GROWTH_TABLES, classifyAiStorageFailure } from '../api/_agents.js';
 import { classifyGeminiFailure, OWNER_ACTION } from '../api/_gemini-errors.js';
@@ -410,6 +410,55 @@ say('\n-- an article draft can only ever create an unpublished article --');
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+say('\n-- the social agent posts about cars as well as machines --');
+{
+  // 2026-11-25 (owner: "the social agents must post about both cars AND
+  // machines — right now they only post machines"). The pool was `machinery`
+  // alone, so no car could ever be featured.
+  const machines = [
+    { id: 'm1', ref: 'AR7-EX-1', type: 'Excavator', brand: 'Sany', model: 'SY215C', status: 'Available',
+      published: true, price_usd: 88000, year: 2020, hours: 4200, location: 'Shanghai', origin: 'China',
+      specs: [{ label: 'Operating weight', value: '21,500 kg' }], images: ['/assets/machinery/doosan-dx250lca-1.webp'] }
+  ];
+  const cars = [
+    { id: 'c1', stock_no: '0203361A20261022W005', make: 'BMW', model: 'X6 xDrive35d M Sport', year: 2023,
+      km: '17,500', fuel: 'Hybrid', body: 'SUV', price: '$63,532', location: 'Aichi', status: 'In Stock',
+      published: true, grade: '4.5', eng: '3,000cc', tr: 'AT', drv: '4WD', seats: 5, col: 'Black',
+      image: '/assets/inventory/700054141330260802005.webp', images: ['/assets/inventory/700054141330260802005.webp', '/assets/covers/guide-fob-cif.webp'] }
+  ];
+  const db = fakeDb({ ...agentSeed({ social: { enabled: true } }), machinery: machines, site_listings: cars });
+  db.tables.ai_agents.find(a => a.agent === 'social').max_items_per_run = 2;
+  const run = await runAgent(db, 'social', { actor: owner, env: {} });
+  ok(run.state === 'completed' && run.drafts.length === 2,
+    `a run drafting two posts uses both catalogues (${run.drafts.length})`);
+  const kinds = run.drafts.map(d => d.meta.selection.kind).sort();
+  ok(kinds.includes('vehicle') && kinds.includes('machine'),
+    `one post is about a car and one about a machine (${kinds.join(' + ')})`);
+  const carPost = run.drafts.find(d => d.meta.selection.kind === 'vehicle');
+  ok(carPost && /X6/.test(carPost.title), `the car post names the actual car (${carPost && carPost.title})`);
+  ok(carPost.meta.selection.href === '/inventory/0203361A20261022W005', 'and links to its own inventory page');
+  ok(/Japan desk/.test(carPost.meta.captions.facebook) && !/China desk/.test(carPost.meta.captions.facebook),
+    'car copy talks about the Japan desk, not the China desk');
+  ok(/Indicative FOB USD 63,532/.test(carPost.meta.captions.instagram), 'the car caption keeps its price and the indicative basis');
+  ok(/17,500 km/.test(carPost.meta.captions.linkedin), 'the car caption carries the real mileage');
+  ok(carPost.meta.hashtags.includes('#japaneseusedcars'), `car hashtags are about cars (${carPost.meta.hashtags.join(' ')})`);
+  const machinePost = run.drafts.find(d => d.meta.selection.kind === 'machine');
+  ok(/China desk/.test(machinePost.meta.captions.facebook), 'the machine post still talks about the China desk');
+  ok(machinePost.meta.hashtags.includes('#usedmachinery'), 'and keeps its machinery hashtags');
+  // Day rotation decides which catalogue opens the feed, so two consecutive
+  // days never lead with the same category.
+  const day = 24 * 60 * 60 * 1000;
+  const even = await selectFeaturedStock(fakeDb({ machinery: machines, site_listings: cars }), { limit: 1, now: new Date(86_400_000 * 20) });
+  const odd = await selectFeaturedStock(fakeDb({ machinery: machines, site_listings: cars }), { limit: 1, now: new Date(86_400_000 * 20 + day) });
+  ok(even.items[0].kind !== odd.items[0].kind,
+    `consecutive days lead with different catalogues (${even.items[0].kind} then ${odd.items[0].kind})`);
+  // With no cars published the agent behaves exactly as before.
+  const machinesOnly = await runAgent(fakeDb({ ...agentSeed({ social: { enabled: true } }), machinery: machines }), 'social', { actor: owner, env: {} });
+  ok(machinesOnly.drafts.length === 1 && machinesOnly.drafts[0].meta.selection.kind === 'machine',
+    'a machinery-only catalogue still drafts exactly as before');
+}
+
 say('\n-- social drafts carry per-channel text and never claim to be posted --');
 {
   const stock = [
@@ -470,6 +519,49 @@ say('\n-- the SEO agent never re-files a brief that is already awaiting review -
   ok(second.state === 'completed' && briefsAfterSecond.length === briefsAfterFirst.length,
     `a second run re-files nothing while the briefs await review (${briefsAfterFirst.length} before, ${briefsAfterSecond.length} after)`);
   ok(second.run.steps.some(s => /dedupe:/.test(s.step)), 'and the run says WHY it filed nothing new');
+}
+
+// ---------------------------------------------------------------------------
+say('\n-- the SEO engine never re-files a topic it has already covered --');
+{
+  // 2026-11-27 (owner: "the SEO engine keeps suggesting and creating the same
+  // articles"). The rails used to look only at briefs still AWAITING review, so
+  // dismissing, approving or executing one put its topic straight back on the
+  // queue — and the idea list is deterministic, so every scheduled run filed the
+  // same research again. Coverage now lasts.
+  const db = fakeDb({ ...agentSeed({ seo: { enabled: true, max_runs_per_day: 9 } }) });
+  await runAgent(db, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const firstBriefs = db.tables.ai_agent_drafts.filter(d => d.kind === 'brief');
+  const firstIds = firstBriefs.map(d => d.id);
+  const firstTitles = firstBriefs.map(d => d.title);
+  ok(firstTitles.length > 0, `the first run files research briefs (${firstTitles.length})`);
+  // The operator reviews them all and dismisses what is not worth pursuing.
+  for (const row of db.tables.ai_agent_drafts.filter(d => d.kind === 'brief')) row.status = 'dismissed';
+  await runAgent(db, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const after = db.tables.ai_agent_drafts.filter(d => d.kind === 'brief');
+  const fresh = after.filter(d => !firstIds.includes(d.id));      // briefs this run added
+  const repeats = fresh.filter(d => firstTitles.includes(d.title));
+  ok(repeats.length === 0,
+    `a dismissed topic is never filed again (${repeats.length} of ${fresh.length} new briefs repeat an earlier one)`);
+  // And a topic already written up as an article is covered too, brief or not.
+  const db2 = fakeDb({ ...agentSeed({ seo: { enabled: true, max_runs_per_day: 9 } }) });
+  const { keywordIdeas } = await import('../api/_seo-content.js');
+  // keywordIdeas() carries the phrasing in `query` (ideas are catalogue-derived,
+  // never measured), so that is the string an article would be titled after.
+  const firstIdea = keywordIdeas()[0];
+  const firstQuery = String(firstIdea.query || firstIdea.topic || '');
+  db2.tables.site_articles = [{ id: 'art-1', title: firstQuery, slug: firstQuery.toLowerCase().replace(/[^a-z0-9]+/g, '-'), published: true }];
+  await runAgent(db2, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const filedForWrittenTopic = db2.tables.ai_agent_drafts.filter(d => d.kind === 'brief'
+    && String(d.title).toLowerCase() === `research brief — ${firstQuery}`.toLowerCase());
+  ok(filedForWrittenTopic.length === 0,
+    'a topic that already has an article is not briefed a second time');
+  // An exhausted (or backlogged) engine says so instead of filing duplicates.
+  const db3 = fakeDb({ ...agentSeed({ seo: { enabled: true, max_runs_per_day: 9 } }) });
+  await runAgent(db3, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const backlogRun = await runAgent(db3, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  ok(backlogRun.run.steps.some(s => /dedupe:queue/.test(s.step)),
+    'with a backlog it reports the queue, not a fresh set of near-identical briefs');
 }
 
 // ---------------------------------------------------------------------------
