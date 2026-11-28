@@ -50,6 +50,9 @@ export const AGENT_LABELS = { leads: 'Lead Gen & CRM', seo: 'SEO Engine', social
 
 /** How many items one run may process. Bounded so a serverless call finishes. */
 export const AGENT_MAX_ITEMS = 10;
+// How many unreviewed research briefs the SEO engine will tolerate before it
+// stops filing new ones: a backlog is not progress (see runSeoAgent).
+export const OPEN_BRIEF_LIMIT = 5;
 
 /** A run lease. Longer than the function budget so a slow run is not stolen. */
 export const AGENT_LEASE_MS = 90000;
@@ -571,40 +574,79 @@ async function runSeoAgent(db, { items = [], env = process.env, fetch: fetchImpl
   // With no explicit items the agent works its OWN queue (the catalogue-derived
   // idea list), bounded — an agent run must never be a silent no-op just because
   // the caller did not pass a work list.
-  const queue = (items.length ? items : ideas).slice(0, AGENT_MAX_ITEMS);
-  const counts = { attempted: queue.length, succeeded: 0, skipped: 0, failed: 0, drafted: 0 };
+  const counts = { attempted: 0, succeeded: 0, skipped: 0, failed: 0, drafted: 0 };
 
   const technical = safeTechnicalChecks(db);
   steps.push({ step: 'technical-checks', state: technical.some(c => !c.ok) ? 'attention' : 'ok', detail: `${technical.filter(c => c.ok).length}/${technical.length} checks pass` });
 
-  // 2026-11-10 (owner screenshot): every scheduled run re-filed the same
-  // catalogue-derived briefs until the review queue held dozens of
-  // near-identical rows. A brief is an open research TODO — filing it twice
-  // adds queue noise, not work. Two rails:
-  //   (a) a brief whose title is already awaiting review is never filed again;
-  //   (b) one brief per TARGET page per run — "import used cars from Japan to
-  //       X" and "Japan to X car shipping documents" are the same research job
-  //       for the same destination page.
-  const openBriefs = new Set();      // titles of briefs already awaiting review
-  const briefedTargets = new Set();  // target pages that already have an open brief
+  // 2026-11-27 (owner: "the SEO engine keeps suggesting and creating the same
+  // articles"). Two bugs fed each other. The rails only looked at briefs still
+  // AWAITING review, so the moment an operator approved, executed or dismissed
+  // one it left the set — and the idea list itself is deterministic, so the next
+  // scheduled run re-filed the same research brief, and the one after that. On
+  // top of that the queue was always `ideas.slice(0, 10)`: if those ten were
+  // covered, the run refiled them forever instead of moving on to idea eleven.
+  //
+  // Coverage is now the whole history, not the open queue:
+  //   • every draft ever filed by the content agents, in ANY status;
+  //   • every article already written (site_articles), published or not;
+  //   • the seeded articles that ship with the site.
+  // and the queue is the ideas that are NOT already covered. When nothing is
+  // left, the run says so instead of filing a duplicate.
+  const topicKey = value => String(value || '')
+    .replace(/^\s*(research brief|post|guide|article)\s*[\u2013\u2014-]\s*/i, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
+  const seenTopics = new Set();      // every topic already briefed or written, ever
+  const briefedTargets = new Set();  // target pages that already have research
+  let awaitingBriefs = 0;            // unreviewed research already in the queue
   try {
-    const { data: existing } = await db.from('ai_agent_drafts').select('title,target,kind,status').eq('kind', 'brief').eq('status', 'awaiting_review').limit(500);
-    for (const row of existing || []) {
-      openBriefs.add(String(row.title || '').trim().toLowerCase());
+    const [draftRows, articleRows] = await Promise.all([
+      db.from('ai_agent_drafts').select('title,target,kind,status').limit(1000),
+      db.from('site_articles').select('title,slug').limit(1000)
+    ]);
+    for (const row of (draftRows && draftRows.data) || []) {
+      if (row.kind !== 'brief' && row.kind !== 'article') continue;
+      const key = topicKey(row.title);
+      if (key) seenTopics.add(key);
       if (row.target) briefedTargets.add(String(row.target));
+      if (row.kind === 'brief' && row.status === 'awaiting_review') awaitingBriefs++;
     }
-  } catch { /* an unreadable queue only disables dedupe for this run */ }
+    for (const row of (articleRows && articleRows.data) || []) {
+      if (row.title) seenTopics.add(topicKey(row.title));
+      if (row.slug) seenTopics.add(topicKey(String(row.slug).replace(/-/g, ' ')));
+    }
+  } catch { /* an unreadable history only disables dedupe for this run */ }
+  for (const a of NEWS) if (a && a.title) seenTopics.add(topicKey(a.title));
+
+  const uncovered = ideas.filter(i => {
+    const key = topicKey(i.topic || i.query);
+    if (key && seenTopics.has(key)) return false;
+    if (i.target && briefedTargets.has(String(i.target))) return false;
+    return true;
+  });
+  // A backlog is not progress: five unreviewed briefs is already more research
+  // than one person can act on this week, so the engine stops filing until some
+  // of it is reviewed or dismissed. What it must NEVER do is file the same
+  // topic twice — that is the bug this replaces.
+  const backlogged = awaitingBriefs >= OPEN_BRIEF_LIMIT;
+  const queue = (items.length ? items : backlogged ? [] : uncovered).slice(0, AGENT_MAX_ITEMS);
+  counts.attempted = queue.length;
+  if (!items.length && !queue.length) {
+    steps.push({ step: 'dedupe:queue', state: 'skipped', detail: backlogged
+      ? `${awaitingBriefs} research briefs are already waiting for review. The engine is not filing more until some are reviewed, executed or dismissed — a backlog is not progress.`
+      : `Every one of the ${ideas.length} catalogue-derived ideas already has a research brief or an article. Nothing was re-filed — add a new market, model or service page to create fresh work, or clear old drafts to revisit them.` });
+  }
   const fileBrief = draft => {
-    const titleKey = String(draft.title || '').trim().toLowerCase();
+    const titleKey = topicKey(draft.title);
     const targetKey = draft.target ? String(draft.target) : null;
-    if (openBriefs.has(titleKey) || (targetKey && briefedTargets.has(targetKey))) {
-      steps.push({ step: `dedupe:${draft.title}`, state: 'skipped', detail: 'A research brief for this topic or page is already awaiting review. Not filed again.' });
+    if (seenTopics.has(titleKey) || (targetKey && briefedTargets.has(targetKey))) {
+      steps.push({ step: `dedupe:${draft.title}`, state: 'skipped', detail: 'This topic or page already has a research brief or an article. Not filed again.' });
       // A blocked phrasing still claims its page: "import used cars to X" and
       // "X car shipping documents" must never both queue research for X.
       if (targetKey) briefedTargets.add(targetKey);
       return false;
     }
-    openBriefs.add(titleKey);
+    seenTopics.add(titleKey);
     if (targetKey) briefedTargets.add(targetKey);
     drafts.push(draft);
     return true;

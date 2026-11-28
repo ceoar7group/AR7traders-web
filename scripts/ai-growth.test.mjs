@@ -473,6 +473,49 @@ say('\n-- the SEO agent never re-files a brief that is already awaiting review -
 }
 
 // ---------------------------------------------------------------------------
+say('\n-- the SEO engine never re-files a topic it has already covered --');
+{
+  // 2026-11-27 (owner: "the SEO engine keeps suggesting and creating the same
+  // articles"). The rails used to look only at briefs still AWAITING review, so
+  // dismissing, approving or executing one put its topic straight back on the
+  // queue — and the idea list is deterministic, so every scheduled run filed the
+  // same research again. Coverage now lasts.
+  const db = fakeDb({ ...agentSeed({ seo: { enabled: true, max_runs_per_day: 9 } }) });
+  await runAgent(db, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const firstBriefs = db.tables.ai_agent_drafts.filter(d => d.kind === 'brief');
+  const firstIds = firstBriefs.map(d => d.id);
+  const firstTitles = firstBriefs.map(d => d.title);
+  ok(firstTitles.length > 0, `the first run files research briefs (${firstTitles.length})`);
+  // The operator reviews them all and dismisses what is not worth pursuing.
+  for (const row of db.tables.ai_agent_drafts.filter(d => d.kind === 'brief')) row.status = 'dismissed';
+  await runAgent(db, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const after = db.tables.ai_agent_drafts.filter(d => d.kind === 'brief');
+  const fresh = after.filter(d => !firstIds.includes(d.id));      // briefs this run added
+  const repeats = fresh.filter(d => firstTitles.includes(d.title));
+  ok(repeats.length === 0,
+    `a dismissed topic is never filed again (${repeats.length} of ${fresh.length} new briefs repeat an earlier one)`);
+  // And a topic already written up as an article is covered too, brief or not.
+  const db2 = fakeDb({ ...agentSeed({ seo: { enabled: true, max_runs_per_day: 9 } }) });
+  const { keywordIdeas } = await import('../api/_seo-content.js');
+  // keywordIdeas() carries the phrasing in `query` (ideas are catalogue-derived,
+  // never measured), so that is the string an article would be titled after.
+  const firstIdea = keywordIdeas()[0];
+  const firstQuery = String(firstIdea.query || firstIdea.topic || '');
+  db2.tables.site_articles = [{ id: 'art-1', title: firstQuery, slug: firstQuery.toLowerCase().replace(/[^a-z0-9]+/g, '-'), published: true }];
+  await runAgent(db2, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const filedForWrittenTopic = db2.tables.ai_agent_drafts.filter(d => d.kind === 'brief'
+    && String(d.title).toLowerCase() === `research brief — ${firstQuery}`.toLowerCase());
+  ok(filedForWrittenTopic.length === 0,
+    'a topic that already has an article is not briefed a second time');
+  // An exhausted (or backlogged) engine says so instead of filing duplicates.
+  const db3 = fakeDb({ ...agentSeed({ seo: { enabled: true, max_runs_per_day: 9 } }) });
+  await runAgent(db3, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  const backlogRun = await runAgent(db3, 'seo', { actor: owner, trigger: 'manual', env: {} });
+  ok(backlogRun.run.steps.some(s => /dedupe:queue/.test(s.step)),
+    'with a backlog it reports the queue, not a fresh set of near-identical briefs');
+}
+
+// ---------------------------------------------------------------------------
 say('\n-- executed agent articles each wear their own cover image --');
 {
   // 2026-11-10 (owner report): agent articles were written coverless, and the
