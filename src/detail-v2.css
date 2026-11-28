@@ -1174,3 +1174,126 @@ html[data-theme=dark] .detail-mobile-cta .dmc-enquire {
 @media (max-width:650px){
   .detail-mobile-cta{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--card) 97%,transparent)}
 }
+
+/* ---------------------------------------------------------------------------
+   360° walkaround — the dedicated spin button and its viewer (2026-11-25).
+
+   The button is a sibling of "Enlarge" and deliberately styled the same, so
+   the gallery toolbar reads as [◀ 3/18 ▶] [360° view] [Enlarge]: the walkaround
+   is a first-class view, not a hidden long-press. Free tech only — the frames
+   are the listing's own photographs (src/spin-view.jsx).
+   --------------------------------------------------------------------------- */
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-spin {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  height: 38px !important;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 16px !important;
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent) !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  color: var(--ink) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px;
+  font: 700 11px/1 Manrope, sans-serif !important;
+  letter-spacing: .3px;
+  cursor: pointer;
+  transition: background .2s var(--d-ease), transform .2s var(--d-ease);
+}
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-spin:hover {
+  background: color-mix(in srgb, var(--ink) 8%, #fff) !important;
+}
+.detail-page .detail-gallery .detail-gallery-toolbar .gallery-spin svg { width: 14px; height: 14px; }
+
+.spin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(3, 43, 29, .82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.spin-card {
+  width: min(920px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border-radius: 20px;
+  background: #04231a;
+  color: #fff;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .45);
+  padding: 16px 16px 12px;
+}
+.spin-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.spin-head b { display: block; font: 800 15px/1.2 Manrope, sans-serif; letter-spacing: .2px; }
+.spin-head small { display: block; margin-top: 2px; font: 500 12px/1.3 Manrope, sans-serif; color: #9fc7b3; }
+.spin-close {
+  min-height: 40px;
+  min-width: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: 700 12px/1 Manrope, sans-serif;
+  cursor: pointer;
+}
+.spin-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 820 / 550;
+  max-height: min(62vh, 560px);
+  border-radius: 14px;
+  overflow: hidden;
+  background: radial-gradient(120% 100% at 50% 0%, #0a3d2c, #04231a 70%);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.spin-stage:active { cursor: grabbing; }
+.spin-stage img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.spin-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(3, 43, 29, .72);
+  color: #eafff3;
+  font: 700 11px/1 Manrope, sans-serif;
+  letter-spacing: .4px;
+}
+.spin-badge b { color: #f4bd55; }
+.spin-loading { position: absolute; left: 12px; bottom: 12px; font: 600 11px/1 Manrope, sans-serif; color: #9fc7b3; }
+.spin-empty { padding: 24px; text-align: center; font: 500 13px/1.5 Manrope, sans-serif; color: #cfe9dc; }
+.spin-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.spin-controls button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, .24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: #fff;
+  font: 700 12px/1 Manrope, sans-serif;
+  cursor: pointer;
+}
+.spin-controls button:hover { background: rgba(255, 255, 255, .14); }
+.spin-controls .spin-play { border-color: #e09a26; color: #f4bd55; }
+.spin-controls button:disabled { opacity: .55; cursor: default; }
+.spin-note { margin: 10px 2px 2px; font: 500 11.5px/1.5 Manrope, sans-serif; color: #9fc7b3; }
+
+@media (max-width: 650px) {
+  .detail-page .detail-gallery .detail-gallery-toolbar .gallery-spin { padding: 0 12px !important; }
+  .spin-card { padding: 12px; border-radius: 16px; }
+  .spin-stage { aspect-ratio: 4 / 3; max-height: 52vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin-stage img { transition: none; }
+}
