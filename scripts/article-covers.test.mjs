@@ -44,7 +44,7 @@ say('\n1) the URL contract');
   ok(articleCoverPath('a b') === '/api/cover/a%20b', 'and is encoded, so no slug can reshape the URL');
   ok(articleCoverUrl('https://ar7traders.com', 'x') === 'https://ar7traders.com/api/cover/x',
     'the absolute URL the head publishes is the same one the endpoint serves');
-  ok(isCoverPath('/api/cover/x') && !isCoverPath('/assets/covers/x.webp'),
+  ok(isCoverPath('/api/cover/x') && !isCoverPath('/assets/covers/guide-fob-cif.webp'),
     'a stored cover is recognisable, so the endpoint never uses its own output as a source photo');
   ok(ARTICLE_COVER.width === 1200 && ARTICLE_COVER.height === 630, 'the cover is 1200×630');
   ok(ARTICLE_COVER_TYPE === 'image/jpeg', 'and served as JPEG');

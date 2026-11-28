@@ -425,7 +425,7 @@ say('\n-- the social agent posts about cars as well as machines --');
     { id: 'c1', stock_no: '0203361A20261022W005', make: 'BMW', model: 'X6 xDrive35d M Sport', year: 2023,
       km: '17,500', fuel: 'Hybrid', body: 'SUV', price: '$63,532', location: 'Aichi', status: 'In Stock',
       published: true, grade: '4.5', eng: '3,000cc', tr: 'AT', drv: '4WD', seats: 5, col: 'Black',
-      image: '/assets/inventory/x6.webp', images: ['/assets/inventory/x6.webp', '/assets/inventory/x6-2.webp'] }
+      image: '/assets/inventory/700054141330260802005.webp', images: ['/assets/inventory/700054141330260802005.webp', '/assets/covers/guide-fob-cif.webp'] }
   ];
   const db = fakeDb({ ...agentSeed({ social: { enabled: true } }), machinery: machines, site_listings: cars });
   db.tables.ai_agents.find(a => a.agent === 'social').max_items_per_run = 2;
