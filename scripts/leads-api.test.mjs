@@ -42,7 +42,7 @@ function fakeRes() {
   r.end = p => { try { r.body = JSON.parse(p); } catch { r.body = p; } };
   return r;
 }
-const { default: handler } = await import('../api/leads.js');
+const { default: handler, notifyLead, leadRecipients, leadSender, leadProviders } = await import('../api/leads.js');
 async function post(body, seed, failures = {}, options = {}) {
   const { db, tables } = memDb(seed, failures);
   const res = fakeRes();
@@ -50,6 +50,100 @@ async function post(body, seed, failures = {}, options = {}) {
   const realError = console.error; console.error = (...args) => logs.push(args);
   try { await handler({ method: 'POST', body }, res, { db, notify: options.notify ?? false }); } finally { console.error = realError; }
   return { res, tables, logs };
+}
+
+say('\n1) the lead email goes to the address the owner actually edits');
+{
+  // 2026-11-25 (owner: "can you do lead emails with my current email?"). The
+  // recipient used to come from LEAD_NOTIFY_TO alone, so changing "Enquiry
+  // inbox" in CRM → Settings did nothing at all.
+  ok(leadRecipients({ enquiry_inbox: 'owner@ar7traders.com' }, {})[0] === 'owner@ar7traders.com',
+    'the CRM enquiry inbox is the first recipient');
+  ok(leadRecipients({}, { LEAD_NOTIFY_TO: 'env@example.com' })[0] === 'env@example.com',
+    'with no CRM inbox the env var is used');
+  ok(leadRecipients({ contact_email: 'contact@example.com' }, {})[0] === 'contact@example.com',
+    'then the public contact address');
+  const fallback = leadRecipients({}, {});
+  ok(fallback.length === 1 && fallback[0] === 'ar7tradersinfo@gmail.com',
+    'and a built-in fallback so a misconfiguration still reaches a real inbox');
+  const many = leadRecipients({ enquiry_inbox: 'a@x.com, b@y.com; not-an-email , A@X.com' }, {});
+  ok(many.length === 2 && many[0] === 'a@x.com' && many[1] === 'b@y.com',
+    `several inboxes are allowed, invalid ones dropped and duplicates ignored (${many.join(', ')})`);
+  ok(leadRecipients({ enquiry_inbox: 'owner@ar7traders.com' }, { LEAD_NOTIFY_TO: 'env@example.com' }).length === 2,
+    'the CRM inbox and the env address both receive it, so a migration to the CRM never loses mail');
+  ok(leadSender({}) === 'AR7 Traders <onboarding@resend.dev>', 'the default sender is Resend’s onboarding address');
+  ok(leadSender({ LEAD_FROM: 'AR7 Leads <leads@ar7traders.com>' }) === 'AR7 Leads <leads@ar7traders.com>',
+    'LEAD_FROM overrides it once a domain is verified');
+}
+
+say('\n2) a refused email is explained, never swallowed');
+{
+  const lead = { name: 'Imran Khan', phone: '+92 300 1234567', country: 'Pakistan', vehicle_interest: 'Toyota Aqua' };
+  const noKey = await notifyLead(lead, { settings: {}, env: {} });
+  ok(noKey.status === 'not-configured' && /RESEND_API_KEY/.test(noKey.hint),
+    'no provider key says so, and names the variable to add');
+
+  const sent = await notifyLead(lead, {
+    settings: { enquiry_inbox: 'owner@ar7traders.com' }, env: { RESEND_API_KEY: 'k' },
+    fetch: async () => ({ ok: true, status: 200 })
+  });
+  ok(sent.status === 'sent' && sent.to[0] === 'owner@ar7traders.com', 'a good send reports sent, to the CRM inbox');
+
+  const refused = await notifyLead(lead, {
+    settings: {}, env: { RESEND_API_KEY: 'k' },
+    fetch: async () => ({ ok: false, status: 403 })
+  });
+  ok(refused.status === 'failed' && refused.code === 'HTTP_403' && /verify ar7traders\.com/i.test(refused.hint),
+    'Resend’s 403 (unverified sender) comes back with the exact fix, not a silent failure');
+
+  const badKey = await notifyLead(lead, { env: { RESEND_API_KEY: 'k' }, fetch: async () => ({ ok: false, status: 401 }) });
+  ok(/API key/.test(badKey.hint), 'a rejected key says the key is the problem');
+
+  const offline = await notifyLead(lead, { env: { RESEND_API_KEY: 'k' }, fetch: async () => { throw new Error('down'); } });
+  ok(offline.status === 'failed' && offline.code === 'NETWORK', 'a network failure is reported as one');
+}
+
+say('\n3) two inboxes and a provider that refuses one of them');
+{
+  // The owner's real setup (2026-11-25): leads must reach BOTH inboxes, but
+  // Resend's free onboarding sender only delivers to its account owner. A
+  // refused batch is retried one address at a time so the good inbox still
+  // gets the lead.
+  const lead = { name: 'Imran Khan', phone: '+92 300 1234567', country: 'Pakistan', vehicle_interest: 'Toyota Aqua' };
+  const settings = { enquiry_inbox: 'ar7tradersinfo@gmail.com, ceoar7grouplimited@gmail.com' };
+  const attempts = [];
+  const result = await notifyLead(lead, {
+    settings, env: { RESEND_API_KEY: 'k' },
+    fetch: async (url, opts) => {
+      const to = JSON.parse(opts.body).to;
+      attempts.push(to);
+      // The batch fails, and the second address is the one Resend refuses.
+      if (to.length > 1) return { ok: false, status: 403 };
+      return { ok: to[0] === 'ar7tradersinfo@gmail.com', status: to[0] === 'ar7tradersinfo@gmail.com' ? 200 : 403 };
+    }
+  });
+  ok(result.status === 'partial', `one inbox refused is reported as partial, not as total failure (${result.status})`);
+  ok(result.delivered.includes('ar7tradersinfo@gmail.com'), 'the inbox the provider accepts still receives the lead');
+  ok(result.refused.includes('ceoar7grouplimited@gmail.com'), 'and the refused one is named');
+  ok(attempts.length === 3, `the batch is tried first, then each address alone (${attempts.length} calls)`);
+  ok(/verify ar7traders\.com/.test(result.hint || ''), 'with the exact fix in the hint');
+
+  const allGood = await notifyLead(lead, {
+    settings, env: { RESEND_API_KEY: 'k' }, fetch: async () => ({ ok: true, status: 200 })
+  });
+  ok(allGood.status === 'sent' && allGood.delivered.length === 2, 'both inboxes on one message when the provider allows it');
+
+  // Brevo is the free backup: it verifies a single SENDER address, no domain.
+  const brevoCalls = [];
+  const brevo = await notifyLead(lead, {
+    settings: { enquiry_inbox: 'owner@ar7traders.com' }, env: { BREVO_API_KEY: 'bk' },
+    fetch: async (url, opts) => { brevoCalls.push({ url: String(url), opts }); return { ok: true, status: 201 }; }
+  });
+  ok(brevo.status === 'sent' && brevo.provider === 'brevo', 'with only a Brevo key the lead goes out through Brevo');
+  ok(brevoCalls[0].url.includes('api.brevo.com') && JSON.parse(brevoCalls[0].opts.body).to[0].email === 'owner@ar7traders.com',
+    'posted to Brevo’s own API with the inbox as recipient');
+  ok(leadProviders({ RESEND_API_KEY: 'r', BREVO_API_KEY: 'b' }).join(',') === 'resend,brevo',
+    'Resend is tried first when both keys exist');
 }
 
 say('\napi/leads.js — the public enquiry form');

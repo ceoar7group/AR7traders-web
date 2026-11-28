@@ -108,42 +108,185 @@ async function chatReply({message,history,settings,db}){
  return{reply:playbook(message,settings),source:'playbook'};
 }
 
-// Optional instant lead e-mail via Resend. The lead is already persisted
-// before this runs. We await a bounded attempt (serverless can freeze a
-// fire-and-forget promise after the response), but a mail outage never turns a
-// saved enquiry into a failed submission. No personal detail is logged.
-async function notifyLead(lead){
- const key=String(process.env.RESEND_API_KEY||'').trim();
- const to=String(process.env.LEAD_NOTIFY_TO||'').trim();
- if(!key||!to)return 'not-configured';
- const from=String(process.env.LEAD_FROM||'').trim()||'AR7 Traders <onboarding@resend.dev>';
- const subject='New website lead: '+lead.name;
- const lines=[
-  'Name: '+lead.name,
-  lead.email?'Email: '+lead.email:null,
-  'Phone: '+lead.phone,
-  'Country: '+lead.country,
-  lead.budget?('Budget: $'+lead.budget):null,
-  'Looking for: '+lead.vehicle_interest,
-  lead.notes?lead.notes:null,
-  'Source: '+(lead.source||'Website')
- ].filter(Boolean).join('\n');
- const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),3000);
- try{
-  const response=await fetch('https://api.resend.com/emails',{
-   method:'POST',
-   headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
-   body:JSON.stringify({from,to,subject,text:lines,html:'<pre style="font-family:inherit;white-space:pre-wrap">'+lines.replace(/</g,'&lt;')+'</pre>'}),
-   signal:controller.signal
-  });
-  if(!response.ok){console.error('lead notification failed',{stage:'notify',code:'HTTP_'+response.status});return 'failed';}
-  return 'sent';
- }catch(error){
-  console.error('lead notification failed',{stage:'notify',code:error?.name==='AbortError'?'TIMEOUT':'NETWORK'});
-  return 'failed';
- }finally{clearTimeout(timer);}
+// Instant lead e-mail.
+//
+// 2026-11-25 (owner: "can you do lead emails with my current email?"). Two
+// things were wrong with the old version, both silent:
+//   • the recipient came ONLY from the LEAD_NOTIFY_TO env var, so the address
+//     the owner edits in CRM → Settings ("Enquiry inbox") was ignored — changing
+//     it there did nothing;
+//   • when Resend refused (an unverified sender, a wrong key) the failure was
+//     a console line nobody reads, and the form still looked fine.
+//
+// Recipients now resolve in the order the owner expects: the CRM's enquiry
+// inbox, then LEAD_NOTIFY_TO, then the public contact address, then the
+// built-in fallback — comma-separated lists allowed, invalid addresses dropped.
+// The sender is LEAD_FROM when set (a verified domain address), otherwise
+// Resend's onboarding sender, whose restriction is explained in the returned
+// hint instead of being left as a mystery 403.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_RECIPIENTS = 5;
+
+/** Who receives the lead email. Pure and exported so the contract is testable. */
+export function leadRecipients(settings = {}, env = process.env) {
+  const seen = new Set();
+  const out = [];
+  const add = value => String(value || '')
+    .split(/[,;]+/)
+    .map(part => part.trim().toLowerCase())
+    .filter(part => EMAIL_RE.test(part))
+    .forEach(part => { if (!seen.has(part)) { seen.add(part); out.push(part); } });
+  add(settings.enquiry_inbox);
+  add(env.LEAD_NOTIFY_TO);
+  add(settings.contact_email);
+  // The built-in address is a last resort ONLY: adding it to every send would
+  // quietly mail a second inbox the owner never asked for.
+  if (!out.length) add(FALLBACK_CONTACTS.contact_email);
+  return out.slice(0, MAX_RECIPIENTS);
 }
+
+/** The From: line. A verified domain address is what actually delivers. */
+export function leadSender(env = process.env) {
+  const from = String(env.LEAD_FROM || '').trim();
+  return from || 'AR7 Traders <onboarding@resend.dev>';
+}
+
+/** Which providers have a key. Resend first, Brevo second — both free plans. */
+export function leadProviders(env = process.env) {
+  const list = [];
+  if (String(env.RESEND_API_KEY || '').trim()) list.push('resend');
+  if (String(env.BREVO_API_KEY || '').trim()) list.push('brevo');
+  return list;
+}
+
+async function postJson(url, headers, payload, { fetch: fetchImpl, timeout }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetchImpl(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    return { ok: !!response.ok, status: Number(response.status) || 0 };
+  } catch (error) {
+    return { ok: false, status: 0, code: error?.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Send one message through one provider. Returns {ok, status, code}. */
+async function sendVia(provider, { env, from, to, subject, text, html, fetch: fetchImpl, timeout = 4000 }) {
+  if (provider === 'brevo') {
+    const payload = {
+      sender: { name: 'AR7 Traders', email: (from.match(/<([^>]+)>/)?.[1] || from).trim() },
+      to: to.map(email => ({ email })),
+      subject, textContent: text, htmlContent: html
+    };
+    const out = await postJson('https://api.brevo.com/v3/smtp/email', { 'api-key': String(env.BREVO_API_KEY).trim() }, payload, { fetch: fetchImpl, timeout });
+    return { ...out, provider };
+  }
+  const payload = { from, to, subject, text, html };
+  const out = await postJson('https://api.resend.com/emails', { Authorization: 'Bearer ' + String(env.RESEND_API_KEY).trim() }, payload, { fetch: fetchImpl, timeout });
+  return { ...out, provider: 'resend' };
+}
+
+const FAILURE_HINTS = {
+  resend: status => status === 403
+    ? 'Resend refused the sender. onboarding@resend.dev can only deliver to the Resend account owner — verify ar7traders.com at resend.com/domains and set LEAD_FROM to an address on it (e.g. leads@ar7traders.com).'
+    : (status === 401 ? 'The Resend API key was rejected — create a new key and update RESEND_API_KEY.'
+      : (status === 422 ? 'Resend rejected the message (422) — usually an unverified sender or an address it will not deliver to.'
+        : 'Resend returned ' + status + '.')),
+  brevo: status => status === 401
+    ? 'The Brevo API key was rejected — update BREVO_API_KEY.'
+    : (status === 400 ? 'Brevo rejected the sender — verify the sender address in Brevo → Senders & IPs.'
+      : 'Brevo returned ' + status + '.')
+};
+
+/**
+ * Send one lead email. Never throws and never blocks the enquiry: the lead is
+ * already saved before this runs, and a mail outage must not fail a submission.
+ *
+ * Two recipients and one free provider with a sender restriction is a normal
+ * situation (owner's case, 2026-11-25): Resend will refuse an address that is
+ * not the account owner. So a refused batch is retried ONE RECIPIENT AT A TIME —
+ * the inbox the provider accepts still gets the lead, and the caller is told
+ * exactly which address was refused and why, instead of losing the whole email.
+ */
+export async function notifyLead(lead, {
+  settings = null, env = process.env, fetch: fetchImpl = globalThis.fetch
+} = {}) {
+  const to = leadRecipients(settings || {}, env);
+  const from = leadSender(env);
+  const providers = leadProviders(env);
+  if (!providers.length) {
+    return { status: 'not-configured', to, from, code: 'NO_KEY', delivered: [], refused: [],
+      hint: 'No email provider key is set. Add RESEND_API_KEY in Vercel (free plan: 3,000 emails/month) — leads are still saved either way.' };
+  }
+  if (!to.length) {
+    return { status: 'not-configured', to: [], from, code: 'NO_RECIPIENT', delivered: [], refused: [],
+      hint: 'No valid recipient address. Set CRM → Settings → Enquiry inbox to the address that should receive leads.' };
+  }
+  if (typeof fetchImpl !== 'function') {
+    return { status: 'failed', to, from, code: 'NO_FETCH', delivered: [], refused: to,
+      hint: 'This runtime cannot make outbound requests.' };
+  }
+  const subject = 'New website lead: ' + lead.name;
+  const lines = [
+    'Name: ' + lead.name,
+    lead.email ? 'Email: ' + lead.email : null,
+    'Phone: ' + lead.phone,
+    'Country: ' + lead.country,
+    lead.budget ? ('Budget: $' + lead.budget) : null,
+    'Looking for: ' + lead.vehicle_interest,
+    lead.notes ? lead.notes : null,
+    isTestLead(lead) ? 'This is the settings test button. It is not a customer enquiry.' : null,
+    'Source: ' + (lead.source || 'Website')
+  ].filter(Boolean).join('\n');
+  const html = '<pre style="font-family:inherit;white-space:pre-wrap">' + lines.replace(/</g, '&lt;') + '</pre>';
+  const base = { env, from, subject, text: lines, html, fetch: fetchImpl };
+
+  let lastFailure = null;
+  for (const provider of providers) {
+    const batch = await sendVia(provider, { ...base, to });
+    if (batch.ok) return { status: 'sent', to, from, provider, code: null, delivered: to, refused: [], hint: null };
+    lastFailure = batch;
+
+    // One bad address must not cost the other inbox its copy.
+    if (to.length > 1) {
+      const delivered = [];
+      const refused = [];
+      for (const address of to) {
+        const single = await sendVia(provider, { ...base, to: [address], timeout: 2500 });
+        if (single.ok) delivered.push(address); else refused.push(address);
+        if (!single.ok) lastFailure = single;
+      }
+      if (delivered.length) {
+        return {
+          status: refused.length ? 'partial' : 'sent', to, from, provider,
+          code: refused.length ? 'HTTP_' + (lastFailure.status || 0) : null,
+          delivered, refused,
+          hint: refused.length
+            ? 'Delivered to ' + delivered.join(', ') + '. ' + refused.join(', ') + ' was refused (' + (lastFailure.code || 'HTTP_' + lastFailure.status) + '). ' + FAILURE_HINTS[provider](lastFailure.status)
+            : null
+        };
+      }
+    }
+  }
+
+  const status = lastFailure?.status || 0;
+  const code = lastFailure?.code || ('HTTP_' + status);
+  console.error('lead notification failed', { stage: 'notify', code });
+  return {
+    status: 'failed', to, from, provider: providers[0], code, delivered: [], refused: to,
+    hint: (FAILURE_HINTS[providers[0]] || (() => 'The provider returned ' + status + '.'))(status)
+      || (code === 'NETWORK' ? 'The email provider could not be reached. The lead is saved; check the Vercel function log.' : 'The email provider refused the message.')
+  };
+}
+
+const isTestLead = lead => /settings test/i.test(String(lead?.source || '')) || /test lead/i.test(String(lead?.name || ''));
 
 // `injected` ({db}) is a test hook; Vercel always calls (req, res).
 export default async function handler(req,res,injected={}){
@@ -199,8 +342,13 @@ export default async function handler(req,res,injected={}){
    const {error:activityError}=await db.from('activities').insert({action:'New website enquiry',actor:'Website',entity_type:'lead',entity_id:data.id});
    if(activityError)logLeadFailure('activity-insert',activityError);
   }catch(error){logLeadFailure('activity-insert',error)}
-  const notification=injected.notify===false?'not-configured':await notifyLead(payload);
-  return send(res,201,{ok:true,id:data.id,notification})
+  // The email is a convenience on top of a saved lead: its outcome is reported
+  // to the caller but never changes the 201.
+  const notify = injected.notify === false
+    ? { status: 'not-configured', to: [], code: 'SKIPPED', hint: null }
+    : await notifyLead(payload, { settings: await settingsFlat(db), env: injected.env || process.env, fetch: injected.fetch });
+  if (notify.status === 'failed') logLeadFailure('notify', { code: notify.code });
+  return send(res,201,{ok:true,id:data.id,notification:notify.status})
  }catch(e){
   logLeadFailure('request',e);
   const failure=publicFailure(e);

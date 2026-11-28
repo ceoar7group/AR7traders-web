@@ -4893,3 +4893,27 @@ html[data-crm-theme="light"] .crm-shell,
   .crm-login input,
   .crm-login select { font-size: 16px; }
 }
+
+/* Lead-email delivery card (2026-11-25): the enquiry inbox is the thing the
+   owner edits, so the proof that it works sits right under it. */
+/* Only CRM theme tokens here: a custom property the themes do not define is a
+   silent blank panel in one of the three themes (scripts/crm-theme-vars.mjs). */
+.crm-leadmail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 18px 0 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--crm-border);
+  border-radius: 14px;
+  background: var(--crm-panel-sub);
+  color: var(--crm-ink);
+}
+.crm-leadmail > div { max-width: 62ch; }
+.crm-leadmail b { display: block; font: 800 13.5px/1.3 var(--crm-font); }
+.crm-leadmail p { margin: 5px 0 0; font: 500 12px/1.55 var(--crm-font); }
+.crm-leadmail .crm-hint { color: var(--crm-muted); }
+.crm-leadmail .crm-alert { color: var(--crm-danger); }
+.crm-leadmail .outline-btn { align-self: flex-start; }
