@@ -122,6 +122,11 @@ import {
   AI_GROWTH_MIGRATION_FILE, pickUnusedCover
 } from './_agents.js';
 import { socialStatus, connectPlatform, disconnectPlatform } from './_social.js';
+// Lead e-mail delivery check (2026-11-25, owner: "can you do lead emails with my
+// current email?"). The send path lives in api/leads.js; this dispatch exists so
+// the owner can prove it works from the CRM, with the provider's own answer,
+// rather than discovering weeks later that nothing was delivered.
+import { notifyLead, leadRecipients, leadSender, leadProviders } from './leads.js';
 // 2026-11-25 (owner: "an AI that generates a separate image for each article —
 // i need free"). Composed server-side with sharp, seeded from the article's own
 // slug: a distinct 1200×630 cover per article, no API key, no quota. The
@@ -743,6 +748,59 @@ export async function articleCoverImage(req, res, injected = {}) {
   }
 }
 
+
+/** POST ?leadmail=test — send one clearly-labelled test lead to the configured
+ *  inbox and report exactly what the provider said. Admin-level (settings.write):
+ *  it triggers outbound mail and reveals the recipient address.
+ *
+ *  GET ?leadmail=status — where a lead would go and with which sender, without
+ *  sending anything. */
+export async function leadMailDispatch(req, res, action, injected = {}) {
+  const db = injected.db || adminClient();
+  let auth;
+  try {
+    auth = injected.getUser ? await injected.getUser(req) : await requireUser(req);
+  } catch (error) {
+    return send(res, error.status || 401, {error: error.message || 'Unauthorized'});
+  }
+  try {
+    await assertSettingsWrite(auth.profile, injected);
+  } catch (error) {
+    return send(res, error.status || 403, {error: error.message || 'Not allowed'});
+  }
+  let settings = {};
+  try {
+    const { data } = await db.from('site_settings').select('key,value');
+    settings = Object.fromEntries((data || []).map(row => [row.key, row.value]));
+  } catch { /* an unreadable settings table still resolves the env fallbacks */ }
+  const env = injected.env || process.env;
+  const resolved = {
+    recipients: leadRecipients(settings, env),
+    sender: leadSender(env),
+    inbox: settings.enquiry_inbox || null,
+    envRecipient: env.LEAD_NOTIFY_TO || null,
+    keyConfigured: !!String(env.RESEND_API_KEY || '').trim(),
+    providers: leadProviders(env),
+    senderVerifiedNote: 'Until a domain is verified at the provider, Resend only delivers from onboarding@resend.dev to its own account owner. A Brevo key (free, 300/day) verifies a single sender address instead of a whole domain.'
+  };
+  if (action === 'status' && (req.method || 'GET') === 'GET') {
+    return send(res, 200, { ok: true, ...resolved });
+  }
+  if (action === 'test' && req.method === 'POST') {
+    const outcome = await notifyLead({
+      name: 'AR7 Traders — test lead',
+      email: resolved.recipients[0] || 'test@ar7traders.com',
+      phone: '+44 7347 132624',
+      country: 'United Kingdom',
+      vehicle_interest: 'Delivery check of the website lead email (no customer data)',
+      notes: 'This is the settings test button. It is not a customer enquiry.',
+      source: 'Settings test'
+    }, { settings, env, fetch: injected.fetch });
+    return send(res, 200, { ok: outcome.status === 'sent', ...resolved, ...outcome });
+  }
+  return send(res, 400, {error: `Unknown lead-mail action "${action}"`});
+}
+
 /** Published built-in and CRM-authored guides, deduplicated by canonical slug. */
 export function buildNewsXml(rows = []) {
   const bySlug = new Map();
@@ -1345,6 +1403,10 @@ export default async function handler(req, res, injected = {}) {
   // ---- AI Growth agents: ?agents=overview|config|run|approve|execute|cancel|draft
   const agentAction = String(req.query.agents || '');
   if (agentAction) return agentDispatch(req, res, agentAction, injected);
+
+  // ---- Lead e-mail: ?leadmail=status|test (admin) ------------------------
+  const leadMailAction = String(req.query.leadmail || '');
+  if (leadMailAction) return leadMailDispatch(req, res, leadMailAction, injected);
 
   // ---- Social platform connections: ?social=status|connect|disconnect
   // (2026-11-11 owner request). Dispatched here so the deployment stays at

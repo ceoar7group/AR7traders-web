@@ -5989,6 +5989,11 @@ function SettingsView({ token, profile, perms, notify }) {
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
   const canEdit = hasPerm(perms, profile?.role, 'settings.write');
+  // 2026-11-25 (owner: "can you do lead emails with my current email?"): the
+  // inbox below is where leads are emailed. This button proves delivery on the
+  // spot, with the provider's own answer — no Vercel digging.
+  const [mailCheck, setMailCheck] = useState(null);
+  const [mailBusy, setMailBusy] = useState(false);
 
   const [loadError, setLoadError] = useState(null);
   useEffect(() => {
@@ -6011,6 +6016,28 @@ function SettingsView({ token, profile, perms, notify }) {
     ['default_customer_currency', 'Default customer currency', 'Preselected for new customer accounts, quotes and invoices', 'currency'],
     ['social_profiles', 'Social profile URLs', 'Facebook, Instagram, YouTube… one per line or comma-separated — published as sameAs for search engines']
   ];
+
+  async function sendTestLead() {
+    setMailBusy(true);
+    setMailCheck(null);
+    try {
+      const r = await fetch('/api/site-content?leadmail=test', {
+        method: 'POST',
+        headers: token ? { Authorization: 'Bearer ' + token } : {}
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(out.error || 'The test could not be sent');
+      setMailCheck(out);
+      notify(out.ok
+        ? `Test lead email sent to ${(out.recipients || []).join(', ')}.`
+        : (out.hint || 'The provider refused the test email.'));
+    } catch (err) {
+      setMailCheck({ ok: false, hint: err.message });
+      notify(err.message);
+    } finally {
+      setMailBusy(false);
+    }
+  }
 
   async function save(e) {
     e.preventDefault();
@@ -6044,6 +6071,28 @@ function SettingsView({ token, profile, perms, notify }) {
             </label>
           ))}
         </div>
+        {canEdit ? (
+          <div className="crm-leadmail">
+            <div>
+              <b>Lead emails</b>
+              <p>Every website enquiry is saved in the CRM. With an email provider key set, a copy is also emailed to the enquiry inbox above — several addresses are allowed, separated by commas, and if the provider refuses one the others still receive it.</p>
+              <p className="crm-hint">Free sender note: until ar7traders.com is verified at Resend, its onboarding sender only delivers to the Resend account’s own address. Verifying the domain (two DNS records), or adding a free Brevo key with a verified sender, makes every address deliver.</p>
+              {mailCheck && (
+                <p className={mailCheck.ok ? 'crm-hint' : 'crm-alert'} role="status">
+                  {mailCheck.ok
+                    ? `Delivered to ${(mailCheck.delivered || mailCheck.recipients || []).join(', ')} from ${mailCheck.sender}.`
+                    : `Not delivered${mailCheck.code ? ` (${mailCheck.code})` : ''}: ${mailCheck.hint || 'unknown error'}`}
+                </p>
+              )}
+              {mailCheck && !mailCheck.ok && mailCheck.recipients?.length > 0 && (
+                <p className="crm-hint">A lead would still be saved; only the email copy failed.</p>
+              )}
+            </div>
+            <button type="button" className="outline-btn" disabled={mailBusy} onClick={sendTestLead}>
+              {mailBusy ? 'Sending test…' : 'Send test lead email'}
+            </button>
+          </div>
+        ) : null}
         {canEdit ? (
           <footer><button className="save" disabled={busy} type="submit"><Save /> {busy ? 'Saving…' : 'Save changes'}</button></footer>
         ) : (

@@ -111,7 +111,16 @@ function validate(key, value) {
   const s = String(value ?? '');
   const max = MAX_VALUE[key] || 300;
   if (s.length > max) return `Value for "${key}" is too long (max ${max} characters)`;
-  if ((key === 'contact_email' || key === 'enquiry_inbox') && s && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) {
+  // 2026-11-25: the enquiry inbox is where LEAD EMAILS go, and the owner asked
+  // for two of them. A comma-separated list of valid addresses is allowed; a
+  // single address is validated exactly as before.
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (key === 'enquiry_inbox' && s) {
+    const list = s.split(/[,;]+/).map(part => part.trim()).filter(Boolean);
+    if (!list.length || list.length > 5 || list.some(part => !EMAIL.test(part))) {
+      return `"${key}" must be one email address, or up to five separated by commas`;
+    }
+  } else if (key === 'contact_email' && s && !EMAIL.test(s)) {
     return `"${key}" must be a valid email address`;
   }
   if (MACHINERY_BOOLS.has(key)) {

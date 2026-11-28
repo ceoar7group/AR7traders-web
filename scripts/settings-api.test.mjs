@@ -168,6 +168,32 @@ async function run(req, injected) {
   ok(tables.site_settings.find(r => r.key === 'goonet_min_photos')?.value === '4', 'known importer key upserted (CRM importer form)');
   ok(tables.activities.length >= 1, 'activity log written');
 }
+// 2026-11-25 (owner: "can you do lead emails with my current email?" — to BOTH
+// inboxes): the enquiry inbox is a delivery list, so several addresses are valid.
+{
+  const { db, tables } = memDb(SEED);
+  const res = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' },
+    body: { enquiry_inbox: 'ar7tradersinfo@gmail.com, ceoar7grouplimited@gmail.com' } },
+    { db, getUser: getUser(adminProfile), permsFor });
+  ok(res.statusCode === 200, `two inboxes are accepted (${res.statusCode})`);
+  ok(tables.site_settings.find(r => r.key === 'enquiry_inbox').value.includes('ceoar7grouplimited@gmail.com'),
+    'and both are stored');
+}
+{
+  const { db } = memDb(SEED);
+  const res = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' },
+    body: { enquiry_inbox: 'ar7tradersinfo@gmail.com, not-an-address' } },
+    { db, getUser: getUser(adminProfile), permsFor });
+  ok(res.statusCode === 400, 'one bad address in the list is still refused, so mail never silently stops');
+}
+{
+  const { db } = memDb(SEED);
+  const res = await run({ method: 'PATCH', headers: { authorization: 'Bearer ok' },
+    body: { enquiry_inbox: 'a@x.com,b@x.com,c@x.com,d@x.com,e@x.com,f@x.com' } },
+    { db, getUser: getUser(adminProfile), permsFor });
+  ok(res.statusCode === 400, 'and the list is capped at five addresses');
+}
+
 // Campaign margin messaging remains a separate PromoBar feature; it does not
 // replace or edit the item-keyed stock_discounts price map.
 {
