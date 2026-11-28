@@ -26,7 +26,7 @@ import {
   sanitiseUntrusted, readinessScore, estimateCif, agentSettings, readAgents,
   updateAgent, acquireLease, releaseLease, runsToday, runAgent, AI_GROWTH_MIGRATION_FILE,
   approveDraft, executeDraft, cancelDraft, cancelRun, growthOverview,
-  draftDetail, runScheduledAgents
+  draftDetail, runScheduledAgents, selectFeaturedStock
 } from '../api/_agents.js';
 import { aiGrowthStorageStatus, AI_GROWTH_TABLES, classifyAiStorageFailure } from '../api/_agents.js';
 import { classifyGeminiFailure, OWNER_ACTION } from '../api/_gemini-errors.js';
@@ -410,6 +410,55 @@ say('\n-- an article draft can only ever create an unpublished article --');
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+say('\n-- the social agent posts about cars as well as machines --');
+{
+  // 2026-11-25 (owner: "the social agents must post about both cars AND
+  // machines — right now they only post machines"). The pool was `machinery`
+  // alone, so no car could ever be featured.
+  const machines = [
+    { id: 'm1', ref: 'AR7-EX-1', type: 'Excavator', brand: 'Sany', model: 'SY215C', status: 'Available',
+      published: true, price_usd: 88000, year: 2020, hours: 4200, location: 'Shanghai', origin: 'China',
+      specs: [{ label: 'Operating weight', value: '21,500 kg' }], images: ['/assets/machinery/doosan-dx250lca-1.webp'] }
+  ];
+  const cars = [
+    { id: 'c1', stock_no: '0203361A20261022W005', make: 'BMW', model: 'X6 xDrive35d M Sport', year: 2023,
+      km: '17,500', fuel: 'Hybrid', body: 'SUV', price: '$63,532', location: 'Aichi', status: 'In Stock',
+      published: true, grade: '4.5', eng: '3,000cc', tr: 'AT', drv: '4WD', seats: 5, col: 'Black',
+      image: '/assets/inventory/x6.webp', images: ['/assets/inventory/x6.webp', '/assets/inventory/x6-2.webp'] }
+  ];
+  const db = fakeDb({ ...agentSeed({ social: { enabled: true } }), machinery: machines, site_listings: cars });
+  db.tables.ai_agents.find(a => a.agent === 'social').max_items_per_run = 2;
+  const run = await runAgent(db, 'social', { actor: owner, env: {} });
+  ok(run.state === 'completed' && run.drafts.length === 2,
+    `a run drafting two posts uses both catalogues (${run.drafts.length})`);
+  const kinds = run.drafts.map(d => d.meta.selection.kind).sort();
+  ok(kinds.includes('vehicle') && kinds.includes('machine'),
+    `one post is about a car and one about a machine (${kinds.join(' + ')})`);
+  const carPost = run.drafts.find(d => d.meta.selection.kind === 'vehicle');
+  ok(carPost && /X6/.test(carPost.title), `the car post names the actual car (${carPost && carPost.title})`);
+  ok(carPost.meta.selection.href === '/inventory/0203361A20261022W005', 'and links to its own inventory page');
+  ok(/Japan desk/.test(carPost.meta.captions.facebook) && !/China desk/.test(carPost.meta.captions.facebook),
+    'car copy talks about the Japan desk, not the China desk');
+  ok(/Indicative FOB USD 63,532/.test(carPost.meta.captions.instagram), 'the car caption keeps its price and the indicative basis');
+  ok(/17,500 km/.test(carPost.meta.captions.linkedin), 'the car caption carries the real mileage');
+  ok(carPost.meta.hashtags.includes('#japaneseusedcars'), `car hashtags are about cars (${carPost.meta.hashtags.join(' ')})`);
+  const machinePost = run.drafts.find(d => d.meta.selection.kind === 'machine');
+  ok(/China desk/.test(machinePost.meta.captions.facebook), 'the machine post still talks about the China desk');
+  ok(machinePost.meta.hashtags.includes('#usedmachinery'), 'and keeps its machinery hashtags');
+  // Day rotation decides which catalogue opens the feed, so two consecutive
+  // days never lead with the same category.
+  const day = 24 * 60 * 60 * 1000;
+  const even = await selectFeaturedStock(fakeDb({ machinery: machines, site_listings: cars }), { limit: 1, now: new Date(86_400_000 * 20) });
+  const odd = await selectFeaturedStock(fakeDb({ machinery: machines, site_listings: cars }), { limit: 1, now: new Date(86_400_000 * 20 + day) });
+  ok(even.items[0].kind !== odd.items[0].kind,
+    `consecutive days lead with different catalogues (${even.items[0].kind} then ${odd.items[0].kind})`);
+  // With no cars published the agent behaves exactly as before.
+  const machinesOnly = await runAgent(fakeDb({ ...agentSeed({ social: { enabled: true } }), machinery: machines }), 'social', { actor: owner, env: {} });
+  ok(machinesOnly.drafts.length === 1 && machinesOnly.drafts[0].meta.selection.kind === 'machine',
+    'a machinery-only catalogue still drafts exactly as before');
+}
+
 say('\n-- social drafts carry per-channel text and never claim to be posted --');
 {
   const stock = [
