@@ -24,9 +24,14 @@
 //   • nothing is invented: frames are the listing's own images, in order.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { spinFrames, spinLabel, PX_PER_FRAME } from './spin-frames.js';
+import Walkaround3D from './walkaround-3d.jsx';
 
-export default function SpinView({ open, onClose, images = [], title = 'Vehicle' }) {
+export default function SpinView({ open, onClose, images = [], title = 'Vehicle', car = null }) {
   const frames = useMemo(() => spinFrames(images), [images]);
+  // Two ways to look at the same car: its own photographs (real, in order) and
+  // the generated 3D model (proportions and paint, clearly labelled as a model).
+  // Photographs open first — a buyer should meet the actual car, not a stand-in.
+  const [mode, setMode] = useState('photos');
   const [index, setIndex] = useState(0);
   const [spinning, setSpinning] = useState(true);
   const [tilt, setTilt] = useState(false);
@@ -130,6 +135,27 @@ export default function SpinView({ open, onClose, images = [], title = 'Vehicle'
           </div>
           <button type="button" className="spin-close" onClick={onClose} aria-label="Close the 360° walkaround">Close</button>
         </header>
+        <div className="spin-tabs" role="tablist" aria-label="How to view this vehicle">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'photos'}
+            className={mode === 'photos' ? 'active' : ''}
+            onClick={() => setMode('photos')}
+          >Photographs{count ? ` (${count})` : ''}</button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'model'}
+            className={mode === 'model' ? 'active' : ''}
+            onClick={() => setMode('model')}
+          >3D model</button>
+        </div>
+        {mode === 'model' ? (
+          <div className="spin-stage spin-stage-3d">
+            <Walkaround3D car={car || {}} image={frames[0] || null} />
+          </div>
+        ) : (
         <div
           className="spin-stage"
           onPointerDown={onPointerDown}
@@ -155,6 +181,8 @@ export default function SpinView({ open, onClose, images = [], title = 'Vehicle'
           {count > 1 && <span className="spin-badge" aria-live="polite"><b>{index + 1}</b> / {count}</span>}
           {!loaded && count ? <span className="spin-loading" aria-hidden="true">Loading frame…</span> : null}
         </div>
+        )}
+        {mode === 'photos' && (
         <div className="spin-controls">
           <button type="button" onClick={() => { setSpinning(false); step(-1); }} aria-label="Rotate left">◀</button>
           <button type="button" className="spin-play" onClick={() => setSpinning(s => !s)} aria-pressed={spinning}>
@@ -165,7 +193,10 @@ export default function SpinView({ open, onClose, images = [], title = 'Vehicle'
             {tilt ? 'Tilt steering on' : 'Tilt to look'}
           </button>
         </div>
-        <p className="spin-note">{spinLabel(count)} Drag the vehicle, or use the arrow keys.</p>
+        )}
+        {mode === 'photos'
+          ? <p className="spin-note">{spinLabel(count)} Drag the vehicle, or use the arrow keys.</p>
+          : <p className="spin-note">Generated 3D model — proportions from this listing's body class{car?.length ? ' and its own dimensions' : ''}, paint from its colour{car?.col ? ` (${car.col})` : ''}. It is not a photograph of this car; the Photographs tab is.</p>}
       </div>
     </div>
   );

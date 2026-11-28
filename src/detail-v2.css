@@ -1345,3 +1345,85 @@ html[data-theme=dark] .detail-mobile-cta .dmc-enquire {
   .wa-nudge-actions a, .wa-nudge-actions button { flex: 1 1 auto; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .wa-nudge { animation: none; } }
+
+/* 2026-11-28 — the 3D walkaround inside the 360° overlay.
+   Two tabs over one stage: the listing's own photographs, and the generated
+   3D model (src/walkaround-3d.jsx). The model is draggable, zoomable and can
+   be orbited underneath; nothing here is fetched from a third party. */
+.spin-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.spin-tabs button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cfe9dc;
+  font: 700 12px/1 Manrope, system-ui, sans-serif;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+.spin-tabs button.active {
+  background: #f0ab42;
+  border-color: #f0ab42;
+  color: #04150d;
+}
+.spin-tabs button:focus-visible { outline: 2px solid #7ee2b0; outline-offset: 2px; }
+
+.spin-stage-3d {
+  display: block;
+  padding: 0;
+  background:
+    radial-gradient(120% 90% at 50% 0%, #16352a 0%, #0a1a14 55%, #06120d 100%);
+  cursor: grab;
+}
+.spin-stage-3d:active { cursor: grabbing; }
+.spin-stage-3d canvas { display: block; width: 100%; height: 100%; }
+
+.wa3d { display: flex; flex-direction: column; width: 100%; height: 100%; }
+.wa3d-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 260px;
+  height: clamp(260px, 52vh, 460px);
+}
+.wa3d-status {
+  position: absolute;
+  inset: auto 0 50% 0;
+  margin: 0;
+  text-align: center;
+  font: 600 13px/1.5 Manrope, system-ui, sans-serif;
+  color: #9fc7b3;
+  padding: 0 24px;
+}
+.wa3d-error { color: #ffb4a2; }
+.wa3d-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 0 0;
+}
+.wa3d-views button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cfe9dc;
+  font: 600 11.5px/1 Manrope, system-ui, sans-serif;
+  cursor: pointer;
+}
+.wa3d-views button[aria-pressed="true"] {
+  border-color: #7ee2b0;
+  color: #06120d;
+  background: #7ee2b0;
+}
+.wa3d-views button:focus-visible { outline: 2px solid #f0ab42; outline-offset: 2px; }
+.wa3d-caption {
+  margin: 8px 0 0;
+  font: 500 11.5px/1.5 Manrope, system-ui, sans-serif;
+  color: #9fc7b3;
+}
